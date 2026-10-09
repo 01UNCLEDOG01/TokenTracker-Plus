@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Sitemap: https://(removed)/sitemap.xml
+
+# AI/agent discovery helpers
+# llms: https://(removed)/llms.txt
+# feed: https://(removed)/feed.xml
