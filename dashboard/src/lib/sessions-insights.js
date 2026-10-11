@@ -111,6 +111,10 @@ export function groupSessions(sessions, mode) {
   return [...groups.values()];
 }
 
+// Kept in sync with the tabs in SessionsPage: a source the session layer can
+// emit but the parser rejects silently folds into "all".
+export const SESSION_SOURCES = ["claude", "codex", "grok", "workbuddy", "workbuddy-ai"];
+
 export function parseSessionFilters(search) {
   const params = new URLSearchParams(search);
   const source = params.get("source");
@@ -123,7 +127,7 @@ export function parseSessionFilters(search) {
   const from = dateValue("from");
   const to = dateValue("to");
   return {
-    source: ["claude", "codex", "grok"].includes(source) ? source : "all",
+    source: SESSION_SOURCES.includes(source) ? source : "all",
     model: params.get("model") || "all",
     from,
     to,

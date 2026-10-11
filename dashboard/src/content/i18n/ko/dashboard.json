@@ -532,5 +532,14 @@
   "sessions.detail.session_id": "세션 ID",
   "sessions.detail.local_path": "로컬 경로",
   "sessions.detail.resume_command": "재개 명령",
-  "sessions.performance.first_response_value_single": "{{seconds}}초 · 표본 {{count}}개"
+  "sessions.performance.first_response_value_single": "{{seconds}}초 · 표본 {{count}}개",
+  "usage.overview.qoder_cn_official": "공식 클라우드: 누적 {{credits}} 크레딧 · 예상 ¥{{cost}} · {{messages}}건 ({{since}}~)",
+  "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} tokens (추정: 2026-07 실측 {{ratio}} tokens/건 기준)",
+  "usage.overview.qoder_cn_local_stale": "아래 모델 행은 공식 모델별 추정치 + 2026-07 로컬 실측값입니다(최신 Qoder CN은 토큰 수를 로컬에 기록하지 않습니다).",
+  "usage.overview.qoder_cn_period": "이번 기간 공식 클라우드: {{credits}} 크레딧 · 예상 ¥{{cost}} · {{messages}}건 ({{range}})",
+  "usage.overview.qoder_cn_today": "오늘 실시간: {{credits}} 크레딧 · ¥{{cost}} · {{messages}}건 (공식은 일 단위 확정, 오늘은 실시간 내역에서 산출)",
+  "usage.overview.qoder_cn_none": "이번 기간 공식 클라우드 사용 기록이 없습니다",
+  "usage.overview.workbuddy_credits": "{{name}}(로컬 대장): 이번 기간 {{credits}} 크레딧 ≈ {{symbol}}{{cost}} · 누적 {{total}} 크레딧 ({{since}}부터, {{range}})",
+  "usage.overview.workbuddy_none": "이번 기간 WorkBuddy 크레딧 기록이 없습니다",
+  "usage.overview.workbuddy_note": "WorkBuddy는 토큰이 아닌 크레딧으로 과금됩니다. 크레딧을 부여하는 요금제 단가로 환산(국내판 1000 크레딧 = ¥50, 국제판 1000 크레딧 = $10). 로컬 대장만 읽고 업로드하지 않습니다."
 }

@@ -37,6 +37,8 @@ const SOURCE_FILTERS = [
   { id: "claude", label: () => "Claude Code" },
   { id: "codex", label: () => "Codex" },
   { id: "grok", label: () => "Grok" },
+  { id: "workbuddy", label: () => "WorkBuddy" },
+  { id: "workbuddy-ai", label: () => "WorkBuddy AI" },
 ];
 
 const DATE_RANGES = [
@@ -125,6 +127,13 @@ const SessionRow = React.memo(function SessionRow({
   const costBadge = session.usage_is_incomplete
     ? copy("sessions.badge.partial_usage")
     : session.cost_is_partial ? copy("sessions.badge.partial_cost") : null;
+  // WorkBuddy charges credits and writes the figure into its own log per
+  // request, so a conversation can show what it cost in the unit that product
+  // actually bills in — which a transcript-only reader cannot know.
+  const credits = Number(session.credits) || 0;
+  const creditsBadge = credits > 0
+    ? copy("sessions.badge.credits", { credits: formatCompactNumber(credits) })
+    : null;
   // The resume command only works from the session's own directory, so the full
   // local path has to stay reachable. Hover reveals it, click copies it — that
   // keeps a long absolute path out of every row while still being one click
@@ -203,6 +212,7 @@ const SessionRow = React.memo(function SessionRow({
             {isSubagent ? <span className="sessions-meta-item">{copy("sessions.badge.subagent")}{session.agent_role ? ` · ${session.agent_role}` : ""}</span> : null}
             {session.first_pass ? <span className="sessions-meta-item text-emerald-700 dark:text-emerald-300">{copy("sessions.badge.first_pass")}</span> : null}
             {costBadge ? <span className="sessions-meta-item text-amber-700 dark:text-amber-300">{costBadge}</span> : null}
+            {creditsBadge ? <span className="sessions-meta-item tabular-nums">{creditsBadge}</span> : null}
             {session.cost_source === "provider_reported" ? <span className="sessions-meta-item">{copy("sessions.badge.reported_cost")}</span> : null}
             {childCount ? (
               <button
@@ -535,6 +545,10 @@ export function SessionsPage() {
   );
 
   const truncated = Number(data?.session_count) > Number(data?.returned_count);
+  // A conversation that carries credits is a WorkBuddy one, which is the whole
+  // test for showing the coverage sentence under the filters.
+  const creditsVisible = filtered.some((row) => Number(row.credits) > 0);
+  const creditsNotice = creditsVisible ? copy("sessions.notice.credits_coverage") : null;
 
   // Sessions read local Claude/Codex/Grok logs from the machine running the CLI;
   // there is no cloud source. On the deployed web app, surface the local-only
@@ -679,6 +693,9 @@ export function SessionsPage() {
             <>
               {error ? (
                 <p className="mb-4 text-sm text-red-500 dark:text-red-400">{copy("shared.error.prefix", { error })}</p>
+              ) : null}
+              {creditsNotice ? (
+                <p className="mb-4 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{creditsNotice}</p>
               ) : null}
               <div className="sessions-row-grid sessions-list-header border-b border-oai-gray-200 py-2 text-xs text-oai-gray-500 dark:border-oai-gray-800 dark:text-oai-gray-400" aria-hidden>
                 <span>{copy("sessions.col.session")}</span>

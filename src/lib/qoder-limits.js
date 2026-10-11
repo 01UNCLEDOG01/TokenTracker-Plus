@@ -39,6 +39,16 @@ const QODER_ACTIVITY_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const QODER_LIMITS_CACHE_FILE = "qoder-usage-limits-cache.json";
 const QODER_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const QODER_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS = 12 * 60 * 60 * 1000;
+// Qoder CN spend: the cost-center daily trend caps one call at a 90-day
+// span, so the spend walk pages backward until two consecutive windows
+// are empty (or the window budget runs out).
+const QODER_CN_COST_TREND_URL = "https://qoder.com.cn/api/v1/me/cost-center/credits/daily-trend";
+const QODER_CN_COST_TREND_SPAN_MS = 90 * 24 * 60 * 60 * 1000;
+const QODER_CN_COST_TREND_MAX_WINDOWS = 6;
+// daily-trend only reports closed Beijing days; the per-conversation histories
+// endpoint is the only real-time source for "today".
+const QODER_CN_HISTORIES_URL = "https://qoder.com.cn/api/v1/me/usages/big_model_credits/histories";
+const QODER_CN_BJ_OFFSET_MS = 8 * 3600 * 1000;
 const QODER_SERVER_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDA8iMH5c02LilrsERw9t6Pv5Nc
 4k6Pz1EaDicBMpdpxKduSZu5OANqUq8er4GM95omAGIOPOh+Nx0spthYA2BqGz+l
@@ -136,6 +146,7 @@ function normalizeQoderUsageResponse(response) {
       remaining_credits: remaining,
       unit: base.unit || shared?.unit || null,
     },
+    user_id: typeof response.user_id === "string" ? response.user_id : undefined,
     source: "provider-api",
   };
 }
@@ -370,6 +381,21 @@ function qoderLimitsCachePath({ home = os.homedir(), namespace } = {}) {
   return path.join(home, ".tokentracker", "tracker", file);
 }
 
+function qoderCookieFilePath({ home = os.homedir(), namespace } = {}) {
+  const file = namespace
+    ? "qoder-" + namespace + "-usage-cookie.txt"
+    : "qoder-usage-cookie.txt";
+  return path.join(home, ".tokentracker", "tracker", file);
+}
+
+function readQoderCookieFile({ home = os.homedir(), namespace } = {}) {
+  try {
+    return fs.readFileSync(qoderCookieFilePath({ home, namespace }), "utf8").trim();
+  } catch (_error) {
+    return "";
+  }
+}
+
 function qoderCachedWindow(window, { cachedAtMs, nowMs } = {}) {
   if (!window || typeof window !== "object") return null;
   const resetAtMs = Date.parse(window.reset_at || "");
@@ -404,8 +430,22 @@ function readQoderLimitsCache({
       cached: true,
       stale: true,
       cached_at: raw.cached_at,
+      spend: raw.spend && typeof raw.spend === "object" ? raw.spend : null,
       source: "disk-cache",
     };
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Raw spend reader used to carry the last good CN spend snapshot forward
+// when a refresh fails. readQoderLimitsCache drops the whole snapshot once
+// its quota windows expire, but the spend totals (and the estimate rows
+// built on them) stay valid far longer.
+function readCachedQoderSpend({ home = os.homedir(), namespace } = {}) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(qoderLimitsCachePath({ home, namespace }), "utf8"))?.qoder;
+    return raw?.spend && typeof raw.spend === "object" ? raw.spend : null;
   } catch (_error) {
     return null;
   }
@@ -424,6 +464,7 @@ function writeQoderLimitsCache(limits, {
       quota_exceeded: limits.quota_exceeded === true,
       primary_window: limits.primary_window || null,
       secondary_window: limits.secondary_window || null,
+      spend: limits.spend || null,
       cached_at: new Date(nowMs).toISOString(),
     },
   };
@@ -542,6 +583,195 @@ async function fetchQoderUsage(cookieHeader, site, fetchImpl) {
     throw new Error(`Qoder usage API returned HTTP ${response.status}.`);
   }
   return normalizeQoderUsageResponse(await response.json());
+}
+
+// Qoder CN stopped recording token counts anywhere (local stores froze in
+// 2026-07; official APIs expose credits / reference cost / messageCount only),
+// so spend carries an estimate anchored on the last window with local ground
+// truth: the legacy SQLite DB recorded 17,235,393 tokens for 2026-07-20..22
+// while daily-trend counted 467 official messages for the same days
+// (~36,907 tokens/message). The ratio scales to the official message total.
+const QODER_CN_EST_ANCHOR = { tokens: 17235393, messages: 467, from: "2026-07-20", to: "2026-07-22" };
+
+// Sum one Beijing day from the real-time histories endpoint. Its
+// original_credits / original_cost are the list prices the trend endpoint
+// calls credits / referenceCost, so the two stay on the same footing.
+async function fetchQoderCnDayDetails(cookieHeader, site, fetchImpl, dayKey, { maxPages = 15 } = {}) {
+  const dayStart = Date.parse(dayKey + "T00:00:00.000Z") - QODER_CN_BJ_OFFSET_MS;
+  if (!Number.isFinite(dayStart)) return null;
+  const dayEnd = dayStart + 24 * 3600 * 1000 - 1;
+  let credits = 0;
+  let cost = 0;
+  let rows = 0;
+  const creditsByModel = {};
+  for (let page = 1; page <= maxPages; page += 1) {
+    const url = QODER_CN_HISTORIES_URL +
+      "?page=" + page + "&page_size=100" +
+      "&start_time=" + dayStart + "&end_time=" + dayEnd +
+      "&order_by=begin_at&order=-1";
+    let payload = null;
+    try {
+      const response = await fetchImpl(url, { method: "GET", headers: qoderRequestHeaders(cookieHeader, site) });
+      if (!response.ok) break;
+      payload = await response.json();
+    } catch (_error) {
+      break;
+    }
+    const list = payload && Array.isArray(payload.data) ? payload.data : [];
+    for (const row of list) {
+      const beginAt = Number(row && row.begin_at);
+      if (!Number.isFinite(beginAt)) continue;
+      if (new Date(beginAt + QODER_CN_BJ_OFFSET_MS).toISOString().slice(0, 10) !== dayKey) continue;
+      const rowCredits = Number(row.original_credits ?? row.credits) || 0;
+      const rowCost = Number(row.original_cost ?? row.cost) || 0;
+      credits += rowCredits;
+      cost += rowCost;
+      rows += 1;
+      const model = typeof row.model_category === "string" && row.model_category ? row.model_category : "未知模型";
+      creditsByModel[model] = (creditsByModel[model] || 0) + rowCredits;
+    }
+    const lastPage = Number(payload && payload.page_result && payload.page_result.last_page) || 1;
+    if (page >= lastPage) break;
+  }
+  return rows > 0 ? { credits, cost, rows, creditsByModel } : null;
+}
+
+async function fetchQoderCnSpend(cookieHeader, site, fetchImpl, { userId, nowMs = Date.now() } = {}) {
+  if (typeof userId !== "string" || !userId) return null;
+  const todayKey = new Date(nowMs + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  let creditsTotal = 0;
+  let costTotal = 0;
+  let messagesTotal = 0;
+  let creditsToday = 0;
+  let costToday = 0;
+  let messagesToday = 0;
+  let since = null;
+  let sawCredits = false;
+  let zeroStreak = 0;
+  const dailyByDate = new Map();
+  const modelAgg = {};
+  for (let index = 0; index < QODER_CN_COST_TREND_MAX_WINDOWS; index += 1) {
+    const endMs = nowMs - index * QODER_CN_COST_TREND_SPAN_MS;
+    const startMs = endMs - QODER_CN_COST_TREND_SPAN_MS;
+    const url = QODER_CN_COST_TREND_URL +
+      "?userId=" + encodeURIComponent(userId) +
+      "&startTime=" + Math.round(startMs) + "&endTime=" + Math.round(endMs) + "&groupBy=model";
+    let rows = null;
+    try {
+      const response = await fetchImpl(url, {
+        method: "GET",
+        headers: qoderRequestHeaders(cookieHeader, site),
+      });
+      if (!response.ok) break;
+      const payload = await response.json();
+      rows = Array.isArray(payload && payload.trend) ? payload.trend : [];
+    } catch (_error) {
+      break;
+    }
+    let windowCredits = 0;
+    for (const row of rows) {
+      const credits = Number(row && row.credits) || 0;
+      const cost = Number(row && row.referenceCost) || 0;
+      const messages = Number(row && row.messageCount) || 0;
+      windowCredits += credits;
+      creditsTotal += credits;
+      costTotal += cost;
+      messagesTotal += messages;
+      const date = row && typeof row.date === "string" ? row.date : "";
+      const group = row && typeof row.groupKey === "string" ? row.groupKey : "";
+      if (credits > 0 && (!since || date < since)) since = date;
+      if (group) {
+        const agg = modelAgg[group] || { credits: 0, messages: 0 };
+        agg.credits += credits;
+        agg.messages += messages;
+        modelAgg[group] = agg;
+      }
+      if (date === todayKey) {
+        creditsToday += credits;
+        costToday += cost;
+        messagesToday += messages;
+      }
+      if (date && (credits > 0 || messages > 0)) {
+        const dayEntry = dailyByDate.get(date) || { date, credits: 0, cost: 0, messages: 0, byModel: {} };
+        dayEntry.credits += credits;
+        dayEntry.cost += cost;
+        dayEntry.messages += messages;
+        if (group) dayEntry.byModel[group] = (dayEntry.byModel[group] || 0) + messages;
+        dailyByDate.set(date, dayEntry);
+      }
+    }
+    if (windowCredits > 0) {
+      sawCredits = true;
+      zeroStreak = 0;
+    } else if (sawCredits) {
+      zeroStreak += 1;
+      if (zeroStreak >= 2) break;
+    }
+  }
+  // daily-trend only reports closed Beijing days, so today would stay empty even
+  // though the account page already lists it. Fill it from real-time histories:
+  // messages are derived per model from that model's own credits-per-message
+  // ratio across the trend window (period-wide ratio as fallback).
+  let todayRealtime = false;
+  if (sawCredits && messagesToday === 0 && creditsTotal > 0 && messagesTotal > 0) {
+    const detail = await fetchQoderCnDayDetails(cookieHeader, site, fetchImpl, todayKey);
+    if (detail && detail.credits > 0) {
+      const globalPerCredit = messagesTotal / creditsTotal;
+      const byModel = {};
+      for (const [model, modelCredits] of Object.entries(detail.creditsByModel)) {
+        const agg = modelAgg[model];
+        const perCredit = agg && agg.credits > 0 ? agg.messages / agg.credits : globalPerCredit;
+        byModel[model] = Math.round(modelCredits * perCredit);
+      }
+      const todayMessages = Object.values(byModel).reduce((sum, n) => sum + n, 0) ||
+        Math.round(detail.credits * globalPerCredit);
+      creditsToday = detail.credits;
+      costToday = detail.cost;
+      messagesToday = todayMessages;
+      creditsTotal += detail.credits;
+      costTotal += detail.cost;
+      messagesTotal += todayMessages;
+      dailyByDate.set(todayKey, {
+        date: todayKey,
+        credits: detail.credits,
+        cost: detail.cost,
+        messages: todayMessages,
+        byModel,
+        realtime: true,
+      });
+      todayRealtime = true;
+    }
+  }
+  if (!sawCredits || !since) return null;
+  return {
+    credits_total: Number(creditsTotal.toFixed(3)),
+    cost_total: Number(costTotal.toFixed(2)),
+    credits_today: Number(creditsToday.toFixed(3)),
+    cost_today: Number(costToday.toFixed(2)),
+    messages_total: messagesTotal,
+    messages_today: messagesToday,
+    est_tokens_total: Math.round((QODER_CN_EST_ANCHOR.tokens / QODER_CN_EST_ANCHOR.messages) * messagesTotal),
+    est_anchor: QODER_CN_EST_ANCHOR,
+    since,
+    daily: Array.from(dailyByDate.values())
+      .map((entry) => ({
+        date: entry.date,
+        credits: Number(entry.credits.toFixed(3)),
+        cost: Number(entry.cost.toFixed(2)),
+        messages: entry.messages,
+        by_model: entry.byModel,
+        ...(entry.realtime ? { realtime: true } : {}),
+      }))
+      .sort((left, right) => left.date.localeCompare(right.date)),
+    today: todayKey,
+    realtime_today: todayRealtime,
+    model_messages: Object.fromEntries(
+      Object.entries(modelAgg).map(([model, agg]) => [model, { credits: Number(agg.credits.toFixed(3)), messages: agg.messages }])
+    ),
+    unit: "credits",
+    currency: "CNY",
+    source: "provider-api",
+  };
 }
 
 function listRecentQoderRendererLogs(logRoot, maxFiles = 12) {
@@ -685,6 +915,12 @@ async function fetchQoderLimits({
     const authResult = await rpcRequest("auth/status", {}, rpcOptions);
     if (authResult && typeof authResult === "object") rpcAuth = authResult;
   } catch (_error) {}
+  // Upstream invariant (test/qoder-limits.test.js): once the local service is
+  // down, a bounded disk snapshot wins over ANY provider call. That is right for
+  // quota windows, but Qoder CN's spend ledger only refreshes from the website
+  // API and the desktop RPC is often not running at all — so the CN site keeps
+  // trying the explicit session first and falls back to the snapshot below.
+  const lastGoodLimits = readQoderLimitsCache({ home, nowMs, namespace: cacheNamespace });
   if (rpcAuth) {
     try {
       activityWindow = await fetchQoderActivity(rpcAuth, fetchImpl, { nowMs, activityUrl: site.activityUrl });
@@ -710,23 +946,40 @@ async function fetchQoderLimits({
     rpcUsage.source = activityWindow
       ? `local-ipc+${activitySource === "disk-cache" ? "cached-activity" : "provider-api"}`
       : "local-ipc";
+    // The desktop RPC answers quota windows only; the CN spend totals live
+    // behind the website API, so refresh them here too — otherwise the
+    // cached spend (and every estimate built on it) stays frozen for as
+    // long as the desktop app keeps answering.
+    if (site.id === "china") {
+      const cnCookieKey = `${envPrefix}_COOKIE`;
+      const cnEnvCookie = typeof env[cnCookieKey] === "string" ? env[cnCookieKey].trim() : "";
+      const cnCookie = cnEnvCookie || readQoderCookieFile({ home, namespace: cacheNamespace });
+      const cnUserId = String(rpcAuth?.id || rpcAuth?.accountId || "").trim();
+      let spend = null;
+      if (cnCookie && cnUserId) {
+        try {
+          spend = await fetchQoderCnSpend(cnCookie, site, fetchImpl, { userId: cnUserId, nowMs });
+        } catch (_error) {}
+      }
+      rpcUsage.spend = spend || readCachedQoderSpend({ home, namespace: cacheNamespace });
+    }
     writeQoderLimitsCache(rpcUsage, { home, nowMs, namespace: cacheNamespace });
     return rpcUsage;
   }
 
-  // Match the Antigravity last-good behavior: once the local service is
-  // unavailable, prefer a bounded disk snapshot before any provider fallback.
-  const cachedLimits = readQoderLimitsCache({ home, nowMs, namespace: cacheNamespace });
-  if (cachedLimits) {
-    if (activityWindow) cachedLimits.secondary_window = activityWindow;
-    return cachedLimits;
+  if (site.id !== "china" && lastGoodLimits) {
+    if (activityWindow) lastGoodLimits.secondary_window = activityWindow;
+    return lastGoodLimits;
   }
 
   // Manual-cookie fallback reads an envPrefix-specific key: QODER_COOKIE for
   // the international flow, QODER_CN_COOKIE for the CN flow — the two installs
-  // hold different sessions and must never share a cookie.
+  // hold different sessions and must never share a cookie. A tray-spawned
+  // server never sees a setx environment, so the tracker data dir also stores
+  // the cookie in a file; an explicit env cookie still takes precedence.
   const cookieKey = `${envPrefix}_COOKIE`;
-  const manualCookie = typeof env[cookieKey] === "string" ? env[cookieKey].trim() : "";
+  const envCookie = typeof env[cookieKey] === "string" ? env[cookieKey].trim() : "";
+  const manualCookie = envCookie || readQoderCookieFile({ home, namespace: cacheNamespace });
   // QODER_SITE is an international-flow knob. A pinned site (the CN fetch)
   // must never be overridden by it — the CN flow always targets china.
   const manualSite = sitePinned ? site : env.QODER_SITE ? siteFromEnv(env.QODER_SITE) : site;
@@ -734,7 +987,7 @@ async function fetchQoderLimits({
     ? [{
         cookieHeader: manualCookie,
         site: manualSite,
-        sourceLabel: cookieKey,
+        sourceLabel: envCookie ? cookieKey : "cookie-file",
       }]
     : [];
 
@@ -764,6 +1017,17 @@ async function fetchQoderLimits({
         cookie_source: session.sourceLabel,
         site: session.site.id,
       };
+      if (session.site.id === "china") {
+        try {
+          const spend = await fetchQoderCnSpend(session.cookieHeader, session.site, fetchImpl, {
+            userId: result.user_id,
+            nowMs,
+          });
+          liveResult.spend = spend || readCachedQoderSpend({ home, namespace: cacheNamespace });
+        } catch (_error) {
+          liveResult.spend = readCachedQoderSpend({ home, namespace: cacheNamespace });
+        }
+      }
       writeQoderLimitsCache(liveResult, { home, nowMs, namespace: cacheNamespace });
       return liveResult;
     } catch (error) {
@@ -771,11 +1035,22 @@ async function fetchQoderLimits({
     }
   }
 
+  // When no explicit session is configured (or it just expired), prefer a
+  // bounded disk snapshot before any other fallback.
+  const cachedLimits = lastGoodLimits;
+  if (cachedLimits) {
+    if (activityWindow) cachedLimits.secondary_window = activityWindow;
+    return cachedLimits;
+  }
+
   const local = readQoderLocalQuota({ home, platform, env, appDir, envPrefix });
   if (local) {
     if (activityWindow) {
       local.secondary_window = activityWindow;
       local.source += activitySource === "disk-cache" ? "+cached-activity" : "+activity";
+    }
+    if (site.id === "china") {
+      local.spend = readCachedQoderSpend({ home, namespace: cacheNamespace });
     }
     writeQoderLimitsCache(local, { home, nowMs, namespace: cacheNamespace });
     return local;
@@ -823,6 +1098,7 @@ module.exports = {
   normalizeQoderActivityResponse,
   qoderRequestHeaders,
   fetchQoderUsage,
+  fetchQoderCnSpend,
   qoderRpcRequest,
   buildQoderActivityHeaders,
   fetchQoderActivity,

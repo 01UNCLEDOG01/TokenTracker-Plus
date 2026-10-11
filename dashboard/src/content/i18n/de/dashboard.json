@@ -543,5 +543,14 @@
   "sessions.detail.session_id": "Sitzungs-ID",
   "sessions.detail.local_path": "Lokaler Pfad",
   "sessions.detail.resume_command": "Fortsetzungsbefehl",
-  "sessions.performance.first_response_value_single": "{{seconds}}s · {{count}} Messung"
+  "sessions.performance.first_response_value_single": "{{seconds}}s · {{count}} Messung",
+  "usage.overview.qoder_cn_official": "Offizielle Cloud: {{credits}} Credits · geschätzt ¥{{cost}} · {{messages}} Nachrichten (seit {{since}})",
+  "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} Tokens (geschätzt: {{ratio}} Tokens/Nachricht, Messung 2026-07)",
+  "usage.overview.qoder_cn_local_stale": "Modellzeilen unten: offizielle Schätzung je Modell plus lokal gemessene Daten von 2026-07 (neue Qoder-CN-Builds speichern Tokens nicht mehr lokal).",
+  "usage.overview.qoder_cn_period": "Dieser Zeitraum (Offizielle Cloud): {{credits}} Credits · geschätzt ¥{{cost}} · {{messages}} Nachrichten ({{range}})",
+  "usage.overview.qoder_cn_today": "Heute live: {{credits}} Credits · ¥{{cost}} · {{messages}} Nachrichten (offizielle Tagesabrechnung; heute aus der Live-Liste)",
+  "usage.overview.qoder_cn_none": "Kein Verbrauch der Offiziellen Cloud in diesem Zeitraum.",
+  "usage.overview.workbuddy_credits": "{{name}} (lokales Kreditkonto): {{credits}} Credits ≈ {{symbol}}{{cost}} diesen Zeitraum · {{total}} Credits gesamt (seit {{since}}, {{range}})",
+  "usage.overview.workbuddy_none": "Keine WorkBuddy-Credit-Buchungen in diesem Zeitraum",
+  "usage.overview.workbuddy_note": "WorkBuddy rechnet in Credits ab, nicht in Tokens; umgerechnet pro 1000 Credits zum Tarifpreis, der diese Credits gewährt (Inland ¥50, international $10). Es wird nur die lokale Kontodatei gelesen, nichts hochgeladen."
 }

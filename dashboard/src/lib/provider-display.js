@@ -11,6 +11,7 @@ const SPECIAL_PROVIDER_NAMES = {
   pidots: "Pi · Dots",
   lmstudio: "LM Studio",
   unsloth: "Unsloth Studio",
+  workbuddyai: "WorkBuddy AI",
 };
 
 const SPECIAL_PROVIDER_COPY_KEYS = {

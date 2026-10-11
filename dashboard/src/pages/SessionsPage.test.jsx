@@ -165,6 +165,27 @@ describe("SessionsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "View statistics for Instant response" }));
     expect(within(screen.getByRole("dialog")).getByText("0.00s · 1 sample")).toBeInTheDocument();
   });
+  it("shows WorkBuddy credits per conversation with the number interpolated", async () => {
+    const row = makeThreadSession({
+      session_hash: "workbuddy-row",
+      title: "Sync the ledger copy",
+      source: "workbuddy",
+      project_key: "gengxutang",
+      model: "hy3",
+      credits: 1234,
+      total_tokens: 45_000,
+      cost_usd: 2.5,
+    });
+    getSessions.mockResolvedValue({ ...response, sessions: [row], session_count: 1, returned_count: 1 });
+    render(<SessionsPage />);
+    expect(await screen.findByText("Sync the ledger copy")).toBeInTheDocument();
+    // The copy layer substitutes {{name}}. A row that renders the template
+    // literally means the key and the params object disagree, and no test read
+    // the sentence back — so assert both the value and the absence of braces.
+    expect(document.body.textContent).not.toContain("{{");
+    expect(screen.getByText("1.2K credits")).toBeInTheDocument();
+    expect(screen.getByText(/transcript is still on this machine/)).toBeInTheDocument();
+  });
   beforeEach(() => {
     getSessions.mockReset();
     getSessions.mockResolvedValue(response);

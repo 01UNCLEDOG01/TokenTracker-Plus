@@ -10425,19 +10425,9 @@ async function parseCodebuddyIncremental({
 //      Reasoning is reported inside completion_tokens (verified:
 //      rawUsage.total_tokens === prompt_tokens + completion_tokens).
 //
-//   Token math (matches the repo's queue convention; subtract BOTH cache reads
-//   AND cache writes from prompt_tokens — CodeBuddy's "prompt_tokens - cacheRead"
-//   only works because its cache_creation is always 0; WorkBuddy writes cache
-//   heavily, so the naive formula double-counts cache writes ~2x):
-//     cacheRead   = max(cache_read_input_tokens, prompt_tokens_details.cached_tokens,
-//                       prompt_cache_hit_tokens)
-//     cacheCreate = cache_creation_input_tokens
-//     input_tokens               = prompt_tokens - cacheRead - cacheCreate
-//     cached_input_tokens        = cacheRead
-//     cache_creation_input_tokens = cacheCreate
-//     reasoning_output_tokens    = completion_tokens_details.reasoning_tokens
-//     output_tokens              = completion_tokens - reasoning_output_tokens
-//     total_tokens               = sum of the above (== prompt_tokens + completion_tokens)
+//   Token math lives in workbuddyUsageFromRawUsage() — one authority shared by
+//   this collector and the per-conversation session scanner, so the two views of
+//   one transcript cannot drift.
 //
 //   model is the auto-router placeholder ("auto") — WorkBuddy does not expose
 //   the underlying model in the log, so we emit it verbatim.
@@ -10451,6 +10441,65 @@ async function parseCodebuddyIncremental({
 //      is accepted by workbuddySqliteUsageSnapshot.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// WorkBuddy writes the per-round-trip usage of every LLM call into an
+// OpenAI/DeepSeek-shaped `providerData.rawUsage`. This is the single authority
+// that turns it into the queue's token fields, so the hourly collector and the
+// per-conversation session scanner can never disagree about the same transcript.
+//
+// `prompt_tokens` is the FULL prompt (cache reads + cache writes + genuinely
+// new input), so BOTH cache terms are subtracted to keep input_tokens pure —
+// the naive `prompt_tokens - cacheRead` double-counts cache writes, and
+// WorkBuddy writes cache heavily. `completion_tokens` already INCLUDES
+// reasoning (verified: total_tokens == prompt_tokens + completion_tokens).
+// The cache split is mirrored differently depending on which upstream the
+// auto-router picked — Anthropic-style `cache_read_input_tokens` /
+// `cache_creation_input_tokens` vs DeepSeek/OpenAI-style `*_details` and
+// `prompt_cache_write_tokens` — hence the max() on each side.
+function workbuddyUsageFromRawUsage(rawUsage) {
+  const usage = rawUsage && typeof rawUsage === "object" ? rawUsage : {};
+  const promptTokens = toNonNegativeInt(usage.prompt_tokens);
+  const completionTokens = toNonNegativeInt(usage.completion_tokens);
+  const promptDetails =
+    usage.prompt_tokens_details && typeof usage.prompt_tokens_details === "object"
+      ? usage.prompt_tokens_details
+      : {};
+  const completionDetails =
+    usage.completion_tokens_details && typeof usage.completion_tokens_details === "object"
+      ? usage.completion_tokens_details
+      : {};
+  const cacheRead = Math.max(
+    toNonNegativeInt(usage.cache_read_input_tokens),
+    toNonNegativeInt(promptDetails.cached_tokens),
+    toNonNegativeInt(usage.prompt_cache_hit_tokens),
+  );
+  // Cache writes are mirrored the same way: an Anthropic-shaped upstream names
+  // them cache_creation_input_tokens, an OpenAI-shaped one only
+  // prompt_cache_write_tokens. On this machine's logs 209 records carry both
+  // (always equal) and 296 more carry ONLY the second, so reading just the first
+  // field books those tokens as genuinely new input and prices them wrong.
+  const cacheCreation = Math.max(
+    toNonNegativeInt(usage.cache_creation_input_tokens),
+    toNonNegativeInt(usage.prompt_cache_write_tokens),
+  );
+  const inputTokens = Math.max(0, promptTokens - cacheRead - cacheCreation);
+  const reasoningTokens = Math.min(completionTokens, toNonNegativeInt(completionDetails.reasoning_tokens));
+  const outputTokens = Math.max(0, completionTokens - reasoningTokens);
+  const credit = Number(usage.credit);
+  return {
+    input_tokens: inputTokens,
+    cached_input_tokens: cacheRead,
+    cache_creation_input_tokens: cacheCreation,
+    output_tokens: outputTokens,
+    reasoning_output_tokens: reasoningTokens,
+    total_tokens: inputTokens + outputTokens + cacheRead + cacheCreation + reasoningTokens,
+    // WorkBuddy meters its subscription in credits and reports each round-trip's
+    // cost in `credit`; it is a fractional per-call value, not an integer.
+    credits: Number.isFinite(credit) && credit > 0 ? credit : 0,
+    allZero: inputTokens === 0 && outputTokens === 0 && cacheRead === 0
+      && cacheCreation === 0 && reasoningTokens === 0,
+  };
+}
+
 function resolveWorkbuddyHome(env = process.env) {
   const home = env.HOME || require("node:os").homedir();
   if (env.WORKBUDDY_HOME) return env.WORKBUDDY_HOME;
@@ -10462,6 +10511,38 @@ function resolveWorkbuddyHome(env = process.env) {
     });
   }
   return path.join(home, ".workbuddy");
+}
+
+// WorkBuddy (workbuddy.cn) and WorkBuddy AI (workbuddy.ai) are two installed
+// products with two data dirs, and neither writes into the other's session
+// logs - verified on this machine: zero overlap in jsonl names, trace names and
+// parsed session ids. Scanning only the domestic dir silently drops every
+// international session. An explicit WORKBUDDY_HOME still means "this one".
+function resolveWorkbuddyHomes(env = process.env) {
+  const primary = resolveWorkbuddyHome(env);
+  if (!primary) return [];
+  if (env.WORKBUDDY_HOME) return [primary];
+  const homeRoot = env.HOME || require("node:os").homedir();
+  // Only pair up when the primary really is the native domestic dir. Under a
+  // wsl-only pass the primary is a \\wsl.localhost path, and adding the native
+  // sibling there would make the "both" merge read it twice.
+  if (path.resolve(primary) !== path.resolve(path.join(homeRoot, ".workbuddy"))) return [primary];
+  const sibling = path.join(homeRoot, ".workbuddy-ai");
+  try {
+    if (!fssync.statSync(sibling).isDirectory()) return [primary];
+  } catch {
+    return [primary];
+  }
+  return [primary, sibling];
+}
+
+// WorkBuddy (workbuddy.cn) and WorkBuddy AI (workbuddy.ai) are two products
+// with two data dirs. Their session ids, jsonl names and trace names do not
+// overlap on this machine, so the edition is decided by which home a file came
+// from and each edition keeps its own hourly buckets.
+function workbuddySourceForPath(filePath) {
+  const normalized = String(filePath || "").split(path.sep).join("/").toLowerCase();
+  return normalized.includes("/.workbuddy-ai/") ? "workbuddy-ai" : "workbuddy";
 }
 
 function resolveWorkbuddyDefaultModel(env = process.env) {
@@ -10488,53 +10569,62 @@ function resolveWorkbuddyDefaultModel(env = process.env) {
 // the detailed JSONL for a session is absent, so they are returned as typed
 // entries and parsed after JSONL (JSONL remains authoritative when both exist).
 function resolveWorkbuddyProjectFiles(env = process.env) {
-  const workbuddyHome = resolveWorkbuddyHome(env);
-  if (!workbuddyHome) return [];
-  const projectsDir = path.join(workbuddyHome, "projects");
+  const homes = resolveWorkbuddyHomes(env);
   const files = [];
-  const walkJsonl = (dir) => {
-    let entries;
-    try { entries = fssync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      let isDir = entry.isDirectory();
-      let isFile = entry.isFile();
-      // Resolve symlinks defensively (Dirent flags are false for symlinks).
-      if (!isDir && !isFile) {
-        try {
-          const st = fssync.statSync(full);
-          isDir = st.isDirectory();
-          isFile = st.isFile();
-        } catch { continue; }
-      }
-      if (isDir) walkJsonl(full);
-      else if (isFile && entry.name.endsWith(".jsonl")) files.push(full);
-    }
+  const seenPaths = new Set();
+  const push = (entry) => {
+    const key = typeof entry === "string" ? entry : entry?.path;
+    if (!key || seenPaths.has(key)) return;
+    seenPaths.add(key);
+    files.push(entry);
   };
-  if (fssync.existsSync(projectsDir)) walkJsonl(projectsDir);
+  for (const workbuddyHome of homes) {
+    if (!workbuddyHome) continue;
+    const projectsDir = path.join(workbuddyHome, "projects");
+    const walkJsonl = (dir) => {
+      let entries;
+      try { entries = fssync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        let isDir = entry.isDirectory();
+        let isFile = entry.isFile();
+        // Resolve symlinks defensively (Dirent flags are false for symlinks).
+        if (!isDir && !isFile) {
+          try {
+            const st = fssync.statSync(full);
+            isDir = st.isDirectory();
+            isFile = st.isFile();
+          } catch { continue; }
+        }
+        if (isDir) walkJsonl(full);
+        else if (isFile && entry.name.endsWith(".jsonl")) push(full);
+      }
+    };
+    if (fssync.existsSync(projectsDir)) walkJsonl(projectsDir);
 
-  const tracesDir = path.join(workbuddyHome, "traces");
-  const walkTraces = (dir) => {
-    let entries;
-    try { entries = fssync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      let isDir = entry.isDirectory();
-      let isFile = entry.isFile();
-      if (!isDir && !isFile) {
-        try {
-          const st = fssync.statSync(full);
-          isDir = st.isDirectory();
-          isFile = st.isFile();
-        } catch { continue; }
+    const tracesDir = path.join(workbuddyHome, "traces");
+    const walkTraces = (dir) => {
+      let entries;
+      try { entries = fssync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        let isDir = entry.isDirectory();
+        let isFile = entry.isFile();
+        if (!isDir && !isFile) {
+          try {
+            const st = fssync.statSync(full);
+            isDir = st.isDirectory();
+            isFile = st.isFile();
+          } catch { continue; }
+        }
+        if (isDir) walkTraces(full);
+        else if (isFile && /^trace_[^/]+\.json$/i.test(entry.name)) {
+          push({ path: full, kind: "trace" });
+        }
       }
-      if (isDir) walkTraces(full);
-      else if (isFile && /^trace_[^/]+\.json$/i.test(entry.name)) {
-        files.push({ path: full, kind: "trace" });
-      }
-    }
-  };
-  if (fssync.existsSync(tracesDir)) walkTraces(tracesDir);
+    };
+    if (fssync.existsSync(tracesDir)) walkTraces(tracesDir);
+  }
   files.sort((a, b) => {
     const aPath = typeof a === "string" ? a : a?.path || "";
     const bPath = typeof b === "string" ? b : b?.path || "";
@@ -10724,39 +10814,10 @@ async function parseWorkbuddyIncremental({
 
       recordsProcessed++;
 
-      const promptTokens = toNonNegativeInt(rawUsage.prompt_tokens);
-      const completionTokens = toNonNegativeInt(rawUsage.completion_tokens);
-      const promptDetails =
-        rawUsage.prompt_tokens_details && typeof rawUsage.prompt_tokens_details === "object"
-          ? rawUsage.prompt_tokens_details
-          : {};
-      const completionDetails =
-        rawUsage.completion_tokens_details && typeof rawUsage.completion_tokens_details === "object"
-          ? rawUsage.completion_tokens_details
-          : {};
+      const usage = workbuddyUsageFromRawUsage(rawUsage);
+      const { inputTokens, outputTokens, cacheRead, cacheCreation, reasoningTokens } = usage;
 
-      // Cache reads are mirrored across up to three fields depending on which
-      // upstream the auto-router used; take the largest non-zero mirror.
-      const cacheRead = Math.max(
-        toNonNegativeInt(rawUsage.cache_read_input_tokens),
-        toNonNegativeInt(promptDetails.cached_tokens),
-        toNonNegativeInt(rawUsage.prompt_cache_hit_tokens),
-      );
-      const cacheCreation = toNonNegativeInt(rawUsage.cache_creation_input_tokens);
-      // prompt_tokens is the FULL prompt: subtract BOTH reads and writes so
-      // input_tokens is pure non-cached input (no double-counting cache writes).
-      const inputTokens = Math.max(0, promptTokens - cacheRead - cacheCreation);
-      // completion_tokens INCLUDES reasoning (verified: total == prompt+completion).
-      const reasoningTokens = Math.min(completionTokens, toNonNegativeInt(completionDetails.reasoning_tokens));
-      const outputTokens = Math.max(0, completionTokens - reasoningTokens);
-
-      if (
-        inputTokens === 0 &&
-        outputTokens === 0 &&
-        cacheRead === 0 &&
-        cacheCreation === 0 &&
-        reasoningTokens === 0
-      ) {
+      if (usage.allZero) {
         seenIds.add(messageId);
         continue;
       }
@@ -10776,19 +10837,19 @@ async function parseWorkbuddyIncremental({
         fallbackModel;
 
       const delta = {
-        input_tokens: inputTokens,
-        cached_input_tokens: cacheRead,
-        cache_creation_input_tokens: cacheCreation,
-        output_tokens: outputTokens,
-        reasoning_output_tokens: reasoningTokens,
-        total_tokens:
-          inputTokens + outputTokens + cacheRead + cacheCreation + reasoningTokens,
+        input_tokens: usage.input_tokens,
+        cached_input_tokens: usage.cached_input_tokens,
+        cache_creation_input_tokens: usage.cache_creation_input_tokens,
+        output_tokens: usage.output_tokens,
+        reasoning_output_tokens: usage.reasoning_output_tokens,
+        total_tokens: usage.total_tokens,
         conversation_count: 1,
       };
 
-      const bucket = getHourlyBucket(hourlyState, "workbuddy", model, bucketStart);
+      const wbSource = workbuddySourceForPath(filePath);
+      const bucket = getHourlyBucket(hourlyState, wbSource, model, bucketStart);
       addTotals(bucket.totals, delta);
-      touchedBuckets.add(bucketKey("workbuddy", model, bucketStart));
+      touchedBuckets.add(bucketKey(wbSource, model, bucketStart));
       seenIds.add(messageId);
       // Keep legacy entry-id keys alongside the response id so upgrading a
       // cursor cannot replay a row that an older build already counted.
@@ -10893,9 +10954,10 @@ async function parseWorkbuddyIncremental({
       total_tokens: inputTokens + totalCached + totalOutput,
       conversation_count: 1,
     };
-    const bucket = getHourlyBucket(hourlyState, "workbuddy", model, bucketStart);
+    const wbSource = workbuddySourceForPath(filePath);
+    const bucket = getHourlyBucket(hourlyState, wbSource, model, bucketStart);
     addTotals(bucket.totals, delta);
-    touchedBuckets.add(bucketKey("workbuddy", model, bucketStart));
+    touchedBuckets.add(bucketKey(wbSource, model, bucketStart));
     seenTraceIds.add(traceId);
     tracedSessionIds.add(sessionId);
     recordsProcessed++;
@@ -11028,9 +11090,10 @@ async function parseWorkbuddyIncremental({
           conversation_count: Object.keys(previousTokens).every((key) => toNonNegativeInt(previousTokens[key]) === 0) || isReset ? 1 : 0,
         };
 
-        const bucket = getHourlyBucket(hourlyState, "workbuddy", model, bucketStart);
+        const wbSource = workbuddySourceForPath(dbPath);
+        const bucket = getHourlyBucket(hourlyState, wbSource, model, bucketStart);
         addTotals(bucket.totals, delta);
-        touchedBuckets.add(bucketKey("workbuddy", model, bucketStart));
+        touchedBuckets.add(bucketKey(wbSource, model, bucketStart));
         sqliteSessions[sessionId] = {
           used: usedNow,
           updatedAt: updatedAtRaw,
@@ -24506,6 +24569,9 @@ module.exports = {
   resolveCodebuddyDefaultModel,
   parseCodebuddyIncremental,
   resolveWorkbuddyHome,
+  resolveWorkbuddyHomes,
+  workbuddySourceForPath,
+  workbuddyUsageFromRawUsage,
   resolveWorkbuddyProjectFiles,
   resolveWorkbuddyDefaultModel,
   parseWorkbuddyIncremental,

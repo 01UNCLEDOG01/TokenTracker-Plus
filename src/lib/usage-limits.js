@@ -36,6 +36,7 @@ const { fetchQoderLimits, fetchQoderCnLimits } = require("./qoder-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
 const { fetchProviderServiceStatus } = require("./provider-status");
+const { readWorkbuddyCredits } = require("./workbuddy-credits");
 const { resolveKimiProfile } = require("./kimi-profile");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
 const {
@@ -3800,6 +3801,18 @@ function cacheExpiresAtMs(data, fetchedAtMs) {
   return Math.min(ttlExpiry, Math.max(Math.min(...upcoming), fetchedAtMs + CACHE_MIN_TTL_MS));
 }
 
+// The credit ledger is extra context on this response, not a provider quota
+// window: a failure here must stay visible on stderr but never take the other
+// providers down with it.
+function readWorkbuddyCreditsSafe(home) {
+  try {
+    return readWorkbuddyCredits({ home });
+  } catch (error) {
+    console.error("workbuddy-credits read failed:", error && error.message);
+    return null;
+  }
+}
+
 async function getUsageLimits(options = {}) {
   const selection = usageLimitsSelectionKey(options);
   const cache = cacheBySelection[selection];
@@ -4277,6 +4290,9 @@ async function fetchUsageLimitsUncached({
     devin: withPlanLabel(devinObj, devinObj?.plan_label, "Devin"),
     qoder: withPlanLabel(qoder, qoder?.plan_label, "Qoder"),
     qoderCn: withPlanLabel(qoderCn, qoderCn?.plan_label, "Qoder CN"),
+    // WorkBuddy bills in its own credits and keeps that ledger in a local
+    // SQLite file, so it rides along here rather than as a quota window.
+    workbuddyCredits: readWorkbuddyCreditsSafe(home),
     codingPlan: withPlanLabel(codingPlan, codingPlan?.plan_label, "Ark Coding Plan"),
     agentPlan: withPlanLabel(agentPlan, agentPlan?.plan_label, "Ark Agent Plan"),
   };
@@ -4318,6 +4334,7 @@ function resetUsageLimitsCache() {
 module.exports = {
   getUsageLimits,
   normalizePlanLabel,
+  readWorkbuddyCreditsSafe,
   resetUsageLimitsCache,
   cacheExpiresAtMs,
   runCommand,

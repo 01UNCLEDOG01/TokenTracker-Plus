@@ -1462,6 +1462,9 @@ sessions.col.cost,ui,SessionsPage,SessionsPage,col_cost,"Cost",,active
 sessions.col.edits,ui,SessionsPage,SessionsPage,col_edits,"Edits",,active
 sessions.badge.first_pass,ui,SessionsPage,SessionsPage,badge_first_pass,"First-pass",,active
 sessions.badge.reported_cost,ui,SessionsPage,SessionsPage,badge_reported_cost,"Reported cost",,active
+sessions.badge.credits,ui,SessionsPage,SessionsPage,badge_credits,{{credits}} credits,,active
+sessions.detail.credits,ui,SessionsPage,SessionDetailModal,detail_credits,Credits used,,active
+sessions.notice.credits_coverage,ui,SessionsPage,SessionsPage,notice_credits_coverage,"Credits come from WorkBuddy's own per-request log, so they cover only the conversations whose transcript is still on this machine. The full credit ledger is on the Usage page.",,active
 sessions.badge.partial_usage,ui,SessionsPage,SessionsPage,badge_partial_usage,"Partial usage",,active
 sessions.badge.partial_cost,ui,SessionsPage,SessionsPage,badge_partial_cost,"Partial cost","Tokens are fully observed but at least one model in the session has no public rate.",active
 sessions.cost.partial_title,ui,SessionsPage,SessionsPage,cost_partial_title,"Lower bound - some models in this session have no public rate, so their tokens cost $0 here.","Tooltip on the greater-or-equal cost marker.",active
@@ -1768,3 +1771,12 @@ sessions.detail.session_id,ui,SessionsPage,UsageInsights,session_id,Session ID,,
 sessions.detail.local_path,ui,SessionsPage,UsageInsights,local_path,Local path,,active
 sessions.detail.resume_command,ui,SessionsPage,SessionDetailModal,resume_command,Resume command,,active
 sessions.performance.first_response_value_single,ui,SessionsPage,SessionDetailModal,first_response_single,{{seconds}}s · {{count}} sample,,active
+usage.overview.qoder_cn_official,ui,DashboardPage,LedgerNotices,qoder_cn_official,Official cloud: {{credits}} credits · est. ¥{{cost}} · {{messages}} messages (since {{since}}),,active
+usage.overview.qoder_cn_est_tokens,ui,DashboardPage,LedgerNotices,qoder_cn_est_tokens,≈ {{tokens}} tokens (estimated from {{ratio}} tokens/message measured 2026-07),,active
+usage.overview.qoder_cn_local_stale,ui,DashboardPage,LedgerNotices,qoder_cn_local_stale,"Model rows below: per-model official estimates, plus locally measured 2026-07 data (recent Qoder CN builds no longer record tokens locally).",,active
+usage.overview.qoder_cn_period,ui,DashboardPage,LedgerNotices,qoder_cn_period,This period (official cloud): {{credits}} credits · est. ¥{{cost}} · {{messages}} messages ({{range}}),,active
+usage.overview.qoder_cn_today,ui,DashboardPage,LedgerNotices,qoder_cn_today,"Today, live: {{credits}} credits · ¥{{cost}} · {{messages}} messages (official totals settle per day; today comes from the live detail list)",,active
+usage.overview.qoder_cn_none,ui,DashboardPage,LedgerNotices,qoder_cn_none,No official cloud spend recorded in this period.,,active
+usage.overview.workbuddy_credits,ui,DashboardPage,LedgerNotices,workbuddy_credits,{{name}} (local credit ledger): {{credits}} credits ≈ {{symbol}}{{cost}} this period · {{total}} credits all-time since {{since}} ({{range}}),,active
+usage.overview.workbuddy_none,ui,DashboardPage,LedgerNotices,workbuddy_none,No WorkBuddy credit entries in this period,,active
+usage.overview.workbuddy_note,ui,DashboardPage,LedgerNotices,workbuddy_note,"WorkBuddy bills in credits, not tokens; priced per 1,000 credits at the plan rate that grants them (domestic ¥50, international $10). Read from local ledger files only - nothing is uploaded.",,active

@@ -372,6 +372,7 @@ const PROVIDER_ICON_MAP = {
   CODEBUDDY: CodeBuddyIcon,
   // WorkBuddy ships the same Tencent "buddy" mascot mark as CodeBuddy.
   WORKBUDDY: CodeBuddyIcon,
+  "WORKBUDDY-AI": CodeBuddyIcon,
   CODEX: CodexIcon,
   COPILOT: CopilotIcon,
   CRAFT: CraftIcon,

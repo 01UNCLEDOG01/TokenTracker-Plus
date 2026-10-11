@@ -201,6 +201,7 @@ const SOURCE_MODEL_NORMALIZERS = {
   zed: normalizeZedModel,
   unsloth: normalizeUnslothModel,
   workbuddy: normalizeWorkbuddyModel,
+  "workbuddy-ai": normalizeWorkbuddyModel,
 };
 
 // Memoise the sorted-by-length LiteLLM key list. Reverse-substring scan walks

@@ -28,7 +28,17 @@ const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const readline = require("node:readline");
-const { listClaudeProjectFiles, listRolloutFilesDeep, claudeMessageDedupKey, normalizeClaudeUsage } = require("./rollout");
+const {
+  listClaudeProjectFiles,
+  listRolloutFilesDeep,
+  claudeMessageDedupKey,
+  normalizeClaudeUsage,
+  workbuddyUsageFromRawUsage,
+  workbuddySourceForPath,
+  resolveWorkbuddyHomes,
+  resolveWorkbuddyProjectFiles,
+  resolveWorkbuddyDefaultModel,
+} = require("./rollout");
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector } = require("./session-performance");
@@ -482,7 +492,16 @@ function isRecoverableSessionReadError(error) {
   return ["ENOENT", "EACCES", "EPERM", "EISDIR", "EIO", "ESTALE"].includes(error?.code);
 }
 
-async function scanClaudeSession(filePath) {
+// `options` lets a same-shaped transcript from another product reuse this loop
+// instead of duplicating it: `source` stamps the row (and therefore its session
+// hash), `adaptRecord` maps one vendor record onto the Claude Code shape,
+// `onUsage` observes each usage record that actually got counted (after dedup),
+// and `recordExtras` contributes extra row fields.
+async function scanClaudeSession(filePath, options = {}) {
+  const source = typeof options.source === "string" && options.source ? options.source : "claude";
+  const adaptRecord = typeof options.adaptRecord === "function" ? options.adaptRecord : null;
+  const onUsage = typeof options.onUsage === "function" ? options.onUsage : null;
+  const recordExtras = options.recordExtras && typeof options.recordExtras === "object" ? options.recordExtras : null;
   // Native and WSL mounts can disappear independently after discovery. Keep
   // the surviving mirror instead of dropping the whole logical session.
   const filePaths = readableSessionPaths(filePath);
@@ -541,8 +560,12 @@ async function scanClaudeSession(filePath) {
           if (priorRecordHashes.has(recordHash)) continue;
           currentRecordHashes.add(recordHash);
         }
-        let obj;
-        try { obj = JSON.parse(line); } catch { continue; }
+        let parsed;
+        try { parsed = JSON.parse(line); } catch { continue; }
+        // An adapter may fold a vendor record into one Claude-shaped record, or
+        // return null to drop records that carry no signal this loop understands.
+        const obj = adaptRecord ? adaptRecord(parsed, currentFilePath) : parsed;
+        if (!obj) continue;
         const timingKey = claudeMessageDedupKey(obj);
         const countedUsage = obj.type === "assistant" && obj.message && (!timingKey || !seenMessages.has(timingKey))
           ? normalizeClaudeUsage(obj.message.usage) : null;
@@ -582,6 +605,9 @@ async function scanClaudeSession(filePath) {
         if (candidateModel) model = candidateModel;
         currentTurnModel = model;
         const usage = normalizeClaudeUsage(obj.message.usage);
+        // Called only for records that survived the response-id dedup, so an
+        // adapter's extra per-record accounting matches the token totals exactly.
+        if (onUsage) onUsage(obj, usage);
         addTotals(tokens, usage);
         if (usage.total_tokens > 0) {
           const modelUsage = modelUsageByModel.get(model) || { model, ...emptyTotals(), usage_events: 0 };
@@ -615,14 +641,14 @@ async function scanClaudeSession(filePath) {
   const performance = performanceCollector.finish();
   return finalizeRecord({
     version: SIDECAR_VERSION,
-    session_hash: sessionHash("claude", rawSessionId),
+    session_hash: sessionHash(source, rawSessionId),
     session_id: observedSessionId || null,
     // Claude's own generated one-line title (the "ai-title" record). Agent-
     // authored metadata, never the raw prompt body. Local-only: stripped in
     // summarizeSessions before any cloud/CSV export. Null when Claude never
     // wrote one — the UI then falls back to the project name.
     title: aiTitle,
-    source: "claude",
+    source,
     project_key: projectKey(cwd, primaryFilePath),
     project_ref: cwd || null,
     model,
@@ -639,7 +665,213 @@ async function scanClaudeSession(filePath) {
     subagent_calls: subagentCalls,
     subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
     tokens,
+    ...(recordExtras || {}),
     provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "inferred", content_retained: false },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WorkBuddy / WorkBuddy AI — per-conversation sessions
+//
+// Both editions are Claude-Code forks writing
+//   ~/.workbuddy[-ai]/projects/<cwd>/<sessionId>.jsonl
+//   ~/.workbuddy[-ai]/projects/<cwd>/<sessionId>/subagents/agent-*.jsonl
+// but each record uses the vendor's own envelope: `type:"message"` plus a
+// top-level `role` instead of Claude's `type:"assistant"/"user"`,
+// `input_text`/`output_text` content blocks instead of `text`, tool calls as
+// separate `function_call` records, epoch-millisecond numbers for timestamps,
+// and usage on `providerData.rawUsage` instead of `message.usage`.
+//
+// toWorkbuddyClaudeRecord translates one record into the shape the shared
+// Claude loop already reads, so turn counting, edit detection, retry
+// detection, sub-agent counting, performance and repricing stay ONE
+// implementation for both products.
+// ─────────────────────────────────────────────────────────────────────────────
+const WORKBUDDY_SUBAGENT_DIR = "subagents";
+
+function isWorkbuddySubagentPath(filePath) {
+  const segments = String(filePath || "").split(path.sep);
+  return segments.includes(WORKBUDDY_SUBAGENT_DIR);
+}
+
+// A conversation, not a file, is the unit WorkBuddy's own UI shows: the main
+// transcript plus the sub-agent transcripts it spawned. Sub-agent records carry
+// their own session ids, so listing those files as separate rows would show one
+// conversation several times and split its cost across rows. Group by the
+// directory that names the owning session id, main transcript first.
+function groupWorkbuddyConversationFiles(files) {
+  const groups = new Map();
+  const conversationKey = (filePath) => {
+    const parts = String(filePath || "").split(path.sep);
+    for (let i = parts.length - 2; i >= 1; i -= 1) {
+      if (String(parts[i]).toLowerCase() !== WORKBUDDY_SUBAGENT_DIR) continue;
+      // .../projects/<cwd>/<sessionId>/subagents/agent-x.jsonl
+      return parts.slice(0, i - 1).join(path.sep) + path.sep + parts[i - 1];
+    }
+    const base = String(parts[parts.length - 1] || "").replace(/\.jsonl$/i, "");
+    return parts.slice(0, parts.length - 1).join(path.sep) + path.sep + base;
+  };
+  for (const filePath of files || []) {
+    if (typeof filePath !== "string" || !filePath) continue;
+    const group = groups.get(conversationKey(filePath));
+    if (group) group.push(filePath);
+    else groups.set(conversationKey(filePath), [filePath]);
+  }
+  return [...groups.values()]
+    .map((group) => group.sort((a, b) =>
+      Number(isWorkbuddySubagentPath(a)) - Number(isWorkbuddySubagentPath(b))
+      || String(a).localeCompare(String(b))))
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+}
+
+function workbuddyTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return new Date(value).toISOString();
+  }
+  if (typeof value === "string" && value) return value;
+  return null;
+}
+
+function workbuddyContentBlocks(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return [];
+  const blocks = [];
+  for (const block of content) {
+    const type = String(block?.type || "");
+    if ((type === "input_text" || type === "output_text" || type === "text")
+      && typeof block.text === "string") {
+      blocks.push({ type: "text", text: block.text });
+    }
+  }
+  return blocks;
+}
+
+// Same resolution order as the hourly collector: the routed model, then the
+// requested model id, then the record's own model, then the configured default.
+function workbuddyModelOf(provider, entry, fallbackModel) {
+  const pick = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  return pick(provider?.model) || pick(provider?.requestModelId)
+    || pick(entry?.model) || pick(fallbackModel) || null;
+}
+
+// Re-emit WorkBuddy's rawUsage in the field names normalizeClaudeUsage reads.
+// It subtracts reasoning from output_tokens and reads reasoning back out of
+// output_tokens_details, so hand it the vendor total (output + reasoning) plus
+// the mirror — the resulting five token fields then match the collector.
+function claudeShapedUsageFromWorkbuddy(usage) {
+  if (!usage || usage.allZero) return null;
+  return {
+    input_tokens: usage.input_tokens,
+    cache_read_input_tokens: usage.cached_input_tokens,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens,
+    output_tokens: usage.output_tokens + usage.reasoning_output_tokens,
+    output_tokens_details: { reasoning_tokens: usage.reasoning_output_tokens },
+  };
+}
+
+function toWorkbuddyClaudeRecord(entry, currentFilePath, fallbackModel) {
+  if (!entry || typeof entry !== "object") return null;
+  const fromSubagent = isWorkbuddySubagentPath(currentFilePath);
+  const provider = entry.providerData && typeof entry.providerData === "object" ? entry.providerData : null;
+  // A sub-agent transcript is folded into the conversation that spawned it, so
+  // its own session id, cwd and title must never overwrite the main record's.
+  const identity = {};
+  if (!fromSubagent) {
+    if (typeof entry.sessionId === "string" && entry.sessionId) identity.sessionId = entry.sessionId;
+    if (typeof entry.cwd === "string" && entry.cwd) identity.cwd = entry.cwd;
+  }
+  const timestamp = workbuddyTimestamp(entry.timestamp);
+
+  if (entry.type === "ai-title") {
+    if (fromSubagent) return null;
+    return { type: "ai-title", aiTitle: entry.aiTitle, timestamp, ...identity };
+  }
+
+  const usage = provider && provider.rawUsage ? workbuddyUsageFromRawUsage(provider.rawUsage) : null;
+  // Only a metered record claims a response id. Dedup keys are what suppress a
+  // second copy of the same round-trip, so tagging an unmetered record could
+  // hide the metered one that shares its id and drop its tokens entirely.
+  const metered = usage && !usage.allZero;
+  const messageId = metered
+    && ((typeof provider.messageId === "string" && provider.messageId)
+      || (typeof entry.id === "string" && entry.id))
+    ? (typeof provider.messageId === "string" && provider.messageId ? provider.messageId : entry.id)
+    : undefined;
+
+  if (entry.type === "message") {
+    const role = String(entry.role || "").toLowerCase();
+    if (role !== "user" && role !== "assistant") return null;
+    return {
+      type: role,
+      timestamp,
+      credits: metered ? usage.credits : 0,
+      ...identity,
+      message: {
+        id: messageId,
+        model: workbuddyModelOf(provider, entry, fallbackModel),
+        content: workbuddyContentBlocks(entry.content),
+        usage: role === "assistant" ? claudeShapedUsageFromWorkbuddy(usage) : undefined,
+      },
+    };
+  }
+
+  if (entry.type === "function_call") {
+    // A tool call is its own round-trip and carries its own usage, which is why
+    // the collector aggregates every rawUsage record rather than only replies.
+    let input = null;
+    if (typeof entry.arguments === "string") {
+      try { input = JSON.parse(entry.arguments); } catch { input = null; }
+    } else if (entry.arguments && typeof entry.arguments === "object") {
+      input = entry.arguments;
+    }
+    return {
+      type: "assistant",
+      timestamp,
+      credits: metered ? usage.credits : 0,
+      ...identity,
+      message: {
+        id: messageId,
+        model: workbuddyModelOf(provider, entry, fallbackModel),
+        content: [{ type: "tool_use", name: String(entry.name || ""), input: input && typeof input === "object" ? input : {} }],
+        usage: claudeShapedUsageFromWorkbuddy(usage),
+      },
+    };
+  }
+
+  // reasoning / function_call_result / file-history-snapshot and the rest carry
+  // no billable usage and no signal this loop uses.
+  return null;
+}
+
+// The edition's own settings.json carries the auto-router placeholder used when
+// a record names no model at all. Take it from the transcript's own data dir:
+// reading the ambient machine's settings would price a test session that lives
+// in a temp home with this machine's default model.
+const workbuddyDefaultModelByHome = new Map();
+function workbuddyDefaultModelFor(filePath) {
+  const segments = String(filePath || "").split(path.sep);
+  const index = segments.findIndex((segment) => /^\.workbuddy(-ai)?$/i.test(segment));
+  const editionHome = index > 0 ? segments.slice(0, index + 1).join(path.sep) : null;
+  if (!editionHome) return resolveWorkbuddyDefaultModel(process.env);
+  if (!workbuddyDefaultModelByHome.has(editionHome)) {
+    workbuddyDefaultModelByHome.set(editionHome, resolveWorkbuddyDefaultModel({ WORKBUDDY_HOME: editionHome }));
+  }
+  return workbuddyDefaultModelByHome.get(editionHome);
+}
+
+async function scanWorkbuddySession(filePath) {
+  const paths = Array.isArray(filePath) ? filePath : [filePath];
+  const source = workbuddySourceForPath(paths[0]);
+  const fallbackModel = workbuddyDefaultModelFor(paths[0]);
+  const extras = { credits: 0 };
+  return scanClaudeSession(filePath, {
+    source,
+    adaptRecord: (entry, currentFilePath) => toWorkbuddyClaudeRecord(entry, currentFilePath, fallbackModel),
+    recordExtras: extras,
+    onUsage: (record) => {
+      const credit = Number(record?.credits);
+      if (Number.isFinite(credit) && credit > 0) extras.credits += credit;
+    },
   });
 }
 
@@ -1306,6 +1538,18 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     .map((root) => expandHome(root, home))
     .filter((root) => root && scanRootDirState(root).exists);
   const claudeRoots = providerRoots(home, ".claude", env, { ...deps, extraRoots: extraRootsFor("claude") });
+  // WorkBuddy resolves its own roots from the environment (WORKBUDDY_HOME, WSL
+  // mirrors, and the .workbuddy / .workbuddy-ai sibling pair), so the session
+  // layer uses the same resolver as the collector and cannot scan a different
+  // set of transcripts than the one that produced the hourly numbers. Tests and
+  // callers may hand it an explicit file list instead.
+  // HOME is pinned to the caller's `home`, never inherited from the process:
+  // the other providers derive their roots from that argument, and leaving the
+  // ambient HOME in place would make a scan of a temp home also pick up the
+  // real machine's conversations.
+  const workbuddyEnv = { ...env, HOME: home || env.HOME || os.homedir() };
+  const workbuddyFiles = (deps.workbuddyProjectFiles
+    || resolveWorkbuddyProjectFiles(workbuddyEnv)).filter((entry) => typeof entry === "string");
   const codexRoots = providerRoots(home, ".codex", env, { ...deps, extraRoots: extraRootsFor("codex") });
   // Two distinct roots may share one projects/ dir through a symlink; dedupe
   // the derived projects dirs by realpath (as sync does) so the browser never
@@ -1324,6 +1568,10 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     const state = scanRootDirState(dir);
     if (state.error !== null) incomplete.push({ path: dir, error: state.error });
   }
+  for (const workbuddyHome of (deps.workbuddyProjectFiles ? [] : resolveWorkbuddyHomes(workbuddyEnv))) {
+    const state = scanRootDirState(path.join(workbuddyHome, "projects"));
+    if (state.error !== null) incomplete.push({ path: path.join(workbuddyHome, "projects"), error: state.error });
+  }
   const [claudeGroups, codexGroups, archivedGroups, grok] = await Promise.all([
     Promise.all(claudeProjectsDirs.map((dir) => listClaudeProjectFiles(dir))),
     Promise.all(codexRoots.map((r) => listRolloutFilesDeep(path.join(r, "sessions")))),
@@ -1340,7 +1588,13 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const claude = allClaude.filter((filePaths) => !filePaths.some((filePath) => filePath
     .split(path.sep)
     .some((segment) => segment.endsWith(CLAUDE_MEM_OBSERVER_PROJECT_SUFFIX))));
-  return { claude, codex: groupCodexFiles([...codex, ...archived]), grok, incomplete };
+  return {
+    claude,
+    codex: groupCodexFiles([...codex, ...archived]),
+    grok,
+    workbuddy: groupWorkbuddyConversationFiles(workbuddyFiles),
+    incomplete,
+  };
 }
 
 // Warn once per unreadable directory per process: the dashboard polls this
@@ -1504,6 +1758,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.codex.flat(),
     ...discovered.codex.flat().map(codexTitleIndexPathFor).filter(Boolean),
     ...discovered.grok,
+    ...(discovered.workbuddy || []).flat(),
     ...discovered.grok.map(grokSummaryPathFor),
     ...discovered.grok.map(grokSignalsPathFor),
   ]);
@@ -1527,6 +1782,13 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.claude.map((filePaths) => ({ source: "claude", filePath: filePaths, scan: scanClaudeSession })),
     ...discovered.codex.map((filePaths) => ({ source: "codex", filePath: filePaths, scan: scanCodexSession })),
     ...discovered.grok.map((filePath) => ({ source: "grok", filePath, scan: scanGrokSession })),
+    ...(discovered.workbuddy || []).map((filePaths) => ({
+      // The domestic and the international edition are two products with two
+      // ledgers, so each conversation keeps the source of the home it came from.
+      source: workbuddySourceForPath(filePaths[0]),
+      filePath: filePaths,
+      scan: scanWorkbuddySession,
+    })),
   ];
   // Files we could not turn into a row (permission denied, half-written line,
   // vanished mid-scan). Swallowing these silently made sessions disappear with
@@ -1863,6 +2125,10 @@ function toSessionBrowserRow(row) {
     subagent_total_tokens: finite(row.subagent_total_tokens),
     combined_total_tokens: finite(row.combined_total_tokens || row.total_tokens),
     total_tokens: finite(row.total_tokens),
+    // Credits are a fractional per-request figure, so a conversation's total is a
+    // sum of floats: 0.1 + 0.1 + 0.1 arrives as 0.30000000000000004 and the row
+    // would print that. Round at the boundary instead of in every consumer.
+    credits: Math.round(finite(row.credits) * 100) / 100,
     own_cost_usd: finite(row.cost_usd),
     subagent_cost_usd: finite(row.subagent_cost_usd),
     combined_cost_usd: finite(row.combined_cost_usd || row.cost_usd),
@@ -2135,6 +2401,8 @@ module.exports = {
   resolveSessionSidecarPath,
   sessionHash,
   scanClaudeSession,
+  scanWorkbuddySession,
+  groupWorkbuddyConversationFiles,
   scanCodexSession,
   scanGrokSession,
   buildSessionAnalytics,

@@ -354,6 +354,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "trae",
   "unsloth",
   "workbuddy",
+  "workbuddy-ai",
   "zcode",
   "zed",
 ]);
@@ -2555,10 +2556,10 @@ async function cmdSync(argv, context = {}) {
     // sub-agent logs nest one level deeper, so the resolver recurses. See the
     // parser comment in rollout.js for the cache-aware token math.
     let workbuddyResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
-    const workbuddyFiles = sourceAllowed("workbuddy")
+    const workbuddyFiles = (sourceAllowed("workbuddy") || sourceAllowed("workbuddy-ai"))
       ? mergeBothFileSources({ resolveFiles: resolveWorkbuddyProjectFiles, env: process.env })
       : [];
-    if (sourceAllowed("workbuddy")) {
+    if (sourceAllowed("workbuddy") || sourceAllowed("workbuddy-ai")) {
       if (isFullSourceScan) {
         try {
           await repairWorkbuddyContextUsage({
@@ -5332,6 +5333,17 @@ async function repairCodebuddyLogJsonlOverlap({
 // once the new parser is available. The same missing-source guard used by the
 // other data migrations keeps this recoverable: if a previously contributing
 // file is gone, leave history untouched and stop adding new context snapshots.
+// WorkBuddy (workbuddy.cn) and WorkBuddy AI (workbuddy.ai) are separate
+// sources now, but they share one collector pass and one repair routine, so
+// every "is this a WorkBuddy row/bucket" test has to accept both.
+function isWorkbuddyFamilySource(value) {
+  return value === "workbuddy" || value === "workbuddy-ai";
+}
+
+function isWorkbuddyFamilyBucketKey(key) {
+  return isWorkbuddyFamilySource(String(key || "").split("|")[0]);
+}
+
 async function repairWorkbuddyContextUsage({
   cursors,
   queuePath,
@@ -5346,7 +5358,7 @@ async function repairWorkbuddyContextUsage({
 
   const hourly = cursors.hourly && typeof cursors.hourly === "object" ? cursors.hourly : {};
   const liveHourlyKeys = new Set(
-    Object.keys(hourly.buckets || {}).filter((key) => key.startsWith("workbuddy|")),
+    Object.keys(hourly.buckets || {}).filter(isWorkbuddyFamilyBucketKey),
   );
   let queueRaw = "";
   try {
@@ -5363,8 +5375,8 @@ async function repairWorkbuddyContextUsage({
       keptQueueLines.push(line);
       continue;
     }
-    if (row && row.source === "workbuddy" && typeof row.model === "string" && typeof row.hour_start === "string") {
-      queueWorkbuddyKeys.add(bucketKey("workbuddy", row.model || "unknown", row.hour_start));
+    if (row && isWorkbuddyFamilySource(row.source) && typeof row.model === "string" && typeof row.hour_start === "string") {
+      queueWorkbuddyKeys.add(bucketKey(row.source, row.model || "unknown", row.hour_start));
     } else {
       keptQueueLines.push(line);
     }
@@ -5426,17 +5438,17 @@ async function repairWorkbuddyContextUsage({
   for (const line of rebuiltRows) {
     let row;
     try { row = JSON.parse(line); } catch (_e) { continue; }
-    if (!row || row.source !== "workbuddy" || typeof row.model !== "string" || typeof row.hour_start !== "string") continue;
-    rebuiltKeys.add(bucketKey("workbuddy", row.model || "unknown", row.hour_start));
+    if (!row || !isWorkbuddyFamilySource(row.source) || typeof row.model !== "string" || typeof row.hour_start !== "string") continue;
+    rebuiltKeys.add(bucketKey(row.source, row.model || "unknown", row.hour_start));
     validRebuiltRows.push(line);
   }
 
   const staleRetractions = [];
   for (const key of liveKeys) {
     if (rebuiltKeys.has(key)) continue;
-    const [, model, ...hourParts] = key.split("|");
+    const [retractSource, model, ...hourParts] = key.split("|");
     staleRetractions.push(JSON.stringify({
-      source: "workbuddy",
+      source: isWorkbuddyFamilySource(retractSource) ? retractSource : "workbuddy",
       model: model || "unknown",
       hour_start: hourParts.join("|"),
       input_tokens: 0,
@@ -5460,16 +5472,16 @@ async function repairWorkbuddyContextUsage({
   nextHourly.buckets ||= {};
   nextHourly.groupQueued ||= {};
   for (const key of Object.keys(nextHourly.buckets)) {
-    if (key.startsWith("workbuddy|")) delete nextHourly.buckets[key];
+    if (isWorkbuddyFamilyBucketKey(key)) delete nextHourly.buckets[key];
   }
   for (const key of Object.keys(nextHourly.groupQueued)) {
-    if (key.startsWith("workbuddy|")) delete nextHourly.groupQueued[key];
+    if (isWorkbuddyFamilyBucketKey(key)) delete nextHourly.groupQueued[key];
   }
   for (const [key, bucket] of Object.entries(tmpCursors.hourly.buckets || {})) {
-    if (key.startsWith("workbuddy|")) nextHourly.buckets[key] = bucket;
+    if (isWorkbuddyFamilyBucketKey(key)) nextHourly.buckets[key] = bucket;
   }
   for (const [key, value] of Object.entries(tmpCursors.hourly.groupQueued || {})) {
-    if (key.startsWith("workbuddy|")) nextHourly.groupQueued[key] = value;
+    if (isWorkbuddyFamilyBucketKey(key)) nextHourly.groupQueued[key] = value;
   }
   cursors.workbuddy = tmpCursors.workbuddy || {};
 

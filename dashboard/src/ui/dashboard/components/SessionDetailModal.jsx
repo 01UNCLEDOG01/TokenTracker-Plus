@@ -27,6 +27,8 @@ const SIGNAL_ROWS = [
   { key: "error_count", grokOnly: true, label: () => copy("sessions.detail.errors") },
   { key: "model_calls", grokOnly: true, label: () => copy("sessions.detail.model_calls") },
   { key: "compaction_count", grokOnly: true, label: () => copy("sessions.detail.compactions") },
+  // Only WorkBuddy meters in credits; every other product bills tokens or dollars.
+  { key: "credits", workbuddyOnly: true, label: () => copy("sessions.detail.credits") },
 ];
 
 function costSourceLabel(source) {
@@ -87,6 +89,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
   } : null;
   const hasReasoning = Number(session.reasoning_output_tokens) > 0;
   const isGrok = session.source === "grok";
+  const isWorkbuddy = String(session.source || "").startsWith("workbuddy");
   const contextAvailable = isGrok && Number(session.context_window_tokens) > 0;
 
   useEffect(() => {
@@ -250,8 +253,8 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
           <details className="mt-5 border-t border-oai-gray-200 dark:border-oai-gray-800">
             <summary className="flex min-h-11 cursor-pointer items-center rounded text-sm font-medium text-oai-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 dark:text-white">{copy("sessions.detail.signals")}</summary>
             <dl className="grid grid-cols-1 gap-x-8 gap-y-1.5 pb-4 sm:grid-cols-2">
-              {SIGNAL_ROWS.map(({ key, label, grokOnly }) => (
-                <Stat key={key} label={label()}>{typeof session[key] === "number" && (!grokOnly || isGrok) ? formatCompactNumber(session[key]) : copy("sessions.detail.not_recorded")}</Stat>
+              {SIGNAL_ROWS.map(({ key, label, grokOnly, workbuddyOnly }) => (
+                <Stat key={key} label={label()}>{typeof session[key] === "number" && (!grokOnly || isGrok) && (!workbuddyOnly || isWorkbuddy) ? formatCompactNumber(session[key]) : copy("sessions.detail.not_recorded")}</Stat>
               ))}
             </dl>
             {isGrok && session.usage_precision ? <p className="pb-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.grok.runtime_breakdown", { calls: formatCompactNumber(session.model_calls), seconds: (Number(session.api_duration_ms || 0) / 1000).toFixed(1), tools: formatCompactNumber(session.tool_calls), errors: formatCompactNumber(session.error_count) })}</p> : null}

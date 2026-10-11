@@ -28,6 +28,7 @@ import { useTheme } from "../../../hooks/useTheme.js";
 import { useCurrency } from "../../../hooks/useCurrency.js";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 import { copy, getCopyLocale } from "../../../lib/copy";
+import { QoderCnOfficialSpend, WorkbuddyCreditSpend } from "./LedgerNotices.jsx";
 import { CURRENCY_USD, getCurrencySymbol } from "../../../lib/currency";
 import { formatProviderDisplayName } from "../../../lib/provider-display";
 import { DateRangePopover, formatDateShort, getDateFnsLocale } from "./DateRangePopover.jsx";
@@ -874,6 +875,18 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
     String(provider?.source || provider?.label || "").trim().toLowerCase() === "antigravity";
   const isDevin =
     String(provider?.source || provider?.label || "").trim().toLowerCase() === "devin";
+  // Qoder CN and WorkBuddy bill in their own credits rather than tokens, so the
+  // numbers the cards would show from local rows are 0. Both banners read the
+  // local limits endpoint instead, which carries the official spend / credit
+  // ledger for them.
+  const providerSource = String(provider?.source || provider?.label || "").trim().toLowerCase();
+  const isQoderCn = providerSource.includes("qoder");
+  const isWorkbuddy = providerSource === "workbuddy";
+  const isWorkbuddyAi = providerSource === "workbuddy-ai";
+  // Only the international card is filtered to its own ledger line. The domestic
+  // card still shows both editions until the merged history is re-attributed,
+  // otherwise the international credits would disappear from the panel entirely.
+  const workbuddyEdition = isWorkbuddyAi ? "intl" : null;
 
   return (
                       <div>
@@ -892,6 +905,11 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
                             />
                           )}
                         </div>
+
+                        {isQoderCn && <QoderCnOfficialSpend from={from} to={to} />}
+                        {(isWorkbuddy || isWorkbuddyAi) && (
+                          <WorkbuddyCreditSpend from={from} to={to} edition={workbuddyEdition} />
+                        )}
 
                         {/* Input-side cache hit rate for this provider. Omitted
                             entirely when the source does no prompt caching (rate

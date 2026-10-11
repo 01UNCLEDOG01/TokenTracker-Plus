@@ -532,5 +532,14 @@
   "sessions.detail.session_id": "セッション ID",
   "sessions.detail.local_path": "ローカルパス",
   "sessions.detail.resume_command": "再開コマンド",
-  "sessions.performance.first_response_value_single": "{{seconds}}秒 · {{count}} サンプル"
+  "sessions.performance.first_response_value_single": "{{seconds}}秒 · {{count}} サンプル",
+  "usage.overview.qoder_cn_official": "公式クラウド：累計 {{credits}} クレジット · 推定 ¥{{cost}} · {{messages}} 件（{{since}} 以降）",
+  "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} tokens（推定：2026-07 の実測 {{ratio}} tokens/件から換算）",
+  "usage.overview.qoder_cn_local_stale": "下のモデル行＝公式のモデル別推定値 + 2026-07 のローカル実測（新しい Qoder CN はトークン数をローカルに保存しません）",
+  "usage.overview.qoder_cn_period": "今期の公式クラウド：{{credits}} クレジット · 推定 ¥{{cost}} · {{messages}} 件（{{range}}）",
+  "usage.overview.qoder_cn_today": "本日リアルタイム：{{credits}} クレジット · ¥{{cost}} · {{messages}} 件（公式は日次確定のため、本日はリアルタイム明細から算出）",
+  "usage.overview.qoder_cn_none": "今期の公式クラウド利用はありません",
+  "usage.overview.workbuddy_credits": "{{name}}（ローカル台帳）：今期 {{credits}} クレジット ≈ {{symbol}}{{cost}} · 累計 {{total}} クレジット（{{since}} から、{{range}}）",
+  "usage.overview.workbuddy_none": "今期の WorkBuddy クレジット記帳はありません",
+  "usage.overview.workbuddy_note": "WorkBuddy はトークンではなくクレジットで課金されます。クレジットを付与するプラン単価で換算（国内版 1000 クレジット = ¥50、国際版 1000 クレジット = $10）。ローカル台帳を読むだけでアップロードはありません。"
 }

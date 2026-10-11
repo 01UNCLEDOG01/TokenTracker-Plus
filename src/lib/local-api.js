@@ -66,6 +66,8 @@ const {
 
 const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
+const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
+const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 
 const {
   deriveProjectKeyFromRef,
@@ -547,11 +549,18 @@ function getRequestedUsageScope(url) {
 function scopedQueueRows(queuePath, url) {
   const scope = getRequestedUsageScope(url);
   const allRows = readQueueData(queuePath);
+  // Qoder CN stopped storing token counts locally in 2026-07; its estimated
+  // per-day rows (see qoder-cn-estimate.js) are merged here so every usage
+  // endpoint — summary, daily, hourly, heatmap, model breakdown — counts the
+  // same spend. Estimated rows only fill the shortfall against local rows,
+  // so no day is ever double-counted.
+  const estimatedRows = qoderCnEstimatedRows(allRows);
+  const mergedRows = estimatedRows.length ? allRows.concat(estimatedRows) : allRows;
   return {
     scope,
-    allRows,
-    rows: filterRowsByUsageScope(allRows, scope),
-    excludedSources: listExcludedSources(allRows, scope),
+    allRows: mergedRows,
+    rows: filterRowsByUsageScope(mergedRows, scope),
+    excludedSources: listExcludedSources(mergedRows, scope),
   };
 }
 
@@ -1059,7 +1068,13 @@ function scanClaudeProjects(projectMap) {
 // ---------------------------------------------------------------------------
 
 function json(res, data, status) {
-  res.writeHead(status || 200, { "Content-Type": "application/json" });
+  // /functions/* responses carry no validators, so without an explicit
+  // directive WebView2/Edge applies heuristic caching and a dashboard can
+  // replay a stale aggregate forever under the same query string.
+  res.writeHead(status || 200, {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+  });
   res.end(JSON.stringify(data));
 }
 
@@ -1628,6 +1643,14 @@ function createLocalApiHandler({ queuePath, serverVersion = null }) {
         return "served";
       }
       accountViewFailures.delete(failureKey);
+      // The cloud aggregate can never know about Qoder CN — that client stopped
+      // writing token counts to disk, so nothing of it is synced. Fold the
+      // local estimate into the response on its way out; nothing is uploaded.
+      applyAccountViewQoderMerge(usageSlug, out.data, {
+        queueRows: readQueueData(qp),
+        searchParams: url.searchParams,
+        offsetMinutes: Number(url.searchParams.get("tz_offset_minutes")) || 480,
+      });
       res.writeHead(200, {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",

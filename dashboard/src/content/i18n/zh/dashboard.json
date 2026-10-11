@@ -693,5 +693,14 @@
   "sessions.detail.session_id": "会话 ID",
   "sessions.detail.local_path": "本地路径",
   "sessions.detail.resume_command": "恢复命令",
-  "sessions.performance.first_response_value_single": "{{seconds}} 秒 · {{count}} 个样本"
+  "sessions.performance.first_response_value_single": "{{seconds}} 秒 · {{count}} 个样本",
+  "usage.overview.qoder_cn_official": "官方云端：累计 {{credits}} 积分 · 预估 ¥{{cost}} · {{messages}} 条（自 {{since}}）",
+  "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} tokens（估算：按 2026-07 实测 {{ratio}} tokens/条 折算）",
+  "usage.overview.qoder_cn_local_stale": "下方模型行＝官方分模型估算 + 2026-07 本机实测（新版 Qoder CN 不再在本机记录 token 数）",
+  "usage.overview.qoder_cn_period": "本周期官方云端：{{credits}} 积分 · 预估 ¥{{cost}} · {{messages}} 条（{{range}}）",
+  "usage.overview.qoder_cn_today": "今日实时：{{credits}} 积分 · ¥{{cost}} · {{messages}} 条（官方按自然日结算，今日取自实时明细）",
+  "usage.overview.qoder_cn_none": "本周期官方云端无消耗记录",
+  "usage.overview.workbuddy_credits": "{{name}}（本机积分账本）：本周期 {{credits}} 积分 ≈ {{symbol}}{{cost}} · 累计 {{total}} 积分（自 {{since}}，{{range}}）",
+  "usage.overview.workbuddy_none": "本周期 WorkBuddy 无积分记账",
+  "usage.overview.workbuddy_note": "WorkBuddy 按积分计费、不按 token；按发放积分的套餐单价折算（国内版 1000 积分 = ¥50，国际版 1000 积分 = $10）。只读本机账本文件，不上传。"
 }
