@@ -26,6 +26,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
+const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
 const readline = require("node:readline");
 const {
@@ -873,6 +874,248 @@ async function scanWorkbuddySession(filePath) {
       if (Number.isFinite(credit) && credit > 0) extras.credits += credit;
     },
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OpenCode — conversations live in one SQLite database, not a file each
+//
+// OpenCode's `session` table is already one row per conversation and carries the
+// five token columns, so a conversation's totals do not have to be reconstructed
+// from transcripts. Verified on this machine: those columns sum to exactly the
+// number the hourly collector queues for opencode (7,052,616,758), and adding up
+// the per-message tokens gives the same figure - which is why the table is
+// trusted for the totals while the message and part rows only supply the
+// per-model split, the turn signals and the sub-agent counts.
+//
+// Model ids come from `message.modelID` verbatim, the same string the collector
+// queues, so a conversation and its hourly row can never price differently. The
+// database is opened read-only, so a running OpenCode is never disturbed.
+// ─────────────────────────────────────────────────────────────────────────────
+const OPENCODE_SOURCE = "opencode";
+const OPENCODE_NO_TOOLS = new Set();
+// OpenCode changes files with `edit`, `write` and `patch`. The shared EDIT_TOOLS
+// set is deliberately not extended: Claude, Codex and Grok edit counts are
+// measured with it, and adding a name there would silently move their history.
+const OPENCODE_EDIT_TOOLS = new Set([...EDIT_TOOLS, "patch"]);
+const OPENCODE_SUBAGENT_TOOLS = new Set(["task"]);
+
+function resolveOpencodeDatabase(home, env = process.env) {
+  // Same precedence as the collector: an explicit OPENCODE_HOME names the data
+  // directory, otherwise XDG_DATA_HOME (default ~/.local/share), then opencode.db.
+  const explicit = typeof env.OPENCODE_HOME === "string" && env.OPENCODE_HOME.trim()
+    ? env.OPENCODE_HOME.trim()
+    : null;
+  if (explicit) return path.join(explicit, "opencode.db");
+  const xdg = typeof env.XDG_DATA_HOME === "string" && env.XDG_DATA_HOME.trim()
+    ? env.XDG_DATA_HOME.trim()
+    : path.join(home, ".local", "share");
+  return path.join(xdg, "opencode", "opencode.db");
+}
+
+function opencodeCount(value) {
+  const number = Math.floor(Number(value || 0));
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function opencodeIso(value) {
+  const ms = Number(value || 0);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return new Date(ms).toISOString();
+}
+
+function opencodeUsage(message) {
+  const usage = {
+    input_tokens: opencodeCount(message.input_tokens),
+    cached_input_tokens: opencodeCount(message.cache_read),
+    cache_creation_input_tokens: opencodeCount(message.cache_write),
+    output_tokens: opencodeCount(message.output_tokens),
+    reasoning_output_tokens: opencodeCount(message.reasoning_tokens),
+  };
+  usage.total_tokens = usage.input_tokens + usage.cached_input_tokens
+    + usage.cache_creation_input_tokens + usage.output_tokens + usage.reasoning_output_tokens;
+  return usage;
+}
+
+const OPENCODE_MESSAGE_SQL = `SELECT id,
+      json_extract(data,'$.role') AS role,
+      json_extract(data,'$.modelID') AS model,
+      json_extract(data,'$.time.created') AS created,
+      json_extract(data,'$.tokens.input') AS input_tokens,
+      json_extract(data,'$.tokens.output') AS output_tokens,
+      json_extract(data,'$.tokens.reasoning') AS reasoning_tokens,
+      json_extract(data,'$.tokens.cache.read') AS cache_read,
+      json_extract(data,'$.tokens.cache.write') AS cache_write
+    FROM message WHERE session_id = ? ORDER BY time_created, id`;
+
+const OPENCODE_TOOL_SQL = `SELECT message_id AS messageId, json_extract(data,'$.tool') AS tool
+    FROM part WHERE session_id = ? AND json_extract(data,'$.type') = 'tool'`;
+
+// Retries are the same user request twice in a row, which needs the prompt text.
+// Only user messages are read, so the bulk of the part table (assistant text and
+// reasoning) is never touched.
+const OPENCODE_PROMPT_SQL = `SELECT p.message_id AS messageId, json_extract(p.data,'$.text') AS text
+    FROM part p
+    WHERE p.session_id = ? AND json_extract(p.data,'$.type') = 'text'
+      AND (SELECT json_extract(m.data,'$.role') FROM message m WHERE m.id = p.message_id) = 'user'`;
+
+function buildOpencodeSessionRow(db, session) {
+  const tokens = {
+    input_tokens: opencodeCount(session.tokens_input),
+    cached_input_tokens: opencodeCount(session.tokens_cache_read),
+    cache_creation_input_tokens: opencodeCount(session.tokens_cache_write),
+    output_tokens: opencodeCount(session.tokens_output),
+    reasoning_output_tokens: opencodeCount(session.tokens_reasoning),
+  };
+  tokens.total_tokens = tokens.input_tokens + tokens.cached_input_tokens
+    + tokens.cache_creation_input_tokens + tokens.output_tokens + tokens.reasoning_output_tokens;
+
+  const messages = db.prepare(OPENCODE_MESSAGE_SQL).all(session.id);
+
+  // Tool parts are the only evidence of what a conversation actually changed, and
+  // they are read per session (part_session_idx), so an unchanged conversation
+  // costs nothing on the next refresh.
+  const toolsByMessage = new Map();
+  for (const part of db.prepare(OPENCODE_TOOL_SQL).all(session.id)) {
+    const name = String(part.tool || "").toLowerCase();
+    if (!name) continue;
+    const names = toolsByMessage.get(part.messageId) || new Set();
+    names.add(name);
+    toolsByMessage.set(part.messageId, names);
+  }
+
+  const promptByMessage = new Map();
+  for (const part of db.prepare(OPENCODE_PROMPT_SQL).all(session.id)) {
+    if (typeof part.text !== "string" || !part.text.trim()) continue;
+    promptByMessage.set(part.messageId, (promptByMessage.get(part.messageId) || "") + part.text);
+  }
+
+  const modelUsageByModel = new Map();
+  const editTurnsByModel = new Map();
+  const subagentTypes = new Map();
+  const bounds = emptyBounds();
+  let turns = 0;
+  let editTurns = 0;
+  let retryTurns = 0;
+  let subagentCalls = 0;
+  let currentHadEdit = false;
+  let currentTurnModel = null;
+  let lastPromptFingerprint = null;
+
+  function closeTurn() {
+    if (!currentHadEdit) return;
+    editTurns += 1;
+    const key = currentTurnModel || "unknown";
+    editTurnsByModel.set(key, (editTurnsByModel.get(key) || 0) + 1);
+    currentHadEdit = false;
+  }
+
+  for (const message of messages) {
+    updateBounds(bounds, opencodeIso(message.created));
+    for (const name of toolsByMessage.get(message.id) || OPENCODE_NO_TOOLS) {
+      if (OPENCODE_EDIT_TOOLS.has(name)) currentHadEdit = true;
+      if (OPENCODE_SUBAGENT_TOOLS.has(name)) {
+        subagentCalls += 1;
+        subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
+      }
+    }
+    if (message.role === "user") {
+      const prompt = promptByMessage.get(message.id);
+      if (!prompt) continue;
+      const fingerprint = promptFingerprint(prompt);
+      if (lastPromptFingerprint && fingerprint === lastPromptFingerprint) retryTurns += 1;
+      lastPromptFingerprint = fingerprint;
+      closeTurn();
+      turns += 1;
+      continue;
+    }
+    if (message.role !== "assistant") continue;
+    const model = normalizeSessionModel(message.model);
+    if (model) currentTurnModel = model;
+    const usage = opencodeUsage(message);
+    if (usage.total_tokens <= 0) continue;
+    const key = model || "unknown";
+    const row = modelUsageByModel.get(key) || { model: key, ...emptyTotals(), usage_events: 0 };
+    addTotals(row, usage);
+    row.usage_events += 1;
+    modelUsageByModel.set(key, row);
+  }
+  closeTurn();
+
+  const startedAt = opencodeIso(session.time_created) || bounds.started_at;
+  const endedAt = opencodeIso(session.time_updated) || bounds.ended_at;
+  const row = {
+    version: SIDECAR_VERSION,
+    session_hash: sessionHash(OPENCODE_SOURCE, session.id),
+    session_id: typeof session.id === "string" && session.id ? session.id : null,
+    parent_session_id: typeof session.parent_id === "string" && session.parent_id ? session.parent_id : null,
+    title: cleanSessionTitle(session.title),
+    source: OPENCODE_SOURCE,
+    project_key: projectKey(session.directory, null),
+    project_ref: typeof session.directory === "string" && session.directory ? session.directory : null,
+    model: modelUsageByModel.size === 1
+      ? [...modelUsageByModel.values()][0].model
+      : (modelUsageByModel.size > 1 ? "mixed" : "unknown"),
+    model_usage: [...modelUsageByModel.values()].map((usage) => ({
+      ...usage,
+      edit_turns: finite(editTurnsByModel.get(usage.model)),
+      performance: normalizePerformance(),
+    })),
+    ...bounds,
+    started_at: startedAt,
+    ended_at: endedAt,
+    turns,
+    edit_turns: editTurns,
+    retry_turns: retryTurns,
+    subagent_calls: subagentCalls,
+    subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
+    tokens,
+    provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "observed", content_retained: false },
+  };
+  // The stat key is what lets an unchanged conversation skip every per-session
+  // query next time: these are the only inputs the row reads.
+  const statKey = [
+    session.time_updated ?? "", session.time_created ?? "",
+    tokens.total_tokens, tokens.input_tokens, tokens.output_tokens,
+    tokens.cached_input_tokens, tokens.cache_creation_input_tokens, tokens.reasoning_output_tokens,
+    session.parent_id ?? "", session.title ?? "", session.directory ?? "",
+    messages.length, toolsByMessage.size, promptByMessage.size,
+  ].join("|");
+  return { row: finalizeRecord(row), statKey };
+}
+
+// Reads every OpenCode conversation as a session row. An absent or unreadable
+// database yields no rows: a machine without OpenCode must not lose the other
+// providers' sessions over one missing file.
+function readOpencodeSessions({ home, env = process.env, dbPath = null } = {}) {
+  const file = dbPath || resolveOpencodeDatabase(home, env);
+  let db = null;
+  try {
+    db = new DatabaseSync(file, { readOnly: true });
+  } catch {
+    return [];
+  }
+  const out = [];
+  try {
+    const sessions = db.prepare(`SELECT id, parent_id, title, directory, agent,
+        tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write,
+        time_created, time_updated
+      FROM session ORDER BY time_updated DESC`).all();
+    for (const session of sessions) {
+      try {
+        out.push(buildOpencodeSessionRow(db, session));
+      } catch (error) {
+        // One unreadable conversation must not cost the user the whole list.
+        if (!process.env.NODE_TEST_CONTEXT) {
+          console.warn(`[session-analytics] skipped opencode session: ${error?.message || error}`);
+        }
+      }
+    }
+  } catch {
+    return [];
+  } finally {
+    try { db.close(); } catch { /* already closed */ }
+  }
+  return out;
 }
 
 function createCodexDeliverySignalCollector() {
@@ -1753,7 +1996,12 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   // index in the overall signature so an index-only rename reaches the
   // per-file dependency check below on the next refresh. Grok titles/metadata
   // live in sibling summary.json / signals.json next to updates.jsonl.
+  // OpenCode's newest commits live in the write-ahead log, so both files belong
+  // in the signature; otherwise a fresh conversation would never be noticed.
+  const opencodeDbPath = resolveOpencodeDatabase(home);
   const signature = filesSignature([
+    opencodeDbPath,
+    opencodeDbPath + "-wal",
     ...discovered.claude.flat(),
     ...discovered.codex.flat(),
     ...discovered.codex.flat().map(codexTitleIndexPathFor).filter(Boolean),
@@ -1822,6 +2070,24 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     // A one-way file hash enables incremental reuse without persisting or
     // exposing the user's local session path.
     row._cache_key = cacheKey;
+    sessions.push(row);
+    nextFiles[cacheKey] = { stat_key: statKey };
+  }
+  // OpenCode keeps conversations in a database rather than one file each, so it
+  // is read after the file sources and cached per conversation by its own stat
+  // key instead of a file stat.
+  for (const { row, statKey } of readOpencodeSessions({ home })) {
+    const cacheKey = OPENCODE_SOURCE + "|" + (row.session_id || row.session_hash);
+    if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
+      const cached = previousRowsByFile.get(cacheKey);
+      if (cached) {
+        sessions.push(cached);
+        nextFiles[cacheKey] = previousFiles[cacheKey];
+        continue;
+      }
+    }
+    row._cache_key = cacheKey;
+    repriceSessionRecord(row);
     sessions.push(row);
     nextFiles[cacheKey] = { stat_key: statKey };
   }
@@ -2402,6 +2668,8 @@ module.exports = {
   sessionHash,
   scanClaudeSession,
   scanWorkbuddySession,
+  readOpencodeSessions,
+  resolveOpencodeDatabase,
   groupWorkbuddyConversationFiles,
   scanCodexSession,
   scanGrokSession,
