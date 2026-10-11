@@ -5,28 +5,39 @@ rem  Fork branch: usage-desk   Built from: D:\tt-fork
 rem  Installed in place at: D:\TokenTracker\TokenTracker.exe
 rem  Local panel: http://127.0.0.1:17680/?app=1
 rem
-rem  Already running  -> opens the panel in your default browser.
-rem  Not running yet  -> starts the app and waits for its local server.
-rem  The desktop pet and the quota widget use the same server, so this
-rem  launcher is also the way to bring them back after a reboot.
+rem  This is a desktop app, not a web page. The launcher always aims at the
+rem  native window first:
+rem    app already showing a window -> bring that window to the front
+rem    app running with no window    -> open the local panel in the browser
+rem    app not running               -> start it and wait for its local server
+rem  The desktop pet and the quota widget share the same local server, so this
+rem  is also the way to bring them back after a reboot.
 rem ============================================================
 setlocal EnableExtensions
 set "APP=D:\TokenTracker\TokenTracker.exe"
 set "URL=http://127.0.0.1:17680/?app=1"
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Get-NetTCPConnection -LocalPort 17680 -State Listen -ErrorAction SilentlyContinue) { 'UP' } else { 'DOWN' }" | findstr /C:"UP" >nul
-if not errorlevel 1 goto warm
-goto cold
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $p = Get-Process -Name 'TokenTracker' | Select-Object -First 1; if (-not $p) { 'NOTRUNNING'; exit }; if ($p.MainWindowHandle -ne 0) { $ok = (New-Object -ComObject WScript.Shell).AppActivate($p.Id); if ($ok) { 'FOCUSED' } else { 'NOWINDOW' } } else { 'NOWINDOW' }" | findstr /C:"NOTRUNNING" >nul
+if not errorlevel 1 goto cold
 
-:warm
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $p = Get-Process -Name 'TokenTracker' | Select-Object -First 1; if ($p -and $p.MainWindowHandle -ne 0) { 'FOCUSED' } else { 'NOWINDOW' }" | findstr /C:"FOCUSED" >nul
+if not errorlevel 1 goto focused
+goto panel
+
+:focused
+echo Usage Desk: the app window is in front of you.
+ping -n 3 127.0.0.1 >nul
+goto end
+
+:panel
+echo Usage Desk: the app is running without a window, opening the local panel...
 start "" "%URL%"
-echo Usage Desk: panel opened in your default browser.
 ping -n 3 127.0.0.1 >nul
 goto end
 
 :cold
 if not exist "%APP%" goto missing
-echo Usage Desk: starting the app, the window shows your panel...
+echo Usage Desk: starting the app...
 start "" "%APP%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok = $false; for ($i = 0; $i -lt 40; $i++) { if (Get-NetTCPConnection -LocalPort 17680 -State Listen -ErrorAction SilentlyContinue) { $ok = $true; break }; Start-Sleep -Seconds 1 }; if ($ok) { 'READY' } else { 'SLOW' }" | findstr /C:"SLOW" >nul
 if not errorlevel 1 goto slow

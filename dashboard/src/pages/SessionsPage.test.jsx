@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSessions } from "../lib/sessions-api";
 import { SessionsPage } from "./SessionsPage.jsx";
+import { TokenFormatProvider } from "../ui/foundation/TokenFormatProvider.jsx";
 import { copy } from "../lib/copy";
 
 vi.mock("../lib/sessions-api", () => ({
@@ -165,6 +166,28 @@ describe("SessionsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "View statistics for Instant response" }));
     expect(within(screen.getByRole("dialog")).getByText("0.00s · 1 sample")).toBeInTheDocument();
   });
+  it("follows the Chinese token-unit setting on rows and on the summary", async () => {
+    window.localStorage.setItem("tt.tokenUnitSystem", "chinese");
+    const row = makeThreadSession({
+      session_hash: "yi-row",
+      title: "A hundred million tokens",
+      total_tokens: 123_456_789,
+      own_total_tokens: 123_456_789,
+      combined_total_tokens: 123_456_789,
+    });
+    getSessions.mockResolvedValue({ ...response, sessions: [row], session_count: 1, returned_count: 1 });
+    render(
+      <TokenFormatProvider>
+        <SessionsPage />
+      </TokenFormatProvider>,
+    );
+    await screen.findByText("A hundred million tokens");
+    // The usage page honours 万/亿; the sessions surface used to print K/M/B
+    // regardless of the setting, so assert the unit actually reaches both places.
+    expect(screen.getAllByText(/亿/).length).toBeGreaterThanOrEqual(2);
+    expect(document.body.textContent).not.toMatch(/123\.5M/);
+  });
+
   it("shows WorkBuddy credits per conversation with the number interpolated", async () => {
     const row = makeThreadSession({
       session_hash: "workbuddy-row",

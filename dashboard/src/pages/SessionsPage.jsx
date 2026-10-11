@@ -13,6 +13,7 @@ import { getSessions } from "../lib/sessions-api";
 import { formatDuration, formatWhen } from "../lib/session-format";
 import { formatCompactNumber, formatUsdCurrency } from "../lib/format";
 import { useCurrency } from "../hooks/useCurrency";
+import { useTokenFormat } from "../hooks/useTokenFormat.js";
 import { useLocale } from "../hooks/useLocale";
 import { isLocalDashboardHost } from "../lib/host-mode";
 import { isMockEnabled } from "../lib/mock-data";
@@ -81,11 +82,11 @@ function startsOnGroupDay(session) {
   return !Number.isFinite(started) || sessionDayKey({ started_at: session.started_at }) === sessionDayKey(session);
 }
 
-function modelUsageLabel(session) {
+function modelUsageLabel(session, formatTokens) {
   const rows = sessionModels(session);
   if (rows.length === 1) return rows[0].model || copy("sessions.model.unknown");
   return rows
-    .map((row) => `${row.model} ${formatCompactNumber(Number(row.total_tokens || 0))}`)
+    .map((row) => `${row.model} ${formatTokens(Number(row.total_tokens || 0))}`)
     .join(" · ");
 }
 
@@ -117,6 +118,7 @@ const SessionRow = React.memo(function SessionRow({
   onDetail,
 }) {
   const { currency, rate } = useCurrency();
+  const { formatTokens } = useTokenFormat();
   const provider = String(session.source || "").toUpperCase();
   const duration = formatDuration(session.duration_ms);
   const command = session.resume_command;
@@ -207,7 +209,7 @@ const SessionRow = React.memo(function SessionRow({
           </button>
           <div className="sessions-row-meta mt-0.5 flex min-w-0 flex-wrap items-center gap-y-1 text-xs text-oai-gray-500 dark:text-oai-gray-400">
             <span className="sessions-meta-item min-w-0 max-w-full">{session.project_ref ? projectLabelNode("min-h-6 inline-flex items-center md:min-h-0") : <span className="truncate">{projectLabel}</span>}</span>
-            <span className="sessions-meta-item min-w-0 max-w-full truncate" title={modelUsageLabel(session)}>{modelUsageLabel(session)}</span>
+            <span className="sessions-meta-item min-w-0 max-w-full truncate" title={modelUsageLabel(session, formatTokens)}>{modelUsageLabel(session, formatTokens)}</span>
             <span className="sessions-meta-item tabular-nums">{formatWhen(session.started_at, locale, { timeOnly: timeOnly && startsOnGroupDay(session) })}</span>
             {duration ? <span className="sessions-meta-item tabular-nums">{duration}</span> : null}
             {isSubagent ? <span className="sessions-meta-item">{copy("sessions.badge.subagent")}{session.agent_role ? ` · ${session.agent_role}` : ""}</span> : null}
@@ -233,11 +235,11 @@ const SessionRow = React.memo(function SessionRow({
         <div className="sessions-row-value">
           <dt className="text-xs text-oai-gray-600 dark:text-oai-gray-300 md:sr-only">{copy("sessions.col.tokens")}</dt>
           <dd
-            title={Number(session.subagent_total_tokens) ? copy("sessions.thread.tokens_summary", { own: formatCompactNumber(session.own_total_tokens), subagents: formatCompactNumber(session.subagent_total_tokens), combined: formatCompactNumber(session.combined_total_tokens) }) : undefined}
+            title={Number(session.subagent_total_tokens) ? copy("sessions.thread.tokens_summary", { own: formatTokens(session.own_total_tokens), subagents: formatTokens(session.subagent_total_tokens), combined: formatTokens(session.combined_total_tokens) }) : undefined}
             className="mt-1 text-sm tabular-nums text-oai-black dark:text-white md:mt-0"
           >
-            {formatCompactNumber(session.total_tokens)}
-            {Number(session.subagent_total_tokens) ? <span className="mt-0.5 block text-xs text-oai-gray-500 dark:text-oai-gray-400">Σ {formatCompactNumber(session.combined_total_tokens)}</span> : null}
+            {formatTokens(session.total_tokens)}
+            {Number(session.subagent_total_tokens) ? <span className="mt-0.5 block text-xs text-oai-gray-500 dark:text-oai-gray-400">Σ {formatTokens(session.combined_total_tokens)}</span> : null}
           </dd>
         </div>
         <div className="sessions-row-value">
@@ -266,6 +268,7 @@ const SessionRow = React.memo(function SessionRow({
 });
 
 function ThreadModelUsage({ sessions, selectedModel, onSelect }) {
+  const { formatTokens } = useTokenFormat();
   const { groups, totalTokens } = useMemo(() => {
     const byModel = new Map();
     let total = 0;
@@ -309,7 +312,7 @@ function ThreadModelUsage({ sessions, selectedModel, onSelect }) {
         >
           {copy("sessions.thread.model_all", {
             count: sessions.length,
-            tokens: formatCompactNumber(totalTokens),
+            tokens: formatTokens(totalTokens),
           })}
         </button>
         {groups.map((group) => (
@@ -323,7 +326,7 @@ function ThreadModelUsage({ sessions, selectedModel, onSelect }) {
             {copy("sessions.thread.model_item", {
               model: group.model,
               count: group.count,
-              tokens: formatCompactNumber(group.tokens),
+              tokens: formatTokens(group.tokens),
             })}
           </button>
         ))}
@@ -333,6 +336,7 @@ function ThreadModelUsage({ sessions, selectedModel, onSelect }) {
 }
 
 export function SessionsPage() {
+  const { formatTokens } = useTokenFormat();
   const [initialFilters] = useState(() => parseSessionFilters(window.location.search));
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -630,7 +634,7 @@ export function SessionsPage() {
             <section className="mb-6 flex items-start gap-3 rounded-lg border border-oai-gray-200 px-4 py-3 dark:border-oai-gray-800">
               <dl className="sessions-kpis grid min-w-0 flex-1 grid-cols-2 gap-y-3 sm:grid-cols-4">
                 <div><dt className="text-xs text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.summary.count")}</dt><dd className="mt-1 text-lg font-medium tabular-nums">{formatCompactNumber(summary.count)}</dd></div>
-                <div><dt className="text-xs text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.col.tokens")}</dt><dd className="mt-1 text-lg font-medium tabular-nums">{formatCompactNumber(summary.tokens)}</dd></div>
+                <div><dt className="text-xs text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.col.tokens")}</dt><dd className="mt-1 text-lg font-medium tabular-nums">{formatTokens(summary.tokens)}</dd></div>
                 <div><dt className="text-xs text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.col.cost")}</dt><dd className="mt-1 text-lg font-medium tabular-nums">{summary.costIsPartial ? "≥" : ""}{formatUsdCurrency(summary.cost, { currency, rate })}</dd></div>
                 <div><dt className="text-xs text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.summary.speed")}</dt><dd className="mt-1 text-lg font-medium tabular-nums"><SessionPerformance performance={summary.performance} />{summary.performance.estimated_tokens_per_second == null ? "—" : null}</dd></div>
               </dl>

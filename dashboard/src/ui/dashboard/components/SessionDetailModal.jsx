@@ -5,6 +5,7 @@ import { formatCompactNumber, formatUsdCurrency } from "../../../lib/format";
 import { sessionModels, sessionOwnCost, sessionOwnTokens, summarizeSessions } from "../../../lib/sessions-insights";
 import { formatDuration, formatWhen } from "../../../lib/session-format";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 import { useLocale } from "../../../hooks/useLocale";
 import { ProviderIcon } from "./ProviderIcon.jsx";
 import { SessionPerformance } from "./SessionPerformance.jsx";
@@ -70,6 +71,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
   const closeRef = useRef(null);
   const dialogRef = useRef(null);
   const { currency, rate } = useCurrency();
+  const { formatTokens } = useTokenFormat();
   const { resolvedLocale } = useLocale();
   const formatCost = (value) => formatUsdCurrency(value, { currency, rate });
   const models = sessionModels(session);
@@ -170,7 +172,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
           <section aria-label={copy("sessions.detail.consumption")}>
             <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-oai-gray-200 dark:border-oai-gray-800">
-              <Kpi label={copy("sessions.col.tokens")}>{formatCompactNumber(ownTokens + subagentTokens)}</Kpi>
+              <Kpi label={copy("sessions.col.tokens")}>{formatTokens(ownTokens + subagentTokens)}</Kpi>
               <Kpi label={copy("sessions.col.cost")} className="border-l">{combinedPartial ? "≥" : ""}{formatCost(ownCost + subagentCost)}</Kpi>
               <Kpi label={copy("sessions.summary.speed")} className="border-t" title={hasSpeed ? copy("sessions.performance.samples", { count: performance.estimated_request_count }) : copy("sessions.detail.no_speed")}>
                 {hasSpeed ? <SessionPerformance performance={performance} /> : "—"}
@@ -188,7 +190,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
                 {ledger.map((row) => (
                   <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_80px_88px] items-baseline gap-3 text-sm">
                     <dt className="text-oai-gray-600 dark:text-oai-gray-300">{row.label}</dt>
-                    <dd className="text-right tabular-nums">{formatCompactNumber(row.tokens)}</dd>
+                    <dd className="text-right tabular-nums">{formatTokens(row.tokens)}</dd>
                     <dd className="text-right tabular-nums">{row.partial ? "≥" : ""}{formatCost(row.cost)}</dd>
                   </div>
                 ))}
@@ -204,7 +206,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
           <section className="mt-6">
             <h3 className="text-sm font-medium text-oai-black dark:text-white">{copy("sessions.detail.tokens")}</h3>
             <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-1.5 sm:grid-cols-2">
-              {TOKEN_ROWS.map(({ key, label }) => <Stat key={key} label={label()}>{session[key] == null ? "—" : formatCompactNumber(session[key])}</Stat>)}
+              {TOKEN_ROWS.map(({ key, label }) => <Stat key={key} label={label()}>{session[key] == null ? "—" : formatTokens(session[key])}</Stat>)}
             </dl>
           </section>
 
@@ -224,7 +226,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
                   <li key={model.model} className="py-2.5">
                     <div className="grid grid-cols-[minmax(0,1fr)_80px_88px] items-baseline gap-3 text-sm">
                       <span className="min-w-0 break-words text-oai-black dark:text-white">{model.model || copy("sessions.model.unknown")}</span>
-                      <span className="text-right tabular-nums">{formatCompactNumber(model.total_tokens)}</span>
+                      <span className="text-right tabular-nums">{formatTokens(model.total_tokens)}</span>
                       <span className="text-right tabular-nums">{unpriced && !hasKnownCost ? "—" : formatCost(modelCost)}</span>
                     </div>
                     {/* Per-model speed and the pricing disclosure share one muted
@@ -258,7 +260,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
               ))}
             </dl>
             {isGrok && session.usage_precision ? <p className="pb-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.grok.runtime_breakdown", { calls: formatCompactNumber(session.model_calls), seconds: (Number(session.api_duration_ms || 0) / 1000).toFixed(1), tools: formatCompactNumber(session.tool_calls), errors: formatCompactNumber(session.error_count) })}</p> : null}
-            {contextAvailable ? <p className="pb-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.grok.context_breakdown", { used: formatCompactNumber(session.context_tokens_used), window: formatCompactNumber(session.context_window_tokens), percent: Number(session.context_usage_percent || 0).toFixed(0) })}</p> : null}
+            {contextAvailable ? <p className="pb-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.grok.context_breakdown", { used: formatTokens(session.context_tokens_used), window: formatTokens(session.context_window_tokens), percent: Number(session.context_usage_percent || 0).toFixed(0) })}</p> : null}
           </details>
 
           <details className="border-t border-oai-gray-200 dark:border-oai-gray-800">
