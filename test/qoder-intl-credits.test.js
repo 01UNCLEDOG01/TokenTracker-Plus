@@ -10,6 +10,7 @@ const {
   qoderIntlCreditRows,
   qoderIntlCreditMirrorFile,
   QODER_INTL_USD_PER_CREDIT,
+  QODER_INTL_TOKEN_PRICE_USD_PER_MTOK,
 } = require("../src/lib/qoder-intl-credits");
 const { computeRowCost } = require("../src/lib/pricing");
 
@@ -32,8 +33,9 @@ const usageRecord = (timestamp, credits, model = "gpt-5.6-high") => ({
   message: { role: "assistant", model, usage: { input_tokens: 0, output_tokens: 0, credits } },
 });
 
-test("credits become money without inventing tokens", () => {
+test("credits convert to derived tokens at the qwen3.8-flash input rate", () => {
   assert.equal(QODER_INTL_USD_PER_CREDIT, 0.01, "the published Pro rate is $20 for 2,000 credits");
+  assert.equal(QODER_INTL_TOKEN_PRICE_USD_PER_MTOK, 0.15, "the published qwen3.8-flash input rate, USD per MTok");
   const { home, projects } = sandbox([
     usageRecord("2026-10-09T06:00:00.000Z", 1.5),
     usageRecord("2026-10-09T07:00:00.000Z", 2.25),
@@ -44,9 +46,12 @@ test("credits become money without inventing tokens", () => {
     assert.equal(rows.length, 2, "one row per Beijing day");
     const sum = (k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0);
     assert.equal(sum("credits"), 4);
-    assert.equal(sum("total_tokens"), 0, "no token figure is fabricated");
-    assert.equal(sum("billable_total_tokens"), 0, "nor a billable one");
+    // 4 credits = $0.04, divided by $0.15 per MTok, so the equivalence is
+    // ~266,667 tokens. Derived, never read off the wire, and flagged as such.
     assert.equal(sum("total_cost_usd"), 0.04, "4 credits at the published rate");
+    assert.equal(sum("total_tokens"), 266_667, "credits convert into derived tokens");
+    assert.equal(sum("billable_total_tokens"), 266_667, "the billable figure matches");
+    assert.ok(rows.every((r) => r.tokens_derived === true), "every row is marked as derived");
     assert.equal(rows[0].source, "qoder");
     assert.equal(rows[0].model, "gpt-5.6-high");
     assert.equal(rows[0].conversation_count, 0, "requests are not conversations");
@@ -154,7 +159,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
     assert.deepEqual(first.map((r) => r.model), ["官方云端（积分）"]);
     const file = qoderIntlCreditMirrorFile({ home });
     const mirror = JSON.parse(fs.readFileSync(file, "utf8"));
-    assert.equal(mirror.version, 2, "the current derivation version is recorded");
+    assert.equal(mirror.version, 3, "the current derivation version is recorded");
 
     // Replay the pre-mapping mirror this code shipped before the fix: same
     // signature, stale row shape. The tree never changed, so only the version
@@ -164,7 +169,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
     fs.writeFileSync(file, JSON.stringify(mirror));
     const second = qoderIntlCreditRows([], { projectsDir: projects, home });
     assert.deepEqual(second.map((r) => r.model), ["官方云端（积分）"], "the stale label must not come back");
-    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, 2, "the mirror is upgraded in place");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, 3, "the mirror is upgraded in place");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

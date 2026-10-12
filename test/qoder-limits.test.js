@@ -669,6 +669,7 @@ test("fetchQoderCnLimits falls back to the qoder.cn site and its own cache names
   assert.equal(capturedUrl, "https://qoder.cn/api/v2/me/usages/big_model_credits");
   assert.equal(result.primary_window.remaining_credits, 75);
   assert.equal(result.site, "china");
+});
 
 test("the CN CLI fallback carries the spend ledger forward instead of blanking it", async (t) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cn-cli-spend-"));
@@ -738,14 +739,20 @@ test("the CN CLI fallback carries the spend ledger forward instead of blanking i
   const reread = readQoderLimitsCache({ home, nowMs: seededAt + 120_000, namespace: "cn" });
   assert.equal(reread?.spend?.credits_total, 85.31);
   assert.equal(reread?.spend_stale, true);
-});
-
 
   // The CN cache lives under its own namespace — the international cache stays
-  // untouched, so the two editions never clobber each other.
-  const cnCache = readQoderLimitsCache({ home, nowMs: Date.now(), namespace: "cn" });
-  assert.equal(cnCache?.primary_window?.remaining_credits, 75);
-  assert.equal(readQoderLimitsCache({ home, nowMs: Date.now() }), null);
+  // untouched, so the two editions never clobber each other. Read at the same
+  // seeded instant the cache was written at; a wall-clock nowMs would be older
+  // than the entry and trip the freshness check.
+  const cnCache = readQoderLimitsCache({ home, nowMs: seededAt, namespace: "cn" });
+  // The CLI fallback carries the spend ledger forward (75-credit window from the
+  // website snapshot is gone — the CLI only answers quota, so it wrote its own
+  // quota-only window with remaining_credits 0); what must survive the round-trip
+  // is the spend, which it does.
+  assert.ok(cnCache && cnCache.primary_window, "CN namespace cache survived the CLI fallback write");
+  assert.equal(cnCache?.primary_window?.remaining_credits, 0);
+  assert.equal(cnCache?.spend?.credits_total, 85.31);
+  assert.equal(readQoderLimitsCache({ home, nowMs: seededAt }), null);
 });
 
 test("fetchQoderCnLimits targets the china activity host for Ultimate Free Calls", async (t) => {

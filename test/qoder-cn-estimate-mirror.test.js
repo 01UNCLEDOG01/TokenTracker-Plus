@@ -40,7 +40,7 @@ test("a warm limits cache writes the mirror", () => {
     assert.ok(rows.length > 0, "the estimate produced rows");
     const mirror = JSON.parse(fs.readFileSync(qoderCnEstimateMirrorFile({ home }), "utf8"));
     assert.deepEqual(mirror.rows.map((r) => r.total_tokens).sort(), rows.map((r) => r.total_tokens).sort());
-    assert.equal(mirror.version, 1);
+    assert.equal(mirror.version, 2);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -107,6 +107,54 @@ test("an empty derivation never erases a good mirror", () => {
     assert.equal(qoderCnEstimatedRows(local, { home }).length, 0, "nothing left to estimate");
     const mirror = JSON.parse(fs.readFileSync(qoderCnEstimateMirrorFile({ home }), "utf8"));
     assert.equal(mirror.rows.length, warm.length, "the mirror survived the empty derivation");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("estimated rows carry the local input/cached/output split, not zeros", () => {
+  const home = sandbox(healthy);
+  try {
+    // The rows Qoder CN froze in 2026-07 still carry a real split; reusing it
+    // is what keeps the card's "86% cache hit" line on the same scale as the
+    // headline instead of two orders of magnitude below it.
+    const local = [
+      { source: "qoder-cn", model: "qmodel_preview", hour_start: "2026-07-20T04:00:00.000Z",
+        total_tokens: 1000, billable_total_tokens: 1000,
+        input_tokens: 136, cached_input_tokens: 858, cache_creation_input_tokens: 0,
+        output_tokens: 6, reasoning_output_tokens: 0, total_cost_usd: 0, conversation_count: 0 },
+    ];
+    const rows = qoderCnEstimatedRows(local, { home });
+    assert.ok(rows.length > 0, "the estimate produced rows");
+    const sum = (field) => rows.reduce((total, row) => total + (Number(row[field]) || 0), 0);
+    const total = sum("total_tokens");
+    assert.ok(total > 0, "the estimate has a total");
+    assert.ok(sum("input_tokens") > 0, "input_tokens must not stay at zero");
+    assert.ok(sum("cached_input_tokens") > 0, "cached_input_tokens must not stay at zero");
+    assert.equal(
+      sum("input_tokens") + sum("cached_input_tokens") + sum("output_tokens"),
+      total,
+      "the component fields must sum back to the total",
+    );
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a cold mirror with no split is upgraded the same way the warm path splits", () => {
+  const home = sandbox(healthy);
+  try {
+    const warm = qoderCnEstimatedRows([], { home });
+    assert.ok(warm.length > 0);
+    const fieldSums = (rows, field) => rows.reduce((total, row) => total + (Number(row[field]) || 0), 0);
+    // The warm rows carry no split because no local shape was supplied.
+    assert.equal(fieldSums(warm, "input_tokens"), fieldSums(warm, "total_tokens"),
+      "without a local shape everything lands in input_tokens");
+    fs.rmSync(qoderCnLimitsCacheFile({ home }));
+    const cold = qoderCnEstimatedRows([], { home });
+    assert.deepEqual(cold.map((r) => [r.model, r.hour_start, r.total_tokens, r.input_tokens]),
+      warm.map((r) => [r.model, r.hour_start, r.total_tokens, r.input_tokens]),
+      "the cold path must not invent a different split than the warm one");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

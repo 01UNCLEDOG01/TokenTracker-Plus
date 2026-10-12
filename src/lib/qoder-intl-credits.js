@@ -12,19 +12,39 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { qoderCnTokenShape } = require("./qoder-cn-estimate");
+
 const QODER_INTL_SOURCE = "qoder";
 // Pro is $20 for 2,000 credits. This is the published rate, not a fitted one.
 const QODER_INTL_USD_PER_CREDIT = 0.01;
+// qwen3.8-flash input price from lib/pricing/curated-overrides.json, USD per
+// MTok. The international edition records credits and no tokens, so the token
+// figures are derived from the money at this rate rather than read from any
+// transcript field - every `message.usage` here carries five zero token fields.
+const QODER_INTL_TOKEN_PRICE_USD_PER_MTOK = 0.15;
 const QODER_INTL_FALLBACK_MODEL = "官方云端（积分）";
+// The user only runs qwen3.8-flash on this edition, so the derived tokens are
+// attributed to that model instead of the opaque router string Qoder writes.
+const QODER_INTL_TOKEN_MODEL = "qwen3.8-flash（按积分反推）";
 // Qoder's transcripts name their router, not a model: all 1,398 credit records
 // on this machine read `qfmodel`, which carries no identity and no rate. The CN
 // estimate labels the same undisclosed-router case after the cloud plan, so
 // this does too instead of printing an opaque internal string as a model.
 const QODER_INTL_UNDISCLOSED_MODELS = new Set(["qfmodel"]);
 // Bumped whenever the rows this module derives change shape or meaning, so an
-// existing mirror is rebuilt instead of replayed. 2 = the router-name mapping.
-const QODER_INTL_MIRROR_VERSION = 2;
+// existing mirror is rebuilt instead of replayed.
+//   2 = the router-name mapping, 3 = derived token figures.
+const QODER_INTL_MIRROR_VERSION = 3;
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
+const TOKEN_FIELDS = [
+  "input_tokens",
+  "cached_input_tokens",
+  "cache_creation_input_tokens",
+  "output_tokens",
+  "reasoning_output_tokens",
+  "total_tokens",
+  "billable_total_tokens",
+];
 
 function qoderIntlCreditMirrorFile({ home = os.homedir() } = {}) {
   return path.join(home, ".tokentracker", "tracker", "qoder-intl-credit-rows.json");
@@ -92,7 +112,7 @@ function writeMirror(payload, { home }) {
   }
 }
 
-function scanCredits(projectsDir) {
+function scanCredits(projectsDir, allRows) {
   const byDayModel = new Map();
   let requests = 0;
   for (const file of listJsonl(projectsDir)) {
@@ -120,30 +140,62 @@ function scanCredits(projectsDir) {
       requests += 1;
     }
   }
+  // The CN edition's token shape, reused so the derived international tokens
+  // are shaped like the ones the CN edition really recorded instead of being
+  // dumped into input_tokens alone (which would read as 0% cache hit).
+  const shape = qoderCnTokenShape(Array.isArray(allRows) ? allRows : []);
+  const usable = shape && Object.values(shape).some((share) => share > 0);
   const rows = [...byDayModel.values()]
     .sort((a, b) => a.day.localeCompare(b.day) || a.model.localeCompare(b.model))
-    .map((entry) => ({
-      source: QODER_INTL_SOURCE,
-      model: entry.model,
-      // 04:00Z is Beijing midday, the same convention the CN estimate uses so
-      // a derived day lands in neither the early-morning nor the late-night bin.
-      hour_start: `${entry.day}T04:00:00.000Z`,
-      input_tokens: 0,
-      cached_input_tokens: 0,
-      cache_creation_input_tokens: 0,
-      output_tokens: 0,
-      reasoning_output_tokens: 0,
-      total_tokens: 0,
-      billable_total_tokens: 0,
-      // Authoritative for this source (see SOURCES_WITH_AUTHORITATIVE_COST):
-      // the money is what Qoder charged, and there is no token figure to price.
-      total_cost_usd: Math.round(entry.credits * QODER_INTL_USD_PER_CREDIT * 1e6) / 1e6,
-      credits: Math.round(entry.credits * 1e6) / 1e6,
-      requests: entry.requests,
-      // Requests are not conversations; leaving this at 0 keeps the session
-      // counters honest about an edition that records no conversation tokens.
-      conversation_count: 0,
-    }));
+    .map((entry) => {
+      const usd = Math.round(entry.credits * QODER_INTL_USD_PER_CREDIT * 1e6) / 1e6;
+      // Derived, not measured: money divided by the published input rate. The
+      // panel labels these rows as estimates so they never read as counts that
+      // came off the wire.
+      const total = Math.round((usd / QODER_INTL_TOKEN_PRICE_USD_PER_MTOK) * 1e6);
+      const tokens = { total_tokens: total, billable_total_tokens: total };
+      if (usable) {
+        let assigned = 0;
+        for (const field of TOKEN_FIELDS) {
+          if (field === "total_tokens" || field === "billable_total_tokens") continue;
+          tokens[field] = Math.round(total * shape[field]);
+          assigned += tokens[field];
+        }
+        // Absorb the per-field rounding drift so the components always sum to
+        // the derived total.
+        tokens.output_tokens += total - assigned;
+      } else {
+        for (const field of TOKEN_FIELDS) {
+          if (field === "total_tokens" || field === "billable_total_tokens") continue;
+          tokens[field] = 0;
+        }
+        tokens.input_tokens = total;
+      }
+      return {
+        source: QODER_INTL_SOURCE,
+        model: entry.model,
+        // 04:00Z is Beijing midday, the same convention the CN estimate uses so
+        // a derived day lands in neither the early-morning nor the late-night bin.
+        hour_start: `${entry.day}T04:00:00.000Z`,
+        input_tokens: tokens.input_tokens,
+        cached_input_tokens: tokens.cached_input_tokens,
+        cache_creation_input_tokens: tokens.cache_creation_input_tokens,
+        output_tokens: tokens.output_tokens,
+        reasoning_output_tokens: tokens.reasoning_output_tokens,
+        total_tokens: total,
+        billable_total_tokens: total,
+        tokens_derived: true,
+        // Authoritative for this source (see SOURCES_WITH_AUTHORITATIVE_COST):
+        // the money is what Qoder charged. The token figures are the derived
+        // half and are marked as such rather than presented as measured.
+        total_cost_usd: usd,
+        credits: Math.round(entry.credits * 1e6) / 1e6,
+        requests: entry.requests,
+        // Requests are not conversations; leaving this at 0 keeps the session
+        // counters honest about an edition that records no conversation tokens.
+        conversation_count: 0,
+      };
+    });
   return { rows, requests };
 }
 
@@ -165,7 +217,7 @@ function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {})
   const signature = treeSignature(files);
   const mirror = readMirror({ home });
   if (mirror && mirror.signature === signature) return mirror.rows;
-  const scanned = scanCredits(projectsDir);
+  const scanned = scanCredits(projectsDir, allRows);
   if (scanned.rows.length === 0) return mirror?.rows || [];
   writeMirror({ version: QODER_INTL_MIRROR_VERSION, synced_at: new Date().toISOString(), signature, rows: scanned.rows }, { home });
   return scanned.rows;
@@ -174,6 +226,7 @@ function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {})
 module.exports = {
   QODER_INTL_SOURCE,
   QODER_INTL_USD_PER_CREDIT,
+  QODER_INTL_TOKEN_PRICE_USD_PER_MTOK,
   qoderIntlCreditRows,
   qoderIntlCreditMirrorFile,
 };

@@ -117,7 +117,7 @@ const SUMMARY = "/functions/tokentracker-usage-summary?from=2026-01-01&to=2026-1
 const DAILY = "/functions/tokentracker-usage-daily?from=2026-01-01&to=2026-12-31";
 const BREAKDOWN = "/functions/tokentracker-usage-model-breakdown?from=2026-01-01&to=2026-12-31";
 
-test("the credit spend reaches every usage endpoint without adding tokens", async () => {
+test("the credit spend reaches every usage endpoint and carries derived tokens", async () => {
   const queuePath = path.join(tmpHome, "queue.jsonl");
   writeQueue(queuePath);
   const withoutTranscripts = {
@@ -135,20 +135,26 @@ test("the credit spend reaches every usage endpoint without adding tokens", asyn
   const base = Number(withoutTranscripts.summary.totals.total_cost_usd);
   const costDelta = Number(summary.totals.total_cost_usd) - base;
   assert.ok(Math.abs(costDelta - 0.05) < 1e-9, `5 credits must add $0.05, got ${costDelta}`);
-  assert.equal(summary.totals.total_tokens, withoutTranscripts.summary.totals.total_tokens, "no tokens invented");
+  // 5 credits = $0.05, which at the qwen3.8-flash input rate (0.15 USD/MTok)
+  // is ~333,333 derived tokens. They are derived, never read off the wire.
+  const derived = Math.round((0.05 / 0.15) * 1e6);
+  assert.equal(summary.totals.total_tokens, withoutTranscripts.summary.totals.total_tokens + derived, "the derived tokens land on the cloud total");
   assert.equal(
     summary.totals.conversation_count,
     withoutTranscripts.summary.totals.conversation_count,
     "requests are not conversations",
   );
 
-  const creditDays = daily.data.filter((d) => Number(d.total_cost_usd) - 0 > 0 && d.total_tokens === 0);
-  assert.equal(creditDays.length, 1, "exactly one token-free, money-bearing day");
-  assert.ok(Math.abs(Number(creditDays[0].total_cost_usd) - 0.05) < 1e-9);
+  // Both records of writeIntlTranscript land on 2026-10-09 Beijing time, so
+  // that is the single day that gains money and derived tokens.
+  const creditDay = daily.data.find((d) => d.day === "2026-10-09");
+  assert.ok(creditDay, "the transcript day must be present in the daily rows");
+  assert.ok(Math.abs(Number(creditDay.total_cost_usd) - 0.05) < 1e-9);
+  assert.equal(creditDay.total_tokens, derived, "the credit day carries its derived tokens");
 
   const qoder = breakdown.sources.find((s) => s.source === "qoder");
   assert.ok(qoder, "the breakdown must carry a qoder source");
-  assert.equal(qoder.totals.total_tokens, 0);
+  assert.equal(qoder.totals.total_tokens, derived);
   assert.equal(qoder.totals.total_cost_usd, "0.050000");
   assert.equal(qoder.models.length, 1);
   assert.equal(qoder.models[0].model, "gpt-5.6-high");

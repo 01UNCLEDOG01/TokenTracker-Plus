@@ -188,6 +188,26 @@ function normalizeUnslothModel(model) {
   return model;
 }
 
+// Qoder CN's model rows arrive from two places: raw local transcripts, and the
+// credits-derived estimate rows synthesised by qoder-cn-estimate.js. The
+// estimate rows decorate the id with a "（估算）" (estimated) suffix, and Qoder's
+// auto-router is recorded as the literal "Auto" — neither is a real SKU. Strip
+// the decoration, then map the router onto Qoder CN's representative model
+// (Qwen3.8-Flash), the same way WorkBuddy's "auto" maps to its default. Without
+// the router remap, "Auto（估算）" would fall through to the Cursor alias
+// ("auto" -> composer-1) and bill Qoder usage at an unrelated vendor's rate.
+const QODER_CN_ESTIMATE_SUFFIX = "（估算）";
+function normalizeQoderCnModel(model) {
+  if (typeof model !== "string") return model;
+  const bare = model.endsWith(QODER_CN_ESTIMATE_SUFFIX)
+    ? model.slice(0, -QODER_CN_ESTIMATE_SUFFIX.length)
+    : model;
+  if (bare.trim().toLowerCase() === "auto") return "qwen3.8-flash";
+  // Qoder's API reports mixed-case ids ("Qwen3.8-Max") while every curated /
+  // LiteLLM key is lowercase; fold the case here so the pricing lookup lands.
+  return bare.trim().toLowerCase();
+}
+
 // Per-source model-name normalizers, applied at pricing-lookup time only (the
 // raw model name is preserved for storage/display). Add a source here when its
 // model strings don't match the LiteLLM/curated keys verbatim.
@@ -198,6 +218,7 @@ const SOURCE_MODEL_NORMALIZERS = {
   cursor: normalizeCursorModel,
   "pi-anthropic": normalizeClaudeModel,
   "prime-agent-anthropic": normalizeClaudeModel,
+  "qoder-cn": normalizeQoderCnModel,
   zed: normalizeZedModel,
   unsloth: normalizeUnslothModel,
   workbuddy: normalizeWorkbuddyModel,
@@ -290,6 +311,11 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
   // Keep the boundary strict: Flash-Next and Max have independent prices.
   if (/(?:^|\/)qwen3[.-]8-flash(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim()) && curated.exact?.["qwen3.8-flash"]) {
     return { hit: true, source: "curated:exact", value: curated.exact["qwen3.8-flash"] };
+  }
+  // Same boundary for Max: its own SKU and its own entry, matched off the
+  // lowercased id so mixed-case reporters ("Qwen3.8-Max" from Qoder's API) land.
+  if (/(?:^|\/)qwen3[.-]8-max(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim()) && curated.exact?.["qwen3.8-max"]) {
+    return { hit: true, source: "curated:exact", value: curated.exact["qwen3.8-max"] };
   }
   if (curated.exact && curated.exact[lookupModel]) {
     return { hit: true, source: "curated:exact", value: curated.exact[lookupModel] };
@@ -431,6 +457,7 @@ module.exports = {
   stripReasoningSuffix,
   normalizeAntigravityModel,
   normalizeIFlytekMaasModel,
+  normalizeQoderCnModel,
   normalizeClaudeModel,
   normalizeCursorModel,
   normalizeZedModel,

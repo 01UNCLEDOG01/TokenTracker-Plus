@@ -33,6 +33,65 @@ const credit = (timestamp, value) => ({
   message: { role: "assistant", model: "qfmodel", usage: { input_tokens: 0, output_tokens: 0, credits: value } },
 });
 
+
+// The signed-in dashboard rewrites every usage path to tokentracker-account-*
+// before the request leaves the browser (api.ts USAGE_TO_ACCOUNT_SLUG), and
+// local-api derives usageSlug from the path it actually received. Matching only
+// the usage- form made this merge a no-op on the cross-device view, which is
+// where the card the user actually looks at comes from.
+// The international edition records credits and no tokens, so the token
+// figures are derived from the money at the qwen3.8-flash input rate
+// (0.15 USD/MTok). With no local rows to learn a split from, everything lands
+// in input_tokens, so credits -> tokens is `usd / 0.15 * 1e6` rounded.
+const derivedTokens = (credits) => Math.round((credits * 0.01) / 0.15 * 1e6);
+
+test("the account-slug form merges too - it is the one the signed-in dashboard sends", () => {
+  const fixture = sandbox([credit("2026-10-09T06:00:00.000Z", 100)]);
+  try {
+    const payload = { from: "2026-10-01", to: "2026-10-31", totals: { total_tokens: 5000, total_cost_usd: "50.000000" } };
+    const out = merge("tokentracker-account-summary", payload, fixture);
+    assert.equal(out.totals.total_cost_usd, "51.000000");
+    assert.equal(out.totals.total_tokens, 5000 + derivedTokens(100), "the derived tokens land on the cloud total");
+  } finally {
+    fs.rmSync(fixture.home, { recursive: true, force: true });
+  }
+});
+
+test("the account-slug form creates the source card in the cloud breakdown", () => {
+  const fixture = sandbox([credit("2026-10-09T06:00:00.000Z", 40)]);
+  try {
+    const payload = { sources: [] };
+    const out = merge("tokentracker-account-model-breakdown", payload, fixture);
+    const entry = out.sources.find((s) => s.source === "qoder");
+    assert.ok(entry, "the qoder source must exist, otherwise buildFleetData drops the card");
+    assert.equal(entry.totals.total_cost_usd, "0.400000");
+    assert.equal(entry.totals.total_tokens, derivedTokens(40), "the card is no longer money-only");
+  } finally {
+    fs.rmSync(fixture.home, { recursive: true, force: true });
+  }
+});
+
+test("the usage-slug form still merges - the fix is additive, not a replacement", () => {
+  const fixture = sandbox([credit("2026-10-09T06:00:00.000Z", 100)]);
+  try {
+    const payload = { from: "2026-10-01", to: "2026-10-31", totals: { total_tokens: 5000, total_cost_usd: "50.000000" } };
+    const out = merge("tokentracker-usage-summary", payload, fixture);
+    assert.equal(out.totals.total_cost_usd, "51.000000");
+  } finally {
+    fs.rmSync(fixture.home, { recursive: true, force: true });
+  }
+});
+
+test("an unrelated slug is still ignored rather than guessed at", () => {
+  const fixture = sandbox([credit("2026-10-09T06:00:00.000Z", 100)]);
+  try {
+    const payload = { from: "2026-10-01", to: "2026-10-31", totals: { total_tokens: 5000, total_cost_usd: "50.000000" } };
+    const out = merge("tokentracker-usage-heatmap", payload, fixture);
+    assert.equal(out.totals.total_cost_usd, "50.000000", "heatmap carries no cost, so nothing is credited");
+  } finally {
+    fs.rmSync(fixture.home, { recursive: true, force: true });
+  }
+});
 function merge(slug, payload, fixture, params = [["from", "2026-10-01"], ["to", "2026-10-31"]]) {
   return applyAccountViewQoderIntlMerge(slug, payload, {
     queueRows: [],
@@ -43,13 +102,13 @@ function merge(slug, payload, fixture, params = [["from", "2026-10-01"], ["to", 
   });
 }
 
-test("the credit spend joins the cloud hero total without touching tokens", () => {
+test("the credit spend joins the cloud hero total with its derived tokens", () => {
   const fixture = sandbox([credit("2026-10-09T06:00:00.000Z", 100)]);
   try {
     const payload = { from: "2026-10-01", to: "2026-10-31", totals: { total_tokens: 5000, total_cost_usd: "50.000000" } };
     const out = merge("tokentracker-usage-summary", payload, fixture);
     assert.equal(out.totals.total_cost_usd, "51.000000");
-    assert.equal(out.totals.total_tokens, 5000, "credits never become invented tokens");
+    assert.equal(out.totals.total_tokens, 5000 + derivedTokens(100), "credits convert into derived tokens");
   } finally {
     fs.rmSync(fixture.home, { recursive: true, force: true });
   }
@@ -67,7 +126,7 @@ test("the credit spend joins an existing cloud day and its model map at zero", (
     const out = merge("tokentracker-usage-daily", payload, fixture);
     const day = out.data.find((d) => d.day === "2026-10-09");
     assert.equal(day.total_cost_usd, 2.75, "daily cost stays a number and adds to what the cloud reported");
-    assert.equal(day.total_tokens, 20);
+    assert.equal(day.total_tokens, 20 + derivedTokens(25));
     assert.equal(day.models["官方云端（积分）"], 0, "the model map is token-valued, so this edition joins at zero");
     assert.equal(out.data[0].total_cost_usd, 1.5, "another day is not credited twice");
   } finally {
@@ -75,14 +134,14 @@ test("the credit spend joins an existing cloud day and its model map at zero", (
   }
 });
 
-test("a missing cloud day is inserted in day order with money and no tokens", () => {
+test("a missing cloud day is inserted in day order with money and its derived tokens", () => {
   const fixture = sandbox([credit("2026-10-05T06:00:00.000Z", 10), credit("2026-10-11T06:00:00.000Z", 20)]);
   try {
     const payload = { data: [{ day: "2026-10-09", total_tokens: 5, billable_total_tokens: 5, total_cost_usd: 1, models: {} }] };
     const out = merge("tokentracker-usage-daily", payload, fixture);
     assert.deepEqual(out.data.map((d) => d.day), ["2026-10-05", "2026-10-09", "2026-10-11"]);
     assert.equal(out.data[0].total_cost_usd, 0.1);
-    assert.equal(out.data[0].total_tokens, 0);
+    assert.equal(out.data[0].total_tokens, derivedTokens(10));
     assert.equal(out.data[2].total_cost_usd, 0.2);
   } finally {
     fs.rmSync(fixture.home, { recursive: true, force: true });
@@ -106,11 +165,12 @@ test("the credit spend becomes its own source card in the cloud breakdown", () =
     const qoder = out.sources.find((s) => s.source === "qoder");
     assert.ok(qoder, "the card must exist in the cross-device view too");
     assert.equal(qoder.totals.total_cost_usd, "0.400000");
-    assert.equal(qoder.totals.total_tokens, 0);
+    assert.equal(qoder.totals.total_tokens, derivedTokens(40));
     assert.equal(qoder.models.length, 1);
     assert.equal(qoder.models[0].model, "官方云端（积分）");
     assert.equal(qoder.models[0].cost_source, "provider_reported");
     assert.equal(qoder.models[0].pricing.status, "unpriced", "no model price is claimed for a credit bill");
+    assert.equal(qoder.models[0].totals.total_tokens, derivedTokens(40));
     assert.equal(out.sources[0].totals.total_cost_usd, "9.000000", "the other card is untouched");
   } finally {
     fs.rmSync(fixture.home, { recursive: true, force: true });

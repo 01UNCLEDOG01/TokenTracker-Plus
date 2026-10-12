@@ -48,11 +48,13 @@ function beijingDayOfHourStart(hourStart, offsetMinutes) {
 }
 
 // credits-derived rows, bucketed by Beijing day and clipped to the window the
-// caller asked for. `byDay` holds the day's money; `byModel` the whole window's.
+// caller asked for. `byDay` holds the day's money and derived tokens;
+// `byModel` the whole window's.
 function buildCostBuckets(rows, { from, to, offsetMinutes }) {
   const byDay = new Map();
   const byModel = new Map();
   let grand = 0;
+  let grandTokens = 0;
   for (const row of rows || []) {
     if (row?.source !== QODER_INTL_SOURCE) continue;
     const cost = num(row.total_cost_usd);
@@ -62,14 +64,22 @@ function buildCostBuckets(rows, { from, to, offsetMinutes }) {
     if (from && day < String(from)) continue;
     if (to && day > String(to)) continue;
     const model = String(row.model || "unknown");
-    const entry = byDay.get(day) || { day, cost: 0, models: new Set() };
+    const entry = byDay.get(day) || { day, cost: 0, tokens: 0, models: new Set() };
     entry.cost += cost;
+    // Credits are what Qoder charged; the tokens are derived from them and are
+    // labelled as an estimate everywhere they surface.
+    const tokens = num(row.total_tokens);
+    entry.tokens += tokens;
     entry.models.add(model);
     byDay.set(day, entry);
-    byModel.set(model, (byModel.get(model) || 0) + cost);
+    const modelEntry = byModel.get(model) || { cost: 0, tokens: 0 };
+    modelEntry.cost += cost;
+    modelEntry.tokens += tokens;
+    byModel.set(model, modelEntry);
     grand += cost;
+    grandTokens += tokens;
   }
-  return { byDay, byModel, grand };
+  return { byDay, byModel, grand, grandTokens };
 }
 
 function sortedInsert(list, entry, key) {
@@ -78,8 +88,15 @@ function sortedInsert(list, entry, key) {
   list.splice(i, 0, entry);
 }
 
-function emptyDayEntry(day, cost) {
-  const entry = { day, total_tokens: 0, billable_total_tokens: 0, total_cost_usd: cost, conversation_count: 0, models: {} };
+function emptyDayEntry(day, cost, tokens) {
+  const entry = {
+    day,
+    total_tokens: tokens,
+    billable_total_tokens: tokens,
+    total_cost_usd: cost,
+    conversation_count: 0,
+    models: {},
+  };
   for (const field of TOKEN_FIELDS) if (!(field in entry)) entry[field] = 0;
   return entry;
 }
@@ -92,13 +109,17 @@ function mergeDaily(payload, buckets) {
     if (hit) {
       // Daily cost is a number in this payload; keep it a number.
       hit.total_cost_usd = num(hit.total_cost_usd) + entry.cost;
+      // The derived tokens land on the same per-device total so the row stops
+      // reading as "money, but nobody ran anything".
+      hit.total_tokens = num(hit.total_tokens) + entry.tokens;
+      hit.billable_total_tokens = num(hit.billable_total_tokens) + entry.tokens;
       // The model map is model -> tokens, so the edition joins it at zero: the
       // same shape the local read path produces for these days.
       if (hit.models && typeof hit.models === "object") {
         for (const model of entry.models.keys()) if (!(model in hit.models)) hit.models[model] = 0;
       }
     } else {
-      const fresh = emptyDayEntry(day, entry.cost);
+      const fresh = emptyDayEntry(day, entry.cost, entry.tokens);
       for (const model of entry.models.keys()) fresh.models[model] = 0;
       sortedInsert(list, fresh, "day");
     }
@@ -112,8 +133,16 @@ function mergeSummaryCost(block, amount) {
   target.total_cost_usd = money6(num(target.total_cost_usd) + amount);
 }
 
+function mergeSummaryTokens(block, tokens) {
+  if (!block || typeof block !== "object" || !(tokens > 0)) return;
+  const target = block.totals || block;
+  target.total_tokens = num(target.total_tokens) + tokens;
+  target.billable_total_tokens = num(target.billable_total_tokens) + tokens;
+}
+
 function mergeSummary(payload, buckets) {
   mergeSummaryCost(payload, buckets.grand);
+  mergeSummaryTokens(payload, buckets.grandTokens);
 }
 
 function mergeModelBreakdown(payload, buckets) {
@@ -129,7 +158,9 @@ function mergeModelBreakdown(payload, buckets) {
   entry.totals = entry.totals || {};
   entry.models = Array.isArray(entry.models) ? entry.models : [];
   entry.totals.total_cost_usd = money6(num(entry.totals.total_cost_usd) + buckets.grand);
-  for (const [model, cost] of buckets.byModel) {
+  entry.totals.total_tokens = num(entry.totals.total_tokens) + buckets.grandTokens;
+  entry.totals.billable_total_tokens = num(entry.totals.billable_total_tokens) + buckets.grandTokens;
+  for (const [model, agg] of buckets.byModel) {
     let row = entry.models.find((m) => String(m?.model_id) === model || String(m?.model) === model);
     if (!row) {
       row = {
@@ -144,8 +175,22 @@ function mergeModelBreakdown(payload, buckets) {
       };
       entry.models.push(row);
     }
-    row.totals.total_cost_usd = money6(num(row.totals.total_cost_usd) + cost);
+    row.totals.total_cost_usd = money6(num(row.totals.total_cost_usd) + agg.cost);
+    row.totals.total_tokens = num(row.totals.total_tokens) + agg.tokens;
+    row.totals.billable_total_tokens = num(row.totals.billable_total_tokens) + agg.tokens;
   }
+}
+
+/**
+ * See qoder-cn-account-merge.js for why this is needed: the signed-in dashboard
+ * rewrites every usage path to its `tokentracker-account-*` form before the
+ * request leaves the browser, so the slug that reaches a merge is never the
+ * `usage-` form these switches are written against. Matching only `usage-`
+ * meant the international credit spend was never folded into the cross-device
+ * payload, and the card - which has zero tokens - was filtered out entirely.
+ */
+function normalizeUsageSlug(usageSlug) {
+  return String(usageSlug || "").replace(/^tokentracker-account-/, "tokentracker-usage-");
 }
 
 /**
@@ -162,7 +207,7 @@ function applyAccountViewQoderIntlMerge(usageSlug, payload, { queueRows, project
     const to = String(searchParams?.get("to") || payload.to || "");
     const buckets = buildCostBuckets(rows, { from, to, offsetMinutes });
     if (!buckets.byDay.size) return payload;
-    switch (usageSlug) {
+    switch (normalizeUsageSlug(usageSlug)) {
       case "tokentracker-usage-model-breakdown": mergeModelBreakdown(payload, buckets); break;
       case "tokentracker-usage-daily": mergeDaily(payload, buckets); break;
       case "tokentracker-usage-summary": mergeSummary(payload, buckets); break;
@@ -174,4 +219,4 @@ function applyAccountViewQoderIntlMerge(usageSlug, payload, { queueRows, project
   }
 }
 
-module.exports = { applyAccountViewQoderIntlMerge, buildCostBuckets };
+module.exports = { applyAccountViewQoderIntlMerge, buildCostBuckets, normalizeUsageSlug };
