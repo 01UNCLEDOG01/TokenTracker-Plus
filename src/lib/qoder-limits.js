@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const net = require("node:net");
 const os = require("node:os");
 const path = require("node:path");
+const { fetchQoderCnCliLimits } = require("./qoder-cn-cli-limits");
 
 const QODER_SITES = {
   international: {
@@ -16,10 +17,10 @@ const QODER_SITES = {
   },
   china: {
     id: "china",
-    origin: "https://qoder.com.cn",
-    usageUrl: "https://qoder.com.cn/api/v2/me/usages/big_model_credits",
+    origin: "https://qoder.cn",
+    usageUrl: "https://qoder.cn/api/v2/me/usages/big_model_credits",
     activityUrl: "https://openapi.qoder.com.cn/algo/api/v2/activity",
-    domains: new Set(["qoder.com.cn", "www.qoder.com.cn"]),
+    domains: new Set(["qoder.cn", "www.qoder.cn", "qoder.com.cn", "www.qoder.com.cn"]),
   },
 };
 
@@ -900,6 +901,7 @@ async function fetchQoderLimits({
   fetchImpl = fetch,
   rpcRequest = qoderRpcRequest,
   nowMs = Date.now(),
+  cliLimitsRequest,
 } = {}) {
   let rpcUsage = null;
   let rpcAuth = null;
@@ -967,6 +969,37 @@ async function fetchQoderLimits({
     return rpcUsage;
   }
 
+  // Upstream's cookie-free route: the Qoder CN CLI stores its own credentials, so
+  // the quota windows can be read without the desktop app and without a scraped
+  // cookie. It answers quota only, though - never the spend ledger - so when a CN
+  // cookie is configured the cookie path gets the first attempt (see below).
+  let cliError = null;
+  const tryCliLimits = async () => {
+    if (!cliLimitsRequest) return null;
+    try {
+      const cliUsage = await cliLimitsRequest({ home, env, fetchImpl, normalizeRpcUsage: normalizeQoderRpcUsage });
+      if (!cliUsage) return null;
+      if (activityWindow) cliUsage.secondary_window = activityWindow;
+      writeQoderLimitsCache(cliUsage, { home, nowMs, namespace: cacheNamespace });
+      return cliUsage;
+    } catch (error) {
+      cliError = error;
+      return null;
+    }
+  };
+  const cliCookieFirst = site.id === "china" && Boolean(
+    (typeof env[`${envPrefix}_COOKIE`] === "string" && env[`${envPrefix}_COOKIE`].trim())
+    || readQoderCookieFile({ home, namespace: cacheNamespace }),
+  );
+  if (!cliCookieFirst) {
+    const cliUsage = await tryCliLimits();
+    if (cliUsage) return cliUsage;
+  }
+
+  // Once native sources are unavailable, prefer a bounded disk snapshot before the
+  // manual-cookie or local-log fallback. CN is the exception: its spend ledger only
+  // refreshes behind the website API, so a snapshot returned here would freeze the
+  // ledger - and every token estimate built on it - for as long as the cache holds.
   if (site.id !== "china" && lastGoodLimits) {
     if (activityWindow) lastGoodLimits.secondary_window = activityWindow;
     return lastGoodLimits;
@@ -991,7 +1024,7 @@ async function fetchQoderLimits({
       }]
     : [];
 
-  let lastError = null;
+  let lastError = cliError;
   for (const session of sessions) {
     try {
       const result = await fetchQoderUsage(session.cookieHeader, session.site, fetchImpl);
@@ -1035,6 +1068,13 @@ async function fetchQoderLimits({
     }
   }
 
+  // The cookie was configured but produced nothing (missing, expired, or the site
+  // moved). Fall back to the CLI's own credentials before trusting a snapshot.
+  if (cliCookieFirst) {
+    const cliUsage = await tryCliLimits();
+    if (cliUsage) return cliUsage;
+  }
+
   // When no explicit session is configured (or it just expired), prefer a
   // bounded disk snapshot before any other fallback.
   const cachedLimits = lastGoodLimits;
@@ -1075,11 +1115,7 @@ async function fetchQoderLimits({
   return { configured: false };
 }
 
-// Qoder CN (国内版) — quota comes from qoder.com.cn and credentials live in the
-// separate QoderCN data directory (its own app install). Same mechanics as the
-// international fetch, but with the china site, the QoderCN data root (own
-// QODER_CN_HOME / QODER_CN_DB_PATH / QODER_CN_LOG_ROOT overrides), and a
-// dedicated cache namespace so the two editions never clobber each other.
+// CN has its own CLI credentials, legacy desktop root and cache namespace.
 function fetchQoderCnLimits(opts = {}) {
   return fetchQoderLimits({
     ...opts,
@@ -1088,6 +1124,7 @@ function fetchQoderCnLimits(opts = {}) {
     site: QODER_SITES.china,
     sitePinned: true,
     cacheNamespace: "cn",
+    cliLimitsRequest: fetchQoderCnCliLimits,
   });
 }
 

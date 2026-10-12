@@ -30,24 +30,29 @@ const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
 const readline = require("node:readline");
 const {
+  claudeMessageDedupKey,
+  coerceEpochMs,
+  deriveOpencodeMessageFingerprint,
   listClaudeProjectFiles,
   listRolloutFilesDeep,
-  claudeMessageDedupKey,
   normalizeClaudeUsage,
-  readZcodeDbMessages,
-  workbuddyUsageFromRawUsage,
-  workbuddySourceForPath,
-  resolveWorkbuddyHomes,
-  resolveWorkbuddyProjectFilesAll,
-  resolveDshSessionFiles,
+  normalizeOpencodeModelFields,
+  normalizeOpencodeTokens,
   readDshSessionText,
-  resolveWorkbuddyProjectFiles,
+  readZcodeDbMessages,
+  resolveDshSessionFiles,
   resolveWorkbuddyDefaultModel,
+  resolveWorkbuddyHomes,
+  resolveWorkbuddyProjectFiles,
+  resolveWorkbuddyProjectFilesAll,
+  workbuddySourceForPath,
+  workbuddyUsageFromRawUsage,
 } = require("./rollout");
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
-const { resolveZcodeNativeDbPath } = require("./install-resolver");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
-const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector } = require("./session-performance");
+const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector, createZcodePerformanceCollector } = require("./session-performance");
+const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
+const { resolveZcodeNativeDbPath, resolveInstallPaths } = require("./install-resolver");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
 const wsl = require("./wsl-probe");
 const {
@@ -86,7 +91,19 @@ const {
 // long-context subset) and folds delivery signals into the token parser's
 // single pass instead of parsing every Codex file twice.
 // v14 adds request-level estimated performance and Claude model usage.
-const SIDECAR_VERSION = 16;
+// v15/v16 tighten Codex delivery-signal parsing (uncommented bump).
+// v17 adds ZCode sessions from ~/.zcode/cli/db/db.sqlite — one SQLite db
+// scanning to many per-session rows — so every cached row is rebuilt.
+// v18 corrects ZCode project keys and request timestamp units, and invalidates
+// inventories that earlier builds may have cached after a failed database read.
+// v19 scans both ZCode installs as one deduplicated inventory and separates
+// provider retries from repeated user requests.
+// v20 also invalidates unchanged-stat caches after an observed database lock.
+// v21 retains the request count when several ZCode events share a minute.
+// v22 adds metadata-only OpenCode database sessions.
+// v23 excludes database updates and user records from request durations.
+// v24 keeps OpenCode usage dates at event time and fork history on its ancestor.
+const SIDECAR_VERSION = 24;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -927,13 +944,37 @@ async function scanWorkbuddySession(filePath) {
 // queues, so a conversation and its hourly row can never price differently. The
 // database is opened read-only, so a running OpenCode is never disturbed.
 // ─────────────────────────────────────────────────────────────────────────────
-const OPENCODE_SOURCE = "opencode";
 const OPENCODE_NO_TOOLS = new Set();
 // OpenCode changes files with `edit`, `write` and `patch`. The shared EDIT_TOOLS
 // set is deliberately not extended: Claude, Codex and Grok edit counts are
 // measured with it, and adding a name there would silently move their history.
-const OPENCODE_EDIT_TOOLS = new Set([...EDIT_TOOLS, "patch"]);
 const OPENCODE_SUBAGENT_TOOLS = new Set(["task"]);
+// OpenCode applies patches through a tool named "patch", which the shared
+// edit set does not carry.
+const OPENCODE_EDIT_TOOLS = new Set([...EDIT_TOOLS, "patch"]);
+
+// One part row is one tool call, so subagent_calls counts calls; an edit turn
+// is a message that used an edit tool (matching the definition used for the
+// other sources, where a turn is one assistant response).
+function tallyOpencodeToolSignals(rows) {
+  const editMessages = new Set();
+  const subagentTypes = new Map();
+  let subagentCalls = 0;
+  for (const row of rows) {
+    const name = String(row?.tool || "").toLowerCase();
+    if (!name) continue;
+    if (OPENCODE_EDIT_TOOLS.has(name) && row?.message_id) editMessages.add(String(row.message_id));
+    if (OPENCODE_SUBAGENT_TOOLS.has(name)) {
+      subagentCalls += 1;
+      subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
+    }
+  }
+  return {
+    editTurns: editMessages.size,
+    subagentCalls,
+    subagentTypes: Object.fromEntries([...subagentTypes.entries()].sort()),
+  };
+}
 
 function resolveOpencodeDatabase(home, env = process.env) {
   // Same precedence as the collector: an explicit OPENCODE_HOME names the data
@@ -994,165 +1035,7 @@ const OPENCODE_PROMPT_SQL = `SELECT p.message_id AS messageId, json_extract(p.da
     WHERE p.session_id = ? AND json_extract(p.data,'$.type') = 'text'
       AND (SELECT json_extract(m.data,'$.role') FROM message m WHERE m.id = p.message_id) = 'user'`;
 
-function buildOpencodeSessionRow(db, session) {
-  const tokens = {
-    input_tokens: opencodeCount(session.tokens_input),
-    cached_input_tokens: opencodeCount(session.tokens_cache_read),
-    cache_creation_input_tokens: opencodeCount(session.tokens_cache_write),
-    output_tokens: opencodeCount(session.tokens_output),
-    reasoning_output_tokens: opencodeCount(session.tokens_reasoning),
-  };
-  tokens.total_tokens = tokens.input_tokens + tokens.cached_input_tokens
-    + tokens.cache_creation_input_tokens + tokens.output_tokens + tokens.reasoning_output_tokens;
 
-  const messages = db.prepare(OPENCODE_MESSAGE_SQL).all(session.id);
-
-  // Tool parts are the only evidence of what a conversation actually changed, and
-  // they are read per session (part_session_idx), so an unchanged conversation
-  // costs nothing on the next refresh.
-  const toolsByMessage = new Map();
-  for (const part of db.prepare(OPENCODE_TOOL_SQL).all(session.id)) {
-    const name = String(part.tool || "").toLowerCase();
-    if (!name) continue;
-    const names = toolsByMessage.get(part.messageId) || new Set();
-    names.add(name);
-    toolsByMessage.set(part.messageId, names);
-  }
-
-  const promptByMessage = new Map();
-  for (const part of db.prepare(OPENCODE_PROMPT_SQL).all(session.id)) {
-    if (typeof part.text !== "string" || !part.text.trim()) continue;
-    promptByMessage.set(part.messageId, (promptByMessage.get(part.messageId) || "") + part.text);
-  }
-
-  const modelUsageByModel = new Map();
-  const editTurnsByModel = new Map();
-  const subagentTypes = new Map();
-  const bounds = emptyBounds();
-  let turns = 0;
-  let editTurns = 0;
-  let retryTurns = 0;
-  let subagentCalls = 0;
-  let currentHadEdit = false;
-  let currentTurnModel = null;
-  let lastPromptFingerprint = null;
-
-  function closeTurn() {
-    if (!currentHadEdit) return;
-    editTurns += 1;
-    const key = currentTurnModel || "unknown";
-    editTurnsByModel.set(key, (editTurnsByModel.get(key) || 0) + 1);
-    currentHadEdit = false;
-  }
-
-  for (const message of messages) {
-    updateBounds(bounds, opencodeIso(message.created));
-    for (const name of toolsByMessage.get(message.id) || OPENCODE_NO_TOOLS) {
-      if (OPENCODE_EDIT_TOOLS.has(name)) currentHadEdit = true;
-      if (OPENCODE_SUBAGENT_TOOLS.has(name)) {
-        subagentCalls += 1;
-        subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
-      }
-    }
-    if (message.role === "user") {
-      const prompt = promptByMessage.get(message.id);
-      if (!prompt) continue;
-      const fingerprint = promptFingerprint(prompt);
-      if (lastPromptFingerprint && fingerprint === lastPromptFingerprint) retryTurns += 1;
-      lastPromptFingerprint = fingerprint;
-      closeTurn();
-      turns += 1;
-      continue;
-    }
-    if (message.role !== "assistant") continue;
-    const model = normalizeSessionModel(message.model);
-    if (model) currentTurnModel = model;
-    const usage = opencodeUsage(message);
-    if (usage.total_tokens <= 0) continue;
-    const key = model || "unknown";
-    const row = modelUsageByModel.get(key) || { model: key, ...emptyTotals(), usage_events: 0 };
-    addTotals(row, usage);
-    row.usage_events += 1;
-    modelUsageByModel.set(key, row);
-  }
-  closeTurn();
-
-  const startedAt = opencodeIso(session.time_created) || bounds.started_at;
-  const endedAt = opencodeIso(session.time_updated) || bounds.ended_at;
-  const row = {
-    version: SIDECAR_VERSION,
-    session_hash: sessionHash(OPENCODE_SOURCE, session.id),
-    session_id: typeof session.id === "string" && session.id ? session.id : null,
-    parent_session_id: typeof session.parent_id === "string" && session.parent_id ? session.parent_id : null,
-    title: cleanSessionTitle(session.title),
-    source: OPENCODE_SOURCE,
-    project_key: projectKey(session.directory, null),
-    project_ref: typeof session.directory === "string" && session.directory ? session.directory : null,
-    model: modelUsageByModel.size === 1
-      ? [...modelUsageByModel.values()][0].model
-      : (modelUsageByModel.size > 1 ? "mixed" : "unknown"),
-    model_usage: [...modelUsageByModel.values()].map((usage) => ({
-      ...usage,
-      edit_turns: finite(editTurnsByModel.get(usage.model)),
-      performance: normalizePerformance(),
-    })),
-    ...bounds,
-    started_at: startedAt,
-    ended_at: endedAt,
-    turns,
-    edit_turns: editTurns,
-    retry_turns: retryTurns,
-    subagent_calls: subagentCalls,
-    subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
-    tokens,
-    provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "observed", content_retained: false },
-  };
-  // The stat key is what lets an unchanged conversation skip every per-session
-  // query next time: these are the only inputs the row reads.
-  const statKey = [
-    session.time_updated ?? "", session.time_created ?? "",
-    tokens.total_tokens, tokens.input_tokens, tokens.output_tokens,
-    tokens.cached_input_tokens, tokens.cache_creation_input_tokens, tokens.reasoning_output_tokens,
-    session.parent_id ?? "", session.title ?? "", session.directory ?? "",
-    messages.length, toolsByMessage.size, promptByMessage.size,
-  ].join("|");
-  return { row: finalizeRecord(row), statKey };
-}
-
-// Reads every OpenCode conversation as a session row. An absent or unreadable
-// database yields no rows: a machine without OpenCode must not lose the other
-// providers' sessions over one missing file.
-function readOpencodeSessions({ home, env = process.env, dbPath = null } = {}) {
-  const file = dbPath || resolveOpencodeDatabase(home, env);
-  let db = null;
-  try {
-    db = new DatabaseSync(file, { readOnly: true });
-  } catch {
-    return [];
-  }
-  const out = [];
-  try {
-    const sessions = db.prepare(`SELECT id, parent_id, title, directory, agent,
-        tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write,
-        time_created, time_updated
-      FROM session ORDER BY time_updated DESC`).all();
-    for (const session of sessions) {
-      try {
-        out.push(buildOpencodeSessionRow(db, session));
-      } catch (error) {
-        // One unreadable conversation must not cost the user the whole list.
-        if (!process.env.NODE_TEST_CONTEXT) {
-          console.warn(`[session-analytics] skipped opencode session: ${error?.message || error}`);
-        }
-      }
-    }
-  } catch {
-    return [];
-  } finally {
-    try { db.close(); } catch { /* already closed */ }
-  }
-  return out;
-}
 
 const DSH_SOURCE = "dsh";
 
@@ -1355,7 +1238,6 @@ async function readDshSessions({ home, env = process.env } = {}) {
   return out;
 }
 
-const ZCODE_SOURCE = "zcode";
 
 // ZCode keeps its conversations in one SQLite file (`~/.zcode/cli/db/db.sqlite`,
 // or under $ZCODE_HOME) with the same message/part/session layout as OpenCode,
@@ -1367,229 +1249,8 @@ const ZCODE_SOURCE = "zcode";
 // the row total, which is exactly the card/model mismatch this page has to avoid.
 const ZCODE_SUBAGENT_TOOLS = new Set(["task", "agent"]);
 
-function zcodeSessionTotals(dbPath) {
-  const totals = new Map();
-  let messages = [];
-  try {
-    messages = readZcodeDbMessages(dbPath, {}) || [];
-  } catch {
-    return totals;
-  }
-  for (const message of messages) {
-    const data = message?.data;
-    const sessionId = message?.sessionID || data?.sessionID;
-    if (!sessionId || !data) continue;
-    const tokens = data.tokens || {};
-    const input = opencodeCount(tokens.input);
-    const output = opencodeCount(tokens.output);
-    const reasoning = opencodeCount(tokens.reasoning);
-    const cacheRead = opencodeCount(tokens.cache?.read);
-    const cacheWrite = opencodeCount(tokens.cache?.write);
-    const total = input + output + reasoning + cacheRead + cacheWrite;
-    if (total <= 0) continue;
-    const model = normalizeSessionModel(data.modelID) || "unknown";
-    const session = totals.get(sessionId) || { tokens: null, byModel: new Map(), requests: 0 };
-    if (!session.tokens) {
-      session.tokens = {
-        input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
-        output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
-      };
-    }
-    const t = session.tokens;
-    t.input_tokens += input;
-    t.cached_input_tokens += cacheRead;
-    t.cache_creation_input_tokens += cacheWrite;
-    t.output_tokens += output;
-    t.reasoning_output_tokens += reasoning;
-    t.total_tokens += total;
-    const perModel = session.byModel.get(model) || {
-      model, input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
-      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0, usage_events: 0,
-    };
-    perModel.input_tokens += input;
-    perModel.cached_input_tokens += cacheRead;
-    perModel.cache_creation_input_tokens += cacheWrite;
-    perModel.output_tokens += output;
-    perModel.reasoning_output_tokens += reasoning;
-    perModel.total_tokens += total;
-    perModel.usage_events += 1;
-    session.byModel.set(model, perModel);
-    session.requests += 1;
-    totals.set(sessionId, session);
-  }
-  return totals;
-}
 
-function buildZcodeSessionRow(db, session, normalized) {
-  const tokens = normalized
-    ? { ...normalized.tokens }
-    : {
-      input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
-      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
-    };
-  const messages = db.prepare(OPENCODE_MESSAGE_SQL).all(session.id);
-  const toolsByMessage = new Map();
-  for (const part of db.prepare(OPENCODE_TOOL_SQL).all(session.id)) {
-    const name = String(part.tool || "").toLowerCase();
-    if (!name) continue;
-    const names = toolsByMessage.get(part.messageId) || new Set();
-    names.add(name);
-    toolsByMessage.set(part.messageId, names);
-  }
-  const promptByMessage = new Map();
-  for (const part of db.prepare(OPENCODE_PROMPT_SQL).all(session.id)) {
-    if (typeof part.text !== "string" || !part.text.trim()) continue;
-    promptByMessage.set(part.messageId, (promptByMessage.get(part.messageId) || "") + part.text);
-  }
 
-  const editTurnsByModel = new Map();
-  const bounds = emptyBounds();
-  let turns = 0;
-  let editTurns = 0;
-  let retryTurns = 0;
-  let subagentCalls = 0;
-  let currentHadEdit = false;
-  let currentTurnModel = null;
-  let lastPromptFingerprint = null;
-  const subagentTypes = new Map();
-
-  const closeTurn = () => {
-    if (!currentHadEdit) return;
-    editTurns += 1;
-    const key = currentTurnModel || "unknown";
-    editTurnsByModel.set(key, (editTurnsByModel.get(key) || 0) + 1);
-    currentHadEdit = false;
-  };
-
-  for (const message of messages) {
-    updateBounds(bounds, opencodeIso(message.created));
-    for (const name of toolsByMessage.get(message.id) || OPENCODE_NO_TOOLS) {
-      if (OPENCODE_EDIT_TOOLS.has(name)) currentHadEdit = true;
-      if (ZCODE_SUBAGENT_TOOLS.has(name)) {
-        subagentCalls += 1;
-        subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
-      }
-    }
-    if (message.role === "user") {
-      const prompt = promptByMessage.get(message.id);
-      if (!prompt) continue;
-      const fingerprint = promptFingerprint(prompt);
-      if (lastPromptFingerprint && fingerprint === lastPromptFingerprint) retryTurns += 1;
-      lastPromptFingerprint = fingerprint;
-      closeTurn();
-      turns += 1;
-      continue;
-    }
-    if (message.role !== "assistant") continue;
-    const model = normalizeSessionModel(message.model);
-    if (model) currentTurnModel = model;
-  }
-  closeTurn();
-
-  // The normalized per-model totals are the only source of token truth here; the
-  // message rows are read only for roles, tools and prompt text.
-  const modelUsageByModel = new Map();
-  for (const entry of normalized ? normalized.byModel.values() : []) {
-    modelUsageByModel.set(entry.model, { ...entry, edit_turns: finite(editTurnsByModel.get(entry.model)) });
-  }
-  for (const [model, count] of editTurnsByModel) {
-    if (modelUsageByModel.has(model)) continue;
-    modelUsageByModel.set(model, {
-      model, input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
-      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0, usage_events: 0,
-      edit_turns: count,
-    });
-  }
-
-  const startedAt = opencodeIso(session.time_created) || bounds.started_at;
-  const endedAt = opencodeIso(session.time_updated) || bounds.ended_at;
-  if (tokens.total_tokens <= 0 && turns <= 0) return null;
-  const row = {
-    version: SIDECAR_VERSION,
-    session_hash: sessionHash(ZCODE_SOURCE, session.id),
-    session_id: typeof session.id === "string" && session.id ? session.id : null,
-    parent_session_id: typeof session.parent_id === "string" && session.parent_id ? session.parent_id : null,
-    title: cleanSessionTitle(session.title),
-    source: ZCODE_SOURCE,
-    project_key: projectKey(session.directory, null),
-    project_ref: typeof session.directory === "string" && session.directory ? session.directory : null,
-    model: modelUsageByModel.size === 1
-      ? [...modelUsageByModel.values()][0].model
-      : (modelUsageByModel.size > 1 ? "mixed" : "unknown"),
-    model_usage: [...modelUsageByModel.values()].map((usage) => ({
-      ...usage,
-      performance: normalizePerformance(),
-    })),
-    ...bounds,
-    started_at: startedAt,
-    ended_at: endedAt,
-    turns,
-    edit_turns: editTurns,
-    retry_turns: retryTurns,
-    subagent_calls: subagentCalls,
-    subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
-    tokens,
-    provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "observed", content_retained: false },
-  };
-  const statKey = [
-    session.time_updated ?? "", session.time_created ?? "",
-    tokens.total_tokens, tokens.input_tokens, tokens.output_tokens,
-    tokens.cached_input_tokens, tokens.cache_creation_input_tokens, tokens.reasoning_output_tokens,
-    session.parent_id ?? "", session.title ?? "", session.directory ?? "",
-    messages.length, toolsByMessage.size, promptByMessage.size,
-  ].join("|");
-  return { row: finalizeRecord(row), statKey };
-}
-
-// Every ZCode install on this machine (native plus its WSL sibling) is read; a
-// missing database simply contributes nothing.
-function readZcodeSessions({ home, env = process.env } = {}) {
-  const root = home || os.homedir();
-  const candidates = [];
-  try {
-    candidates.push(resolveZcodeNativeDbPath({ home: root, env }));
-  } catch { /* fall through to the WSL probe */ }
-  try {
-    if (wsl.shouldProbeWsl(env)) {
-      const wslZcode = wsl.discoverWslHome(".zcode", { env });
-      if (wslZcode) candidates.push(path.join(wslZcode, "cli", "db", "db.sqlite"));
-    }
-  } catch { /* WSL is optional */ }
-
-  const out = [];
-  const seenSessions = new Set();
-  for (const dbPath of [...new Set(candidates.filter(Boolean))]) {
-    let db = null;
-    try {
-      db = new DatabaseSync(dbPath, { readOnly: true });
-    } catch {
-      continue;
-    }
-    try {
-      const totals = zcodeSessionTotals(dbPath);
-      const sessions = db.prepare(`SELECT id, parent_id, title, directory, time_created, time_updated
-        FROM session ORDER BY time_updated DESC`).all();
-      for (const session of sessions) {
-        const key = dbPath + "|" + session.id;
-        if (seenSessions.has(key)) continue;
-        seenSessions.add(key);
-        try {
-          const built = buildZcodeSessionRow(db, session, totals.get(session.id) || null);
-          if (built) out.push(built);
-        } catch (error) {
-          if (!process.env.NODE_TEST_CONTEXT) {
-            console.warn(`[session-analytics] skipped zcode session ${session.id}: ${error?.message || error}`);
-          }
-        }
-      }
-    } catch {
-      // An unreadable session table must not cost the user the other providers.
-    } finally {
-      try { db.close(); } catch { /* already closed */ }
-    }
-  }
-  return out;
-}
 
 function createCodexDeliverySignalCollector() {
   const bounds = emptyBounds();
@@ -2080,6 +1741,636 @@ async function scanGrokSession(filePath) {
   });
 }
 
+// Project and title metadata stay local. SQL projects only numeric usage and
+// identity fields; user/assistant bodies and tool arguments never enter JS.
+async function readOpencodeSessionInputs(dbPath) {
+  const options = { label: "OpenCode", timeout: 30_000, maxBuffer: 50 * 1024 * 1024, readOnly: true, throwOnReadFailure: true };
+  const query = (sql) => readSqliteJsonRowsAsync(dbPath, sql, options);
+  const tables = new Set((await query("SELECT name FROM sqlite_master WHERE name IN ('session','session_v2','message','session_message','part','session_part')")).map((row) => row.name));
+  const sessionRows = [];
+  for (const table of ["session_v2", "session"]) {
+    if (!tables.has(table)) continue;
+    const columns = new Set((await query(`SELECT name FROM pragma_table_info('${table}')`)).map((row) => row.name));
+    if (!columns.has("id")) continue;
+    const selected = ["id", "parent_id", "directory", "title", "time_created", "time_updated"].filter((column) => columns.has(column));
+    sessionRows.push(...await query(`SELECT ${selected.join(", ")} FROM ${table} ORDER BY id ASC`));
+  }
+  const messages = [];
+  for (const table of ["message", "session_message"]) {
+    if (!tables.has(table)) continue;
+    const role = table === "session_message" ? "type" : "json_extract(data, '$.role')";
+    messages.push(...await query(`SELECT id, session_id, time_created, time_updated, ${role} AS role,
+      CASE WHEN ${role} = 'assistant' THEN json_object(
+        'tokens', json_extract(data, '$.tokens'),
+        'modelID', json_extract(data, '$.modelID'),
+        'providerID', json_extract(data, '$.providerID'),
+        'model', json_extract(data, '$.model'),
+        'time', json_extract(data, '$.time'),
+        'path', json_object('cwd', json_extract(data, '$.path.cwd'))
+      ) END AS metadata
+      FROM ${table} WHERE ${role} IN ('user', 'assistant') ORDER BY time_created ASC, id ASC`));
+  }
+  // Tool parts are the only place OpenCode records which tool ran, so the
+  // panel's edit-turn and sub-agent columns are built from them. Both layouts
+  // are probed: newer databases keep parts under session_part.
+  const toolRows = [];
+  for (const table of ["part", "session_part"]) {
+    if (!tables.has(table)) continue;
+    const partColumns = new Set((await query(`SELECT name FROM pragma_table_info('${table}')`)).map((row) => row.name));
+    if (!partColumns.has("data") || !partColumns.has("session_id")) continue;
+    toolRows.push(...await query(`SELECT id, session_id, message_id,
+      json_extract(data, '$.tool') AS tool
+      FROM ${table}
+      ${partColumns.has("time_created") ? "ORDER BY time_created ASC, id ASC" : "ORDER BY id ASC"}`));
+  }
+  return { sessionRows, messages, toolRows };
+}
+
+async function scanOpencodeSessions(dbPaths) {
+  const paths = [...new Set((Array.isArray(dbPaths) ? dbPaths : [dbPaths]).filter(Boolean))];
+  const snapshots = [];
+  const inputs = [];
+  try {
+    for (const dbPath of paths) {
+      let effectivePath = dbPath;
+      if (wsl.isUncPath(dbPath)) {
+        try {
+          const snapshot = wsl.snapshotSqliteDb(dbPath);
+          snapshots.push(snapshot);
+          effectivePath = snapshot.path;
+        } catch { /* Direct read determines whether this mount supports SQLite. */ }
+      }
+      inputs.push(await readOpencodeSessionInputs(effectivePath));
+    }
+    const sessionRows = new Map();
+    const messages = new Map();
+    const toolParts = new Map();
+    for (const input of inputs) {
+      for (const row of input.sessionRows) if (!sessionRows.has(row.id)) sessionRows.set(row.id, row);
+      for (const row of input.toolRows || []) {
+        const key = String(row?.id || "");
+        if (key) {
+          if (toolParts.has(key)) continue;
+          toolParts.set(key, row);
+          continue;
+        }
+        toolParts.set(`anon:${toolParts.size}`, row);
+      }
+      for (const row of input.messages) {
+        const key = `${row.session_id}\0${row.id}`;
+        const previous = messages.get(key);
+        if (!previous || Number(row.time_updated) >= Number(previous.time_updated)) messages.set(key, row);
+      }
+    }
+    const groups = new Map();
+    const ancestors = new Map();
+    const ancestorsOf = (id) => {
+      if (ancestors.has(id)) return ancestors.get(id);
+      const known = [];
+      const seen = new Set([id]);
+      let current = sessionRows.get(id);
+      while (current?.parent_id && sessionRows.has(current.parent_id)) {
+        if (seen.has(current.parent_id)) {
+          ancestors.set(id, []);
+          return [];
+        }
+        seen.add(current.parent_id);
+        known.push(current.parent_id);
+        current = sessionRows.get(current.parent_id);
+      }
+      ancestors.set(id, known);
+      return known;
+    };
+    const sortedMessages = [...messages.values()]
+      .sort((a, b) => Number(a.time_created) - Number(b.time_created))
+      .map((row) => {
+        const data = row.metadata ? JSON.parse(row.metadata) : {};
+        const delta = normalizeOpencodeTokens(data.tokens);
+        const fingerprint = delta && deriveOpencodeMessageFingerprint({ msg: data, totals: delta, source: "opencode" });
+        return { row, data, delta, fingerprint };
+      });
+    // A fork may sort before its original when message creation times tie.
+    // Select a known ancestor before aggregating; unknown/cyclic lineage keeps
+    // the existing first-observed owner and never invents a parent connection.
+    const owners = new Map();
+    for (const { row, fingerprint } of sortedMessages) {
+      if (!fingerprint) continue;
+      const owner = owners.get(fingerprint);
+      if (!owner || ancestorsOf(owner).includes(row.session_id)) owners.set(fingerprint, row.session_id);
+    }
+    for (const { row, data, delta, fingerprint } of sortedMessages) {
+      const sessionId = String(row.session_id || "").trim();
+      if (!sessionId) continue;
+      let group = groups.get(sessionId);
+      if (!group) {
+        group = { bounds: emptyBounds(), tokens: emptyTotals(), models: new Map(), buckets: new Map(), spans: [], turns: 0, calls: 0, cwd: null };
+        groups.set(sessionId, group);
+      }
+      if (delta && delta.total_tokens > 0) {
+        const owner = fingerprint && owners.get(fingerprint);
+        if (owner && owner !== sessionId) continue;
+        const model = normalizeSessionModel(normalizeOpencodeModelFields(data).modelId) || "unknown";
+        addTotals(group.tokens, delta);
+        const usage = group.models.get(model) || { model, ...emptyTotals(), usage_events: 0 };
+        addTotals(usage, delta);
+        usage.usage_events += 1;
+        group.models.set(model, usage);
+        group.calls += 1;
+        const timestampMs = coerceEpochMs(data.time?.completed) || coerceEpochMs(data.time?.created) || coerceEpochMs(row.time_created);
+        if (timestampMs) {
+          const timestamp = new Date(Math.floor(timestampMs / 60_000) * 60_000).toISOString();
+          const key = `${timestamp}\0${model}`;
+          const bucket = group.buckets.get(key) || { timestamp, model, ...emptyTotals(), usage_events: 0 };
+          addTotals(bucket, delta);
+          bucket.usage_events += 1;
+          group.buckets.set(key, bucket);
+        }
+        if (!group.cwd && typeof data.path?.cwd === "string") group.cwd = data.path.cwd.trim() || null;
+      }
+      if (row.role === "user") group.turns += 1;
+      const start = coerceEpochMs(data.time?.created) || coerceEpochMs(row.time_created);
+      // DB time_updated can reflect a migration months after the request.
+      // User records are instants; only an explicit assistant completion proves
+      // execution time. Incomplete requests contribute their start point alone.
+      const completed = row.role === "assistant" ? coerceEpochMs(data.time?.completed) : 0;
+      const end = completed >= start ? completed : start;
+      if (start) updateBounds(group.bounds, new Date(start).toISOString());
+      if (end) updateBounds(group.bounds, new Date(end).toISOString());
+      if (start && end >= start) group.spans.push([start, end]);
+    }
+    // Bucket the parts once per session: a database can hold hundreds of
+    // thousands of part rows and the group loop below runs per session.
+    const toolPartsBySession = new Map();
+    for (const part of toolParts.values()) {
+      const partSession = String(part?.session_id || "").trim();
+      if (!partSession) continue;
+      const bucket = toolPartsBySession.get(partSession);
+      if (bucket) bucket.push(part);
+      else toolPartsBySession.set(partSession, [part]);
+    }
+    const records = [];
+    for (const [sessionId, group] of groups) {
+      const row = sessionRows.get(sessionId) || {};
+      const cwd = typeof row.directory === "string" && row.directory.trim() ? row.directory.trim() : group.cwd;
+      const modelUsage = [...group.models.values()];
+      const toolSignals = tallyOpencodeToolSignals(toolPartsBySession.get(sessionId) || []);
+      let activeMs = 0;
+      let interval = null;
+      for (const span of group.spans.sort((a, b) => a[0] - b[0])) {
+        if (!interval) interval = [...span];
+        else if (span[0] <= interval[1] + IDLE_GAP_MS) interval[1] = Math.max(interval[1], span[1]);
+        else { activeMs += interval[1] - interval[0]; interval = [...span]; }
+      }
+      if (interval) activeMs += interval[1] - interval[0];
+      records.push(finalizeRecord({
+        version: SIDECAR_VERSION,
+        session_hash: sessionHash("opencode", sessionId), session_id: sessionId,
+        parent_session_id: typeof row.parent_id === "string" && row.parent_id.trim() ? row.parent_id.trim() : null,
+        title: cleanSessionTitle(row.title), source: "opencode",
+        project_key: projectKey(cwd && cwd.replace(/\\/g, "/"), paths[0]), project_ref: cwd || null,
+        model: modelUsage.length > 1 ? "mixed" : (modelUsage[0]?.model || "unknown"),
+        model_usage: modelUsage, usage_buckets: [...group.buckets.values()],
+        ...group.bounds, active_ms: activeMs, tokens: group.tokens,
+        turns: group.turns,
+        edit_turns: toolSignals.editTurns,
+        subagent_calls: toolSignals.subagentCalls,
+        subagent_types: toolSignals.subagentTypes,
+        // An OpenCode retry is a provider/API retry, not a repeated user
+        // prompt; the database does not distinguish them, so nothing is inferred.
+        retry_turns: 0,
+        usage_events: group.calls, model_calls: group.calls,
+        usage_precision: group.calls ? "reported" : "unavailable", cost_source: "model_pricing",
+        provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "unavailable", content_retained: false, usage: "opencode-db-metadata" },
+      }));
+    }
+    return records;
+  } finally {
+    for (const snapshot of snapshots) snapshot.cleanup();
+  }
+}
+
+// ZCode (Z.ai's CLI, an OpenCode fork) keeps everything in one SQLite DB at
+// ~/.zcode/cli/db/db.sqlite: a `session` table (id/parent_id/directory/title),
+// a `model_usage` table (per-request counters) and OpenCode's legacy `message`
+// table (assistant messages with inclusive token snapshots). Billable tokens
+// come from readZcodeDbMessages() — the exact same reader, inclusive→disjoint
+// normalization and sub-agent provider blocklist the usage sync uses — so the
+// session browser and the usage card can never drift apart. The per-request
+// signal columns live only in model_usage, so they are read separately and
+// feed performance/counter estimates only, never token totals.
+function zcodeTableColumns(dbPath, table) {
+  // throwOnReadFailure: a missing table answers pragma_table_info with an
+  // empty row set (no error), so the only way to land in the reader's failure
+  // path is a genuinely unreadable db — which must propagate, never read as
+  // "no table" (see the throw in scanZcodeSessions below).
+  const rows = readSqliteJsonRows(dbPath, `SELECT name FROM pragma_table_info('${table}')`, {
+    label: "ZCode",
+    timeout: 10_000,
+    maxBuffer: 1024 * 1024,
+    throwOnReadFailure: true,
+  });
+  return new Set((Array.isArray(rows) ? rows : []).map((row) => String(row?.name || "")));
+}
+
+// Messages from readZcodeDbMessages already carry disjoint opencode-shaped
+// tokens ({ input, output, reasoning, cache.read, cache.write }); map them
+// onto the session pipeline's column names. tokenTotals() recomputes the sum.
+function zcodeMessageTotals(data) {
+  const tokens = data?.tokens || {};
+  const totals = tokenTotals({
+    input_tokens: tokens.input,
+    cached_input_tokens: tokens.cache?.read,
+    cache_creation_input_tokens: tokens.cache?.write,
+    output_tokens: tokens.output,
+    reasoning_output_tokens: tokens.reasoning,
+  });
+  // The usage queue's total is input + output + cache_creation + cache_read +
+  // reasoning_output (rollout.js addTotals); tokenTotals' generic total omits
+  // reasoning. ZCode splits reasoning out of output, so fold it back in here or
+  // the session browser undercounts every thinking request against the card.
+  totals.total_tokens += totals.reasoning_output_tokens;
+  return totals;
+}
+
+const ZCODE_SIGNAL_REQUIRED_COLUMNS = [
+  "session_id", "model_id", "provider_id", "status", "started_at", "id",
+  "output_tokens", "duration_ms", "time_to_first_token_ms", "query_source",
+];
+
+// One db yields many session rows, so unlike the per-file scanners this scan
+// returns an array (the entries loop in buildSessionAnalyticsInternal handles
+// both shapes). Errors on the db as a whole propagate: the caller counts the
+// file as skipped instead of caching an empty inventory as "no sessions".
+//
+// WSL dbs arrive as UNC paths (\\wsl$\…), and SQLite over the Plan 9 bridge
+// cannot take the locks even a read needs ("database is locked"). The usage
+// readers snapshot such paths query-by-query; the scan runs several queries
+// plus readZcodeDbMessages against one db, so snapshot once here and run the
+// whole scan (metadata, signals, turns, tools, messages) against the local
+// copy — otherwise the metadata query succeeds while the message read fails
+// on the same database.
+async function scanZcodeSessions(dbPaths) {
+  const paths = [...new Set((Array.isArray(dbPaths) ? dbPaths : [dbPaths]).filter(Boolean))];
+  const snapshots = [];
+  const inputs = [];
+  try {
+    for (const dbPath of paths) {
+      let effectiveDbPath = dbPath;
+      if (wsl.isUncPath(dbPath)) {
+        try {
+          const snapshot = wsl.snapshotSqliteDb(dbPath);
+          snapshots.push(snapshot);
+          effectiveDbPath = snapshot.path;
+        } catch (_error) { /* Direct read decides whether this UNC server supports SQLite. */ }
+      }
+      inputs.push(readZcodeSessionInputs(effectiveDbPath));
+    }
+    return buildZcodeSessionRecords(inputs, paths[0]);
+  } finally {
+    for (const snapshot of snapshots) snapshot.cleanup();
+  }
+}
+
+/** Read metadata and numeric events from one database; real read failures propagate. */
+function readZcodeSessionInputs(dbPath) {
+  const options = { label: "ZCode", timeout: 30_000, maxBuffer: 50 * 1024 * 1024, readOnly: true, throwOnReadFailure: true };
+  const sessionColumns = zcodeTableColumns(dbPath, "session");
+  if (!sessionColumns.has("id")) return { sessionRows: [], messages: [], requestRows: [], turnRows: [], toolRows: [] };
+  const optionalColumns = ["parent_id", "directory", "title", "time_created", "time_updated"];
+  const selectColumns = ["id", ...optionalColumns.filter((name) => sessionColumns.has(name))];
+  const orderBy = sessionColumns.has("time_created") ? " ORDER BY time_created ASC, id ASC" : " ORDER BY id ASC";
+  const sessionRows = readSqliteJsonRows(
+    dbPath,
+    `SELECT ${selectColumns.join(", ")} FROM session${orderBy}`,
+    options,
+  );
+  const messages = readZcodeDbMessages(dbPath, { readOnly: true }, { propagateReadFailure: true });
+  const modelUsageColumns = zcodeTableColumns(dbPath, "model_usage");
+  const requestRows = ZCODE_SIGNAL_REQUIRED_COLUMNS.every((name) => modelUsageColumns.has(name))
+    ? readSqliteJsonRows(dbPath, `SELECT id, session_id, model_id, status, started_at, output_tokens, duration_ms, time_to_first_token_ms, query_source
+       FROM model_usage
+       WHERE status IN ('completed', 'error')
+         AND trim(provider_id) != ''
+         AND provider_id NOT LIKE '%anthropic%'
+         AND provider_id NOT LIKE '%openai%'
+         AND provider_id NOT LIKE '%google%'
+       ORDER BY started_at ASC, id ASC`, options)
+    : [];
+  const turnColumns = zcodeTableColumns(dbPath, "turn_usage");
+  const turnRows = turnColumns.has("session_id")
+    ? readSqliteJsonRows(dbPath, `SELECT session_id${turnColumns.has("turn_id") ? ", turn_id" : ""} FROM turn_usage`, options)
+    : [];
+  const toolColumns = zcodeTableColumns(dbPath, "tool_usage");
+  const toolRows = ["session_id", "tool_name", "turn_id"].every((name) => toolColumns.has(name))
+    ? readSqliteJsonRows(dbPath, "SELECT session_id, turn_id, tool_name FROM tool_usage", options)
+    : [];
+  return { sessionRows, messages, requestRows, turnRows, toolRows };
+}
+
+/** Merge only shared event identities, retaining both installs' distinct tails. */
+function uniqueZcodeRows(rows, keyFor) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = keyFor(row);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildZcodeSessionRecords(inputs, displayPath) {
+  const collect = (key) => inputs.flatMap((input) => input[key] || []);
+  const eventKey = (row, sessionKey, idKey) => row?.[sessionKey] && row?.[idKey]
+    ? `${row[sessionKey]}\u0000${row[idKey]}` : null;
+  const sessionRows = uniqueZcodeRows(collect("sessionRows"), (row) => row?.id);
+  const fingerprintOwners = new Map();
+  const forkCopies = new Set();
+  const messages = uniqueZcodeRows(collect("messages"), (row) => eventKey(row, "sessionID", "id"))
+    .filter((message) => {
+      // Use the ledger's existing narrow fork-copy contract, including both
+      // timestamps, all token columns, model and provider. Never dedup two
+      // separate turns within one session by counters alone.
+      const fingerprint = deriveOpencodeMessageFingerprint({
+        msg: message.data, totals: zcodeMessageTotals(message.data), source: "zcode",
+      });
+      const owner = fingerprint && fingerprintOwners.get(fingerprint);
+      if (owner && owner !== message.sessionID) {
+        forkCopies.add(eventKey(message, "sessionID", "id"));
+        return false;
+      }
+      if (fingerprint) fingerprintOwners.set(fingerprint, message.sessionID);
+      return true;
+    });
+  const requestRows = uniqueZcodeRows(collect("requestRows"), (row) => eventKey(row, "session_id", "id"))
+    .filter((row) => !forkCopies.has(eventKey(row, "session_id", "id")));
+  const turnRows = uniqueZcodeRows(collect("turnRows"), (row) => eventKey(row, "session_id", "turn_id"));
+  const toolRows = collect("toolRows");
+
+  const messagesBySession = new Map();
+  // propagateReadFailure: a failed native-usage query must abort the scan (the
+  // caller counts the db as skipped) rather than silently degrade to the
+  // legacy tables and cache a zero-token inventory for those sessions.
+  for (const message of messages) {
+    const sessionId = String(message?.sessionID || "").trim();
+    if (!sessionId) continue;
+    let group = messagesBySession.get(sessionId);
+    if (!group) {
+      group = [];
+      messagesBySession.set(sessionId, group);
+    }
+    group.push(message);
+  }
+
+  // Request-level signals (never token totals). Only completed requests feed
+  // duration-based estimates; error rows count toward error_count alone. The
+  // provider filter mirrors isZcodeNativeMessage's blocklist (see rollout.js):
+  // rows ZCode orchestrated through claude/codex/gemini sub-agents already
+  // appear as their own provider's sessions and must not skew signals either.
+  const signalsBySession = new Map();
+  for (const row of requestRows) {
+    const sessionId = String(row?.session_id || "").trim();
+    if (!sessionId) continue;
+    let signals = signalsBySession.get(sessionId);
+    if (!signals) {
+      signals = {
+        collector: createZcodePerformanceCollector(),
+        apiDurationMs: 0,
+        compactionCount: 0,
+        errorCount: 0,
+        // Request wall-clock extremes from model_usage. Messages only carry
+        // startedAt (the reader maps it to timeUpdated), so without these the
+        // last generation's duration never reaches ended_at and a session's
+        // final request reports a zero-length span.
+        firstRequestIso: null,
+        lastRequestEndIso: null,
+        // [startMs, endMs] per request for the active-time union below.
+        activeSpans: [],
+      };
+      signalsBySession.set(sessionId, signals);
+    }
+    // Match readZcodeNativeUsageMessages: databases may store epoch seconds
+    // or milliseconds, but request spans and message bounds must share units.
+    const requestStartMs = coerceEpochMs(row?.started_at);
+    if (requestStartMs > 0) {
+      const startIso = new Date(requestStartMs).toISOString();
+      if (!signals.firstRequestIso || startIso < signals.firstRequestIso) signals.firstRequestIso = startIso;
+      // duration_ms only exists on completed rows; an error request still
+      // occupied its start instant, so its end falls back to the start.
+      const durationMs = row.status === "completed" ? finite(row.duration_ms) : 0;
+      const endIso = new Date(requestStartMs + durationMs).toISOString();
+      if (!signals.lastRequestEndIso || endIso > signals.lastRequestEndIso) signals.lastRequestEndIso = endIso;
+      signals.activeSpans.push([requestStartMs, requestStartMs + durationMs]);
+    }
+    if (row.status === "error") {
+      signals.errorCount += 1;
+      continue;
+    }
+    if (row.query_source === "compact") signals.compactionCount += 1;
+    signals.apiDurationMs += finite(row.duration_ms);
+    signals.collector.consumeUsage({
+      model: normalizeSessionModel(row.model_id) || "unknown",
+      outputTokens: finite(row.output_tokens),
+      durationMs: finite(row.duration_ms),
+      timeToFirstTokenMs: typeof row.time_to_first_token_ms === "number" ? row.time_to_first_token_ms : undefined,
+    });
+  }
+  const turnsBySession = new Map();
+  for (const row of turnRows) {
+    const sessionId = String(row?.session_id || "").trim();
+    if (!sessionId) continue;
+    turnsBySession.set(sessionId, (turnsBySession.get(sessionId) || 0) + 1);
+  }
+
+  // ZCode writes Capitalized tool names (Edit/Write); EDIT_TOOLS is lowercase.
+  // An edit turn is a turn that used an edit tool, matching the Grok definition.
+  const editTurnsBySession = new Map();
+  const editTurnIds = new Map();
+  for (const row of toolRows) {
+    if (!EDIT_TOOLS.has(String(row?.tool_name || "").toLowerCase())) continue;
+    const sessionId = String(row?.session_id || "").trim();
+    const turnId = String(row?.turn_id || "").trim();
+    if (!sessionId || !turnId) continue;
+    let turns = editTurnIds.get(sessionId);
+    if (!turns) {
+      turns = new Set();
+      editTurnIds.set(sessionId, turns);
+    }
+    turns.add(turnId);
+  }
+  for (const [sessionId, turns] of editTurnIds) editTurnsBySession.set(sessionId, turns.size);
+  // Sub-agent calls: the same tool_usage rows carry the tool name, so the
+  // panel's subagents row keeps working after our own reader was dropped in
+  // favour of upstream's (which resolves WSL and dual installs but never
+  // counted these tools).
+  const subagentsBySession = new Map();
+  for (const row of toolRows) {
+    const name = String(row?.tool_name || "").toLowerCase();
+    if (!ZCODE_SUBAGENT_TOOLS.has(name)) continue;
+    const sessionId = String(row?.session_id || "").trim();
+    if (!sessionId) continue;
+    let tally = subagentsBySession.get(sessionId);
+    if (!tally) {
+      tally = { calls: 0, types: new Map() };
+      subagentsBySession.set(sessionId, tally);
+    }
+    tally.calls += 1;
+    tally.types.set(name, (tally.types.get(name) || 0) + 1);
+  }
+
+  const records = [];
+  for (const row of Array.isArray(sessionRows) ? sessionRows : []) {
+    const sessionId = String(row?.id || "").trim();
+    if (!sessionId) continue;
+    const messages = messagesBySession.get(sessionId) || [];
+    const tokens = emptyTotals();
+    const modelUsageByModel = new Map();
+    const bounds = emptyBounds();
+    const usageBuckets = new Map();
+    const messagePoints = [];
+    let messageCwd = null;
+    for (const message of messages) {
+      const data = message?.data || {};
+      // OpenCode v1 messages carry a flat modelID; v2 (session_message era)
+      // nests it as model.id, and some forks wrote model as a plain string.
+      // Resolve every shape through the shared normalizer so by-model
+      // attribution and pricing match the usage sync on v2-layout databases.
+      const model = normalizeSessionModel(normalizeOpencodeModelFields(data).modelId) || "unknown";
+      const delta = zcodeMessageTotals(data);
+      addTotals(tokens, delta);
+      let usage = modelUsageByModel.get(model);
+      if (!usage) {
+        usage = { model, ...emptyTotals(), usage_events: 0 };
+        modelUsageByModel.set(model, usage);
+      }
+      addTotals(usage, delta);
+      usage.usage_events += 1;
+      // Message timestamps are epoch-ms integers; updateBounds() only accepts
+      // ISO strings and silently drops anything else.
+      const timeUpdated = Number(message?.timeUpdated);
+      if (Number.isFinite(timeUpdated) && timeUpdated > 0) {
+        updateBounds(bounds, new Date(timeUpdated).toISOString());
+        messagePoints.push(timeUpdated);
+        // Minute buckets (same shape as the Codex scanner's) feed the from/to
+        // day filter in scopeSessionUsage; without them a multi-day session
+        // bills its whole lifetime to every day it touches.
+        const timestamp = new Date(Math.floor(timeUpdated / 60_000) * 60_000).toISOString();
+        const bucketKey = `${timestamp}\u0000${model}`;
+        const bucket = usageBuckets.get(bucketKey) || { timestamp, model, ...emptyTotals(), usage_events: 0 };
+        addTotals(bucket, delta);
+        bucket.usage_events += 1;
+        usageBuckets.set(bucketKey, bucket);
+      }
+      if (!messageCwd && typeof data.path?.cwd === "string" && data.path.cwd.trim()) {
+        messageCwd = data.path.cwd.trim();
+      }
+    }
+    // Sessions without any message (claude-import migrations the import did
+    // not rebuild, sessions abandoned before the first reply) keep the row's
+    // own wall-clock span; they end up with zero tokens and the browser's
+    // existing total_tokens > 0 filter drops them from the listing.
+    if (messages.length === 0) {
+      const created = Number(row?.time_created);
+      const updated = Number(row?.time_updated);
+      if (Number.isFinite(created) && created > 0) updateBounds(bounds, new Date(created).toISOString());
+      if (Number.isFinite(updated) && updated > 0) updateBounds(bounds, new Date(updated).toISOString());
+    }
+
+    const signals = signalsBySession.get(sessionId) || null;
+    if (signals) {
+      // Widen the wall-clock span with model_usage request extremes: message
+      // timestamps are request starts, so the final request's duration would
+      // otherwise vanish from ended_at (a 10s request reads as a 0-length
+      // span). Direct comparison instead of updateBounds() keeps active_ms
+      // (idle-gap working time) driven by the interval union below.
+      if (signals.firstRequestIso && (!bounds.started_at || signals.firstRequestIso < bounds.started_at)) {
+        bounds.started_at = signals.firstRequestIso;
+      }
+      if (signals.lastRequestEndIso && (!bounds.ended_at || signals.lastRequestEndIso > bounds.ended_at)) {
+        bounds.ended_at = signals.lastRequestEndIso;
+      }
+    }
+    // Active time = the union of request execution intervals plus message
+    // instants, with spans ≤ IDLE_GAP_MS apart bridged. updateBounds' gap
+    // accumulator only measures message-start-to-message-start, which loses
+    // the execution time of every request but the last one (two 10s requests
+    // around a 1h pause must read 20s, not 10s); the union also collapses
+    // parallel requests instead of counting them twice. Legacy-only sessions
+    // contribute points alone, which degenerates to the same idle-gap span
+    // the generic scanners produce.
+    const spans = [...(signals ? signals.activeSpans : []), ...messagePoints.map((ms) => [ms, ms])]
+      .filter(([startMs, endMs]) => Number.isFinite(startMs) && Number.isFinite(endMs))
+      .sort((a, b) => a[0] - b[0]);
+    let unionActiveMs = 0;
+    let unionStart = null;
+    let unionEnd = null;
+    for (const [startMs, endMs] of spans) {
+      if (unionStart === null) {
+        unionStart = startMs;
+        unionEnd = endMs;
+        continue;
+      }
+      if (startMs <= unionEnd + IDLE_GAP_MS) {
+        if (endMs > unionEnd) unionEnd = endMs;
+        continue;
+      }
+      unionActiveMs += unionEnd - unionStart;
+      unionStart = startMs;
+      unionEnd = endMs;
+    }
+    if (unionStart !== null) unionActiveMs += unionEnd - unionStart;
+    bounds.active_ms = unionActiveMs;
+    const finished = signals ? signals.collector.finish() : { performance: normalizePerformance(), byModel: new Map() };
+    const modelUsage = [...modelUsageByModel.values()].map((usage) => ({
+      ...usage,
+      performance: finished.byModel.get(usage.model) || normalizePerformance(),
+    }));
+    const cwd = typeof row?.directory === "string" && row.directory.trim() ? row.directory.trim() : messageCwd;
+    records.push(finalizeRecord({
+      version: SIDECAR_VERSION,
+      session_hash: sessionHash("zcode", sessionId),
+      session_id: sessionId,
+      // Local-only lineage: ZCode's own parent_id (subagent/workflow children).
+      parent_session_id: typeof row?.parent_id === "string" && row.parent_id.trim() ? row.parent_id.trim() : null,
+      // Local-only: stripped in summarizeSessions before any cloud/CSV export.
+      title: cleanSessionTitle(row?.title),
+      source: "zcode",
+      // A database copied between Windows and POSIX retains its original cwd.
+      project_key: projectKey(cwd && cwd.replace(/\\/g, "/"), displayPath),
+      project_ref: cwd || null,
+      model: modelUsage.length > 1 ? "mixed" : (modelUsage[0]?.model || "unknown"),
+      model_usage: modelUsage,
+      usage_buckets: [...usageBuckets.values()],
+      ...bounds,
+      turns: turnsBySession.get(sessionId) || 0,
+      edit_turns: editTurnsBySession.get(sessionId) || 0,
+      subagent_calls: subagentsBySession.get(sessionId)?.calls || 0,
+      subagent_types: Object.fromEntries([...(subagentsBySession.get(sessionId)?.types || new Map()).entries()].sort()),
+      // Provider/API retries are not repeated user requests. This numeric
+      // metadata has no user-prompt repetition evidence.
+      retry_turns: 0,
+      tokens,
+      usage_events: messages.length,
+      usage_precision: messages.length > 0 ? "reported" : "unavailable",
+      cost_source: "model_pricing",
+      provider_cost_usd: null,
+      model_calls: messages.length,
+      api_duration_ms: signals ? signals.apiDurationMs : 0,
+      error_count: signals ? signals.errorCount : 0,
+      compaction_count: signals ? signals.compactionCount : 0,
+      performance: finished.performance,
+      provenance: {
+        source: "local-session-log",
+        confidence: "observed",
+        retry_confidence: "unavailable",
+        content_retained: false,
+        usage: messages.length > 0 ? "zcode-db-messages" : "unavailable",
+      },
+    }));
+  }
+  return records;
+}
+
 // Multi-root discovery: on Windows a native install and a WSL one both count.
 // `sync` already walks both Claude homes (src/commands/sync.js), so without this
 // the WSL work lands in the token totals but is invisible in the session browser
@@ -2321,11 +2612,50 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const claude = allClaude.filter((filePaths) => !filePaths.some((filePath) => filePath
     .split(path.sep)
     .some((segment) => segment.endsWith(CLAUDE_MEM_OBSERVER_PROJECT_SUFFIX))));
+  // ZCode has no sessions directory tree — one SQLite db per install. Resolve
+  // it like the usage sync does (src/commands/sync.js): native candidate first
+  // (ZCODE_HOME, home, win32 APPDATA fallback), then the WSL install when the
+  // WSL mode probes it, picked with the same mode priority (default wsl-first)
+  // so the browser reads the same installs the usage card counts. "both"
+  // preserves both paths; the scanner merges shared session/event identities.
+  const zcodePlatform = deps.platform || process.platform;
+  const zcodeNativeDbPath = (deps.resolveZcodeNativeDbPath || resolveZcodeNativeDbPath)({ home, env, platform: zcodePlatform });
+  // Same WSL gate as providerRoots(): discoverWslHome resolves \\wsl$
+  // independently of `home`, so a custom/injected home must not splice the
+  // machine's live WSL db into an isolated scan. `probeWsl` is the deliberate
+  // opt-in (defaults to true only for the machine's own home).
+  const zcodeProbeWsl = deps.probeWsl !== undefined
+    ? Boolean(deps.probeWsl)
+    : path.resolve(home) === path.resolve((deps.homedir || os.homedir)());
+  const zcodeWslHome = zcodePlatform === "win32" && zcodeProbeWsl && wsl.shouldProbeWsl(env)
+    ? (deps.discoverWslHome || wsl.discoverWslHome)(".zcode", { env })
+    : null;
+  const zcodeExisting = (dbPath) => (dbPath && fs.existsSync(dbPath) ? dbPath : null);
+  const zcodeWslDbPath = zcodeWslHome ? path.join(zcodeWslHome, "cli", "db", "db.sqlite") : null;
+  const zcodePaths = zcodePlatform === "win32"
+    ? wsl.resolveAllWin32Paths({
+      nativeValue: zcodeExisting(zcodeNativeDbPath),
+      wslValue: zcodeExisting(zcodeWslDbPath),
+      env,
+      platform: zcodePlatform,
+    })
+    : { native: zcodeExisting(zcodeNativeDbPath), wsl: null };
+  const zcode = [...new Set(Object.values(zcodePaths).filter(Boolean))];
+  const opencodeNativeDir = env.OPENCODE_HOME || path.join(env.XDG_DATA_HOME || path.join(home, ".local", "share"), "opencode");
+  const opencodeWslDir = zcodePlatform === "win32" && zcodeProbeWsl && wsl.shouldProbeWsl(env)
+    ? (deps.discoverWslHome || wsl.discoverWslHome)(".local/share/opencode", { env }) : null;
+  const opencodePaths = resolveInstallPaths({ nativeValue: opencodeNativeDir, wslValue: opencodeWslDir }, env, { platform: zcodePlatform });
+  const opencode = [...new Set(Object.values(opencodePaths).filter(Boolean)
+    .map((dir) => path.join(dir, "opencode.db")).filter((dbPath) => fs.existsSync(dbPath)))];
   return {
     claude,
     codex: groupCodexFiles([...codex, ...archived]),
     grok,
+    // Two WorkBuddy builds, two ledgers: the conversation files are grouped per
+    // home so each session keeps the edition it was written by.
     workbuddy: groupWorkbuddyConversationFiles(workbuddyFiles),
+    zcode,
+    opencode,
     incomplete,
   };
 }
@@ -2432,6 +2762,12 @@ function analyticsEntryStatKey(source, filePath) {
     const primary = filePaths[0];
     return `${sessionStat}|summary:${sessionFileStatKey(grokSummaryPathFor(primary)) || "missing"}|signals:${sessionFileStatKey(grokSignalsPathFor(primary)) || "missing"}`;
   }
+  if (source === "zcode" || source === "opencode") {
+    // A WAL-mode db can absorb writes without touching the main file's mtime,
+    // so the sidecar files are part of the db's identity for cache checks.
+    return `${sessionStat}|sidecars:${filePaths.map((filePath) =>
+      `wal:${sessionFileStatKey(`${filePath}-wal`) || "missing"}|shm:${sessionFileStatKey(`${filePath}-shm`) || "missing"}`).join("|")}`;
+  }
   return sessionStat;
 }
 
@@ -2454,13 +2790,20 @@ async function writeAtomic(filePath, content) {
 async function buildSessionAnalyticsInternal({ home = os.homedir(), force = false, cacheTtlMs = 5 * 60_000 } = {}) {
   const sidecarPath = resolveSessionSidecarPath(home);
   const metaPath = `${sidecarPath}.meta.json`;
+  // A lock/permission failure need not alter the database's stat signature.
+  // Keep a separate durable invalidation marker while preserving the complete
+  // sidecar and metadata. TTL, signature and per-file reuse must all retry it.
+  const incompleteZcodePath = `${metaPath}.zcode-incomplete`;
+  const retryZcodeScan = fs.existsSync(incompleteZcodePath);
+  const incompleteOpencodePath = `${metaPath}.opencode-incomplete`;
+  const retryOpencodeScan = fs.existsSync(incompleteOpencodePath);
   let previousMeta = null;
   if (!force) {
     try {
       previousMeta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
       const checkedAt = Date.parse(previousMeta.checked_at || previousMeta.generated_at || "");
       if (
-        previousMeta.version === SIDECAR_VERSION &&
+        !retryZcodeScan && !retryOpencodeScan && previousMeta.version === SIDECAR_VERSION &&
         Number.isFinite(checkedAt) &&
         Date.now() - checkedAt < Math.max(0, Number(cacheTtlMs) || 0)
       ) {
@@ -2499,8 +2842,10 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...(discovered.workbuddy || []).flat(),
     ...discovered.grok.map(grokSummaryPathFor),
     ...discovered.grok.map(grokSignalsPathFor),
+    // db + its WAL sidecars: the trio is one logical file for change detection.
+    ...[...(discovered.zcode || []), ...(discovered.opencode || [])].flatMap((dbPath) => [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]),
   ]);
-  if (!force && previousMeta?.version === SIDECAR_VERSION && previousMeta.signature === signature) {
+  if (!force && !retryZcodeScan && !retryOpencodeScan && previousMeta?.version === SIDECAR_VERSION && previousMeta.signature === signature) {
     await writeAtomic(metaPath, `${JSON.stringify({ ...previousMeta, checked_at: new Date().toISOString() })}\n`);
     return readSidecar(sidecarPath);
   }
@@ -2520,6 +2865,8 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.claude.map((filePaths) => ({ source: "claude", filePath: filePaths, scan: scanClaudeSession })),
     ...discovered.codex.map((filePaths) => ({ source: "codex", filePath: filePaths, scan: scanCodexSession })),
     ...discovered.grok.map((filePath) => ({ source: "grok", filePath, scan: scanGrokSession })),
+    ...(discovered.zcode.length ? [{ source: "zcode", filePath: discovered.zcode, scan: scanZcodeSessions }] : []),
+    ...(discovered.opencode.length ? [{ source: "opencode", filePath: discovered.opencode, scan: scanOpencodeSessions }] : []),
     ...(discovered.workbuddy || []).map((filePaths) => ({
       // The domestic and the international edition are two products with two
       // ledgers, so each conversation keeps the source of the home it came from.
@@ -2532,54 +2879,71 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   // vanished mid-scan). Swallowing these silently made sessions disappear with
   // no signal at all; count them so the API can say so.
   let skippedFiles = 0;
+  let incompleteZcodeScan = false;
+  let incompleteOpencodeScan = false;
   for (const entry of entries) {
     const cacheKey = sessionFileCacheKey(entry.source, entry.filePath);
     const statKey = analyticsEntryStatKey(entry.source, entry.filePath);
     if (!statKey) {
       skippedFiles += 1;
+      if (entry.source === "zcode") incompleteZcodeScan = true;
+      if (entry.source === "opencode") incompleteOpencodeScan = true;
       continue;
     }
-    let row = null;
-    if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
-      row = previousRowsByFile.get(cacheKey) || null;
+    let rows = null;
+    if (!force && !(entry.source === "zcode" && retryZcodeScan) && !(entry.source === "opencode" && retryOpencodeScan) && previousFiles[cacheKey]?.stat_key === statKey) {
+      if (entry.source === "zcode" || entry.source === "opencode") {
+        // One db scans to many cached rows; recover them all from the previous
+        // pass. An empty recovery means the sidecar lost its rows — rescan.
+        const cached = previousRows.filter((row) => row?.source === entry.source);
+        rows = cached.length ? cached : null;
+      } else {
+        const row = previousRowsByFile.get(cacheKey) || null;
+        rows = row ? [row] : null;
+      }
     }
-    if (!row) {
+    if (!rows) {
       try {
-        row = await entry.scan(entry.filePath);
+        const scanned = await entry.scan(entry.filePath);
+        rows = Array.isArray(scanned) ? scanned.filter(Boolean) : (scanned ? [scanned] : []);
       } catch (error) {
         // One active/partial session must not poison the sidecar, but do not
         // pretend it never existed either.
         skippedFiles += 1;
+        if (entry.source === "zcode") incompleteZcodeScan = true;
+        if (entry.source === "opencode") incompleteOpencodeScan = true;
         if (!process.env.NODE_TEST_CONTEXT) {
           console.warn(`[session-analytics] skipped ${entry.source} session file: ${error?.message || error}`);
         }
+        rows = [];
       }
     }
-    if (!row) continue;
-    repriceSessionRecord(row);
-    // A one-way file hash enables incremental reuse without persisting or
-    // exposing the user's local session path.
-    row._cache_key = cacheKey;
-    sessions.push(row);
-    nextFiles[cacheKey] = { stat_key: statKey };
+    for (const row of rows) {
+      repriceSessionRecord(row);
+      // A one-way file hash enables incremental reuse without persisting or
+      // exposing the user's local session path. ZCode's rows all share one db,
+      // so key each by the db path plus its session id; a bare session id as a
+      // separate path element would be path.resolve()d against the process cwd
+      // and never match across runs.
+      row._cache_key = (entry.source === "zcode" || entry.source === "opencode") && row.session_id
+        ? `${cacheKey}#${sessionHash(entry.source, row.session_id)}`
+        : cacheKey;
+      sessions.push(row);
+    }
+    if (rows.length > 0) nextFiles[cacheKey] = { stat_key: statKey };
   }
-  // OpenCode keeps conversations in a database rather than one file each, so it
-  // is read after the file sources and cached per conversation by its own stat
-  // key instead of a file stat.
-  for (const { row, statKey } of readOpencodeSessions({ home })) {
-    const cacheKey = OPENCODE_SOURCE + "|" + (row.session_id || row.session_hash);
-    if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
-      const cached = previousRowsByFile.get(cacheKey);
-      if (cached) {
-        sessions.push(cached);
-        nextFiles[cacheKey] = previousFiles[cacheKey];
-        continue;
-      }
-    }
-    row._cache_key = cacheKey;
-    repriceSessionRecord(row);
-    sessions.push(row);
-    nextFiles[cacheKey] = { stat_key: statKey };
+  if (incompleteZcodeScan) {
+    await writeAtomic(incompleteZcodePath, "1\n");
+    // ZCode databases form one deduplicated inventory. If any read fails, retain its last
+    // complete rows even on a forced refresh; skippedFiles still reports that
+    // these rows could not be refreshed. Older cache schemas must be rebuilt.
+    sessions.push(...readSidecar(sidecarPath).filter((row) =>
+      row.source === "zcode" && row.version === SIDECAR_VERSION));
+  }
+  if (incompleteOpencodeScan) {
+    await writeAtomic(incompleteOpencodePath, "1\n");
+    sessions.push(...readSidecar(sidecarPath).filter((row) =>
+      row.source === "opencode" && row.version === SIDECAR_VERSION));
   }
   // dsh (DeepSeek Harness) stores one compressed transcript per conversation,
   // so like OpenCode it is read after the file sources and cached by its own
@@ -2600,27 +2964,11 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     nextFiles[cacheKey] = { stat_key: statKey };
   }
 
-  // ZCode keeps one SQLite for every conversation like OpenCode does, but its
-  // token counters are inclusive, so the rows are built from the collector's
-  // normalized view rather than the raw columns.
-  for (const { row, statKey } of readZcodeSessions({ home })) {
-    const cacheKey = "zcode|" + (row.session_id || row.session_hash);
-    if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
-      const cached = previousRowsByFile.get(cacheKey);
-      if (cached) {
-        sessions.push(cached);
-        nextFiles[cacheKey] = previousFiles[cacheKey];
-        continue;
-      }
-    }
-    row._cache_key = cacheKey;
-    repriceSessionRecord(row);
-    sessions.push(row);
-    nextFiles[cacheKey] = { stat_key: statKey };
-  }
 
   sessions.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
-  if (incompleteDirs.length === 0) {
+  // A failed database scan is an incomplete inventory. Keep the last complete
+  // snapshot and signature so an unchanged database is retried next build.
+  if (incompleteDirs.length === 0 && !incompleteZcodeScan && !incompleteOpencodeScan) {
     const content = sessions.map(serializeSessionRecord).join("\n") + (sessions.length ? "\n" : "");
     await writeAtomic(sidecarPath, content);
     const generatedAt = new Date().toISOString();
@@ -2631,6 +2979,8 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       checked_at: generatedAt,
       files: nextFiles,
     })}\n`);
+    await fsp.rm(incompleteZcodePath, { force: true });
+    await fsp.rm(incompleteOpencodePath, { force: true });
   }
   // Non-enumerable so the array still behaves exactly like a plain row list
   // for every existing caller (map/filter/JSON of the rows is unaffected).
@@ -2717,7 +3067,7 @@ function scopeSessionUsage(row, from, to, context) {
 
 function summarizeSessions(sessions, { from = "", to = "", includeSessions = true, timeZone, offsetMinutes } = {}) {
   const context = { timeZone, offsetMinutes };
-  const filtered = annotateCodexThreadUsage((sessions || [])
+  const filtered = annotateThreadUsage((sessions || [])
     .filter((row) => withinDayRange(row, from, to, context))
     // Efficiency is a session-lifetime metric: both tokens and edit turns
     // must describe that same population. The browser scopes consumption
@@ -2808,7 +3158,7 @@ function summarizeSessions(sessions, { from = "", to = "", includeSessions = tru
       if (key === primaryModel) agg.retries += finite(row.retry_turns);
       byModel.set(key, agg);
     }
-    if (row.source === "codex" && row.parent_session_hash) {
+    if ((row.source === "codex" || row.source === "zcode" || row.source === "opencode") && row.parent_session_hash) {
       const name = row.agent_role || row.agent_nickname || "subagent";
       const sub = subagents.get(name) || {
         name,
@@ -2825,9 +3175,9 @@ function summarizeSessions(sessions, { from = "", to = "", includeSessions = tru
       subagents.set(name, sub);
       continue;
     }
-    // Codex child rollouts are first-class rows. A spawn call in the parent is
+    // Codex and ZCode children are first-class rows. A spawn call in the parent is
     // a control-plane event, not token usage, so do not mix in an estimate.
-    if (row.source === "codex") continue;
+    if (row.source === "codex" || row.source === "zcode" || row.source === "opencode") continue;
     for (const [name, calls] of Object.entries(row.subagent_types || {})) {
       const sub = subagents.get(name) || { name, calls: 0, sessions: 0, total_tokens: 0, cost_usd: 0 };
       sub.calls += finite(calls);
@@ -2911,6 +3261,7 @@ function resumeCommandFor(source, sessionId) {
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(id)) return null;
   if (source === "claude") return `claude --resume ${id}`;
   if (source === "codex") return `codex resume ${id}`;
+  if (source === "opencode") return `opencode --session ${id}`;
   // Grok Build: `grok --resume <session-id>` (also accepts a title). The
   // command must still be run from the session's project_ref cwd.
   if (source === "grok") return `grok --resume ${id}`;
@@ -3092,32 +3443,36 @@ function mergeSessionFragments(rows) {
   return merged;
 }
 
-// Attach exact Codex parent/child usage without changing the authoritative
-// per-session total_tokens field. Combined fields are derived views only, so
-// summing total_tokens across all rows still equals the global usage ledger.
-function annotateCodexThreadUsage(rows) {
+// Attach exact Codex/ZCode parent→child usage without changing the
+// authoritative per-session total_tokens field. Combined fields are derived
+// views only, so summing total_tokens across all rows still equals the global
+// usage ledger. ZCode joins the same lineage pass: its subagent/workflow
+// children carry parent_session_id from the session table, so the browser can
+// nest them under their parent and count them as its subagents.
+function annotateThreadUsage(rows) {
   const byId = new Map();
   const childrenById = new Map();
   const linkedParentById = new Map();
+  const identity = (row, id = row.session_id) => `${row.source}\u0000${id}`;
 
   for (const row of rows || []) {
-    if (row?.source !== "codex" || typeof row.session_id !== "string" || !row.session_id) continue;
-    const existing = byId.get(row.session_id);
+    if ((row?.source !== "codex" && row?.source !== "zcode" && row?.source !== "opencode") || typeof row.session_id !== "string" || !row.session_id) continue;
+    const existing = byId.get(identity(row));
     if (existing && existing !== row) {
       existing.parent_link_conflict = true;
       row.parent_link_conflict = true;
       continue;
     }
-    byId.set(row.session_id, row);
+    byId.set(identity(row), row);
   }
 
   function hasParentCycle(start) {
     const seen = new Set();
     let current = start;
-    while (current?.parent_session_id && byId.has(current.parent_session_id)) {
-      if (seen.has(current.session_id) || current.parent_session_id === current.session_id) return true;
-      seen.add(current.session_id);
-      current = byId.get(current.parent_session_id);
+    while (current?.parent_session_id && byId.has(identity(current, current.parent_session_id))) {
+      if (seen.has(identity(current)) || current.parent_session_id === current.session_id) return true;
+      seen.add(identity(current));
+      current = byId.get(identity(current, current.parent_session_id));
     }
     return false;
   }
@@ -3125,48 +3480,49 @@ function annotateCodexThreadUsage(rows) {
   for (const row of byId.values()) {
     const parentId = typeof row.parent_session_id === "string" ? row.parent_session_id.trim() : "";
     if (!parentId) continue;
+    const parentKey = identity(row, parentId);
     if (row.parent_link_conflict || hasParentCycle(row)) {
       row.parent_link_conflict = true;
       continue;
     }
-    if (!byId.has(parentId)) {
+    if (!byId.has(parentKey)) {
       row.orphaned_subagent = true;
       continue;
     }
-    const children = childrenById.get(parentId) || [];
+    const children = childrenById.get(parentKey) || [];
     children.push(row);
-    childrenById.set(parentId, children);
-    linkedParentById.set(row.session_id, parentId);
+    childrenById.set(parentKey, children);
+    linkedParentById.set(identity(row), parentKey);
   }
 
   const memo = new Map();
   function aggregate(row, visiting = new Set()) {
-    if (memo.has(row.session_id)) return memo.get(row.session_id);
-    if (visiting.has(row.session_id)) {
+    if (memo.has(identity(row))) return memo.get(identity(row));
+    if (visiting.has(identity(row))) {
       row.parent_link_conflict = true;
       return { count: 0, tokens: 0, cost: 0 };
     }
     const nextVisiting = new Set(visiting);
-    nextVisiting.add(row.session_id);
+    nextVisiting.add(identity(row));
     let count = 0;
     let tokens = 0;
     let cost = 0;
-    for (const child of childrenById.get(row.session_id) || []) {
+    for (const child of childrenById.get(identity(row)) || []) {
       const nested = aggregate(child, nextVisiting);
       count += 1 + nested.count;
       tokens += finite(child.total_tokens) + nested.tokens;
       cost += finite(child.cost_usd) + nested.cost;
     }
     const result = { count, tokens, cost };
-    memo.set(row.session_id, result);
+    memo.set(identity(row), result);
     return result;
   }
 
   function rootFor(row) {
-    const seen = new Set([row.session_id]);
+    const seen = new Set([identity(row)]);
     let current = row;
-    while (current && linkedParentById.has(current.session_id)) {
-      const linkedParentId = linkedParentById.get(current.session_id);
+    while (current && linkedParentById.has(identity(current))) {
+      const linkedParentId = linkedParentById.get(identity(current));
       if (seen.has(linkedParentId)) {
         row.parent_link_conflict = true;
         break;
@@ -3178,12 +3534,14 @@ function annotateCodexThreadUsage(rows) {
   }
 
   for (const row of rows || []) {
+    const threadAware = (row.source === "codex" || row.source === "zcode" || row.source === "opencode")
+      && typeof row.session_id === "string" && row.session_id;
     row.own_total_tokens = finite(row.total_tokens);
     row.own_cost_usd = finite(row.cost_usd);
-    row.direct_subagent_count = row.source === "codex" && row.session_id
-      ? (childrenById.get(row.session_id) || []).length
+    row.direct_subagent_count = threadAware
+      ? (childrenById.get(identity(row)) || []).length
       : 0;
-    const nested = row.source === "codex" && row.session_id
+    const nested = threadAware
       ? aggregate(row)
       : { count: 0, tokens: 0, cost: 0 };
     row.descendant_subagent_count = nested.count;
@@ -3191,8 +3549,8 @@ function annotateCodexThreadUsage(rows) {
     row.subagent_cost_usd = nested.cost;
     row.combined_total_tokens = finite(row.total_tokens) + nested.tokens;
     row.combined_cost_usd = finite(row.cost_usd) + nested.cost;
-    if (row.source === "codex" && row.session_id) {
-      const parent = byId.get(linkedParentById.get(row.session_id));
+    if (threadAware) {
+      const parent = byId.get(linkedParentById.get(identity(row)));
       row.parent_session_hash = parent?.session_hash || null;
       row.root_session_hash = rootFor(row).session_hash || row.session_hash;
     }
@@ -3206,7 +3564,7 @@ function annotateCodexThreadUsage(rows) {
 // local API.
 function listSessionsForBrowser(sessions, { from = "", to = "", limit = 0, timeZone, offsetMinutes } = {}) {
   const context = { timeZone, offsetMinutes };
-  const filtered = annotateCodexThreadUsage(mergeSessionFragments(sessions)
+  const filtered = annotateThreadUsage(mergeSessionFragments(sessions)
     // Only sessions that actually spent tokens are worth listing. This drops
     // two kinds of noise: non-session logs under ~/.claude/projects
     // (skill-injections.jsonl, journal.jsonl, …), and sessions abandoned before
@@ -3249,14 +3607,13 @@ module.exports = {
   scanClaudeSession,
   scanWorkbuddySession,
   readDshSessions,
-  readZcodeSessions,
-  buildZcodeSessionRow,
   buildDshSessionRow,
-  readOpencodeSessions,
   resolveOpencodeDatabase,
   groupWorkbuddyConversationFiles,
   scanCodexSession,
   scanGrokSession,
+  scanZcodeSessions,
+  scanOpencodeSessions,
   buildSessionAnalytics,
   summarizeSessions,
   listSessionsForBrowser,

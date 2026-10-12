@@ -1,276 +1,295 @@
 "use strict";
 
-const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { DatabaseSync } = require("node:sqlite");
+const { test } = require("node:test");
+let DatabaseSync;
+try { ({ DatabaseSync } = require("node:sqlite")); } catch { /* Node 20 */ }
+const sqliteTest = DatabaseSync ? test : test.skip;
+const { scanOpencodeSessions, discoverSessionFiles, buildSessionAnalytics, listSessionsForBrowser, summarizeSessions, sessionsToCsv, resumeCommandFor, resolveSessionSidecarPath } = require("../src/lib/session-analytics");
+const { readOpencodeDbMessages, parseOpencodeDbIncremental } = require("../src/lib/rollout");
+const T0 = Date.UTC(2026, 9, 8, 10);
+const SECRET = "private prompt and assistant body never retained";
 
-const {
-  buildSessionAnalytics,
-  listSessionsForBrowser,
-  readOpencodeSessions,
-  resolveOpencodeDatabase,
-} = require("../src/lib/session-analytics");
-const { ensurePricingLoaded } = require("../src/lib/pricing");
-
-const T0 = Date.parse("2026-09-01T10:00:00.000Z");
-
-// Mirrors the real OpenCode schema closely enough that a renamed column or a
-// changed json_extract path breaks these rows instead of quietly zeroing them.
-function createOpencodeDb(dir, { sessions = [], messages = [], parts = [] } = {}) {
-  fs.mkdirSync(dir, { recursive: true });
-  const db = new DatabaseSync(path.join(dir, "opencode.db"));
-  db.exec(`CREATE TABLE session (
-      id TEXT PRIMARY KEY, parent_id TEXT, title TEXT, directory TEXT, agent TEXT, model TEXT,
-      cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER,
-      tokens_cache_read INTEGER, tokens_cache_write INTEGER,
-      time_created INTEGER, time_updated INTEGER);
-    CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, data TEXT);
-    CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, data TEXT);`);
-  const session = db.prepare(`INSERT INTO session (id, parent_id, title, directory, agent, model, cost,
-    tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write,
-    time_created, time_updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-  for (const s of sessions) {
-    session.run(s.id, s.parent_id ?? null, s.title ?? null, s.directory ?? "D:/work/site", s.agent ?? "build",
-      s.model ?? '{"id":"space-bunny-free","providerID":"opencode"}', s.cost ?? 0,
-      s.tokens_input ?? 0, s.tokens_output ?? 0, s.tokens_reasoning ?? 0,
-      s.tokens_cache_read ?? 0, s.tokens_cache_write ?? 0,
-      s.time_created ?? T0, s.time_updated ?? (T0 + 60000));
+function fixture(t, { sessionTable = "session", v1 = true, v2 = false } = {}) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-opencode-sessions-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const dbPath = path.join(home, ".local", "share", "opencode", "opencode.db");
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  const db = new DatabaseSync(dbPath);
+  if (sessionTable) db.exec(`CREATE TABLE ${sessionTable} (id TEXT PRIMARY KEY, parent_id TEXT, title TEXT, directory TEXT, time_created INTEGER, time_updated INTEGER)`);
+  if (v1) db.exec("CREATE TABLE message (id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  if (v2) db.exec("CREATE TABLE session_message (id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, type TEXT, data TEXT)");
+  return { home, dbPath, db, sessionTable };
+}
+function session(f, id, { parent = null, title = "Agent-authored title" } = {}) {
+  f.db.prepare(`INSERT INTO ${f.sessionTable} VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(id, parent, title, "C:\\repo\\opencode-app", T0, T0 + 10000);
+}
+function message(f, { table = "message", id = "assistant", sessionId = "ses_root", role = "assistant", start = T0, end = start + 10000, model = "claude-sonnet-4-5", tokens = { input: 100, output: 50, reasoning: 10, cache: { read: 25, write: 5 } }, nested = table === "session_message" } = {}) {
+  const data = { role, content: SECRET, parts: [{ text: SECRET }], time: { created: start, completed: end }, path: { cwd: "/repo/fallback" } };
+  if (role === "assistant") {
+    Object.assign(data, { tokens }, nested ? { model: { id: model, providerID: "anthropic" } } : { modelID: model, providerID: "anthropic" });
   }
-  const message = db.prepare("INSERT INTO message (id, session_id, time_created, data) VALUES (?,?,?,?)");
-  for (const m of messages) message.run(m.id, m.session_id, m.time_created, JSON.stringify(m.data));
-  const part = db.prepare("INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?,?,?,?,?)");
-  for (const p of parts) part.run(p.id, p.message_id, p.session_id, p.time_created ?? T0, JSON.stringify(p.data));
-  db.close();
-  return path.join(dir, "opencode.db");
+  const values = [id, sessionId, start, end];
+  if (table === "session_message") values.push(role);
+  values.push(JSON.stringify(data));
+  f.db.prepare(`INSERT INTO ${table} VALUES (${values.map(() => "?").join(",")})`).run(...values);
 }
 
-function userTurn(id, sessionId, at) {
-  return { id, session_id: sessionId, time_created: at, data: { role: "user", time: { created: at } } };
+for (const [name, options, table] of [
+  ["v1 with an empty v2 table", { v2: true }, "message"],
+  ["v2 beta session_v2", { v1: false, v2: true, sessionTable: "session_v2" }, "session_message"],
+  ["upstream v2 session", { v1: false, v2: true }, "session_message"],
+]) {
+  sqliteTest(`OpenCode ${name} aggregates numeric usage, model, turns and local metadata`, async (t) => {
+    const f = fixture(t, options);
+    session(f, "ses_root");
+    message(f, { table, role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+    message(f, { table });
+    f.db.close();
+    const rows = await scanOpencodeSessions(f.dbPath);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].total_tokens, 190);
+    assert.equal(rows[0].tokens.reasoning_output_tokens, 10);
+    assert.equal(rows[0].turns, 1);
+    assert.equal(rows[0].duration_ms, 11000);
+    assert.equal(rows[0].model, "claude-sonnet-4-5");
+    assert.equal(rows[0].project_key, "opencode-app");
+    assert.equal(rows[0].title, "Agent-authored title");
+    const browser = listSessionsForBrowser(rows).sessions[0];
+    assert.equal(browser.resume_command, "opencode --session ses_root");
+    assert.equal(browser.project_ref, "C:\\repo\\opencode-app");
+    const summary = summarizeSessions(rows);
+    const exported = JSON.stringify(summary) + sessionsToCsv(rows);
+    assert.equal(exported.includes(SECRET), false);
+    assert.equal(exported.includes("Agent-authored title"), false);
+    assert.equal(exported.includes("C:\\\\repo"), false);
+    assert.equal(exported.includes("ses_root"), false);
+    assert.equal(JSON.stringify(rows).includes(SECRET), false);
+  });
 }
 
-function assistantTurn(id, sessionId, tokens, model = "space-bunny-free", at = T0 + 1000) {
-  return {
-    id, session_id: sessionId, time_created: at,
-    data: {
-      role: "assistant", modelID: model, providerID: "opencode", time: { created: at },
-      tokens: {
-        input: tokens.input ?? 0,
-        output: tokens.output ?? 0,
-        reasoning: tokens.reasoning ?? 0,
-        cache: { read: tokens.cacheRead ?? 0, write: tokens.cacheWrite ?? 0 },
-      },
-    },
-  };
-}
-
-function promptPart(messageId, sessionId, text, id = `prt_${messageId}`) {
-  return { id, message_id: messageId, session_id: sessionId, data: { type: "text", text } };
-}
-
-function toolPart(messageId, sessionId, tool, id = `pto_${messageId}_${tool}`) {
-  return { id, message_id: messageId, session_id: sessionId, data: { type: "tool", tool } };
-}
-
-function tempHome() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "tt-opencode-"));
-}
-
-function scan(home, env = {}) {
-  return readOpencodeSessions({ home, env: { ...env } });
-}
-
-test("a conversation's totals come from the session table, column for column", () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{
-      id: "ses_root",
-      title: "Wire the ledger",
-      tokens_input: 1000,
-      tokens_output: 200,
-      tokens_reasoning: 50,
-      tokens_cache_read: 7000,
-      tokens_cache_write: 300,
-    }],
-  });
-  const [{ row }] = scan(home);
-  assert.equal(row.source, "opencode");
-  assert.deepEqual(row.tokens, {
-    input_tokens: 1000,
-    cached_input_tokens: 7000,
-    cache_creation_input_tokens: 300,
-    output_tokens: 200,
-    reasoning_output_tokens: 50,
-    total_tokens: 8550,
-  });
-  assert.equal(row.total_tokens, 8550);
-  assert.equal(row.title, "Wire the ledger");
-  assert.equal(row.project_key, "site");
+sqliteTest("transitional OpenCode data deduplicates message IDs and retains new v2 tails", async (t) => {
+  const f = fixture(t, { v2: true });
+  session(f, "ses_root");
+  message(f, { role: "user", id: "user" });
+  message(f);
+  message(f, { table: "session_message", role: "user", id: "user" });
+  message(f, { table: "session_message" });
+  message(f, { table: "session_message", id: "tail", start: T0 + 3600000, model: "gpt-5.4" });
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows[0].total_tokens, 380);
+  assert.equal(rows[0].turns, 1);
+  assert.equal(rows[0].usage_events, 2);
+  assert.equal(rows[0].model, "mixed");
+  assert.equal(rows[0].duration_ms, 20000);
+  assert.equal(rows[0].model_usage.length, 2);
 });
 
-test("the per-model split uses OpenCode's own model id, so pricing matches the hourly row", async () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{ id: "ses_mix", tokens_input: 3000, tokens_output: 500 }],
-    messages: [
-      assistantTurn("m1", "ses_mix", { input: 1000, output: 200 }, "space-bunny-free", T0 + 100),
-      assistantTurn("m2", "ses_mix", { input: 2000, output: 300 }, "deepseek-v4-flash-free", T0 + 200),
-    ],
+sqliteTest("forked OpenCode history matches usage sync and links child sessions", async (t) => {
+  const f = fixture(t);
+  session(f, "ses_root");
+  session(f, "ses_fork", { parent: "ses_root", title: null });
+  message(f);
+  message(f, { id: "copied", sessionId: "ses_fork" });
+  message(f, { id: "tail", sessionId: "ses_fork", start: T0 + 3600000 });
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  const queuePath = path.join(f.home, "queue.jsonl");
+  await parseOpencodeDbIncremental({ dbMessages: readOpencodeDbMessages(f.dbPath), dbPath: f.dbPath, cursors: {}, queuePath, source: "opencode" });
+  const latest = new Map(fs.readFileSync(queuePath, "utf8").trim().split("\n").map((line) => {
+    const row = JSON.parse(line);
+    return [`${row.source}:${row.model}:${row.hour_start}`, row];
+  }));
+  assert.equal(rows.reduce((sum, row) => sum + row.total_tokens, 0), [...latest.values()].reduce((sum, row) => sum + row.total_tokens, 0));
+  assert.equal(rows.reduce((sum, row) => sum + row.total_tokens, 0), 380);
+  assert.equal(rows.find((row) => row.session_id === "ses_fork").title, null);
+  const browser = listSessionsForBrowser(rows).sessions;
+  assert.equal(browser.find((row) => row.session_id === "ses_root").combined_total_tokens, 380);
+  assert.equal(browser.find((row) => row.session_id === "ses_fork").parent_session_hash, browser.find((row) => row.session_id === "ses_root").session_hash);
+});
+
+sqliteTest("fork copy IDs cannot take ownership from their known ancestor", async (t) => {
+  const f = fixture(t);
+  session(f, "root");
+  session(f, "fork", { parent: "root" });
+  message(f, { id: "z_root", sessionId: "root" });
+  message(f, { id: "a_fork", sessionId: "fork" });
+  message(f, { id: "fork_tail", sessionId: "fork", start: T0 + 3600000 });
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows.find((row) => row.session_id === "root").total_tokens, 190);
+  assert.equal(rows.find((row) => row.session_id === "fork").total_tokens, 190);
+  const browser = listSessionsForBrowser(rows).sessions;
+  assert.equal(browser.length, 2);
+  const root = browser.find((row) => row.session_id === "root");
+  const fork = browser.find((row) => row.session_id === "fork");
+  assert.equal(fork.parent_session_hash, root.session_hash);
+  assert.equal(fork.orphaned_subagent, false);
+  assert.equal(root.combined_total_tokens, 380);
+});
+
+sqliteTest("fork ownership follows known ancestors across generations and terminates on unknown parents and cycles", async (t) => {
+  const f = fixture(t);
+  session(f, "root");
+  session(f, "child", { parent: "root" });
+  session(f, "grandchild", { parent: "child" });
+  session(f, "orphan", { parent: "missing" });
+  session(f, "cycle_a", { parent: "cycle_b" });
+  session(f, "cycle_b", { parent: "cycle_a" });
+  message(f, { id: "a_grandchild", sessionId: "grandchild" });
+  message(f, { id: "b_child", sessionId: "child" });
+  message(f, { id: "z_root", sessionId: "root" });
+  message(f, { id: "orphan", sessionId: "orphan", start: T0 + 3600000 });
+  message(f, { id: "cycle_a", sessionId: "cycle_a", start: T0 + 7200000 });
+  message(f, { id: "cycle_b", sessionId: "cycle_b", start: T0 + 7200000 });
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows.find((row) => row.session_id === "root").total_tokens, 190);
+  assert.equal(rows.reduce((sum, row) => sum + row.total_tokens, 0), 570);
+  const browser = listSessionsForBrowser(rows).sessions;
+  assert.equal(browser.find((row) => row.session_id === "orphan").orphaned_subagent, true);
+});
+
+sqliteTest("OpenCode without a session table uses message project metadata without a prompt title", async (t) => {
+  const f = fixture(t, { sessionTable: null });
+  message(f);
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows[0].project_ref, "/repo/fallback");
+  assert.equal(rows[0].title, null);
+});
+
+sqliteTest("OpenCode usage buckets scope multi-day sessions and leave lifetime metrics intact", async (t) => {
+  const f = fixture(t);
+  session(f, "ses_root");
+  message(f);
+  message(f, { id: "day2", start: T0 + 86400000 });
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  const filtered = listSessionsForBrowser(rows, { from: "2026-10-09", to: "2026-10-09", timeZone: "UTC" });
+  assert.equal(filtered.sessions[0].total_tokens, 190);
+  assert.equal(filtered.sessions[0].duration_ms, 20000);
+  assert.equal(filtered.sessions[0].model_usage[0].total_tokens, 190);
+});
+
+sqliteTest("OpenCode date filters use event time instead of later database migration updates", async (t) => {
+  const f = fixture(t);
+  session(f, "ses_root");
+  message(f);
+  message(f, { id: "unfinished", start: T0 + 3600000 });
+  f.db.exec("UPDATE message SET data = json_remove(data, '$.time.completed') WHERE id = 'unfinished'");
+  f.db.prepare("UPDATE message SET time_updated = ?").run(T0 + 90 * 86400000);
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  const originalDay = listSessionsForBrowser(rows, { from: "2026-10-08", to: "2026-10-08", timeZone: "UTC" });
+  assert.equal(originalDay.session_count, 1);
+  assert.equal(originalDay.sessions[0].total_tokens, 380);
+  assert.equal(listSessionsForBrowser(rows, { from: "2027-01-06", to: "2027-01-06", timeZone: "UTC" }).session_count, 0);
+});
+
+sqliteTest("OpenCode record updates and missing completions never become active runtime", async (t) => {
+  const f = fixture(t);
+  session(f, "ses_root");
+  message(f, { role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f);
+  message(f, { id: "unfinished", start: T0 + 3600000 });
+  f.db.prepare("UPDATE message SET time_updated = ? WHERE id IN ('user', 'unfinished')").run(T0 + 90 * 86400000);
+  f.db.exec("UPDATE message SET data = json_remove(data, '$.time.completed') WHERE id = 'unfinished'");
+  f.db.close();
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows[0].duration_ms, 11000);
+  assert.equal(rows[0].started_at, new Date(T0 - 1000).toISOString());
+  assert.equal(rows[0].ended_at, new Date(T0 + 3600000).toISOString());
+  assert.equal(rows[0].total_tokens, 380);
+  assert.equal(rows[0].turns, 1);
+});
+
+sqliteTest("OpenCode discovery respects HOME, XDG_DATA_HOME, OPENCODE_HOME and Windows install mode", async (t) => {
+  const f = fixture(t);
+  f.db.close();
+  assert.deepEqual((await discoverSessionFiles(f.home, {}, { platform: "darwin" })).opencode, [f.dbPath]);
+  const customDir = path.join(f.home, "custom");
+  fs.mkdirSync(customDir);
+  fs.copyFileSync(f.dbPath, path.join(customDir, "opencode.db"));
+  assert.deepEqual((await discoverSessionFiles(f.home, { OPENCODE_HOME: customDir }, { platform: "darwin" })).opencode, [path.join(customDir, "opencode.db")]);
+  assert.deepEqual((await discoverSessionFiles(f.home, { XDG_DATA_HOME: path.join(f.home, ".local", "share") }, { platform: "darwin" })).opencode, [f.dbPath]);
+  for (const [mode, expected] of [["both", [f.dbPath, path.join(customDir, "opencode.db")]], ["native-only", [f.dbPath]], ["wsl-only", [path.join(customDir, "opencode.db")]]]) {
+    const result = await discoverSessionFiles(f.home, { TOKENTRACKER_WSL_MODE: mode }, { platform: "win32", probeWsl: true, discoverWslHome: (provider) => provider === ".local/share/opencode" ? customDir : null });
+    assert.deepEqual(result.opencode, expected);
+  }
+});
+
+sqliteTest("failed OpenCode rebuild retains complete cache and retries even with unchanged stats", async (t) => {
+  const f = fixture(t);
+  session(f, "ses_root");
+  message(f);
+  f.db.close();
+  const previousHome = process.env.OPENCODE_HOME;
+  const previousMode = process.env.TOKENTRACKER_WSL_MODE;
+  process.env.OPENCODE_HOME = path.dirname(f.dbPath);
+  process.env.TOKENTRACKER_WSL_MODE = "native-only";
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.OPENCODE_HOME; else process.env.OPENCODE_HOME = previousHome;
+    if (previousMode === undefined) delete process.env.TOKENTRACKER_WSL_MODE; else process.env.TOKENTRACKER_WSL_MODE = previousMode;
   });
-  await ensurePricingLoaded();
-  const [{ row }] = scan(home);
-  assert.deepEqual(row.model_usage.map((m) => `${m.model}:${m.total_tokens}`).sort(),
-    ["deepseek-v4-flash-free:2300", "space-bunny-free:1200"]);
-  assert.equal(row.model, "mixed", "two models in one conversation is reported as mixed");
-  assert.ok(row.cost_usd > 0, "a priced conversation costs money");
-  assert.equal(row.model_usage.find((m) => m.model === "space-bunny-free").pricing.source, "curated:fuzzy");
+  const first = await buildSessionAnalytics({ home: f.home, force: true });
+  assert.equal(first.length, 1);
+  const sidecar = resolveSessionSidecarPath(f.home);
+  const before = fs.readFileSync(sidecar, "utf8");
+  const beforeMeta = fs.readFileSync(`${sidecar}.meta.json`, "utf8");
+  const healthy = fs.readFileSync(f.dbPath);
+  fs.writeFileSync(f.dbPath, "broken SQLite database");
+  for (const force of [true, false, false]) {
+    const failed = await buildSessionAnalytics({ home: f.home, force });
+    assert.equal(failed.skippedFiles, 1);
+    assert.equal(failed[0].total_tokens, first[0].total_tokens);
+    assert.equal(fs.readFileSync(sidecar, "utf8"), before);
+    assert.equal(fs.readFileSync(`${sidecar}.meta.json`, "utf8"), beforeMeta);
+  }
+  fs.writeFileSync(f.dbPath, healthy);
+  assert.equal((await buildSessionAnalytics({ home: f.home })).skippedFiles, 0);
+  assert.equal(fs.existsSync(`${sidecar}.meta.json.opencode-incomplete`), false);
 });
 
-test("an unpriced model leaves the conversation's money as a lower bound, not a zero", async () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{ id: "ses_free", tokens_input: 1000, tokens_output: 100 }],
-    messages: [assistantTurn("m1", "ses_free", { input: 1000, output: 100 }, "x-preview-f-free")],
-  });
-  await ensurePricingLoaded();
-  const [{ row }] = scan(home);
-  assert.equal(row.cost_usd, 0);
-  assert.equal(row.cost_is_partial, true, "an unpriced model has to be named, not hidden");
+test("OpenCode resume commands reject flags and shell metacharacters", () => {
+  assert.equal(resumeCommandFor("opencode", "ses_123"), "opencode --session ses_123");
+  for (const id of ["--help", "abc;echo secret", "abc\nnode", "$(whoami)"]) assert.equal(resumeCommandFor("opencode", id), null);
 });
 
-test("edit turns, retries and sub-agent calls come from the message and part rows", () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{ id: "ses_work", tokens_input: 2000, tokens_output: 100 }],
-    messages: [
-      userTurn("u1", "ses_work", T0),
-      assistantTurn("a1", "ses_work", { input: 500, output: 50 }, "space-bunny-free", T0 + 1000),
-      assistantTurn("a2", "ses_work", { input: 500, output: 50 }, "space-bunny-free", T0 + 1500),
-      userTurn("u2", "ses_work", T0 + 2000),
-      userTurn("u3", "ses_work", T0 + 3000),
-    ],
-    parts: [
-      promptPart("u1", "ses_work", "add the launcher"),
-      promptPart("u2", "ses_work", "add the launcher"),
-      promptPart("u3", "ses_work", "add the launcher now"),
-      toolPart("a1", "ses_work", "read"),
-      toolPart("a1", "ses_work", "patch", "pto_patch"),
-      toolPart("a2", "ses_work", "task"),
-    ],
-  });
-  const [{ row }] = scan(home);
-  assert.equal(row.turns, 3, "three user prompts");
-  assert.equal(row.retry_turns, 1, "the repeated prompt counts as one retry");
-  assert.equal(row.edit_turns, 1, "`patch` is an edit for OpenCode");
-  assert.equal(row.subagent_calls, 1);
-  assert.deepEqual(row.subagent_types, { task: 1 });
-  assert.equal(row.productive, true);
-});
+sqliteTest("OpenCode tool parts drive edit turns and sub-agent calls", async (t) => {
+  const f = fixture(t);
+  // The production reader probes part/session_part; the shared fixture has no
+  // part table, so this case creates one the way OpenCode ships it.
+  f.db.exec("CREATE TABLE part (id TEXT, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  session(f, "ses_root");
+  message(f, { role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f, { id: "assistant" });
+  const part = (id, messageId, tool) => f.db
+    .prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?, ?)")
+    .run(id, messageId, "ses_root", T0, T0 + 1000, JSON.stringify({ type: "tool", tool, callID: id }));
+  // Two sub-agent launches in one assistant message: the panel's subagents row
+  // is a call count, so both must survive.
+  part("p1", "assistant", "task");
+  part("p2", "assistant", "Task");
+  // An edit and a patch, in the same message: one edit turn, and "patch" only
+  // counts because OpenCode's edit set adds it to the shared list.
+  part("p3", "assistant", "edit");
+  part("p4", "assistant", "patch");
+  part("p5", "assistant", "read");
+  // A non-tool part must never be read as a tool call.
+  f.db.prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?, ?)")
+    .run("p6", "assistant", "ses_root", T0, T0 + 1000, JSON.stringify({ type: "text", text: "hi" }));
+  f.db.close();
 
-test("a read-only tool call does not make a conversation productive", () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{ id: "ses_read", tokens_input: 100 }],
-    messages: [userTurn("u1", "ses_read", T0), assistantTurn("a1", "ses_read", { input: 100 })],
-    parts: [promptPart("u1", "ses_read", "what does this do"), toolPart("a1", "ses_read", "read")],
-  });
-  const [{ row }] = scan(home);
-  assert.equal(row.edit_turns, 0);
-  assert.equal(row.productive, false);
-});
-
-test("a sub-agent conversation keeps its parent so the list can nest it", () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{ id: "ses_root", title: "Parent" }, { id: "ses_child", parent_id: "ses_root", title: "Child" }],
-  });
-  const rows = scan(home).map((entry) => entry.row);
-  const root = rows.find((row) => row.session_id === "ses_root");
-  const child = rows.find((row) => row.session_id === "ses_child");
-  assert.equal(child.parent_session_id, "ses_root");
-  assert.notEqual(child.session_hash, root.session_hash);
-});
-
-test("duration counts working time, not the wall-clock span of a resumed session", () => {
-  const home = tempHome();
-  createOpencodeDb(path.join(home, ".local", "share", "opencode"), {
-    sessions: [{
-      id: "ses_long", time_created: T0, time_updated: T0 + 86400000, tokens_input: 20,
-    }],
-    messages: [
-      userTurn("u1", "ses_long", T0),
-      assistantTurn("a1", "ses_long", { input: 10 }, "space-bunny-free", T0 + 30000),
-      assistantTurn("a2", "ses_long", { input: 10 }, "space-bunny-free", T0 + 60000),
-    ],
-  });
-  const [{ row }] = scan(home);
-  assert.equal(row.started_at, new Date(T0).toISOString());
-  assert.equal(row.ended_at, new Date(T0 + 86400000).toISOString());
-  assert.equal(row.duration_ms, 60000, "two minutes of activity, not a day of wall clock");
-});
-
-test("no database means no OpenCode rows, and no damage to the other sources", () => {
-  const home = tempHome();
-  assert.deepEqual(scan(home), []);
-  assert.equal(resolveOpencodeDatabase(home), path.join(home, ".local", "share", "opencode", "opencode.db"));
-});
-
-test("OPENCODE_HOME and XDG_DATA_HOME decide where the database is read from", () => {
-  const home = tempHome();
-  const explicit = path.join(home, "elsewhere");
-  createOpencodeDb(explicit, { sessions: [{ id: "ses_x", title: "From OPENCODE_HOME", tokens_input: 5 }] });
-  assert.equal(scan(home, { OPENCODE_HOME: explicit })[0].row.session_id, "ses_x");
-  const xdg = path.join(home, "xdg");
-  createOpencodeDb(path.join(xdg, "opencode"), { sessions: [{ id: "ses_y", tokens_input: 5 }] });
-  assert.equal(scan(home, { XDG_DATA_HOME: xdg })[0].row.session_id, "ses_y");
-  // An explicit OPENCODE_HOME still wins over XDG.
-  assert.equal(scan(home, { XDG_DATA_HOME: xdg, OPENCODE_HOME: explicit })[0].row.session_id, "ses_x");
-});
-
-test("a changed conversation is re-read and an unchanged one is reused from the cache", async () => {
-  const home = tempHome();
-  const dir = path.join(home, ".local", "share", "opencode");
-  createOpencodeDb(dir, {
-    sessions: [{
-      id: "ses_api", title: "Ship the panel", tokens_input: 1000, tokens_output: 200,
-      tokens_cache_read: 500, time_created: T0, time_updated: T0 + 5000,
-    }, {
-      id: "ses_idle", title: "Already finished", tokens_input: 400, time_created: T0, time_updated: T0 + 1000,
-    }],
-    messages: [
-      userTurn("u1", "ses_api", T0),
-      assistantTurn("a1", "ses_api", { input: 1000, output: 200, cacheRead: 500 }, "space-bunny-free", T0 + 1000),
-      assistantTurn("a2", "ses_idle", { input: 400 }, "space-bunny-free", T0 + 2000),
-    ],
-    parts: [promptPart("u1", "ses_api", "ship it"), toolPart("a1", "ses_api", "write")],
-  });
-  await ensurePricingLoaded();
-
-  const first = await buildSessionAnalytics({ home, force: true });
-  const api = first.find((row) => row.session_id === "ses_api");
-  assert.ok(api, "the conversation is in the sidecar");
-  assert.equal(api.total_tokens, 1700);
-  assert.equal(first.find((row) => row.session_id === "ses_idle").total_tokens, 400);
-  const browser = listSessionsForBrowser(first, {});
-  assert.equal(browser.sessions.find((row) => row.source === "opencode").total_tokens, 1700);
-  assert.ok(browser.sessions.find((row) => row.source === "opencode").cost_usd > 0);
-
-  // A new assistant turn, written without touching the session row: the file
-  // signature notices the database changed and the per-conversation stat key
-  // notices this one conversation grew, so the new tokens must show up.
-  const db = new DatabaseSync(path.join(dir, "opencode.db"));
-  db.prepare("INSERT INTO message (id, session_id, time_created, data) VALUES (?,?,?,?)").run(
-    "a3", "ses_api", T0 + 4000,
-    JSON.stringify({ role: "assistant", modelID: "space-bunny-free", time: { created: T0 + 4000 },
-      tokens: { input: 300, output: 0, cache: { read: 0, write: 0 } } }),
-  );
-  db.close();
-
-  const second = await buildSessionAnalytics({ home, cacheTtlMs: 0 });
-  const apiAgain = second.find((row) => row.session_id === "ses_api");
-  assert.equal(apiAgain.total_tokens, 1700, "the session table stays the authority for a conversation's totals");
-  assert.equal(apiAgain.model_usage.find((m) => m.model === "space-bunny-free").total_tokens, 2000,
-    "the per-model split follows the new message row, so the cache did not freeze the old read");
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows.length, 1);
+  const row = rows[0];
+  assert.equal(row.subagent_calls, 2, "two task calls, matched case-insensitively");
+  assert.deepEqual(row.subagent_types, { task: 2 });
+  assert.equal(row.edit_turns, 1, "edit tools in one message are one edit turn");
 });

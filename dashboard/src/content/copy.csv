@@ -587,9 +587,9 @@ leaderboard.github.tooltipAction,ui,LeaderboardPage,LeaderboardPage,github_toolt
 leaderboard.github.tooltipPrefix,ui,LeaderboardPage,LeaderboardPage,github_tooltip_prefix,"Set yours in",,active
 leaderboard.github.tooltipSettingsLink,ui,LeaderboardPage,LeaderboardPage,github_tooltip_link,"Settings",,active
 leaderboard.github.tooltipSuffix,ui,LeaderboardPage,LeaderboardPage,github_tooltip_suffix,"to appear here",,active
-leaderboard.pro.badge,ui,LeaderboardPage,LeaderboardProBadge,pro_badge,"Cloud",,active
-leaderboard.pro.badge_aria,ui,LeaderboardPage,LeaderboardProBadge,pro_badge_aria,"TokenTracker Cloud subscriber",,active
-leaderboard.pro.tooltip,ui,LeaderboardPage,LeaderboardProBadge,pro_tooltip,"Cloud member. Rankings stay based on usage.",,active
+leaderboard.pro.badge,ui,LeaderboardPage,LeaderboardProBadge,pro_badge,"Pro",,active
+leaderboard.pro.badge_aria,ui,LeaderboardPage,LeaderboardProBadge,pro_badge_aria,"TokenTracker Pro member",,active
+leaderboard.pro.tooltip,ui,LeaderboardPage,LeaderboardProBadge,pro_tooltip,"Pro member. Rankings stay based on usage.",,active
 leaderboard.summary.percentile,ui,LeaderboardPage,LeaderboardMeChip,summary_percentile,"Top {{p}}%",,active
 leaderboard.summary.jump_to_me,ui,LeaderboardPage,LeaderboardMeChip,summary_jump_to_me,"Jump to my row",,active
 leaderboard.summary.view_profile,ui,LeaderboardPage,LeaderboardMeChip,summary_view_profile,"View your profile",,active
@@ -1459,7 +1459,7 @@ sessions.resume.copied,ui,SessionsPage,SessionsPage,resume_copied,"Resume comman
 sessions.resume.copy_failed,ui,SessionsPage,SessionsPage,resume_copy_failed,"Could not copy command",,active
 sessions.resume.unavailable,ui,SessionsPage,SessionsPage,resume_unavailable,"Resume command unavailable",,active
 sessions.empty.title,ui,SessionsPage,SessionsPage,empty_title,"No sessions yet",,active
-sessions.empty.body,ui,SessionsPage,SessionsPage,empty_body,"Run Claude Code, Codex, or Grok on this machine and your sessions will show up here.",,active
+sessions.empty.body,ui,SessionsPage,SessionsPage,empty_body,"Run Claude Code, Codex, OpenCode, Grok, or ZCode on this machine and your sessions will show up here.",,active
 sessions.empty.filtered_title,ui,SessionsPage,SessionsPage,empty_filtered_title,"No matching sessions",,active
 sessions.empty.filtered_body,ui,SessionsPage,SessionsPage,empty_filtered_body,"Try a different search, or widen the date range.",,active
 sessions.col.turns,ui,SessionsPage,SessionsPage,col_turns,"Turns",,active
@@ -1941,10 +1941,11 @@ cloud.gift.detail,cloud,*,RedeemProCode,text,"A gift includes all Cloud features
 cloud.gift.code_label,cloud,*,RedeemProCode,text,"Cloud gift code",,active
 cloud.gift.confirm,cloud,*,RedeemProCode,text,Redeem code,,active
 cloud.gift.redeeming,cloud,*,RedeemProCode,text,Redeeming…,,active
-cloud.gift.redeemed,cloud,*,RedeemProCode,text,Your gift is recorded. Membership access and dates are shown in your account.,,active
+cloud.gift.redeemed,cloud,*,RedeemProCode,text,Code redeemed,,active
 cloud.gift.already_redeemed,cloud,*,RedeemProCode,text,You have already redeemed this code. Its gift is shown in your account.,,active
 cloud.gift.refresh_needed,cloud,*,RedeemProCode,text,"The code was redeemed, but membership could not be refreshed. Refresh your account to confirm its access and dates.",,active
 cloud.gift.redeem_another,cloud,*,RedeemProCode,text,Redeem another code,,active
+cloud.gift.done,cloud,*,RedeemProCode,text,Done,,active
 cloud.gift.membership_label,cloud,*,RedeemProCode,text,"Gifted Cloud",,active
 cloud.gift.history_title,cloud,*,RedeemProCode,text,"Cloud gifts",,active
 cloud.gift.duration,cloud,*,RedeemProCode,text,"{{days}} days of Cloud",,active
@@ -2094,3 +2095,7 @@ usage.overview.qoder_cn_none,ui,DashboardPage,LedgerNotices,qoder_cn_none,No off
 usage.overview.workbuddy_credits,ui,DashboardPage,LedgerNotices,workbuddy_credits,{{name}} (local credit ledger): {{credits}} credits ≈ {{symbol}}{{cost}} this period · {{total}} credits all-time since {{since}} ({{range}}),,active
 usage.overview.workbuddy_none,ui,DashboardPage,LedgerNotices,workbuddy_none,No WorkBuddy credit entries in this period,,active
 usage.overview.workbuddy_note,ui,DashboardPage,LedgerNotices,workbuddy_note,"WorkBuddy bills in credits, not tokens; priced per 1,000 credits at the plan rate that grants them (domestic ¥50, international $10). Read from local ledger files only - nothing is uploaded.",,active
+cloud.free.device_scope,cloud,CloudPage,CloudPage,text,"Usage statistics for this device only",,active
+cloud.plan.includes_local,cloud,CloudPage,CloudPage,text,"All free local features included",,active
+cloud.plan.device_sync,cloud,CloudPage,CloudPage,text,"Unlimited devices · cross-device usage sync",,active
+cloud.plan.device_fair_use,cloud,CloudPage,CloudPage,text,"Unlimited devices for everyday personal use, with no per-device charges. Bulk or abnormal device connections may trigger sync protection.",,active
