@@ -6,7 +6,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { workbuddySourceForPath, resolveWorkbuddyProjectFiles } = require("../src/lib/rollout");
+const {
+  workbuddySourceForPath,
+  resolveWorkbuddyProjectFilesAll,
+} = require("../src/lib/rollout");
 
 test("workbuddySourceForPath attributes a file to the edition that owns its data dir", () => {
   assert.equal(
@@ -55,7 +58,7 @@ test("every discovered file maps to exactly one edition", () => {
       fs.mkdirSync(projects, { recursive: true });
       for (const n of names) fs.writeFileSync(path.join(projects, n), "{}\n");
     }
-    const files = resolveWorkbuddyProjectFiles({ HOME: home });
+    const files = resolveWorkbuddyProjectFilesAll({ HOME: home });
     const sources = new Map();
     for (const f of files) {
       const p = typeof f === "string" ? f : f.path;

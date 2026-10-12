@@ -3,6 +3,7 @@
  * Mirrors local-api.js `tokentracker-usage-daily` response schema.
  */
 import { createClient } from "npm:@insforge/sdk";
+import { cloudReadAccess, cloudFailure, cloudHistoryFailure } from "./cloud/access.ts";
 
 const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline"]);
 
@@ -146,7 +147,10 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "claude-opus-5-fast": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
   "claude-opus-4-6": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
   "claude-opus-4-5-20250414": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
-  "claude-sonnet-5": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "claude-sonnet-5": { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
+  "claude-opus-5-5": { input: 4, output: 20, cache_read: 0.2, cache_write: 5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
+  "k3-256k": { input: 3, output: 15, cache_read: 0.3 },
   "claude-sonnet-4-6": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
   "claude-sonnet-4-5-20250514": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
   "claude-sonnet-4-20250514": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
@@ -334,6 +338,9 @@ const ZERO_PRICING = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
 // AStudio homepage: https://agent.xfyun.cn/
 // Official pricing source: https://maas.xfyun.cn/modelSquare
 const IFLYTEK_MAAS_MODEL_PRICING: Record<string, { input: number; output: number; cache_read: number; cache_write?: number }> = {
+  "spark-x2.5": { input: 0.13, output: 0.50, cache_read: 0.02, cache_write: 0.13 },
+  "spark-x2.5-4b": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "spark-x2.5-1.7b": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
   "xopglm53": { input: 1.11, output: 3.89, cache_read: 0.28, cache_write: 1.11 },
   "xopdeepseekv4pro0813": { input: 1.25, output: 3.75, cache_read: 0.04, cache_write: 1.25 },
   "xopdeepseekv4flash0731": { input: 0.14, output: 0.28, cache_read: 0.03, cache_write: 0.14 },
@@ -404,6 +411,7 @@ function normalizeIFlytekMaasModel(model: string) {
 
 function getModelPricing(model: string, source = "") {
   if (!model) return ZERO_PRICING;
+  if (source.toLowerCase() === "workbuddy-ai" && model.trim().toLowerCase() === "auto") return ZERO_PRICING;
   if (source.toLowerCase() === "acode") {
     const normalized = normalizeIFlytekMaasModel(model);
     // Undisclosed routing must not inherit generic aliases or fuzzy prices.
@@ -426,6 +434,9 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("fable")) return MODEL_PRICING["claude-fable-5"];
   // Opus 5 fast mode bills at 2x the standard Opus tier ($10/$50), so the
   // -fast matcher must precede both the opus-5 and the generic opus fallback.
+  if (/opus-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-opus-5-5"];
+  if (/sonnet-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-sonnet-5-5"];
+  if (/sonnet-5(?:$|[^0-9.-])/.test(lower)) return MODEL_PRICING["claude-sonnet-5"];
   if (lower.includes("opus-5-fast")) return MODEL_PRICING["claude-opus-5-fast"];
   if (lower.includes("opus-5")) return MODEL_PRICING["claude-opus-5"];
   if (lower.includes("opus")) return MODEL_PRICING["claude-opus-4-6"];
@@ -735,7 +746,7 @@ function computeRowCost(row: GroupedRow): number {
   // tokentracker-leaderboard-refresh.ts (both guard on source).
   const reasoningCost =
     row.source === "codex" || row.source === "acode" || row.source === "every-code" ||
-      row.source === "cline"
+      row.source === "cline" || row.source === "omo"
       ? 0
       : (Number(row.reasoning_output_tokens) || 0) * (p.output || 0);
   return (
@@ -788,6 +799,14 @@ export default async function (req: Request): Promise<Response> {
 
   const userId = await verifiedUserIdFromJwt(req.headers.get("Authorization"));
   if (!userId) return json({ error: "Unauthorized" }, 401);
+
+  let cloudAccess;
+  try { cloudAccess = await cloudReadAccess(client, userId, "daily"); }
+  catch { return json({ error: "Cloud access unavailable", code: "cloud_access_unavailable" }, 503); }
+  if (!cloudAccess.ok) return cloudFailure(cloudAccess, corsHeaders);
+  const historyFailure = cloudHistoryFailure(cloudAccess, to);
+  if (historyFailure) return cloudFailure(historyFailure, corsHeaders);
+  if (cloudAccess.available_from && from < cloudAccess.available_from) from = cloudAccess.available_from;
 
   const rawDeviceId = url.searchParams.get("device_id");
   const requestedDeviceId = rawDeviceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawDeviceId)

@@ -3,6 +3,7 @@
  * Mirrors local-api.js `tokentracker-usage-model-breakdown` response schema.
  */
 import { createClient } from "npm:@insforge/sdk";
+import { cloudReadAccess, cloudFailure, cloudHistoryFailure } from "./cloud/access.ts";
 
 const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline"]);
 
@@ -13,25 +14,68 @@ const corsHeaders = {
 };
 
 /**
- * Kept deliberately plain: do NOT add Content-Encoding here.
- *
- * This endpoint carried a gzip branch for a while (body over 1 KB and a caller
- * advertising gzip got a compressed stream). It never reached a client. The
- * InsForge gateway decompresses an encoded edge response and forwards it as
- * identity: `Vary: Accept-Encoding` is passed through, `Content-Encoding` is
- * stripped, and both `Content-Length` and the ETag are computed over the plain
- * body. Verified end to end on 2026-09-20 against the public leaderboard
- * endpoint with cache-busted requests: 77529 bytes on the wire either way, and
- * a body starting with `{"en` rather than the gzip magic 1f 8b.
- *
- * So compressing here only burns CPU twice. The way to shrink these responses
- * is fewer bytes (the *_compact RPCs) or fewer requests (client-side caches).
+ * The legacy /functions gateway decompresses encoded edge responses and sends
+ * identity to clients. On 2026-09-20 its public leaderboard response stayed
+ * 77529 bytes with or without gzip; encoding was stripped and length/ETag were
+ * recomputed over the plain body. The verified direct function2 route now
+ * preserves gzip. The response wrapper negotiates that transfer encoding after
+ * the existing handler; legacy clients still receive the original JSON body.
  */
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function acceptsGzip(value: string | null): boolean {
+  let gzip: number | null = null;
+  let wildcard = 0;
+  let identity: number | null = null;
+  for (const entry of (value || "").split(",")) {
+    const [coding, ...parameters] = entry.trim().toLowerCase().split(";");
+    const name = coding.trim();
+    const weight = parameters.find((part) => /^\s*q\s*=/.test(part));
+    const parsed = weight === undefined ? 1 : Number(weight.split("=")[1].trim());
+    const quality = Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : 0;
+    if (name === "gzip") gzip = gzip === null ? quality : Math.min(gzip, quality);
+    if (name === "*") wildcard = quality;
+    if (name === "identity") identity = quality;
+  }
+  const quality = gzip ?? wildcard;
+  return quality > 0 && (identity === null || quality >= identity);
+}
+
+async function encodeJsonResponse(req: Request, response: Response): Promise<Response> {
+  if (req.method !== "GET" || response.status !== 200 ||
+      !response.headers.get("Content-Type")?.toLowerCase().startsWith("application/json") ||
+      response.headers.has("Content-Encoding") || response.headers.has("Content-Range") ||
+      /\bno-transform\b/i.test(response.headers.get("Cache-Control") || "")) return response;
+  const headers = new Headers(response.headers);
+  if (!(headers.get("Vary") || "").split(",").some((part) => part.trim().toLowerCase() === "accept-encoding")) {
+    headers.append("Vary", "Accept-Encoding");
+  }
+  const identity = () => new Response(response.body, {
+    status: response.status, statusText: response.statusText, headers,
+  });
+  if (!acceptsGzip(req.headers.get("Accept-Encoding")) || typeof CompressionStream === "undefined") return identity();
+  try {
+    const bytes = new Uint8Array(await response.clone().arrayBuffer());
+    if (bytes.byteLength < 1024) return identity();
+    const compressed = new Uint8Array(await new Response(
+      new Response(bytes).body!.pipeThrough(new CompressionStream("gzip")),
+    ).arrayBuffer());
+    if (compressed.byteLength >= bytes.byteLength) return identity();
+    const encodedHeaders = new Headers(headers);
+    encodedHeaders.set("Content-Encoding", "gzip");
+    encodedHeaders.set("Content-Length", String(compressed.byteLength));
+    encodedHeaders.delete("ETag");
+    return new Response(compressed, {
+      status: response.status, statusText: response.statusText, headers: encodedHeaders,
+    });
+  } catch {
+    return identity();
+  }
 }
 
 /**
@@ -122,7 +166,10 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "claude-opus-5-fast": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
   "claude-opus-4-6": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
   "claude-opus-4-5-20250414": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
-  "claude-sonnet-5": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "claude-sonnet-5": { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
+  "claude-opus-5-5": { input: 4, output: 20, cache_read: 0.2, cache_write: 5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
+  "k3-256k": { input: 3, output: 15, cache_read: 0.3 },
   "claude-sonnet-4-6": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
   "claude-sonnet-4-5-20250514": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
   "claude-sonnet-4-20250514": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
@@ -310,6 +357,9 @@ const ZERO_PRICING = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
 // AStudio homepage: https://agent.xfyun.cn/
 // Official pricing source: https://maas.xfyun.cn/modelSquare
 const IFLYTEK_MAAS_MODEL_PRICING: Record<string, { input: number; output: number; cache_read: number; cache_write?: number }> = {
+  "spark-x2.5": { input: 0.13, output: 0.50, cache_read: 0.02, cache_write: 0.13 },
+  "spark-x2.5-4b": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "spark-x2.5-1.7b": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
   "xopglm53": { input: 1.11, output: 3.89, cache_read: 0.28, cache_write: 1.11 },
   "xopdeepseekv4pro0813": { input: 1.25, output: 3.75, cache_read: 0.04, cache_write: 1.25 },
   "xopdeepseekv4flash0731": { input: 0.14, output: 0.28, cache_read: 0.03, cache_write: 0.14 },
@@ -380,6 +430,7 @@ function normalizeIFlytekMaasModel(model: string) {
 
 function getModelPricing(model: string, source = "") {
   if (!model) return ZERO_PRICING;
+  if (source.toLowerCase() === "workbuddy-ai" && model.trim().toLowerCase() === "auto") return ZERO_PRICING;
   if (source.toLowerCase() === "acode") {
     const normalized = normalizeIFlytekMaasModel(model);
     // Undisclosed routing must not inherit generic aliases or fuzzy prices.
@@ -402,6 +453,9 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("fable")) return MODEL_PRICING["claude-fable-5"];
   // Opus 5 fast mode bills at 2x the standard Opus tier ($10/$50), so the
   // -fast matcher must precede both the opus-5 and the generic opus fallback.
+  if (/opus-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-opus-5-5"];
+  if (/sonnet-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-sonnet-5-5"];
+  if (/sonnet-5(?:$|[^0-9.-])/.test(lower)) return MODEL_PRICING["claude-sonnet-5"];
   if (lower.includes("opus-5-fast")) return MODEL_PRICING["claude-opus-5-fast"];
   if (lower.includes("opus-5")) return MODEL_PRICING["claude-opus-5"];
   if (lower.includes("opus")) return MODEL_PRICING["claude-opus-4-6"];
@@ -692,7 +746,7 @@ function getUsageModelPricing(model: string, source: string) {
   };
 }
 
-export default async function (req: Request): Promise<Response> {
+async function handleAccountRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS")
     return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
@@ -733,6 +787,14 @@ export default async function (req: Request): Promise<Response> {
   const userId = await verifiedUserIdFromJwt(req.headers.get("Authorization"));
   if (!userId) return json({ error: "Unauthorized" }, 401);
 
+  let cloudAccess;
+  try { cloudAccess = await cloudReadAccess(client, userId, "daily"); }
+  catch { return json({ error: "Cloud access unavailable", code: "cloud_access_unavailable" }, 503); }
+  if (!cloudAccess.ok) return cloudFailure(cloudAccess, corsHeaders);
+  const historyFailure = cloudHistoryFailure(cloudAccess, to);
+  if (historyFailure) return cloudFailure(historyFailure, corsHeaders);
+  if (cloudAccess.available_from && from < cloudAccess.available_from) from = cloudAccess.available_from;
+
   const rawDeviceId = url.searchParams.get("device_id");
   const requestedDeviceId = rawDeviceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawDeviceId)
     ? rawDeviceId
@@ -752,8 +814,8 @@ export default async function (req: Request): Promise<Response> {
   let dims: CompactDim[];
   try {
     dims = await fetchCompactDims(client, userId, requestedDeviceId, rangeStart, rangeEnd, from, to, tz, tzOffsetMinutes);
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return json({ error: "Failed to fetch model breakdown" }, 500);
   }
 
   // The RPC bucketed each row to its local day (honoring tz / tz_offset_minutes)
@@ -839,7 +901,7 @@ export default async function (req: Request): Promise<Response> {
       src === "pi-github-copilot" || src === "pi-copilot" || src === "lmstudio";
     const reasoningIncludedInOutput =
       src === "codex" || src === "acode" || src === "every-code" ||
-      src === "cline";
+      src === "cline" || src === "omo";
     const reportedCost = Number(row.total_cost_usd);
     ma.totalCostUsd += subscriptionBacked
       ? 0
@@ -887,4 +949,8 @@ export default async function (req: Request): Promise<Response> {
       effective_from: new Date().toISOString().slice(0, 10),
     },
   });
+}
+
+export default async function (req: Request): Promise<Response> {
+  return encodeJsonResponse(req, await handleAccountRequest(req));
 }
