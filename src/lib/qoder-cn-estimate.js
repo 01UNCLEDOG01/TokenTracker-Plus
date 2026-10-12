@@ -20,6 +20,46 @@ function qoderCnLimitsCacheFile({ home = os.homedir() } = {}) {
   return path.join(home, ".tokentracker", "tracker", "qoder-cn-usage-limits-cache.json");
 }
 
+// A mirror of the rows this module last derived from a healthy limits cache.
+// It lives beside the cache but is owned here: the cache is the upstream's
+// payload (and can be empty after a failed fetch), the mirror is what the usage
+// endpoints are allowed to keep showing.
+function qoderCnEstimateMirrorFile({ home = os.homedir() } = {}) {
+  return path.join(home, ".tokentracker", "tracker", "qoder-cn-estimate-rows.json");
+}
+
+function readQoderCnEstimateMirror({ home = os.homedir() } = {}) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(qoderCnEstimateMirrorFile({ home }), "utf8"));
+    return Array.isArray(parsed?.rows) ? parsed.rows : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Only ever written from a non-empty derivation, so a failed upstream fetch
+// cannot erase the last good numbers. Compare-then-write keeps the per-request
+// cost at a stat when nothing changed.
+function writeQoderCnEstimateMirror(rows, { home = os.homedir() } = {}) {
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+  const file = qoderCnEstimateMirrorFile({ home });
+  try {
+    const previous = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (Array.isArray(previous.rows) && JSON.stringify(previous.rows) === JSON.stringify(rows)) return false;
+  } catch (_error) { /* first write */ }
+  const payload = JSON.stringify({ version: 1, synced_at: new Date().toISOString(), rows });
+  const tmp = `${file}.tmp`;
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(tmp, payload);
+    fs.renameSync(tmp, file);
+    return true;
+  } catch (_error) {
+    try { fs.unlinkSync(tmp); } catch (_e) { /* nothing to clean */ }
+    return false;
+  }
+}
+
 function readQoderCnSpend({ home = os.homedir() } = {}) {
   try {
     const raw = JSON.parse(fs.readFileSync(qoderCnLimitsCacheFile({ home }), "utf8"))?.qoder;
@@ -43,7 +83,12 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
   const daily = Array.isArray(spend?.daily) ? spend.daily : null;
   const anchorTokens = Number(spend?.est_anchor?.tokens);
   const anchorMessages = Number(spend?.est_anchor?.messages);
-  if (!daily || daily.length === 0 || !(anchorTokens > 0) || !(anchorMessages > 0)) return [];
+  if (!daily || daily.length === 0 || !(anchorTokens > 0) || !(anchorMessages > 0)) {
+    // The limits cache is cold, absent, or was written by a failed fetch. Show
+    // the last numbers we derived rather than collapsing the card to the raw
+    // local rows (which for Qoder CN are effectively zero).
+    return readQoderCnEstimateMirror({ home }) || [];
+  }
   const ratio = anchorTokens / anchorMessages;
   const anchorFrom = typeof spend?.est_anchor?.from === "string" ? spend.est_anchor.from : null;
   const anchorTo = typeof spend?.est_anchor?.to === "string" ? spend.est_anchor.to : null;
@@ -103,7 +148,14 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
       });
     }
   }
+  writeQoderCnEstimateMirror(rows, { home });
   return rows;
 }
 
-module.exports = { qoderCnEstimatedRows, qoderCnLimitsCacheFile, readQoderCnSpend };
+module.exports = {
+  qoderCnEstimatedRows,
+  qoderCnLimitsCacheFile,
+  qoderCnEstimateMirrorFile,
+  readQoderCnEstimateMirror,
+  readQoderCnSpend,
+};
