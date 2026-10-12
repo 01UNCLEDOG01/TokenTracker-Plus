@@ -670,6 +670,77 @@ test("fetchQoderCnLimits falls back to the qoder.cn site and its own cache names
   assert.equal(result.primary_window.remaining_credits, 75);
   assert.equal(result.site, "china");
 
+test("the CN CLI fallback carries the spend ledger forward instead of blanking it", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cn-cli-spend-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const seededAt = Date.parse("2030-07-28T00:00:00.000Z");
+
+  // A spend snapshot captured while the website cookie still worked.
+  writeQoderLimitsCache({
+    configured: true,
+    error: null,
+    plan_label: "personal_standard",
+    primary_window: {
+      used_percent: 25,
+      reset_at: null,
+      used_credits: 25,
+      limit_credits: 100,
+      remaining_credits: 75,
+      unit: "credits",
+    },
+    spend: { credits_total: 85.31, messages_total: 106, daily: [] },
+  }, { home, nowMs: seededAt, namespace: "cn" });
+
+  // The cookie has expired and the CLI answers quota windows only - no spend.
+  const result = await fetchQoderLimits({
+    home,
+    platform: "darwin",
+    envPrefix: "QODER_CN",
+    site: QODER_SITES.china,
+    sitePinned: true,
+    cacheNamespace: "cn",
+    nowMs: seededAt + 60_000,
+    env: { QODER_CN_COOKIE: "session=expired" },
+    rpcRequest: async () => {
+      throw new Error("Qoder local service is not running.");
+    },
+    fetchImpl: async () => {
+      const error = new Error("Qoder CN login expired. Sign in to Qoder CN CLI again.");
+      error.code = "AUTH_EXPIRED";
+      throw error;
+    },
+    cliLimitsRequest: async () => ({
+      configured: true,
+      error: null,
+      plan_label: "personal_standard",
+      quota_exceeded: false,
+      primary_window: {
+        used_percent: 0,
+        reset_at: null,
+        used_credits: 0,
+        limit_credits: 0,
+        remaining_credits: 0,
+        unit: "credits",
+      },
+      source: "cli-api",
+    }),
+  });
+
+  assert.equal(result.source, "cli-api");
+  // Dropping it here is what made the panel render "no spend" as "no component
+  // at all", which reads as "you used nothing today".
+  assert.equal(result.spend?.credits_total, 85.31);
+  assert.equal(result.spend?.messages_total, 106);
+  assert.equal(result.spend_stale, true);
+  assert.equal(result.spend_cached_at, new Date(seededAt).toISOString());
+
+  // It has to survive the write to disk, or the next read loses it again.
+  const reread = readQoderLimitsCache({ home, nowMs: seededAt + 120_000, namespace: "cn" });
+  assert.equal(reread?.spend?.credits_total, 85.31);
+  assert.equal(reread?.spend_stale, true);
+});
+
+
   // The CN cache lives under its own namespace — the international cache stays
   // untouched, so the two editions never clobber each other.
   const cnCache = readQoderLimitsCache({ home, nowMs: Date.now(), namespace: "cn" });

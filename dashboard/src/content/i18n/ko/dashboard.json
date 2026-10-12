@@ -652,5 +652,7 @@
   "cloud.free.device_scope": "현재 기기의 사용량만 집계",
   "cloud.plan.includes_local": "무료 로컬 기능 모두 포함",
   "cloud.plan.device_sync": "기기 수 제한 없이 사용량 통합·동기화",
-  "cloud.plan.device_fair_use": "일상적인 개인 사용은 기기 수 제한이나 기기별 추가 요금이 없습니다. 대량 또는 비정상적인 기기 연결에는 동기화 보호가 적용될 수 있습니다."
+  "cloud.plan.device_fair_use": "일상적인 개인 사용은 기기 수 제한이나 기기별 추가 요금이 없습니다. 대량 또는 비정상적인 기기 연결에는 동기화 보호가 적용될 수 있습니다.",
+  "usage.overview.qoder_cn_spend_snapshot": "공식 클라우드 합계는 {{date}} 스냅샷입니다. 실시간 새로고침이 실패하여 오늘 사용량은 포함되지 않았습니다.",
+  "usage.overview.qoder_cn_spend_unavailable": "공식 클라우드 합계를 가져오지 못했습니다. 사용량이 0인 것이 아니라 조회 실패입니다."
 }

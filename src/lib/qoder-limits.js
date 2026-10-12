@@ -432,6 +432,8 @@ function readQoderLimitsCache({
       stale: true,
       cached_at: raw.cached_at,
       spend: raw.spend && typeof raw.spend === "object" ? raw.spend : null,
+      spend_stale: raw.spend_stale === true,
+      spend_cached_at: typeof raw.spend_cached_at === "string" ? raw.spend_cached_at : null,
       source: "disk-cache",
     };
   } catch (_error) {
@@ -452,6 +454,20 @@ function readCachedQoderSpend({ home = os.homedir(), namespace } = {}) {
   }
 }
 
+// When the quota windows have expired, readQoderLimitsCache bails out early and
+// the spend snapshot survives without a timestamp attached. The panel needs
+// that date to say how old the numbers on screen are, so read it straight off
+// the file rather than leaving the reader to guess.
+function readCachedQoderSpendCapturedAt({ home = os.homedir(), namespace } = {}) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(qoderLimitsCachePath({ home, namespace }), "utf8"))?.qoder;
+    const parsed = Date.parse(raw?.cached_at || "");
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 function writeQoderLimitsCache(limits, {
   home = os.homedir(),
   nowMs = Date.now(),
@@ -466,6 +482,12 @@ function writeQoderLimitsCache(limits, {
       primary_window: limits.primary_window || null,
       secondary_window: limits.secondary_window || null,
       spend: limits.spend || null,
+      // Provenance for the spend specifically. A source that answers quota only
+      // (the CN CLI) carries the previous snapshot forward instead of dropping
+      // it, and these two fields are what let a reader tell that apart from a
+      // spend that was genuinely fetched just now.
+      spend_stale: limits.spend_stale === true,
+      spend_cached_at: limits.spend_cached_at || null,
       cached_at: new Date(nowMs).toISOString(),
     },
   };
@@ -980,6 +1002,21 @@ async function fetchQoderLimits({
       const cliUsage = await cliLimitsRequest({ home, env, fetchImpl, normalizeRpcUsage: normalizeQoderRpcUsage });
       if (!cliUsage) return null;
       if (activityWindow) cliUsage.secondary_window = activityWindow;
+      // The CLI answers quota windows only - never the spend ledger. Writing it
+      // straight through blanks the CN figures, and blanks them silently: the
+      // panel renders an absent spend as "no component at all", which reads as
+      // "nothing was used today". Carry the last good snapshot forward instead
+      // and label it, so the panel can say what it is actually showing.
+      if (site.id === "china" && !cliUsage.spend) {
+        const carried = lastGoodLimits?.spend && typeof lastGoodLimits.spend === "object"
+          ? lastGoodLimits.spend
+          : readCachedQoderSpend({ home, namespace: cacheNamespace });
+        cliUsage.spend = carried || null;
+        cliUsage.spend_stale = Boolean(carried);
+        cliUsage.spend_cached_at = carried
+          ? (lastGoodLimits?.cached_at || readCachedQoderSpendCapturedAt({ home, namespace: cacheNamespace }))
+          : null;
+      }
       writeQoderLimitsCache(cliUsage, { home, nowMs, namespace: cacheNamespace });
       return cliUsage;
     } catch (error) {

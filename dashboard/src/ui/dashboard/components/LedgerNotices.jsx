@@ -41,6 +41,13 @@ function useLimitsField(field) {
   return value;
 }
 
+// Same shape as resetCommunityStatsCacheForTests in use-community-stats.js:
+// limitsCache is module-level with a 60s TTL, so a test that renders this twice
+// with different payloads would otherwise assert against the first response.
+export function resetLedgerNoticesCacheForTests() {
+  limitsCache = { at: 0, data: null, promise: null };
+}
+
 function number(value, digits) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "--";
@@ -71,8 +78,20 @@ const MUTED_LINE_CLASS = "mb-3 text-[11px] leading-snug text-oai-gray-500 dark:t
 // locally measured tokens-per-message anchor.
 export function QoderCnOfficialSpend({ from, to }) {
   const { formatTokens } = useTokenFormat();
-  const spend = useLimitsField("qoderCn")?.spend || null;
-  if (!spend) return null;
+  const cn = useLimitsField("qoderCn");
+  const spend = cn?.spend || null;
+
+  // "We could not fetch it" and "you used nothing" must never look the same.
+  // Returning null here removed the whole block, and a missing block reads as
+  // "nothing to report" rather than "the fetch failed" - which is how a dead
+  // feed spent two days looking like an idle account.
+  if (!spend) {
+    return (
+      <p className={MUTED_LINE_CLASS}>
+        {copy("usage.overview.qoder_cn_spend_unavailable")}
+      </p>
+    );
+  }
 
   const daily = Array.isArray(spend.daily) ? spend.daily : [];
   let credits = 0, cost = 0, messages = 0;
@@ -131,6 +150,13 @@ export function QoderCnOfficialSpend({ from, to }) {
         })}
       </p>
       <p className={NOTE_CLASS}>{copy("usage.overview.qoder_cn_local_stale")}</p>
+      {cn.spend_stale && (
+        <p className={NOTE_CLASS}>
+          {copy("usage.overview.qoder_cn_spend_snapshot", {
+            date: cn.spend_cached_at ? String(cn.spend_cached_at).slice(0, 16).replace("T", " ") : "--"
+          })}
+        </p>
+      )}
     </div>
   );
 }

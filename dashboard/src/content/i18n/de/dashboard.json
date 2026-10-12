@@ -663,5 +663,7 @@
   "cloud.free.device_scope": "Nutzungsstatistiken nur für dieses Gerät",
   "cloud.plan.includes_local": "Alle kostenlosen lokalen Funktionen enthalten",
   "cloud.plan.device_sync": "Unbegrenzte Geräte · geräteübergreifende Synchronisierung",
-  "cloud.plan.device_fair_use": "Unbegrenzte Geräte für die alltägliche persönliche Nutzung, ohne Gebühren pro Gerät. Viele oder ungewöhnliche Geräteverbindungen können den Synchronisierungsschutz auslösen."
+  "cloud.plan.device_fair_use": "Unbegrenzte Geräte für die alltägliche persönliche Nutzung, ohne Gebühren pro Gerät. Viele oder ungewöhnliche Geräteverbindungen können den Synchronisierungsschutz auslösen.",
+  "usage.overview.qoder_cn_spend_snapshot": "Die offiziellen Cloud-Gesamtzahlen sind ein Snapshot vom {{date}} - die Live-Aktualisierung ist fehlgeschlagen, heute ist nicht enthalten.",
+  "usage.overview.qoder_cn_spend_unavailable": "Die offiziellen Cloud-Gesamtzahlen konnten nicht abgerufen werden. Das ist ein Abruffehler, kein Nullverbrauch."
 }

@@ -17,7 +17,6 @@ all QA tables, sequences and functions reject anonymous and authenticated SQL ro
 archive operation replay reuses its preparation and cannot change scope
 archive wiring retains canonical pricing and denies direct client access
 billing, machine admission, real ingest RPC and archive run together in the same database
-bot frame generation leaves predictable neighbor files intact and cleans its private build directory
 both account-view headers are read, transient matched by prefix
 bounded cleanup deletes only old superseded empty metadata and leaves another user intact
 checkpoint creation failure happens before any prepare or commit RPC
@@ -50,6 +49,5 @@ server revisions replace decreasing and zero values and invalidate private cache
 session model and day moves dirty both placements without duplicating lifetime totals
 status JSON reports Copilot canonical store diagnostics
 status JSON reports JSONL-only Qoder install with projects-dir detail
-the shipped frames match what the engine produces now
 unreviewed public objects, locks, malformed identities and source drift fail before SQL
 user usage erasure is atomic, scoped and idempotent while auth and financial records survive

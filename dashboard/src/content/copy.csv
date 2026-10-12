@@ -2099,3 +2099,5 @@ cloud.free.device_scope,cloud,CloudPage,CloudPage,text,"Usage statistics for thi
 cloud.plan.includes_local,cloud,CloudPage,CloudPage,text,"All free local features included",,active
 cloud.plan.device_sync,cloud,CloudPage,CloudPage,text,"Unlimited devices · cross-device usage sync",,active
 cloud.plan.device_fair_use,cloud,CloudPage,CloudPage,text,"Unlimited devices for everyday personal use, with no per-device charges. Bulk or abnormal device connections may trigger sync protection.",,active
+usage.overview.qoder_cn_spend_snapshot,ui,DashboardPage,LedgerNotices,qoder_cn_spend_snapshot,"Official cloud totals are a snapshot from {{date}} - the live refresh failed, so today is not included.",,active
+usage.overview.qoder_cn_spend_unavailable,ui,DashboardPage,LedgerNotices,qoder_cn_spend_unavailable,"Official cloud totals could not be fetched. This is a fetch failure, not zero usage.",,active
