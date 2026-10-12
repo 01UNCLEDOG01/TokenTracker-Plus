@@ -110,13 +110,22 @@ export default function AchievementsPage() {
   const [selectedBadge, setSelectedBadge] = useState(null);
   const loading = local.status === "loading" || !cloud.settled;
 
-  // One merged wall — users think in badges, not in where a badge is
-  // computed. Cloud and local records never share ids, so a flat concat is a
-  // clean merge; the grid orders earned first, locked tail after.
-  const merged = useMemo(
-    () => [...(cloud.achievements || []), ...(local.achievements || [])],
-    [cloud.achievements, local.achievements],
-  );
+  // One merged wall — users think in badges, not in where a badge is computed.
+  // The local endpoint also replays the cloud badges from the complete local
+  // queue (the cloud copy lags whenever uploads or the cloud cron fall behind),
+  // so on a shared id the LOCAL row wins. trendsetter and podium only exist
+  // cloud-side and pass through untouched. The grid orders earned first, locked
+  // tail after.
+  const merged = useMemo(() => {
+    const byId = new Map();
+    for (const badge of cloud.achievements || []) {
+      if (badge?.id) byId.set(badge.id, badge);
+    }
+    for (const badge of local.achievements || []) {
+      if (badge?.id) byId.set(badge.id, badge);
+    }
+    return [...byId.values()];
+  }, [cloud.achievements, local.achievements]);
   const earnedCount = useMemo(
     () => merged.filter((b) => (b?.tier || 0) >= 1).length,
     [merged],

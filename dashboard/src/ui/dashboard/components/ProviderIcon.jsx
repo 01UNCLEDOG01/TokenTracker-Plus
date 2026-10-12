@@ -378,7 +378,9 @@ const PROVIDER_ICON_MAP = {
   CLAUDE: ClaudeIcon,
   ZCODE: ZcodeIcon,
   CODEBUDDY: CodeBuddyIcon,
-  // WorkBuddy ships the same Tencent "buddy" mascot mark as CodeBuddy.
+  // WorkBuddy ships its own green cat mark (see PROVIDER_LOGO_MAP); this mono
+  // entry stays as the fallback and is still the real icon for WorkBuddy AI,
+  // which shares the Tencent "buddy" mascot with CodeBuddy.
   WORKBUDDY: CodeBuddyIcon,
   "WORKBUDDY-AI": CodeBuddyIcon,
   CODEX: CodexIcon,
@@ -459,6 +461,12 @@ const PROVIDER_LOGO_MAP = {
   CLINE: "/brand-logos/cline.png",
   // International TRAE mark from the installed app's resources/app/out/media/trae-logo.svg.
   TRAE: "/brand-logos/trae.svg",
+  // Loomy's own app icon, extracted from D:\Loomy\Loomy.exe (the mascot on a
+  // green disc). Corners are fully transparent, so it reads on both themes.
+  LOOMY: "/brand-logos/loomy.png",
+  // WorkBuddy's own green cat mark, extracted from D:\WorkBuddy\WorkBuddy.exe,
+  // so it no longer shares the Tencent mascot with WorkBuddy AI / CodeBuddy.
+  WORKBUDDY: "/brand-logos/workbuddy.png",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

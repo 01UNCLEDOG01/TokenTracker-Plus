@@ -588,6 +588,49 @@ const LOCAL_BADGE_THRESHOLDS = {
   night_owl: [5, 20, 60, 150], // active hour buckets between 00:00–05:59 local
 };
 
+// The cloud nine (see scripts/ops/user-badges.sql) are normally computed
+// server-side from the uploaded leaderboard rollup. That copy goes stale the
+// moment uploads or the cloud cron lag behind, so the same metrics are replayed
+// straight from the local queue here and the dashboard prefers the local row
+// whenever both carry the same badge id. Thresholds intentionally mirror the
+// SQL catalog; day grain is UTC because the SQL buckets
+// (hour_start AT TIME ZONE 'UTC')::date the same way.
+// trendsetter and podium have no local equivalent (global model debut dates and
+// leaderboard rank are cross-user facts) and stay cloud-only.
+const CLOUD_PARITY_BADGE_THRESHOLDS = {
+  token_titan: [100000000, 1000000000, 10000000000, 100000000000], // total tokens
+  big_day: [10000000, 100000000, 500000000, 3000000000], // best UTC day
+  wordsmith: [5000000, 25000000, 100000000, 300000000], // cumulative output tokens
+  marathoner: [7, 30, 100, 365], // active days
+  streak: [3, 7, 30, 100], // longest consecutive-day run
+  weekend_warrior: [5, 20, 50, 100], // Sat/Sun active days (UTC)
+  momentum: [2, 6, 15, 40], // best adjacent-week growth (prev week >= 10M floor)
+  polyglot: [5, 15, 30, 60], // distinct models
+  multitool: [2, 4, 6, 10], // distinct sources
+  veteran: [30, 90, 180, 365], // days since the first recorded day
+};
+
+const ALL_LOCAL_BADGE_THRESHOLDS = {
+  ...LOCAL_BADGE_THRESHOLDS,
+  ...CLOUD_PARITY_BADGE_THRESHOLDS,
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Prior week must clear this before a growth ratio counts — same floor as the
+// SQL momentum CTE, so a first-week spike cannot inflate the multiplier.
+const MOMENTUM_PREV_WEEK_FLOOR = 10000000;
+
+function utcDayKey(hourStart) {
+  const key = String(hourStart || "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : "";
+}
+
+function isoWeekStartMs(dayMs) {
+  // ISO weeks start Monday; 1970-01-01 was a Thursday, so shift by 4 days.
+  const shifted = dayMs - 4 * DAY_MS;
+  return Math.floor(shifted / (7 * DAY_MS)) * (7 * DAY_MS) + 4 * DAY_MS;
+}
+
 const LOCAL_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
 
 /**
@@ -604,18 +647,17 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext } = 
       .slice()
       .sort((a, b) => String(a.hour_start).localeCompare(String(b.hour_start)));
 
-  const trackers = {
-    project_hopper: { value: 0, achieved: {}, meta: {} },
-    project_devotion: { value: 0, achieved: {}, meta: {} },
-    night_owl: { value: 0, achieved: {}, meta: {} },
-  };
+  const trackers = {};
+  for (const badgeId of Object.keys(ALL_LOCAL_BADGE_THRESHOLDS)) {
+    trackers[badgeId] = { value: 0, achieved: {}, meta: {} };
+  }
 
   const bump = (badgeId, newValue, atIso, meta) => {
     const tracker = trackers[badgeId];
-    if (newValue <= tracker.value) return;
+    if (!tracker || newValue <= tracker.value) return;
     tracker.value = newValue;
     if (meta) tracker.meta = meta;
-    const thresholds = LOCAL_BADGE_THRESHOLDS[badgeId];
+    const thresholds = ALL_LOCAL_BADGE_THRESHOLDS[badgeId];
     for (let i = 0; i < thresholds.length; i += 1) {
       const tierKey = LOCAL_TIER_KEYS[i];
       if (newValue >= thresholds[i] && !tracker.achieved[tierKey]) {
@@ -651,7 +693,92 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext } = 
     bump("night_owl", nightHours.size, row.hour_start);
   }
 
-  return Object.entries(LOCAL_BADGE_THRESHOLDS).map(([badgeId, thresholds]) => {
+  // ── Cloud-parity replay, straight from the local queue ─────────────────────
+  // day -> { tokens, output, models:Set, sources:Set } keyed by UTC day.
+  const days = new Map();
+  for (const row of queueRows || []) {
+    if (!row || !row.hour_start) continue;
+    const tokens = Number(row.total_tokens || 0);
+    if (!(tokens > 0)) continue;
+    const day = utcDayKey(row.hour_start);
+    if (!day) continue;
+    let entry = days.get(day);
+    if (!entry) {
+      entry = { tokens: 0, output: 0, models: new Set(), sources: new Set() };
+      days.set(day, entry);
+    }
+    entry.tokens += tokens;
+    entry.output += Number(row.output_tokens || 0);
+    if (row.model) entry.models.add(String(row.model));
+    if (row.source) entry.sources.add(String(row.source));
+  }
+
+  const dayKeys = [...days.keys()].sort();
+  const seenModels = new Set();
+  const seenSources = new Set();
+  const weekTokens = new Map();
+  const firstDayMs = dayKeys.length ? Date.parse(`${dayKeys[0]}T00:00:00Z`) : null;
+  let totalTokens = 0;
+  let totalOutput = 0;
+  let bestDay = 0;
+  let activeDays = 0;
+  let weekendDays = 0;
+  let runLength = 0;
+  let longestRun = 0;
+  let prevDayMs = null;
+
+  for (const day of dayKeys) {
+    const entry = days.get(day);
+    const atIso = `${day}T00:00:00.000Z`;
+    const dayMs = Date.parse(`${day}T00:00:00Z`);
+    totalTokens += entry.tokens;
+    totalOutput += entry.output;
+    if (entry.tokens > bestDay) bestDay = entry.tokens;
+    activeDays += 1;
+    const dow = new Date(dayMs).getUTCDay();
+    if (dow === 0 || dow === 6) weekendDays += 1;
+    for (const model of entry.models) seenModels.add(model);
+    for (const source of entry.sources) seenSources.add(source);
+    runLength = prevDayMs !== null && dayMs - prevDayMs === DAY_MS ? runLength + 1 : 1;
+    prevDayMs = dayMs;
+    if (runLength > longestRun) longestRun = runLength;
+    const weekStart = isoWeekStartMs(dayMs);
+    weekTokens.set(weekStart, (weekTokens.get(weekStart) || 0) + entry.tokens);
+
+    bump("token_titan", totalTokens, atIso);
+    bump("big_day", entry.tokens, atIso);
+    bump("wordsmith", totalOutput, atIso);
+    bump("marathoner", activeDays, atIso);
+    bump("streak", runLength, atIso);
+    bump("weekend_warrior", weekendDays, atIso);
+    bump("polyglot", seenModels.size, atIso);
+    bump("multitool", seenSources.size, atIso);
+    // Veteran marches with the calendar (days since the first record), not with
+    // the set of active days — same definition as the SQL base CTE.
+    if (firstDayMs !== null) {
+      bump("veteran", Math.max(0, Math.round((dayMs - firstDayMs) / DAY_MS)), atIso);
+    }
+  }
+  void longestRun;
+
+  // Best adjacent-week growth. The previous week must sit exactly 7 days earlier
+  // and clear the floor, mirroring the SQL momentum CTE.
+  let bestMomentum = 0;
+  let momentumCrossedMs = null;
+  for (const weekStart of [...weekTokens.keys()].sort((a, b) => a - b)) {
+    const prev = weekTokens.get(weekStart - 7 * DAY_MS);
+    if (!(prev >= MOMENTUM_PREV_WEEK_FLOOR)) continue;
+    const ratio = weekTokens.get(weekStart) / prev;
+    if (ratio > bestMomentum) {
+      bestMomentum = ratio;
+      momentumCrossedMs = weekStart;
+    }
+  }
+  if (momentumCrossedMs !== null) {
+    bump("momentum", bestMomentum, new Date(momentumCrossedMs + 7 * DAY_MS).toISOString());
+  }
+
+  return Object.entries(ALL_LOCAL_BADGE_THRESHOLDS).map(([badgeId, thresholds]) => {
     const tracker = trackers[badgeId];
     let tier = 0;
     for (let i = 0; i < thresholds.length; i += 1) {
@@ -3721,4 +3848,6 @@ module.exports = {
   // Local achievement compute — exported for test/local-achievements.test.js.
   computeLocalAchievements,
   LOCAL_BADGE_THRESHOLDS,
+  CLOUD_PARITY_BADGE_THRESHOLDS,
+  ALL_LOCAL_BADGE_THRESHOLDS,
 };

@@ -1,7 +1,11 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
 
-const { computeLocalAchievements, LOCAL_BADGE_THRESHOLDS } = require("../src/lib/local-api");
+const {
+  computeLocalAchievements,
+  LOCAL_BADGE_THRESHOLDS,
+  CLOUD_PARITY_BADGE_THRESHOLDS,
+} = require("../src/lib/local-api");
 
 const TZ_SHANGHAI = { timeZone: "Asia/Shanghai", offsetMinutes: 480 };
 
@@ -19,13 +23,38 @@ function byId(result, id) {
 
 test("empty inputs yield the full locked catalog", () => {
   const result = computeLocalAchievements([], [], { timeZoneContext: TZ_SHANGHAI });
-  assert.equal(result.length, 3);
+  // Three local badges plus the ten cloud-parity badges the fork also replays
+  // locally (trendsetter and podium stay cloud-only — they need cross-user facts).
+  assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
+  assert.equal(result.length, 13);
   for (const badge of result) {
     assert.equal(badge.tier, 0);
     assert.equal(badge.metric_value, 0);
     assert.equal(badge.next_threshold, badge.thresholds[0]);
     assert.deepEqual(Object.values(badge.achieved), [null, null, null, null]);
   }
+});
+
+test("cloud-parity badges replay from the local queue with the SQL semantics", () => {
+  const rows = [
+    { source: "claude", model: "a", hour_start: "2026-07-01T10:00:00Z", total_tokens: 40, output_tokens: 7 },
+    { source: "codex", model: "b", hour_start: "2026-07-01T11:00:00Z", total_tokens: 60, output_tokens: 3 },
+    { source: "claude", model: "a", hour_start: "2026-07-02T10:00:00Z", total_tokens: 5, output_tokens: 1 },
+    // 2026-07-04 is a Saturday (UTC) — one weekend active day.
+    { source: "claude", model: "a", hour_start: "2026-07-04T10:00:00Z", total_tokens: 5, output_tokens: 1 },
+  ];
+  const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(result, "token_titan").metric_value, 110);
+  assert.equal(byId(result, "big_day").metric_value, 100);
+  assert.equal(byId(result, "wordsmith").metric_value, 12);
+  assert.equal(byId(result, "marathoner").metric_value, 3);
+  assert.equal(byId(result, "polyglot").metric_value, 2);
+  assert.equal(byId(result, "multitool").metric_value, 2);
+  // 07-02 continues the run; 07-04 starts a new one.
+  assert.equal(byId(result, "streak").metric_value, 2);
+  assert.equal(byId(result, "weekend_warrior").metric_value, 1);
+  // veteran counts calendar days since the first recorded day, not active days.
+  assert.equal(byId(result, "veteran").metric_value, 3);
 });
 
 test("project_hopper tiers on distinct projects with boundary exactness", () => {
