@@ -34,6 +34,7 @@ const {
   listRolloutFilesDeep,
   claudeMessageDedupKey,
   normalizeClaudeUsage,
+  readZcodeDbMessages,
   workbuddyUsageFromRawUsage,
   workbuddySourceForPath,
   resolveWorkbuddyHomes,
@@ -44,6 +45,7 @@ const {
   resolveWorkbuddyDefaultModel,
 } = require("./rollout");
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
+const { resolveZcodeNativeDbPath } = require("./install-resolver");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector } = require("./session-performance");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
@@ -1353,6 +1355,242 @@ async function readDshSessions({ home, env = process.env } = {}) {
   return out;
 }
 
+const ZCODE_SOURCE = "zcode";
+
+// ZCode keeps its conversations in one SQLite file (`~/.zcode/cli/db/db.sqlite`,
+// or under $ZCODE_HOME) with the same message/part/session layout as OpenCode,
+// but it persists *inclusive* counters: cache read/write are already inside
+// input and reasoning is already inside output. The collector splits them before
+// it books an hour (normalizeZcodeInclusiveTokens in rollout.js) and only counts
+// completed requests, so the session rows are built from that same normalized
+// view - reading the raw columns here would make the model column disagree with
+// the row total, which is exactly the card/model mismatch this page has to avoid.
+const ZCODE_SUBAGENT_TOOLS = new Set(["task", "agent"]);
+
+function zcodeSessionTotals(dbPath) {
+  const totals = new Map();
+  let messages = [];
+  try {
+    messages = readZcodeDbMessages(dbPath, {}) || [];
+  } catch {
+    return totals;
+  }
+  for (const message of messages) {
+    const data = message?.data;
+    const sessionId = message?.sessionID || data?.sessionID;
+    if (!sessionId || !data) continue;
+    const tokens = data.tokens || {};
+    const input = opencodeCount(tokens.input);
+    const output = opencodeCount(tokens.output);
+    const reasoning = opencodeCount(tokens.reasoning);
+    const cacheRead = opencodeCount(tokens.cache?.read);
+    const cacheWrite = opencodeCount(tokens.cache?.write);
+    const total = input + output + reasoning + cacheRead + cacheWrite;
+    if (total <= 0) continue;
+    const model = normalizeSessionModel(data.modelID) || "unknown";
+    const session = totals.get(sessionId) || { tokens: null, byModel: new Map(), requests: 0 };
+    if (!session.tokens) {
+      session.tokens = {
+        input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+        output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
+      };
+    }
+    const t = session.tokens;
+    t.input_tokens += input;
+    t.cached_input_tokens += cacheRead;
+    t.cache_creation_input_tokens += cacheWrite;
+    t.output_tokens += output;
+    t.reasoning_output_tokens += reasoning;
+    t.total_tokens += total;
+    const perModel = session.byModel.get(model) || {
+      model, input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0, usage_events: 0,
+    };
+    perModel.input_tokens += input;
+    perModel.cached_input_tokens += cacheRead;
+    perModel.cache_creation_input_tokens += cacheWrite;
+    perModel.output_tokens += output;
+    perModel.reasoning_output_tokens += reasoning;
+    perModel.total_tokens += total;
+    perModel.usage_events += 1;
+    session.byModel.set(model, perModel);
+    session.requests += 1;
+    totals.set(sessionId, session);
+  }
+  return totals;
+}
+
+function buildZcodeSessionRow(db, session, normalized) {
+  const tokens = normalized
+    ? { ...normalized.tokens }
+    : {
+      input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
+    };
+  const messages = db.prepare(OPENCODE_MESSAGE_SQL).all(session.id);
+  const toolsByMessage = new Map();
+  for (const part of db.prepare(OPENCODE_TOOL_SQL).all(session.id)) {
+    const name = String(part.tool || "").toLowerCase();
+    if (!name) continue;
+    const names = toolsByMessage.get(part.messageId) || new Set();
+    names.add(name);
+    toolsByMessage.set(part.messageId, names);
+  }
+  const promptByMessage = new Map();
+  for (const part of db.prepare(OPENCODE_PROMPT_SQL).all(session.id)) {
+    if (typeof part.text !== "string" || !part.text.trim()) continue;
+    promptByMessage.set(part.messageId, (promptByMessage.get(part.messageId) || "") + part.text);
+  }
+
+  const editTurnsByModel = new Map();
+  const bounds = emptyBounds();
+  let turns = 0;
+  let editTurns = 0;
+  let retryTurns = 0;
+  let subagentCalls = 0;
+  let currentHadEdit = false;
+  let currentTurnModel = null;
+  let lastPromptFingerprint = null;
+  const subagentTypes = new Map();
+
+  const closeTurn = () => {
+    if (!currentHadEdit) return;
+    editTurns += 1;
+    const key = currentTurnModel || "unknown";
+    editTurnsByModel.set(key, (editTurnsByModel.get(key) || 0) + 1);
+    currentHadEdit = false;
+  };
+
+  for (const message of messages) {
+    updateBounds(bounds, opencodeIso(message.created));
+    for (const name of toolsByMessage.get(message.id) || OPENCODE_NO_TOOLS) {
+      if (OPENCODE_EDIT_TOOLS.has(name)) currentHadEdit = true;
+      if (ZCODE_SUBAGENT_TOOLS.has(name)) {
+        subagentCalls += 1;
+        subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
+      }
+    }
+    if (message.role === "user") {
+      const prompt = promptByMessage.get(message.id);
+      if (!prompt) continue;
+      const fingerprint = promptFingerprint(prompt);
+      if (lastPromptFingerprint && fingerprint === lastPromptFingerprint) retryTurns += 1;
+      lastPromptFingerprint = fingerprint;
+      closeTurn();
+      turns += 1;
+      continue;
+    }
+    if (message.role !== "assistant") continue;
+    const model = normalizeSessionModel(message.model);
+    if (model) currentTurnModel = model;
+  }
+  closeTurn();
+
+  // The normalized per-model totals are the only source of token truth here; the
+  // message rows are read only for roles, tools and prompt text.
+  const modelUsageByModel = new Map();
+  for (const entry of normalized ? normalized.byModel.values() : []) {
+    modelUsageByModel.set(entry.model, { ...entry, edit_turns: finite(editTurnsByModel.get(entry.model)) });
+  }
+  for (const [model, count] of editTurnsByModel) {
+    if (modelUsageByModel.has(model)) continue;
+    modelUsageByModel.set(model, {
+      model, input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0, usage_events: 0,
+      edit_turns: count,
+    });
+  }
+
+  const startedAt = opencodeIso(session.time_created) || bounds.started_at;
+  const endedAt = opencodeIso(session.time_updated) || bounds.ended_at;
+  if (tokens.total_tokens <= 0 && turns <= 0) return null;
+  const row = {
+    version: SIDECAR_VERSION,
+    session_hash: sessionHash(ZCODE_SOURCE, session.id),
+    session_id: typeof session.id === "string" && session.id ? session.id : null,
+    parent_session_id: typeof session.parent_id === "string" && session.parent_id ? session.parent_id : null,
+    title: cleanSessionTitle(session.title),
+    source: ZCODE_SOURCE,
+    project_key: projectKey(session.directory, null),
+    project_ref: typeof session.directory === "string" && session.directory ? session.directory : null,
+    model: modelUsageByModel.size === 1
+      ? [...modelUsageByModel.values()][0].model
+      : (modelUsageByModel.size > 1 ? "mixed" : "unknown"),
+    model_usage: [...modelUsageByModel.values()].map((usage) => ({
+      ...usage,
+      performance: normalizePerformance(),
+    })),
+    ...bounds,
+    started_at: startedAt,
+    ended_at: endedAt,
+    turns,
+    edit_turns: editTurns,
+    retry_turns: retryTurns,
+    subagent_calls: subagentCalls,
+    subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
+    tokens,
+    provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "observed", content_retained: false },
+  };
+  const statKey = [
+    session.time_updated ?? "", session.time_created ?? "",
+    tokens.total_tokens, tokens.input_tokens, tokens.output_tokens,
+    tokens.cached_input_tokens, tokens.cache_creation_input_tokens, tokens.reasoning_output_tokens,
+    session.parent_id ?? "", session.title ?? "", session.directory ?? "",
+    messages.length, toolsByMessage.size, promptByMessage.size,
+  ].join("|");
+  return { row: finalizeRecord(row), statKey };
+}
+
+// Every ZCode install on this machine (native plus its WSL sibling) is read; a
+// missing database simply contributes nothing.
+function readZcodeSessions({ home, env = process.env } = {}) {
+  const root = home || os.homedir();
+  const candidates = [];
+  try {
+    candidates.push(resolveZcodeNativeDbPath({ home: root, env }));
+  } catch { /* fall through to the WSL probe */ }
+  try {
+    if (wsl.shouldProbeWsl(env)) {
+      const wslZcode = wsl.discoverWslHome(".zcode", { env });
+      if (wslZcode) candidates.push(path.join(wslZcode, "cli", "db", "db.sqlite"));
+    }
+  } catch { /* WSL is optional */ }
+
+  const out = [];
+  const seenSessions = new Set();
+  for (const dbPath of [...new Set(candidates.filter(Boolean))]) {
+    let db = null;
+    try {
+      db = new DatabaseSync(dbPath, { readOnly: true });
+    } catch {
+      continue;
+    }
+    try {
+      const totals = zcodeSessionTotals(dbPath);
+      const sessions = db.prepare(`SELECT id, parent_id, title, directory, time_created, time_updated
+        FROM session ORDER BY time_updated DESC`).all();
+      for (const session of sessions) {
+        const key = dbPath + "|" + session.id;
+        if (seenSessions.has(key)) continue;
+        seenSessions.add(key);
+        try {
+          const built = buildZcodeSessionRow(db, session, totals.get(session.id) || null);
+          if (built) out.push(built);
+        } catch (error) {
+          if (!process.env.NODE_TEST_CONTEXT) {
+            console.warn(`[session-analytics] skipped zcode session ${session.id}: ${error?.message || error}`);
+          }
+        }
+      }
+    } catch {
+      // An unreadable session table must not cost the user the other providers.
+    } finally {
+      try { db.close(); } catch { /* already closed */ }
+    }
+  }
+  return out;
+}
+
 function createCodexDeliverySignalCollector() {
   const bounds = emptyBounds();
   let turns = 0;
@@ -2362,6 +2600,25 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     nextFiles[cacheKey] = { stat_key: statKey };
   }
 
+  // ZCode keeps one SQLite for every conversation like OpenCode does, but its
+  // token counters are inclusive, so the rows are built from the collector's
+  // normalized view rather than the raw columns.
+  for (const { row, statKey } of readZcodeSessions({ home })) {
+    const cacheKey = "zcode|" + (row.session_id || row.session_hash);
+    if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
+      const cached = previousRowsByFile.get(cacheKey);
+      if (cached) {
+        sessions.push(cached);
+        nextFiles[cacheKey] = previousFiles[cacheKey];
+        continue;
+      }
+    }
+    row._cache_key = cacheKey;
+    repriceSessionRecord(row);
+    sessions.push(row);
+    nextFiles[cacheKey] = { stat_key: statKey };
+  }
+
   sessions.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
   if (incompleteDirs.length === 0) {
     const content = sessions.map(serializeSessionRecord).join("\n") + (sessions.length ? "\n" : "");
@@ -2992,6 +3249,8 @@ module.exports = {
   scanClaudeSession,
   scanWorkbuddySession,
   readDshSessions,
+  readZcodeSessions,
+  buildZcodeSessionRow,
   buildDshSessionRow,
   readOpencodeSessions,
   resolveOpencodeDatabase,

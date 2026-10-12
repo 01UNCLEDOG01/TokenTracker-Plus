@@ -42,6 +42,7 @@ const SOURCE_FILTERS = [
   { id: "workbuddy", label: () => "WorkBuddy" },
   { id: "workbuddy-ai", label: () => "WorkBuddy AI" },
   { id: "dsh", label: () => "DeepSeek Harness" },
+  { id: "zcode", label: () => "ZCode" },
 ];
 
 const DATE_RANGES = [
