@@ -602,6 +602,14 @@ export function UsageOverview({
                 const isExpanded = activeProvider === provider.label;
                 const displayLabel = formatProviderDisplayName(provider.label);
                 const percentLabel = formatProviderPercent(provider);
+                // A token-less source reads "0.00%" and looks like an empty card,
+                // so it carries its cost here instead. Only this case: every card
+                // that reports tokens keeps its original two lines.
+                const providerCost = formatCost(provider.usd, currency, rate);
+                const modelCountLabel =
+                  provider.usage > 0 || !providerCost
+                    ? copy("usage.overview.model_count", { count: provider.models.length })
+                    : `${copy("usage.overview.model_count", { count: provider.models.length })} · ${providerCost}`;
 
                 return (
                   <button
@@ -630,7 +638,7 @@ export function UsageOverview({
                       {percentLabel}%
                     </div>
                     <div className="mt-0.5 text-[11px] text-oai-gray-400 dark:text-oai-gray-400 tabular-nums">
-                      {copy("usage.overview.model_count", { count: provider.models.length })}
+                      {modelCountLabel}
                     </div>
                   </button>
                 );

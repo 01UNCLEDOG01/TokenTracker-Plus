@@ -622,6 +622,49 @@ describe("UsageOverview", () => {
     expect(screen.queryByText(copy("usage.overview.trae_notice_body"))).toBeNull();
   });
 
+  it("shows the cost on a card that has spend but no tokens", () => {
+    const fleet = [
+      {
+        source: "qoder",
+        label: "QODER",
+        totalPercent: "0.00",
+        usage: 0,
+        usd: 3.566868,
+        models: [{ id: "cloud", name: "cloud", share: 100, usage: 0, cost: 3.566868 }],
+      },
+      {
+        source: "codex",
+        label: "CODEX",
+        totalPercent: "100.00",
+        usage: 5_000_000,
+        usd: 12.5,
+        models: [{ id: "gpt-5", name: "gpt-5", share: 100, usage: 5_000_000, cost: 12.5 }],
+      },
+    ];
+    render(
+      <UsageOverview
+        period="month"
+        periods={["month"]}
+        summaryLabel="Total"
+        summaryValue="5.0M"
+        fleetData={fleet}
+        from="2026-10-01"
+        to="2026-10-31"
+      />,
+    );
+    // jsdom has no innerText, so this reads textContent off the card button.
+    const cardText = (label) => {
+      const selector = "[aria-controls=\"provider-details-" + label + "\"]";
+      const button = document.querySelector(selector);
+      return (button ? button.textContent : "").replace(/\s+/g, " ").trim();
+    };
+    const oneModel = copy("usage.overview.model_count", { count: 1 });
+    expect(cardText("QODER")).toContain(oneModel);
+    expect(cardText("QODER")).toMatch(/\$3\.56/);
+    expect(cardText("CODEX")).toContain(oneModel);
+    expect(cardText("CODEX")).not.toMatch(/\$/);
+  });
+
   it("keeps the Qoder CN official-spend banner off the international card", async () => {
     const user = userEvent.setup();
     const spend = {
