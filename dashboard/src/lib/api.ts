@@ -183,11 +183,17 @@ async function fetchLocalJson(slug: string, params?: AnyRecord, options?: AnyRec
   const accessToken = options?.accessToken as string | undefined;
   const accountSlug = USAGE_TO_ACCOUNT_SLUG[slug];
 
-  // Deployed web (e.g. (removed)): there's no local CLI behind
-  // window.location.origin, so usage-* calls would 404. When the visitor is
-  // signed in and the slug has a cloud account-* mirror, route to the cloud
-  // aggregator (cross-device usage by user_id) with the auth token. Local CLI
-  // (localhost) keeps the original same-origin usage-* path.
+  // Signed in + the slug has a cloud account-* mirror -> route to the cloud
+  // aggregator (cross-device usage by user_id) with the auth token.
+  //
+  // localhost is deliberately excluded. The local CLI server serves the very
+  // same aggregate off `/functions/<usage-slug>?account=1`, and it additionally
+  // folds in the Qoder CN estimate and the Qoder international credit spend on
+  // the way out — data the cloud aggregate can never hold, because Qoder CN
+  // stopped writing token counts to disk in 2026-07 and the international
+  // edition bills credits. Going to the cloud origin from a localhost
+  // dashboard therefore shows fewer tokens than the desktop app reading the
+  // same account. The local host is reachable and knows more, so it wins.
   if (!isLocalhostHost() && accessToken && accountSlug) {
     const base = getInsforgeRemoteUrl().replace(/\/$/, "");
     const url = new URL(functionUrlFor(base, accountSlug));
@@ -850,11 +856,32 @@ const ACCOUNT_PATHS = {
   devices: "tokentracker-account-devices",
 } as const;
 
+// Reverse of USAGE_TO_ACCOUNT_SLUG: the local CLI server serves the
+// cross-device aggregate off the `usage-` path plus `?account=1`, never off the
+// `account-` path (which 404s there).
+const ACCOUNT_TO_USAGE_SLUG: Record<string, string> = Object.fromEntries(
+  Object.entries(USAGE_TO_ACCOUNT_SLUG).map(([usage, account]) => [account, usage]),
+);
+
 async function fetchAccountFunction(
   slug: string,
   params: AnyRecord | undefined,
   auth: AuthTokenProvider,
 ) {
+  // On a localhost dashboard the same cross-device aggregate is reachable from
+  // the local CLI server via `?account=1`. That response carries strictly more
+  // than the cloud endpoint can: local-api.js folds in the Qoder CN estimate and
+  // the Qoder international credit spend on its way out, and neither of those
+  // exists in the cloud aggregate (Qoder CN stopped writing tokens to disk, and
+  // the international edition bills credits). Reading the cloud origin from
+  // here drops both, which is why the public dashboard showed fewer tokens and
+  // a lower total than the desktop app reading the same account.
+  if (isLocalhostHost()) {
+    const usageSlug = ACCOUNT_TO_USAGE_SLUG[slug] || slug;
+    const merged: AnyRecord = { ...(params || {}) };
+    if (merged.account == null || merged.account === "") merged.account = "1";
+    return fetchLocalJson(usageSlug, merged, {});
+  }
   const baseUrl = getInsforgeRemoteUrl();
   const anonKey = getInsforgeAnonKey();
   const assertInstance = () => {

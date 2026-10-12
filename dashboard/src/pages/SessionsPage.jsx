@@ -38,6 +38,7 @@ const SOURCE_FILTERS = [
   { id: "claude", label: () => "Claude Code" },
   { id: "codex", label: () => "Codex" },
   { id: "opencode", label: () => "OpenCode" },
+  { id: "loomy", label: () => "Loomy" },
   { id: "grok", label: () => "Grok" },
   { id: "workbuddy", label: () => "WorkBuddy" },
   { id: "workbuddy-ai", label: () => "WorkBuddy AI" },

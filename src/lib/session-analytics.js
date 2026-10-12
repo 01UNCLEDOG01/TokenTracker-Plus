@@ -55,6 +55,7 @@ const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader
 const { resolveZcodeNativeDbPath, resolveInstallPaths } = require("./install-resolver");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
 const wsl = require("./wsl-probe");
+const { resolveLoomyDbPaths } = require("./loomy-paths");
 const {
   appendUniqueDirs,
   dedupeDirsByRealpath,
@@ -1786,7 +1787,16 @@ async function readOpencodeSessionInputs(dbPath) {
   return { sessionRows, messages, toolRows };
 }
 
-async function scanOpencodeSessions(dbPaths) {
+// OpenCode and Loomy share one database schema (Loomy embeds its own OpenCode
+// runtime), so both scan through this same code path. They still keep separate
+// source labels, and the "one database → many cached rows" bookkeeping below
+// treats them identically.
+function isOpencodeFamilySource(source) {
+  return source === "opencode" || source === "loomy";
+}
+
+async function scanOpencodeSessions(dbPaths, options = {}) {
+  const familySource = options.source === "loomy" ? "loomy" : "opencode";
   const paths = [...new Set((Array.isArray(dbPaths) ? dbPaths : [dbPaths]).filter(Boolean))];
   const snapshots = [];
   const inputs = [];
@@ -1846,7 +1856,7 @@ async function scanOpencodeSessions(dbPaths) {
       .map((row) => {
         const data = row.metadata ? JSON.parse(row.metadata) : {};
         const delta = normalizeOpencodeTokens(data.tokens);
-        const fingerprint = delta && deriveOpencodeMessageFingerprint({ msg: data, totals: delta, source: "opencode" });
+        const fingerprint = delta && deriveOpencodeMessageFingerprint({ msg: data, totals: delta, source: familySource });
         return { row, data, delta, fingerprint };
       });
     // A fork may sort before its original when message creation times tie.
@@ -1924,9 +1934,9 @@ async function scanOpencodeSessions(dbPaths) {
       if (interval) activeMs += interval[1] - interval[0];
       records.push(finalizeRecord({
         version: SIDECAR_VERSION,
-        session_hash: sessionHash("opencode", sessionId), session_id: sessionId,
+        session_hash: sessionHash(familySource, sessionId), session_id: sessionId,
         parent_session_id: typeof row.parent_id === "string" && row.parent_id.trim() ? row.parent_id.trim() : null,
-        title: cleanSessionTitle(row.title), source: "opencode",
+        title: cleanSessionTitle(row.title), source: familySource,
         project_key: projectKey(cwd && cwd.replace(/\\/g, "/"), paths[0]), project_ref: cwd || null,
         model: modelUsage.length > 1 ? "mixed" : (modelUsage[0]?.model || "unknown"),
         model_usage: modelUsage, usage_buckets: [...group.buckets.values()],
@@ -2647,6 +2657,9 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const opencodePaths = resolveInstallPaths({ nativeValue: opencodeNativeDir, wslValue: opencodeWslDir }, env, { platform: zcodePlatform });
   const opencode = [...new Set(Object.values(opencodePaths).filter(Boolean)
     .map((dir) => path.join(dir, "opencode.db")).filter((dbPath) => fs.existsSync(dbPath)))];
+  // Loomy keeps its own embedded OpenCode database, so its conversations are
+  // listed next to the standalone OpenCode install but under their own source.
+  const loomy = resolveLoomyDbPaths({ env, home }).filter((dbPath) => fs.existsSync(dbPath));
   return {
     claude,
     codex: groupCodexFiles([...codex, ...archived]),
@@ -2656,6 +2669,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     workbuddy: groupWorkbuddyConversationFiles(workbuddyFiles),
     zcode,
     opencode,
+    loomy,
     incomplete,
   };
 }
@@ -2762,7 +2776,7 @@ function analyticsEntryStatKey(source, filePath) {
     const primary = filePaths[0];
     return `${sessionStat}|summary:${sessionFileStatKey(grokSummaryPathFor(primary)) || "missing"}|signals:${sessionFileStatKey(grokSignalsPathFor(primary)) || "missing"}`;
   }
-  if (source === "zcode" || source === "opencode") {
+  if (source === "zcode" || isOpencodeFamilySource(source)) {
     // A WAL-mode db can absorb writes without touching the main file's mtime,
     // so the sidecar files are part of the db's identity for cache checks.
     return `${sessionStat}|sidecars:${filePaths.map((filePath) =>
@@ -2843,7 +2857,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.grok.map(grokSummaryPathFor),
     ...discovered.grok.map(grokSignalsPathFor),
     // db + its WAL sidecars: the trio is one logical file for change detection.
-    ...[...(discovered.zcode || []), ...(discovered.opencode || [])].flatMap((dbPath) => [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]),
+    ...[...(discovered.zcode || []), ...(discovered.opencode || []), ...(discovered.loomy || [])].flatMap((dbPath) => [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]),
   ]);
   if (!force && !retryZcodeScan && !retryOpencodeScan && previousMeta?.version === SIDECAR_VERSION && previousMeta.signature === signature) {
     await writeAtomic(metaPath, `${JSON.stringify({ ...previousMeta, checked_at: new Date().toISOString() })}\n`);
@@ -2867,6 +2881,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.grok.map((filePath) => ({ source: "grok", filePath, scan: scanGrokSession })),
     ...(discovered.zcode.length ? [{ source: "zcode", filePath: discovered.zcode, scan: scanZcodeSessions }] : []),
     ...(discovered.opencode.length ? [{ source: "opencode", filePath: discovered.opencode, scan: scanOpencodeSessions }] : []),
+    ...((discovered.loomy || []).length ? [{ source: "loomy", filePath: discovered.loomy, scan: (paths) => scanOpencodeSessions(paths, { source: "loomy" }) }] : []),
     ...(discovered.workbuddy || []).map((filePaths) => ({
       // The domestic and the international edition are two products with two
       // ledgers, so each conversation keeps the source of the home it came from.
@@ -2887,12 +2902,12 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     if (!statKey) {
       skippedFiles += 1;
       if (entry.source === "zcode") incompleteZcodeScan = true;
-      if (entry.source === "opencode") incompleteOpencodeScan = true;
+      if (isOpencodeFamilySource(entry.source)) incompleteOpencodeScan = true;
       continue;
     }
     let rows = null;
-    if (!force && !(entry.source === "zcode" && retryZcodeScan) && !(entry.source === "opencode" && retryOpencodeScan) && previousFiles[cacheKey]?.stat_key === statKey) {
-      if (entry.source === "zcode" || entry.source === "opencode") {
+    if (!force && !(entry.source === "zcode" && retryZcodeScan) && !(isOpencodeFamilySource(entry.source) && retryOpencodeScan) && previousFiles[cacheKey]?.stat_key === statKey) {
+      if (entry.source === "zcode" || isOpencodeFamilySource(entry.source)) {
         // One db scans to many cached rows; recover them all from the previous
         // pass. An empty recovery means the sidecar lost its rows — rescan.
         const cached = previousRows.filter((row) => row?.source === entry.source);
@@ -2911,7 +2926,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
         // pretend it never existed either.
         skippedFiles += 1;
         if (entry.source === "zcode") incompleteZcodeScan = true;
-        if (entry.source === "opencode") incompleteOpencodeScan = true;
+        if (isOpencodeFamilySource(entry.source)) incompleteOpencodeScan = true;
         if (!process.env.NODE_TEST_CONTEXT) {
           console.warn(`[session-analytics] skipped ${entry.source} session file: ${error?.message || error}`);
         }
@@ -2925,7 +2940,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       // so key each by the db path plus its session id; a bare session id as a
       // separate path element would be path.resolve()d against the process cwd
       // and never match across runs.
-      row._cache_key = (entry.source === "zcode" || entry.source === "opencode") && row.session_id
+      row._cache_key = (entry.source === "zcode" || isOpencodeFamilySource(entry.source)) && row.session_id
         ? `${cacheKey}#${sessionHash(entry.source, row.session_id)}`
         : cacheKey;
       sessions.push(row);
@@ -2943,7 +2958,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   if (incompleteOpencodeScan) {
     await writeAtomic(incompleteOpencodePath, "1\n");
     sessions.push(...readSidecar(sidecarPath).filter((row) =>
-      row.source === "opencode" && row.version === SIDECAR_VERSION));
+      isOpencodeFamilySource(row.source) && row.version === SIDECAR_VERSION));
   }
   // dsh (DeepSeek Harness) stores one compressed transcript per conversation,
   // so like OpenCode it is read after the file sources and cached by its own
@@ -3158,7 +3173,7 @@ function summarizeSessions(sessions, { from = "", to = "", includeSessions = tru
       if (key === primaryModel) agg.retries += finite(row.retry_turns);
       byModel.set(key, agg);
     }
-    if ((row.source === "codex" || row.source === "zcode" || row.source === "opencode") && row.parent_session_hash) {
+    if ((row.source === "codex" || row.source === "zcode" || isOpencodeFamilySource(row.source)) && row.parent_session_hash) {
       const name = row.agent_role || row.agent_nickname || "subagent";
       const sub = subagents.get(name) || {
         name,
@@ -3177,7 +3192,7 @@ function summarizeSessions(sessions, { from = "", to = "", includeSessions = tru
     }
     // Codex and ZCode children are first-class rows. A spawn call in the parent is
     // a control-plane event, not token usage, so do not mix in an estimate.
-    if (row.source === "codex" || row.source === "zcode" || row.source === "opencode") continue;
+    if (row.source === "codex" || row.source === "zcode" || isOpencodeFamilySource(row.source)) continue;
     for (const [name, calls] of Object.entries(row.subagent_types || {})) {
       const sub = subagents.get(name) || { name, calls: 0, sessions: 0, total_tokens: 0, cost_usd: 0 };
       sub.calls += finite(calls);
@@ -3262,6 +3277,7 @@ function resumeCommandFor(source, sessionId) {
   if (source === "claude") return `claude --resume ${id}`;
   if (source === "codex") return `codex resume ${id}`;
   if (source === "opencode") return `opencode --session ${id}`;
+  if (source === "loomy") return `loomy --session ${id}`;
   // Grok Build: `grok --resume <session-id>` (also accepts a title). The
   // command must still be run from the session's project_ref cwd.
   if (source === "grok") return `grok --resume ${id}`;
@@ -3456,7 +3472,7 @@ function annotateThreadUsage(rows) {
   const identity = (row, id = row.session_id) => `${row.source}\u0000${id}`;
 
   for (const row of rows || []) {
-    if ((row?.source !== "codex" && row?.source !== "zcode" && row?.source !== "opencode") || typeof row.session_id !== "string" || !row.session_id) continue;
+    if ((row?.source !== "codex" && row?.source !== "zcode" && !isOpencodeFamilySource(row?.source)) || typeof row.session_id !== "string" || !row.session_id) continue;
     const existing = byId.get(identity(row));
     if (existing && existing !== row) {
       existing.parent_link_conflict = true;
@@ -3534,7 +3550,7 @@ function annotateThreadUsage(rows) {
   }
 
   for (const row of rows || []) {
-    const threadAware = (row.source === "codex" || row.source === "zcode" || row.source === "opencode")
+    const threadAware = (row.source === "codex" || row.source === "zcode" || isOpencodeFamilySource(row.source))
       && typeof row.session_id === "string" && row.session_id;
     row.own_total_tokens = finite(row.total_tokens);
     row.own_cost_usd = finite(row.cost_usd);

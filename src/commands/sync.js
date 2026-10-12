@@ -9,6 +9,7 @@ const { functionUrlFor, fetchFunctionResponse } = require("../lib/function-url")
 const { resolveInstallPaths, resolveZcodeNativeDbPath, resolveMimoNativeDbPath, ensureFlatCursor } = require("../lib/install-resolver");
 const { multiInstallParse, mergeBothFileSources } = require("../lib/multi-install-parser");
 const { resolveDumateDbPaths, parseDumateIncremental } = require("../lib/dumate");
+const { resolveLoomyDbPaths } = require("../lib/loomy-paths");
 const wsl = require("../lib/wsl-probe");
 const {
   ensureDir,
@@ -343,6 +344,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "kimi",
   "kimi-code",
   "lmstudio",
+  "loomy",
   "mimo",
   "minimax-code",
   "omo",
@@ -1448,6 +1450,44 @@ async function cmdSync(argv, context = {}) {
         eventsAggregated: multiResult.eventsAggregated,
         bucketsQueued: multiResult.bucketsQueued,
       };
+    }
+
+    // Loomy runs its own embedded OpenCode runtime, so its conversations live in
+    // an OpenCode-schema SQLite database — parsed with the same reader, but under
+    // the distinct source key "loomy" so its tokens stay out of the standalone
+    // OpenCode bucket. One install = one database; a machine can carry several.
+    let loomyResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (sourceAllowed("loomy")) {
+      const loomyDbPaths = resolveLoomyDbPaths({ env: process.env, home, platform: process.platform });
+      if (loomyDbPaths.length > 0) {
+        if (progress?.enabled) {
+          progress.start(`Parsing Loomy ${renderBar(0)} | buckets 0`);
+        }
+        try {
+          const loomyTotals = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+          for (const loomyDbPath of loomyDbPaths) {
+            const dbRead = readOpencodeDbMessagesIncremental(loomyDbPath, cursors?.loomy?.dbCursor);
+            if (dbRead.messages.length === 0 && !dbRead.cursor) continue;
+            const parsed = await parseOpencodeDbIncremental({
+              dbMessages: dbRead.messages,
+              dbCursor: dbRead.cursor,
+              dbPath: loomyDbPath,
+              cursors,
+              queuePath,
+              projectQueuePath,
+              source: "loomy",
+              cursorKey: "loomy",
+              opencodeCursorStore: cursorStore,
+            });
+            loomyTotals.filesProcessed += parsed.messagesProcessed || 0;
+            loomyTotals.eventsAggregated += parsed.eventsAggregated || 0;
+            loomyTotals.bucketsQueued += parsed.bucketsQueued || 0;
+          }
+          loomyResult = loomyTotals;
+        } catch (err) {
+          warnProviderParseFailure("Loomy", err, opts);
+        }
+      }
     }
 
     let qoderResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };

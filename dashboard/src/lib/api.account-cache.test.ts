@@ -33,6 +33,17 @@ afterEach(() => {
 });
 
 describe("account response cache", () => {
+  // These cases assert the cloud fast path. jsdom defaults `location.hostname`
+  // to "localhost", where api.ts now routes the same reads to the local CLI
+  // server instead (it folds in the Qoder merges, which the cloud aggregate
+  // cannot hold). Pin a public host so each of them really measures the cloud
+  // path rather than the localhost one.
+  beforeEach(() => {
+    vi.stubGlobal("window", {
+      location: { hostname: "(removed)", origin: "https://(removed)" },
+    });
+  });
+
   it("uses 120s for summary and 300s for chart reads, while invalidation forces a fetch", async () => {
     vi.useFakeTimers();
     let count = 0;
@@ -104,6 +115,12 @@ describe("account response cache", () => {
 });
 
 describe("compact heatmap browser routes", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", {
+      location: { hostname: "(removed)", origin: "https://(removed)" },
+    });
+  });
+
   it("both cloud routes request compact and return the complete rendering schema", async () => {
     const fetch = vi.fn(async (_url: string) => json(compact));
     vi.stubGlobal("fetch", fetch);
@@ -111,7 +128,6 @@ describe("compact heatmap browser routes", () => {
     expect(await fetchCloudUsageHeatmap(args)).toEqual(expandHeatmapCompact(compact));
     expect(new URL(fetch.mock.calls[0][0]).searchParams.get("format")).toBe("compact");
     invalidateAccountResponseCache();
-    vi.stubGlobal("window", { location: { hostname: "(removed)", origin: "https://(removed)" } });
     expect(await getUsageHeatmap(args)).toEqual(expandHeatmapCompact(compact));
     const url = new URL(fetch.mock.calls.at(-1)![0]);
     expect(url.searchParams.get("format")).toBe("compact");
@@ -154,17 +170,45 @@ describe("local API host boundary", () => {
     expect((fetch.mock.calls[0] as any)[1]?.headers.Authorization).toBe(`Bearer ${token}`);
   });
 
-  it.each(["localhost", "127.0.0.1"])("preserves local reads on %s", async (hostname) => {
+  it.each(["localhost", "127.0.0.1"])("preserves unsigned-out local reads on %s", async (hostname) => {
     vi.stubGlobal("window", { location: { hostname, origin: `http://${hostname}:7680` } });
     const fetch = vi.fn(async (_url: string) => json({ data: [], totals: { total_tokens: 42 } }));
     vi.stubGlobal("fetch", fetch);
     await getUsageLimits();
     await getUserStatus();
-    await getUsageSummary({ accessToken: jwt(), from: "2026-10-01", to: "2026-10-02" });
+    await getUsageSummary({ from: "2026-10-01", to: "2026-10-02" });
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(fetch.mock.calls.map(([input]) => new URL(input).origin)).toEqual(Array(3).fill(`http://${hostname}:7680`));
     expect(fetch.mock.calls.map(([input]) => new URL(input).pathname)).toEqual([
       "/functions/tokentracker-usage-limits", "/functions/tokentracker-user-status", "/functions/tokentracker-usage-summary",
     ]);
+  });
+
+  it.each(["localhost", "127.0.0.1"])("keeps signed-in per-device reads on the local CLI server at %s", async (hostname) => {
+    vi.stubGlobal("window", { location: { hostname, origin: `http://${hostname}:7680` } });
+    const fetch = vi.fn(async (_url: string) => json({ data: [], totals: { total_tokens: 42 } }));
+    vi.stubGlobal("fetch", fetch);
+    // A signed-in token must not push this read off the local server: the
+    // per-device view is what the caller asked for, and the local server is
+    // where the Qoder merges live.
+    await getUsageSummary({ accessToken: jwt(), from: "2026-10-01", to: "2026-10-02" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const url = new URL(fetch.mock.calls[0][0]);
+    expect(url.origin).toBe(`http://${hostname}:7680`);
+    expect(url.pathname).toBe("/functions/tokentracker-usage-summary");
+    // Per-device, so it must not ask for the cross-device aggregate.
+    expect(url.searchParams.get("account")).toBeNull();
+  });
+
+  it.each(["localhost", "127.0.0.1"])("asks the local server for the account view on %s", async (hostname) => {
+    vi.stubGlobal("window", { location: { hostname, origin: `http://${hostname}:7680` } });
+    const fetch = vi.fn(async (_url: string) => json({ data: [], totals: { total_tokens: 42 } }));
+    vi.stubGlobal("fetch", fetch);
+    await fetchCloudUsageSummary({ accessToken: jwt(), from: "2026-10-01", to: "2026-10-02" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const url = new URL(fetch.mock.calls[0][0]);
+    expect(url.origin).toBe(`http://${hostname}:7680`);
+    expect(url.pathname).toBe("/functions/tokentracker-usage-summary");
+    expect(url.searchParams.get("account")).toBe("1");
   });
 });
