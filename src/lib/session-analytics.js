@@ -38,6 +38,8 @@ const {
   workbuddySourceForPath,
   resolveWorkbuddyHomes,
   resolveWorkbuddyProjectFilesAll,
+  resolveDshSessionFiles,
+  readDshSessionText,
   resolveWorkbuddyProjectFiles,
   resolveWorkbuddyDefaultModel,
 } = require("./rollout");
@@ -1150,6 +1152,207 @@ function readOpencodeSessions({ home, env = process.env, dbPath = null } = {}) {
   return out;
 }
 
+const DSH_SOURCE = "dsh";
+
+// Harness keeps one directory per conversation:
+//   <dsh-home>/sessions/<project-key>/<session-id>/session.v4.jsonl[.zstd]
+// Every record is {type, seq, time, data}. Only assistant/message carries a
+// usage block, and the routed model appears on request/context (assistant
+// messages carry none), so each usage is attributed to the model in force when
+// the record was written. Sub-agents are separate ids whose `session` header
+// points back through parentSession, which is what lets them group under the
+// parent instead of being listed as unrelated conversations.
+const DSH_EDIT_TOOLS = new Set([...EDIT_TOOLS, "str_replace_editor", "apply_patch", "write_file", "edit_file"]);
+const DSH_SUBAGENT_TOOLS = new Set(["agent", "subagent", "task"]);
+
+function dshIso(value) {
+  const ms = Number(value);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return new Date(ms).toISOString();
+}
+
+function dshUsageTotals(usage) {
+  if (!usage || typeof usage !== "object") return null;
+  const totals = {
+    input_tokens: finite(usage.inputTokens),
+    cached_input_tokens: finite(usage.cacheReadTokens),
+    cache_creation_input_tokens: finite(usage.cacheWriteTokens),
+    output_tokens: finite(usage.outputTokens),
+    reasoning_output_tokens: finite(usage.reasoningTokens),
+  };
+  totals.total_tokens = totals.input_tokens + totals.cached_input_tokens
+    + totals.cache_creation_input_tokens + totals.output_tokens + totals.reasoning_output_tokens;
+  return totals;
+}
+
+function dshTextOf(data) {
+  const content = data?.message?.content ?? data?.content;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  const parts = [];
+  for (const block of content) {
+    if (typeof block === "string") parts.push(block);
+    else if (typeof block?.text === "string") parts.push(block.text);
+  }
+  return parts.join("\n").trim();
+}
+
+function dshToolName(data) {
+  const name = data?.tool?.name || data?.name || data?.toolName || "";
+  return typeof name === "string" ? name.trim().toLowerCase() : "";
+}
+
+async function buildDshSessionRow(filePath) {
+  const text = await readDshSessionText(filePath);
+  if (!text) return null;
+  const bounds = emptyBounds();
+  const modelUsageByModel = new Map();
+  const subagentTypes = new Map();
+  const tokens = {
+    input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+    output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
+  };
+  let currentModel = null;
+  let sessionId = null;
+  let parentSessionId = null;
+  let cwd = null;
+  let title = null;
+  let createdAt = null;
+  let turns = 0;
+  let editTurns = 0;
+  let retryTurns = 0;
+  let subagentCalls = 0;
+  let currentTurnHadEdit = false;
+  let lastPromptFingerprint = null;
+
+  const closeTurn = () => {
+    if (currentTurnHadEdit) editTurns += 1;
+    currentTurnHadEdit = false;
+  };
+
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let record;
+    // Harness appends while it runs, so the last line can be torn; a record
+    // that does not parse is skipped rather than ending the session.
+    try { record = JSON.parse(trimmed); } catch { continue; }
+    const type = record?.type;
+    const data = record?.data || null;
+    const stamp = dshIso(record?.time);
+    if (stamp) updateBounds(bounds, stamp);
+
+    if (type === "session") {
+      if (typeof record.id === "string" && record.id) sessionId = record.id;
+      if (typeof record.cwd === "string" && record.cwd) cwd = record.cwd;
+      if (typeof record.parentSession === "string" && record.parentSession) parentSessionId = record.parentSession;
+      createdAt = dshIso(record.createdAt) || createdAt;
+    } else if (type === "session/title") {
+      if (typeof data?.title === "string" && data.title.trim()) title = data.title;
+    } else if (type === "request/context") {
+      if (typeof data?.model === "string" && data.model) currentModel = normalizeSessionModel(data.model);
+    } else if (type === "turn/start") {
+      closeTurn();
+      turns += 1;
+    } else if (type === "user/message") {
+      const prompt = dshTextOf(data);
+      if (!prompt) continue;
+      const fingerprint = promptFingerprint(prompt);
+      if (lastPromptFingerprint && fingerprint === lastPromptFingerprint) retryTurns += 1;
+      lastPromptFingerprint = fingerprint;
+    } else if (type === "assistant/message") {
+      const usage = dshUsageTotals(data?.usage);
+      if (!usage || usage.total_tokens <= 0) continue;
+      addTotals(tokens, usage);
+      const key = currentModel || "unknown";
+      const entry = modelUsageByModel.get(key) || { model: key, ...emptyTotals(), usage_events: 0 };
+      addTotals(entry, usage);
+      entry.usage_events += 1;
+      modelUsageByModel.set(key, entry);
+    } else if (type === "tool/call") {
+      const name = dshToolName(data);
+      if (!name) continue;
+      if (DSH_EDIT_TOOLS.has(name)) currentTurnHadEdit = true;
+      if (DSH_SUBAGENT_TOOLS.has(name)) {
+        subagentCalls += 1;
+        subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
+      }
+    } else if (type === "subagent/descriptor") {
+      subagentCalls += 1;
+    }
+  }
+  closeTurn();
+
+  if (!sessionId) sessionId = path.basename(path.dirname(filePath));
+  if (tokens.total_tokens <= 0 && turns <= 0) return null;
+  const startedAt = createdAt || bounds.started_at;
+  const endedAt = bounds.ended_at || createdAt;
+  const row = {
+    version: SIDECAR_VERSION,
+    session_hash: sessionHash(DSH_SOURCE, sessionId),
+    session_id: sessionId,
+    parent_session_id: parentSessionId,
+    title: cleanSessionTitle(title),
+    source: DSH_SOURCE,
+    project_key: projectKey(cwd, null),
+    project_ref: typeof cwd === "string" && cwd ? cwd : null,
+    model: modelUsageByModel.size === 1
+      ? [...modelUsageByModel.values()][0].model
+      : (modelUsageByModel.size > 1 ? "mixed" : (currentModel || "unknown")),
+    model_usage: [...modelUsageByModel.values()].map((usage) => ({
+      ...usage,
+      performance: normalizePerformance(),
+    })),
+    ...bounds,
+    started_at: startedAt,
+    ended_at: endedAt,
+    turns,
+    edit_turns: editTurns,
+    retry_turns: retryTurns,
+    subagent_calls: subagentCalls,
+    subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
+    tokens,
+    provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "observed", content_retained: false },
+  };
+  // The row reads nothing but this one transcript, so these are the only
+  // inputs a reuse check has to cover.
+  const statKey = [
+    sessionId, parentSessionId || "", title || "", cwd || "", tokens.total_tokens,
+    turns, editTurns, retryTurns, subagentCalls, row.model_usage.length, endedAt || "",
+  ].join("|");
+  return { row: finalizeRecord(row), statKey };
+}
+
+// An absent or unreadable Harness home yields no rows: a machine without dsh
+// must not lose the other providers' sessions over one missing directory.
+async function readDshSessions({ home, env = process.env } = {}) {
+  const dshEnv = { ...env };
+  // Only redirect the home when the caller really is sandboxed: setting
+  // DSH_HOME for the live machine would switch off the native/WSL pairing that
+  // resolveDshHomes does for users running Harness inside WSL.
+  if (home && path.resolve(String(home)) !== path.resolve(os.homedir())) {
+    dshEnv.DSH_HOME = path.join(String(home), ".dsh");
+  }
+  let files = [];
+  try {
+    files = await resolveDshSessionFiles(dshEnv, {});
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const filePath of files) {
+    try {
+      const built = await buildDshSessionRow(filePath);
+      if (built) out.push(built);
+    } catch (error) {
+      if (!process.env.NODE_TEST_CONTEXT) {
+        console.warn(`[session-analytics] skipped dsh session file: ${error?.message || error}`);
+      }
+    }
+  }
+  return out;
+}
+
 function createCodexDeliverySignalCollector() {
   const bounds = emptyBounds();
   let turns = 0;
@@ -2140,6 +2343,25 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     sessions.push(row);
     nextFiles[cacheKey] = { stat_key: statKey };
   }
+  // dsh (DeepSeek Harness) stores one compressed transcript per conversation,
+  // so like OpenCode it is read after the file sources and cached by its own
+  // stat key rather than a file stat.
+  for (const { row, statKey } of await readDshSessions({ home })) {
+    const cacheKey = DSH_SOURCE + "|" + (row.session_id || row.session_hash);
+    if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
+      const cached = previousRowsByFile.get(cacheKey);
+      if (cached) {
+        sessions.push(cached);
+        nextFiles[cacheKey] = previousFiles[cacheKey];
+        continue;
+      }
+    }
+    row._cache_key = cacheKey;
+    repriceSessionRecord(row);
+    sessions.push(row);
+    nextFiles[cacheKey] = { stat_key: statKey };
+  }
+
   sessions.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
   if (incompleteDirs.length === 0) {
     const content = sessions.map(serializeSessionRecord).join("\n") + (sessions.length ? "\n" : "");
@@ -2769,6 +2991,8 @@ module.exports = {
   sessionHash,
   scanClaudeSession,
   scanWorkbuddySession,
+  readDshSessions,
+  buildDshSessionRow,
   readOpencodeSessions,
   resolveOpencodeDatabase,
   groupWorkbuddyConversationFiles,
