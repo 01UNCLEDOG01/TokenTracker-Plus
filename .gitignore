@@ -107,6 +107,20 @@ scripts/ops/*
 # Local working notes (todo / lessons — not part of the repo)
 tasks/
 
+# Root-anchored scratch: the throwaway probe/mutation/log scripts an agent
+# leaves behind while investigating. Several of them read real usage numbers
+# off this machine, so `git add .` sweeping them in is both a size problem
+# (15.6 MB) and a privacy one. Root-anchored on purpose — the tracked
+# `__tests__/` directories and `docs/retrospective/_index.md` must not match.
+# A harness that is worth keeping belongs in scripts/, deliberately.
+# Full run: npm test          (395 files, ~300s)
+/_*.cjs
+/_*.log
+/_*.txt
+/_*.jsonl
+/_*.ps1
+/_*.json
+
 # Promo video work project (large media — not part of the repo)
 promo-video/
 
