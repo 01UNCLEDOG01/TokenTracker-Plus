@@ -1384,3 +1384,63 @@ test("a Cloud membership denial serves intact local statistics with its recovery
   assert.equal(response.headers.get("x-tokentracker-account-view"),"0");
   assert.ok(readCookies().insforge_refresh_token.includes("membership-rotated"));
 });
+
+test("usage-summary?account=1 folds the local Qoder international credit spend into the cloud aggregate", async () => {
+  const queuePath = path.join(tmpHome, "queue.jsonl");
+  writeQueue(queuePath, [SAMPLE_ROW]);
+  const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
+  fs.mkdirSync(trackerDir, { recursive: true });
+  fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  fs.writeFileSync(
+    path.join(trackerDir, "relay-cookies.json"),
+    JSON.stringify({ insforge_refresh_token: "insforge_refresh_token=refresh-xyz; Path=/; HttpOnly; SameSite=Lax" }),
+  );
+
+  // One 2-credit Qoder international request on disk. The cloud aggregate below
+  // knows nothing about it: this edition records no tokens and is never uploaded.
+  const projects = path.join(tmpHome, "qoder-projects");
+  fs.mkdirSync(projects, { recursive: true });
+  fs.writeFileSync(
+    path.join(projects, "sess-1.jsonl"),
+    JSON.stringify({
+      type: "assistant",
+      timestamp: "2026-04-20T06:00:00.000Z",
+      message: { role: "assistant", model: "qfmodel", usage: { input_tokens: 0, output_tokens: 0, credits: 2 } },
+    }) + "\n",
+  );
+  process.env.QODER_PROJECTS_DIR = projects;
+
+  const accessJwt = `${Buffer.from(JSON.stringify({ alg: "HS256" })).toString("base64url")}.${Buffer.from(
+    JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }),
+  ).toString("base64url")}.sig`;
+  const accountPayload = {
+    from: "2026-04-20",
+    to: "2026-04-20",
+    scope: "all",
+    totals: { total_tokens: 999999, total_cost_usd: "1.50" },
+  };
+  const realFetch = global.fetch;
+  global.fetch = async (urlStr) => {
+    if (String(urlStr).includes("/api/auth/refresh")) {
+      return { ok: true, status: 200, json: async () => ({ accessToken: accessJwt }) };
+    }
+    if (String(urlStr).includes("/tokentracker-account-summary")) {
+      return { ok: true, status: 200, json: async () => accountPayload };
+    }
+    throw new Error(`unexpected fetch ${urlStr}`);
+  };
+
+  try {
+    const handler = freshHandler(queuePath);
+    const res = await call(handler, {
+      endpoint: "/functions/tokentracker-usage-summary?from=2026-04-20&to=2026-04-20&tz=UTC&account=1",
+    });
+    assert.equal(res._headers["x-tokentracker-account-view"], "1", "the cloud must really have served this");
+    const body = res.json();
+    assert.equal(body.totals.total_cost_usd, "1.520000", "2 credits at the published $0.01 land in the cross-device hero total");
+    assert.equal(body.totals.total_tokens, 999999, "and no tokens are invented on the way out");
+  } finally {
+    global.fetch = realFetch;
+    delete process.env.QODER_PROJECTS_DIR;
+  }
+});

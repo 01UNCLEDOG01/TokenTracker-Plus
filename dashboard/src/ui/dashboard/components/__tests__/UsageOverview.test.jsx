@@ -621,4 +621,59 @@ describe("UsageOverview", () => {
     showSource("codex");
     expect(screen.queryByText(copy("usage.overview.trae_notice_body"))).toBeNull();
   });
+
+  it("keeps the Qoder CN official-spend banner off the international card", async () => {
+    const user = userEvent.setup();
+    const spend = {
+      daily: [{ date: "2026-10-09", credits: 120, cost: 1.2, messages: 40 }],
+      est_anchor: { messages: 10, tokens: 4000 },
+      credits_total: 120,
+      cost_total: 1.2,
+      messages_total: 40,
+      since: "2026-09-01",
+    };
+    // The banners read the local limits endpoint; without data they render
+    // nothing, so a passing "absent" assertion would prove nothing. Stub it with
+    // a ledger that exists, then require the banner on the CN card first.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { qoderCn: { spend } } }) }),
+    );
+    const card = (source, usd) => ({
+      source,
+      label: source.toUpperCase(),
+      totalPercent: "50.00",
+      usage: source === "qoder" ? 0 : 4000,
+      usd,
+      models: [{ id: "m", name: "m", share: 100, usage: source === "qoder" ? 0 : 4000, cost: usd }],
+    });
+    const props = {
+      period: "month",
+      periods: ["month"],
+      summaryLabel: "Total",
+      summaryValue: "4.0K",
+      fleetData: [card("qoder-cn", 1.2), card("qoder", 3.57)],
+      from: "2026-10-01",
+      to: "2026-10-31",
+    };
+    const { container } = render(<UsageOverview {...props} />);
+    const staleNote = copy("usage.overview.qoder_cn_local_stale");
+    const open = async (source) => {
+      const button = container.querySelector(`[aria-controls="provider-details-${source.toUpperCase()}"]`);
+      await act(async () => {
+        await user.click(button);
+      });
+    };
+
+    await open("qoder-cn");
+    expect((await screen.findAllByText(staleNote)).length).toBe(1);
+
+    await open("qoder");
+    // Flush the cached limits promise so a wrongly gated banner has time to
+    // render before we call it absent.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.queryByText(staleNote)).toBeNull();
+    fetchSpy.mockRestore();
+  });
 });

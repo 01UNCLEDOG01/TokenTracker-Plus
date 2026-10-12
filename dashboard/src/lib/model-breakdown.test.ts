@@ -267,3 +267,69 @@ describe("buildAllModels", () => {
     ]);
   });
 });
+
+// A credits-only source reports money and no token counts. Both the source
+// filter and the model filter used to require tokens > 0, which erased the whole
+// card - Qoder international bills credits and records no tokens anywhere.
+describe("buildFleetData with a credits-only source", () => {
+  // Typed loosely on purpose: the guardrail tsc pass would otherwise demand a
+  // full response interface for a fixture whose point is one field shape.
+  const response = (): any => ({
+    sources: [
+      {
+        source: "claude",
+        totals: { billable_total_tokens: 1000, input_tokens: 1000, total_cost_usd: "2.00" },
+        models: [{ model_id: "sonnet", totals: { billable_total_tokens: 1000, total_cost_usd: "2.00" } }],
+      },
+      {
+        source: "qoder",
+        totals: { billable_total_tokens: 0, total_tokens: 0, total_cost_usd: "3.57" },
+        models: [
+          {
+            model_id: "official-cloud",
+            model: "official-cloud",
+            totals: { billable_total_tokens: 0, total_tokens: 0, total_cost_usd: "3.57" },
+            cost_source: "provider_reported",
+          },
+          {
+            model_id: "nothing-to-show",
+            model: "nothing-to-show",
+            totals: { billable_total_tokens: 0, total_cost_usd: "0" },
+          },
+        ],
+      },
+    ],
+  });
+  const card = (fleet: any, source: string) => fleet.find((entry: any) => entry.source === source);
+
+  it("keeps a money-bearing source that reports no tokens", () => {
+    const fleet = buildFleetData(response());
+    const qoder = card(fleet, "qoder");
+    expect(qoder).toBeTruthy();
+    expect(qoder.usage).toBe(0);
+    expect(qoder.usd).toBeCloseTo(3.57, 6);
+    expect(qoder.totalPercent).toBe("0.00");
+    // The token-ranked card next to it is unchanged.
+    expect(card(fleet, "claude").totalPercent).toBe("100.00");
+  });
+
+  it("keeps the model row that carries the money and drops the empty one", () => {
+    const fleet = buildFleetData(response());
+    const models = card(fleet, "qoder").models;
+    expect(models.map((model: any) => model.id)).toEqual(["official-cloud"]);
+    expect(models[0].usage).toBe(0);
+    expect(models[0].cost).toBeCloseTo(3.57, 6);
+    expect(models[0].costSource).toBe("provider_reported");
+  });
+
+  it("still drops a source with neither tokens nor money", () => {
+    const empty = response();
+    empty.sources[1] = {
+      source: "qoder",
+      totals: { billable_total_tokens: 0, total_cost_usd: "0" },
+      models: [{ model_id: "official-cloud", totals: { billable_total_tokens: 0, total_cost_usd: "0" } }],
+    };
+    const fleet = buildFleetData(empty);
+    expect(fleet.map((entry: any) => entry.source)).toEqual(["claude"]);
+  });
+});

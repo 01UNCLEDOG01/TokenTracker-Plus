@@ -1,0 +1,179 @@
+"use strict";
+
+// Qoder international (qoder.com) records no token counts anywhere: every
+// `message.usage` entry under ~/.qoder/projects carries five zero token fields
+// and a real `credits` value. Credits are still convertible to money, because
+// Qoder publishes the plan price - unlike the CN estimate, no token rate has to
+// be invented here. This module turns those transcripts into money-only usage
+// rows so the edition stops being invisible, and mirrors the result so a
+// partially readable transcript tree cannot collapse the card to zero.
+
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+const QODER_INTL_SOURCE = "qoder";
+// Pro is $20 for 2,000 credits. This is the published rate, not a fitted one.
+const QODER_INTL_USD_PER_CREDIT = 0.01;
+const QODER_INTL_FALLBACK_MODEL = "官方云端（积分）";
+// Qoder's transcripts name their router, not a model: all 1,398 credit records
+// on this machine read `qfmodel`, which carries no identity and no rate. The CN
+// estimate labels the same undisclosed-router case after the cloud plan, so
+// this does too instead of printing an opaque internal string as a model.
+const QODER_INTL_UNDISCLOSED_MODELS = new Set(["qfmodel"]);
+// Bumped whenever the rows this module derives change shape or meaning, so an
+// existing mirror is rebuilt instead of replayed. 2 = the router-name mapping.
+const QODER_INTL_MIRROR_VERSION = 2;
+const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
+
+function qoderIntlCreditMirrorFile({ home = os.homedir() } = {}) {
+  return path.join(home, ".tokentracker", "tracker", "qoder-intl-credit-rows.json");
+}
+
+function listJsonl(dir) {
+  const out = [];
+  const stack = [dir];
+  while (stack.length) {
+    const current = stack.pop();
+    let entries;
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.isFile() && entry.name.endsWith(".jsonl")) out.push(full);
+    }
+  }
+  return out.sort();
+}
+
+// Path + mtime + size, so an appended transcript changes the signature and an
+// untouched tree costs one stat pass instead of re-reading megabytes per request.
+function treeSignature(files) {
+  return files.map((file) => {
+    try {
+      const stat = fs.statSync(file);
+      return `${file}:${Math.round(stat.mtimeMs)}:${stat.size}`;
+    } catch {
+      return `${file}:missing`;
+    }
+  }).join("|");
+}
+
+function beijingDayKey(isoOrMs) {
+  const ms = typeof isoOrMs === "number" ? isoOrMs : Date.parse(String(isoOrMs || ""));
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms + BEIJING_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function readMirror({ home }) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(qoderIntlCreditMirrorFile({ home }), "utf8"));
+    // A mirror is a snapshot of one version of the derivation, so a shipped
+    // change to the rows has to invalidate it; the transcript signature cannot,
+    // because the tree did not change. v1 predates the router-name mapping.
+    if (Number(parsed?.version) !== QODER_INTL_MIRROR_VERSION) return null;
+    return Array.isArray(parsed?.rows) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeMirror(payload, { home }) {
+  const file = qoderIntlCreditMirrorFile({ home });
+  const tmp = `${file}.tmp`;
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(tmp, JSON.stringify(payload));
+    fs.renameSync(tmp, file);
+    return true;
+  } catch {
+    try { fs.unlinkSync(tmp); } catch { /* nothing to clean */ }
+    return false;
+  }
+}
+
+function scanCredits(projectsDir) {
+  const byDayModel = new Map();
+  let requests = 0;
+  for (const file of listJsonl(projectsDir)) {
+    let text;
+    try { text = fs.readFileSync(file, "utf8"); } catch { continue; }
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      let record;
+      try { record = JSON.parse(line); } catch { continue; }
+      const usage = record?.message?.usage || record?.usage;
+      if (!usage || typeof usage !== "object") continue;
+      const credits = Number(usage.credits ?? usage.original_credits);
+      if (!Number.isFinite(credits) || credits <= 0) continue;
+      const day = beijingDayKey(record?.timestamp ?? usage.timestamp ?? record?.message?.timestamp);
+      if (!day) continue;
+      const rawModel = String(record?.message?.model || usage.model || "").trim();
+      const model = !rawModel || QODER_INTL_UNDISCLOSED_MODELS.has(rawModel.toLowerCase())
+        ? QODER_INTL_FALLBACK_MODEL
+        : rawModel;
+      const key = `${day}|${model}`;
+      const entry = byDayModel.get(key) || { day, model, credits: 0, requests: 0 };
+      entry.credits += credits;
+      entry.requests += 1;
+      byDayModel.set(key, entry);
+      requests += 1;
+    }
+  }
+  const rows = [...byDayModel.values()]
+    .sort((a, b) => a.day.localeCompare(b.day) || a.model.localeCompare(b.model))
+    .map((entry) => ({
+      source: QODER_INTL_SOURCE,
+      model: entry.model,
+      // 04:00Z is Beijing midday, the same convention the CN estimate uses so
+      // a derived day lands in neither the early-morning nor the late-night bin.
+      hour_start: `${entry.day}T04:00:00.000Z`,
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+      billable_total_tokens: 0,
+      // Authoritative for this source (see SOURCES_WITH_AUTHORITATIVE_COST):
+      // the money is what Qoder charged, and there is no token figure to price.
+      total_cost_usd: Math.round(entry.credits * QODER_INTL_USD_PER_CREDIT * 1e6) / 1e6,
+      credits: Math.round(entry.credits * 1e6) / 1e6,
+      requests: entry.requests,
+      // Requests are not conversations; leaving this at 0 keeps the session
+      // counters honest about an edition that records no conversation tokens.
+      conversation_count: 0,
+    }));
+  return { rows, requests };
+}
+
+function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {}) {
+  if (!projectsDir) return [];
+  // A queue that already carries Qoder spend is authoritative; adding the
+  // transcript scan on top would bill the same credits twice. Rows that record
+  // neither money nor tokens are placeholders, so they must not suppress the
+  // card - that is the case this module exists for.
+  const reportedSpend = (Array.isArray(allRows) ? allRows : []).some(
+    (row) =>
+      row?.source === QODER_INTL_SOURCE &&
+      (Number(row.total_cost_usd) > 0 || Number(row.total_tokens) > 0),
+  );
+  if (reportedSpend) return [];
+  let files;
+  try { files = listJsonl(projectsDir); } catch { files = []; }
+  if (files.length === 0) return readMirror({ home })?.rows || [];
+  const signature = treeSignature(files);
+  const mirror = readMirror({ home });
+  if (mirror && mirror.signature === signature) return mirror.rows;
+  const scanned = scanCredits(projectsDir);
+  if (scanned.rows.length === 0) return mirror?.rows || [];
+  writeMirror({ version: QODER_INTL_MIRROR_VERSION, synced_at: new Date().toISOString(), signature, rows: scanned.rows }, { home });
+  return scanned.rows;
+}
+
+module.exports = {
+  QODER_INTL_SOURCE,
+  QODER_INTL_USD_PER_CREDIT,
+  qoderIntlCreditRows,
+  qoderIntlCreditMirrorFile,
+};

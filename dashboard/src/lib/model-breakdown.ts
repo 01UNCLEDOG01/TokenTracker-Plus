@@ -187,7 +187,10 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
         models: Array.isArray(entry?.models) ? entry.models : [],
       };
     })
-    .filter((entry) => entry.totalTokens > 0);
+    // A source can carry real spend with no token counts at all (Qoder
+    // international bills credits). Ranking is by tokens, but dropping the entry
+    // here made the card disappear rather than show as 0 tokens with its cost.
+    .filter((entry) => entry.totalTokens > 0 || entry.totalCost > 0);
 
   if (!normalizedSources.length) return [];
 
@@ -208,10 +211,8 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
       const totalPercent = Number.isFinite(totalPercentRaw) ? totalPercentRaw.toFixed(2) : "0.00";
       const models = entry.models
         .map((model: any) => {
-          const modelTokens = resolveDisplayTokens(model?.totals);
-          if (!Number.isFinite(modelTokens) || modelTokens <= 0) return null;
-          const share =
-            entry.totalTokens > 0 ? Math.round((modelTokens / entry.totalTokens) * 1000) / 10 : 0;
+          const rawTokens = resolveDisplayTokens(model?.totals);
+          const modelTokens = Number.isFinite(rawTokens) ? Math.max(0, rawTokens) : 0;
           const name = resolveModelName(model, safeCopy("shared.placeholder.short"));
           const id = resolveModelId(model);
           const explicitModelCost = toFiniteNumber(model?.totals?.total_cost_usd);
@@ -221,6 +222,11 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
               : entry.totalCost > 0 && entry.totalTokens > 0
                 ? (modelTokens / entry.totalTokens) * entry.totalCost
                 : null;
+          // Same rule as the source list above: a model row stays when it
+          // carries money even though it reports no tokens.
+          if (modelTokens <= 0 && !(Number(modelCost) > 0)) return null;
+          const share =
+            entry.totalTokens > 0 ? Math.round((modelTokens / entry.totalTokens) * 1000) / 10 : 0;
           // Per-model token-type splits feed the expandable detail rows in
           // the All-models and per-provider model lists. The API already
           // returns them; previously they were dropped here.

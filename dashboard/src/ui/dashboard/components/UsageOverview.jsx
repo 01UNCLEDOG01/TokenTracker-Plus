@@ -880,7 +880,10 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
   // local limits endpoint instead, which carries the official spend / credit
   // ledger for them.
   const providerSource = String(provider?.source || provider?.label || "").trim().toLowerCase();
-  const isQoderCn = providerSource.includes("qoder");
+  // Exact: the international card is a separate source now, and the CN banner
+  // ("本地数据滞后 / 估算 tokens") on it would be a false statement about a
+  // ledger that is neither estimated nor stale - it is Qoder's own credit bill.
+  const isQoderCn = providerSource === "qoder-cn";
   const isWorkbuddy = providerSource === "workbuddy";
   const isWorkbuddyAi = providerSource === "workbuddy-ai";
   // Only the international card is filtered to its own ledger line. The domestic

@@ -56,6 +56,7 @@ const {
   MODEL_PRICING,
   getModelPricing,
   computeRowCost,
+  hasAuthoritativeRowCost,
   ensurePricingLoaded,
   getPricingRevision,
   getModelPricingInfo,
@@ -69,10 +70,13 @@ const {
 const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
+const { qoderIntlCreditRows } = require("./qoder-intl-credits");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
+const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
 
 const {
   deriveProjectKeyFromRef,
+  resolveQoderProjectsDir,
   CLAUDE_MEM_OBSERVER_PROJECT_REF,
 } = require("./rollout");
 
@@ -557,7 +561,14 @@ function scopedQueueRows(queuePath, url) {
   // same spend. Estimated rows only fill the shortfall against local rows,
   // so no day is ever double-counted.
   const estimatedRows = qoderCnEstimatedRows(allRows);
-  const mergedRows = estimatedRows.length ? allRows.concat(estimatedRows) : allRows;
+  // Qoder international charges in credits and writes no token counts, so its
+  // usage would otherwise never appear at all. The rows carry money only.
+  const intlCreditRows = qoderIntlCreditRows(allRows, {
+    projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
+  });
+  const mergedRows = estimatedRows.length || intlCreditRows.length
+    ? allRows.concat(estimatedRows, intlCreditRows)
+    : allRows;
   return {
     scope,
     allRows: mergedRows,
@@ -1713,11 +1724,22 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         return "served";
       }
       accountViewFailures.delete(failureKey);
+      // Read the local queue once for both merges below; neither mutates the rows.
+      const accountQueueRows = readQueueData(qp);
       // The cloud aggregate can never know about Qoder CN — that client stopped
       // writing token counts to disk, so nothing of it is synced. Fold the
       // local estimate into the response on its way out; nothing is uploaded.
       applyAccountViewQoderMerge(usageSlug, out.data, {
-        queueRows: readQueueData(qp),
+        queueRows: accountQueueRows,
+        searchParams: url.searchParams,
+        offsetMinutes: Number(url.searchParams.get("tz_offset_minutes")) || 480,
+      });
+      // Same argument for the other Qoder edition: the cloud aggregate can only
+      // ever hold Qoder rows with zero cost, so the credit spend has to be added
+      // here or the cross-device view shows no international card at all.
+      applyAccountViewQoderIntlMerge(usageSlug, out.data, {
+        queueRows: accountQueueRows,
+        projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
         searchParams: url.searchParams,
         offsetMinutes: Number(url.searchParams.get("tz_offset_minutes")) || 480,
       });
@@ -2783,7 +2805,10 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         if (!sa.models.has(mdl))
           sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" } });
         const ma = sa.models.get(mdl);
-        const reportedCost = ["grok", "cline"].includes(src) && Number(row.total_cost_usd) > 0;
+        // Same source list computeRowCost prices from, so a credits-derived
+        // source (qoder) is labelled as tool-reported instead of being called
+        // an estimate from model pricing it never had.
+        const reportedCost = hasAuthoritativeRowCost(src) && Number(row.total_cost_usd) > 0;
         const costSource = reportedCost ? "provider_reported" : "model_pricing";
         ma.cost_source = ma.cost_source && ma.cost_source !== costSource ? "mixed" : costSource;
         ma.totals.total_tokens += row.total_tokens || 0;

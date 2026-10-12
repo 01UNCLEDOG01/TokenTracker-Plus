@@ -29,7 +29,17 @@ const LOCAL_INFERENCE_SOURCES = new Set(["lmstudio"]);
 // including cached tokens, never a session/day aggregate. Astra supports
 // a larger context window; only observed request subsets receive the premium.
 const OPENAI_LONG_CONTEXT_INPUT_THRESHOLD = 272_000;
-const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline"]);
+// grok/cline persist an exact server-reported cost; qoder (international) has no
+// token counts at all, so its cost is derived from the credits the app charged at
+// the published plan rate - pricing tokens here would invent a conversion.
+const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline", "qoder"]);
+// Exposed so read-time report builders (usage-model-breakdown's cost_source
+// label) classify a source the same way computeRowCost prices it. A second
+// hand-written list here drifts the moment one side gains a source.
+function hasAuthoritativeRowCost(source) {
+  return SOURCES_WITH_AUTHORITATIVE_COST.has(String(source || ""));
+}
+
 const SEED_SNAPSHOT_PATH = path.resolve(__dirname, "seed-snapshot.json");
 const DEEPSEEK_TIME_PRICED_MODELS = [
   "deepseek-v4-flash",
@@ -369,6 +379,7 @@ module.exports = {
   getModelPricingInfo,
   getRowPricing,
   computeRowCost,
+  hasAuthoritativeRowCost,
   resetPricingForTests,
   MODEL_PRICING,
   ZERO_PRICING,
