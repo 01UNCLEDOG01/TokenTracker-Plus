@@ -155,7 +155,7 @@ const SUPPORTED_PROVIDERS = [
   "AnythingLLM Desktop",
   "Claude Science",
   "DeepSeek Harness",
-  "TRAE Work CN",
+  "TRAE CN",
   "TRAE",
   "LM Studio",
   "Unsloth Studio",

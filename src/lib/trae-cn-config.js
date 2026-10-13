@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * TRAE Work CN (国内版) config + usage fetch. Phase A: macOS + Windows + test-injected
+ * TRAE CN (国内版) config + usage fetch. Phase A: macOS + Windows + test-injected
  * paths only. Resolves the CN home, reads the `iCubeAuthInfo://icube.cloudide`
  * blob from User/globalStorage/storage.json (plaintext JSON or Base64 tc v5),
  * and talks to the TRAE CN usage API. JWTs / refresh tokens are never

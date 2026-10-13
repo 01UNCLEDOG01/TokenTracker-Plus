@@ -61,7 +61,7 @@ timestamps, never prompts, responses, or source code.
 - AnythingLLM Desktop
 - Claude Science
 - DeepSeek Harness
-- TRAE Work CN
+- TRAE CN
 - LM Studio
 - Unsloth Studio
 - Devin CLI

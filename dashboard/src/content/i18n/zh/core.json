@@ -163,7 +163,7 @@
   "provider.display.deepseek_harness": "DeepSeek Harness",
   "provider.display.cline": "Cline",
   "provider.display.trae": "TRAE",
-  "provider.display.trae_work_cn": "TRAE Work 中国版",
+  "provider.display.trae_work_cn": "TRAE CN",
   "limits.provider.antigravity": "Antigravity",
   "limits.provider.zcode": "ZCode",
   "limits.provider.opencode_go": "OpenCode Go",

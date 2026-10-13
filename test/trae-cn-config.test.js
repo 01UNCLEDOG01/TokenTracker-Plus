@@ -1,5 +1,5 @@
 /**
- * TRAE Work CN config tests. Synthetic data only — no real JWTs / fixtures.
+ * TRAE CN config tests. Synthetic data only — no real JWTs / fixtures.
  *
  * The encrypted-tc-v5 coverage relies on a frozen static fixture (FIXTURE_B64)
  * produced once with the documented KDF + a fixed 32-byte salt, plus an

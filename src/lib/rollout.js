@@ -22310,7 +22310,7 @@ function readTraeEntitlementFromStorage(storagePath) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Trae Work CN (国内版) — usage API incremental parser.
 //
-// TRAE Work CN's usage API reports per-session rows that are NOT append-only:
+// TRAE CN's usage API reports per-session rows that are NOT append-only:
 // a session can be re-reported with corrected token totals, a different model,
 // or a shifted time bucket. This parser keeps the last normalized contribution
 // per session_id under `cursors.traeCn` and reconciles by subtracting the

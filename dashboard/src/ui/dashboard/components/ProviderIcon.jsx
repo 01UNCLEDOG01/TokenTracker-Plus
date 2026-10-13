@@ -143,7 +143,7 @@ function CodeBuddyIcon({ size = 16, className = "" }) {
   );
 }
 
-// TRAE Work CN — official app-logo mark reverse-engineered from
+// TRAE CN — official app-logo mark reverse-engineered from
 // https://work.trae.cn/ favicon (48×48) and PWA manifest icon-512.png
 // (pixel-accurate geometry, 512×512 canvas).
 //

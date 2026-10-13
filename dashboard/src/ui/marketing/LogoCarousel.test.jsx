@@ -7,7 +7,7 @@ import { LogoCarousel } from "./LogoCarousel.jsx";
 
 const TRAE_LOGO = {
   id: 32,
-  name: "TRAE Work CN",
+  name: "TRAE CN",
   nameKey: "provider.display.trae_work_cn",
   provider: "trae-cn",
 };
@@ -46,9 +46,9 @@ describe("LogoCarousel localization", () => {
       expect(icon).not.toBeNull();
     });
     fireEvent.mouseEnter(icon);
-    expect(await screen.findByText("TRAE Work CN")).toBeInTheDocument();
+    expect(await screen.findByText("TRAE CN")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "switch-to-zh" }));
-    expect(await screen.findByText("TRAE Work 中国版")).toBeInTheDocument();
+    expect(await screen.findByText("TRAE CN")).toBeInTheDocument();
   });
 });

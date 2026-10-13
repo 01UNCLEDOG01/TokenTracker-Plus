@@ -521,7 +521,7 @@ test("status renders the Trae SOLO entitlement snapshot from Local State", async
 
 
 // ---------------------------------------------------------------------------
-// TRAE Work CN install detection + auth state (PR #474): a RESOLVABLE default
+// TRAE CN install detection + auth state (PR #474): a RESOLVABLE default
 // path does not mean the app is installed - the macOS resolver always derives
 // one. installed must mean the storage file actually EXISTS (same semantics
 // as the sync path), and the auth state must distinguish not-signed-in /
@@ -617,7 +617,7 @@ test("status trae-cn installed=true with auth readable when the storage file exi
     out = "";
     await cmdStatus();
     // Signed in but not opted in is the one actionable state here: the user
-    // has TRAE Work CN installed and readable, and a single env var is all
+    // has TRAE CN installed and readable, and a single env var is all
     // that stands between them and usage data. Flag it so the line does not
     // read like the ~30 other neutral install lines around it (#492).
     assert.match(out, /- ⚠ Trae SOLO CN: usage sync off \(set TOKENTRACKER_TRAE_CN_USAGE=1 to enable\), auth readable/);

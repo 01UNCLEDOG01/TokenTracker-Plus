@@ -66,7 +66,7 @@ test("public discovery surfaces describe every supported tool", () => {
     assert.match(source, /Qoder/, `${file} lists Qoder`);
     assert.match(source, /DeepSeek Harness/, `${file} lists DeepSeek Harness`);
     assert.match(source, /Prime Agent/, `${file} lists Prime Agent`);
-    assert.match(source, /TRAE Work CN/, `${file} lists TRAE Work CN`);
+    assert.match(source, /TRAE CN/, `${file} lists TRAE CN`);
     assert.match(source, /AStudio/, `${file} lists AStudio`);
     assert.doesNotMatch(source, /\bAcode\b/, `${file} does not expose the former product name`);
     assert.match(source, /TOKENTRACKER_ACODE_HOME/, `${file} documents the AStudio directory override`);
@@ -84,7 +84,7 @@ test("public discovery surfaces describe every supported tool", () => {
   const index = read("dashboard/index.html");
   assert.doesNotMatch(index, /13 AI coding/);
   assert.match(index, new RegExp(`Supported AI coding tools \\(${TOOL_COUNT}\\)`));
-  assert.match(index, /TRAE Work CN/);
+  assert.match(index, /TRAE CN/);
   assert.match(index, /AStudio/);
   assert.doesNotMatch(index, /\bAcode\b/);
   assert.match(index, /Devin CLI/);
@@ -99,7 +99,7 @@ test("public discovery surfaces describe every supported tool", () => {
 
   const llms = read("dashboard/public/llms.txt");
   assert.match(llms, new RegExp(`Supported AI coding tools \\(${TOOL_COUNT}\\)`));
-  assert.match(llms, /TRAE Work CN/);
+  assert.match(llms, /TRAE CN/);
   assert.match(llms, /AStudio/);
   assert.doesNotMatch(llms, /\bAcode\b/);
   assert.match(llms, /Devin CLI/);
@@ -140,7 +140,7 @@ test("CLI onboarding advertises the same supported integrations", () => {
   assert.ok(SUPPORTED_PROVIDERS.includes("Reasonix"));
   assert.ok(SUPPORTED_PROVIDERS.includes("DeepSeek Harness"));
   assert.ok(SUPPORTED_PROVIDERS.includes("Prime Agent"));
-  assert.ok(SUPPORTED_PROVIDERS.includes("TRAE Work CN"));
+  assert.ok(SUPPORTED_PROVIDERS.includes("TRAE CN"));
   assert.ok(SUPPORTED_PROVIDERS.includes("Dots"));
   assert.ok(SUPPORTED_PROVIDERS.includes("AStudio"));
   assert.ok(SUPPORTED_PROVIDERS.includes("LM Studio"));

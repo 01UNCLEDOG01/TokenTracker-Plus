@@ -523,7 +523,7 @@ async function cmdSync(argv, context = {}) {
   const lockWaitOptions = context && typeof context === "object"
     ? context.lockWaitOptions
     : undefined;
-  // Narrow test-only seam for TRAE Work CN: deterministic injected fetch + a
+  // Narrow test-only seam for TRAE CN: deterministic injected fetch + a
   // fixed "now" for the rolling range. Production keeps the global fetch and
   // current time; no public CLI flag/config is introduced.
   const traeCnFetchImpl = context && typeof context === "object"
@@ -2266,7 +2266,7 @@ async function cmdSync(argv, context = {}) {
         const traeCnStoragePath = resolveTraeCnStoragePath({ env: process.env, home });
         if (traeCnStoragePath && fssync.existsSync(traeCnStoragePath)) {
           if (progress?.enabled) {
-            progress.start(`Fetching TRAE Work CN usage...`);
+            progress.start(`Fetching TRAE CN usage...`);
           }
           const traeCnUsage = await fetchTraeCnUsageWithAuth({
             start_time: startTime,
@@ -2285,7 +2285,7 @@ async function cmdSync(argv, context = {}) {
           {
             if (progress?.enabled && traeCnSessions.length > 0) {
               progress.start(
-                `Parsing TRAE Work CN ${renderBar(0)} 0/${formatNumber(
+                `Parsing TRAE CN ${renderBar(0)} 0/${formatNumber(
                   traeCnSessions.length,
                 )} records | buckets 0`,
               );
@@ -2294,7 +2294,7 @@ async function cmdSync(argv, context = {}) {
               sessions: traeCnSessions,
               cursors,
               queuePath,
-              onProgress: makeProviderProgress("TRAE Work CN"),
+              onProgress: makeProviderProgress("TRAE CN"),
               windowStartMs: startTime * 1000,
               windowEndMs: endTime * 1000,
               // The LOGICAL fetch stamp carried into every session state's
@@ -2311,7 +2311,7 @@ async function cmdSync(argv, context = {}) {
           }
         }
       } catch (err) {
-        warnProviderParseFailure("TRAE Work CN", err, opts);
+        warnProviderParseFailure("TRAE CN", err, opts);
       }
     }
 

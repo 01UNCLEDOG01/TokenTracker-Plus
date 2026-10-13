@@ -1,5 +1,5 @@
 /**
- * TRAE Work CN sync wiring tests.
+ * TRAE CN sync wiring tests.
  *
  * All synthetic: no live API, no real JWT. Exercises the non-background auto
  * sync block (rolling 30-day range, storage-backed auth, single parser call)

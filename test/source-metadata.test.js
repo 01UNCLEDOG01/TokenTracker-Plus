@@ -1,5 +1,5 @@
 /**
- * Source-metadata classification tests. Verifies TRAE Work CN is an
+ * Source-metadata classification tests. Verifies TRAE CN is an
  * account-level source (case-insensitively) and that personal scope filters it
  * out while preserving local sources.
  */

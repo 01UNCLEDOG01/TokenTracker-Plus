@@ -73,6 +73,7 @@ const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
 const { qoderIntlCreditRows } = require("./qoder-intl-credits");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
+const { repriceAccountModelCosts } = require("./reprice-account-costs");
 
 const {
   deriveProjectKeyFromRef,
@@ -1864,12 +1865,18 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       // Same argument for the other Qoder edition: the cloud aggregate can only
       // ever hold Qoder rows with zero cost, so the credit spend has to be added
       // here or the cross-device view shows no international card at all.
-      applyAccountViewQoderIntlMerge(usageSlug, out.data, {
+applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         queueRows: accountQueueRows,
         projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
         searchParams: url.searchParams,
         offsetMinutes: Number(url.searchParams.get("tz_offset_minutes")) || 480,
       });
+      // The cloud priced every row with whatever table it held at upload time
+      // and returns those figures untouched, so a model this machine can price
+      // arrives as zero money. Reprice per-model rows here, with the local
+      // table, so the cross-device view shows the same money the local view does.
+      // Provider-reported spend is skipped inside the helper.
+      repriceAccountModelCosts(usageSlug, out.data);
       res.writeHead(200, {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",
