@@ -483,6 +483,13 @@
       "cache_write": 0.278,
       "note": "Meituan LongCat-2.0, seen via ZCode custom-provider routing (issue #276). Official longcat.chat/platform launch-promo rate: RMB 2 / 0.04 (cache hit) / 8 per MTok in/read/out, converted at ~7.2 RMB/USD. Standard list price is RMB 5/0.10/20 (2.5x) once the promo ends — re-verify against longcat.chat/platform/docs/zh/Pricing/LongCat-2.0.html before assuming either is permanent. DeepSeek-style cache: no write surcharge, so cache_write = input."
     },
+    "step-5-preview": {
+      "input": 1,
+      "output": 2.7,
+      "cache_read": 0.05,
+      "cache_write": 1,
+      "note": "StepFun Step 5 Preview, the model id both WorkBuddy builds report (issue #283 family). Official platform.stepfun.com pricing read 2026-10-13: 7 CNY input (cache miss) / 0.35 CNY cache hit / 20 CNY output per MTok, i.e. $0.97 / $0.05 / $2.78 at 7.2; the USD list published alongside is $1.00 / $0.05 / $2.70. Corroborated by four independent trackers. No published cache-write surcharge, so cache_write = input."
+    },
     "step-3.7-flash": {
       "input": 0.2,
       "output": 1.15,

@@ -20,7 +20,7 @@
 // tokens, and their reported cost is the authority (see
 // SOURCES_WITH_AUTHORITATIVE_COST).
 
-const { computeRowCost, hasAuthoritativeRowCost } = require("./pricing");
+const { computeRowCost, hasAuthoritativeRowCost, getModelPricingInfo } = require("./pricing");
 
 const MODEL_BREAKDOWN_SLUG = "tokentracker-usage-model-breakdown";
 
@@ -66,6 +66,10 @@ function repriceAccountModelCosts(usageSlug, data) {
       if (cost > 0) {
         model.cost_source = "model_pricing";
         filledAny = true;
+        // The cloud sent its own `pricing` verdict with the row, and it still
+        // says "unpriced" for a model this machine just priced. Left alone, an
+        // "unpriced models" report would list a row that now carries money.
+        model.pricing = getModelPricingInfo(model.model, { source: source.source });
       }
       sourceTotal += cost;
       repriced += 1;

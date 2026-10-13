@@ -46,11 +46,16 @@ test("a model the cloud priced at zero is repriced with the local table", async 
     },
   ]);
 
-  assert.equal(repriceAccountModelCosts("tokentracker-usage-model-breakdown", data), 1);
+assert.equal(repriceAccountModelCosts("tokentracker-usage-model-breakdown", data), 1);
   const row = find(data, "workbuddy-ai", "gpt-6-luna");
   assert.equal(Number(row.totals.total_cost_usd), 1.034966, "the same figure the local view reports");
   assert.equal(row.cost_source, "model_pricing");
-  assert.equal(Number(data.sources[0].totals.total_cost_usd), 1.034966, "the source total is restated from its models");
+  assert.equal(data.sources[0].totals.total_cost_usd, 1.034966, "the source total is restated from its models");
+  // The cloud ships its own verdict alongside the row. Once this machine has
+  // priced it, that verdict has to move with it, or an "unpriced models" report
+  // lists a row that now carries money.
+  assert.equal(row.pricing.status, "priced", "the pricing verdict follows the figure it describes");
+  assert.equal(row.pricing.input, 0.1, "and carries the rates the figure was computed from");
 });
 
 test("provider-reported spend is never recomputed from tokens", async () => {
