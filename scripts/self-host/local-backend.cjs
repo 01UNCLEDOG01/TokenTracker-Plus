@@ -557,11 +557,23 @@ async function main() {
         "SELECT id, email FROM auth.users ORDER BY created_at LIMIT 1",
       )).rows[0];
       if (!user) return;
-      const fallbackName = os.hostname() || String(user.email || "").split("@")[0] || "local";
+      // The settings UI writes the chosen identity into user_settings /
+      // user_profiles; the hostname is only the last-resort fallback.
+      const profileRow = (await db.query(
+        "SELECT COALESCE(us.display_name, up.display_name) AS display_name, up.avatar_url AS avatar_url"
+        + " FROM tokentracker_user_settings us"
+        + " LEFT JOIN tokentracker_user_profiles up ON up.user_id = us.user_id"
+        + " WHERE us.user_id = $1 LIMIT 1",
+        [user.id],
+      )).rows[0] || {};
+      const fallbackName = profileRow.display_name
+        || String(user.email || "").split("@")[0] || "local";
+      const chosenAvatar = profileRow.avatar_url || null;
       await db.query(
-        "INSERT INTO tokentracker_user_profiles (user_id, display_name) VALUES ($1, $2) "
-        + "ON CONFLICT (user_id) DO NOTHING",
-        [user.id, fallbackName],
+        "INSERT INTO tokentracker_user_profiles (user_id, display_name, avatar_url) VALUES ($1, $2, $3) "
+        + "ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name,"
+        + " avatar_url = COALESCE(EXCLUDED.avatar_url, tokentracker_user_profiles.avatar_url)",
+        [user.id, fallbackName, chosenAvatar],
       );
       await db.query(
         "INSERT INTO tokentracker_user_settings (user_id) VALUES ($1) "
@@ -590,6 +602,27 @@ async function main() {
         ["month", dayOf(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))), dayOf(monthTo)],
         ["total", earliest, dayOf(now)],
       ];
+      // Real costs live in the account-summary handler (its bundle embeds the
+      // pricing tables; the raw hourly rows store zeros). Best effort: a
+      // failed call leaves the period cost at the stored sum.
+      const mintForCost = createTokenMinter(secret);
+      const costByPeriod = {};
+      for (const [period, fromDay, toDay] of periods) {
+        try {
+          const costReq = new Request(
+            "http://local/functions/tokentracker-account-summary?from=" + fromDay + "&to=" + toDay,
+            { headers: { authorization: "Bearer " + mintForCost(user.id, "authenticated", 3600) } },
+          );
+          const costRes = await handlers["tokentracker-account-summary"](costReq);
+          if (costRes.status === 200) {
+            const payload = await costRes.json();
+            const cost = Number(payload?.totals?.total_cost_usd);
+            if (Number.isFinite(cost)) costByPeriod[period] = cost;
+          }
+        } catch (_e) { /* best effort */ }
+      }
+
+      let totalAgg = null;
       for (const [period, fromDay, toDay] of periods) {
         const fromIso = period === "total"
           ? "1970-01-01T00:00:00Z"
@@ -615,6 +648,7 @@ async function main() {
           + " FROM hourly",
           [user.id, fromIso, toIso],
         )).rows[0];
+        if (period === "total") totalAgg = agg;
         await db.query(
           "INSERT INTO tokentracker_leaderboard_snapshots"
           + " (period, from_day, to_day, user_id, rank, display_name, total_tokens,"
@@ -628,9 +662,38 @@ async function main() {
           + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
           + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
           + "   generated_at = now()",
-          [period, fromDay, toDay, user.id, fallbackName,
-            agg.total_tokens, agg.estimated_cost_usd, agg.input_tokens,
+          [period, fromDay, toDay, user.id, profileRow.display_name || fallbackName,
+            agg.total_tokens, costByPeriod[period] !== undefined
+              ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
             agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models],
+        );
+      }
+      // Award the two cloud-side badges straight from the snapshots. Tier
+      // thresholds come from tokentracker_badge_catalog (podium: rank 100/30/
+      // 10/3 lower-is-better; trendsetter: 2/5/10/20 distinct models). The
+      // serials trigger numbers new tiers automatically.
+      const totalModels = Object.keys((totalAgg && totalAgg.models) || {}).length;
+      const trendTier = totalModels >= 20 ? 4 : totalModels >= 10 ? 3 : totalModels >= 5 ? 2 : totalModels >= 2 ? 1 : 0;
+      const nowIso = new Date().toISOString();
+      const awardRows = [
+        // podium: the rank-1 occupant of this instance (the account itself).
+        [user.id, "podium", 4, 1, nowIso],
+        // trendsetter: distinct models in the all-time window.
+        [user.id, "trendsetter", trendTier, totalModels, nowIso],
+      ];
+      for (const [badgeUser, badgeId, tier, metric, achievedAt] of awardRows) {
+        if (tier < 1) continue;
+        const atCol = tier >= 4 ? "diamond_at" : tier === 3 ? "gold_at" : tier === 2 ? "silver_at" : "bronze_at";
+        await db.query(
+          "INSERT INTO tokentracker_user_badges"
+          + " (user_id, badge_id, tier, metric_value, " + atCol + ", meta, updated_at)"
+          + " VALUES ($1,$2,$3,$4,$5,$$ {} $$::jsonb,now())"
+          + " ON CONFLICT (user_id, badge_id) DO UPDATE SET"
+          + "   tier = GREATEST(tokentracker_user_badges.tier, EXCLUDED.tier),"
+          + "   metric_value = EXCLUDED.metric_value,"
+          + "   " + atCol + " = COALESCE(tokentracker_user_badges." + atCol + ", EXCLUDED." + atCol + "),"
+          + "   updated_at = now()",
+          [badgeUser, badgeId, tier, metric, achievedAt],
         );
       }
       process.stdout.write("[local-backend] leaderboard snapshots refreshed\n");
