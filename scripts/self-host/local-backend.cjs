@@ -148,7 +148,22 @@ async function adoptPrebuiltBundles(directory, stamp) {
   const source = process.env.TOKENTRACKER_LOCAL_BACKEND_BUNDLES;
   if (!source) return false;
   const present = (dir) => privateFunctions.every((slug) => fssync.existsSync(path.join(dir, slug + ".runtime.cjs")));
-  if (present(directory)) return false;
+  if (present(directory)) {
+    // With build sources present the fingerprint path in loadHandlers judges
+    // staleness; adopt must not second-guess it with the shipped copy.
+    if (stamp) return false;
+    // Packaged deployment: the adopted copy in the data directory carries the
+    // fingerprint of the sources its image was built from. When the shipped
+    // prebuilt/ stamp differs the image is newer than the volume and must
+    // win — an image upgrade is how handler code ships, and the volume holds
+    // data plus the last adoption, not truth.
+    const dirStampFile = path.join(directory, ".source-stamp");
+    try {
+      const shipped = (await fs.readFile(path.join(source, ".source-stamp"), "utf8")).trim();
+      const adopted = (await fs.readFile(dirStampFile, "utf8")).trim();
+      if (shipped && shipped === adopted) return false;
+    } catch (_error) { /* a stamp is missing or unreadable: refresh */ }
+  }
   const sourceStampFile = path.join(source, ".source-stamp");
   if (!fssync.existsSync(sourceStampFile) || !present(source)) {
     process.stdout.write("[local-backend] prebuilt bundle directory is incomplete: " + source + "\n");
@@ -178,13 +193,24 @@ async function adoptPrebuiltBundles(directory, stamp) {
 async function loadHandlers(directory) {
   const stampFile = path.join(directory, ".source-stamp");
   const stamp = await computeSourceStamp();
+  const haveRuntime = () => privateFunctions.every(
+    (slug) => fssync.existsSync(path.join(directory, slug + ".runtime.cjs")),
+  );
   let cached = false;
   if (stamp) {
     try {
       cached = (await fs.readFile(stampFile, "utf8")).trim() === stamp;
     } catch (_error) { cached = false; }
+    if (!cached) cached = await adoptPrebuiltBundles(directory, stamp);
+  } else {
+    // Packaged deployment: there is no fingerprint to re-derive. Adopt first
+    // so an upgraded image refreshes the bundles a previous boot copied into
+    // the data directory; then "do we have the bundles" is the whole question.
+    // Without the adopt a fresh volume would wrongly report them missing, and
+    // a volume older than the image would wrongly keep the stale bundles.
+    await adoptPrebuiltBundles(directory, stamp);
+    cached = haveRuntime();
   }
-  if (!cached) cached = await adoptPrebuiltBundles(directory, stamp);
   if (!cached && !stamp) {
     throw new Error(
       "handler bundles are missing and this deployment has no build sources "
@@ -396,6 +422,14 @@ async function main() {
 
   // Bootstrap helpers. Both exit before the (slow) handler build, so they are
   // safe to run on a host where bundling takes minutes.
+  // Report the anonymous key clients put in config.anonKey: the client only
+  // checks that the JWT decodes with role "anon", so a stable value is fine.
+  if (process.argv.includes("--print-anon-key")) {
+    process.stdout.write(mintToken("anon", "anon", 10 * 365 * 24 * 3600) + "\n");
+    await db.close();
+    return;
+  }
+
   if (process.argv.includes("--create-user")) {
     const email = argValue("--create-user", null);
     if (!email) {
@@ -449,7 +483,10 @@ async function main() {
     INSFORGE_BASE_URL: selfUrl,
     INSFORGE_INTERNAL_URL: selfUrl,
     INSFORGE_SERVICE_ROLE_KEY: mintToken(randomUUID(), "project_admin", 10 * 365 * 24 * 3600),
-    ANON_KEY: mintToken(randomUUID(), "anon", 10 * 365 * 24 * 3600),
+    // Deterministic subject: the client validates the anon key by decoding the
+    // JWT and checking role === "anon", so any stable value works, and being
+    // stable means --print-anon-key can report the same key the server uses.
+    ANON_KEY: mintToken("anon", "anon", 10 * 365 * 24 * 3600),
     JWT_SECRET: secret,
     TOKENTRACKER_BILLING_ENVIRONMENT: "live",
     TOKENTRACKER_DASHBOARD_URL: selfUrl,

@@ -44,6 +44,7 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
       read("migrations/20261003093000_compact-account-summary-model-wire.sql"),
       read("scripts/self-host/private-rpc-access.sql"),
     ].join("\n\n")},
+    {id:"04b-deepseek-time-priced-patterns",sql:read("migrations/20261013203000_self-host-deepseek-v41-time-priced-patterns.sql")},
     ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql",
       "20261007120000_cloud-waffo.sql","20261007130000_cloud-waffo-retry.sql","20261007140000_cloud-waffo-attempts.sql",
       "20261007150000_cloud-(removed).sql","20261007160000_cloud-(removed)-periods.sql"]
