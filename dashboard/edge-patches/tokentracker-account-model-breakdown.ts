@@ -232,6 +232,11 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "gemini-2.5-pro-preview-05-06": { input: 1.25, output: 10, cache_read: 0.125 },
   "gemini-2.5-flash": { input: 0.3, output: 2.5, cache_read: 0.03 },
   "gemini-3-flash-preview": { input: 0.5, output: 3, cache_read: 0.05 },
+  // Antigravity reports Gemini 3.8 Flash under these ids; LiteLLM prices both
+  // at the 2.5-flash card (0.3 in / 2.5 out / 0.03 cache-read), cache writes
+  // free (litellm:exact, 2026-10-13).
+  "gemini-3.8-flash-n": { input: 0.3, output: 2.5, cache_read: 0.03, cache_write: 0 },
+  "gemini-3.8-flash-tiered": { input: 0.3, output: 2.5, cache_read: 0.03, cache_write: 0 },
   "gemini-3-pro-preview": { input: 2, output: 12, cache_read: 0.2 },
   "gemini-3.1-pro-preview": { input: 2, output: 12, cache_read: 0.2 },
   // ── Cursor Composer ──
@@ -349,6 +354,15 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   //    cache_write = input. ──
   "step-3.7-flash": { input: 0.2, output: 1.15, cache_read: 0.04, cache_write: 0.2 },
   "step-3.5-flash": { input: 0.1, output: 0.3, cache_read: 0.02, cache_write: 0.1 },
+  // ── 2026-10 curated additions (mirrored from
+  //    src/lib/pricing/curated-overrides.json): gpt-6-luna (OpenAI official
+  //    short-context rates, cache_write = 1.25x input), space-bunny (models.dev
+  //    opencode-go card; cache writes free; the matcher below covers the alias
+  //    ids space-bunny-free and stealth/space-bunny-alpha), step-5-preview
+  //    (platform.stepfun.com USD list, issue #283 family). ──
+  "gpt-6-luna": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
+  "space-bunny": { input: 0.15, output: 0.6, cache_read: 0.03, cache_write: 0 },
+  "step-5-preview": { input: 1, output: 2.7, cache_read: 0.05, cache_write: 1 },
 };
 const ZERO_PRICING = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
 // iFlytek MaaS prices used by the AStudio source: RMB per million tokens,
@@ -438,6 +452,12 @@ function getModelPricing(model: string, source = "") {
     const iFlytekMaasPricing = IFLYTEK_MAAS_MODEL_PRICING[normalized];
     if (iFlytekMaasPricing) return iFlytekMaasPricing;
   }
+  // loomy reports iFlytek Spark-X2.5 under the short id `spark-x`; the owner
+  // chose the official list price rather than AStudio's 30%-off rate, so this
+  // entry is source-scoped to `loomy` and must not touch the acode numbers
+  // (curated source_exact, 2026-10-13).
+  if (source.toLowerCase() === "loomy" && model.trim().toLowerCase() === "spark-x")
+    return { input: 0.22, output: 0.83, cache_read: 0.03, cache_write: 0.22 };
   const exact = MODEL_PRICING[model];
   if (exact) return exact;
   const lower = model.toLowerCase();
@@ -450,6 +470,10 @@ function getModelPricing(model: string, source = "") {
   // reports its own positive cost still wins earlier via
   // SOURCES_WITH_AUTHORITATIVE_COST.
   if (lower.includes("cline-free/") || lower.includes("cline-pass/")) return ZERO_PRICING;
+  // space-bunny family: the curated card is keyed `space-bunny`; the alias
+  // entries (space-bunny-free, stealth/space-bunny-alpha) resolve to it
+  // (curated alias, 2026-10-13).
+  if (lower.includes("space-bunny")) return MODEL_PRICING["space-bunny"];
   if (lower.includes("fable")) return MODEL_PRICING["claude-fable-5"];
   // Opus 5 fast mode bills at 2x the standard Opus tier ($10/$50), so the
   // -fast matcher must precede both the opus-5 and the generic opus fallback.
