@@ -9,6 +9,11 @@ const { isDeepStrictEqual } = require("node:util");
 const crypto = require("node:crypto");
 const { ensureDir, writeJson, chmod600IfPossible } = require("./fs");
 const { physicalJsonlRecords } = require("./jsonl-lines");
+const {
+  resolveAutoClawSessionFiles,
+  resolveColaSessionFiles,
+  toAgentSessionRecord,
+} = require("./agent-jsonl-sessions");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
 const wsl = require("./wsl-probe");
 const { resolveInstallPaths } = require("./install-resolver");
@@ -11321,6 +11326,132 @@ async function parseWorkbuddyIncremental({
   };
 
   return { recordsProcessed, eventsAggregated, bucketsQueued };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AutoClaw and Cola — passive JSONL readers
+//
+// Both embed an OpenCode-lineage runtime and append every conversation to one
+// JSONL file per session, in the shape src/lib/agent-jsonl-sessions.js adapts
+// into the canonical record. They are separate products with separate installs
+// (verified on this machine: ~/.openclaw-autoclaw and ~/.cola, zero overlap),
+// so each keeps its own source key and its own cursor namespace.
+//
+// Neither is the standalone OpenClaw CLI, which reads ~/.openclaw - a
+// different directory that a machine may or may not have.
+//
+// `source` is both the variant selector and the bucket source key, so the two
+// never share dedup state.
+async function parseAgentJsonlIncremental({
+  projectFiles,
+  cursors,
+  queuePath,
+  env,
+  source = "autoclaw",
+  onProgress,
+} = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const variant = source === "cola" ? "cola" : "autoclaw";
+  const state = cursors[variant] && typeof cursors[variant] === "object" ? cursors[variant] : {};
+  const seenIds = new Set(Array.isArray(state.seenIds) ? state.seenIds : []);
+  const fileOffsets = state.fileOffsets && typeof state.fileOffsets === "object" ? { ...state.fileOffsets } : {};
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+
+  const files = Array.isArray(projectFiles)
+    ? projectFiles
+    : variant === "cola"
+      ? resolveColaSessionFiles({ env: env || process.env, home: os.homedir() })
+      : resolveAutoClawSessionFiles({ env: env || process.env, home: os.homedir() });
+
+  let filesProcessed = 0;
+  let eventsAggregated = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const filePath = files[i];
+    let stat;
+    try { stat = fssync.statSync(filePath); } catch { continue; }
+
+    const prev = fileOffsets[filePath] || {};
+    const prevSize = Number(prev.size) || 0;
+    const prevIno = prev.ino;
+    // Re-read from the start when the file shrank or its inode changed
+    // (deleted and recreated); otherwise resume after the last consumed byte.
+    const inodeChanged = typeof prevIno === "number" && prevIno !== stat.ino;
+    const startOffset = stat.size < prevSize || inodeChanged ? 0 : prevSize;
+    if (stat.size <= startOffset) continue;
+
+    let stream;
+    try {
+      stream = fssync.createReadStream(filePath, { encoding: "utf8", start: startOffset });
+    } catch { continue; }
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+
+    let consumed = startOffset;
+    let sawRecord = false;
+    for await (const line of rl) {
+      consumed += Buffer.byteLength(line, "utf8") + 1;
+      if (!line || !line.trim()) continue;
+      let entry;
+      try { entry = JSON.parse(line); } catch { continue; }
+
+      const record = toAgentSessionRecord(entry);
+      // A user record carries no usage; only assistant replies open a bucket.
+      if (!record || record.type !== "assistant" || !record.message?.usage) continue;
+
+      const usage = record.message.usage;
+      const messageId = record.message.id;
+      // responseId is the provider's round-trip id. Without it the same reply
+      // would be re-counted on every rescan, so an unlabelled record is skipped
+      // rather than counted twice.
+      if (typeof messageId !== "string" || !messageId || seenIds.has(messageId)) continue;
+
+      const ts = record.timestamp;
+      const tsIso = typeof ts === "number" ? new Date(ts).toISOString() : String(ts || "");
+      const bucketStart = toUtcHalfHourStart(tsIso);
+      if (!bucketStart) continue;
+
+      const model = normalizeModelInput(record.message.model) || "unknown";
+      const delta = {
+        input_tokens: usage.input_tokens,
+        cached_input_tokens: usage.cache_read_input_tokens,
+        cache_creation_input_tokens: usage.cache_creation_input_tokens,
+        output_tokens: usage.output_tokens,
+        reasoning_output_tokens: usage.output_tokens_details?.reasoning_tokens,
+        total_tokens: usage.input_tokens + usage.cache_read_input_tokens +
+          usage.cache_creation_input_tokens + usage.output_tokens,
+        conversation_count: 1,
+      };
+
+      const bucket = getHourlyBucket(hourlyState, variant, model, bucketStart);
+      addTotals(bucket.totals, delta);
+      touchedBuckets.add(bucketKey(variant, model, bucketStart));
+      seenIds.add(messageId);
+      eventsAggregated += 1;
+      sawRecord = true;
+    }
+
+    if (sawRecord || consumed > startOffset) {
+      filesProcessed += 1;
+      fileOffsets[filePath] = { size: consumed, ino: stat.ino, mtime: Math.round(stat.mtimeMs) };
+    }
+    if (cb) cb({ index: i + 1, total: files.length });
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  const seenArr = [...seenIds];
+  cursors[variant] = {
+    ...state,
+    seenIds: seenArr.length > 20_000 ? seenArr.slice(seenArr.length - 20_000) : seenArr,
+    fileOffsets,
+    updatedAt,
+  };
+
+  return { recordsProcessed: eventsAggregated, eventsAggregated, bucketsQueued, filesProcessed };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24766,6 +24897,7 @@ module.exports = {
   resolveWorkbuddyProjectFilesAll,
   resolveWorkbuddyDefaultModel,
   parseWorkbuddyIncremental,
+  parseAgentJsonlIncremental,
   WORKBUDDY_VARIANTS,
   resolveWorkbuddyVariant,
   resolveKiroCliSessionFiles,

@@ -587,6 +587,24 @@
     "ox-alpha": "glm-5.3-flash"
   },
   "source_exact": {
+    "autoclaw": {
+      "zai_auto": {
+        "input": 1.4,
+        "output": 4.4,
+        "cache_read": 0.26,
+        "cache_write": 1.4,
+        "note": "AutoClaw writes the Zhipu auto-router name, not a model. 69% of this source tokens arrive as zai_auto, so leaving it unpriced would blank two thirds of the card. Priced at the GLM-5.3 card the owner approved as the stand-in (exact entry: input 1.4 / output 4.4 / cache_read 0.26; no published cache-write surcharge, so cache_write = input). This is an ESTIMATE - the router may land on a different model - and the row is reported as model_pricing, never as a provider charge."
+      }
+    },
+    "cola": {
+      "luna-02": {
+        "input": 0.2,
+        "output": 1.2,
+        "cache_read": 0.02,
+        "cache_write": 0.25,
+        "note": "The id Cola itself records for GPT 6 Luna. The owner ran this edition while the model was still named 5.6-luna, so it is priced at the gpt-5.6-luna card (curated:exact input 0.2 / output 1.2 / cache_read 0.02 / cache_write 0.25) rather than gpt-6-luna, which is half that. Re-check if a newer Cola session ever names a different id."
+      }
+    },
     "loomy": {
       "spark-x": {
         "input": 0.22,

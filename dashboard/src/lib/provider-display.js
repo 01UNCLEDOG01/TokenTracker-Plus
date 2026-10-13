@@ -12,6 +12,7 @@ const SPECIAL_PROVIDER_NAMES = {
   lmstudio: "LM Studio",
   unsloth: "Unsloth Studio",
   workbuddyai: "WorkBuddy AI",
+  autoclaw: "AutoClaw",
 };
 
 const SPECIAL_PROVIDER_COPY_KEYS = {

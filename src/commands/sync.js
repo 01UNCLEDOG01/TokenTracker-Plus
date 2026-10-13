@@ -111,6 +111,7 @@ const {
   parseCodebuddyIncremental,
   resolveWorkbuddyProjectFiles,
   parseWorkbuddyIncremental,
+  parseAgentJsonlIncremental,
   resolveKiroCliSessionFiles,
   resolveKiroCliDbPath,
   parseKiroCliIncremental,
@@ -319,12 +320,14 @@ const AUTO_SYNC_SOURCE_ALIASES = new Map([
 const AUTO_SYNC_SOURCES = new Set([
   "acode",
   "antigravity",
+  "autoclaw",
   "anythingllm",
   "claude",
   "claude-science",
   "cline",
   "codebuddy",
   "codex",
+  "cola",
   "command-code",
   "copilot",
   "craft",
@@ -368,6 +371,7 @@ const BACKGROUND_AUTO_SYNC_SOURCES = new Set([
   // Keep unscoped native 5-minute syncs bounded to dated local session trees.
   "acode",
   "codex",
+  "cola",
   "every-code",
   "reasonix",
 ]);
@@ -2698,10 +2702,42 @@ async function cmdSync(argv, context = {}) {
             );
           },
         });
-      } catch (err) {
-        warnProviderParseFailure("WorkBuddy AI", err, opts);
+} catch (err) {
+          warnProviderParseFailure("WorkBuddy AI", err, opts);
+        }
       }
-    }
+
+      // ── AutoClaw / Cola（passive JSONL readers）──
+      // Two separate installs that embed an OpenCode-lineage runtime and keep
+      // every conversation in one append-only JSONL per session. Neither is the
+      // standalone OpenClaw CLI, which reads ~/.openclaw.
+      const agentJsonlSources = [
+        { key: "autoclaw", label: "AutoClaw" },
+        { key: "cola", label: "Cola" },
+      ];
+      const agentJsonlResult = {};
+      for (const { key, label } of agentJsonlSources) {
+        agentJsonlResult[key] = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+        if (!sourceAllowed(key)) continue;
+        if (progress?.enabled) progress.start(`Parsing ${label} ${renderBar(0)} | buckets 0`);
+        try {
+          agentJsonlResult[key] = await parseAgentJsonlIncremental({
+            cursors,
+            queuePath,
+            env: process.env,
+            source: key,
+            onProgress: (p) => {
+              if (!progress?.enabled) return;
+              const pct = p.total > 0 ? p.index / p.total : 1;
+              progress.update(
+                `Parsing ${label} ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(p.bucketsQueued)}`,
+              );
+            },
+          });
+        } catch (err) {
+          warnProviderParseFailure(label, err, opts);
+        }
+      }
 
     // ── oh-my-pi (passive ~/.omp/agent/sessions/**/*.jsonl reader) ──
     // Task-subagent transcripts (nested below the cwd level) are scanned too,

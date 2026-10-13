@@ -118,6 +118,8 @@ const DEFAULT_DASHBOARD_URL = "https://(removed)";
 // test/discovery-metadata.test.js keeps this aligned with public tool copy.
 const SUPPORTED_PROVIDERS = [
   "Claude Code",
+  "AutoClaw",
+  "Cola",
   "Codex CLI",
   "AStudio",
   "Cursor",
