@@ -484,7 +484,7 @@ export function LeaderboardPage({
   const location = useLocation();
   const navigate = useNavigate();
   const { openLoginModal } = useLoginModal();
-  const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser } = useInsforgeAuth();
+  const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser, getAccessToken } = useInsforgeAuth();
   const { currency, rate } = useCurrency();
   const leaderboardBaseUrl = useMemo(() => getLeaderboardBaseUrl(), []);
   const mockEnabled = isMockEnabled();
@@ -659,7 +659,14 @@ export function LeaderboardPage({
       });
     }
     (async () => {
+      // The private instance gates leaderboard reads behind the account, so
+      // resolve the token first (retrying through a refresh when needed);
+      // anonymous-eligible callers simply proceed without one.
+      const accessToken = cloudSignedIn
+        ? await resolveAuthAccessTokenWithRetry({ getAccessToken }).catch(() => "")
+        : "";
       const data = await getLeaderboard({
+        accessToken,
         baseUrl: leaderboardBaseUrl,
         userId: cloudUser?.id || null,
         period,

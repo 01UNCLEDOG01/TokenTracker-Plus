@@ -133,6 +133,9 @@ async function handleAuthRequest({ req, url, raw, db, secret, send }) {
       password_reset: false,
       signup_enabled: true,
       passwordMinLength: 10,
+      // Public by design (role=anon JWT): clients need it to talk to the
+      // instance, and join-machine.cjs reads it from here on new computers.
+      anonKey: process.env.ANON_KEY || null,
     });
     return true;
   }

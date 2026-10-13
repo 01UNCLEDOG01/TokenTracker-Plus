@@ -81,13 +81,13 @@ function writePersistentCache(data) {
   }
 }
 
-function fetchCommunityData() {
+function fetchCommunityData(accessToken) {
   if (cachedFetch && Date.now() - cachedFetch.at < CACHE_TTL_MS) {
     return cachedFetch.promise;
   }
   const promise = Promise.all([
     withTimeout(
-      getLeaderboard({ period: "total", limit: SAMPLE_LIMIT, offset: 0 }),
+      getLeaderboard({ accessToken, period: "total", limit: SAMPLE_LIMIT, offset: 0 }),
       FETCH_TIMEOUT_MS,
     ),
     withTimeout(getCommunityModels(), MODEL_FETCH_TIMEOUT_MS).catch(() => null),

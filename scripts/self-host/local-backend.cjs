@@ -32,7 +32,7 @@ const { randomUUID, createHmac, createHash } = require("node:crypto");
 const { PGlite } = require("@electric-sql/pglite");
 const { install } = require("./install.cjs");
 const { privateFunctions } = require("./manifest.cjs");
-const { ensureAuthSchema, handleAuthRequest, signToken, hashPassword, REFRESH_TTL_SECONDS } = require("./local-auth.cjs");
+const { ensureAuthSchema, handleAuthRequest, signToken, verifyToken, hashPassword, REFRESH_TTL_SECONDS } = require("./local-auth.cjs");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 
@@ -476,6 +476,10 @@ async function main() {
   const handlers = await loadHandlers(buildDir);
 
   const selfUrl = "http://127.0.0.1:" + port;
+  const anonKeyForHandlers = mintToken("anon", "anon", 10 * 365 * 24 * 3600);
+  // Mirrored onto the process env: local-auth serves it from
+  // /api/auth/public-config so new machines can bootstrap with join-machine.cjs.
+  process.env.ANON_KEY = process.env.ANON_KEY || anonKeyForHandlers;
   const env = {
     // The handlers build their own InsForge client for database/RPC calls and
     // read its base URL from here. Without it they fail before reaching this
@@ -486,7 +490,8 @@ async function main() {
     // Deterministic subject: the client validates the anon key by decoding the
     // JWT and checking role === "anon", so any stable value works, and being
     // stable means --print-anon-key can report the same key the server uses.
-    ANON_KEY: mintToken("anon", "anon", 10 * 365 * 24 * 3600),
+    ANON_KEY: anonKeyForHandlers,
+
     JWT_SECRET: secret,
     TOKENTRACKER_BILLING_ENVIRONMENT: "live",
     TOKENTRACKER_DASHBOARD_URL: selfUrl,
@@ -516,11 +521,57 @@ async function main() {
         send(200, { ok: true, functions: privateFunctions.length, dir });
         return;
       }
+      // Personal-data endpoints on a private instance: require a signed-in
+      // caller. The hosted platform used to validate the Authorization
+      // header before user code; the self-host dispatch reproduces that for
+      // the leaderboard surfaces only. Ingest authenticates by device token
+      // (not a JWT) inside its own handler and must stay outside this gate.
+      const AUTH_REQUIRED_FUNCTIONS = new Set([
+        "tokentracker-leaderboard",
+        "tokentracker-leaderboard-profile",
+        "tokentracker-embed-svg",
+      ]);
+      // Light per-IP limiter for the auth API: 60 requests / 5 minutes is
+      // far above any single-user flow and well below password guessing.
+      const AUTH_RATE_LIMIT = { windowMs: 5 * 60 * 1000, max: 60 };
+      const authRateBuckets = new Map();
+      const authRateLimited = (ip) => {
+        const nowMs = Date.now();
+        const bucket = authRateBuckets.get(ip);
+        if (!bucket || bucket.resetAt <= nowMs) {
+          authRateBuckets.set(ip, { count: 1, resetAt: nowMs + AUTH_RATE_LIMIT.windowMs });
+          return false;
+        }
+        bucket.count += 1;
+        return bucket.count > AUTH_RATE_LIMIT.max;
+      };
+
       // Auth is public by definition - it runs before the server-role gate.
+      if (url.pathname.startsWith("/api/auth/")) {
+        const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()
+          || req.socket?.remoteAddress || "unknown";
+        if (authRateLimited(ip)) {
+          send(429, { error: "rate_limited", message: "too many requests" });
+          return;
+        }
+      }
       if (await handleAuthRequest({ req, url, raw, db, secret, send })) return;
       if (url.pathname.startsWith("/functions/")) {
-        const handler = handlers[url.pathname.split("/").pop()];
+        const slug = url.pathname.split("/").pop();
+        const handler = handlers[slug];
         if (!handler) { send(404, { error: "Function not installed" }); return; }
+        // OPTIONS is the CORS preflight, which never carries credentials —
+        // let it through to the handler (it answers 204 with the allow
+        // headers); gating it 401s the preflight and the browser then
+        // blocks the real request entirely.
+        if (AUTH_REQUIRED_FUNCTIONS.has(slug) && req.method !== "OPTIONS") {
+          const header = String(req.headers.authorization || "");
+          const payload = header.startsWith("Bearer ") ? verifyToken(header.slice(7), secret) : null;
+          if (!payload) {
+            send(401, { error: "unauthorized", message: "sign in to view this data" });
+            return;
+          }
+        }
         const result = await handler(new Request(url, {
           method: req.method, headers: req.headers, ...(raw ? { body: raw } : {}),
         }));

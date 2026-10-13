@@ -432,6 +432,7 @@ export function preloadLeaderboardDefaultState(options = {}) {
   const promise = Promise.resolve()
     .then(() =>
       getLeaderboard({
+        accessToken,
         baseUrl,
         userId,
         period,
