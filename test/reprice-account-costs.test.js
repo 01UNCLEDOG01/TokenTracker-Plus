@@ -2,7 +2,9 @@
 
 // The account view returned per-model cost exactly as the cloud computed it at
 // upload time, so any model this machine could price arrived as zero money. These
-// pin the reprice pass, and the two things it must NOT touch.
+// pin the gap-fill pass, and the three things it must NOT touch: a source with
+// provider-reported spend, a source nothing can price, and a row the cloud
+// already priced (recomputing it would lose the time-of-day rates).
 
 const test = require("node:test");
 const assert = require("node:assert");
@@ -88,12 +90,45 @@ test("a source nothing can price keeps the figure the cloud sent", async () => {
     },
   ]);
 
-  assert.equal(repriceAccountModelCosts("tokentracker-usage-model-breakdown", data), 1, "the row was visited");
+  assert.equal(repriceAccountModelCosts("tokentracker-usage-model-breakdown", data), 0, "nothing was filled in - the cloud already sent a figure");
+  assert.equal(
+    Number(find(data, "trae-cn", "trae-cn-unknown").totals.total_cost_usd),
+    1.234567,
+    "the model row keeps the cloud's figure instead of being overwritten with a zero",
+  );
   assert.equal(
     Number(data.sources[0].totals.total_cost_usd),
     1.234567,
     "an entirely unpriced source is not overwritten with a zero the cloud never sent",
   );
+});
+
+test("a row the cloud already priced keeps its figure (DeepSeek time-of-day rates survive)", async () => {
+  await ensurePricingLoaded();
+  // codex/deepseek-v4-flash is a time-priced model: off-peak is half price and
+  // whole Beijing weekends are off-peak. The cloud priced the rows at upload time
+  // with each row's hour_start, so its 163.51 is already correct. This aggregate
+  // carries no hour_start, so computeRowCost on it lands on the peak-only 263.24 -
+  // recomputing would inflate the account view by ~61%. It must be left alone.
+  const data = breakdown([
+    {
+      source: "codex",
+      totals: { total_tokens: 10_938_417_142, total_cost_usd: "163.509652" },
+      models: [{ model: "deepseek-v4-flash", cost_source: "model_pricing", totals: {
+        total_tokens: 10_938_417_142, billable_total_tokens: 10_938_417_142,
+        input_tokens: 187_950_692, output_tokens: 22_995_858, cached_input_tokens: 10_727_470_592,
+        cache_creation_input_tokens: 0, reasoning_output_tokens: 12_080_490,
+        total_cost_usd: "163.509652" } }],
+    },
+  ]);
+
+  assert.equal(repriceAccountModelCosts("tokentracker-usage-model-breakdown", data), 0, "a priced row is not revisited");
+  assert.equal(
+    Number(find(data, "codex", "deepseek-v4-flash").totals.total_cost_usd),
+    163.509652,
+    "the cloud's time-priced figure is preserved, not replaced by the peak-only aggregate",
+  );
+  assert.equal(Number(data.sources[0].totals.total_cost_usd), 163.509652);
 });
 
 test("aggregates with no per-model rows are left untouched", async () => {

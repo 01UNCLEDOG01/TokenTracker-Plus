@@ -193,6 +193,15 @@ function isDeepSeekTimePricedModel(model) {
 // From 00:00 Beijing time on 2026-08-23 — this instant — DeepSeek bills whole
 // Beijing weekends off-peak, peak hours included.
 // https://api-docs.deepseek.com/quick_start/pricing/
+//
+// Known, deliberate gap: the same page says peak hours are "Monday through
+// Friday, excluding Chinese public holidays", and that holidays are off-peak in
+// full. No holiday calendar is consulted here, so a weekday holiday is billed at
+// peak during 09:00-12:00 / 14:00-18:00 Beijing (overstated), and a make-up
+// workday falling on a weekend is billed off-peak (understated). Not handled on
+// purpose: it is the one part of the rule that needs an externally maintained,
+// annually changing table, and it touches only a handful of days a year. If it
+// is ever added, add a maintained data file — do not inline a guessed list.
 const DEEPSEEK_WEEKEND_OFF_PEAK_FROM_MS = Date.UTC(2026, 7, 22, 16, 0, 0);
 
 // The weekend is bounded in Beijing time, so it runs 16:00Z Friday to 16:00Z
