@@ -2591,6 +2591,18 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const autoclawFiles = (() => { try { return resolveAutoClawSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const colaFiles = (() => { try { return resolveColaSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const coworkFiles = (() => { try { return resolveCoworkChatFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  // Antigravity keeps one SQLite database per conversation under
+  // <home>/.gemini/antigravity/conversations; each pairs with a transcript
+  // directory of the same uuid.
+  const antigravityDbs = (() => {
+    try {
+      const dir = path.join(home, ".gemini", "antigravity", "conversations");
+      return fssync.readdirSync(dir)
+        .filter((f) => f.endsWith(".db"))
+        .sort()
+        .map((f) => path.join(dir, f));
+    } catch (_e) { return []; }
+  })();
   const workbuddyFiles = (deps.workbuddyProjectFiles
     || resolveWorkbuddyProjectFilesAll(workbuddyEnv)).filter((entry) => typeof entry === "string");
   const codexRoots = providerRoots(home, ".codex", env, { ...deps, extraRoots: extraRootsFor("codex") });
@@ -2679,6 +2691,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     autoclaw: autoclawFiles,
     cola: colaFiles,
     cowork: coworkFiles,
+    antigravity: antigravityDbs,
     zcode,
     opencode,
     loomy,
@@ -2813,6 +2826,134 @@ async function writeAtomic(filePath, content) {
   await fsp.rename(temp, filePath);
 }
 
+// ── Antigravity conversations ──
+//
+// `filePath` is the conversation database (antigravity/conversations/
+// <uuid>.db). Tokens are not in the transcript, so the scanner runs the
+// usage parser (rollout.js) over the joined transcript chunks and reads
+// its per-model contributions back out.
+async function scanAntigravitySession(dbPath) {
+  const uuid = path.basename(dbPath).replace(/\.db$/i, "");
+  const antigravityRoot = path.dirname(path.dirname(dbPath));
+  const transcriptDir = path.join(
+    antigravityRoot, "brain", uuid, ".system_generated", "logs", "chunks", "transcript",
+  );
+  let chunkFiles = [];
+  try {
+    chunkFiles = fssync.readdirSync(transcriptDir).filter((f) => f.endsWith(".jsonl")).sort();
+  } catch (_e) { chunkFiles = []; }
+  if (!chunkFiles.length) throw new Error("antigravity transcript chunks are missing");
+  const chunkPaths = chunkFiles.map((f) => path.join(transcriptDir, f));
+  const raw = chunkPaths.map((f) => fssync.readFileSync(f, "utf8")).join("\n");
+
+  // Lazy require: rollout.js requires this module for the Claude scanner.
+  const { parseAntigravityFile } = require("./rollout");
+  const result = await parseAntigravityFile({
+    filePath: chunkPaths[0],
+    rawBuffer: Buffer.from(raw),
+    hourlyState: { buckets: {} },
+    touchedBuckets: new Set(),
+    applyBuckets: true,
+    source: "antigravity",
+  });
+
+  let startedMs = null;
+  let endedMs = null;
+  let turns = 0;
+  let editTurns = 0;
+  let toolCalls = 0;
+  let errorCount = 0;
+  for (const line of raw.split(/\r?\n/)) {
+    const text = line.trim();
+    if (!text) continue;
+    let rec;
+    try { rec = JSON.parse(text); } catch (_e) { continue; }
+    const ts = typeof rec?.created_at === "string" ? Date.parse(rec.created_at) : NaN;
+    if (Number.isFinite(ts)) {
+      if (startedMs === null || ts < startedMs) startedMs = ts;
+      if (endedMs === null || ts > endedMs) endedMs = ts;
+    }
+    if (rec?.type === "user") turns += 1;
+    const calls = Array.isArray(rec?.tool_calls) ? rec.tool_calls : [];
+    for (const call of calls) {
+      toolCalls += 1;
+      const name = String(call?.name || "").toLowerCase();
+      if (EDIT_TOOLS.has(name)) editTurns += 1;
+    }
+    if (rec?.error) errorCount += 1;
+  }
+
+  const contributions = Object.values(result.contributions || {});
+  const byModel = new Map();
+  for (const contribution of contributions) {
+    const model = contribution?.model || result.currentModel || "antigravity-unknown";
+    const totals = contribution?.totals || {};
+    const acc = byModel.get(model) || {
+      model,
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+    };
+    acc.input_tokens += finite(totals.input_tokens);
+    acc.cached_input_tokens += finite(totals.cached_input_tokens);
+    acc.cache_creation_input_tokens += finite(totals.cache_creation_input_tokens);
+    acc.output_tokens += finite(totals.output_tokens);
+    acc.reasoning_output_tokens += finite(totals.reasoning_output_tokens);
+    acc.total_tokens += finite(totals.total_tokens);
+    byModel.set(model, acc);
+  }
+  const modelUsage = [...byModel.values()];
+  if (!modelUsage.length && result.currentModel) {
+    modelUsage.push({
+      model: result.currentModel,
+      input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
+    });
+  }
+  const totals = modelUsage.reduce((acc, m) => ({
+    input_tokens: acc.input_tokens + m.input_tokens,
+    cached_input_tokens: acc.cached_input_tokens + m.cached_input_tokens,
+    cache_creation_input_tokens: acc.cache_creation_input_tokens + m.cache_creation_input_tokens,
+    output_tokens: acc.output_tokens + m.output_tokens,
+    reasoning_output_tokens: acc.reasoning_output_tokens + m.reasoning_output_tokens,
+    total_tokens: acc.total_tokens + m.total_tokens,
+  }), { input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0 });
+  const project = contributions.find((c) => c?.projectKey) || {};
+  const storage = sessionStorageUsage([...chunkPaths, dbPath]);
+  return [finalizeRecord({
+    version: SIDECAR_VERSION,
+    session_hash: sessionHash("antigravity", uuid),
+    session_id: uuid,
+    title: null,
+    source: "antigravity",
+    ...storage,
+    project_key: project.projectKey || null,
+    project_ref: project.projectRef || null,
+    model: modelUsage[0]?.model ?? null,
+    model_usage: modelUsage,
+    performance: {},
+    started_at: startedMs ? new Date(startedMs).toISOString() : null,
+    ended_at: endedMs ? new Date(endedMs).toISOString() : null,
+    active_ms: startedMs !== null && endedMs !== null ? Math.max(0, endedMs - startedMs) : 0,
+    turns,
+    edit_turns: editTurns,
+    retry_turns: 0,
+    subagent_calls: 0,
+    ...totals,
+    provenance: "measured",
+    usage_precision: result.usageSource === "sqlite" ? "exact" : "estimated",
+    usage_is_incomplete: !result.dbReadOk,
+    usage_events: finite(result.eventsAggregated),
+    model_calls: finite(result.eventsAggregated),
+    tool_calls: toolCalls,
+    tool_failures: 0,
+    error_count: errorCount,
+    context_tokens_used: finite(result.contextTokens),
+  })];
+}
 async function buildSessionAnalyticsInternal({ home = os.homedir(), force = false, cacheTtlMs = 5 * 60_000 } = {}) {
   const sidecarPath = resolveSessionSidecarPath(home);
   const metaPath = `${sidecarPath}.meta.json`;
@@ -2897,6 +3038,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...((discovered.autoclaw || []).length ? [{ source: "autoclaw", filePath: discovered.autoclaw, scan: scanAutoClawSession }] : []),
     ...((discovered.cola || []).length ? [{ source: "cola", filePath: discovered.cola, scan: scanColaSession }] : []),
     ...((discovered.cowork || []).length ? [{ source: "tuanjie-cowork", filePath: discovered.cowork, scan: scanCoworkChat }] : []),
+    ...(discovered.antigravity || []).map((filePath) => ({ source: "antigravity", filePath, scan: scanAntigravitySession })),
     ...(discovered.workbuddy || []).map((filePaths) => ({
       // The domestic and the international edition are two products with two
       // ledgers, so each conversation keeps the source of the home it came from.

@@ -285,11 +285,20 @@ async function loadHandlers(directory) {
   return handlers;
 }
 
+// A fixed expiry for the public anon key. Time-relative exp meant every
+// container restart minted a different key, and a client whose stored copy
+// came from an earlier boot then looked misconfigured to the dashboard
+// (hidden login, "incomplete configuration" banner) until the key was
+// re-copied. 2100-01-01 keeps the shape of a normal JWT while making the
+// token deterministic.
+const ANON_KEY_FIXED_EXP = 4102444800;
+
 function createTokenMinter(secret) {
   return (sub, role = "authenticated", ttlSeconds = 3600) => {
     const header = Buffer.from(JSON.stringify({ alg: "HS256" })).toString("base64url");
     const body = Buffer.from(JSON.stringify({
-      sub, role, exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+      sub, role,
+      exp: role === "anon" ? ANON_KEY_FIXED_EXP : Math.floor(Date.now() / 1000) + ttlSeconds,
     })).toString("base64url");
     return `${header}.${body}.${createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url")}`;
   };
@@ -702,19 +711,19 @@ async function main() {
         if (period === "total") totalAgg = agg;
         await db.query(
           "INSERT INTO tokentracker_leaderboard_snapshots"
-          + " (period, from_day, to_day, user_id, rank, display_name, total_tokens,"
+          + " (period, from_day, to_day, user_id, rank, display_name, avatar_url, total_tokens,"
           + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
           + "  conversation_count, models, generated_at)"
-          + " VALUES ($1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,$12,now())"
+          + " VALUES ($1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,$12,$13,now())"
           + " ON CONFLICT (period, from_day, to_day, user_id) DO UPDATE SET"
-          + "   rank = 1, total_tokens = EXCLUDED.total_tokens,"
+          + "   rank = 1, avatar_url = EXCLUDED.avatar_url, total_tokens = EXCLUDED.total_tokens,"
           + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"
           + "   input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,"
           + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
           + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
           + "   generated_at = now()",
           [period, fromDay, toDay, user.id, profileRow.display_name || fallbackName,
-            agg.total_tokens, costByPeriod[period] !== undefined
+            chosenAvatar, agg.total_tokens, costByPeriod[period] !== undefined
               ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
             agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models],
         );

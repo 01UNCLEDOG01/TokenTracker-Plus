@@ -21851,9 +21851,16 @@ function extractAntigravityGenInfo(buf) {
       }
     }
 
+    // Text-proto sibling flags: `used_claude\x12\x05false` style entries.
+    // True when this generation ran on the shared Claude/GPT channel.
+    const latin = buf.toString("latin1");
+    const flagTrue = (name) => new RegExp(name + "\\x12[\\x04\\x05]true").test(latin);
+    const usedNonGemini = flagTrue("used_claude") || flagTrue("used_non_gemini_model");
+
     return {
       model,
       contextTokens,
+      usedNonGemini,
       lastStepIndex,
       ...(hasUsageMetadata
         ? {
@@ -21932,6 +21939,8 @@ function readAntigravityConversationDb(dbPath) {
     if (snapshot) snapshot.cleanup();
   }
 }
+
+const ANTIGRAVITY_NON_GEMINI_MODEL = "claude-antigravity";
 
 async function parseAntigravityFile({
   filePath,
@@ -22062,6 +22071,11 @@ async function parseAntigravityFile({
     if (dbTurn && dbTurn.model) {
       const norm = normalizeAntigravityTranscriptModel(dbTurn.model);
       if (norm) currentModel = norm;
+    }
+    // Steps that ran on the shared Claude/GPT channel carry that flag but
+    // no model id; attribute them to the channel rather than to gemini.
+    if (dbTurn && dbTurn.usedNonGemini) {
+      currentModel = ANTIGRAVITY_NON_GEMINI_MODEL;
     }
 
     if (!isNewEvent) {
@@ -25216,6 +25230,7 @@ module.exports = {
   listAntigravityTranscripts,
   listAntigravityTranscriptsWithStatus,
   parseAntigravityIncremental,
+  parseAntigravityFile,
   estimateAntigravityTokens,
   isCjkCodePoint,
   resolveAntigravityDbPath,
