@@ -422,9 +422,16 @@ const PROVIDER_ICON_MAP = {
 const PROVIDER_LOGO_MAP = {
   ANTIGRAVITY: "/brand-logos/antigravity.svg",
   ANYTHINGLLM: "/brand-logos/anythingllm.svg",
+  // AutoClaw's own app mark, taken from its installed renderer bundle
+  // (app-icon-square). It is a white glyph on a dark rounded square, so it keeps
+  // that tile in both themes rather than being recolored.
+  AUTOCLAW: "/brand-logos/autoclaw.png",
   CLAUDE: "/brand-logos/claude-code.svg",
   "CLAUDE-SCIENCE": "/brand-logos/claude-code.svg",
   CODEX: "/brand-logos/codex.svg",
+  // Cola's own app mark, taken from its installed resources/icon.png - an orange
+  // ring on a cream tile.
+  COLA: "/brand-logos/cola.png",
   // Command Code ships an official multi-color brand SVG asset in
   // /public/brand-logos/, so it renders through the image path below.
   "COMMAND-CODE": "/brand-logos/commandcode.svg",
