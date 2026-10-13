@@ -28,6 +28,8 @@ const fsp = require("node:fs/promises");
 const os = require("node:os");
 const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
+const { resolveAutoClawSessionFiles, resolveColaSessionFiles, scanAutoClawSession, scanColaSession } = require("./agent-jsonl-sessions");
+const { resolveCoworkChatFiles, scanCoworkChat } = require("./cowork-sessions");
 const readline = require("node:readline");
 const {
   claudeMessageDedupKey,
@@ -2582,6 +2584,13 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   // ambient HOME in place would make a scan of a temp home also pick up the
   // real machine's conversations.
   const workbuddyEnv = { ...env, HOME: home || env.HOME || os.homedir() };
+  // Passive JSONL family (AutoClaw / Cola / Tuanjie Cowork): the same
+  // resolvers the usage collectors use, so the browser cannot list a
+  // different set of conversations than the one that produced the numbers.
+  const jsonlEnv = { ...env, HOME: home || env.HOME || os.homedir() };
+  const autoclawFiles = (() => { try { return resolveAutoClawSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  const colaFiles = (() => { try { return resolveColaSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  const coworkFiles = (() => { try { return resolveCoworkChatFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const workbuddyFiles = (deps.workbuddyProjectFiles
     || resolveWorkbuddyProjectFilesAll(workbuddyEnv)).filter((entry) => typeof entry === "string");
   const codexRoots = providerRoots(home, ".codex", env, { ...deps, extraRoots: extraRootsFor("codex") });
@@ -2667,6 +2676,9 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     // Two WorkBuddy builds, two ledgers: the conversation files are grouped per
     // home so each session keeps the edition it was written by.
     workbuddy: groupWorkbuddyConversationFiles(workbuddyFiles),
+    autoclaw: autoclawFiles,
+    cola: colaFiles,
+    cowork: coworkFiles,
     zcode,
     opencode,
     loomy,
@@ -2882,6 +2894,9 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...(discovered.zcode.length ? [{ source: "zcode", filePath: discovered.zcode, scan: scanZcodeSessions }] : []),
     ...(discovered.opencode.length ? [{ source: "opencode", filePath: discovered.opencode, scan: scanOpencodeSessions }] : []),
     ...((discovered.loomy || []).length ? [{ source: "loomy", filePath: discovered.loomy, scan: (paths) => scanOpencodeSessions(paths, { source: "loomy" }) }] : []),
+    ...((discovered.autoclaw || []).length ? [{ source: "autoclaw", filePath: discovered.autoclaw, scan: scanAutoClawSession }] : []),
+    ...((discovered.cola || []).length ? [{ source: "cola", filePath: discovered.cola, scan: scanColaSession }] : []),
+    ...((discovered.cowork || []).length ? [{ source: "tuanjie-cowork", filePath: discovered.cowork, scan: scanCoworkChat }] : []),
     ...(discovered.workbuddy || []).map((filePaths) => ({
       // The domestic and the international edition are two products with two
       // ledgers, so each conversation keeps the source of the home it came from.
