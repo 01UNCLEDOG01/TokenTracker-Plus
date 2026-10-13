@@ -361,6 +361,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "roocode",
   "trae-cn",
   "trae",
+  "tuanjie-cowork",
   "unsloth",
   "workbuddy",
   "workbuddy-ai",
@@ -2707,13 +2708,16 @@ async function cmdSync(argv, context = {}) {
         }
       }
 
-      // ── AutoClaw / Cola（passive JSONL readers）──
-      // Two separate installs that embed an OpenCode-lineage runtime and keep
-      // every conversation in one append-only JSONL per session. Neither is the
+      // ── AutoClaw / Cola / 团结 Cowork（passive JSONL readers）──
+      // AutoClaw and Cola embed an OpenCode-lineage runtime and keep every
+      // conversation in one append-only JSONL per session. Neither is the
       // standalone OpenClaw CLI, which reads ~/.openclaw.
+      // 团结 Cowork is separate: its own record shape and its own
+      // ~/.codely-cli/tmp install, sharing only the scan loop.
       const agentJsonlSources = [
         { key: "autoclaw", label: "AutoClaw" },
         { key: "cola", label: "Cola" },
+        { key: "tuanjie-cowork", label: "Tuanjie Cowork" },
       ];
       const agentJsonlResult = {};
       for (const { key, label } of agentJsonlSources) {

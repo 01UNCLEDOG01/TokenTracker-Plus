@@ -14,6 +14,10 @@ const {
   resolveColaSessionFiles,
   toAgentSessionRecord,
 } = require("./agent-jsonl-sessions");
+const {
+  resolveCoworkChatFiles,
+  toCoworkSessionRecord,
+} = require("./cowork-sessions");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
 const wsl = require("./wsl-probe");
 const { resolveInstallPaths } = require("./install-resolver");
@@ -11340,8 +11344,20 @@ async function parseWorkbuddyIncremental({
 // Neither is the standalone OpenClaw CLI, which reads ~/.openclaw - a
 // different directory that a machine may or may not have.
 //
+// 团结 Cowork is the third variant and is NOT in that family: it has its own
+// record shape (src/lib/cowork-sessions.js) and its own install
+// (~/.codely-cli/tmp). It shares only the scan loop below, not the adapter.
+//
 // `source` is both the variant selector and the bucket source key, so the two
 // never share dedup state.
+// variant -> resolver + record adapter. `source` is both the variant selector
+// and the bucket source key, so the variants never share dedup state.
+const AGENT_JSONL_VARIANTS = {
+  autoclaw: { resolve: resolveAutoClawSessionFiles, adapt: toAgentSessionRecord },
+  cola: { resolve: resolveColaSessionFiles, adapt: toAgentSessionRecord },
+  "tuanjie-cowork": { resolve: resolveCoworkChatFiles, adapt: toCoworkSessionRecord },
+};
+
 async function parseAgentJsonlIncremental({
   projectFiles,
   cursors,
@@ -11351,7 +11367,8 @@ async function parseAgentJsonlIncremental({
   onProgress,
 } = {}) {
   await ensureDir(path.dirname(queuePath));
-  const variant = source === "cola" ? "cola" : "autoclaw";
+  const variant = Object.prototype.hasOwnProperty.call(AGENT_JSONL_VARIANTS, source) ? source : "autoclaw";
+  const { resolve, adapt } = AGENT_JSONL_VARIANTS[variant];
   const state = cursors[variant] && typeof cursors[variant] === "object" ? cursors[variant] : {};
   const seenIds = new Set(Array.isArray(state.seenIds) ? state.seenIds : []);
   const fileOffsets = state.fileOffsets && typeof state.fileOffsets === "object" ? { ...state.fileOffsets } : {};
@@ -11361,9 +11378,7 @@ async function parseAgentJsonlIncremental({
 
   const files = Array.isArray(projectFiles)
     ? projectFiles
-    : variant === "cola"
-      ? resolveColaSessionFiles({ env: env || process.env, home: os.homedir() })
-      : resolveAutoClawSessionFiles({ env: env || process.env, home: os.homedir() });
+    : resolve({ env: env || process.env, home: os.homedir() });
 
   let filesProcessed = 0;
   let eventsAggregated = 0;
@@ -11396,7 +11411,7 @@ async function parseAgentJsonlIncremental({
       let entry;
       try { entry = JSON.parse(line); } catch { continue; }
 
-      const record = toAgentSessionRecord(entry);
+      const record = adapt(entry);
       // A user record carries no usage; only assistant replies open a bucket.
       if (!record || record.type !== "assistant" || !record.message?.usage) continue;
 

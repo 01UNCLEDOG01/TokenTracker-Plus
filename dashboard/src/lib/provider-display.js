@@ -13,6 +13,7 @@ const SPECIAL_PROVIDER_NAMES = {
   unsloth: "Unsloth Studio",
   workbuddyai: "WorkBuddy AI",
   autoclaw: "AutoClaw",
+  "tuanjie-cowork": "Tuanjie Cowork",
 };
 
 const SPECIAL_PROVIDER_COPY_KEYS = {

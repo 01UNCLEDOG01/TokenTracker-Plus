@@ -474,6 +474,10 @@ const PROVIDER_LOGO_MAP = {
   // WorkBuddy's own green cat mark, extracted from D:\WorkBuddy\WorkBuddy.exe,
   // so it no longer shares the Tencent mascot with WorkBuddy AI / CodeBuddy.
   WORKBUDDY: "/brand-logos/workbuddy.png",
+  // 团结 Cowork's own app mark, copied from the installed app's toast icon
+  // (AppData\Local\Tuanjie Cowork\codely-toast-icon.png) - the green/teal
+  // Codely hexagon.
+  "TUANJIE-COWORK": "/brand-logos/tuanjie-cowork.png",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset
