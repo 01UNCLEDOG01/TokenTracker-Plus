@@ -62,7 +62,11 @@ function usageLimitsSelectionKey(options) {
   const antigravity = isAntigravityQuotaDisabled() ? "off" : "on";
   return `${devin}-${antigravity}`;
 }
-const CACHE_TTL_MS = 2 * 60 * 1000;
+// The pet/tray poller and the page share this snapshot. The live providers
+// behind it are local reads (Antigravity/Cursor/Qoder local APIs) or paths
+// with their own upstream cooldowns, so a short window keeps every surface
+// visibly real-time without touching upstream more than the page already does.
+const CACHE_TTL_MS = 30 * 1000;
 // Must stay below the macOS app's post-reset re-fetch grace (10s in
 // DashboardViewModel.resetBoundaryGrace), or that targeted refresh would be
 // served this cache's pre-reset snapshot and miss the rollover.

@@ -118,6 +118,16 @@ async function cmdServe(argv) {
   const queuePath = resolveQueuePath();
   const dashboardDir = resolveDashboardDir();
 
+  // 2.0 Warm the session-analytics cache in the background: the first
+  //     /functions/tokentracker-sessions call otherwise rescans every
+  //     transcript on the machine (tens of seconds on a cold start).
+  setTimeout(() => {
+    try {
+      const { buildSessionAnalytics } = require("../lib/session-analytics");
+      Promise.resolve(buildSessionAnalytics()).catch(() => {});
+    } catch (_e) { /* best effort */ }
+  }, 2500);
+
   // 2.1 Refresh LiteLLM pricing data in the background. The seed snapshot is
   //     already loaded synchronously at require-time, so cost calculation is
   //     functional right now; ensurePricingLoaded() only upgrades to fresh
