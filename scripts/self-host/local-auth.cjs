@@ -187,6 +187,27 @@ async function handleAuthRequest({ req, url, raw, db, secret, send }) {
     return true;
   }
 
+  // Change the single account's password. The SDK patches profiles/current, so
+  // accept it there; this matters once the backend is reachable from the
+  // internet - the bootstrap password is not something to keep.
+  if (route === "profiles/current" && req.method === "PATCH") {
+    const header = String(req.headers.authorization || "");
+    const payload = verifyToken(header.replace(/^Bearer\s+/i, ""), secret);
+    if (!payload) {
+      send(401, { error: "unauthorized", message: "not signed in" });
+      return true;
+    }
+    const body = await readJson(raw);
+    const password = String(body.password || "");
+    if (password.length < 10) {
+      send(400, { error: "invalid_request", message: "password must be at least 10 characters" });
+      return true;
+    }
+    await db.query("UPDATE auth.users SET password_hash = $2 WHERE id = $1", [payload.sub, hashPassword(password)]);
+    send(200, { id: payload.sub, email: payload.email || null, password_changed: true });
+    return true;
+  }
+
   if (route === "profiles/current" && req.method === "GET") {
     const header = String(req.headers.authorization || "");
     const payload = verifyToken(header.replace(/^Bearer\s+/i, ""), secret);
