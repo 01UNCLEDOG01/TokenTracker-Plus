@@ -1,0 +1,9 @@
+<svg viewBox="0 0 24 24" width="44" height="44" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Agent2API">
+  <rect width="24" height="24" rx="5.4" fill="#007AFF"/>
+  <g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5.23 9.24h10.71"/>
+    <path d="M15.94 6.72 18.77 9.24 15.94 11.76"/>
+    <path d="M18.77 14.76H8.06"/>
+    <path d="M8.06 12.24 5.23 14.76 8.06 17.28"/>
+  </g>
+</svg>

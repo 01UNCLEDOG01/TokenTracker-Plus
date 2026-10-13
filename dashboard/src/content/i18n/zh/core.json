@@ -839,5 +839,7 @@
   "settings.appearance.token_grouping.wan": "4位",
   "legal.nav.pricing": "云服务定价",
   "legal.nav.terms": "服务条款",
-  "legal.nav.support": "联系客服"
+  "legal.nav.support": "联系客服",
+  "settings.account.avatarUrl": "头像链接",
+  "settings.account.avatarUrlHint": "粘贴 https:// 图片地址；留空即清除"
 }

@@ -478,6 +478,10 @@ const PROVIDER_LOGO_MAP = {
   // (AppData\Local\Tuanjie Cowork\codely-toast-icon.png) - the green/teal
   // Codely hexagon.
   "TUANJIE-COWORK": "/brand-logos/tuanjie-cowork.png",
+  // Agent2API's own brand mark, taken from the installed gateway's icon set
+  // (Program Files/Agent2API/_up_/ui/icons.js "brand": the blue swap-arrows
+  // tile), rendered verbatim as SVG.
+  AGENT2API: "/brand-logos/agent2api.svg",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

@@ -19,10 +19,18 @@ const privateFunctions = [
   "tokentracker-account-summary","tokentracker-account-daily","tokentracker-account-hourly",
   "tokentracker-account-monthly","tokentracker-account-heatmap","tokentracker-account-model-breakdown",
   "tokentracker-account-devices","tokentracker-billing",
+  // Public face: leaderboard + profile + visibility + likes + the pet/embed
+  // SVGs and the CLI telemetry heartbeat. The signed refresh pipeline
+  // (tokentracker-leaderboard-refresh) stays hosted-only; on a private
+  // instance the backend refreshes the snapshot table itself.
+  "tokentracker-leaderboard","tokentracker-leaderboard-profile",
+  "tokentracker-public-visibility","tokentracker-profile-likes",
+  "tokentracker-telemetry","tokentracker-embed-svg","tokentracker-community-models",
 ];
 function steps() {
   const sessions=read("migrations/20260817120000_account-session-states.sql");
   const concurrent=read("migrations/20260719152022_harden-backend-concurrency.sql");
+  const hotPaths=read("migrations/20260717013000_harden-backend-hot-paths.sql");
   return [
     {id:"01-private-baseline",sql:read("scripts/self-host/baseline.sql")},
     {id:"02-account-sessions",sql:sessions.slice(0,sessions.indexOf("-- Leaderboard: account-level sources")) + `
@@ -45,7 +53,11 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
       read("scripts/self-host/private-rpc-access.sql"),
     ].join("\n\n")},
     {id:"04b-deepseek-time-priced-patterns",sql:read("migrations/20261013203000_self-host-deepseek-v41-time-priced-patterns.sql")},
-    ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql",
+    {id:"04c-self-host-public-face",sql:[
+      read("migrations/20261014020000_self-host-public-face.sql"),
+      functionSql(hotPaths,"upsert_tokentracker_telemetry_daily"),
+    ].join("\n\n")},
+    {id:"04d-public-views-revoke",sql:read("migrations/20261014020500_self-host-public-views-revoke.sql")},    ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql",
       "20261007120000_cloud-waffo.sql","20261007130000_cloud-waffo-retry.sql","20261007140000_cloud-waffo-attempts.sql",
       "20261007150000_cloud-(removed).sql","20261007160000_cloud-(removed)-periods.sql"]
       .map(name=>({id:name.slice(0,-4),sql:read("migrations/"+name)})),

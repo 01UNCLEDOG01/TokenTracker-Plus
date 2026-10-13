@@ -120,6 +120,7 @@ const SUPPORTED_PROVIDERS = [
   "Claude Code",
   "AutoClaw",
   "Cola",
+  "Tuanjie Cowork",
   "Codex CLI",
   "AStudio",
   "Cursor",

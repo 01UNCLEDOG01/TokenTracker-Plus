@@ -547,6 +547,102 @@ async function main() {
   // LAN (and the tunnel) reach it; set TOKENTRACKER_LOCAL_BACKEND_BIND=0.0.0.0.
   const bindHost = process.env.TOKENTRACKER_LOCAL_BACKEND_BIND || "127.0.0.1";
   await new Promise((resolve) => server.listen(port, bindHost, resolve));
+  // ── Self-host leaderboard snapshots ──
+  // See the comment above refreshSelfHostLeaderboard. Refreshed at boot and
+  // every 10 minutes; a failure logs and retries on the next tick rather
+  // than ever blocking the API server.
+  const refreshSelfHostLeaderboard = async () => {
+    try {
+      const user = (await db.query(
+        "SELECT id, email FROM auth.users ORDER BY created_at LIMIT 1",
+      )).rows[0];
+      if (!user) return;
+      const fallbackName = os.hostname() || String(user.email || "").split("@")[0] || "local";
+      await db.query(
+        "INSERT INTO tokentracker_user_profiles (user_id, display_name) VALUES ($1, $2) "
+        + "ON CONFLICT (user_id) DO NOTHING",
+        [user.id, fallbackName],
+      );
+      await db.query(
+        "INSERT INTO tokentracker_user_settings (user_id) VALUES ($1) "
+        + "ON CONFLICT (user_id) DO NOTHING",
+        [user.id],
+      );
+      const now = new Date();
+      const dayOf = (d) => d.toISOString().slice(0, 10);
+      const weekFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      weekFrom.setUTCDate(weekFrom.getUTCDate() - ((weekFrom.getUTCDay() + 6) % 7));
+      // ISO 8601 Monday-start week, matching tokentracker-leaderboard.ts.
+      // "total" starts at the account's earliest ingested day (the snapshot
+      // row needs a concrete from_day, and the reader orders by it).
+      const earliest = (await db.query(
+        "SELECT COALESCE(MIN(hour_start)::date::text, to_char(now(), 'YYYY-MM-DD')) AS d"
+        + " FROM tokentracker_hourly WHERE user_id = $1",
+        [user.id],
+      )).rows[0].d;
+      // The reader matches the FULL window the refresh pipeline writes:
+      // Monday→Sunday for weeks, the whole UTC month for months.
+      const weekTo = new Date(weekFrom);
+      weekTo.setUTCDate(weekTo.getUTCDate() + 6);
+      const monthTo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+      const periods = [
+        ["week", dayOf(weekFrom), dayOf(weekTo)],
+        ["month", dayOf(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))), dayOf(monthTo)],
+        ["total", earliest, dayOf(now)],
+      ];
+      for (const [period, fromDay, toDay] of periods) {
+        const fromIso = period === "total"
+          ? "1970-01-01T00:00:00Z"
+          : new Date(fromDay + "T00:00:00Z").toISOString();
+        const toIso = new Date(toDay + "T23:59:59.999Z").toISOString();
+        const agg = (await db.query(
+          "WITH hourly AS ("
+          + " SELECT DISTINCT ON (COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model)"
+          + "   h.hour_start, h.source, h.model, h.total_tokens, h.input_tokens, h.output_tokens,"
+          + "   h.cached_input_tokens, h.conversations, h.total_cost_usd"
+          + " FROM tokentracker_hourly h"
+          + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
+          + " WHERE h.user_id = $1 AND h.hour_start >= $2 AND h.hour_start <= $3"
+          + " ORDER BY COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC"
+          + " )"
+          + " SELECT COALESCE(SUM(total_tokens),0)::bigint AS total_tokens,"
+          + " COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,"
+          + " COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,"
+          + " COALESCE(SUM(cached_input_tokens),0)::bigint AS cached_input_tokens,"
+          + " COALESCE(SUM(conversations),0)::bigint AS conversations,"
+          + " COALESCE(SUM(total_cost_usd),0)::numeric AS estimated_cost_usd,"
+          + " COALESCE(jsonb_object_agg(model, total_tokens) FILTER (WHERE model IS NOT NULL), '{}'::jsonb) AS models"
+          + " FROM hourly",
+          [user.id, fromIso, toIso],
+        )).rows[0];
+        await db.query(
+          "INSERT INTO tokentracker_leaderboard_snapshots"
+          + " (period, from_day, to_day, user_id, rank, display_name, total_tokens,"
+          + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
+          + "  conversation_count, models, generated_at)"
+          + " VALUES ($1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,$12,now())"
+          + " ON CONFLICT (period, from_day, to_day, user_id) DO UPDATE SET"
+          + "   rank = 1, total_tokens = EXCLUDED.total_tokens,"
+          + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"
+          + "   input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,"
+          + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
+          + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
+          + "   generated_at = now()",
+          [period, fromDay, toDay, user.id, fallbackName,
+            agg.total_tokens, agg.estimated_cost_usd, agg.input_tokens,
+            agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models],
+        );
+      }
+      process.stdout.write("[local-backend] leaderboard snapshots refreshed\n");
+    } catch (error) {
+      process.stdout.write("[local-backend] leaderboard snapshot refresh failed: "
+        + (error && error.message ? error.message : String(error)) + "\n");
+    }
+  };
+  void refreshSelfHostLeaderboard().catch(() => {});
+  const leaderboardTimer = setInterval(refreshSelfHostLeaderboard, 10 * 60 * 1000);
+  leaderboardTimer.unref?.();
+
   process.stdout.write([
     "",
     "[local-backend] ready",

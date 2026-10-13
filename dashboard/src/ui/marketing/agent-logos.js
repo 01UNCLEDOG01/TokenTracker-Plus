@@ -22,6 +22,7 @@ export const AGENT_LOGOS = [
   { id: 47, name: "AutoClaw", provider: "autoclaw" },
   { id: 48, name: "Cola", provider: "cola" },
   { id: 49, name: "Tuanjie Cowork", provider: "tuanjie-cowork" },
+  { id: 50, name: "Agent2API", provider: "agent2api" },
   { id: 15, name: "Grok", provider: "grok" },
   { id: 16, name: "oh-my-pi", provider: "omp" },
   { id: 17, name: "Pi", provider: "pi" },

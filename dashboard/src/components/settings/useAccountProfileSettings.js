@@ -103,6 +103,10 @@ function useProfileState(user) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [customDisplayName, setCustomDisplayName] = useState(null);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState(null);
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [avatarInput, setAvatarInput] = useState("");
+  const [avatarError, setAvatarError] = useState(null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [showGithubOn, setShowGithubOn] = useState(false);
@@ -115,7 +119,11 @@ function useProfileState(user) {
   const userId = useMemo(() => (typeof user?.id === "string" ? user.id.trim() : ""), [user]);
   const loadSetters = useMemo(() => ({
     setAnonymousOn,
+    setCustomAvatarUrl,
     setCustomDisplayName,
+    setEditingAvatar,
+    setAvatarError,
+    setAvatarInput,
     setGithubUrl,
     setProfileLoading,
     setPublicProfileOn,
@@ -124,8 +132,12 @@ function useProfileState(user) {
 
   return {
     anonymousOn,
+    avatarError,
+    avatarInput,
+    customAvatarUrl,
     customDisplayName,
     displayName,
+    editingAvatar,
     editingGithub,
     editingName,
     email,
@@ -138,7 +150,11 @@ function useProfileState(user) {
     profileSaving,
     publicProfileOn,
     setAnonymousOn,
+    setAvatarError,
+    setAvatarInput,
+    setCustomAvatarUrl,
     setCustomDisplayName,
+    setEditingAvatar,
     setEditingGithub,
     setEditingName,
     setGithubError,
@@ -168,6 +184,7 @@ function useProfileLoad(getAccessToken, signedIn, state) {
         state.setPublicProfileOn(Boolean(data?.enabled));
         state.setAnonymousOn(Boolean(data?.anonymous));
         if (data?.display_name) state.setCustomDisplayName(data.display_name);
+        state.setCustomAvatarUrl(data?.avatar_url || null);
         state.setShowGithubOn(Boolean(data?.show_github_url));
         state.setGithubUrl(data?.github_url || "");
       } catch (error) {
@@ -219,6 +236,19 @@ function buildNameProps(state, actions) {
   };
 }
 
+function buildAvatarProps(state, actions) {
+  return {
+    avatarError: state.avatarError,
+    avatarUrl: state.customAvatarUrl,
+    editingAvatar: state.editingAvatar,
+    handleSaveAvatar: actions.handleSaveAvatar,
+    profileLoading: state.profileLoading,
+    profileSaving: state.profileSaving,
+    setAvatarInput: state.setAvatarInput,
+    setEditingAvatar: state.setEditingAvatar,
+    startEditingAvatar: actions.startEditingAvatar,
+  };
+}
 function buildGithubProps(state, actions) {
   return {
     editingGithub: state.editingGithub,
@@ -257,6 +287,35 @@ function useVisibilityActions(state, mutateProfile) {
   return { handleAnonymousToggle, handlePublicProfileToggle };
 }
 
+function useAvatarActions(state, mutateProfile) {
+  const handleSaveAvatar = useCallback(async () => {
+    const trimmed = state.avatarInput.trim();
+    if (!trimmed) {
+      state.setAvatarError(null);
+      await mutateProfile({ avatar_url: null }, {
+        label: "clear avatar",
+        onSuccess: () => { state.setCustomAvatarUrl(null); state.setEditingAvatar(false); },
+      });
+      return;
+    }
+    if (!/^https:\/\/\S{4,400}$/i.test(trimmed)) {
+      state.setAvatarError("https://…");
+      return;
+    }
+    await mutateProfile({ avatar_url: trimmed }, {
+      label: "save avatar",
+      onSuccess: () => { state.setCustomAvatarUrl(trimmed); state.setAvatarError(null); state.setEditingAvatar(false); },
+    });
+  }, [mutateProfile, state]);
+
+  const startEditingAvatar = useCallback(() => {
+    state.setAvatarInput(state.customAvatarUrl || "");
+    state.setAvatarError(null);
+    state.setEditingAvatar(true);
+  }, [state]);
+
+  return { handleSaveAvatar, startEditingAvatar };
+}
 function useNameActions(state, mutateProfile, refreshDisplayName) {
   const handleSaveName = useCallback(async () => {
     const trimmed = state.nameInput.trim().slice(0, 50);
@@ -341,6 +400,7 @@ export function useAccountProfileSettings() {
   const visibilityActions = useVisibilityActions(state, mutateProfile);
   const nameActions = useNameActions(state, mutateProfile, auth.refreshDisplayName);
   const githubActions = useGithubActions(state, mutateProfile);
+  const avatarActions = useAvatarActions(state, mutateProfile);
 
   return {
     ...auth,
@@ -350,6 +410,7 @@ export function useAccountProfileSettings() {
     userId: state.userId,
     name: buildNameProps(state, { ...visibilityActions, ...nameActions }),
     github: buildGithubProps(state, githubActions),
+    avatar: buildAvatarProps(state, avatarActions),
     profileLoading: state.profileLoading,
     profileSaving: state.profileSaving,
     publicProfileOn: publicProfileAvailable && state.publicProfileOn,

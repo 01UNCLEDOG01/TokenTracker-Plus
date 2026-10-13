@@ -230,7 +230,7 @@ brew install xiufengsun/tokentracker/tokentracker
 
 | 기능 | **[TokenTracker](https://github.com/xiufengsun/TokenTracker)** | **[ccusage](https://github.com/ccusage/ccusage)** | **[Tokscale](https://github.com/junhoyeo/tokscale)** |
 |---|:---:|:---:|:---:|
-| **지원하는 AI 도구 수** | **48** | 멀티 에이전트 지원 | 멀티 에이전트 지원 |
+| **지원하는 AI 도구 수** | **49** | 멀티 에이전트 지원 | 멀티 에이전트 지원 |
 | **기본 인터페이스** | 네이티브 데스크톱 앱 & 웹 대시보드 | 터미널 CLI | 터미널 TUI & CLI |
 | **로컬 우선 분석** | ✅ | ✅ | ✅ |
 | **네이티브 데스크톱 앱** | ✅ macOS, Windows, Linux | ❌ | ❌ |

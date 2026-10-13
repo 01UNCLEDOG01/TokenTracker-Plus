@@ -594,5 +594,7 @@
   "settings.appearance.token_grouping.thousand": "3자리",
   "settings.appearance.token_grouping.wan": "4자리",
   "leaderboard.pro.badge": "Pro",
-  "leaderboard.pro.badge_aria": "TokenTracker Pro 회원"
+  "leaderboard.pro.badge_aria": "TokenTracker Pro 회원",
+  "settings.account.avatarUrl": "아바타 URL",
+  "settings.account.avatarUrlHint": "https:// 이미지 URL을 붙여넣기; 비우면 해제"
 }

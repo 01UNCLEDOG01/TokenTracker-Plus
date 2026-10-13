@@ -563,6 +563,8 @@ settings.account.publicProfileHint,ui,SettingsPage,SettingsPage,public_profile_h
 settings.account.displayNameAnonymousHint,ui,SettingsPage,SettingsPage,display_name_anon_hint,"Anonymous — your name and avatar are hidden on the leaderboard",,active
 settings.account.displayNameDisabledWhileAnon,ui,SettingsPage,SettingsPage,display_name_disabled,"Turn on the switch first to edit your name",,active
 settings.account.githubUrl,ui,SettingsPage,SettingsPage,github_url,"GitHub profile",,active
+settings.account.avatarUrl,ui,SettingsPage,SettingsPage,avatar_url,"Avatar URL",,active
+settings.account.avatarUrlHint,ui,SettingsPage,SettingsPage,avatar_url_hint,"Paste an https:// image URL; clear to reset",,active
 settings.account.githubUrlHint,ui,SettingsPage,SettingsPage,github_url_hint,"Show a GitHub link next to your name on the leaderboard.",,active
 settings.account.githubUrlPlaceholder,ui,SettingsPage,SettingsPage,github_url_placeholder,"username or https://github.com/username",,active
 settings.account.githubUrlInvalid,ui,SettingsPage,SettingsPage,github_url_invalid,"Use a GitHub username or https://github.com/username URL.",,active

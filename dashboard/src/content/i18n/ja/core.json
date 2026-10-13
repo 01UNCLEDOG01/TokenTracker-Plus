@@ -594,5 +594,7 @@
   "settings.appearance.token_grouping.thousand": "3桁",
   "settings.appearance.token_grouping.wan": "4桁",
   "leaderboard.pro.badge": "Pro",
-  "leaderboard.pro.badge_aria": "TokenTracker Pro メンバー"
+  "leaderboard.pro.badge_aria": "TokenTracker Pro メンバー",
+  "settings.account.avatarUrl": "アバターURL",
+  "settings.account.avatarUrlHint": "https:// の画像 URL を貼り付け（空で解除）"
 }

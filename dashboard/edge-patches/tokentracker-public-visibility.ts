@@ -111,7 +111,7 @@ export default async function (req: Request): Promise<Response> {
       .maybeSingle();
     const { data: profile } = await client.database
       .from("tokentracker_user_profiles")
-      .select("display_name")
+      .select("display_name, avatar_url")
       .eq("user_id", userId)
       .maybeSingle();
     return json({
@@ -120,6 +120,7 @@ export default async function (req: Request): Promise<Response> {
       share_token: pv?.token_hash || null,
       updated_at: data?.updated_at || null,
       display_name: profile?.display_name || null,
+      avatar_url: profile?.avatar_url || null,
       github_url: data?.github_url || null,
       show_github_url: data?.show_github_url || false,
     });
@@ -196,12 +197,34 @@ export default async function (req: Request): Promise<Response> {
       if (settingsErr) {
         return json({ error: settingsErr.message || "Failed to save settings" }, 500);
       }
+      // Mirror the profile identity into user_profiles so the profile page
+      // and the snapshot writer see the same name/avatar the settings UI set.
+      const profileUpsert: Record<string, unknown> = { user_id: userId, updated_at: now };
+      if (normalizedDisplayName !== undefined) profileUpsert.display_name = normalizedDisplayName;
+      if (normalizedAvatarUrl !== undefined) profileUpsert.avatar_url = normalizedAvatarUrl;
+      const { error: profileErr } = await client.database.from("tokentracker_user_profiles").upsert(
+        profileUpsert,
+        { onConflict: "user_id" },
+      );
+      if (profileErr) {
+        return json({ error: profileErr.message || "Failed to save profile" }, 500);
+      }
     }
 
+    // Self-host avatars are plain URLs the user pastes into settings (there
+    // is no OAuth provider here to source one from). Written to
+    // tokentracker_user_profiles — the profile function and the snapshot
+    // writer read it from there.
+    let normalizedAvatarUrl;
+    if (body.avatar_url !== undefined) {
+      const raw = typeof body.avatar_url === "string" ? body.avatar_url.trim() : "";
+      normalizedAvatarUrl = /^https:\/\/\S{4,400}$/i.test(raw) ? raw : null;
+    }
     const result: Record<string, unknown> = { updated_at: now };
     if (body.enabled !== undefined) result.enabled = Boolean(body.enabled);
     if (body.anonymous !== undefined) result.anonymous = Boolean(body.anonymous);
     if (normalizedDisplayName !== undefined) result.display_name = normalizedDisplayName;
+    if (normalizedAvatarUrl !== undefined) result.avatar_url = normalizedAvatarUrl;
     if (normalizedGithubUrl !== undefined) result.github_url = normalizedGithubUrl;
     if (body.show_github_url !== undefined) result.show_github_url = Boolean(body.show_github_url);
     return json(result);

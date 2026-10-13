@@ -124,9 +124,15 @@ async function handleAuthRequest({ req, url, raw, db, secret, send }) {
     send(200, {
       providers: [],
       oauth_providers: [],
+      // The dashboard's LoginCard reads the SDK-shaped camelCase fields; a
+      // response missing them falls back to advertising google/github OAuth,
+      // which this instance cannot honour.
+      oAuthProviders: [],
+      customOAuthProviders: [],
       email_verification: false,
       password_reset: false,
       signup_enabled: true,
+      passwordMinLength: 10,
     });
     return true;
   }

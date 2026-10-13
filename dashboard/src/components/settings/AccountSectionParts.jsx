@@ -198,6 +198,51 @@ function DisplayNameField({ name }) {
   );
 }
 
+function AvatarField({ avatar }) {
+  const {
+    avatarError, avatarUrl, editingAvatar, handleSaveAvatar,
+    profileLoading, profileSaving, setAvatarInput, setEditingAvatar,
+    startEditingAvatar,
+  } = avatar;
+  return (
+    <SettingsField
+      label={copy("settings.account.avatarUrl")}
+      editing={editingAvatar}
+      hint={avatarUrl || copy("settings.account.avatarUrlHint")}
+      editor={(
+        <>
+          <input
+            type="url"
+            value={avatarInput}
+            onChange={(event) => setAvatarInput(event.target.value)}
+            placeholder="https://…"
+            className="w-64 rounded-md border border-oai-gray-300 dark:border-oai-gray-700 bg-transparent px-2 py-1 text-sm"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={handleSaveAvatar}
+            disabled={profileSaving}
+            className="px-2 py-1 text-sm rounded-md border border-oai-gray-300 dark:border-oai-gray-700 disabled:opacity-50"
+          >
+            {copy("settings.account.save")}
+          </button>
+          {avatarError ? <span className="text-xs text-red-500">{avatarError}</span> : null}
+        </>
+      )}
+      actions={(
+        <button
+          type="button"
+          onClick={startEditingAvatar}
+          disabled={profileLoading || profileSaving}
+          className="text-sm text-oai-gray-500 dark:text-oai-gray-400 hover:text-oai-black dark:hover:text-white"
+        >
+          {copy("settings.account.edit")}
+        </button>
+      )}
+    />
+  );
+}
 function GithubProfileField({ github }) {
   const {
     editingGithub,
@@ -268,10 +313,11 @@ export function SignedOutAccountSection() {
   );
 }
 
-export function PublicProfileFields({ name, github }) {
+export function PublicProfileFields({ name, github, avatar }) {
   return (
     <>
       <DisplayNameField name={name} />
+      <AvatarField avatar={avatar} />
       <GithubProfileField github={github} />
     </>
   );

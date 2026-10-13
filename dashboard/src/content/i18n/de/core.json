@@ -591,5 +591,7 @@
   "settings.appearance.token_grouping.thousand": "3er",
   "settings.appearance.token_grouping.wan": "4er",
   "leaderboard.pro.badge": "Pro",
-  "leaderboard.pro.badge_aria": "TokenTracker Pro-Mitglied"
+  "leaderboard.pro.badge_aria": "TokenTracker Pro-Mitglied",
+  "settings.account.avatarUrl": "Avatar-URL",
+  "settings.account.avatarUrlHint": "https:// Bild-URL einfügen; leeren zum Entfernen"
 }

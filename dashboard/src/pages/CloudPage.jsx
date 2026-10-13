@@ -136,6 +136,15 @@ export function CloudPlanView({ catalogState, accountState, initialSelection, se
   if (catalog?.policy?.hosting_mode === "self_hosted" || membership?.status === "self_hosted") {
     return <SelfHostedCloudState />;
   }
+  // The catalog decides hosted-vs-self-hosted; render a quiet placeholder
+  // until it lands so the pricing grid never flashes ahead of that verdict.
+  if (loading || auth?.loading) {
+    return (
+      <div className="tt-cloud-theme flex flex-1 items-center justify-center py-24 text-sm text-oai-gray-500 dark:text-oai-gray-400" role="status">
+        {copy("cloud.catalog.loading")}
+      </div>
+    );
+  }
 
   return (
     <div ref={pageRef} className="tt-cloud-theme flex flex-1 flex-col font-oai text-oai-black dark:text-oai-white">
