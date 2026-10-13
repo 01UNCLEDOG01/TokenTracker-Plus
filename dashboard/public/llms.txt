@@ -1,3 +1,7 @@
+# Note: this deployment is a personal fork ("TT-plus") of TokenTracker,
+# running against a self-hosted backend with no membership payment UI.
+# Upstream: https://github.com/xiufengsun/TokenTracker (MIT)
+
 # Token Tracker LLMs Index
 
 Token Tracker is a free, open-source, local-first AI coding usage and cost

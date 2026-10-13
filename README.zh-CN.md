@@ -1,3 +1,10 @@
+> **本仓库是个人 fork（“TT-plus”），不是上游 TokenTracker 的发行版。**
+> 它对接**自建后端**（自己硬件上跑的 Node + PGlite 小型服务），**移除了会员付费界面**
+> （排行榜与成就保留），并按单一私有账号调优。上游项目与全部版权：
+> [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）。
+
+---
+
  <div align="center">
 
 # Token Tracker

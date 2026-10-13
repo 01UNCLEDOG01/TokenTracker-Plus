@@ -2597,7 +2597,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const antigravityDbs = (() => {
     try {
       const dir = path.join(home, ".gemini", "antigravity", "conversations");
-      return fssync.readdirSync(dir)
+      return fs.readdirSync(dir)
         .filter((f) => f.endsWith(".db"))
         .sort()
         .map((f) => path.join(dir, f));
@@ -2840,11 +2840,11 @@ async function scanAntigravitySession(dbPath) {
   );
   let chunkFiles = [];
   try {
-    chunkFiles = fssync.readdirSync(transcriptDir).filter((f) => f.endsWith(".jsonl")).sort();
+    chunkFiles = fs.readdirSync(transcriptDir).filter((f) => f.endsWith(".jsonl")).sort();
   } catch (_e) { chunkFiles = []; }
   if (!chunkFiles.length) throw new Error("antigravity transcript chunks are missing");
   const chunkPaths = chunkFiles.map((f) => path.join(transcriptDir, f));
-  const raw = chunkPaths.map((f) => fssync.readFileSync(f, "utf8")).join("\n");
+  const raw = chunkPaths.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 
   // Lazy require: rollout.js requires this module for the Claude scanner.
   const { parseAntigravityFile } = require("./rollout");
@@ -2873,7 +2873,9 @@ async function scanAntigravitySession(dbPath) {
       if (startedMs === null || ts < startedMs) startedMs = ts;
       if (endedMs === null || ts > endedMs) endedMs = ts;
     }
-    if (rec?.type === "user") turns += 1;
+    // The transcript names user turns USER_INPUT (the parser reads the same
+    // type when it tracks model-selection changes).
+    if (rec?.type === "USER_INPUT") turns += 1;
     const calls = Array.isArray(rec?.tool_calls) ? rec.tool_calls : [];
     for (const call of calls) {
       toolCalls += 1;

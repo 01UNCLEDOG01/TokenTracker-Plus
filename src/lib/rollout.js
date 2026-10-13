@@ -22072,9 +22072,11 @@ async function parseAntigravityFile({
       const norm = normalizeAntigravityTranscriptModel(dbTurn.model);
       if (norm) currentModel = norm;
     }
-    // Steps that ran on the shared Claude/GPT channel carry that flag but
-    // no model id; attribute them to the channel rather than to gemini.
-    if (dbTurn && dbTurn.usedNonGemini) {
+    // Steps that ran on the shared Claude/GPT channel carry that flag. When
+    // the transcript already recorded a concrete model for the step (the
+    // model-selection records name e.g. claude-opus-4-6), that id is kept —
+    // the channel fallback only replaces a gemini default or an empty model.
+    if (dbTurn && dbTurn.usedNonGemini && (!currentModel || /gemini/i.test(currentModel))) {
       currentModel = ANTIGRAVITY_NON_GEMINI_MODEL;
     }
 

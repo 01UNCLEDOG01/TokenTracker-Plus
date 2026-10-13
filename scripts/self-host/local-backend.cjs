@@ -728,26 +728,111 @@ async function main() {
             agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models],
         );
       }
-      // Award the two cloud-side badges straight from the snapshots. Tier
-      // thresholds come from tokentracker_badge_catalog (podium: rank 100/30/
-      // 10/3 lower-is-better; trendsetter: 2/5/10/20 distinct models). The
-      // serials trigger numbers new tiers automatically.
-      const totalModels = Object.keys((totalAgg && totalAgg.models) || {}).length;
-      const trendTier = totalModels >= 20 ? 4 : totalModels >= 10 ? 3 : totalModels >= 5 ? 2 : totalModels >= 2 ? 1 : 0;
-      const nowIso = new Date().toISOString();
-      const awardRows = [
-        // podium: the rank-1 occupant of this instance (the account itself).
-        [user.id, "podium", 4, 1, nowIso],
-        // trendsetter: distinct models in the all-time window.
-        [user.id, "trendsetter", trendTier, totalModels, nowIso],
+      // Award every catalog badge from the same deduplicated hourly data the
+      // snapshots use. Thresholds come from tokentracker_badge_catalog; the
+      // metrics mirror the local replay semantics (CLOUD_PARITY_BADGE_
+      // THRESHOLDS in src/lib/local-api.js): UTC day grain, machine-cluster
+      // dedup, ISO weeks for momentum. trendsetter and podium have no local
+      // metric (cross-user facts), so they keep their dedicated awards.
+      try {
+        const metrics = (await db.query(
+          "WITH hourly AS ("
+          + " SELECT DISTINCT ON (COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model)"
+          + "   h.hour_start, h.source, h.model, h.total_tokens, h.output_tokens"
+          + " FROM tokentracker_hourly h"
+          + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
+          + " WHERE h.user_id = $1"
+          + " ORDER BY COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC"
+          + "), days AS ("
+          + " SELECT (hour_start AT TIME ZONE \'UTC\')::date AS day, SUM(total_tokens)::bigint AS tokens FROM hourly GROUP BY 1"
+          + "), weeks AS ("
+          + " SELECT date_trunc(\'week\', day) AS wk, SUM(tokens)::bigint AS tokens FROM days GROUP BY 1"
+          + ")"
+          + " SELECT jsonb_build_object("
+          + "   \'total_tokens\', (SELECT COALESCE(SUM(total_tokens),0) FROM hourly),"
+          + "   \'output_tokens\', (SELECT COALESCE(SUM(output_tokens),0) FROM hourly),"
+          + "   \'best_day\', (SELECT COALESCE(MAX(tokens),0) FROM days),"
+          + "   \'active_days\', (SELECT COUNT(*) FROM days),"
+          + "   \'first_day\', (SELECT COALESCE(MIN(day)::text,\'\') FROM days),"
+          + "   \'models\', (SELECT COUNT(DISTINCT model) FROM hourly),"
+          + "   \'sources\', (SELECT COUNT(DISTINCT source) FROM hourly),"
+          + "   \'weekend_days\', (SELECT COUNT(*) FROM days WHERE EXTRACT(dow FROM day) IN (0,6)),"
+          + "   \'streak\', (SELECT COALESCE(MAX(run),0) FROM (SELECT COUNT(*) AS run FROM (SELECT day, day - (ROW_NUMBER() OVER (ORDER BY day))::int * INTERVAL \'1 day\' AS grp FROM days) g GROUP BY grp) r),"
+          + "   \'momentum\', (SELECT COALESCE(MAX(CASE WHEN prev >= 10000000 AND prev > 0 THEN curr::numeric / prev ELSE 0 END),0) FROM (SELECT SUM(tokens)::bigint AS curr, LAG(SUM(tokens)::bigint) OVER (ORDER BY wk) AS prev FROM weeks GROUP BY wk) m)"
+          + " ) AS m"
+          ,
+          [user.id],
+        )).rows[0].m;
+
+        // Metric per catalog badge id; veteran is derived, and the two
+        // cross-user badges are handled by the dedicated awards below.
+        const metricFor = (badgeId) => {
+          switch (badgeId) {
+            case "token_titan": return Number(metrics.total_tokens);
+            case "wordsmith": return Number(metrics.output_tokens);
+            case "big_day": return Number(metrics.best_day);
+            case "marathoner": return Number(metrics.active_days);
+            case "streak": return Number(metrics.streak);
+            case "weekend_warrior": return Number(metrics.weekend_days);
+            case "polyglot": return Number(metrics.models);
+            case "multitool": return Number(metrics.sources);
+            case "momentum": return Number(metrics.momentum);
+            case "veteran": {
+              if (!metrics.first_day) return 0;
+              const first = Date.parse(metrics.first_day + "T00:00:00Z");
+              return Number.isFinite(first) ? Math.floor((Date.now() - first) / 86400000) : 0;
+            }
+            default: return null;
+          }
+        };
+        const catalog = (await db.query(
+          "SELECT badge_id, bronze, silver, gold, diamond, lower_is_better FROM tokentracker_badge_catalog",
+        )).rows;
+        for (const row of catalog) {
+          const metric = metricFor(row.badge_id);
+          if (metric === null) continue;
+          const marks = row.lower_is_better
+            ? [row.diamond, row.gold, row.silver, row.bronze]
+            : [row.bronze, row.silver, row.gold, row.diamond];
+          const meets = (threshold) => threshold === null || threshold === undefined
+            || (row.lower_is_better ? metric <= Number(threshold) : metric >= Number(threshold));
+          let tier = 0;
+          for (let i = 0; i < marks.length; i += 1) { if (meets(marks[i])) tier = i + 1; }
+          if (tier < 1) continue;
+          const atCol = tier >= 4 ? "diamond_at" : tier === 3 ? "gold_at" : tier === 2 ? "silver_at" : "bronze_at";
+          await db.query(
+            "INSERT INTO tokentracker_user_badges"
+            + " (user_id, badge_id, tier, metric_value, " + atCol + ", meta, updated_at)"
+            + " VALUES ($1,$2,$3,$4,now(),\'{}\'::jsonb,now())"
+            + " ON CONFLICT (user_id, badge_id) DO UPDATE SET"
+            + "   tier = GREATEST(tokentracker_user_badges.tier, EXCLUDED.tier),"
+            + "   metric_value = EXCLUDED.metric_value,"
+            + "   " + atCol + " = COALESCE(tokentracker_user_badges." + atCol + ", EXCLUDED." + atCol + "),"
+            + "   updated_at = now()",
+            [user.id, row.badge_id, tier, metric],
+          );
+        }
+      } catch (badgeError) {
+        process.stdout.write("[local-backend] badge refresh failed: "
+          + (badgeError && badgeError.message ? badgeError.message : String(badgeError)) + "\n");
+      }
+
+      // Cross-user badges: this instance\'s rank-1 occupant, and the model
+      // breadth proxy for the debut-date badge.
+      const totalModels2 = Object.keys((totalAgg && totalAgg.models) || {}).length;
+      const trendTier2 = totalModels2 >= 20 ? 4 : totalModels2 >= 10 ? 3 : totalModels2 >= 5 ? 2 : totalModels2 >= 2 ? 1 : 0;
+      const nowIso2 = new Date().toISOString();
+      const extraRows = [
+        [user.id, "podium", 4, 1, nowIso2],
+        [user.id, "trendsetter", trendTier2, totalModels2, nowIso2],
       ];
-      for (const [badgeUser, badgeId, tier, metric, achievedAt] of awardRows) {
+      for (const [badgeUser, badgeId, tier, metric, achievedAt] of extraRows) {
         if (tier < 1) continue;
         const atCol = tier >= 4 ? "diamond_at" : tier === 3 ? "gold_at" : tier === 2 ? "silver_at" : "bronze_at";
         await db.query(
           "INSERT INTO tokentracker_user_badges"
           + " (user_id, badge_id, tier, metric_value, " + atCol + ", meta, updated_at)"
-          + " VALUES ($1,$2,$3,$4,$5,$$ {} $$::jsonb,now())"
+          + " VALUES ($1,$2,$3,$4,$5,\'{}\'::jsonb,now())"
           + " ON CONFLICT (user_id, badge_id) DO UPDATE SET"
           + "   tier = GREATEST(tokentracker_user_badges.tier, EXCLUDED.tier),"
           + "   metric_value = EXCLUDED.metric_value,"

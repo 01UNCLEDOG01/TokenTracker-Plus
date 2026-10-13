@@ -1,3 +1,12 @@
+> **This repository is a personal fork (“TT-plus”).** It is not the upstream
+> TokenTracker distribution: it runs against a **self-hosted** backend (a small
+> Node + PGlite server on the owner’s own hardware), ships **without the
+> membership payment UI** (the leaderboard and achievements stay), and is tuned
+> for a single private account. Upstream project and full credit:
+> [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) (MIT).
+
+---
+
  <div align="center">
 
 # Token Tracker

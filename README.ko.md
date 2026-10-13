@@ -1,3 +1,11 @@
+> **이 저장소는 개인 포크(“TT-plus”)이며 업스트림 TokenTracker 배포판이 아닙니다.**
+> 자체 호스팅 백엔드(직접 보유한 하드웨어에서 도는 소형 Node + PGlite 서버)에 연결하고,
+> **유료 멤버십 결제 UI를 제거했으며**(리더보드와 업적은 유지), 단일 비공개 계정에 맞춰
+> 조정했습니다. 업스트림 프로젝트와 크레딧:
+> [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) (MIT).
+
+---
+
  <div align="center">
 
 # Token Tracker

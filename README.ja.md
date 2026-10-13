@@ -1,3 +1,11 @@
+> **このリポジトリは個人フォーク（“TT-plus”）であり、上流の TokenTracker
+> 配布物ではありません。** 自前ホストのバックエンド（手持ちのハードで動く小型
+> Node + PGlite サーバー）に接続し、**有料会員の決済 UI を外し**（リーダーボードと
+> 実績は残します）、単一のプライベートアカウント向けに調整しています。
+> 上流プロジェクトとクレジット：[xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）。
+
+---
+
  <div align="center">
 
 # Token Tracker
