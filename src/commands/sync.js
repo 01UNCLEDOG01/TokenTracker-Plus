@@ -129,6 +129,9 @@ const {
   parseUnslothIncremental,
   resolveAnythingllmDbPath,
   parseAnythingllmIncremental,
+
+  resolveAgent2ApiDbPath,
+  parseAgent2ApiIncremental,
   resolveDevinDbPath,
   parseDevinIncremental,
   resolveGooseDbPath,
@@ -327,6 +330,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "cline",
   "codebuddy",
   "codex",
+  "agent2api",
   "cola",
   "command-code",
   "copilot",
@@ -1963,6 +1967,25 @@ async function cmdSync(argv, context = {}) {
       }
     }
 
+    // ── Agent2API — local multi-provider gateway (server-side usage truth) ──
+    let agent2apiResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (sourceAllowed("agent2api")) {
+      const agent2apiDbPath = resolveAgent2ApiDbPath(process.env);
+      if (agent2apiDbPath && fssync.existsSync(agent2apiDbPath)) {
+        if (progress?.enabled) progress.start(`Parsing Agent2API ${renderBar(0)} | buckets 0`);
+        try {
+          agent2apiResult = await parseAgent2ApiIncremental({
+            dbPath: agent2apiDbPath,
+            cursors,
+            queuePath,
+            onProgress: makeProviderProgress("Agent2API"),
+          });
+        } catch (err) {
+          warnProviderParseFailure("Agent2API", err, opts);
+        }
+      }
+    }
+
     // ── Kilo Code VS Code extension (Cline-style ui_messages.json) ──
     const kilocodeTaskFiles = sourceAllowed("kilocode")
       ? mergeBothFileSources({ resolveFiles: resolveKilocodeTaskFiles, env: process.env })
@@ -3415,7 +3438,7 @@ async function cmdSync(argv, context = {}) {
       lmstudioResult.recordsProcessed +
       unslothResult.recordsProcessed +
       anythingllmResult.recordsProcessed +
-      devinResult.recordsProcessed +
+
       kiloResult.recordsProcessed +
       dumateResult.recordsProcessed +
       mimoResult.recordsProcessed +

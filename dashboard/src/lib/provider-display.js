@@ -12,6 +12,7 @@ const SPECIAL_PROVIDER_NAMES = {
   lmstudio: "LM Studio",
   unsloth: "Unsloth Studio",
   workbuddyai: "WorkBuddy AI",
+  agent2api: "Agent2API",
   autoclaw: "AutoClaw",
   "tuanjie-cowork": "Tuanjie Cowork",
 };

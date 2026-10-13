@@ -14617,6 +14617,177 @@ async function parseDevinIncremental({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Agent2API — local multi-provider gateway (~/.agent2api/agent2api.db)
+//
+// Agent2API fronts provider accounts (AutoClaw intl/CN, Loomy, …) behind one
+// OpenAI-compatible endpoint. Its `requests` table is append-only and carries
+// the authoritative per-request counters (prompt/completion/cache_read) — the
+// counts a client-side reader cannot recover when the gateway's streamed
+// responses omit usage. Each successful row is one billable round trip, so
+// the cursor is a plain lastRowId and totals follow the Devin event shape
+// with conversation_count 1.
+
+const AGENT2API_SOURCE = "agent2api";
+
+function resolveAgent2ApiDbPath(env = process.env) {
+  const override =
+    typeof env.TOKENTRACKER_AGENT2API_DB === "string" && env.TOKENTRACKER_AGENT2API_DB.trim();
+  if (override) return path.resolve(env.TOKENTRACKER_AGENT2API_DB.trim());
+  const home = env.HOME || env.USERPROFILE || os.homedir();
+  return path.join(home, ".agent2api", "agent2api.db");
+}
+
+function agent2ApiSqliteFingerprint(dbPath) {
+  const fingerprint = sqliteSidecarFingerprint(dbPath);
+  // -shm is reader bookkeeping: opening a WAL database can bump it without any
+  // content change, so it must not force a rescan (same convention as Devin).
+  delete fingerprint["-shm"];
+  return fingerprint;
+}
+
+// Stage only the bucket objects this parser can mutate — the shared
+// normalizers copy the bucket maps but alias each bucket/totals object, and
+// the enqueue helpers stamp queuedKey before appendFile runs. Only
+// agent2api-owned entries get private copies; every other provider's buckets
+// stay shared read-only references (this parser never writes their keys).
+function stageAgent2ApiBuckets(buckets) {
+  const staged = {};
+  for (const [key, bucket] of Object.entries(buckets || {})) {
+    staged[key] =
+      bucket && typeof bucket === "object" &&
+      (normalizeSourceInput(parseBucketKey(key).source) || DEFAULT_SOURCE) === AGENT2API_SOURCE
+        ? {
+            ...bucket,
+            totals:
+              bucket.totals && typeof bucket.totals === "object"
+                ? { ...bucket.totals }
+                : bucket.totals,
+          }
+        : bucket;
+  }
+  return staged;
+}
+
+async function parseAgent2ApiIncremental({
+  dbPath,
+  cursors,
+  queuePath,
+  onProgress,
+  env,
+  sqliteOptions,
+} = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const resolvedDb = dbPath || resolveAgent2ApiDbPath(env || process.env);
+  const priorState =
+    cursors.agent2api && typeof cursors.agent2api === "object" ? cursors.agent2api : {};
+  const lastRowId =
+    Number.isSafeInteger(priorState.lastRowId) && priorState.lastRowId >= 0
+      ? priorState.lastRowId
+      : 0;
+  if (!resolvedDb || !fssync.existsSync(resolvedDb)) {
+    cursors.agent2api = { version: 1, lastRowId, updatedAt: new Date().toISOString() };
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+  const initialFingerprint = agent2ApiSqliteFingerprint(resolvedDb);
+  if (sameSqliteFingerprint(initialFingerprint, priorState.fingerprint)) {
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  // row_id comes from our own cursor (a validated safe integer), so inlining
+  // it into the SQL is safe; readSqliteJsonRowsAsync takes no bind parameters.
+  const rows = await readSqliteJsonRowsAsync(
+    resolvedDb,
+    "SELECT row_id, ts, client_model, model AS upstream_model, prompt_tokens, "
+      + "completion_tokens, cache_read_tokens, status FROM requests WHERE row_id > "
+      + String(lastRowId)
+      + " ORDER BY row_id",
+    {
+      label: "Agent2API",
+      maxBuffer: 32 * 1024 * 1024,
+      timeout: 30_000,
+      readOnly: true,
+      throwOnReadFailure: true,
+      ...sqliteOptions,
+    },
+  );
+
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  hourlyState.buckets = stageAgent2ApiBuckets(hourlyState.buckets);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let eventsAggregated = 0;
+  let maxRowId = lastRowId;
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index] || {};
+    const rowId = Number(row.row_id);
+    const tsMs = Number(row.ts);
+    // Only successful (HTTP 200) rows carry billed usage; failures record 0s,
+    // so acknowledging them is safe and keeps the cursor moving.
+    if (Number.isSafeInteger(rowId) && rowId > maxRowId) maxRowId = rowId;
+    if (!Number.isSafeInteger(rowId) || !Number.isFinite(tsMs) || Number(row.status) !== 200) {
+      continue;
+    }
+    const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
+    if (!bucketStart) continue;
+    const model = String(row.client_model || row.upstream_model || "").trim() || "unknown";
+    const output = Number(row.completion_tokens) || 0;
+    const cacheRead = Number(row.cache_read_tokens) || 0;
+    // The gateway's prompt_tokens is INCLUSIVE of cache_read (its own
+    // total_tokens is exactly prompt + completion), while the usage queue
+    // sums disjoint components — so split fresh input out of the prompt.
+    const prompt = Number(row.prompt_tokens) || 0;
+    const input = Math.max(0, prompt - cacheRead);
+    const total = prompt + output;
+    const bucket = getHourlyBucket(hourlyState, AGENT2API_SOURCE, model, bucketStart);
+    addTotals(bucket.totals, {
+      input_tokens: input,
+      cached_input_tokens: cacheRead,
+      cache_creation_input_tokens: 0,
+      output_tokens: output,
+      reasoning_output_tokens: 0,
+      total_tokens: total,
+      billable_total_tokens: total,
+      total_cost_usd: 0,
+      conversation_count: 1,
+    });
+    touchedBuckets.add(bucketKey(AGENT2API_SOURCE, model, bucketStart));
+    eventsAggregated += 1;
+    if (cb) {
+      cb({
+        index: index + 1,
+        total: rows.length,
+        recordsProcessed: index + 1,
+        eventsAggregated,
+        bucketsQueued: touchedBuckets.size,
+      });
+    }
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({
+    queuePath,
+    hourlyState,
+    touchedBuckets,
+  });
+  // If the gateway wrote to the DB/WAL while we read, publish the pre-read
+  // fingerprint so the next sync re-reads instead of acknowledging a snapshot
+  // it never saw (same convention as parseDevinIncremental).
+  const finalFingerprint = agent2ApiSqliteFingerprint(resolvedDb);
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  cursors.agent2api = {
+    version: 1,
+    lastRowId: maxRowId,
+    fingerprint: sameSqliteFingerprint(initialFingerprint, finalFingerprint)
+      ? finalFingerprint
+      : initialFingerprint,
+    updatedAt,
+  };
+  return { recordsProcessed: rows.length, eventsAggregated, bucketsQueued };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Goose (Block AI agent — github.com/block/goose)
 //
 // Data: SQLite at
@@ -24966,6 +25137,8 @@ module.exports = {
   readAnythingllmUsageRows,
   parseAnythingllmIncremental,
   resolveDevinDbPath,
+  resolveAgent2ApiDbPath,
+  parseAgent2ApiIncremental,
   readDevinUsageRows,
   parseDevinIncremental,
   resolveGooseDbPath,
