@@ -1,13 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Activity, ArrowUpRight, Download, RefreshCw } from "lucide-react";
+import { Activity, ArrowUpRight, Download } from "lucide-react";
 import { useNativeSettings } from "../../hooks/use-native-settings.js";
 import { useLocale } from "../../hooks/useLocale.js";
 import { ConfirmModal } from "../../ui/components";
 import { showToast } from "../../ui/components/Toast.jsx";
 import { STATUSPAGE_URL } from "../../lib/config";
 import { copy } from "../../lib/copy";
-import { cn } from "../../lib/cn";
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
 import { SectionCard, SettingsRow, ToggleSwitch } from "./Controls.jsx";
 import { Button } from "../../ui/components/Button.jsx";
@@ -24,10 +23,8 @@ export function MenuBarSection() {
   const toastOnReset = settings?.toastOnReset !== false;
   const confettiOnReset = settings?.confettiOnReset !== false;
   const launchAtLoginSupported = settings?.launchAtLoginSupported !== false;
-  const autoUpdateEnabled = settings?.autoUpdateEnabled !== false;
   const updateStatus = settings?.updateStatus || null;
   const updateBusy = Boolean(settings?.updateBusy);
-  const isSyncing = Boolean(settings?.isSyncing);
 
   return (
     <SectionCard title={copy("settings.section.menubar")}>
@@ -87,33 +84,6 @@ export function MenuBarSection() {
         />
       ) : null}
       <SettingsRow
-        label={copy("settings.menubar.syncNow")}
-        hint={copy("settings.menubar.syncNowHint")}
-        control={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => runAction("syncNow")}
-            disabled={isSyncing}
-            className="gap-1.5"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} aria-hidden />
-            <span>{isSyncing ? copy("settings.menubar.syncing") : copy("settings.menubar.syncNow")}</span>
-          </Button>
-        }
-      />
-      <SettingsRow
-        label={copy("settings.menubar.autoUpdate")}
-        hint={copy("settings.menubar.autoUpdateHint")}
-        control={
-          <ToggleSwitch
-            checked={autoUpdateEnabled}
-            onChange={() => setSetting("autoUpdateEnabled", !autoUpdateEnabled)}
-            ariaLabel={copy("settings.menubar.autoUpdate")}
-          />
-        }
-      />
-      <SettingsRow
         label={copy("settings.menubar.updates")}
         hint={updateStatus || undefined}
         control={
@@ -154,6 +124,7 @@ export function NativeAppFooter() {
   const nativePlatform = settings?.platform || "macos";
   const [checking, setChecking] = React.useState(false);
   const [updateModal, setUpdateModal] = React.useState({
+    notes: "",
     open: false,
     latestVersion: "",
     htmlUrl: "",
@@ -173,7 +144,10 @@ export function NativeAppFooter() {
         setUpdateModal({
           open: true,
           latestVersion,
-          htmlUrl: data.html_url
+          htmlUrl: data.html_url,
+          // Information-only: the modal shows the upstream release and
+          // what changed; installing stays a deliberate, out-of-band act.
+          notes: typeof data.body === "string" ? data.body.slice(0, 1200) : "",
         });
       } else {
         showToast({
@@ -246,6 +220,11 @@ export function NativeAppFooter() {
         </a>
       </div>
 
+      {updateModal.open && updateModal.notes ? (
+        <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-oai-gray-200 bg-oai-gray-50 p-3 text-left text-xs text-oai-gray-600 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300">
+          {updateModal.notes}
+        </pre>
+      ) : null}
       <ConfirmModal
         open={updateModal.open}
         title={modalTitle}
