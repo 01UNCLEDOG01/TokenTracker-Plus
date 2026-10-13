@@ -1438,7 +1438,17 @@ test("usage-summary?account=1 folds the local Qoder international credit spend i
     assert.equal(res._headers["x-tokentracker-account-view"], "1", "the cloud must really have served this");
     const body = res.json();
     assert.equal(body.totals.total_cost_usd, "1.520000", "2 credits at the published $0.01 land in the cross-device hero total");
-    assert.equal(body.totals.total_tokens, 999999, "and no tokens are invented on the way out");
+    // The owner decided this edition's credits DO become a token figure, so the
+    // hero total carries it. 999,999 from the cloud + the derived 133,333:
+    // 2 credits = $0.02, and this fixture records no qoder-cn rows, so there is
+    // no measured token mix to weight and the derivation falls back to the
+    // reference model's flat input rate of $0.15 per MTok. The blended mix is
+    // pinned separately in test/qoder-intl-credits.test.js.
+    //
+    // What must stay true either way: the money is Qoder's own charge and is not
+    // re-derived from these tokens (qoder is in SOURCES_WITH_AUTHORITATIVE_COST),
+    // and the tokens are flagged `tokens_derived` rather than read off the wire.
+    assert.equal(body.totals.total_tokens, 1_133_332, "the derived token figure lands on the cross-device total");
   } finally {
     global.fetch = realFetch;
     delete process.env.QODER_PROJECTS_DIR;

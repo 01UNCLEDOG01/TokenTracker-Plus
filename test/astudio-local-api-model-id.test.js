@@ -49,6 +49,16 @@ async function callEndpoint(handler, endpoint) {
 
 test("local usage APIs preserve raw AStudio model IDs", async () => {
   const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "tt-astudio-model-id-"));
+  // The queue is sandboxed but os.homedir() is not, and qoderCnEstimatedRows
+  // reads the real machine's ~/.tokentracker estimate mirror. That mirror grows a
+  // row for today whenever the live server recomputes, and those rows share the
+  // day bucket with the AStudio fixture - so this test used to pass or fail
+  // depending on whether the machine happened to have an estimate for today.
+  // Point the home lookup at the sandbox so the fixture is the only input.
+  const realHome = process.env.HOME;
+  const realProfile = process.env.USERPROFILE;
+  process.env.HOME = tmp;
+  process.env.USERPROFILE = tmp;
   try {
     const queuePath = path.join(tmp, "queue.jsonl");
     const day = new Date().toISOString().slice(0, 10);
@@ -119,6 +129,8 @@ test("local usage APIs preserve raw AStudio model IDs", async () => {
       model_id: "xopglm52",
     });
   } finally {
+    if (realHome === undefined) delete process.env.HOME; else process.env.HOME = realHome;
+    if (realProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = realProfile;
     await fs.promises.rm(tmp, { recursive: true, force: true });
   }
 });

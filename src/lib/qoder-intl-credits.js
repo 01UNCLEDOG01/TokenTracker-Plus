@@ -13,28 +13,40 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { qoderCnTokenShape } = require("./qoder-cn-estimate");
+const { getModelPricing } = require("./pricing");
 
 const QODER_INTL_SOURCE = "qoder";
 // Pro is $20 for 2,000 credits. This is the published rate, not a fitted one.
 const QODER_INTL_USD_PER_CREDIT = 0.01;
-// qwen3.8-flash input price from lib/pricing/curated-overrides.json, USD per
-// MTok. The international edition records credits and no tokens, so the token
-// figures are derived from the money at this rate rather than read from any
-// transcript field - every `message.usage` here carries five zero token fields.
-const QODER_INTL_TOKEN_PRICE_USD_PER_MTOK = 0.15;
 const QODER_INTL_FALLBACK_MODEL = "官方云端（积分）";
 // The user only runs qwen3.8-flash on this edition, so the derived tokens are
 // attributed to that model instead of the opaque router string Qoder writes.
-const QODER_INTL_TOKEN_MODEL = "qwen3.8-flash（按积分反推）";
+// Its four rates are read from lib/pricing/curated-overrides.json rather than
+// repeated here, so one price edit moves this card and the estimate together.
+const QODER_INTL_REFERENCE_MODEL = "qwen3.8-flash";
+const QODER_INTL_TOKEN_MODEL = `${QODER_INTL_REFERENCE_MODEL}（按积分反推）`;
+// Which of the reference model's four rates bills which measured shape field.
+// Reasoning bills at the output rate, the same rule computeRowCost applies:
+// qoder-cn is not in its reasoningIncludedInOutput allowlist, so there reasoning
+// is a second line item rather than a subset marker.
+const QODER_INTL_SHAPE_FIELD_RATE = {
+  input_tokens: "input",
+  cached_input_tokens: "cache_read",
+  cache_creation_input_tokens: "cache_write",
+  output_tokens: "output",
+  reasoning_output_tokens: "output",
+};
 // Qoder's transcripts name their router, not a model: all 1,398 credit records
 // on this machine read `qfmodel`, which carries no identity and no rate. The CN
 // estimate labels the same undisclosed-router case after the cloud plan, so
 // this does too instead of printing an opaque internal string as a model.
 const QODER_INTL_UNDISCLOSED_MODELS = new Set(["qfmodel"]);
 // Bumped whenever the rows this module derives change shape or meaning, so an
-// existing mirror is rebuilt instead of replayed.
-//   2 = the router-name mapping, 3 = derived token figures.
-const QODER_INTL_MIRROR_VERSION = 3;
+// existing mirror is rebuilt instead of replayed. The version is the only thing
+// that can distinguish two derivations of one unchanged transcript tree.
+//   2 = the router-name mapping, 3 = derived token figures,
+//   4 = those figures priced at the blended token mix.
+const QODER_INTL_MIRROR_VERSION = 4;
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
 const TOKEN_FIELDS = [
   "input_tokens",
@@ -45,6 +57,37 @@ const TOKEN_FIELDS = [
   "total_tokens",
   "billable_total_tokens",
 ];
+
+// What one derived token actually costs, USD per MTok: the CN edition's measured
+// token mix weighted by the reference model's four rates.
+//
+// This used to be the input rate alone ($0.15), which contradicts the split the
+// row then performs - 85.8% of the measured tokens are cache reads at $0.016,
+// about a ninth of the input rate - so the same money was credited with roughly a
+// quarter of the tokens it really bought. Billing the mix makes the total and the
+// components that compose it agree.
+//
+// Normalised by the covered share, so a shape that does not sum to 1 cannot
+// understate the rate. A field whose rate is genuinely free (zero) is skipped
+// rather than counted as covered, which keeps free cache reads from dragging the
+// blend toward a price that is never charged. With no measured shape at all there
+// is nothing to weight, so the flat input rate stands and the row puts every
+// derived token in input_tokens to match.
+function qoderIntlBlendedRateUsdPerMtok(shape) {
+  const card = getModelPricing(QODER_INTL_REFERENCE_MODEL) || {};
+  const inputRate = Number(card.input) || 0;
+  if (!shape) return inputRate;
+  let weighted = 0;
+  let covered = 0;
+  for (const [field, rate] of Object.entries(QODER_INTL_SHAPE_FIELD_RATE)) {
+    const share = Number(shape[field]) || 0;
+    const per = Number(card[rate]) || 0;
+    if (!(share > 0) || !(per > 0)) continue;
+    weighted += share * per;
+    covered += share;
+  }
+  return covered > 0 && weighted > 0 ? weighted / covered : inputRate;
+}
 
 function qoderIntlCreditMirrorFile({ home = os.homedir() } = {}) {
   return path.join(home, ".tokentracker", "tracker", "qoder-intl-credit-rows.json");
@@ -149,10 +192,11 @@ function scanCredits(projectsDir, allRows) {
     .sort((a, b) => a.day.localeCompare(b.day) || a.model.localeCompare(b.model))
     .map((entry) => {
       const usd = Math.round(entry.credits * QODER_INTL_USD_PER_CREDIT * 1e6) / 1e6;
-      // Derived, not measured: money divided by the published input rate. The
-      // panel labels these rows as estimates so they never read as counts that
-      // came off the wire.
-      const total = Math.round((usd / QODER_INTL_TOKEN_PRICE_USD_PER_MTOK) * 1e6);
+      // Derived, not measured: money divided by the rate this token mix really
+      // bills at, so the total and the split below describe one and the same
+      // usage. The panel labels these rows as estimates so they never read as
+      // counts that came off the wire.
+      const total = Math.round((usd / qoderIntlBlendedRateUsdPerMtok(usable ? shape : null)) * 1e6);
       const tokens = { total_tokens: total, billable_total_tokens: total };
       if (usable) {
         let assigned = 0;
@@ -226,7 +270,9 @@ function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {})
 module.exports = {
   QODER_INTL_SOURCE,
   QODER_INTL_USD_PER_CREDIT,
-  QODER_INTL_TOKEN_PRICE_USD_PER_MTOK,
+  QODER_INTL_REFERENCE_MODEL,
+  QODER_INTL_MIRROR_VERSION,
+  qoderIntlBlendedRateUsdPerMtok,
   qoderIntlCreditRows,
   qoderIntlCreditMirrorFile,
 };

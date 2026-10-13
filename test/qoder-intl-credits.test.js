@@ -9,8 +9,10 @@ const path = require("node:path");
 const {
   qoderIntlCreditRows,
   qoderIntlCreditMirrorFile,
+  qoderIntlBlendedRateUsdPerMtok,
   QODER_INTL_USD_PER_CREDIT,
-  QODER_INTL_TOKEN_PRICE_USD_PER_MTOK,
+  QODER_INTL_REFERENCE_MODEL,
+  QODER_INTL_MIRROR_VERSION,
 } = require("../src/lib/qoder-intl-credits");
 const { computeRowCost } = require("../src/lib/pricing");
 
@@ -33,9 +35,26 @@ const usageRecord = (timestamp, credits, model = "gpt-5.6-high") => ({
   message: { role: "assistant", model, usage: { input_tokens: 0, output_tokens: 0, credits } },
 });
 
-test("credits convert to derived tokens at the qwen3.8-flash input rate", () => {
+// One CN queue row whose token columns carry the mix qoderCnTokenShape measures.
+// The estimate only reads the ratios, so a single row is enough. Returns the row
+// and the shares the code will actually measure back off it - rounding the shares
+// onto a 1,000,000 base would otherwise make the test's own blend differ from
+// the one under test in the last few tokens.
+const SHAPE_FIELDS = ["input_tokens", "cached_input_tokens", "cache_creation_input_tokens", "output_tokens", "reasoning_output_tokens"];
+function cnRowsFor(shares) {
+  const row = { source: "qoder-cn", total_tokens: 1_000_000 };
+  for (const f of SHAPE_FIELDS) row[f] = Math.round((shares[f] || 0) * 1_000_000);
+  const measured = {};
+  for (const f of SHAPE_FIELDS) measured[f] = row[f] / row.total_tokens;
+  return { row, measured };
+}
+
+test("credits convert to derived tokens at the flat input rate when no shape is measured", () => {
   assert.equal(QODER_INTL_USD_PER_CREDIT, 0.01, "the published Pro rate is $20 for 2,000 credits");
-  assert.equal(QODER_INTL_TOKEN_PRICE_USD_PER_MTOK, 0.15, "the published qwen3.8-flash input rate, USD per MTok");
+  assert.equal(QODER_INTL_REFERENCE_MODEL, "qwen3.8-flash");
+  // Nothing measured to weight, so the reference model's input rate stands. This
+  // sandbox has no CN rows, so qoderCnTokenShape returns null.
+  assert.equal(qoderIntlBlendedRateUsdPerMtok(null), 0.15, "the published qwen3.8-flash input rate, USD per MTok");
   const { home, projects } = sandbox([
     usageRecord("2026-10-09T06:00:00.000Z", 1.5),
     usageRecord("2026-10-09T07:00:00.000Z", 2.25),
@@ -55,6 +74,46 @@ test("credits convert to derived tokens at the qwen3.8-flash input rate", () => 
     assert.equal(rows[0].source, "qoder");
     assert.equal(rows[0].model, "gpt-5.6-high");
     assert.equal(rows[0].conversation_count, 0, "requests are not conversations");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a measured CN token mix prices the derivation at the blended rate", () => {
+  // The machine's real CN mix: 85.8% of its tokens are cache reads at $0.016,
+  // about a ninth of the $0.15 input rate. Billing the input rate alone used to
+  // credit the same money with roughly a quarter of the tokens it bought.
+  const shape = {
+    input_tokens: 116_642_671,
+    cached_input_tokens: 734_261_193,
+    cache_creation_input_tokens: 0,
+    output_tokens: 4_960_724,
+    reasoning_output_tokens: 0,
+    total_tokens: 855_864_588,
+  };
+  const shares = {};
+  for (const f of ["input_tokens", "cached_input_tokens", "cache_creation_input_tokens", "output_tokens", "reasoning_output_tokens"]) {
+    shares[f] = shape[f] / shape.total_tokens;
+  }
+  const blended = qoderIntlBlendedRateUsdPerMtok(shares);
+  const expected = 0.136286 * 0.15 + 0.005796 * 0.47 + 0.857917 * 0.016;
+  assert.ok(Math.abs(blended - expected) < 1e-6, `blended ${blended} is the shape-weighted mix, not the input rate`);
+  assert.ok(blended < 0.05, "the mix is far cheaper per token than the input rate alone");
+  // $3.566868 of credits buys 96,679,263 tokens at that mix, not 23,779,120 at
+  // the input rate. Measured from the exact shares above, not from rounded ones.
+  assert.equal(Math.round((3.566868 / blended) * 1e6), 96_679_263);
+
+  const { home, projects } = sandbox([usageRecord("2026-10-09T06:00:00.000Z", 4, "qfmodel")]);
+  try {
+    const { row: cnRow, measured } = cnRowsFor(shares);
+    const rateUsed = qoderIntlBlendedRateUsdPerMtok(measured);
+    const [row] = qoderIntlCreditRows([cnRow], { projectsDir: projects, home });
+    assert.equal(row.total_cost_usd, 0.04, "the money is still the provider's own charge");
+    assert.equal(row.total_tokens, Math.round((0.04 / rateUsed) * 1e6), "the tokens come from the blended rate");
+    // The split must describe the same usage the total was solved for, so the
+    // components still sum to the total.
+    const components = SHAPE_FIELDS.reduce((a, f) => a + (Number(row[f]) || 0), 0);
+    assert.equal(components, row.total_tokens, "the derived split sums to the derived total");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -159,7 +218,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
     assert.deepEqual(first.map((r) => r.model), ["官方云端（积分）"]);
     const file = qoderIntlCreditMirrorFile({ home });
     const mirror = JSON.parse(fs.readFileSync(file, "utf8"));
-    assert.equal(mirror.version, 3, "the current derivation version is recorded");
+    assert.equal(mirror.version, QODER_INTL_MIRROR_VERSION, "the current derivation version is recorded");
 
     // Replay the pre-mapping mirror this code shipped before the fix: same
     // signature, stale row shape. The tree never changed, so only the version
@@ -169,7 +228,46 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
     fs.writeFileSync(file, JSON.stringify(mirror));
     const second = qoderIntlCreditRows([], { projectsDir: projects, home });
     assert.deepEqual(second.map((r) => r.model), ["官方云端（积分）"], "the stale label must not come back");
-    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, 3, "the mirror is upgraded in place");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, QODER_INTL_MIRROR_VERSION, "the mirror is upgraded in place");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a v3 mirror priced at the flat input rate is rebuilt, not replayed", () => {
+  const shape = {
+    input_tokens: 116_642_671,
+    cached_input_tokens: 734_261_193,
+    cache_creation_input_tokens: 0,
+    output_tokens: 4_960_724,
+    reasoning_output_tokens: 0,
+    total_tokens: 855_864_588,
+  };
+  const shares = {};
+  for (const f of ["input_tokens", "cached_input_tokens", "cache_creation_input_tokens", "output_tokens", "reasoning_output_tokens"]) {
+    shares[f] = shape[f] / shape.total_tokens;
+  }
+  const blended = qoderIntlBlendedRateUsdPerMtok(shares);
+  const { home, projects } = sandbox([usageRecord("2026-10-09T06:00:00.000Z", 4, "qfmodel")]);
+  try {
+    // Warm the tree so the mirror carries a real signature, then downgrade it to
+    // the version whose rows were derived at the flat input rate. The transcript
+    // tree never changes, so the signature cannot tell the two derivations apart
+    // - only the version can. Without the bump, this stale ledger would keep
+    // serving the old total forever.
+    const cn = cnRowsFor(shares);
+    const rateUsed = qoderIntlBlendedRateUsdPerMtok(cn.measured);
+    qoderIntlCreditRows([cn.row], { projectsDir: projects, home });
+    const file = qoderIntlCreditMirrorFile({ home });
+    const mirror = JSON.parse(fs.readFileSync(file, "utf8"));
+    mirror.version = 3;
+    mirror.rows = [{ ...mirror.rows[0], total_tokens: 266_667, billable_total_tokens: 266_667 }];
+    fs.writeFileSync(file, JSON.stringify(mirror));
+
+    const [row] = qoderIntlCreditRows([cn.row], { projectsDir: projects, home });
+    assert.equal(row.total_tokens, Math.round((0.04 / rateUsed) * 1e6), "the v3 flat-rate figure is gone");
+    assert.notEqual(row.total_tokens, 266_667, "the stale total must not come back");
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, QODER_INTL_MIRROR_VERSION);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
