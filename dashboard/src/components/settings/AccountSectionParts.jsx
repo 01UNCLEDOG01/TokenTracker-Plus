@@ -200,7 +200,7 @@ function DisplayNameField({ name }) {
 
 function AvatarField({ avatar }) {
   const {
-    avatarError, avatarUrl, editingAvatar, handleSaveAvatar,
+    avatarError, avatarInput, avatarUrl, editingAvatar, handleSaveAvatar,
     profileLoading, profileSaving, setAvatarInput, setEditingAvatar,
     startEditingAvatar,
   } = avatar;

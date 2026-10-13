@@ -239,6 +239,7 @@ function buildNameProps(state, actions) {
 function buildAvatarProps(state, actions) {
   return {
     avatarError: state.avatarError,
+    avatarInput: state.avatarInput,
     avatarUrl: state.customAvatarUrl,
     editingAvatar: state.editingAvatar,
     handleSaveAvatar: actions.handleSaveAvatar,
