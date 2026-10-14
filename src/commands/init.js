@@ -121,6 +121,7 @@ const SUPPORTED_PROVIDERS = [
   "AutoClaw",
   "Cola",
   "Tuanjie Cowork",
+  "Agent2API",
   "Codex CLI",
   "AStudio",
   "Cursor",

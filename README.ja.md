@@ -14,7 +14,7 @@
 
 ### AI に使ったコストを正確に把握 — すべての CLI を横断して
 
-**49 種類の AI コーディングツール**からトークン数を自動収集し、ローカルで集計、美しいダッシュボードで本当のコスト推移を可視化します。クラウドアカウント不要、API キー不要、セットアップ不要 — コマンド 1 つで完了です。
+**50 種類の AI コーディングツール**からトークン数を自動収集し、ローカルで集計、美しいダッシュボードで本当のコスト推移を可視化します。クラウドアカウント不要、API キー不要、セットアップ不要 — コマンド 1 つで完了です。
 
 [![npm version](https://img.shields.io/npm/v/tokentracker-cli.svg?color=blue)](https://www.npmjs.com/package/tokentracker-cli)
 [![npm downloads](https://img.shields.io/npm/dm/tokentracker-cli.svg?color=brightgreen)](https://www.npmjs.com/package/tokentracker-cli)
@@ -96,7 +96,7 @@ brew install xiufengsun/tokentracker/tokentracker
 
 ## ✨ 機能
 
-- 🔌 **49 種類の AI ツールを標準対応** — Claude Code、Codex CLI、AStudio、Cursor、Gemini CLI、Antigravity、Kiro、OpenCode、OpenClaw、Loomy、Every Code、Hermes Agent、GitHub Copilot、Kimi Code、CodeBuddy、WorkBuddy、Grok Build、oh-my-pi、OmO、pi、Dots、Prime Agent、Craft Agents、Reasonix、Kilo CLI、Kilo Code、Roo Code、Zed Agent、Goose、Droid、Mimo Code、DuMate、ZCode、Qoder、AnythingLLM Desktop、Claude Science、DeepSeek Harness、TRAE CN、LM Studio、Unsloth Studio、Devin CLI、Cline、MiniMax Code、Command Code、TRAE
+- 🔌 **50 種類の AI ツールを標準対応** — Claude Code、Codex CLI、AStudio、Cursor、Gemini CLI、Antigravity、Kiro、OpenCode、OpenClaw、Loomy、AutoClaw、Cola、Every Code、Hermes Agent、GitHub Copilot、Kimi Code、CodeBuddy、WorkBuddy、WorkBuddy AI、Grok Build、oh-my-pi、OmO、pi、Dots、Prime Agent、Craft Agents、Reasonix、Kilo CLI、Kilo Code、Roo Code、Zed Agent、Goose、Droid、Mimo Code、DuMate、ZCode、Qoder、AnythingLLM Desktop、Claude Science、DeepSeek Harness、TRAE CN、LM Studio、Unsloth Studio、Devin CLI、Cline、MiniMax Code、Command Code、TRAE、Tuanjie Cowork、Agent2API
 - 🏠 **ローカルファースト** — すべてマシン上で動作。アカウントや API キーなしでログをローカル解析します。
 - 🚀 **ゼロコンフィグ** — Hook は初回実行で自動インストール。0 からダッシュボードまで 30 秒。
 - 📊 **美しいダッシュボード** — 使用トレンド、モデル別コスト内訳、GitHub スタイルのアクティビティヒートマップ、プロジェクト別の帰属表示
@@ -238,7 +238,7 @@ brew install xiufengsun/tokentracker/tokentracker
 
 | 機能 | **[TokenTracker](https://github.com/xiufengsun/TokenTracker)** | **[ccusage](https://github.com/ccusage/ccusage)** | **[Tokscale](https://github.com/junhoyeo/tokscale)** |
 |---|:---:|:---:|:---:|
-| **対応 AI ツール数** | **49** | マルチエージェント | マルチエージェント |
+| **対応 AI ツール数** | **50** | マルチエージェント | マルチエージェント |
 | **主なインターフェース** | ネイティブデスクトップアプリ & Web ダッシュボード | ターミナル CLI | ターミナル TUI & CLI |
 | **ローカルファースト解析** | ✅ | ✅ | ✅ |
 | **ネイティブデスクトップアプリ** | ✅ macOS, Windows, Linux | ❌ | ❌ |
