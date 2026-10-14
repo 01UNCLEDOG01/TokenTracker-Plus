@@ -122,11 +122,24 @@ export const PROVIDER_LIMIT_SPECS = {
   },
   antigravity: {
     windows(data) {
+      // The owner watches the Gemini windows first: gemini weekly, gemini 5h,
+      // then the Claude channel. Order here drives the Limits page and the
+      // desktop surfaces, top to bottom.
       return [
-        { key: "claude-weekly", labelKey: "limits.label.antigravity_claude_weekly", window: data.primary_window },
-        { key: "claude-5h", labelKey: "limits.label.antigravity_claude_5h", window: data.secondary_window },
         { key: "gemini-weekly", labelKey: "limits.label.antigravity_gemini_weekly", window: data.tertiary_window },
         { key: "gemini-5h", labelKey: "limits.label.antigravity_gemini_5h", window: data.quaternary_window },
+        { key: "claude-weekly", labelKey: "limits.label.antigravity_claude_weekly", window: data.primary_window },
+        { key: "claude-5h", labelKey: "limits.label.antigravity_claude_5h", window: data.secondary_window },
+      ];
+    },
+  },
+  apigoto: {
+    // APIGOTO (apigoto.com): one weekly TCredits window served by
+    // /api/v1/user/user/subscription/policy-limit. Literal label — the panel
+    // brands it itself and no locale key exists.
+    windows(data) {
+      return [
+        { key: "weekly", label: "APIGOTO weekly", window: data.primary_window },
       ];
     },
   },

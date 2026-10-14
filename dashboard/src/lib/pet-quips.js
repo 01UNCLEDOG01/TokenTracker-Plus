@@ -310,6 +310,7 @@ const PET_LIMIT_PROVIDER_NAMES = {
   grok: "Grok",
   copilot: "GitHub Copilot",
   antigravity: "Antigravity",
+  apigoto: "APIGOTO",
   zcode: "ZCode",
   opencodeGo: "OpenCode Go",
   qoder: "Qoder",
@@ -369,6 +370,14 @@ function zcodeQuipWindows(zcode) {
   return [["GLM-5.2", zcode?.primary_window], ["GLM-5 Turbo", zcode?.secondary_window], ["Other", zcode?.tertiary_window]];
 }
 
+// The owner pins these four to the top of the hover card, in this exact order;
+// every other provider follows by urgency (most used first).
+const PET_PINNED_LIMIT_ROWS = [
+  ["antigravity", "Gemini weekly"],
+  ["antigravity", "Gemini 5h"],
+  ["antigravity", "Claude weekly"],
+  ["apigoto", "weekly"],
+];
 function collectPetLimitRows(limits) {
   if (!limits || typeof limits !== "object") return [];
 
@@ -416,11 +425,12 @@ function collectPetLimitRows(limits) {
   addGeneric("grok", limits.grok, [["Month", limits.grok?.primary_window], ["On-demand", limits.grok?.secondary_window]]);
   addGeneric("copilot", limits.copilot, [["Premium", limits.copilot?.primary_window], ["Chat", limits.copilot?.secondary_window]]);
   addGeneric("antigravity", limits.antigravity, [
-    ["Claude weekly", limits.antigravity?.primary_window],
-    ["Claude 5h", limits.antigravity?.secondary_window],
     ["Gemini weekly", limits.antigravity?.tertiary_window],
     ["Gemini 5h", limits.antigravity?.quaternary_window],
+    ["Claude weekly", limits.antigravity?.primary_window],
+    ["Claude 5h", limits.antigravity?.secondary_window],
   ]);
+  addGeneric("apigoto", limits.apigoto, [["weekly", limits.apigoto?.primary_window]]);
   addGeneric("zcode", limits.zcode, zcodeQuipWindows(limits.zcode));
   addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window], ["Weekly", limits.opencodeGo?.secondary_window], ["Month", limits.opencodeGo?.tertiary_window]]);
   addGeneric("qoder", limits.qoder, [["Credits", limits.qoder?.primary_window], ["Ultimate Free Calls", limits.qoder?.secondary_window]]);
@@ -439,7 +449,14 @@ function collectPetLimitRows(limits) {
     [copy("limits.label.devin_weekly"), limits.devin?.secondary_window],
   ]);
 
+  const rank = (row) => {
+    const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, w]) => row.provider === p && row.window === w);
+    return i === -1 ? PET_PINNED_LIMIT_ROWS.length : i;
+  };
   rows.sort((a, b) => {
+    const ka = rank(a);
+    const kb = rank(b);
+    if (ka !== kb) return ka - kb;
     if (b.usedPercent !== a.usedPercent) return b.usedPercent - a.usedPercent;
     const aReset = petLimitResetDate(a.resetAt)?.getTime() ?? Number.POSITIVE_INFINITY;
     const bReset = petLimitResetDate(b.resetAt)?.getTime() ?? Number.POSITIVE_INFINITY;
@@ -454,7 +471,11 @@ function collectPetLimitRows(limits) {
  * taking over the small conversation bubble.
  */
 export function buildPetLimitSummaries(limits) {
-  return collectPetLimitRows(limits).filter((row) => row.usedPercent > 0 && row.usedPercent < 100);
+  const rows = collectPetLimitRows(limits);
+  // Pinned rows are the owner's fixed dashboard: show them even at 0% (a
+  // freshly reset window is still worth watching), unlike the urgency rows.
+  const pinned = (row) => PET_PINNED_LIMIT_ROWS.some(([p, w]) => row.provider === p && row.window === w);
+  return rows.filter((row) => pinned(row) || (row.usedPercent > 0 && row.usedPercent < 100));
 }
 
 /** Keep the compact tap-quip API for callers that only need the first row. */
