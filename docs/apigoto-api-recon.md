@@ -58,3 +58,34 @@
    → 限额页与桌宠显示"RouterCode PLUS：98%"。
 3. 滑条验证码是自动化登录的最大变数：若登录必带 challenge，需人工一次登录后
    长期续期（refresh 流），或引导用户粘贴一次会话。
+
+## 2026-10-15 实测验证（全部打通）
+
+- **令牌位置**：浏览器 localStorage，键带 `apicodex_` 前缀：`apicodex_access_token` /
+  `apicodex_refresh_token` / `apicodex_user_id` / `apicodex_username` / `apicodex_remember_login`。
+  （`access_token` 裸键查不到——前缀是当初控制台探针失败的原因。）
+- **access_token**：JWT（user_id 3825 / username / type=user），**TTL 24 小时**（iat→exp）。
+- **刷新流**：`POST /api/v1/user/user/refresh`，body `{"refresh_token":"..."}` →
+  `data.access_token` + `data.refresh_token`。**refresh_token 可重复使用（非单次轮换）**——
+  同一令牌连刷两次都成功，TT 续期与浏览器会话互不干扰。
+- **98% 的真身**：`GET /api/v1/user/user/subscription/current` 只有订阅身份（plan_name /
+  expires_at，无用量）；**用量在
+  `GET /api/v1/user/user/subscription/policy-limit`**：
+  ```json
+  {"usage_limits":[{"dim":"f","window_sec":604800,"used":98179050.8605,
+    "limit":100000000,"reset_at":1792146995,"unit":"rpm_credits"}],
+   "concurrency_limit":10,"concurrency_used":0,"subscribed":true}
+  ```
+  used/limit = 98.18% = 面板显示的 98%；reset_at 与面板"10-16 18:36"一致。
+- **登录**：`POST /api/v1/user/user/login`，body `{username,password,machine_code,captcha_verify_param}`；
+  **强制人机验证**（无验证码 → code 20201「人机验证失败」）——自动密码登录不可行，
+  走浏览器抓一次 refresh_token 即长期有效。
+- 令牌已存 `~/.tokentracker/apigoto-tokens.json`（600）。
+
+## TT provider 实现清单（零未知数）
+
+1. `src/lib/apigoto-limits.js`：读 refresh_token → 刷新（缓存 access 至过期前）→
+   GET policy-limit → 输出 `{label:"APIGOTO PLUS (RouterCode)", used, limit, percent, reset_at}`。
+2. 接入 `usage-limits.js` provider 列表 + 限额页/桌宠显示（来源 `apigoto`）。
+3. 凭据持久化：`~/.tokentracker/tracker/apigoto-credentials.json`（refresh_token，600）；
+   刷新后若返回新 refresh_token 则回写。
