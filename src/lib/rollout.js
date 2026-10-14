@@ -20961,7 +20961,14 @@ const ANTIGRAVITY_CURSOR_VERSION = 2;
 // r2: the non-Gemini channel flag no longer overwrites a concrete model id, so
 // every bucket that carried the channel placeholder is re-emitted under its
 // real model.
-const ANTIGRAVITY_EXTRACTOR_REVISION = 2;
+// r3: the channel flag is per-step evidence — it no longer sticks into
+// currentModel, so flagged buckets re-emit under the selection the transcript
+// records instead of a placeholder that outlived the flag by hours.
+// r4: the channel flag is out of model attribution entirely — it marks the
+// IDE's internal planner channel, which fires even on sessions the owner ran
+// entirely on Gemini. Model = the per-step db name and the user's own
+// Model Selection records, nothing else.
+const ANTIGRAVITY_EXTRACTOR_REVISION = 4;
 const ANTIGRAVITY_MAX_CONTRIBUTIONS = 4096;
 
 function hashAntigravityTranscript(buffer) {
@@ -22012,8 +22019,6 @@ function readAntigravityConversationDb(dbPath) {
   }
 }
 
-const ANTIGRAVITY_NON_GEMINI_MODEL = "claude-antigravity";
-
 async function parseAntigravityFile({
   filePath,
   rawBuffer = null,
@@ -22144,13 +22149,13 @@ async function parseAntigravityFile({
       const norm = normalizeAntigravityTranscriptModel(dbTurn.model);
       if (norm) currentModel = norm;
     }
-    // Steps that ran on the shared Claude/GPT channel carry that flag. When
-    // the transcript already recorded a concrete model for the step (the
-    // model-selection records name e.g. claude-opus-4-6), that id is kept —
-    // the channel fallback only replaces a gemini default or an empty model.
-    if (dbTurn && dbTurn.usedNonGemini && (!currentModel || /gemini/i.test(currentModel))) {
-      currentModel = ANTIGRAVITY_NON_GEMINI_MODEL;
-    }
+    // The shared-channel flag (used_non_gemini_model / used_claude) is NOT
+    // model evidence and must not name buckets. It fires on steps whose own
+    // metadata records the selected Gemini id (the IDE's internal planner runs
+    // on a different channel), and it stayed true through 2026-10-15 sessions
+    // the owner ran entirely on Gemini 3.8 Flash. The per-step db model name
+    // and the transcript's Model Selection records are the model truth; the
+    // flag describes a channel the IDE never surfaces and is ignored here.
 
     if (!isNewEvent) {
       if (parsed.type === "PLANNER_RESPONSE") {

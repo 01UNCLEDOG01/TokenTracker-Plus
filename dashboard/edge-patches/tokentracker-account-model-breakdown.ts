@@ -458,14 +458,6 @@ function getModelPricing(model: string, source = "") {
   // (curated source_exact, 2026-10-13).
   if (source.toLowerCase() === "loomy" && model.trim().toLowerCase() === "spark-x")
     return { input: 0.22, output: 0.83, cache_read: 0.03, cache_write: 0.22 };
-  // Antigravity masks the model on its shared Claude channel: the per-step
-  // metadata carries only MODEL_PLACEHOLDER_M* enums, so the transcript's
-  // `Model Selection` records are the only place a concrete id appears. The
-  // owner runs Claude Opus 4.6 there, so the channel is priced at the Opus 4.6
-  // card instead of rendering every Claude-channel token as $0
-  // (curated source_exact, 2026-10-14).
-  if (source.toLowerCase() === "antigravity" && model.trim().toLowerCase() === "claude-antigravity")
-    return { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 };
   const exact = MODEL_PRICING[model];
   if (exact) return exact;
   const lower = model.toLowerCase();
