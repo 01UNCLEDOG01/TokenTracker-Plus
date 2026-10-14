@@ -150,9 +150,9 @@ async function fetchApigotoLimits({
     // way the other providers do, or surface the error when nothing was cached.
     const lastGood = readLastGood(home);
     if (lastGood) {
-      return { configured: true, apigoto: { configured: true, ...lastGood, stale: true } };
+      return { configured: true, ...lastGood, stale: true };
     }
-    return { configured: true, apigoto: { configured: true, error: error?.message || "fetch failed" } };
+    return { configured: true, error: error?.message || "fetch failed" };
   }
   const windows = Array.isArray(data.usage_limits) ? data.usage_limits : [];
   // The panel renders the same array; the weekly TCredits window (7d) is the
@@ -161,7 +161,8 @@ async function fetchApigotoLimits({
   if (!weekly || !(Number(weekly.limit) > 0)) {
     return {
       configured: true,
-      apigoto: { configured: true, plan_name: data.policy_name || null, error: "no usage window" },
+      plan_name: data.policy_name || null,
+      error: "no usage window",
     };
   }
 
@@ -180,7 +181,8 @@ async function fetchApigotoLimits({
   writeLastGood(home, { plan_name: planName, primary_window: primaryWindow, captured_at: new Date(nowMs).toISOString() });
   return {
     configured: true,
-    apigoto: { configured: true, plan_name: planName, primary_window: primaryWindow },
+    plan_name: planName,
+    primary_window: primaryWindow,
   };
 }
 

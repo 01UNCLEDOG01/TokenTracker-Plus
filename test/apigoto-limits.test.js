@@ -54,11 +54,11 @@ test("refreshes then returns the weekly window with percent and reset", async ()
 
   const result = await fetchApigotoLimits({ home, fetchImpl, nowMs: Date.now() });
   assert.equal(result.configured, true);
-  assert.equal(result.apigoto.configured, true);
-  assert.equal(result.apigoto.plan_name, "APIGOTO PLUS");
-  assert.equal(result.apigoto.primary_window.used_percent, 98);
-  assert.equal(result.apigoto.primary_window.reset_at, "2026-10-16T10:36:35.000Z");
-  assert.equal(result.apigoto.primary_window.limit_window_seconds, 604800);
+  assert.equal(result.configured, true);
+  assert.equal(result.plan_name, "APIGOTO PLUS");
+  assert.equal(result.primary_window.used_percent, 98);
+  assert.equal(result.primary_window.reset_at, "2026-10-16T10:36:35.000Z");
+  assert.equal(result.primary_window.limit_window_seconds, 604800);
 
   // The refresh ran once with the stored token and the new pair was persisted.
   assert.equal(calls[0].url.endsWith("/user/refresh"), true);
@@ -87,7 +87,7 @@ test("reuses a live access token instead of refreshing every poll", async () => 
   };
 
   const result = await fetchApigotoLimits({ home, fetchImpl, nowMs: Date.now() });
-  assert.equal(result.apigoto.primary_window.used_percent, 1);
+  assert.equal(result.primary_window.used_percent, 1);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].endsWith("/subscription/policy-limit"), true);
 });
@@ -104,6 +104,6 @@ test("surfaces a stale marker when the panel returns no usage window", async () 
     fetchImpl: async () => jsonResponse({ code: 0, data: { policy_name: "APIGOTO PLUS", usage_limits: [] } }),
   });
   assert.equal(result.configured, true);
-  assert.equal(result.apigoto.configured, true);
-  assert.match(result.apigoto.error, /no usage window/);
+  assert.equal(result.configured, true);
+  assert.match(result.error, /no usage window/);
 });

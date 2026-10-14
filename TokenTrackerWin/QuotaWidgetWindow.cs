@@ -260,7 +260,7 @@ internal sealed class QuotaWidgetWindow : Window
                     var root = doc.RootElement;
                     if (root.GetProperty("type").GetString() != "quota:select") return;
                     var ids = root.GetProperty("ids").EnumerateArray().Select(value => value.GetString()).ToArray();
-                    if (ids.Length > 2 || ids.Any(id => string.IsNullOrEmpty(id) || id.Length > 100)) return;
+                    if (ids.Length > 8 || ids.Any(id => string.IsNullOrEmpty(id) || id.Length > 100)) return;
                     _settings.Selected = ids.Select(id => id!).Distinct().ToArray();
                     _settings.Save();
                     _lastContext = null;
