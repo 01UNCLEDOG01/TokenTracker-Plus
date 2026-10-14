@@ -150,6 +150,8 @@ const {
   toUtcHalfHourStart,
   totalsKey,
   claudeMessageDedupKey,
+  hasZcodeCursorState,
+  resolveZcodeInstallPaths,
 } = require("../lib/rollout");
 const { computeClaudeGroundTruthBuckets } = require("../lib/claude-categorizer");
 const { createProgress, renderBar, formatNumber, formatBytes } = require("../lib/progress");
@@ -1782,8 +1784,23 @@ async function cmdSync(argv, context = {}) {
       const wslZcodeDir = process.platform === "win32" && wsl.shouldProbeWsl(process.env)
         ? wsl.discoverWslHome(".zcode")
         : null;
-      const zcodePaths = resolveInstallPaths({ nativeValue: zcodeNativeValue, wslValue: wslZcodeDir ? path.join(wslZcodeDir, "cli", "db", "db.sqlite") : null });
+      const zcodeWslValue = wslZcodeDir ? path.join(wslZcodeDir, "cli", "db", "db.sqlite") : null;
+      const zcodePaths = resolveZcodeInstallPaths(
+        { nativeValue: zcodeNativeValue, wslValue: zcodeWslValue }, process.env,
+        { cursors },
+      );
       if (zcodePaths.native || zcodePaths.wsl) {
+        const mode = wsl.getWslMode(process.env);
+        if (process.platform === "win32" && ["native-first", "wsl-first"].includes(mode) &&
+            !cursors.zcodeInstallSelection && hasZcodeCursorState(cursors)) {
+          // Preserve legacy ownership before a repair can clear old buckets,
+          // even when the selected database currently has no rows to parse.
+          cursors.zcodeInstallSelection = {
+            mode, zcodeHome: process.env.ZCODE_HOME?.trim() || null,
+            dbPath: zcodePaths.native || zcodePaths.wsl,
+          };
+          cursorStore.requiresCommit = true;
+        }
         if (progress?.enabled) progress.start(`Parsing ZCode ${renderBar(0)} | buckets 0`);
         try {
           const nativeUsageAvailable = [zcodePaths.native, zcodePaths.wsl]
@@ -1810,6 +1827,16 @@ async function cmdSync(argv, context = {}) {
             cursors, getParams: (p) => ({ dbPath: p, readFn: readZcodeDbMessages, source: "zcode", cursorKey: "zcode" }),
             queuePath, projectQueuePath, onProgress: makeProviderProgress("ZCode"),
           });
+          if (zcodeResult.recordsProcessed > 0) {
+            if (process.platform === "win32" && ["native-first", "wsl-first"].includes(mode)) {
+              cursors.zcodeInstallSelection = {
+                mode, zcodeHome: process.env.ZCODE_HOME?.trim() || null,
+                dbPath: zcodePaths.native || zcodePaths.wsl,
+              };
+            } else {
+              delete cursors.zcodeInstallSelection;
+            }
+          }
         } catch (err) { warnProviderParseFailure("ZCode", err, opts); }
       }
     }

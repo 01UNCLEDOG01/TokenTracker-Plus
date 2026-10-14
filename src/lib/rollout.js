@@ -2855,6 +2855,8 @@ async function parseClaudeFile({
       continue;
     }
 
+    if (isOmOClaudeSdkMirror(obj)) continue;
+
     const usage = obj?.message?.usage || obj?.usage;
     if (!usage || typeof usage !== "object") continue;
 
@@ -4910,6 +4912,14 @@ function isCodexTotalOnlyResetSentinel(lastUsage, totalUsage) {
 // backward compatibility for the (msgId, reqId) format already persisted in
 // cursors.claudeHashes (msgId strings don't contain `:`, so the two formats
 // share the same Set without collision).
+// OmO Native routes Anthropic-subscription turns through the Claude Agent SDK,
+// which mirrors the same usage into ~/.claude/projects with entrypoint "sdk-ts"
+// and userType "external". OmO's passive reader already counts those turns
+// under source=omo — skip the mirrored Claude transcript copy (#726).
+function isOmOClaudeSdkMirror(obj) {
+  return obj?.entrypoint === "sdk-ts" && obj?.userType === "external";
+}
+
 function claudeMessageDedupKey(obj) {
   const msgId = typeof obj?.message?.id === "string" && obj.message.id ? obj.message.id : null;
   if (!msgId) return null;
@@ -5549,6 +5559,79 @@ function hasZcodeNativeUsageSchema(dbPath, sqliteOptions = {}) {
   } finally {
     if (snapshot) snapshot.cleanup();
   }
+}
+
+// true: readable with content; false: confirmed empty; null: unavailable or
+// unreadable. Only a confirmed empty database is safe to replace during discovery.
+function zcodeDbHasContent(dbPath, sqliteOptions = {}) {
+  if (!dbPath || !fssync.existsSync(dbPath)) return null;
+  let snapshot = null;
+  let effectiveDbPath = dbPath;
+  if (isUncPath(dbPath)) {
+    try {
+      snapshot = snapshotSqliteDb(dbPath);
+      effectiveDbPath = snapshot.path;
+    } catch (_error) {
+      // Preserve the existing direct-read fallback for transient snapshot
+      // failures and UNC implementations that support SQLite locking.
+    }
+  }
+  try {
+    const rows = readSqliteJsonRows(
+      effectiveDbPath,
+      "SELECT (SELECT COUNT(*) FROM session) AS sessions, (SELECT COUNT(*) FROM model_usage) AS requests",
+      {
+        label: "ZCode",
+        timeout: 10_000,
+        maxBuffer: 1024 * 1024,
+        ...sqliteOptions,
+        throwOnReadFailure: true,
+      },
+    );
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) return null;
+    return (Number(row.sessions) || 0) > 0 || (Number(row.requests) || 0) > 0;
+  } catch (_error) {
+    return null;
+  } finally {
+    if (snapshot) snapshot.cleanup();
+  }
+}
+
+function hasZcodeCursorState(cursors) {
+  return [cursors?.zcode, cursors?.zcode?.native, cursors?.zcode?.wsl]
+    .some((state) => Object.keys(state?.messages || {}).length > 0) ||
+    Object.keys(cursors?.hourly?.buckets || {}).some((key) => key.startsWith("zcode|")) ||
+    Object.keys(cursors?.hourly?.groupQueued || {}).some((key) => key.startsWith("zcode|")) ||
+    Object.keys(cursors?.projectHourly?.buckets || {}).some((key) => key.includes("|zcode|"));
+}
+
+// Sync, session discovery and status must select the same installs. Once sync
+// records a priority-mode choice, retain it: switching databases underneath a
+// flat cursor would accumulate both installs in the same usage ledger.
+function resolveZcodeInstallPaths({ nativeValue, wslValue } = {}, env = process.env, deps = {}) {
+  const mode = wsl.getWslMode(env);
+  const priorityMode = (deps.platform || process.platform) === "win32" && ["native-first", "wsl-first"].includes(mode);
+  const selection = deps.selection || deps.cursors?.zcodeInstallSelection;
+  if (priorityMode && selection?.mode === mode &&
+      selection.zcodeHome === (env.ZCODE_HOME?.trim() || null) &&
+      typeof selection.dbPath === "string" && selection.dbPath) {
+    // A newly discovered or temporarily unavailable install must not change
+    // the cursor's owner. Only an explicit mode/home override releases it.
+    return { native: selection.dbPath, wsl: null };
+  }
+  const paths = resolveInstallPaths({ nativeValue, wslValue }, env, deps);
+  if (!priorityMode || (!selection && hasZcodeCursorState(deps.cursors))) {
+    // Legacy cursors followed the original install resolver. Keep that choice
+    // rather than feeding another database into an already-owned flat ledger.
+    return paths;
+  }
+  const picked = paths.native || paths.wsl;
+  const alternate = picked === nativeValue ? wslValue : nativeValue;
+  if (picked && alternate && zcodeDbHasContent(picked) === false && zcodeDbHasContent(alternate) === true) {
+    return { native: alternate, wsl: null };
+  }
+  return paths;
 }
 
 function buildZcodeNativeUsageSql({ hasSessionDirectory }) {
@@ -16035,6 +16118,44 @@ function ompEntryTimestampMs(msg, entry) {
   return null;
 }
 
+// Tool results can be hundreds of MB, exceeding V8's ~2^29-character string
+// limit without carrying usage. Skip them without decoding; assistant usage
+// records are orders of magnitude smaller.
+const OMP_LIKE_MAX_RECORD_BYTES = 64 * 1024 * 1024;
+
+async function scanOmpLikeTranscript(filePath, startOffset, maxRecordBytes, onEntry) {
+  let stream;
+  try {
+    stream = fssync.createReadStream(filePath, { start: startOffset });
+  } catch {
+    return startOffset;
+  }
+  let scannedEndOffset = startOffset;
+  let committedEndOffset = startOffset;
+  for await (const record of physicalJsonlRecords(stream, {
+    invalidUtf8: "record",
+    maxRecordBytes,
+  })) {
+    scannedEndOffset += record.physicalBytes;
+    if (record.terminated) {
+      committedEndOffset = scannedEndOffset;
+      if (record.oversized || !record.utf8Valid || !record.line || !record.line.trim()) continue;
+      let entry;
+      try { entry = JSON.parse(record.line); } catch { continue; }
+      onEntry(entry);
+      continue;
+    }
+    // A final incomplete record may still be in the process of being written.
+    if (record.oversized || !record.utf8Valid || !record.line || !record.line.trim()) break;
+    let entry;
+    try { entry = JSON.parse(record.line); } catch { break; }
+    onEntry(entry);
+    committedEndOffset = scannedEndOffset;
+    break;
+  }
+  return committedEndOffset;
+}
+
 // Shared implementation for the oh-my-pi session format. omp and omo both
 // persist it verbatim, so they differ only in where the sessions live, which
 // cursor namespace they own, and how reasoning tokens are spelled.
@@ -16056,6 +16177,7 @@ async function parseOmpLikeIncremental({
   resolveFileCwd,
   reasoningFields,
   reasoningIncludedInOutput = false,
+  maxRecordBytes = OMP_LIKE_MAX_RECORD_BYTES,
 } = {}) {
   await ensureDir(path.dirname(queuePath));
   const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
@@ -16133,35 +16255,22 @@ async function parseOmpLikeIncremental({
     const startOffset = stat.size < prevSize || inodeChanged ? 0 : prevSize;
     if (stat.size <= startOffset) continue;
 
-    let stream;
-    try {
-      stream = fssync.createReadStream(filePath, {
-        encoding: "utf8",
-        start: startOffset,
-      });
-    } catch { continue; }
-    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-
-    for await (const line of rl) {
-      if (!line || !line.trim()) continue;
-      let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
-
+    const committedEndOffset = await scanOmpLikeTranscript(filePath, startOffset, maxRecordBytes, (entry) => {
       // First line of each file is type:"session" (header) — skip all
       // non-message records.
-      if (!entry || entry.type !== "message") continue;
+      if (!entry || entry.type !== "message") return;
 
       // Only assistant messages carry token usage.
       const msg = entry.message;
-      if (!msg || msg.role !== "assistant") continue;
+      if (!msg || msg.role !== "assistant") return;
 
       const usage = msg.usage;
-      if (!usage || typeof usage !== "object") continue;
+      if (!usage || typeof usage !== "object") return;
 
       // Dedup by top-level entry id (8-char string assigned by oh-my-pi).
       const entryId = typeof entry.id === "string" && entry.id ? entry.id : null;
-      if (!entryId) continue;
-      if (seenIds.has(entryId)) continue;
+      if (!entryId) return;
+      if (seenIds.has(entryId)) return;
 
       recordsProcessed++;
 
@@ -16179,7 +16288,7 @@ async function parseOmpLikeIncremental({
         reasoningTokens === 0
       ) {
         seenIds.add(entryId);
-        continue;
+        return;
       }
 
       // Entries with no resolvable timestamp are skipped — they cannot be
@@ -16187,12 +16296,12 @@ async function parseOmpLikeIncremental({
       const tsMs = ompEntryTimestampMs(msg, entry);
       if (tsMs == null) {
         seenIds.add(entryId);
-        continue;
+        return;
       }
 
       const tsIso = new Date(tsMs).toISOString();
       const bucketStart = toUtcHalfHourStart(tsIso);
-      if (!bucketStart) continue;
+      if (!bucketStart) return;
 
       // Use provided totalTokens when available; otherwise sum all components.
       // OmO folds reasoning into output, so the fallback must not add it again.
@@ -16229,14 +16338,12 @@ async function parseOmpLikeIncremental({
           bucketsQueued: touchedBuckets.size,
         });
       }
-    }
+    });
 
-    let postStat = stat;
-    try { postStat = fssync.statSync(filePath); } catch {}
     fileOffsets[filePath] = {
-      size: postStat.size,
-      mtimeMs: postStat.mtimeMs,
-      ino: postStat.ino,
+      size: committedEndOffset,
+      mtimeMs: stat.mtimeMs,
+      ino: stat.ino,
     };
   }
 
@@ -16269,28 +16376,16 @@ async function parseOmpLikeIncremental({
         : null;
       const projectRef = projectContext?.projectRef || null;
       const projectKey = projectContext?.projectKey || null;
+      let committedEndOffset = stat.size;
 
       if (projectKey && projectRef) {
-        let stream;
-        try {
-          stream = fssync.createReadStream(filePath, {
-            encoding: "utf8",
-            start: startOffset,
-          });
-        } catch {
-          continue;
-        }
-        const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-        for await (const line of rl) {
-          if (!line || !line.trim()) continue;
-          let entry;
-          try { entry = JSON.parse(line); } catch { continue; }
+        committedEndOffset = await scanOmpLikeTranscript(filePath, startOffset, maxRecordBytes, (entry) => {
           const msg = entry?.type === "message" ? entry.message : null;
           const usage = msg?.role === "assistant" ? msg.usage : null;
-          if (!usage || typeof usage !== "object") continue;
+          if (!usage || typeof usage !== "object") return;
 
           const entryId = typeof entry.id === "string" && entry.id ? entry.id : null;
-          if (!entryId || projectSeenIds.has(entryId)) continue;
+          if (!entryId || projectSeenIds.has(entryId)) return;
 
           const input = toNonNegativeInt(usage.input);
           const output = toNonNegativeInt(usage.output);
@@ -16305,7 +16400,7 @@ async function parseOmpLikeIncremental({
             reasoningTokens === 0
           ) {
             projectSeenIds.add(entryId);
-            continue;
+            return;
           }
 
           const tsMs = ompEntryTimestampMs(msg, entry);
@@ -16314,7 +16409,7 @@ async function parseOmpLikeIncremental({
             : toUtcHalfHourStart(new Date(tsMs).toISOString());
           if (!bucketStart) {
             projectSeenIds.add(entryId);
-            continue;
+            return;
           }
 
           const totalTokens =
@@ -16341,15 +16436,13 @@ async function parseOmpLikeIncremental({
           addTotals(projectBucket.totals, delta);
           projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
           projectSeenIds.add(entryId);
-        }
+        });
       }
 
-      let postStat = stat;
-      try { postStat = fssync.statSync(filePath); } catch {}
       projectFileOffsets[filePath] = {
-        size: postStat.size,
-        mtimeMs: postStat.mtimeMs,
-        ino: postStat.ino,
+        size: committedEndOffset,
+        mtimeMs: stat.mtimeMs,
+        ino: stat.ino,
       };
     }
   }
@@ -25097,6 +25190,9 @@ module.exports = {
   coerceEpochMs,
   normalizeOpencodeModelFields,
   hasZcodeNativeUsageSchema,
+  zcodeDbHasContent,
+  hasZcodeCursorState,
+  resolveZcodeInstallPaths,
   resolveQoderDbPath,
   resolveQoderDbPaths,
   resolveQoderCnDbPaths,
