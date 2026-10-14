@@ -10,6 +10,17 @@ tray** application.
 
 ## What it does
 
+### Token Monitor
+
+Right-click the tray icon and enable **用量悬浮窗 / Token Monitor**. A small
+always-on-top pill shows today's tokens · cost — the exact figures the tray
+summary renders, in the user's currency and token-unit system (万/亿 vs K/M/B).
+It is native WPF rather than a WebView2 page: the surface is one formatted
+string, so a browser process per pixel buys nothing. Left-click opens the
+dashboard, drag moves it (position remembered), right-click opens a small menu
+(open / sync now / hide), and it hides over fullscreen apps like the quota
+widget.
+
 ### Desktop quota
 
 Use the top-right **Close widget** button in either view to hide it. This disables

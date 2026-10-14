@@ -24,7 +24,9 @@ internal sealed record TrayStrings(
     string SizeSmall,
     string SizeMedium,
     string SizeLarge,
-    string DesktopQuota)
+    string DesktopQuota,
+    string MonitorWidget,
+    string HideMonitor)
 {
     public static TrayStrings For(string locale)
     {
@@ -54,7 +56,9 @@ internal sealed record TrayStrings(
                 "小",
                 "中",
                 "大",
-                "桌面限额"),
+                "桌面限额",
+                "用量悬浮窗",
+                "隐藏悬浮窗"),
             NativeLocalization.TraditionalChineseLocale => new(
                 "Microsoft JhengHei UI",
                 "今日",
@@ -79,7 +83,9 @@ internal sealed record TrayStrings(
                 "小",
                 "中",
                 "大",
-                "桌面限額"),
+                "桌面限額",
+                "用量懸浮窗",
+                "隱藏懸浮窗"),
             NativeLocalization.JapaneseLocale => new(
                 "Yu Gothic UI",
                 "今日",
@@ -104,7 +110,9 @@ internal sealed record TrayStrings(
                 "小",
                 "中",
                 "大",
-                "デスクトップ使用枠"),
+                "デスクトップ使用枠",
+                "使用量モニター",
+                "モニターを隠す"),
             NativeLocalization.KoreanLocale => new(
                 "Malgun Gothic",
                 "오늘",
@@ -129,7 +137,9 @@ internal sealed record TrayStrings(
                 "작게",
                 "보통",
                 "크게",
-                "데스크톱 사용 한도"),
+                "데스크톱 사용 한도",
+                "사용량 모니터",
+                "모니터 숨기기"),
             _ => new(
                 "Segoe UI Variable Text",
                 "Today",
@@ -154,7 +164,9 @@ internal sealed record TrayStrings(
                 "Small",
                 "Medium",
                 "Large",
-                "Desktop quota"),
+                "Desktop quota",
+                "Token Monitor",
+                "Hide Token Monitor"),
         };
     }
 }

@@ -25,6 +25,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private PetWindow? _petWindow;
     private QuotaWidgetWindow? _quotaWindow;
     private readonly ToolStripMenuItem _quotaItem;
+    private MonitorWidgetWindow? _monitorWindow;
+    private readonly ToolStripMenuItem _monitorItem;
+    private readonly ContextMenuStrip _monitorMenu;
+    private readonly ToolStripMenuItem _monitorOpenItem;
+    private readonly ToolStripMenuItem _monitorSyncItem;
+    private readonly ToolStripMenuItem _monitorHideItem;
 
     private readonly ContextMenuStrip _menu;
     private readonly TrayMenuRenderer _menuRenderer;
@@ -106,6 +112,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _openDashboardItem = CreateMenuItem("", (_, _) => OpenDashboard());
         _syncItem = CreateMenuItem("", (_, _) => _server.TriggerSync());
         _quotaItem = CreateMenuItem("", (_, _) => ToggleQuota());
+        _monitorItem = CreateMenuItem("", (_, _) => ToggleMonitor());
         _petItem = CreateMenuItem("", (_, _) => TogglePet());
         _petSizeSmall = CreateMenuItem("", (_, _) => SetPetSize(PetWindow.SizeSmall));
         _petSizeMedium = CreateMenuItem("", (_, _) => SetPetSize(PetWindow.SizeMedium));
@@ -168,6 +175,29 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _petMenu.SizeChanged += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(_petMenu);
         _petMenu.Opening += (_, _) => { RebuildCustomPetMenus(); UpdatePetSizeChecks(); UpdatePetCharacterChecks(); UpdatePetDashboardItem(); };
 
+        // Token Monitor right-click menu: same chrome as the tray, own items
+        // (an item can't live in two menus at once).
+        _monitorOpenItem = CreateMenuItem("", (_, _) => OpenDashboard());
+        _monitorSyncItem = CreateMenuItem("", (_, _) => _server.TriggerSync());
+        _monitorHideItem = CreateMenuItem("", (_, _) => ToggleMonitor());
+        _monitorMenu = new ContextMenuStrip
+        {
+            AllowTransparency = true,
+            DropShadowEnabled = false,
+            Renderer = _menuRenderer,
+            BackColor = _menuPalette.MenuBackground,
+            ForeColor = _menuPalette.Text,
+            Padding = new Padding(6),
+            ShowCheckMargin = true,
+            ShowImageMargin = false,
+        };
+        _monitorMenu.Items.Add(_monitorOpenItem);
+        _monitorMenu.Items.Add(_monitorSyncItem);
+        _monitorMenu.Items.Add(CreateSeparator());
+        _monitorMenu.Items.Add(_monitorHideItem);
+        _monitorMenu.Opened += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(_monitorMenu);
+        _monitorMenu.SizeChanged += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(_monitorMenu);
+
         _startupItem = CreateMenuItem("", OnToggleStartup);
         _startupItem.Checked = LaunchAtStartup.IsEnabled;
         _startupItem.CheckOnClick = false;
@@ -191,6 +221,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.Add(_openDashboardItem);
         _menu.Items.Add(_syncItem);
         _menu.Items.Add(_quotaItem);
+        _menu.Items.Add(_monitorItem);
         _menu.Items.Add(_petItem);
         _menu.Items.Add(_petSizeItem);
         _menu.Items.Add(_petCharacterItem);
@@ -269,6 +300,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (_quotaWindow.Enabled)
             _uiDispatcher.BeginInvoke(new Action(() => { _quotaWindow.SetEnabled(true); UpdateLimitsPolling(); _poller.RefreshNow(); }));
 
+        _monitorWindow = new MonitorWidgetWindow(OpenDashboard);
+        _monitorWindow.MenuRequested += (x, y) => PostToUi(() =>
+        {
+            if (_monitorWindow is { Enabled: true })
+                _monitorMenu.Show(new System.Drawing.Point(x, y));
+        });
+        _monitorWindow.EnabledChanged += () => _monitorItem.Checked = _monitorWindow.Enabled;
+        _monitorItem.Checked = _monitorWindow.Enabled;
+        _monitorWindow.ApplyTheme(NativeTheme.ResolveIsLight(_themePreference));
+        if (_monitorWindow.Enabled)
+            _uiDispatcher.BeginInvoke(new Action(() => { _monitorWindow.SetEnabled(true); _poller.RefreshNow(); }));
+
         if (PetWindow.StoredVisible ?? showPetOnLaunch)
         {
             _uiDispatcher.BeginInvoke(new Action(() =>
@@ -293,6 +336,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (_lastLimitsJson is not null) _quotaWindow.ApplyLimits(_lastLimitsJson);
         UpdateLimitsPolling();
         if (_quotaWindow.Enabled) _poller.RefreshNow();
+    }
+
+    private void ToggleMonitor()
+    {
+        _monitorWindow ??= new MonitorWidgetWindow(OpenDashboard);
+        _monitorWindow.SetEnabled(!_monitorWindow.Enabled);
+        _monitorItem.Checked = _monitorWindow.Enabled;
+        if (_monitorWindow.Enabled)
+        {
+            // Fill the pill immediately instead of waiting for the next tick,
+            // and re-apply the last currency/theme the tray knows about.
+            var (symbol, rate) = _summaryCurrency;
+            _monitorWindow.ApplyStats(_lastStats, symbol, rate, TokenUnits.UsesChinese);
+            _monitorWindow.ApplyTheme(NativeTheme.ResolveIsLight(_themePreference));
+            _monitorWindow.ApplyFont(_strings.FontFamily);
+            _poller.RefreshNow();
+        }
     }
 
     private ToolStripMenuItem CreateMenuItem(string text, EventHandler onClick)
@@ -359,6 +419,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _syncItem.Text = _strings.SyncNow;
         _quotaItem.Text = _strings.DesktopQuota;
         _quotaWindow?.ApplyLocale(NativeLocalization.ResolveLocale(_localePreference));
+        _monitorItem.Text = _strings.MonitorWidget;
+        _monitorWindow?.ApplyFont(_strings.FontFamily);
+        _monitorMenu.Font = _menuFont;
+        _monitorOpenItem.Text = _strings.OpenDashboard;
+        _monitorSyncItem.Text = _strings.SyncNow;
+        _monitorHideItem.Text = _strings.HideMonitor;
         UpdatePetMenuText();
         _petSizeItem.Text = _strings.PetSize;
         _petSizeSmall.Text = _strings.SizeSmall;
@@ -426,6 +492,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         var normalized = NativeTheme.NormalizePreference(preference);
         _quotaWindow?.ApplyTheme(NativeTheme.ResolveIsLight(normalized));
+        _monitorWindow?.ApplyTheme(NativeTheme.ResolveIsLight(normalized));
         var nextPalette = TrayMenuRenderer.PaletteFor(NativeTheme.ResolveIsLight(normalized));
         if (_themePreference == normalized && _menuPalette == nextPalette) return;
 
@@ -1058,6 +1125,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (_lastStats is not { } s)
         {
             _petWindow?.ApplyStats(default);
+            _monitorWindow?.ApplyStats(null, _summaryCurrency.Symbol, _summaryCurrency.Rate, TokenUnits.UsesChinese);
             _summaryItem.Text = $"{_strings.TodayTitle}: {_strings.NoData}";
             return Task.CompletedTask;
         }
@@ -1065,6 +1133,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // Feed the floating pet the SAME numbers the tray shows (same poller, same moment).
         _petWindow?.ApplyStats(s);
         _petWindow?.ApplyConnected(_server.Status == ServerManager.ServerStatus.Running);
+        _monitorWindow?.ApplyStats(s, _summaryCurrency.Symbol, _summaryCurrency.Rate, TokenUnits.UsesChinese);
         var cost = symbol + (s.TodayCostUsd * rate).ToString("0.00", CultureInfo.InvariantCulture);
         var text = s.TodayTokens <= 0
             ? $"{_strings.TodayTitle}: {_strings.NoData}"
@@ -1175,6 +1244,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void Quit()
     {
         _quotaWindow?.Shutdown();
+        _monitorWindow?.Shutdown();
         _refreshTimer.Stop();
         _syncTimer.Stop();
         _trayIcon.Visible = false;
@@ -1201,6 +1271,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _dashboard?.Shutdown();   // WPF Window has no Dispose; really close it
             _petWindow?.Shutdown();
             _quotaWindow?.Shutdown();
+            _monitorWindow?.Shutdown();
+            _monitorMenu?.Dispose();
         }
         base.Dispose(disposing);
     }
