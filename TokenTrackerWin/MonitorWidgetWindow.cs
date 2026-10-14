@@ -90,7 +90,7 @@ internal sealed class MonitorWidgetWindow : Window
         Cursor = System.Windows.Input.Cursors.Hand;
         // Re-restore once the text has been measured: SizeToContent changes the
         // window size after Show, and the first Place ran against the pre-layout rect.
-        ContentRendered += (_, _) => { if (!_placed) { Place(!_placed); _placed = true; } else { Place(false); } };
+        ContentRendered += (_, _) => { Place(restore: true); _placed = true; };
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible && !_closed && _settings.Enabled)
@@ -244,6 +244,16 @@ internal sealed class MonitorWidgetWindow : Window
     {
         if (_hwnd == 0) return;
         GetWindowRect(_hwnd, out var rect);
+        if (restore && _settings.X.HasValue && _settings.Y.HasValue)
+        {
+            // A dragged position was on-screen when it was saved, so apply it
+            // as-is. Clamping here against the not-yet-measured window size
+            // (SizeToContent finishes after Show) collapsed every restart
+            // restore to the top-left corner. Only the default placement needs
+            // the work-area clamp.
+            SetWindowPos(_hwnd, 0, _settings.X.Value, _settings.Y.Value, 0, 0, 0x15); // NOSIZE | NOZORDER | NOACTIVATE
+            return;
+        }
         var x = restore ? _settings.X : rect.Left;
         var y = restore ? _settings.Y : rect.Top;
         var screen = x.HasValue && y.HasValue

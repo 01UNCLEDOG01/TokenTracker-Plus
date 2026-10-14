@@ -29,6 +29,32 @@ function credentialsPath(home) {
   return path.join(home || os.homedir(), ".tokentracker", "apigoto-credentials.json");
 }
 
+function lastGoodPath(home) {
+  return path.join(home || os.homedir(), ".tokentracker", "apigoto-last-good.json");
+}
+
+// The last successful weekly window, so a blip on apigoto.com serves a stale
+// bar instead of blanking the row for a poll cycle.
+function readLastGood(home) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(lastGoodPath(home), "utf8"));
+    if (!raw || typeof raw !== "object" || !raw.primary_window) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastGood(home, value) {
+  try {
+    const file = lastGoodPath(home);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(value, null, 2));
+  } catch {
+    // Best effort: a failed write just means the next blip shows an error.
+  }
+}
+
 function readCredentials(home) {
   try {
     const creds = JSON.parse(fs.readFileSync(credentialsPath(home), "utf8"));
@@ -113,10 +139,21 @@ async function fetchApigotoLimits({
     writeCredentials(home, creds);
   }
 
-  const body = await fetchJson(fetchImpl, `${APIGOTO_BASE_URL}/user/subscription/policy-limit`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  }, timeoutMs);
-  const data = body?.data || {};
+  let data;
+  try {
+    const body = await fetchJson(fetchImpl, `${APIGOTO_BASE_URL}/user/subscription/policy-limit`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }, timeoutMs);
+    data = body?.data || {};
+  } catch (error) {
+    // A blip must not blank the row: serve the last good window (stale) the
+    // way the other providers do, or surface the error when nothing was cached.
+    const lastGood = readLastGood(home);
+    if (lastGood) {
+      return { configured: true, apigoto: { configured: true, ...lastGood, stale: true } };
+    }
+    return { configured: true, apigoto: { configured: true, error: error?.message || "fetch failed" } };
+  }
   const windows = Array.isArray(data.usage_limits) ? data.usage_limits : [];
   // The panel renders the same array; the weekly TCredits window (7d) is the
   // one the owner watches. Other dims (concurrency etc.) carry no percent.
@@ -130,21 +167,20 @@ async function fetchApigotoLimits({
 
   const usedPercent = Math.round((Number(weekly.used) / Number(weekly.limit)) * 100);
   const resetMs = Number(weekly.reset_at);
+  const planName = typeof data.policy_name === "string" ? data.policy_name : null;
+  const primaryWindow = {
+    used_percent: Math.max(0, Math.min(100, usedPercent)),
+    reset_at: Number.isFinite(resetMs) && resetMs > 0
+      ? new Date(resetMs * 1000).toISOString()
+      : null,
+    limit_window_seconds: Number(weekly.window_sec) || null,
+    used: Number(weekly.used) || 0,
+    limit: Number(weekly.limit) || 0,
+  };
+  writeLastGood(home, { plan_name: planName, primary_window: primaryWindow, captured_at: new Date(nowMs).toISOString() });
   return {
     configured: true,
-    apigoto: {
-      configured: true,
-      plan_name: typeof data.policy_name === "string" ? data.policy_name : null,
-      primary_window: {
-        used_percent: Math.max(0, Math.min(100, usedPercent)),
-        reset_at: Number.isFinite(resetMs) && resetMs > 0
-          ? new Date(resetMs * 1000).toISOString()
-          : null,
-        limit_window_seconds: Number(weekly.window_sec) || null,
-        used: Number(weekly.used) || 0,
-        limit: Number(weekly.limit) || 0,
-      },
-    },
+    apigoto: { configured: true, plan_name: planName, primary_window: primaryWindow },
   };
 }
 
