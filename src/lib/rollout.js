@@ -20958,7 +20958,10 @@ const ANTIGRAVITY_CURSOR_VERSION = 2;
 // Bump when extractAntigravityGenInfo starts reading records it used to
 // discard. Kept apart from the cursor version: a cursor-version mismatch routes
 // to the legacy migration, which treats the cursor as having no per-file ledger.
-const ANTIGRAVITY_EXTRACTOR_REVISION = 1;
+// r2: the non-Gemini channel flag no longer overwrites a concrete model id, so
+// every bucket that carried the channel placeholder is re-emitted under its
+// real model.
+const ANTIGRAVITY_EXTRACTOR_REVISION = 2;
 const ANTIGRAVITY_MAX_CONTRIBUTIONS = 4096;
 
 function hashAntigravityTranscript(buffer) {
@@ -20983,6 +20986,75 @@ async function readAntigravityTranscriptBytes(filePath) {
   } catch (_error) {
     return null;
   }
+}
+
+// The session browser needs the project an Antigravity conversation belongs
+// to, and the transcript only ever names individual files. The trajectory
+// record keeps the real answer: a `file:///` URL for the workspace root (the
+// same string the IDE shows) sitting next to the git remote in
+// trajectory_metadata_blob. A blob can also quote files below that root, so the
+// root is the candidate another candidate extends along a path boundary; when
+// no candidate is an ancestor of another, the blob named only individual files
+// and there is no project to report (returning one of them would put a bare
+// filename in project_key).
+function antigravityWorkspaceFromBlobText(text) {
+  if (typeof text !== "string" || !text) return null;
+  const seen = new Set();
+  // The URL is followed in the blob by record framing bytes or an unrelated
+  // field, never by path text. Spaces are legal in a workspace path, so the
+  // capture admits every printable ASCII character except the ones a path
+  // cannot contain; bytes above 0x7e terminate it, because the protobuf
+  // framing that follows a URL is exactly such a byte and swallowing it would
+  // invent a second, mangled candidate (which then defeats the root pick
+  // below). A workspace path that is not ASCII therefore yields no project
+  // rather than a wrong one.
+  const re = /file:\/\/\/((?:[A-Za-z]:[\\/]|\/)[^\x00-\x1f\x7f-\xff"'<>`|?*]*)/g;
+  for (let m; (m = re.exec(text)); ) {
+    let value = m[1];
+    // Two URLs written back to back with no framing byte between them would
+    // otherwise read as one path whose last segment is the next URL's scheme.
+    const merged = value.toLowerCase().indexOf("file:");
+    if (merged > 0) {
+      // Resume scanning at the second scheme so it is still collected as its
+      // own candidate instead of being swallowed by this match.
+      re.lastIndex = m.index + "file:///".length + merged;
+      value = value.slice(0, merged);
+    }
+    try { value = decodeURIComponent(value); } catch { /* keep the raw URL */ }
+    value = value.replace(/[\\/]+$/, "").replace(/[.\s]+$/, "");
+    if (path.sep === "\\") value = value.replace(/\//g, "\\");
+    // A drive or root plus at least two segments: `C:\` or `/` is not a
+    // project, and neither is one bare folder under it.
+    if (value.split(path.sep).filter(Boolean).length < 3) continue;
+    seen.add(value);
+  }
+  const candidates = [...seen];
+  // One candidate is the answer; several only agree on a project when one of
+  // them is a path ancestor of another (the blob quoting files under the
+  // root). Otherwise the blob named sibling files or folders and there is no
+  // single project to report.
+  if (candidates.length === 1) return candidates[0];
+  const ancestor = (parent, child) => child.startsWith(parent + path.sep);
+  return candidates.find((c) => candidates.some((other) => ancestor(c, other))) || null;
+}
+
+function readAntigravityWorkspace(dbPath) {
+  let rows = [];
+  try {
+    // Read-only: a read-write open can create a rollback journal or touch the
+    // WAL, and the sync layer hashes those files as the database's identity —
+    // the reader must not perturb the state that decides a rebuild.
+    rows = readSqliteJsonRows(dbPath, "SELECT data FROM trajectory_metadata_blob", {
+      label: "Antigravity", timeout: 10_000, readOnly: true,
+    });
+  } catch (_e) { return null; }
+  let text = "";
+  for (const row of rows) {
+    const value = row && row.data;
+    if (!value) continue;
+    text += typeof value === "string" ? value : Buffer.from(value).toString("latin1");
+  }
+  return antigravityWorkspaceFromBlobText(text);
 }
 
 async function statAntigravityDatabase(dbPath) {
@@ -25236,6 +25308,8 @@ module.exports = {
   estimateAntigravityTokens,
   isCjkCodePoint,
   resolveAntigravityDbPath,
+  readAntigravityWorkspace,
+  antigravityWorkspaceFromBlobText,
   extractAntigravityGenInfo,
   readAntigravityConversationDb,
 

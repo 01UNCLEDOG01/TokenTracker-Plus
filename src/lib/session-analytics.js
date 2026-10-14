@@ -2832,6 +2832,21 @@ async function writeAtomic(filePath, content) {
 // <uuid>.db). Tokens are not in the transcript, so the scanner runs the
 // usage parser (rollout.js) over the joined transcript chunks and reads
 // its per-model contributions back out.
+// Antigravity names a session by its first substantive user request. Every
+// resumed turn arrives as a bare "继续"/"continue", so the literal first
+// request is often useless as a label — keep it only as a fallback.
+const ANTIGRAVITY_USER_REQUEST_RE = /<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/;
+const ANTIGRAVITY_TRIVIAL_REQUEST = /^(?:继续|接着|continue|go on|ok|好的?|嗯)[。.!！?？]*$/i;
+const ANTIGRAVITY_TITLE_MAX = 80;
+
+function antigravityRequestText(content) {
+  if (typeof content !== "string") return null;
+  const match = content.match(ANTIGRAVITY_USER_REQUEST_RE);
+  const body = (match ? match[1] : content).replace(/\s+/g, " ").trim();
+  if (!body) return null;
+  return body.length > ANTIGRAVITY_TITLE_MAX ? `${body.slice(0, ANTIGRAVITY_TITLE_MAX)}…` : body;
+}
+
 async function scanAntigravitySession(dbPath) {
   const uuid = path.basename(dbPath).replace(/\.db$/i, "");
   const antigravityRoot = path.dirname(path.dirname(dbPath));
@@ -2847,7 +2862,7 @@ async function scanAntigravitySession(dbPath) {
   const raw = chunkPaths.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 
   // Lazy require: rollout.js requires this module for the Claude scanner.
-  const { parseAntigravityFile } = require("./rollout");
+  const { parseAntigravityFile, readAntigravityWorkspace } = require("./rollout");
   const result = await parseAntigravityFile({
     filePath: chunkPaths[0],
     rawBuffer: Buffer.from(raw),
@@ -2863,6 +2878,8 @@ async function scanAntigravitySession(dbPath) {
   let editTurns = 0;
   let toolCalls = 0;
   let errorCount = 0;
+  let firstRequestText = null;
+  let substantiveRequestText = null;
   for (const line of raw.split(/\r?\n/)) {
     const text = line.trim();
     if (!text) continue;
@@ -2875,7 +2892,16 @@ async function scanAntigravitySession(dbPath) {
     }
     // The transcript names user turns USER_INPUT (the parser reads the same
     // type when it tracks model-selection changes).
-    if (rec?.type === "USER_INPUT") turns += 1;
+    if (rec?.type === "USER_INPUT") {
+      turns += 1;
+      const requestText = antigravityRequestText(rec?.content);
+      if (requestText) {
+        if (firstRequestText === null) firstRequestText = requestText;
+        if (substantiveRequestText === null && !ANTIGRAVITY_TRIVIAL_REQUEST.test(requestText)) {
+          substantiveRequestText = requestText;
+        }
+      }
+    }
     const calls = Array.isArray(rec?.tool_calls) ? rec.tool_calls : [];
     for (const call of calls) {
       toolCalls += 1;
@@ -2924,16 +2950,19 @@ async function scanAntigravitySession(dbPath) {
     total_tokens: acc.total_tokens + m.total_tokens,
   }), { input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0 });
   const project = contributions.find((c) => c?.projectKey) || {};
+  const workspace = readAntigravityWorkspace(dbPath);
+  const projectRef = workspace || project.projectRef || null;
+  const projectKey = workspace ? path.basename(workspace) : (project.projectKey || null);
   const storage = sessionStorageUsage([...chunkPaths, dbPath]);
   return [finalizeRecord({
     version: SIDECAR_VERSION,
     session_hash: sessionHash("antigravity", uuid),
     session_id: uuid,
-    title: null,
+    title: substantiveRequestText || firstRequestText,
     source: "antigravity",
     ...storage,
-    project_key: project.projectKey || null,
-    project_ref: project.projectRef || null,
+    project_key: projectKey,
+    project_ref: projectRef,
     model: modelUsage[0]?.model ?? null,
     model_usage: modelUsage,
     performance: {},

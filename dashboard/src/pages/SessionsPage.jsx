@@ -38,12 +38,16 @@ const SOURCE_FILTERS = [
   { id: "claude", label: () => "Claude Code" },
   { id: "codex", label: () => "Codex" },
   { id: "opencode", label: () => "OpenCode" },
+  { id: "antigravity", label: () => "Antigravity" },
   { id: "loomy", label: () => "Loomy" },
   { id: "grok", label: () => "Grok" },
   { id: "workbuddy", label: () => "WorkBuddy" },
   { id: "workbuddy-ai", label: () => "WorkBuddy AI" },
   { id: "dsh", label: () => "DeepSeek Harness" },
   { id: "zcode", label: () => "ZCode" },
+  { id: "autoclaw", label: () => "AutoClaw" },
+  { id: "cola", label: () => "Cola" },
+  { id: "tuanjie-cowork", label: () => "Tuanjie Cowork" },
 ];
 
 const DATE_RANGES = [

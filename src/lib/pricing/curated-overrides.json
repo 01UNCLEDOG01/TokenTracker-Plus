@@ -998,6 +998,15 @@
         "cache_read": 0.28,
         "cache_write": 0.28
       }
+    },
+    "antigravity": {
+      "claude-antigravity": {
+        "input": 5,
+        "output": 25,
+        "cache_read": 0.5,
+        "cache_write": 6.25,
+        "note": "Antigravity masks the model on its shared Claude channel: the per-step metadata (gen_metadata) carries only MODEL_PLACEHOLDER_M* enums, so the concrete id never reaches the parser. The transcript records one Model Selection change naming Claude Opus 4.6 (Thinking), and that is the model the owner runs on this channel, so the channel is priced at the Opus 4.6 card rather than left unpriced. Read 2026-10-14."
+      }
     }
   },
   "fuzzy": [
