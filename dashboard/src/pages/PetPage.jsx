@@ -633,6 +633,17 @@ export function PetPage() {
                         ariaLabel={copy("pet.controls.show")}
                       />
                     </div>
+                    {settings.monitor !== undefined ? (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-sm font-medium">{copy("pet.controls.monitor")}</div>
+                        <ToggleSwitch
+                          checked={settings.monitor}
+                          onChange={() => setSetting("monitor", !settings.monitor)}
+                          disabled={!available}
+                          ariaLabel={copy("pet.controls.monitor")}
+                        />
+                      </div>
+                    ) : null}
                     <div className="flex items-center justify-between gap-4">
                       <div className="text-sm font-medium">{copy("pet.controls.size")}</div>
                       <div className="shrink-0">

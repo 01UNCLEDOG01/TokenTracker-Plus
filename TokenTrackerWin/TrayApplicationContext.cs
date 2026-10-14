@@ -306,9 +306,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (_monitorWindow is { Enabled: true })
                 _monitorMenu.Show(new System.Drawing.Point(x, y));
         });
-        _monitorWindow.EnabledChanged += () => _monitorItem.Checked = _monitorWindow.Enabled;
+        _monitorWindow.EnabledChanged += () =>
+        {
+            _monitorItem.Checked = _monitorWindow.Enabled;
+            // Keep the pet page's toggle in step when the tray toggles the pill.
+            PushDashboardPetSettings();
+        };
         _monitorItem.Checked = _monitorWindow.Enabled;
         _monitorWindow.ApplyTheme(NativeTheme.ResolveIsLight(_themePreference));
+        _monitorWindow.ApplyCharacter(PetWindow.CurrentCharacter);
         if (_monitorWindow.Enabled)
             _uiDispatcher.BeginInvoke(new Action(() => { _monitorWindow.SetEnabled(true); _poller.RefreshNow(); }));
 
@@ -600,6 +606,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var normalized = PetWindow.NormalizeCharacter(character);
         if (_petWindow is not null) _petWindow.ApplyCharacter(normalized);
         else PetWindow.PersistCharacter(normalized);
+        // The monitor pill follows the companion's hue so the two floating
+        // surfaces read as one feature.
+        _monitorWindow?.ApplyCharacter(normalized);
         UpdatePetCharacterChecks(normalized);
         PushDashboardPetSettings();
     }
@@ -788,6 +797,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "character":
                 SetPetCharacter(value ?? PetWindow.CharacterClawd);
                 break;
+            case "monitor":
+            {
+                var enable = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+                _monitorWindow?.SetEnabled(enable);
+                _monitorItem.Checked = _monitorWindow?.Enabled == true;
+                if (_monitorWindow is { Enabled: true })
+                {
+                    var (symbol, rate) = _summaryCurrency;
+                    _monitorWindow.ApplyStats(_lastStats, symbol, rate, TokenUnits.UsesChinese);
+                    _monitorWindow.ApplyTheme(NativeTheme.ResolveIsLight(_themePreference));
+                    _monitorWindow.ApplyFont(_strings.FontFamily);
+                    _poller.RefreshNow();
+                }
+                PushDashboardPetSettings();
+                break;
+            }
             case "botColor":
                 SetPetBotColor(value ?? "auto");
                 break;
@@ -807,7 +832,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _petWindow?.IsVisible == true,
             PetWindow.CurrentSize,
             PetWindow.CurrentCharacter,
-            PetWindow.CurrentBotColor);
+            PetWindow.CurrentBotColor,
+            _monitorWindow?.Enabled == true);
     }
 
     /// <summary>Send the Windows-native settings consumed by the dashboard.</summary>

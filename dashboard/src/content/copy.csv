@@ -1293,6 +1293,7 @@ pet.page.subtitle,dashboard,PetPage,PetPage,subtitle,"Choose a companion and pre
 pet.preview.states,dashboard,PetPage,PetPage,preview_states,"Preview pet states",,active
 pet.controls.title,dashboard,PetPage,PetPage,controls_title,"Desktop controls",,active
 pet.controls.show,dashboard,PetPage,PetPage,show,"Show desktop pet",,active
+pet.controls.monitor,dashboard,PetPage,PetPage,monitor,"Token Monitor pill",,active
 pet.controls.show_hint,dashboard,PetPage,PetPage,show_hint,"Keep your companion above other windows.",,active
 pet.controls.size,dashboard,PetPage,PetPage,size,"Pet size",,active
 pet.controls.native_only,dashboard,PetPage,PetPage,native_only,"Open this page in the TokenTracker desktop app to control the live pet.",,active

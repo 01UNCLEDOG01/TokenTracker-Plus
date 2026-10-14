@@ -26,6 +26,14 @@ internal sealed class MonitorWidgetWindow : Window
     private readonly Action _openDashboard;
     private readonly MonitorWidgetSettings _settings;
     private readonly WinEventDelegate _winEventCallback;
+    private readonly System.Windows.Shapes.Ellipse _accent = new()
+    {
+        Width = 7,
+        Height = 7,
+        Margin = new Thickness(0, 0, 7, 1),
+        VerticalAlignment = VerticalAlignment.Center,
+        Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(156, 163, 175)),
+    };
     private readonly TextBlock _text = new()
     {
         FontSize = 13,
@@ -67,7 +75,11 @@ internal sealed class MonitorWidgetWindow : Window
         {
             CornerRadius = new CornerRadius(14),
             Padding = new Thickness(12, 6, 12, 7),
-            Child = _text,
+            Child = new StackPanel
+            {
+                Orientation = System.Windows.Controls.Orientation.Horizontal,
+                Children = { _accent, _text },
+            },
         };
         SourceInitialized += (_, _) =>
         {
@@ -145,6 +157,25 @@ internal sealed class MonitorWidgetWindow : Window
     {
         try { _text.FontFamily = new System.Windows.Media.FontFamily(family); }
         catch { /* an unknown family name keeps the previous font */ }
+    }
+
+    /// <summary>
+    /// Tint the pill's accent dot to the companion the user runs, so the two
+    /// floating surfaces read as one feature. The hues follow each character's
+    /// own art; an unknown id keeps the neutral gray.
+    /// </summary>
+    public void ApplyCharacter(string character)
+    {
+        System.Windows.Media.Color color = System.Windows.Media.Color.FromRgb(156, 163, 175);
+        switch (character)
+        {
+            case PetWindow.CharacterClawd: color = System.Windows.Media.Color.FromRgb(217, 119, 87); break;   // terracotta
+            case PetWindow.CharacterBot: color = System.Windows.Media.Color.FromRgb(59, 130, 246); break;      // blue
+            case PetWindow.CharacterSprout: color = System.Windows.Media.Color.FromRgb(34, 197, 94); break;    // green
+            case PetWindow.CharacterByte: color = System.Windows.Media.Color.FromRgb(168, 85, 247); break;     // violet
+            case PetWindow.CharacterEmber: color = System.Windows.Media.Color.FromRgb(239, 108, 77); break;    // ember
+        }
+        _accent.Fill = new SolidColorBrush(color);
     }
 
     // ── Click vs drag ──────────────────────────────────────────────────

@@ -28,6 +28,10 @@ export function usePetSettings() {
         character: normalizePetCharacter(next.character),
         size: ["small", "medium", "large"].includes(next.size) ? next.size : "medium",
         botColor: BOT_COLOR_CHOICES.includes(next.botColor) ? next.botColor : "auto",
+        // Capability probe: hosts that predate the Token Monitor pill omit the
+        // field, and the page hides the toggle rather than shipping a control
+        // that would silently do nothing.
+        monitor: typeof next.monitor === "boolean" ? next.monitor : undefined,
       });
     });
     requestNativePetSettings();

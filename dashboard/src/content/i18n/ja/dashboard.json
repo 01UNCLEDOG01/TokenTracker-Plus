@@ -377,6 +377,7 @@
   "pet.preview.states": "ペットの状態をプレビュー",
   "pet.controls.title": "デスクトップ操作",
   "pet.controls.show": "デスクトップペットを表示",
+  "pet.controls.monitor": "使用量モニター",
   "pet.controls.show_hint": "コンパニオンをほかのウィンドウより手前に表示します。",
   "pet.controls.size": "ペットのサイズ",
   "pet.controls.native_only": "実際のペットを操作するには TokenTracker デスクトップアプリでこのページを開いてください。",

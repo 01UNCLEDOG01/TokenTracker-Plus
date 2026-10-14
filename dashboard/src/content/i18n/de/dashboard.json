@@ -388,6 +388,7 @@
   "pet.preview.states": "Pet-Zustände ansehen",
   "pet.controls.title": "Desktop-Steuerung",
   "pet.controls.show": "Desktop-Pet anzeigen",
+  "pet.controls.monitor": "Token-Monitor",
   "pet.controls.show_hint": "Den Begleiter über anderen Fenstern halten.",
   "pet.controls.size": "Pet-Größe",
   "pet.controls.native_only": "Öffne diese Seite in der TokenTracker-Desktop-App, um das echte Pet zu steuern.",

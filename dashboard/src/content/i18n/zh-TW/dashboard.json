@@ -362,6 +362,7 @@
   "pet.preview.states": "預覽寵物狀態",
   "pet.controls.title": "桌面控制",
   "pet.controls.show": "顯示桌面寵物",
+  "pet.controls.monitor": "用量懸浮窗",
   "pet.controls.show_hint": "讓陪伴角色保持在其他視窗上方。",
   "pet.controls.size": "寵物大小",
   "pet.controls.native_only": "請在 TokenTracker 桌面 App 中開啟此頁面，以控制實際桌寵。",
