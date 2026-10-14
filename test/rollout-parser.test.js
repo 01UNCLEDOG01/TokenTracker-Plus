@@ -8150,7 +8150,18 @@ test("resolveCodebuddyProjectFiles walks ~/.codebuddy/projects/<cwd>/*.jsonl and
     await fs.writeFile(path.join(cwdA, "ignored.txt"), "");
     await fs.writeFile(path.join(cwdB, "s2.jsonl"), "");
 
-    const files = resolveCodebuddyProjectFiles({ CODEBUDDY_HOME: tmp });
+    // The resolver also scans the platform's IDE extension log roots, which
+    // fall back to HOME/APPDATA/LOCALAPPDATA when the env doesn't name them —
+    // a machine that has actually run CodeBuddy would leak its own logs into
+    // this count, so point every root at the fixture.
+    const files = resolveCodebuddyProjectFiles({
+      CODEBUDDY_HOME: tmp,
+      HOME: tmp,
+      APPDATA: tmp,
+      LOCALAPPDATA: tmp,
+      XDG_CONFIG_HOME: tmp,
+      XDG_DATA_HOME: tmp,
+    });
     assert.equal(files.length, 2);
     assert.ok(files.every((f) => f.endsWith(".jsonl")));
   } finally {

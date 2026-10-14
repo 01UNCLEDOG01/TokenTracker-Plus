@@ -157,10 +157,20 @@ test("installer refuses incomplete platform roles, existing unregistered applica
 });
 
 test("installation and function manifests exclude production data repairs and merchant secrets",async()=>{
-  assert.equal(instance.manifest.functions.length,14);
-  assert.ok(instance.manifest.functions.some(f=>f.slug==="tokentracker-device-flow-authorize"));
-  assert.ok(!instance.manifest.functions.some(f=>/webhook|leaderboard|public-visibility/.test(f.slug)));
-  assert.ok(!instance.manifest.serverSecrets.some(name=>/WAFFO|PADDLE|ALIPAY|WECHAT/.test(name)));
+  // The fork keeps the leaderboard and the public profile on a private
+  // instance, so those functions DO ship (the upstream 14-function list only
+  // served private usage). What must never ship is anything that needs a
+  // payment provider's merchant credentials, and no production data repair.
+  const expected=["tokentracker-device-flow-authorize","tokentracker-device-flow-grant","tokentracker-device-flow-poll",
+    "tokentracker-device-token-issue","tokentracker-device-rename","tokentracker-ingest",
+    "tokentracker-account-summary","tokentracker-account-daily","tokentracker-account-hourly",
+    "tokentracker-account-monthly","tokentracker-account-heatmap","tokentracker-account-model-breakdown",
+    "tokentracker-account-devices","tokentracker-billing",
+    "tokentracker-leaderboard","tokentracker-leaderboard-profile","tokentracker-public-visibility",
+    "tokentracker-profile-likes","tokentracker-telemetry","tokentracker-embed-svg","tokentracker-community-models"];
+  assert.deepEqual(instance.manifest.functions.map(f=>f.slug).sort(),[...expected].sort());
+  assert.ok(!instance.manifest.functions.some(f=>/webhook|paddle|alipay|waffo|wechat/.test(f.slug)));
+  assert.ok(!instance.manifest.serverSecrets.some(name=>/WAFFO|PADDLE|ALIPAY|WECHAT|MERCHANT/.test(name)));
   assert.ok(!buildSql().includes("ban-confirmed-leaderboard-manipulation"));
 });
 

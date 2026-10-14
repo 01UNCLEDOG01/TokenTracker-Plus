@@ -8,6 +8,8 @@ const binaryProbe = process.platform === "win32" ? "where" : "which";
 
 const {
   cacheExpiresAtMs,
+  CACHE_TTL_MS,
+  CACHE_MIN_TTL_MS,
   extractGeminiOauthClientCredentials,
   getUsageLimits,
   normalizePlanLabel,
@@ -5794,11 +5796,13 @@ describe("getUsageLimits Claude stale fallback", () => {
 
 describe("cacheExpiresAtMs", () => {
   const fetchedAt = Date.parse("2026-07-06T12:00:00Z");
-  const TTL_MS = 2 * 60 * 1000;
-  const MIN_TTL_MS = 5 * 1000;
+  // Read the constants from the module: a hard-coded copy silently pinned the
+  // old 2-minute window and turned a deliberate TTL change into a red test.
+  const TTL_MS = CACHE_TTL_MS;
+  const MIN_TTL_MS = CACHE_MIN_TTL_MS;
 
   it("expires at the earliest upcoming reset when it lands inside the TTL", () => {
-    const resetMs = fetchedAt + 60 * 1000;
+    const resetMs = fetchedAt + TTL_MS / 2;
     const data = {
       claude: {
         five_hour: { utilization: 90, resets_at: new Date(resetMs).toISOString() },
@@ -5809,13 +5813,13 @@ describe("cacheExpiresAtMs", () => {
   });
 
   it("converts Codex unix-second reset stamps", () => {
-    const resetMs = fetchedAt + 90 * 1000;
+    const resetMs = fetchedAt + Math.floor(TTL_MS * 2 / 3);
     const data = { codex: { primary_window: { used_percent: 80, reset_at: resetMs / 1000 } } };
     assert.equal(cacheExpiresAtMs(data, fetchedAt), resetMs);
   });
 
   it("finds resets nested inside weekly_scoped arrays", () => {
-    const resetMs = fetchedAt + 30 * 1000;
+    const resetMs = fetchedAt + TTL_MS - MIN_TTL_MS;
     const data = {
       claude: {
         weekly_scoped: [{ label: "Fable", utilization: 8, resets_at: new Date(resetMs).toISOString() }],

@@ -4500,6 +4500,8 @@ module.exports = {
   readWorkbuddyCreditsSafe,
   resetUsageLimitsCache,
   cacheExpiresAtMs,
+  CACHE_TTL_MS,
+  CACHE_MIN_TTL_MS,
   runCommand,
   extractGeminiOauthClientCredentials,
   loadKimiCredentials,
