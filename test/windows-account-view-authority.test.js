@@ -41,7 +41,7 @@ test("both account-view headers are read, transient matched by prefix", () => {
   assert.match(usagePoller, /"X-TokenTracker-Account-Fallback"/);
   assert.match(
     usagePoller,
-    /reason\.StartsWith\("transient", StringComparison\.Ordinal\)\n\s*\? AccountSource\.LocalTransient\n\s*: AccountSource\.LocalAuthoritative/,
+    /reason\.StartsWith\("transient", StringComparison\.Ordinal\)\r?\n\s*\? AccountSource\.LocalTransient\r?\n\s*: AccountSource\.LocalAuthoritative/,
     "New transient reasons must not require a client change; a missing reason stays authoritative.",
   );
 });
@@ -49,7 +49,7 @@ test("both account-view headers are read, transient matched by prefix", () => {
 test("a transient fallback skips the publish instead of overwriting account figures", () => {
   assert.match(
     usagePoller,
-    /var summarySource = ReadAccountSource\(resp\);\n\s*if \(summarySource == AccountSource\.LocalTransient && _showingAccountData\) return null;/,
+    /var summarySource = ReadAccountSource\(resp\);\r?\n\s*if \(summarySource == AccountSource\.LocalTransient && _showingAccountData\) return null;/,
     "Returning null leaves TrayApplicationContext._lastStats — the account snapshot — untouched.",
   );
 });
@@ -110,7 +110,7 @@ test("the rich-stat guards read this poll's authority, not the last publish's", 
 test("account authority is recorded only on a real publish", () => {
   assert.match(
     usagePoller,
-    /_showingAccountData = summarySource == AccountSource\.Account;\n\s*return new UsageStats\(/,
+    /_showingAccountData = summarySource == AccountSource\.Account;\r?\n\s*return new UsageStats\(/,
     "The flag must track what is actually on screen, not what the last response said.",
   );
 });

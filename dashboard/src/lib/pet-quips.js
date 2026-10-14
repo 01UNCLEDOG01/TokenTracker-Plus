@@ -378,18 +378,37 @@ const PET_PINNED_LIMIT_ROWS = [
   ["antigravity", "Claude weekly"],
   ["apigoto", "weekly"],
 ];
+const isPinnedPetLimitRow = (providerId, windowLabel) =>
+  PET_PINNED_LIMIT_ROWS.some(([p, w]) => p === providerId && w === windowLabel);
+const petLimitProviderName = (providerId) =>
+  PET_LIMIT_PROVIDER_COPY_NAME_KEYS[providerId]
+    ? copy(PET_LIMIT_PROVIDER_COPY_NAME_KEYS[providerId])
+    : PET_LIMIT_PROVIDER_NAMES[providerId] || providerId;
 function collectPetLimitRows(limits) {
   if (!limits || typeof limits !== "object") return [];
 
   const rows = [];
   const addWindow = (providerId, windowLabel, provider, window, getUsed, getReset = (w) => w?.reset_at) => {
-    if (provider?.configured !== true || provider?.error != null || !window) return;
-    const raw = Number(getUsed(window));
-    if (!Number.isFinite(raw)) return;
+    if (provider?.configured !== true || provider?.error != null) return;
+    const raw = window == null ? NaN : Number(getUsed(window));
+    // Pinned rows are the owner's fixed dashboard: a missing bucket (e.g. a
+    // freshly reset window before its first data point lands) still shows as
+    // 0% instead of silently dropping off the card.
+    if (!Number.isFinite(raw)) {
+      if (isPinnedPetLimitRow(providerId, windowLabel)) {
+        rows.push({
+          provider: petLimitProviderName(providerId),
+          providerId,
+          window: windowLabel,
+          usedPercent: 0,
+          resetAt: null,
+        });
+      }
+      return;
+    }
     rows.push({
-      provider: PET_LIMIT_PROVIDER_COPY_NAME_KEYS[providerId]
-        ? copy(PET_LIMIT_PROVIDER_COPY_NAME_KEYS[providerId])
-        : PET_LIMIT_PROVIDER_NAMES[providerId] || providerId,
+      provider: petLimitProviderName(providerId),
+      providerId,
       window: windowLabel,
       usedPercent: Math.min(100, Math.max(0, raw)),
       resetAt: getReset(window),
@@ -450,7 +469,7 @@ function collectPetLimitRows(limits) {
   ]);
 
   const rank = (row) => {
-    const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, w]) => row.provider === p && row.window === w);
+    const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, w]) => row.providerId === p && row.window === w);
     return i === -1 ? PET_PINNED_LIMIT_ROWS.length : i;
   };
   rows.sort((a, b) => {
@@ -474,7 +493,7 @@ export function buildPetLimitSummaries(limits) {
   const rows = collectPetLimitRows(limits);
   // Pinned rows are the owner's fixed dashboard: show them even at 0% (a
   // freshly reset window is still worth watching), unlike the urgency rows.
-  const pinned = (row) => PET_PINNED_LIMIT_ROWS.some(([p, w]) => row.provider === p && row.window === w);
+  const pinned = (row) => PET_PINNED_LIMIT_ROWS.some(([p, w]) => row.providerId === p && row.window === w);
   return rows.filter((row) => pinned(row) || (row.usedPercent > 0 && row.usedPercent < 100));
 }
 

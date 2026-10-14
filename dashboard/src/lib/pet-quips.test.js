@@ -140,6 +140,43 @@ describe("desktop pet limit dialogue", () => {
     }
   });
 
+  it("pins the owner's four rows to the top and shows a reset bucket at 0%", () => {
+    const limits = {
+      antigravity: {
+        configured: true,
+        error: null,
+        // Pinned order: Gemini weekly → Gemini 5h → Claude weekly. The
+        // freshly reset 5h bucket has no window at all yet — it must still
+        // appear as 0% instead of silently dropping off the card.
+        primary_window: { used_percent: 62, reset_at: "2099-01-03T00:00:00Z" },
+        secondary_window: { used_percent: 8, reset_at: "2099-01-02T00:00:00Z" },
+        tertiary_window: { used_percent: 30, reset_at: "2099-01-01T00:00:00Z" },
+        quaternary_window: null,
+      },
+      apigoto: {
+        configured: true,
+        error: null,
+        primary_window: { used_percent: 98, reset_at: "2099-01-04T00:00:00Z" },
+      },
+      // Higher urgency than every pinned row, but unpinned: sorts after them.
+      cursor: {
+        configured: true,
+        error: null,
+        primary_window: { used_percent: 99, reset_at: "2099-01-05T00:00:00Z" },
+      },
+    };
+
+    const readings = buildPetLimitSummaries(limits);
+    expect(readings.map(({ provider, window, usedPercent }) => `${provider} ${window} ${usedPercent}`)).toEqual([
+      "Antigravity Gemini weekly 30",
+      "Antigravity Gemini 5h 0",
+      "Antigravity Claude weekly 62",
+      "APIGOTO weekly 98",
+      "Cursor Plan 99",
+      "Antigravity Claude 5h 8",
+    ]);
+  });
+
   it("adds the limit line to the tap conversation without replacing token quips", () => {
     const pool = buildQuipPool("en", {
       tokens: 1200,

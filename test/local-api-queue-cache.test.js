@@ -167,9 +167,29 @@ test("pricing revision invalidates cached daily cost without rereading the queue
   }
 });
 
+function isolateHomeFromQoderData(t, tmp) {
+  // The fork's qoder estimate/credit merges probe the real home directory;
+  // without isolation a machine with Qoder data leaks its rows into totals.
+  t.mock.method(os, "homedir", () => tmp);
+  const prev = {
+    QODER_PROJECTS_DIR: process.env.QODER_PROJECTS_DIR,
+    QODER_CN_PROJECTS_DIR: process.env.QODER_CN_PROJECTS_DIR,
+  };
+  // Overrides win over the real dirs AND the Windows WSL-home probe.
+  process.env.QODER_PROJECTS_DIR = path.join(tmp, "no-qoder-projects");
+  process.env.QODER_CN_PROJECTS_DIR = path.join(tmp, "no-qoder-cn-projects");
+  t.after(() => {
+    for (const [key, value] of Object.entries(prev)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+}
+
 test("large daily aggregations share work and allow HTTP requests while computing", async (t) => {
   const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "tt-daily-responsive-"));
   t.after(() => fs.promises.rm(tmp, { recursive: true, force: true }));
+  isolateHomeFromQoderData(t, tmp);
   const queuePath = path.join(tmp, "queue.jsonl");
   const rows = Array.from({ length: 24_000 }, (_, i) => ({
     ...queueRow(100),
@@ -205,6 +225,7 @@ test("large daily aggregations share work and allow HTTP requests while computin
 test("a pricing refresh during cooperative aggregation cannot publish mixed revisions", async (t) => {
   const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "tt-daily-price-race-"));
   t.after(() => fs.promises.rm(tmp, { recursive: true, force: true }));
+  isolateHomeFromQoderData(t, tmp);
   const queuePath = path.join(tmp, "queue.jsonl");
   const rows = Array.from({ length: 2_000 }, (_, i) => ({
     ...queueRow(1_000_000, { source: "revision-source", model: "aggregation-revision-only-model" }),
