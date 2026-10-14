@@ -87,6 +87,7 @@ internal sealed class MonitorWidgetWindow : Window
             // Tool window: excluded from Alt+Tab. Explicit clicks can still focus controls.
             SetWindowLongPtr(_hwnd, -20, GetWindowLongPtr(_hwnd, -20) | 0x80);
         };
+        Cursor = System.Windows.Input.Cursors.Hand;
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible && !_closed && _settings.Enabled)
@@ -182,15 +183,15 @@ internal sealed class MonitorWidgetWindow : Window
 
     private bool _capturing;
     private bool _dragging;
-    private System.Windows.Point _pressPoint;
-    private int _pressLeft, _pressTop;
+    private System.Drawing.Point _pressScreen;   // physical px
+    private int _pressLeft, _pressTop;           // physical px
 
     private void OnButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_hwnd == 0) return;
-        _pressPoint = e.GetPosition(this);
         _dragging = false;
         _capturing = true;
+        _pressScreen = System.Windows.Forms.Cursor.Position;
         GetWindowRect(_hwnd, out var rect);
         _pressLeft = rect.Left;
         _pressTop = rect.Top;
@@ -200,20 +201,28 @@ internal sealed class MonitorWidgetWindow : Window
 
     private void OnMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (!_capturing || _hwnd == 0) return;
-        var pos = e.GetPosition(this);
-        if (!_dragging)
-        {
-            if (Math.Abs(pos.X - _pressPoint.X) < DragThresholdDips
-                && Math.Abs(pos.Y - _pressPoint.Y) < DragThresholdDips) return;
-            _dragging = true;
-        }
-        // Move in device pixels: the press origin was captured in screen space,
-        // so DPI scaling is already baked into the delta.
+        if (!_capturing || _dragging || _hwnd == 0) return;
+        // Threshold in physical px, measured against the cursor's SCREEN
+        // position — window-relative coordinates shift as the window moves and
+        // would turn the drag into a feedback loop that lags the cursor.
+        var now = System.Windows.Forms.Cursor.Position;
         var scale = GetDpiForWindow(_hwnd) / 96d;
-        var left = (int)Math.Round(_pressLeft + (pos.X - _pressPoint.X) * scale);
-        var top = (int)Math.Round(_pressTop + (pos.Y - _pressPoint.Y) * scale);
-        SetWindowPos(_hwnd, 0, left, top, 0, 0, 0x15); // NOSIZE | NOZORDER | NOACTIVATE
+        if (Math.Abs(now.X - _pressScreen.X) < DragThresholdDips * scale
+            && Math.Abs(now.Y - _pressScreen.Y) < DragThresholdDips * scale) return;
+        // Hand the move to Windows' own modal drag loop (the same call the
+        // quota widget's grip makes): the window tracks the cursor 1:1 with no
+        // per-event math, which is what made dragging feel "system smooth".
+        _dragging = true;
+        _capturing = false;
+        ReleaseMouseCapture();
+        ReleaseCapture();
+        SendMessage(_hwnd, 0xA1, (nint)2, 0); // WM_NCLBUTTONDOWN, HTCAPTION
+        if (GetWindowRect(_hwnd, out var rect))
+        {
+            _settings.X = rect.Left;
+            _settings.Y = rect.Top;
+            _settings.Save();
+        }
         e.Handled = true;
     }
 
@@ -222,20 +231,7 @@ internal sealed class MonitorWidgetWindow : Window
         if (!_capturing) return;
         _capturing = false;
         ReleaseMouseCapture();
-        if (_dragging)
-        {
-            _dragging = false;
-            if (GetWindowRect(_hwnd, out var rect))
-            {
-                _settings.X = rect.Left;
-                _settings.Y = rect.Top;
-                _settings.Save();
-            }
-        }
-        else
-        {
-            _openDashboard();
-        }
+        if (!_dragging) _openDashboard();
         e.Handled = true;
     }
 
@@ -352,6 +348,8 @@ internal sealed class MonitorWidgetWindow : Window
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(nint hwnd, System.Text.StringBuilder value, int size);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] private static extern nint GetWindowLongPtr(nint hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] private static extern nint SetWindowLongPtr(nint hwnd, int index, nint value);
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern nint SendMessage(nint hwnd, int message, nint wParam, nint lParam);
     [DllImport("user32.dll")] private static extern nint SetWinEventHook(uint eventMin, uint eventMax, nint eventHookModule, WinEventDelegate eventHook, uint processId, uint threadId, uint flags);
     [DllImport("user32.dll")] private static extern bool UnhookWinEvent(nint eventHook);
 
