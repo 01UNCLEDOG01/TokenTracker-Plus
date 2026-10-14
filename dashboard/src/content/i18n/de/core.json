@@ -419,6 +419,7 @@
   "limits.label.zcode_glm52": "GLM-5.2",
   "limits.label.zcode_glm5t": "GLM-5-Turbo",
   "limits.provider.antigravity": "Antigravity",
+  "limits.provider.apigoto": "APIGOTO",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
   "limits.provider.copilot": "GitHub Copilot",

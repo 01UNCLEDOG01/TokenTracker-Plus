@@ -88,6 +88,9 @@ internal sealed class MonitorWidgetWindow : Window
             SetWindowLongPtr(_hwnd, -20, GetWindowLongPtr(_hwnd, -20) | 0x80);
         };
         Cursor = System.Windows.Input.Cursors.Hand;
+        // Re-restore once the text has been measured: SizeToContent changes the
+        // window size after Show, and the first Place ran against the pre-layout rect.
+        ContentRendered += (_, _) => { if (!_placed) { Place(!_placed); _placed = true; } else { Place(false); } };
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible && !_closed && _settings.Enabled)

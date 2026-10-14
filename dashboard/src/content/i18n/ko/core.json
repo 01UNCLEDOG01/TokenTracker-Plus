@@ -162,6 +162,7 @@
   "limits.provider.grok": "Grok Build",
   "limits.provider.copilot": "GitHub Copilot",
   "limits.provider.antigravity": "Antigravity",
+  "limits.provider.apigoto": "APIGOTO",
   "limits.provider.zcode": "ZCode",
   "limits.provider.opencode_go": "OpenCode Go",
   "limits.provider.qoder": "Qoder",

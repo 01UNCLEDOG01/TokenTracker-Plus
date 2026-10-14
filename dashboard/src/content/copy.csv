@@ -776,6 +776,7 @@ limits.provider.kiro,ui,LimitsPage,UsageLimitsPanel,provider_kiro,"Kiro",,active
 limits.provider.grok,ui,LimitsPage,UsageLimitsPanel,provider_grok,"Grok Build",,active
 limits.provider.copilot,ui,LimitsPage,UsageLimitsPanel,provider_copilot,"GitHub Copilot",,active
 limits.provider.antigravity,ui,LimitsPage,UsageLimitsPanel,provider_antigravity,"Antigravity",,active
+limits.provider.apigoto,ui,LimitsPage,UsageLimitsPanel,provider_apigoto,"APIGOTO",,active
 limits.provider.zcode,ui,LimitsPage,UsageLimitsPanel,provider_zcode,"ZCode",,active
 provider.display.omp,ui,*,ProviderDisplay,omp,"oh-my-pi",,active
 provider.display.omo,ui,*,ProviderDisplay,omo,"OmO",,active

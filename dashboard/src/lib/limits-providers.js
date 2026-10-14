@@ -11,6 +11,7 @@ export const LIMIT_PROVIDER_IDS = [
   "grok",
   "copilot",
   "antigravity",
+  "apigoto",
   "zcode",
   "opencodeGo",
   "commandCode",
@@ -32,6 +33,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   grok: "GROK",
   copilot: "COPILOT",
   antigravity: "ANTIGRAVITY",
+  // APIGOTO 的品牌图抓自面板自身的 favicon.svg。
+  apigoto: "APIGOTO",
   zcode: "ZCODE",
   // Reuse the existing OpenCode brand mark — same vendor, separate product
   // (Go is a paid subscription tracked via dashboard scrape).
@@ -74,6 +77,8 @@ export function limitProviderName(id) {
     case "copilot":
       return copy("limits.provider.copilot");
     case "antigravity":
+    case "apigoto":
+      return copy("limits.provider.apigoto");
       return copy("limits.provider.antigravity");
     case "zcode":
       return copy("limits.provider.zcode");

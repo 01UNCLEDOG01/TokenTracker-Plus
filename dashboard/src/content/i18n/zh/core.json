@@ -165,6 +165,7 @@
   "provider.display.trae": "TRAE",
   "provider.display.trae_work_cn": "TRAE CN",
   "limits.provider.antigravity": "Antigravity",
+  "limits.provider.apigoto": "APIGOTO",
   "limits.provider.zcode": "ZCode",
   "limits.provider.opencode_go": "OpenCode Go",
   "limits.provider.qoder": "Qoder",
