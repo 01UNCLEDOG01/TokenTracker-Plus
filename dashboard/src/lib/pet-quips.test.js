@@ -199,6 +199,64 @@ describe("desktop pet limit dialogue", () => {
     ]);
   });
 
+  it("keeps the pinned pairs pinned when their labels are localized", () => {
+    const prevLocale = getCopyLocale();
+    try {
+      // The card prints the localized label, but pinned matching runs on the
+      // stable window key — a translated label must never unpin a row (the
+      // SenseNova weekly row used to fall off in Chinese for exactly that).
+      setCopyLocale(ZH_CN_LOCALE);
+      const limits = {
+        antigravity: {
+          configured: true,
+          error: null,
+          primary_window: { used_percent: 62, reset_at: "2099-01-03T00:00:00Z" },
+          tertiary_window: { used_percent: 30, reset_at: "2099-01-01T00:00:00Z" },
+        },
+        sensenova: {
+          configured: true,
+          error: null,
+          tertiary_window: { used_percent: 0, reset_at: "2099-01-01T00:00:00Z" },
+          quaternary_window: null,
+        },
+      };
+
+      const readings = buildPetLimitSummaries(limits);
+      expect(readings.map(({ provider, window }) => `${provider} ${window}`)).toEqual([
+        "Antigravity Gemini weekly",
+        "Antigravity Gemini 5h",
+        "Antigravity Claude weekly",
+        "SenseNova Flash-Lite 5h",
+        "SenseNova Flash-Lite 周",
+      ]);
+    } finally {
+      setCopyLocale(prevLocale);
+    }
+  });
+
+  it("caps the card at six rows so the pinned dashboard keeps every slot", () => {
+    const pinned = (provider, window) => ({ configured: true, error: null, [window]: { used_percent: 5, reset_at: "2099-01-01T00:00:00Z" } });
+    const limits = {
+      antigravity: { configured: true, error: null,
+        primary_window: { used_percent: 62, reset_at: "2099-01-03T00:00:00Z" },
+        quaternary_window: { used_percent: 23, reset_at: "2099-01-02T00:00:00Z" },
+        tertiary_window: { used_percent: 30, reset_at: "2099-01-01T00:00:00Z" } },
+      apigoto: pinned("apigoto", "primary_window"),
+      sensenova: { configured: true, error: null,
+        tertiary_window: { used_percent: 0, reset_at: "2099-01-01T00:00:00Z" },
+        quaternary_window: { used_percent: 0, reset_at: "2099-01-02T00:00:00Z" } },
+      // Louder than every pinned row, but the six pinned slots take the card.
+      cursor: { configured: true, error: null, primary_window: { used_percent: 99, reset_at: "2099-01-05T00:00:00Z" } },
+    };
+
+    const readings = buildPetLimitSummaries(limits);
+    expect(readings).toHaveLength(6);
+    expect(readings.map(({ provider }) => provider)).toEqual([
+      "Antigravity", "Antigravity", "Antigravity", "APIGOTO", "SenseNova", "SenseNova",
+    ]);
+    expect(readings.some(({ provider }) => provider === "Cursor")).toBe(false);
+  });
+
   it("adds the limit line to the tap conversation without replacing token quips", () => {
     const pool = buildQuipPool("en", {
       tokens: 1200,

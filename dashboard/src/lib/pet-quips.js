@@ -378,13 +378,16 @@ const PET_PINNED_LIMIT_ROWS = [
   ["antigravity", "Gemini 5h"],
   ["antigravity", "Claude weekly"],
   ["apigoto", "weekly"],
-  // SenseNova's two Flash-Lite windows: the owner watches these on the card,
-  // and a pinned row shows at 0% instead of vanishing until first use.
-  ["sensenova", "Flash-Lite 5h"],
-  ["sensenova", "Flash-Lite weekly"],
+  // SenseNova's two Flash-Lite windows, keyed so the match survives a
+  // localized label (the card shows 商汤's own copy in Chinese).
+  ["sensenova", "flash-lite-5h"],
+  ["sensenova", "flash-lite-weekly"],
 ];
-const isPinnedPetLimitRow = (providerId, windowLabel) =>
-  PET_PINNED_LIMIT_ROWS.some(([p, w]) => p === providerId && w === windowLabel);
+// The hover card holds six rows; the pinned dashboard takes them first and any
+// leftover slots go to the most-used windows below.
+const MAX_PET_LIMIT_ROWS = 6;
+const isPinnedPetLimitRow = (providerId, windowKey) =>
+  PET_PINNED_LIMIT_ROWS.some(([p, k]) => p === providerId && k === windowKey);
 const petLimitProviderName = (providerId) =>
   PET_LIMIT_PROVIDER_COPY_NAME_KEYS[providerId]
     ? copy(PET_LIMIT_PROVIDER_COPY_NAME_KEYS[providerId])
@@ -393,18 +396,21 @@ function collectPetLimitRows(limits) {
   if (!limits || typeof limits !== "object") return [];
 
   const rows = [];
-  const addWindow = (providerId, windowLabel, provider, window, getUsed, getReset = (w) => w?.reset_at) => {
+  // `windowLabel` is what the card prints; `windowKey` is the stable identifier
+  // pinned rows match on, so translating a label can never unpin a row.
+  const addWindow = (providerId, windowLabel, provider, window, getUsed, getReset = (w) => w?.reset_at, windowKey = windowLabel) => {
     if (provider?.configured !== true || provider?.error != null) return;
     const raw = window == null ? NaN : Number(getUsed(window));
     // Pinned rows are the owner's fixed dashboard: a missing bucket (e.g. a
     // freshly reset window before its first data point lands) still shows as
     // 0% instead of silently dropping off the card.
     if (!Number.isFinite(raw)) {
-      if (isPinnedPetLimitRow(providerId, windowLabel)) {
+      if (isPinnedPetLimitRow(providerId, windowKey)) {
         rows.push({
           provider: petLimitProviderName(providerId),
           providerId,
           window: windowLabel,
+          windowKey,
           usedPercent: 0,
           resetAt: null,
         });
@@ -415,13 +421,14 @@ function collectPetLimitRows(limits) {
       provider: petLimitProviderName(providerId),
       providerId,
       window: windowLabel,
+      windowKey,
       usedPercent: Math.min(100, Math.max(0, raw)),
       resetAt: getReset(window),
     });
   };
   const addGeneric = (providerId, provider, windows) => {
-    for (const [label, window] of windows) {
-      addWindow(providerId, label, provider, window, (w) => w?.used_percent);
+    for (const [label, window, key] of windows) {
+      addWindow(providerId, label, provider, window, (w) => w?.used_percent, (w) => w?.reset_at, key ?? label);
     }
   };
 
@@ -459,8 +466,8 @@ function collectPetLimitRows(limits) {
   // two windows are the ones the owner wants in sight (the general pool and
   // the granted-credit balance stay on the Limits page).
   addGeneric("sensenova", limits.sensenova, [
-    [copy("limits.label.sensenova_flash_lite_5h"), limits.sensenova?.tertiary_window],
-    [copy("limits.label.sensenova_flash_lite_weekly"), limits.sensenova?.quaternary_window],
+    [copy("limits.label.sensenova_flash_lite_5h"), limits.sensenova?.tertiary_window, "flash-lite-5h"],
+    [copy("limits.label.sensenova_flash_lite_weekly"), limits.sensenova?.quaternary_window, "flash-lite-weekly"],
   ]);
   addGeneric("zcode", limits.zcode, zcodeQuipWindows(limits.zcode));
   addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window], ["Weekly", limits.opencodeGo?.secondary_window], ["Month", limits.opencodeGo?.tertiary_window]]);
@@ -481,7 +488,7 @@ function collectPetLimitRows(limits) {
   ]);
 
   const rank = (row) => {
-    const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, w]) => row.providerId === p && row.window === w);
+    const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, k]) => row.providerId === p && row.windowKey === k);
     return i === -1 ? PET_PINNED_LIMIT_ROWS.length : i;
   };
   rows.sort((a, b) => {
@@ -499,14 +506,17 @@ function collectPetLimitRows(limits) {
 /**
  * Return all active, not-yet-full provider windows for the desktop pet. Empty
  * windows and saturated 100% windows stay on the full Limits page instead of
- * taking over the small conversation bubble.
+ * taking over the small conversation bubble. The card is capped at six rows:
+ * the pinned dashboard takes them first, and urgency rows fill what is left.
  */
 export function buildPetLimitSummaries(limits) {
   const rows = collectPetLimitRows(limits);
   // Pinned rows are the owner's fixed dashboard: show them even at 0% (a
   // freshly reset window is still worth watching), unlike the urgency rows.
-  const pinned = (row) => PET_PINNED_LIMIT_ROWS.some(([p, w]) => row.providerId === p && row.window === w);
-  return rows.filter((row) => pinned(row) || (row.usedPercent > 0 && row.usedPercent < 100));
+  const pinned = (row) => isPinnedPetLimitRow(row.providerId, row.windowKey);
+  return rows
+    .filter((row) => pinned(row) || (row.usedPercent > 0 && row.usedPercent < 100))
+    .slice(0, MAX_PET_LIMIT_ROWS);
 }
 
 /** Keep the compact tap-quip API for callers that only need the first row. */
