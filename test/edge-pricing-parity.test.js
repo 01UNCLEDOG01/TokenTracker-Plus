@@ -106,6 +106,30 @@ test("Qwen3.8 Flash local and all cloud paths share full cache pricing (#715)", 
   }
 });
 
+test("SenseNova gateway ids (sn-*) strip the namespace and price the upstream SKU", () => {
+  const { getModelPricing: localPricing } = require("../src/lib/pricing");
+  const expected = { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 };
+  // agent2api and zcode report SenseNova Token Plan models with this prefix;
+  // without the strip the cloud prices the row $0 and the account view runs
+  // cheaper than the local one (real incident, 2026-10-15).
+  const variants = ["sn-deepseek-v4-1-flash", "SN-DeepSeek-V4-1-Flash", "sn-deepseek-flash"];
+  for (const name of [CANONICAL, ...MIRRORS]) {
+    const { code } = transformSync(extractBlock(name), { loader: "ts", target: "es2020" });
+    const edgePricing = vm.runInNewContext(`${code}\ngetModelPricing;`);
+    for (const model of variants) {
+      const local = localPricing(model);
+      assert.deepEqual(Object.fromEntries(Object.keys(expected).map(key => [key, local[key]])), expected, model);
+      assert.deepEqual(JSON.parse(JSON.stringify(edgePricing(model))), expected, `${name}: ${model}`);
+    }
+    // A bare unknown sn- id must not inherit a public rate — same boundary the
+    // local matcher draws (sn-foo stays unpriced).
+    for (const model of ["sn-foo", "sn-unknown-model"]) {
+      const edge = JSON.parse(JSON.stringify(edgePricing(model)));
+      assert.ok(Object.values(edge).every(v => !v), `${name}: ${model} must stay unpriced`);
+    }
+  }
+});
+
 test("canonical pricing block retains regression-prone entries and matcher order", () => {
   const block = extractBlock(CANONICAL);
 

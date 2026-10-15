@@ -417,6 +417,39 @@ function getModelPricing(model: string, source = "") {
   // reports its own positive cost still wins earlier via
   // SOURCES_WITH_AUTHORITATIVE_COST.
   if (lower.includes("cline-free/") || lower.includes("cline-pass/")) return ZERO_PRICING;
+  // SenseNova-hosted models report with an `sn-` namespace prefix through the
+  // agent2api gateway and zcode (sn-deepseek-v4-1-flash = DeepSeek V4.1 Flash
+  // served from SenseNova's Token Plan). The upstream SKU sits after the
+  // prefix; strip it and re-resolve so the cloud prices what the local table
+  // prices (mirrors src/lib/pricing/matcher.js dot-form contained matching,
+  // 2026-10-15). An sn- id with no known SKU falls through to the unpriced
+  // tail like any other unknown id.
+  if (lower.startsWith("sn-")) {
+    // SenseNova gateway namespace: agent2api and zcode report SenseNova-hosted
+    // SKUs with this prefix (sn-deepseek-v4-1-flash = DeepSeek V4.1 Flash from
+    // SenseNova's Token Plan), and the cloud table had no entry for the prefixed
+    // id, so the account view priced those rows $0 while the local view billed
+    // them (2026-10-15). Mirror the local matcher: strip the prefix, restore
+    // version dots, then price by the longest known SKU contained in the id —
+    // the same generation guard rules out a shorter key bleeding into a newer
+    // version. Unknown sn- ids fall through unpriced.
+    const stripped = lower.slice(3);
+    const dotRestored = stripped.replace(/(\d+)-(\d+)/g, "$1.$2");
+    for (const candidate of [dotRestored, stripped]) {
+      const exact = MODEL_PRICING[candidate];
+      if (exact) return exact;
+    }
+    let contained = null;
+    for (const key of Object.keys(MODEL_PRICING).sort((a, b) => b.length - a.length)) {
+      const start = dotRestored.indexOf(key);
+      if (start < 0) continue;
+      if (/^[.\d]/.test(dotRestored.slice(start + key.length))) continue;
+      contained = key;
+      break;
+    }
+    if (contained) return MODEL_PRICING[contained];
+    return getModelPricing(stripped, source);
+  }
   // space-bunny family: the curated card is keyed `space-bunny`; the alias
   // entries (space-bunny-free, stealth/space-bunny-alpha) resolve to it
   // (curated alias, 2026-10-13).
