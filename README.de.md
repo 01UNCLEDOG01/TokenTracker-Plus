@@ -9,7 +9,7 @@
 
 <div align="center">
 
-# Token Tracker
+# Token Tracker — TT-plus fork
 
 [English](./README.md) · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md) · **Deutsch**
 
@@ -17,34 +17,17 @@
 
 Sammle automatisch Token-Zahlen von **50 KI-Coding-Tools**, aggregiere sie lokal und sieh echte Kostentrends in einem schönen Dashboard. Kein Cloud-Konto, keine API-Keys, kein Setup – nur ein Befehl.
 
-[![npm version](https://img.shields.io/npm/v/tokentracker-cli.svg?color=blue)](https://www.npmjs.com/package/tokentracker-cli)
-[![npm downloads](https://img.shields.io/npm/dm/tokentracker-cli.svg?color=brightgreen)](https://www.npmjs.com/package/tokentracker-cli)
-[![Homebrew](https://img.shields.io/github/v/release/xiufengsun/TokenTracker?label=brew&color=F8B73E&logo=homebrew&logoColor=white)](https://github.com/xiufengsun/homebrew-tokentracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![CLI](https://img.shields.io/badge/CLI-macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-lightgrey.svg)](https://www.npmjs.com/package/tokentracker-cli)
 [![macOS app](https://img.shields.io/badge/macOS%20app-menu%20bar%20%2B%20widgets-lightgrey.svg?logo=apple&logoColor=white)](https://github.com/xiufengsun/TokenTracker/releases/latest)
 [![Windows app](https://img.shields.io/badge/Windows%20app-system%20tray-lightgrey.svg?logo=windows&logoColor=white)](https://github.com/xiufengsun/TokenTracker/releases/latest)
-[![GitHub stars](https://img.shields.io/github/stars/xiufengsun/TokenTracker?style=social)](https://github.com/xiufengsun/TokenTracker/stargazers)
-[![Featured in 阮一峰周刊 #393](https://img.shields.io/badge/Featured%20in-%E9%98%AE%E4%B8%80%E5%B3%B0%E5%91%A8%E5%88%8A%20%23393-FF6B35?logo=rss&logoColor=white)](https://github.com/ruanyf/weekly/blob/master/docs/issue-393.md)
-[![Author tokens](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=0652839f-d19f-4f67-af85-6b7675875443&metric=tokens&compact=1&label=author%20tokens)](https://github.com/xiufengsun/TokenTracker)
 
 <br/>
-
-<video src="https://github.com/user-attachments/assets/efb89086-b7d7-4cb6-ae3c-3a6cb50188d2" controls muted playsinline poster="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/intro-film-poster.png" width="820">
-  <img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/intro-film-poster.png" alt="TokenTracker intro film" width="820" />
-</video>
-
-<video src="https://github.com/user-attachments/assets/3275979d-bbed-4639-83e2-8b7d83bed6af" controls muted playsinline poster="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/dashboard-dark.png" width="820">
-  <img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/dashboard-dark.png" alt="Token Tracker Dashboard" width="820" />
-</video>
 
 <br/><br/>
 
-⭐ **Wenn TokenTracker dir Zeit spart, [gib ihm einen Star auf GitHub](https://github.com/xiufengsun/TokenTracker) – das hilft anderen Entwicklern, es zu finden.**
 
 <br/>
 
-[![ko-fi](https://(removed)/img/githubbutton_sm.svg)](https://(removed)/M4M11XSNWD)
 
 </div>
 
@@ -52,50 +35,15 @@ Sammle automatisch Token-Zahlen von **50 KI-Coding-Tools**, aggregiere sie lokal
 
 ## ⚡ Schnellstart
 
-> **Voraussetzungen**: Node.js **20+** (CLI läuft auf macOS / Linux / Windows; native Desktop-Apps gibt es für macOS (Menüleiste), Windows (System Tray) und Linux (AppImage, Tray). Cursor-Token nutzt das systemeigene `sqlite3` CLI, wo verfügbar, und nutzt `node:sqlite` als Fallback auf unterstützten Node-Versionen).
+> **This fork is not published to npm — run it from source.** Full instructions
+> in the [English](./README.md#-quick-start) or [简体中文](./README.zh-CN.md#-快速开始) Quick Start.
 
 ```bash
-npx tokentracker-cli
+git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
+cd TokenTracker-plus
+npm install
+node bin/tracker.js      # opens the dashboard at http://localhost:7680
 ```
-
-Das war's. Beim ersten Start werden Hooks installiert, deine Daten synchronisiert und das Dashboard unter `http://localhost:7680` geöffnet.
-
-**Das bekommst du in 30 Sekunden:**
-
-- 📊 Ein lokales Dashboard auf `localhost:7680` mit Nutzungstrends, Modellaufschlüsselung, Kostenanalyse
-- 🔌 Auto-erkannte Hooks für jedes installierte KI-Tool
-- 🏠 Local-First – parst Logs direkt auf deinem Rechner; kein Konto und keine API-Keys erforderlich
-- 🧩 *Optional:* Ein Skills-Tab zum Durchsuchen von 250+ öffentlichen Skills – synchronisiert über Claude · Codex · Grok · Antigravity · Gemini · OpenCode · Hermes
-
-> **Möchtest du eine native Desktop-App?**
-> - **macOS** — [Lade `TokenTrackerBar.dmg` herunter](https://github.com/xiufengsun/TokenTracker/releases/latest/download/TokenTrackerBar.dmg) → in Programme ziehen. Menüleisten-Symbol, Desktop-Widgets und das Dashboard in einer WKWebView.
-> - **Windows** — [Lade `TokenTracker-Setup.exe` herunter](https://github.com/xiufengsun/TokenTracker/releases/latest/download/TokenTracker-Setup.exe) → per-user Installer ausführen (kein Admin nötig). System-Tray-App mit Dashboard in WebView2. Portables Zip gibt's auf der [Releases-Seite](https://github.com/xiufengsun/TokenTracker/releases/latest).
-> - **Linux** — [Lade `TokenTracker-linux-x86_64.AppImage` herunter](https://github.com/xiufengsun/TokenTracker/releases/latest/download/TokenTracker-linux-x86_64.AppImage) → `chmod +x` und starten. Tray-App mit Dashboard in einem WebKitGTK-Fenster. Sie bringt GTK/WebKit selbst mit und braucht aus deiner Distribution nichts außer einer aktuellen glibc; unter GNOME braucht das Tray-Symbol weiterhin die [AppIndicator-Erweiterung](https://extensions.gnome.org/extension/615/appindicator-support/). `.deb`- und `.rpm`-Pakete gibt es ebenfalls auf der [Releases-Seite](https://github.com/xiufengsun/TokenTracker/releases/latest) — diese nutzen stattdessen `webkit2gtk-4.1`, `gtk3` und appindicator der Distribution. Das `.deb` benötigt `libappindicator3-1`, das Debian 12 zugunsten von `libayatana-appindicator3-1` entfernt hat; nutze dort das AppImage.
-
-Für kürzere Befehle global installieren:
-
-```bash
-npm i -g tokentracker-cli
-
-tokentracker              # Dashboard öffnen
-tokentracker sync         # Manuelle Synchronisation
-tokentracker status       # Hook-Status prüfen
-tokentracker status --json     # Maschinenlesbare Ausgabe (für jq, AI-Agenten)
-tokentracker status --light    # Reine ASCII-Tabelle (CI / SSH, kein Spinner)
-tokentracker doctor       # Health Check
-```
-
-### 🍺 Homebrew (macOS)
-
-```bash
-# macOS Menüleisten-App (DMG)
-brew install --cask xiufengsun/tokentracker/tokentracker
-
-# Nur CLI
-brew install xiufengsun/tokentracker/tokentracker
-```
-
-Aktualisieren mit `brew upgrade --cask xiufengsun/tokentracker/tokentracker`. Der Tap wird innerhalb einer Stunde nach jedem Release automatisch aktualisiert.
 
 ---
 
@@ -124,14 +72,14 @@ Aktualisieren mit `brew upgrade --cask xiufengsun/tokentracker/tokentracker`. De
 
 **Dashboard** — Nutzungstrends, Modellaufschlüsselung, Kostenanalyse
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/dashboard-light.png" alt="Dashboard" />
+<img src="docs/screenshots/dashboard-light.png" alt="Dashboard" />
 
 </td>
 <td width="50%">
 
 **Desktop-Widgets** — Nutzung auf dem Schreibtisch
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/widgets-overview.png" alt="Desktop-Widgets" />
+<img src="docs/screenshots/widgets-overview.png" alt="Desktop-Widgets" />
 
 </td>
 </tr>
@@ -140,14 +88,14 @@ Aktualisieren mit `brew upgrade --cask xiufengsun/tokentracker/tokentracker`. De
 
 **Menüleisten-App** — Animierter Clawd-Begleiter + native Panels
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/menubar.gif" alt="Menüleisten-App" />
+<img src="docs/screenshots/menubar.gif" alt="Menüleisten-App" />
 
 </td>
 <td width="50%">
 
 **Globales Leaderboard** — Vergleich mit Entwicklern weltweit
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/leaderboard.png" alt="Leaderboard" />
+<img src="docs/screenshots/leaderboard.png" alt="Leaderboard" />
 
 </td>
 </tr>
@@ -156,7 +104,7 @@ Aktualisieren mit `brew upgrade --cask xiufengsun/tokentracker/tokentracker`. De
 
 **Skills-Manager** — 250+ öffentliche Skills von GitHub & `skills.sh` durchsuchen, einmal installieren, mit Claude / Codex / Grok / Antigravity / Gemini / OpenCode / Hermes synchronisieren. Ein-/Ausschalten pro Tool, Undo mit einem Klick.
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/skills.png" alt="Skills-Manager" />
+<img src="docs/screenshots/skills.png" alt="Skills-Manager" />
 
 </td>
 </tr>
@@ -165,7 +113,7 @@ Aktualisieren mit `brew upgrade --cask xiufengsun/tokentracker/tokentracker`. De
 
 **Desktop-Pet** — ein Pixel-Begleiter, der auf dem Desktop schwebt und auf den echten Token-Verbrauch reagiert: Er codet mit, feiert Streaks und schläft in Pausen. Community-Pets per [codex-pets.net](https://codex-pets.net)-Link oder `.codex-pet.zip` importieren — V2-Pets folgen dem Cursor mit dem Blick in 16 Richtungen. macOS, Windows und Web.
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/pet.png" alt="Desktop Pet" />
+<img src="docs/screenshots/pet.png" alt="Desktop Pet" />
 
 </td>
 </tr>
@@ -335,7 +283,7 @@ Unterstützte Provider für WSL-Erkennung und Zusammenführung (Aggregation):
 ## 🛠️ Entwicklung
 
 ```bash
-git clone https://github.com/xiufengsun/TokenTracker.git
+git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
 cd TokenTracker
 npm install
 
@@ -484,48 +432,9 @@ Nach einmaliger Gewährung wird die Berechtigung gemerkt. Ad-hoc-signierte Build
 
 ---
 
-## 🪪 README-Badges
-
-Zeig deine Token-Nutzung auf deinem GitHub-Profil oder in deiner Projekt-README.
-
-So findest du `DEINE_USER_ID`:
-1. Führe `tokentracker` aus, öffne das Dashboard und melde dich beim Leaderboard an.
-2. Gehe zu **Einstellungen → Konto**.
-3. Nutze die dort angezeigte **User ID**. Auf Headless-Maschinen schreibt `tokentracker device-login` die `user_id` ebenfalls nach `~/.tokentracker/tracker/config.json`.
-
-Dann füge eines davon ein:
-
-```markdown
-[![tokens](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=DEINE_USER_ID&metric=tokens)](https://github.com/xiufengsun/TokenTracker)
-[![cost](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=DEINE_USER_ID&metric=cost)](https://github.com/xiufengsun/TokenTracker)
-[![rank](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=DEINE_USER_ID&metric=rank)](https://github.com/xiufengsun/TokenTracker)
-```
-
-> Der Link verweist standardmäßig auf das TokenTracker-Repo, damit jeder Klick anderen Entwicklern hilft, das Tool zu entdecken. Du kannst ihn gegen dein Leaderboard-Profil, deine Website oder `https://(removed)` austauschen.
-
-Shields.io-kompatible Badges mit deinen aktuellen Gesamtwerten (60s Cache):
-
-| Parameter | Werte | Standard |
-|---|---|---|
-| `metric` | `tokens` / `cost` / `rank` | `tokens` |
-| `period` | `week` / `month` / `total` | `total` |
-| `style` | `flat` / `flat-square` | `flat` |
-| `label` | beliebiger kurzer Text | Metrik-Name |
-| `color` | hex, z. B. `ff6b35` | Marken-Grün |
-
-> **Datenschutz**: Badges werden nur für Profile aufgelöst, bei denen das Leaderboard-Sharing **aktiv** ist (`Einstellungen → Konto → Öffentliches Profil`). Private Profile zeigen einen „private"-Platzhalter.
-
+## Der gehostete Badge-Dienst des Upstream-Projekts ist in diesem Fork nicht verfügbar (selbst gehostetes Backend, authentifizierter Endpunkt). Details in der englischen README.
 ---
 
-## ⭐ Stern-Verlauf
-
-<a href="https://www.star-history.com/?repos=xiufengsun%2FTokenTracker&type=date&legend=top-left">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiufengsun/TokenTracker&type=date&theme=dark&legend=top-left&sealed_token=Vr7qbPNqOTtzQEdtkxS2yArAReX2QkBZKNJgs3n32Q5oJa1iXddLlrT201teNSnt7QnsXtDcHy_T387xvXJ_HXHrPtvH2QQ1xqQZ67N_HV45ulWrt3j6hziDW5eshRCmu8CAT_W31PY0-WVZpFv7NQD-acv1stVK8ndribTokIp9ukSYAedx3icuUrOu" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiufengsun/TokenTracker&type=date&legend=top-left&sealed_token=Vr7qbPNqOTtzQEdtkxS2yArAReX2QkBZKNJgs3n32Q5oJa1iXddLlrT201teNSnt7QnsXtDcHy_T387xvXJ_HXHrPtvH2QQ1xqQZ67N_HV45ulWrt3j6hziDW5eshRCmu8CAT_W31PY0-WVZpFv7NQD-acv1stVK8ndribTokIp9ukSYAedx3icuUrOu" />
-    <img alt="Star-History-Diagramm" src="https://api.star-history.com/chart?repos=xiufengsun/TokenTracker&type=date&legend=top-left&sealed_token=Vr7qbPNqOTtzQEdtkxS2yArAReX2QkBZKNJgs3n32Q5oJa1iXddLlrT201teNSnt7QnsXtDcHy_T387xvXJ_HXHrPtvH2QQ1xqQZ67N_HV45ulWrt3j6hziDW5eshRCmu8CAT_W31PY0-WVZpFv7NQD-acv1stVK8ndribTokIp9ukSYAedx3icuUrOu" />
-  </picture>
-</a>
 
 ---
 
@@ -542,9 +451,6 @@ Die Morphing-Engine des `bot`-Begleiters ist [bloub](https://github.com/jeremy-p
 
 Das Clawd-Charakterdesign gehört Anthropic. Dies ist ein Community-Projekt ohne offizielle Verbindung zu Anthropic.
 
-## 🔗 Links
-
-- [LINUX DO](https://linux.do) — eine Entwickler-Community
 
 ## Lizenz
 
@@ -554,8 +460,8 @@ Das Clawd-Charakterdesign gehört Anthropic. Dies ist ein Community-Projekt ohne
 
 <div align="center">
 
-**Token Tracker** – Quantifiziere deine KI-Ausgaben.
+**Token Tracker (TT-plus fork)** — Quantify your AI output, on your own hardware.
 
-<a href="https://(removed)">(removed)</a>  ·  <a href="https://www.npmjs.com/package/tokentracker-cli">npm</a>  ·  <a href="https://github.com/xiufengsun/TokenTracker">GitHub</a>
+<a href="https://github.com/01UNCLEDOG01/TokenTracker-plus">this fork</a>  ·  <a href="https://github.com/xiufengsun/TokenTracker">upstream project</a>
 
 </div>

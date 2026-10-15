@@ -7,36 +7,20 @@
 
 ---
 
- <div align="center">
+<div align="center">
 
-# Token Tracker
+# Token Tracker — TT-plus fork
 
 **English** · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md) · [Deutsch](./README.de.md)
 
 ### Track every AI token — then bring your usage to life
 
-An accurate, local-first token usage and cost dashboard for **50 AI coding tools** — plus a desktop pet, **4 native widgets**, and **15 achievement tracks**. No cloud account, no API keys, no setup.
+A personal fork of the local-first token usage and cost dashboard for **50 AI coding tools** — desktop pet, **4 native widgets**, **15 achievement tracks** — extended with a **self-hosted backend**, extra usage **providers** (Agent2API, APIGOTO, AgentRouter), and a **floating usage pill** on Windows.
 
-[![npm version](https://img.shields.io/npm/v/tokentracker-cli.svg?color=blue)](https://www.npmjs.com/package/tokentracker-cli)
-[![npm downloads](https://img.shields.io/npm/dm/tokentracker-cli.svg?color=brightgreen)](https://www.npmjs.com/package/tokentracker-cli)
-[![Homebrew](https://img.shields.io/github/v/release/xiufengsun/TokenTracker?label=brew&color=F8B73E&logo=homebrew&logoColor=white)](https://github.com/xiufengsun/homebrew-tokentracker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![CLI](https://img.shields.io/badge/CLI-macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-lightgrey.svg)](https://www.npmjs.com/package/tokentracker-cli)
-[![macOS app](https://img.shields.io/badge/macOS%20app-menu%20bar%20%2B%20widgets-lightgrey.svg?logo=apple&logoColor=white)](https://github.com/xiufengsun/TokenTracker/releases/latest)
-[![Windows app](https://img.shields.io/badge/Windows%20app-system%20tray-lightgrey.svg?logo=windows&logoColor=white)](https://github.com/xiufengsun/TokenTracker/releases/latest)
-[![GitHub stars](https://img.shields.io/github/stars/xiufengsun/TokenTracker?style=social)](https://github.com/xiufengsun/TokenTracker/stargazers)
-[![Featured in 阮一峰周刊 #393](https://img.shields.io/badge/Featured%20in-%E9%98%AE%E4%B8%80%E5%B3%B0%E5%91%A8%E5%88%8A%20%23393-FF6B35?logo=rss&logoColor=white)](https://github.com/ruanyf/weekly/blob/master/docs/issue-393.md)
-[![Author tokens](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=0652839f-d19f-4f67-af85-6b7675875443&metric=tokens&compact=1&label=author%20tokens)](https://github.com/xiufengsun/TokenTracker)
-
-<br/>
-
-<strong>📊 See the token dashboard in action</strong>
-
-<br/><br/>
-
-<video src="https://github.com/user-attachments/assets/3275979d-bbed-4639-83e2-8b7d83bed6af" controls muted playsinline poster="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/dashboard-light.png" width="820"></video>
-
-<br/><br/>
+[![Upstream](https://img.shields.io/badge/upstream-xiufengsun%2FTokenTracker-blue)](https://github.com/xiufengsun/TokenTracker)
+[![Backend](https://img.shields.io/badge/backend-self--hosted%20%28Node%20%2B%20PGlite%29-orange)](scripts/self-host/)
+[![CLI](https://img.shields.io/badge/CLI-macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-lightgrey.svg)](#-quick-start)
 
 <table>
 <tr>
@@ -59,25 +43,19 @@ An accurate, local-first token usage and cost dashboard for **50 AI coding tools
 
 <strong>🏆 Unlock achievements from the way you actually code.</strong>
 
-<br/><br/>
-
-<strong>🎬 Meet TokenTracker</strong>
-
-<br/><br/>
-
-<video src="https://github.com/user-attachments/assets/efb89086-b7d7-4cb6-ae3c-3a6cb50188d2" controls muted playsinline poster="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/intro-film-poster.png" width="820">
-  <img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/intro-film-poster.png" alt="TokenTracker intro film" width="820" />
-</video>
-
-<br/><br/>
-
-⭐ **If TokenTracker saves you time, please [star it on GitHub](https://github.com/xiufengsun/TokenTracker) — it helps other developers find it.**
-
-<br/>
-
-[![ko-fi](https://(removed)/img/githubbutton_sm.svg)](https://(removed)/M4M11XSNWD)
-
 </div>
+
+---
+
+## 🌿 What this fork changes
+
+Everything the upstream tracker does locally still works the same. On top of it, this fork:
+
+- **Self-hosts the cloud features.** The leaderboard, profiles, achievements and cross-device sync run against a private Node + PGlite backend deployed with [`scripts/self-host/`](scripts/self-host/) (`internal-deploy.sh`, `internal-backup.sh`) — no third-party hosted service, no membership/payment UI.
+- **Adds usage providers**: [Agent2API](src/lib/agent2api-limits.js) (local gateway DB), **APIGOTO** and **AgentRouter** (self-hosted panels of commercial relays) join the provider limits page, the desktop-pet hover card, and the floating pill.
+- **Adds a floating usage pill on Windows** (`TokenTrackerWin`): a tiny always-on-top native pill showing today's tokens + cost, draggable, pet-character-aware.
+- **Extends session coverage**: antigravity (transcript-based, with per-step model attribution), autoclaw, cola, tuanjie-cowork, workbuddy, dsh and qoder estimations feed both the session browser and the usage totals.
+- **Keeps the identity local**: single private account, GitHub avatar/name owned by the deployer, public-profile toggle still available.
 
 ---
 
@@ -85,11 +63,21 @@ An accurate, local-first token usage and cost dashboard for **50 AI coding tools
 
 > **Requirements**: Node.js **20+** (CLI runs on macOS / Linux / Windows; native desktop app ships for macOS (menu bar), Windows (system tray) and Linux (AppImage, tray). Cursor token reading uses the system `sqlite3` CLI when available and falls back to `node:sqlite` on supported Node releases).
 
+This fork is not published to npm — run it **from source**:
+
 ```bash
-npx tokentracker-cli
+git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
+cd TokenTracker-plus
+npm install
+
+node bin/tracker.js          # Open the dashboard (installs hooks on first run)
+node bin/tracker.js sync     # Manual sync
+node bin/tracker.js status   # Check hook status
+node bin/tracker.js status --json   # Machine-readable summary (pipe to jq)
+node bin/tracker.js doctor   # Health check
 ```
 
-That's it. First run installs hooks, syncs your data, and opens the dashboard at `http://localhost:7680`.
+First run installs hooks, syncs your data, and opens the dashboard at `http://localhost:7680`.
 
 **What you get in 30 seconds:**
 - 📊 A local dashboard at `localhost:7680` with usage trends, model breakdown, cost analysis
@@ -97,59 +85,12 @@ That's it. First run installs hooks, syncs your data, and opens the dashboard at
 - 🏠 Local-first — parses logs on your machine; no account or API keys required
 - 🧩 *Optional:* a Skills tab that browses 250+ public skills and syncs them across Claude · Codex · Grok · Antigravity · Gemini · OpenCode · Hermes
 
-> **Want a native desktop app?**
-> - **macOS** — [Download `TokenTrackerBar.dmg`](https://github.com/xiufengsun/TokenTracker/releases/latest/download/TokenTrackerBar.dmg) → drag to Applications. Menu bar status icon, desktop widgets, and the dashboard in a WKWebView.
-> - **Windows** — [Download `TokenTracker-Setup.exe`](https://github.com/xiufengsun/TokenTracker/releases/latest/download/TokenTracker-Setup.exe) → run the per-user installer (no admin needed). System-tray app with the dashboard in WebView2. Portable zip also on the [releases page](https://github.com/xiufengsun/TokenTracker/releases/latest).
-> - **Linux** — [Download `TokenTracker-linux-x86_64.AppImage`](https://github.com/xiufengsun/TokenTracker/releases/latest/download/TokenTracker-linux-x86_64.AppImage) → `chmod +x` and run. Tray app with the dashboard in a WebKitGTK window. It carries its own GTK/WebKit, so it needs nothing from your distro beyond a current glibc; on GNOME the tray icon still needs the [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/). `.deb` and `.rpm` packages are also on the [releases page](https://github.com/xiufengsun/TokenTracker/releases/latest) — those link the distro's `webkit2gtk-4.1`, `gtk3` and appindicator instead, so the `.deb` will not install on Debian 12 (use the AppImage there).
+> **Native desktop apps are built from source in this fork** (no releases are published):
+> - **Windows** — `dotnet build -c Release` in [`TokenTrackerWin/`](TokenTrackerWin/) (SDK 9 targets net8.0-windows): a system-tray app with the dashboard in WebView2, plus the desktop pet, the four widgets and the floating usage pill. The built dashboard must be served with `TOKENTRACKER_BUILD_PET=1 npm --prefix dashboard run build` so the pet/quota pages are emitted.
+> - **macOS** — open [`TokenTrackerBar/`](TokenTrackerBar/) in Xcode (menu bar app + widgets, WKWebView).
+> - **Linux** — Tauri app under [`TokenTrackerLinux/`](TokenTrackerLinux/).
 
-Install globally for shorter commands:
-
-```bash
-npm i -g tokentracker-cli
-
-tokentracker              # Open the dashboard
-tokentracker sync         # Manual sync
-tokentracker status       # Check hook status
-tokentracker status --json     # Machine-readable summary (pipe to jq, ingest from AI agents)
-tokentracker status --light    # Plain ASCII table (CI / SSH, no spinner)
-tokentracker doctor       # Health check
-```
-
-### 🍺 Homebrew (macOS)
-
-Prefer `brew`? Install directly — no extra tap step needed:
-
-```bash
-# macOS menu bar app (DMG)
-brew install --cask xiufengsun/tokentracker/tokentracker
-
-# CLI only
-brew install xiufengsun/tokentracker/tokentracker
-```
-
-Upgrade with `brew upgrade --cask xiufengsun/tokentracker/tokentracker`. The tap auto-bumps within an hour of every new release.
-
-### 🐧 Linux (AppImage, `.deb`, `.rpm`)
-
-Every release ships all three. One self-contained file, no package manager:
-
-```bash
-chmod +x TokenTracker-linux-x86_64.AppImage
-./TokenTracker-linux-x86_64.AppImage
-```
-
-Or install through your package manager:
-
-```bash
-sudo apt install ./TokenTracker-linux-x86_64.deb    # Debian / Ubuntu
-sudo dnf install ./TokenTracker-linux-x86_64.rpm    # Fedora / RHEL
-```
-
-> **Debian 12:** the `.deb` depends on `libappindicator3-1`, which bookworm dropped in favour of `libayatana-appindicator3-1`, so `apt` refuses it. Use the AppImage.
-
-All three bundle their own Node runtime and the dashboard. The AppImage additionally carries GTK3, WebKitGTK and appindicator, which is why it is ~120MB and installs nowhere; the `.deb` and `.rpm` link the distro's `webkit2gtk-4.1`, `gtk3` and appindicator instead, at ~55MB. Tested on Arch + KDE Plasma; on GNOME the tray icon requires the [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/), and clicking the tray icon opens the menu rather than the window (a libayatana-appindicator limitation).
-
-An Arch `PKGBUILD` for a local pacman install lives in `TokenTrackerLinux/packaging/arch/tokentracker-linux` — see [`TokenTrackerLinux/README.md`](TokenTrackerLinux/README.md). It is not published to the AUR.
+> **Self-hosted backend** — the leaderboard/sync surface runs on your own hardware: see [`scripts/self-host/`](scripts/self-host/) for the one-command deploy (`internal-deploy.sh`) and the nightly backup (`internal-backup.sh`). Point the dashboard at it via the runtime config (`/api/auth/public-config` carries the anon key).
 
 ---
 
@@ -182,14 +123,14 @@ An Arch `PKGBUILD` for a local pacman install lives in `TokenTrackerLinux/packag
 
 **Dashboard** — usage trends, model breakdown, cost analysis
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/dashboard-light.png" alt="Dashboard" />
+<img src="docs/screenshots/dashboard-light.png" alt="Dashboard" />
 
 </td>
 <td width="50%">
 
 **Desktop Widgets** — pin usage to your desktop
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/widgets-overview.png" alt="Desktop Widgets" />
+<img src="docs/screenshots/widgets-overview.png" alt="Desktop Widgets" />
 
 </td>
 </tr>
@@ -198,14 +139,14 @@ An Arch `PKGBUILD` for a local pacman install lives in `TokenTrackerLinux/packag
 
 **Menu Bar App** — animated Clawd companion + native panels
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/menubar.gif" alt="Menu Bar App" />
+<img src="docs/screenshots/menubar.gif" alt="Menu Bar App" />
 
 </td>
 <td width="50%">
 
 **Global Leaderboard** — compare with developers worldwide
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/leaderboard.png" alt="Leaderboard" />
+<img src="docs/screenshots/leaderboard.png" alt="Leaderboard" />
 
 </td>
 </tr>
@@ -214,7 +155,7 @@ An Arch `PKGBUILD` for a local pacman install lives in `TokenTrackerLinux/packag
 
 **Skills Manager** — browse 250+ public skills from GitHub & `skills.sh`, install once, sync to Claude / Codex / AStudio / Grok / Antigravity / Gemini / OpenCode / Hermes. Per-target toggles, one-click Undo, no manual file copying.
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/skills.png" alt="Skills Manager" />
+<img src="docs/screenshots/skills.png" alt="Skills Manager" />
 
 </td>
 </tr>
@@ -223,7 +164,7 @@ An Arch `PKGBUILD` for a local pacman install lives in `TokenTrackerLinux/packag
 
 **Desktop Pet** — a pixel companion that floats on your desktop and reacts to your real token burn: it codes when you code, celebrates streaks, and sleeps when you rest. Import community pets from [codex-pets.net](https://codex-pets.net) with a link or a `.codex-pet.zip` — V2 pets even turn their head to follow your cursor in 16 directions. macOS, Windows, and web.
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/pet.png" alt="Desktop Pet" />
+<img src="docs/screenshots/pet.png" alt="Desktop Pet" />
 
 </td>
 </tr>
@@ -232,7 +173,7 @@ An Arch `PKGBUILD` for a local pacman install lives in `TokenTrackerLinux/packag
 
 **Achievements** — 15 tracks turn usage milestones, streaks, tools, and models into collectible badges — with progress visible before each unlock.
 
-<img src="https://raw.githubusercontent.com/xiufengsun/tokentracker/main/docs/screenshots/achievements.png" alt="TokenTracker Achievements" />
+<img src="docs/screenshots/achievements.png" alt="TokenTracker Achievements" />
 
 </td>
 </tr>
@@ -347,7 +288,7 @@ flowchart LR
 
 ---
 
-Local features remain free and open source. Optional [TokenTracker Cloud](https://(removed)/cloud) is the officially hosted cross-device analytics service; see the [Cloud guide](docs/cloud-guide.md) for plans, trial, and transition rules. Purchases are live at the same worldwide USD base price for recurring and fixed-term access: USD 4.99/month or USD 39.99/year before checkout tax (final amount shown by Waffo). Self-hosted software is free with infrastructure and maintenance handled by its owner; the complete installation is currently a [technical preview](docs/self-hosting.md).
+In this fork the cross-device features are **self-hosted**: the leaderboard, achievements and account sync run on the owner's own Node + PGlite backend (see [`scripts/self-host/`](scripts/self-host/)). There is no hosted service to sign up for and no paid tier — the upstream project's [Cloud offering](https://(removed)/cloud) and [self-hosting docs](docs/self-hosting.md) describe the same capabilities from the upstream side.
 
 ## 🛡️ Privacy
 
@@ -431,7 +372,7 @@ Each Codex root is expected to hold `sessions/` (and optionally `archived_sessio
 ## 🛠️ Development
 
 ```bash
-git clone https://github.com/xiufengsun/TokenTracker.git
+git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
 cd TokenTracker
 npm install
 
@@ -586,65 +527,25 @@ Once granted, the permission is remembered. Note that ad-hoc signed builds re-pr
 
 ## 🪪 README Badges
 
-Show off your token usage on your GitHub profile or project README.
-
-To get `YOUR_USER_ID`:
-1. Run `tokentracker`, open the dashboard, and sign in to the leaderboard.
-2. Go to **Settings → Account**.
-3. Use the **User ID** shown there. On headless machines, `tokentracker device-login` also writes the same `user_id` to `~/.tokentracker/tracker/config.json`.
-
-Then drop one of these in:
-
-```markdown
-[![tokens](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=YOUR_USER_ID&metric=tokens)](https://github.com/xiufengsun/TokenTracker)
-[![cost](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=YOUR_USER_ID&metric=cost)](https://github.com/xiufengsun/TokenTracker)
-[![rank](https://srctyff5.us-east.insforge.app/functions/tokentracker-badge-svg?user_id=YOUR_USER_ID&metric=rank)](https://github.com/xiufengsun/TokenTracker)
-```
-
-> The link target defaults to the TokenTracker repo so every click helps other developers discover the tool. Swap it for your leaderboard profile, personal site, or `https://(removed)` if you'd rather route clicks elsewhere.
-
-Renders shields.io-compatible badges with your current totals (60s cache):
-
-| Param | Values | Default |
-|---|---|---|
-| `metric` | `tokens` / `cost` / `rank` | `tokens` |
-| `period` | `week` / `month` / `total` | `total` |
-| `style` | `flat` / `flat-square` | `flat` |
-| `label` | any short string | metric name |
-| `color` | hex, e.g. `ff6b35` | brand green |
-
-> **Privacy**: badges only resolve for profiles where leaderboard sharing is **on** (`Settings → Account → Public profile`). Private profiles get a "private" placeholder.
-
----
-
-## ⭐ Star History
-
-<a href="https://www.star-history.com/?repos=xiufengsun%2FTokenTracker&type=date&legend=top-left">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiufengsun/TokenTracker&type=date&theme=dark&legend=top-left&sealed_token=Vr7qbPNqOTtzQEdtkxS2yArAReX2QkBZKNJgs3n32Q5oJa1iXddLlrT201teNSnt7QnsXtDcHy_T387xvXJ_HXHrPtvH2QQ1xqQZ67N_HV45ulWrt3j6hziDW5eshRCmu8CAT_W31PY0-WVZpFv7NQD-acv1stVK8ndribTokIp9ukSYAedx3icuUrOu" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiufengsun/TokenTracker&type=date&legend=top-left&sealed_token=Vr7qbPNqOTtzQEdtkxS2yArAReX2QkBZKNJgs3n32Q5oJa1iXddLlrT201teNSnt7QnsXtDcHy_T387xvXJ_HXHrPtvH2QQ1xqQZ67N_HV45ulWrt3j6hziDW5eshRCmu8CAT_W31PY0-WVZpFv7NQD-acv1stVK8ndribTokIp9ukSYAedx3icuUrOu" />
-    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiufengsun/TokenTracker&type=date&legend=top-left&sealed_token=Vr7qbPNqOTtzQEdtkxS2yArAReX2QkBZKNJgs3n32Q5oJa1iXddLlrT201teNSnt7QnsXtDcHy_T387xvXJ_HXHrPtvH2QQ1xqQZ67N_HV45ulWrt3j6hziDW5eshRCmu8CAT_W31PY0-WVZpFv7NQD-acv1stVK8ndribTokIp9ukSYAedx3icuUrOu" />
-  </picture>
-</a>
+The upstream project offers shareable token badges served from its hosted
+backend. This fork's leaderboard runs self-hosted and its badge endpoint
+requires a login token, so public badge URLs are not available here; use the
+upstream service if you want one on your profile.
 
 ---
 
 ## 🤝 Contributing & Support
 
-- **Bugs / feature requests**: [open an issue](https://github.com/xiufengsun/TokenTracker/issues/new)
-- **Security**: see [SECURITY.md](SECURITY.md) — please don't open public issues for security reports
-- **Pull requests**: see [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and how to add a new AI tool integration
-- **Questions / showcase**: [GitHub Discussions](https://github.com/xiufengsun/TokenTracker/discussions)
+This is a personal, single-deploy fork — issues and pull requests belong
+[upstream](https://github.com/xiufengsun/TokenTracker/issues/new), where the
+project is actively maintained. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+upstream setup, tests, and how to add a new AI tool integration.
 
 ## 🙏 Credits
 
-The `bot` companion's morphing engine is [bloub](https://github.com/jeremy-prt/bloub) by Jérémy Perret (MIT).
-
-The Clawd character design belongs to Anthropic. This is a community project with no official affiliation with Anthropic.
-
-## 🔗 Friendly Links
-
-- [LINUX DO](https://linux.do) — a developer community we like
+- **Upstream project, design and ongoing development**: [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) (MIT) — this fork is a consumer of that work, with the self-hosted backend, the extra providers and the Windows floating pill layered on top.
+- The `bot` companion's morphing engine is [bloub](https://github.com/jeremy-prt/bloub) by Jérémy Perret (MIT).
+- The Clawd character design belongs to Anthropic. This is a community project with no official affiliation with Anthropic.
 
 ## License
 
@@ -654,8 +555,8 @@ The Clawd character design belongs to Anthropic. This is a community project wit
 
 <div align="center">
 
-**Token Tracker** — Quantify your AI output.
+**Token Tracker (TT-plus fork)** — Quantify your AI output, on your own hardware.
 
-<a href="https://(removed)">(removed)</a>  ·  <a href="https://www.npmjs.com/package/tokentracker-cli">npm</a>  ·  <a href="https://github.com/xiufengsun/TokenTracker">GitHub</a>
+<a href="https://github.com/01UNCLEDOG01/TokenTracker-plus">this fork</a>  ·  <a href="https://github.com/xiufengsun/TokenTracker">upstream project</a>
 
 </div>
