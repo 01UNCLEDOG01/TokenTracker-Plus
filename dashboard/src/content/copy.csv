@@ -777,6 +777,12 @@ limits.provider.grok,ui,LimitsPage,UsageLimitsPanel,provider_grok,"Grok Build",,
 limits.provider.copilot,ui,LimitsPage,UsageLimitsPanel,provider_copilot,"GitHub Copilot",,active
 limits.provider.antigravity,ui,LimitsPage,UsageLimitsPanel,provider_antigravity,"Antigravity",,active
 limits.provider.apigoto,ui,LimitsPage,UsageLimitsPanel,provider_apigoto,"APIGOTO",,active
+limits.provider.sensenova,ui,LimitsPage,UsageLimitsPanel,provider_sensenova,"SenseNova",,active
+limits.label.sensenova_general_5h,ui,LimitsPage,UsageLimitsPanel,sensenova_general_5h,"General 5h",,active
+limits.label.sensenova_general_weekly,ui,LimitsPage,UsageLimitsPanel,sensenova_general_weekly,"General weekly",,active
+limits.label.sensenova_flash_lite_5h,ui,LimitsPage,UsageLimitsPanel,sensenova_flash_lite_5h,"Flash-Lite 5h",,active
+limits.label.sensenova_flash_lite_weekly,ui,LimitsPage,UsageLimitsPanel,sensenova_flash_lite_weekly,"Flash-Lite weekly",,active
+limits.label.sensenova_grant,ui,LimitsPage,UsageLimitsPanel,sensenova_grant,"Granted credits: {{credits}} · expires {{date}}",,active
 limits.provider.zcode,ui,LimitsPage,UsageLimitsPanel,provider_zcode,"ZCode",,active
 provider.display.omp,ui,*,ProviderDisplay,omp,"oh-my-pi",,active
 provider.display.omo,ui,*,ProviderDisplay,omo,"OmO",,active

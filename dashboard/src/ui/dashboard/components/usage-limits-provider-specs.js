@@ -143,6 +143,20 @@ export const PROVIDER_LIMIT_SPECS = {
       ];
     },
   },
+  sensenova: {
+    // SenseNova (商汤日日新): two credit pools, each with a 5h window and a
+    // 7-day window, served by /lite/console/v1/tokenplan/pool-usage. The owner
+    // asked for all four rows plus the granted-credit balance on this page.
+    extra: "sensenova_grant",
+    windows(data) {
+      return [
+        { key: "general-5h", labelKey: "limits.label.sensenova_general_5h", window: data.primary_window, windowSeconds: 5 * 3600 },
+        { key: "general-7d", labelKey: "limits.label.sensenova_general_weekly", window: data.secondary_window, windowSeconds: 7 * 86400 },
+        { key: "flash-lite-5h", labelKey: "limits.label.sensenova_flash_lite_5h", window: data.tertiary_window, windowSeconds: 5 * 3600 },
+        { key: "flash-lite-7d", labelKey: "limits.label.sensenova_flash_lite_weekly", window: data.quaternary_window, windowSeconds: 7 * 86400 },
+      ];
+    },
+  },
   copilot: {
     extra: "copilot_otel",
     windows(data) {
@@ -302,6 +316,11 @@ export function usageLimitsLabelCopyAnchor() {
     copy("limits.label.antigravity_claude_5h"),
     copy("limits.label.antigravity_gemini_weekly"),
     copy("limits.label.antigravity_gemini_5h"),
+    copy("limits.label.sensenova_general_5h"),
+    copy("limits.label.sensenova_general_weekly"),
+    copy("limits.label.sensenova_flash_lite_5h"),
+    copy("limits.label.sensenova_flash_lite_weekly"),
+    copy("limits.label.sensenova_grant"),
     copy("limits.label.copilot_premium"),
     copy("limits.label.copilot_chat"),
     copy("limits.label.zcode_glm52"),

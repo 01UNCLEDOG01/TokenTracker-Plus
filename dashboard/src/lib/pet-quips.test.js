@@ -177,6 +177,28 @@ describe("desktop pet limit dialogue", () => {
     ]);
   });
 
+  it("keeps SenseNova's Flash-Lite rows on the card even at 0%", () => {
+    const limits = {
+      sensenova: {
+        configured: true,
+        error: null,
+        // General pool carries usage in both windows; the card deliberately
+        // does not show it (only the Flash-Lite pair rides along).
+        primary_window: { used_percent: 12, reset_at: "2099-01-01T00:00:00Z" },
+        secondary_window: { used_percent: 34, reset_at: "2099-01-02T00:00:00Z" },
+        // Flash-Lite pool: the pinned pair the owner watches, both untouched.
+        tertiary_window: { used_percent: 0, reset_at: "2099-01-01T00:00:00Z" },
+        quaternary_window: null,
+      },
+    };
+
+    const readings = buildPetLimitSummaries(limits);
+    expect(readings.map(({ provider, window, usedPercent }) => `${provider} ${window} ${usedPercent}`)).toEqual([
+      "SenseNova Flash-Lite 5h 0",
+      "SenseNova Flash-Lite weekly 0",
+    ]);
+  });
+
   it("adds the limit line to the tap conversation without replacing token quips", () => {
     const pool = buildQuipPool("en", {
       tokens: 1200,

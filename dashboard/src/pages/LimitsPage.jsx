@@ -247,8 +247,8 @@ export function LimitsPage() {
                 kiro={usageLimits?.kiro}
                 grok={usageLimits?.grok}
                 antigravity={usageLimits?.antigravity}
-                antigravity={usageLimits?.antigravity}
                 apigoto={usageLimits?.apigoto}
+                sensenova={usageLimits?.sensenova}
                 copilot={usageLimits?.copilot}
                 zcode={usageLimits?.zcode}
                 opencodeGo={usageLimits?.opencodeGo}

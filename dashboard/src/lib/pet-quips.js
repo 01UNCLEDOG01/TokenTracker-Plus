@@ -311,6 +311,7 @@ const PET_LIMIT_PROVIDER_NAMES = {
   copilot: "GitHub Copilot",
   antigravity: "Antigravity",
   apigoto: "APIGOTO",
+  sensenova: "SenseNova",
   zcode: "ZCode",
   opencodeGo: "OpenCode Go",
   qoder: "Qoder",
@@ -377,6 +378,10 @@ const PET_PINNED_LIMIT_ROWS = [
   ["antigravity", "Gemini 5h"],
   ["antigravity", "Claude weekly"],
   ["apigoto", "weekly"],
+  // SenseNova's two Flash-Lite windows: the owner watches these on the card,
+  // and a pinned row shows at 0% instead of vanishing until first use.
+  ["sensenova", "Flash-Lite 5h"],
+  ["sensenova", "Flash-Lite weekly"],
 ];
 const isPinnedPetLimitRow = (providerId, windowLabel) =>
   PET_PINNED_LIMIT_ROWS.some(([p, w]) => p === providerId && w === windowLabel);
@@ -450,6 +455,13 @@ function collectPetLimitRows(limits) {
     ["Claude 5h", limits.antigravity?.secondary_window],
   ]);
   addGeneric("apigoto", limits.apigoto, [["weekly", limits.apigoto?.primary_window]]);
+  // SenseNova (商汤日日新) contributes its Flash-Lite pool to the card: those
+  // two windows are the ones the owner wants in sight (the general pool and
+  // the granted-credit balance stay on the Limits page).
+  addGeneric("sensenova", limits.sensenova, [
+    [copy("limits.label.sensenova_flash_lite_5h"), limits.sensenova?.tertiary_window],
+    [copy("limits.label.sensenova_flash_lite_weekly"), limits.sensenova?.quaternary_window],
+  ]);
   addGeneric("zcode", limits.zcode, zcodeQuipWindows(limits.zcode));
   addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window], ["Weekly", limits.opencodeGo?.secondary_window], ["Month", limits.opencodeGo?.tertiary_window]]);
   addGeneric("qoder", limits.qoder, [["Credits", limits.qoder?.primary_window], ["Ultimate Free Calls", limits.qoder?.secondary_window]]);

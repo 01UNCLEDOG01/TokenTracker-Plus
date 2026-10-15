@@ -464,6 +464,8 @@ const PROVIDER_LOGO_MAP = {
   "QODER-CN": "/brand-logos/qoder-cn.svg",
   // APIGOTO 的品牌图抓自面板自身的 favicon.svg。
   "APIGOTO": "/brand-logos/apigoto.svg",
+  // SenseNova (商汤日日新) — mark taken from the console's own page asset.
+  "SENSENOVA": "/brand-logos/sensenova.svg",
   // Volcano Ark (火山方舟) Coding Plan — the Volcengine 3-mountain mark.
   "VOLCANO-ARK": "/brand-logos/volcano-ark.svg",
   // Cline (CLI v3 / desktop app) — the official robot mark.

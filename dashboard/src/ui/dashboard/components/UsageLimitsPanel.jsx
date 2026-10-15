@@ -658,6 +658,18 @@ function renderProviderExtra(kind, data) {
       </StatusLine>
     );
   }
+  if (kind === "sensenova_grant" && Number(data.grant_credits) > 0) {
+    // Granted credits are an expiring balance beside the two pools' windows,
+    // so they read as a status line rather than a percentage bar.
+    return (
+      <StatusLine>
+        {copy("limits.label.sensenova_grant", {
+          credits: formatCreditAmount(Number(data.grant_credits), { maximumFractionDigits: 0 }),
+          date: typeof data.grant_expires_at === "string" ? data.grant_expires_at.slice(0, 10) : "",
+        })}
+      </StatusLine>
+    );
+  }
   if (kind === "copilot_otel" && !data.otel_has_files && !data.otel_enabled) {
     return <CopilotOtelHint defaultDir={data.otel_default_dir} />;
   }
@@ -1289,8 +1301,8 @@ function useWidestLabelWidth(containerRef) {
   return labelWidth;
 }
 
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin };
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

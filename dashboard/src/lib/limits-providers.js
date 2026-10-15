@@ -12,6 +12,7 @@ export const LIMIT_PROVIDER_IDS = [
   "copilot",
   "antigravity",
   "apigoto",
+  "sensenova",
   "zcode",
   "opencodeGo",
   "commandCode",
@@ -35,6 +36,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   antigravity: "ANTIGRAVITY",
   // APIGOTO 的品牌图抓自面板自身的 favicon.svg。
   apigoto: "APIGOTO",
+  // SenseNova (商汤日日新) — brand mark taken from the console's own asset.
+  sensenova: "SENSENOVA",
   zcode: "ZCODE",
   // Reuse the existing OpenCode brand mark — same vendor, separate product
   // (Go is a paid subscription tracked via dashboard scrape).
@@ -77,9 +80,11 @@ export function limitProviderName(id) {
     case "copilot":
       return copy("limits.provider.copilot");
     case "antigravity":
+      return copy("limits.provider.antigravity");
     case "apigoto":
       return copy("limits.provider.apigoto");
-      return copy("limits.provider.antigravity");
+    case "sensenova":
+      return copy("limits.provider.sensenova");
     case "zcode":
       return copy("limits.provider.zcode");
     case "opencodeGo":
