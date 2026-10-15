@@ -994,18 +994,26 @@ export function DashboardPage({
   }, [isLocalMode, mockEnabled, accountView]);
 
   // Provider hooks update the queue quickly, while the native server also
-  // performs a once-per-minute all-source fallback scan. Re-read the local
-  // aggregates while this dashboard remains visible so those queue updates
-  // appear without requiring a click or a page reload.
+  // performs a once-per-minute all-source fallback scan. Re-read the
+  // aggregates while this dashboard remains visible so those updates appear
+  // without requiring a click or a page reload.
+  //
+  // This runs in the account view (and off-localhost) too. `refreshUsageStats`
+  // already invalidates the account response cache when `accountView` is set,
+  // so the refresher re-reads the cross-device aggregate — localhost serves it
+  // off `?account=1`, a remote host off the cloud `account-*` mirror. The old
+  // local-only guard left the panel frozen at page load while the tray/pet
+  // poller (a 60s loop) kept moving, so the two disagreed by whatever the day
+  // had grown in between.
   useEffect(() => {
-    if (!isLocalMode || mockEnabled || accountView) return undefined;
+    if (mockEnabled) return undefined;
     const autoRefresh = startLocalUsageAutoRefresh({
       refresh: () => refreshUsageStatsRef.current(),
       onError: (error) =>
         console.warn("[DashboardPage] Automatic usage refresh failed:", error),
     });
     return () => autoRefresh.stop();
-  }, [isLocalMode, mockEnabled, accountView]);
+  }, [mockEnabled]);
 
   const handleUsageRefresh = useCallback(async () => {
     setManualSyncLoading(true);

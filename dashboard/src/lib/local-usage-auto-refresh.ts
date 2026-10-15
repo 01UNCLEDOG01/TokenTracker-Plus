@@ -11,9 +11,11 @@ type AutoRefreshOptions = {
 };
 
 /**
- * Keep a visible local dashboard current without allowing overlapping reads.
+ * Keep a visible dashboard current without allowing overlapping reads.
  * Provider parsing is handled by the native server's background sync; this
- * loop only re-reads the resulting local aggregates.
+ * loop only re-reads the aggregates the caller supplies a refresher for —
+ * local aggregates on a localhost dashboard, the account aggregate once the
+ * account view is on.
  */
 export function startLocalUsageAutoRefresh({
   refresh,
