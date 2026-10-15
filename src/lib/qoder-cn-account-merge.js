@@ -11,6 +11,7 @@
 // Nothing is uploaded: this only rewrites the response on its way out.
 
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
+const { computeRowCost } = require("./pricing");
 
 const QODER_SOURCE = "qoder-cn";
 const TOKEN_FIELDS = [
@@ -28,16 +29,33 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function money6(value) {
+  return (Math.round(num(value) * 1e6) / 1e6).toFixed(6);
+}
+
+// Add a cost to a container's total_cost_usd, preserving the field's type:
+// summary/model-breakdown totals are fixed-precision strings, daily rows are
+// numbers. A missing field becomes a number (fresh daily rows).
+function addCostToContainer(container, cost) {
+  if (!container || typeof container !== "object" || !(cost > 0)) return;
+  const next = num(container.total_cost_usd) + cost;
+  container.total_cost_usd = typeof container.total_cost_usd === "string" ? money6(next) : next;
+}
+
 function zeroShaped() {
   const out = {};
   for (const field of TOKEN_FIELDS) out[field] = 0;
   return out;
 }
 
-// Row-shaped accumulator: keeps every token field, not just the two totals.
-function addShaped(target, row) {
+// Row-shaped accumulator: keeps every token field, not just the two totals,
+// plus the row's cost. Estimate rows carry no money of their own, so callers
+// pass the read-time price from computeRowCost; shaped-to-shaped merges fall
+// back to the source shape's accumulated cost.
+function addShaped(target, row, cost = num(row?.total_cost_usd)) {
   const shaped = target || zeroShaped();
   for (const field of TOKEN_FIELDS) shaped[field] = num(shaped[field]) + num(row?.[field]);
+  shaped.total_cost_usd = num(shaped.total_cost_usd) + num(cost);
   return shaped;
 }
 
@@ -58,6 +76,7 @@ function buildBuckets(queueRows, { from, to, offsetMinutes }) {
   const rows = qoderCnEstimatedRows(Array.isArray(queueRows) ? queueRows : []);
   const byDay = new Map();
   let grand = 0;
+  let grandCost = 0;
   for (const row of rows || []) {
     const day = dayKeyOfHourStart(row.hour_start, offsetMinutes);
     if (!day) continue;
@@ -65,14 +84,21 @@ function buildBuckets(queueRows, { from, to, offsetMinutes }) {
     if (to && day > String(to)) continue;
     const tokens = num(row.total_tokens);
     if (tokens <= 0) continue;
-    const entry = byDay.get(day) || { tokens: 0, models: new Map() };
+    // The estimate rows carry tokens but no money; price them the way the
+    // local read path does (local-api.js aggregates with computeRowCost per
+    // row) so the cross-device view bills what the local view bills. An
+    // unpriced model still contributes zero.
+    const cost = num(computeRowCost(row));
+    const entry = byDay.get(day) || { tokens: 0, cost: 0, models: new Map() };
     entry.tokens += tokens;
+    entry.cost += cost;
     const model = String(row.model || "unknown");
-    entry.models.set(model, addShaped(entry.models.get(model), row));
+    entry.models.set(model, addShaped(entry.models.get(model), row, cost));
     byDay.set(day, entry);
     grand += tokens;
+    grandCost += cost;
   }
-  return { byDay, grand };
+  return { byDay, grand, grandCost };
 }
 
 // `models` shows up as a {name: tokens} map in the daily/heatmap payloads and
@@ -113,6 +139,7 @@ function emptyDayEntry(day, shaped) {
   const entry = { day, total_tokens: 0, billable_total_tokens: 0, total_cost_usd: 0, conversation_count: 0, models: {} };
   const shapedTotals_ = shapedTotals(shaped);
   for (const field of TOKEN_FIELDS) entry[field] = (entry[field] || 0) + num(shapedTotals_[field]);
+  entry.total_cost_usd = num(entry.total_cost_usd) + num(shaped?.total_cost_usd);
   return entry;
 }
 
@@ -127,6 +154,7 @@ function sumShapes(bucket) {
   const out = zeroShaped();
   for (const [, shaped] of bucket) {
     for (const field of TOKEN_FIELDS) out[field] += num(shaped[field]);
+    out.total_cost_usd = num(out.total_cost_usd) + num(shaped.total_cost_usd);
   }
   return out;
 }
@@ -139,6 +167,7 @@ function mergeDaily(payload, buckets) {
     const hit = list.find((d) => String(d?.day) === day);
     if (hit) {
       applyShapedToContainer(hit, dayShaped);
+      addCostToContainer(hit, num(dayShaped.total_cost_usd));
       mergeModels(hit, entry.models);
     } else {
       sortedInsert(list, emptyDayEntry(day, dayShaped), "day");
@@ -210,6 +239,7 @@ function mergeSummary(payload, buckets) {
     }
   }
   mergeTotalsBlock(payload, grandShaped);
+  addCostToContainer(payload?.totals || payload, num(buckets.grandCost));
   const rolling = payload?.rolling;
   if (!rolling) return;
   for (const key of Object.keys(rolling)) {
@@ -262,8 +292,18 @@ function mergeModelBreakdown(payload, buckets) {
   }
   for (const shaped of perModel.values()) {
     for (const field of TOKEN_FIELDS) entry.totals[field] = num(entry.totals[field]) + num(shaped[field]);
+    entry.totals.total_cost_usd = money6(num(entry.totals.total_cost_usd) + num(shaped.total_cost_usd));
   }
   mergeModels(entry, perModel);
+  // mergeModels restates token fields only; add each model's read-time cost
+  // after the rows exist (fresh rows start at "0").
+  for (const [name, shaped] of perModel) {
+    const row = entry.models.find((m) => (m?.model_id || m?.model) === name);
+    if (row) {
+      row.totals = row.totals || {};
+      addCostToContainer(row.totals, num(shaped.total_cost_usd));
+    }
+  }
   entry.models.sort((a, b) => num(b?.totals?.total_tokens) - num(a?.totals?.total_tokens));
 }
 
