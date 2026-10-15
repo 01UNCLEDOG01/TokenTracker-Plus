@@ -378,10 +378,11 @@ const PET_PINNED_LIMIT_ROWS = [
   ["antigravity", "Gemini 5h"],
   ["antigravity", "Claude weekly"],
   ["apigoto", "weekly"],
-  // SenseNova's two Flash-Lite windows, keyed so the match survives a
-  // localized label (the card shows 商汤's own copy in Chinese).
-  ["sensenova", "flash-lite-5h"],
-  ["sensenova", "flash-lite-weekly"],
+  // SenseNova's general-pool windows, keyed so the match survives a
+  // localized label (the card shows 商汤's own copy in Chinese). The owner
+  // runs SenseNova models from the general pool, not Flash-Lite.
+  ["sensenova", "general-5h"],
+  ["sensenova", "general-weekly"],
 ];
 // The hover card holds six rows; the pinned dashboard takes them first and any
 // leftover slots go to the most-used windows below.
@@ -466,8 +467,8 @@ function collectPetLimitRows(limits) {
   // two windows are the ones the owner wants in sight (the general pool and
   // the granted-credit balance stay on the Limits page).
   addGeneric("sensenova", limits.sensenova, [
-    [copy("limits.label.sensenova_flash_lite_5h"), limits.sensenova?.tertiary_window, "flash-lite-5h"],
-    [copy("limits.label.sensenova_flash_lite_weekly"), limits.sensenova?.quaternary_window, "flash-lite-weekly"],
+    [copy("limits.label.sensenova_general_5h"), limits.sensenova?.primary_window, "general-5h"],
+    [copy("limits.label.sensenova_general_weekly"), limits.sensenova?.secondary_window, "general-weekly"],
   ]);
   addGeneric("zcode", limits.zcode, zcodeQuipWindows(limits.zcode));
   addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window], ["Weekly", limits.opencodeGo?.secondary_window], ["Month", limits.opencodeGo?.tertiary_window]]);

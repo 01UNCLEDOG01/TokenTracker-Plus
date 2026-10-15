@@ -177,25 +177,25 @@ describe("desktop pet limit dialogue", () => {
     ]);
   });
 
-  it("keeps SenseNova's Flash-Lite rows on the card even at 0%", () => {
+  it("pins SenseNova's general-pool rows on the card even at 0%", () => {
     const limits = {
       sensenova: {
         configured: true,
         error: null,
-        // General pool carries usage in both windows; the card deliberately
-        // does not show it (only the Flash-Lite pair rides along).
-        primary_window: { used_percent: 12, reset_at: "2099-01-01T00:00:00Z" },
+        // General pool: the pinned pair the owner watches (they run SenseNova
+        // models from the general pool). Fresh 5h window sits at 0%.
+        primary_window: { used_percent: 0, reset_at: "2099-01-01T00:00:00Z" },
         secondary_window: { used_percent: 34, reset_at: "2099-01-02T00:00:00Z" },
-        // Flash-Lite pool: the pinned pair the owner watches, both untouched.
-        tertiary_window: { used_percent: 0, reset_at: "2099-01-01T00:00:00Z" },
+        // Flash-Lite pool stays off the card entirely.
+        tertiary_window: { used_percent: 55, reset_at: "2099-01-01T00:00:00Z" },
         quaternary_window: null,
       },
     };
 
     const readings = buildPetLimitSummaries(limits);
     expect(readings.map(({ provider, window, usedPercent }) => `${provider} ${window} ${usedPercent}`)).toEqual([
-      "SenseNova Flash-Lite 5h 0",
-      "SenseNova Flash-Lite weekly 0",
+      "SenseNova General 5h 0",
+      "SenseNova General weekly 34",
     ]);
   });
 
@@ -226,8 +226,8 @@ describe("desktop pet limit dialogue", () => {
         "Antigravity Gemini weekly",
         "Antigravity Gemini 5h",
         "Antigravity Claude weekly",
-        "SenseNova Flash-Lite 5h",
-        "SenseNova Flash-Lite 周",
+        "SenseNova 通用 5h",
+        "SenseNova 通用周",
       ]);
     } finally {
       setCopyLocale(prevLocale);
