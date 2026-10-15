@@ -2869,6 +2869,14 @@ async function parseClaudeFile({
 
     const delta = normalizeClaudeUsage(usage);
     if (!delta || isAllZeroUsage(delta)) continue;
+    // DeepSeek's Anthropic-compatible endpoint reports output-only usage (the
+    // input and cache fields are always 0), so such transcripts carry no input
+    // metering at all. When the session rides the local Agent2API gateway, the
+    // gateway's own rows carry the full metering under the claude source —
+    // counting the output-only delta here would double it. Genuine Anthropic
+    // sessions always report a non-zero input side. (2026-10-16)
+    if (delta.input_tokens === 0 && delta.cached_input_tokens === 0
+        && delta.cache_creation_input_tokens === 0) continue;
 
     if (dedupHash) seenMessageHashes.add(dedupHash);
     delta.conversation_count = 0;
@@ -14738,7 +14746,9 @@ function stageAgent2ApiBuckets(buckets) {
   for (const [key, bucket] of Object.entries(buckets || {})) {
     staged[key] =
       bucket && typeof bucket === "object" &&
-      (normalizeSourceInput(parseBucketKey(key).source) || DEFAULT_SOURCE) === AGENT2API_SOURCE
+      ["agent2api", "claude"].includes(
+        normalizeSourceInput(parseBucketKey(key).source) || DEFAULT_SOURCE,
+      )
         ? {
             ...bucket,
             totals:
@@ -14780,7 +14790,7 @@ async function parseAgent2ApiIncremental({
   // it into the SQL is safe; readSqliteJsonRowsAsync takes no bind parameters.
   const rows = await readSqliteJsonRowsAsync(
     resolvedDb,
-    "SELECT row_id, ts, client_model, model AS upstream_model, prompt_tokens, "
+    "SELECT row_id, ts, client, client_model, model AS upstream_model, prompt_tokens, "
       + "completion_tokens, cache_read_tokens, status FROM requests WHERE row_id > "
       + String(lastRowId)
       + " ORDER BY row_id",
@@ -14813,7 +14823,17 @@ async function parseAgent2ApiIncremental({
     }
     const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
     if (!bucketStart) continue;
-    const model = String(row.client_model || row.upstream_model || "").trim() || "unknown";
+    // The gateway tags each request with the issuing client. Claude Code
+    // traffic belongs to the claude source (those sessions' own transcripts
+    // carry no input metering behind DeepSeek's Anthropic-compatible
+    // endpoint), so it is re-sourced here while every other client keeps the
+    // gateway card. (2026-10-16)
+    const client = String(row.client || "").trim();
+    const isClaudeCode = client.toLowerCase() === "claude code";
+    const source = isClaudeCode ? "claude" : AGENT2API_SOURCE;
+    const model = String(
+      (isClaudeCode ? row.upstream_model || row.client_model : row.client_model || row.upstream_model) || "",
+    ).trim() || "unknown";
     const output = Number(row.completion_tokens) || 0;
     const cacheRead = Number(row.cache_read_tokens) || 0;
     // The gateway's prompt_tokens is INCLUSIVE of cache_read (its own
@@ -14822,7 +14842,7 @@ async function parseAgent2ApiIncremental({
     const prompt = Number(row.prompt_tokens) || 0;
     const input = Math.max(0, prompt - cacheRead);
     const total = prompt + output;
-    const bucket = getHourlyBucket(hourlyState, AGENT2API_SOURCE, model, bucketStart);
+    const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
     addTotals(bucket.totals, {
       input_tokens: input,
       cached_input_tokens: cacheRead,
@@ -14834,7 +14854,7 @@ async function parseAgent2ApiIncremental({
       total_cost_usd: 0,
       conversation_count: 1,
     });
-    touchedBuckets.add(bucketKey(AGENT2API_SOURCE, model, bucketStart));
+    touchedBuckets.add(bucketKey(source, model, bucketStart));
     eventsAggregated += 1;
     if (cb) {
       cb({

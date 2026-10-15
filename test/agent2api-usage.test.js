@@ -19,7 +19,7 @@ function writeFixtureDb(dbPath, rows) {
   const db = new DatabaseSync(dbPath);
   db.exec(
     "CREATE TABLE requests (row_id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, "
-      + "client_model TEXT, model TEXT, prompt_tokens INTEGER, completion_tokens INTEGER, "
+      + "client TEXT, client_model TEXT, model TEXT, prompt_tokens INTEGER, completion_tokens INTEGER, "
       + "total_tokens INTEGER, cache_read_tokens INTEGER, status INTEGER)",
   );
   for (const row of rows) db.prepare("INSERT INTO requests (ts, client_model, model, prompt_tokens, completion_tokens, total_tokens, cache_read_tokens, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(...row);
@@ -105,4 +105,46 @@ test("agent2api parser tolerates a missing database", async () => {
   assert.equal(out.recordsProcessed, 0);
   assert.equal(cursors.agent2api.lastRowId, 0);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+
+test("Claude Code client traffic is re-sourced to the claude source", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tt-agent2api-cc-"));
+  const dbPath = path.join(dir, "agent2api.db");
+  const queuePath = path.join(dir, "queue.jsonl");
+  const base = Date.UTC(2026, 9, 16, 9, 5, 0);
+  const { DatabaseSync } = require("node:sqlite");
+  const db = new DatabaseSync(dbPath);
+  db.exec(
+    "CREATE TABLE requests (row_id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, "
+      + "client TEXT, client_model TEXT, model TEXT, prompt_tokens INTEGER, completion_tokens INTEGER, "
+      + "total_tokens INTEGER, cache_read_tokens INTEGER, status INTEGER)",
+  );
+  const insert = db.prepare(
+    "INSERT INTO requests (ts, client, client_model, model, prompt_tokens, completion_tokens, total_tokens, cache_read_tokens, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  // Claude Code client → claude source, upstream SKU as the model id.
+  insert.run(base, "Claude Code", "deepseek-flash", "deepseek-v4-1-flash", 600_000, 20_000, 620_000, 500_000, 200);
+  // ZCode client → keeps the gateway card.
+  insert.run(base + 60_000, "ZCode", "sn-deepseek-v4-1-flash", "sn-deepseek-v4-1-flash", 300_000, 10_000, 310_000, 250_000, 200);
+  // A claude-code row with a client the parser does not know → gateway card.
+  insert.run(base + 120_000, "other", "deepseek-flash", "deepseek-v4-1-flash", 1_000, 100, 1_100, 0, 200);
+  db.close();
+
+  const cursors = {};
+  const first = await parseAgent2ApiIncremental({ cursors, queuePath, dbPath, env: {} });
+  assert.equal(first.eventsAggregated, 3);
+
+  const rows = readQueueRows(queuePath);
+  const byKey = Object.fromEntries(rows.map((r) => [`${r.source}|${r.model}`, r]));
+  const cc = byKey["claude|deepseek-v4-1-flash"];
+  assert.ok(cc, "claude-sourced row for the Claude Code client");
+  assert.equal(cc.model, "deepseek-v4-1-flash", "claude rows carry the upstream SKU");
+  assert.equal(cc.total_tokens, 620_000);
+  const gw = byKey["agent2api|sn-deepseek-v4-1-flash"];
+  assert.ok(gw, "non-claude-code clients keep the gateway card");
+  assert.equal(gw.total_tokens, 310_000);
+  const other = byKey["agent2api|deepseek-flash"];
+  assert.ok(other, "unknown clients keep the gateway card (client_model first)");
+  assert.equal(other.total_tokens, 1_100);
 });

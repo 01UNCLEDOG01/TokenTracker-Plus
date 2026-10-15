@@ -5052,6 +5052,34 @@ test("parseClaudeIncremental skips OmO-mirrored sdk-ts external Claude SDK usage
   }
 });
 
+test("parseClaudeIncremental skips output-only usage (DeepSeek Anthropic-compat endpoint)", async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-claude-ds-"));
+  try {
+    const claudePath = path.join(tmp, "agent-claude.jsonl");
+    const queuePath = path.join(tmp, "queue.jsonl");
+    const cursors = { version: 1, files: {}, updatedAt: null };
+    const model = "deepseek-v4-1-flash";
+    const lines = [
+      // DeepSeek's Anthropic-compatible endpoint reports output-only usage:
+      // input and cache fields are 0 on every row, and the Agent2API gateway
+      // carries the full metering under the claude source for these sessions.
+      buildClaudeUsageLine({ ts: "2026-10-15T22:30:00.000Z", input: 0, output: 280, model, entrypoint: "sdk-cli", msgId: "msg-ds-1" }),
+      buildClaudeUsageLine({ ts: "2026-10-15T22:31:00.000Z", input: 0, output: 1200, model, entrypoint: "sdk-cli", msgId: "msg-ds-2" }),
+    ];
+    await fs.writeFile(claudePath, lines.join("\n") + "\n", "utf8");
+    const res = await parseClaudeIncremental({
+      projectFiles: [{ path: claudePath, source: "claude" }],
+      cursors,
+      queuePath,
+    });
+    assert.equal(res.eventsAggregated, 0);
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 0);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test("parseClaudeIncremental aggregates usage into half-hour buckets", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-claude-"));
   try {
