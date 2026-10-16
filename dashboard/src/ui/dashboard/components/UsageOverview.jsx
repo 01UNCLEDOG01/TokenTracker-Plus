@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Info, Loader2, RefreshCw, SquareArrowOutUpRight } from "lucide-react";
+import { ChevronDown, Info, Loader2, RefreshCw, SquareArrowOutUpRight } from "lucide-react";
 
 // Solid (fill-based) monochrome all-tools mark — matches the fill-based
 // mono provider icons, unlike lucide's stroke-only Layers3. Drawn bold and
@@ -239,14 +239,15 @@ export function UsageOverview({
   // Weeks run Monday–Sunday, so a week selected near a month boundary can
   // hold more usage than the month-to-date it overlaps. Spell out the covered
   // dates and flag the straddle so the week/month totals read as different
-  // windows, not as a miscount.
+  // windows, not as a miscount. Day is a single calendar date, so a
+  // "Oct 13 — Oct 13" range under the summary is redundant — hide it.
   const showCrossMonthHint =
     period === "week" &&
     typeof from === "string" &&
     typeof to === "string" &&
     from.slice(0, 7) !== to.slice(0, 7);
   const periodRangeLabel =
-    from && to
+    period !== "day" && from && to
       ? `${formatDateShort(from, dateLocale)} — ${formatDateShort(to, dateLocale)}`
       : null;
   // The digit-by-digit Counter renders at a fixed 72px and would clip on
@@ -340,6 +341,10 @@ export function UsageOverview({
   const devinContributes = providers.some(
     (provider) =>
       String(provider?.source || provider?.label || "").trim().toLowerCase() === "devin",
+  );
+  const kiroContributes = providers.some(
+    (provider) =>
+      String(provider?.source || provider?.label || "").trim().toLowerCase() === "kiro",
   );
   // TRAE cost leaves out input without a cache split (docs/trae.md). Keep the
   // caveat visible with the combined totals, including cloud data, which has
@@ -656,6 +661,7 @@ export function UsageOverview({
                 className="mt-2"
               >
                 {devinContributes && <DevinPricingNotice />}
+                {kiroContributes && <KiroEstimateNotice />}
                 <AllModelsSection models={allModels} />
               </div>
             )}
@@ -714,10 +720,10 @@ const MODEL_SPLIT_DEFS = [
 ];
 
 // Narrow containers drop the fixed value-column minimums so the row wraps
-// instead of overflowing; sm+ restores the aligned columns and widens the
-// share column to fit the expand/collapse label.
+// instead of overflowing; sm+ restores the aligned columns. The share column
+// only needs room for the percent plus a chevron affordance.
 const MODEL_ROW_GRID =
-  "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-baseline gap-x-3 mb-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(8rem,max-content)_minmax(5.5rem,max-content)_minmax(7rem,max-content)]";
+  "grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-baseline gap-x-3 mb-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(8rem,max-content)_minmax(5.5rem,max-content)_minmax(4.5rem,max-content)]";
 
 /**
  * Renders the five token-type split values (input / cached / cache write /
@@ -747,7 +753,7 @@ function ModelTokenSplits({ tokens }) {
 
 /**
  * Grid cells of one model row: name, token total, cost and share. The share
- * cell carries the expand/collapse hint when the row has token splits.
+ * cell carries a rotating chevron when the row has token splits.
  */
 function ModelRowHeader({ model, tokensLabel, costLabel, expandable, isExpanded }) {
   const { formatTokensTooltip } = useTokenFormat();
@@ -768,12 +774,21 @@ function ModelRowHeader({ model, tokensLabel, costLabel, expandable, isExpanded 
       <span className="col-start-3 row-start-1 text-right whitespace-nowrap text-sm text-oai-gray-500 dark:text-oai-gray-400 tabular-nums">
         {costLabel}
       </span>
-      <span className="col-start-4 row-start-1 text-right whitespace-nowrap text-sm text-oai-black dark:text-oai-white tabular-nums">
+      <span className="col-start-4 row-start-1 flex w-full items-center justify-end gap-1 whitespace-nowrap text-sm text-oai-black dark:text-oai-white tabular-nums">
         {model.share}%
         {expandable && (
-          <span className="ml-1 align-middle text-[11px] font-normal text-oai-gray-400 dark:text-oai-gray-500">
-            {copy(isExpanded ? "usage.overview.collapse" : "usage.overview.expand")}
-          </span>
+          <>
+            <span className="sr-only">
+              {copy(isExpanded ? "usage.overview.collapse" : "usage.overview.expand")}
+            </span>
+            <ChevronDown
+              size={14}
+              aria-hidden
+              className={`shrink-0 text-oai-gray-400 transition-transform duration-200 ease-out motion-reduce:transition-none dark:text-oai-gray-500 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
+          </>
         )}
       </span>
     </>
@@ -873,6 +888,17 @@ function DevinPricingNotice() {
   );
 }
 
+function KiroEstimateNotice() {
+  return (
+    <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+      <span className="font-medium text-oai-gray-500 dark:text-oai-gray-400">
+        {copy("usage.overview.kiro_notice_title")}.
+      </span>{" "}
+      {copy("usage.overview.kiro_notice_body")}
+    </p>
+  );
+}
+
 // Renders a single expanded provider section. Hosts loading state for the
 // inline Context Breakdown so the spinner can sit next to the heading instead
 // of taking its own row.
@@ -898,6 +924,10 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
   // card still shows both editions until the merged history is re-attributed,
   // otherwise the international credits would disappear from the panel entirely.
   const workbuddyEdition = isWorkbuddyAi ? "intl" : null;
+  // Kiro CLI does not report token counts; the overview shows an estimation
+  // notice for it instead of a hard number.
+  const isKiro =
+    String(provider?.source || provider?.label || "").trim().toLowerCase() === "kiro";
 
   return (
                       <div>
@@ -956,6 +986,7 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
                             verified pricing, so the dollar figure excludes them —
                             a $0 estimate is not evidence of free usage. */}
                         {isDevin && <DevinPricingNotice />}
+                        {isKiro && <KiroEstimateNotice />}
 
                         {/* Context Breakdown drill-down.
                             Claude: category-based (approx /context).

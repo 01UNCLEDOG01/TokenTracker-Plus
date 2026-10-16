@@ -676,7 +676,7 @@ function computeRowCost(row: HourlyRow): number {
   // Must stay in lockstep with src/lib/pricing/index.js:computeRowCost.
   const reasoningIncludedInOutput =
     row.source === "codex" || row.source === "acode" || row.source === "every-code" ||
-    row.source === "cline" || row.source === "omo";
+    row.source === "cline" || row.source === "omo" || row.source === "muse";
   const reasoningCost = reasoningIncludedInOutput
     ? 0
     : (row.reasoning_output_tokens || 0) * (p.output || 0);
@@ -1392,7 +1392,9 @@ export default async function (req: Request): Promise<Response> {
     // --- Rank users by total_tokens DESC ---
     const sorted = Array.from(aggMap.entries()).sort((a, b) => b[1].total_tokens - a[1].total_tokens);
 
-    const generatedAt = new Date().toISOString();
+    // Bind the snapshot to its read generation so a completed device reset
+    // can reject a delayed writer that aggregated the previous history.
+    const generatedAt = new Date(periodStartedAt).toISOString();
     const upsertRows = sorted.map(([userId, agg], idx) => {
       const metadata = metadataMap.get(userId);
       const isPublic = metadata?.leaderboard_public ?? false;

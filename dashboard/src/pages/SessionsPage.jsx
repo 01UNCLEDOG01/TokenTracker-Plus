@@ -48,6 +48,7 @@ const SOURCE_FILTERS = [
   { id: "autoclaw", label: () => "AutoClaw" },
   { id: "cola", label: () => "Cola" },
   { id: "tuanjie-cowork", label: () => "Tuanjie Cowork" },
+  { id: "kimi", label: () => copy("leaderboard.column.kimi") },
 ];
 
 const DATE_RANGES = [
