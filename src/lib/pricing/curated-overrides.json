@@ -656,6 +656,36 @@
         "note": "AutoClaw writes the Zhipu auto-router name, not a model. 69% of this source tokens arrive as zai_auto, so leaving it unpriced would blank two thirds of the card. Priced at the GLM-5.3 card the owner approved as the stand-in (exact entry: input 1.4 / output 4.4 / cache_read 0.26; no published cache-write surcharge, so cache_write = input). This is an ESTIMATE - the router may land on a different model - and the row is reported as model_pricing, never as a provider charge."
       }
     },
+    "tuanjie-cowork": {
+      "codely-core": {
+        "input": 1.4,
+        "output": 4.4,
+        "cache_read": 0.26,
+        "cache_write": 1.4,
+        "note": "Codely's own alias for GLM-5.3. 团结 Cowork bills against an internal credit balance and publishes no per-model price sheet, so this is priced at the underlying model instead: ~/.codely-cli/model-config.json records detected.display_name = GLM-5.3 for codely-core, and curated:exact glm-5.3 is input 1.4 / output 4.4 / cache_read 0.26 (no published cache-write surcharge, so cache_write = input). READ THIS AS AN API-EQUIVALENT REFERENCE, NOT AS SPEND: Cowork is sold as a monthly subscription, so the owner paid a flat fee and this number says only what the same tokens would have cost on a public API. It is never a provider-reported charge. The model picker's 0.25x / 0.1x badge is NOT applied - its baseline is undocumented (absent from every config, from the app bundle, and from the LiteLLM gateway), and it belongs to the credit-conversion 口径, not to this one."
+      },
+      "codely-air": {
+        "input": 0.3,
+        "output": 1.2,
+        "cache_read": 0.006,
+        "cache_write": 0.3,
+        "note": "Codely's alias for DeepSeek-V4.1-Flash. Per ~/.codely-cli/model-config.json, codely-air / codely-basic / codely-flash all carry detected.display_name = DeepSeek-V4.1-Flash, so they share the deepseek-v4.1-flash card (curated:exact input 0.3 / output 1.2 / cache_read 0.006 / cache_write 0.3, official DeepSeek peak rates). Same API-equivalent caveat as codely-core: subscription product, reference figure only."
+      },
+      "codely-basic": {
+        "input": 0.3,
+        "output": 1.2,
+        "cache_read": 0.006,
+        "cache_write": 0.3,
+        "note": "Codely's alias for DeepSeek-V4.1-Flash. Per ~/.codely-cli/model-config.json, codely-air / codely-basic / codely-flash all carry detected.display_name = DeepSeek-V4.1-Flash, so they share the deepseek-v4.1-flash card (curated:exact input 0.3 / output 1.2 / cache_read 0.006 / cache_write 0.3, official DeepSeek peak rates). Same API-equivalent caveat as codely-core: subscription product, reference figure only."
+      },
+      "codely-flash": {
+        "input": 0.3,
+        "output": 1.2,
+        "cache_read": 0.006,
+        "cache_write": 0.3,
+        "note": "Codely's alias for DeepSeek-V4.1-Flash. Per ~/.codely-cli/model-config.json, codely-air / codely-basic / codely-flash all carry detected.display_name = DeepSeek-V4.1-Flash, so they share the deepseek-v4.1-flash card (curated:exact input 0.3 / output 1.2 / cache_read 0.006 / cache_write 0.3, official DeepSeek peak rates). Same API-equivalent caveat as codely-core: subscription product, reference figure only."
+      }
+    },
     "cola": {
       "luna-02": {
         "input": 0.2,
