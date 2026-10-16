@@ -2705,10 +2705,13 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   });
   // Kimi 桌面版（Electron）把每个工作区的 CLI 会话写在 daimon runtime 的
   // kimi-code home 下：wire.jsonl 的格式与 CLI 完全一致，加入发现根即可被
-  // 既有读取器解析。(2026-10-16)
-  const kimiDesktopAppData = env?.APPDATA || path.join(home, "AppData", "Roaming");
-  const kimiDesktopHome = path.join(kimiDesktopAppData, "kimi-desktop", "daimon-share", "daimon", "runtime", "kimi-code", "home");
-  if ((deps.existsSync || fs.existsSync)(kimiDesktopHome)) kimiRoots.push(kimiDesktopHome);
+  // 既有读取器解析。仅在扫描真实 home 时启用（与上方 KIMI_HOME 覆盖同款
+  // 守卫），沙箱化的测试 home 不得混入真实桌面会话。(2026-10-16)
+  if (path.resolve(home) === path.resolve((deps.homedir || os.homedir)())) {
+    const kimiDesktopAppData = env?.APPDATA || path.join(home, "AppData", "Roaming");
+    const kimiDesktopHome = path.join(kimiDesktopAppData, "kimi-desktop", "daimon-share", "daimon", "runtime", "kimi-code", "home");
+    if ((deps.existsSync || fs.existsSync)(kimiDesktopHome)) kimiRoots.push(kimiDesktopHome);
+  }
   const kimi = discoverKimiWireFiles(dedupeDirsByRealpath(kimiRoots), incomplete);
   return {
     claude,

@@ -5,7 +5,7 @@
 <p>This document lists <strong>every</strong> network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please <a href="https://github.com/xiufengsun/TokenTracker/issues">open an issue</a>.</p>
 <hr />
 <h2>1. What never leaves your machine</h2>
-<p>TokenTracker's parsers extract numbers and timestamps only. TRAE Work CN is a narrow exception to the local-only source model, and it is off by default: only when you explicitly set <code>TOKENTRACKER_TRAE_CN_USAGE=1</code>, during an eligible non-background sync, when local TRAE Work CN auth exists, does TokenTracker transmit the existing sign-in authorization from the locally signed-in app to TRAE's internal API for a read-only usage request. Without that variable nothing is ever sent. It is not an unconditional or default generic network request. That authorization is never persisted or logged.</p>
+<p>TokenTracker's parsers extract numbers and timestamps only. TRAE CN is a narrow exception to the local-only source model, and it is off by default: only when you explicitly set <code>TOKENTRACKER_TRAE_CN_USAGE=1</code>, during an eligible non-background sync, when local TRAE CN auth exists, does TokenTracker transmit the existing sign-in authorization from the locally signed-in app to TRAE's internal API for a read-only usage request. Without that variable nothing is ever sent. It is not an unconditional or default generic network request. That authorization is never persisted or logged.</p>
 <p><strong>Never retained as usage data or uploaded to TokenTracker:</strong></p>
 <ul>
 <li><strong>Prompts, responses, and conversation bodies</strong> — TokenTracker may parse local tool files containing conversation records to extract usage metrics, but prompt and response texts are never persisted, collected, or transmitted</li>
@@ -92,10 +92,10 @@
 <td>While quota bars are visible</td>
 </tr>
 <tr>
-<td><strong>TRAE Work CN usage read</strong></td>
+<td><strong>TRAE CN usage read</strong></td>
 <td>TRAE's internal API</td>
-<td>Transmits the existing sign-in authorization from the locally signed-in TRAE Work CN app to TRAE; reads usage metadata only. TokenTracker never persists or logs the auth token or prompt/response content.</td>
-<td>Off unless you set <code>TOKENTRACKER_TRAE_CN_USAGE=1</code>; then during eligible non-background sync when local TRAE Work CN auth exists</td>
+<td>Transmits the existing sign-in authorization from the locally signed-in TRAE CN app to TRAE; reads usage metadata only. TokenTracker never persists or logs the auth token or prompt/response content.</td>
+<td>Off unless you set <code>TOKENTRACKER_TRAE_CN_USAGE=1</code>; then during eligible non-background sync when local TRAE CN auth exists</td>
 </tr>
 <tr>
 <td><strong>GitHub star count</strong></td>

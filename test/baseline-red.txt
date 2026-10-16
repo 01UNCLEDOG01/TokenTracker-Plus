@@ -10,14 +10,11 @@ SQL shape drift aborts the whole migration before any archive schema is retained
 a restore failure after hot insertion rolls back rows, manifest and operation together
 a stale source snapshot refuses replay without changing original or QA rows
 a transient fallback never replaces an account snapshot that is already shown
-a transient fallback skips the publish instead of overwriting account figures
-account authority is recorded only on a real publish
 actual cloned aggregation retains cold truth and decreasing hot corrections
 all QA tables, sequences and functions reject anonymous and authenticated SQL roles
 archive operation replay reuses its preparation and cannot change scope
 archive wiring retains canonical pricing and denies direct client access
 billing, machine admission, real ingest RPC and archive run together in the same database
-both account-view headers are read, transient matched by prefix
 bounded cleanup deletes only old superseded empty metadata and leaves another user intact
 checkpoint creation failure happens before any prepare or commit RPC
 complete truth keeps device, cluster, Cursor, TRAE and timezone parity after compaction
