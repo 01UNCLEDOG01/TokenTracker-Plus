@@ -564,7 +564,15 @@ async function main() {
           return;
         }
       }
-      if (await handleAuthRequest({ req, url, raw, db, secret, send })) return;
+      // Auth routes may attach Set-Cookie headers (browser refresh-cookie
+      // session flow); the shared send() only writes JSON, so auth gets its
+      // own sender with a mutable extra-headers slot (2026-10-16).
+      const authHeaders = {};
+      const authSend = (status, value) => {
+        res.writeHead(status, { "Content-Type": "application/json", ...authHeaders });
+        res.end(JSON.stringify(value));
+      };
+      if (await handleAuthRequest({ req, url, raw, db, secret, send: authSend, extraHeaders: authHeaders })) return;
       if (url.pathname.startsWith("/functions/")) {
         const slug = url.pathname.split("/").pop();
         const handler = handlers[slug];

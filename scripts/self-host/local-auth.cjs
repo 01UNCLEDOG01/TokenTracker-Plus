@@ -115,7 +115,48 @@ async function readJson(raw) {
 }
 
 // Returns true when the request was an auth request this module handled.
-async function handleAuthRequest({ req, url, raw, db, secret, send }) {
+const REFRESH_COOKIE = "insforge_refresh_token";
+const CSRF_COOKIE = "insforge_csrf_token";
+
+function parseCookies(header) {
+  const out = {};
+  for (const part of String(header || "").split(";")) {
+    const i = part.indexOf("=");
+    if (i < 0) continue;
+    out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return out;
+}
+
+function requestIsSecure(req) {
+  if (String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https") return true;
+  return Boolean(req.socket && req.socket.encrypted);
+}
+
+// Browser session flow (InsForge SDK): the SDK posts /api/auth/refresh with an
+// EMPTY body and credentials:"include", relying on an HttpOnly refresh cookie,
+// and reads a JS-visible CSRF cookie to mirror into X-CSRF-Token. Without
+// these cookies the SPA silently logs out after every ACCESS_TTL (1h) —
+// the reported "must sign in every time" regression (2026-10-16).
+function sessionCookieHeaders({ req, refreshToken, csrfToken }) {
+  const secure = requestIsSecure(req) ? "; Secure" : "";
+  return [
+    `${REFRESH_COOKIE}=${refreshToken}; HttpOnly; Path=/api/auth; Max-Age=${REFRESH_TTL_SECONDS}; SameSite=Lax${secure}`,
+    `${CSRF_COOKIE}=${csrfToken}; Path=/; Max-Age=${REFRESH_TTL_SECONDS}; SameSite=Lax${secure}`,
+  ];
+}
+
+function emitSession(req, send, extraHeaders, payload) {
+  const csrfToken = randomUUID();
+  extraHeaders["Set-Cookie"] = sessionCookieHeaders({
+    req,
+    refreshToken: payload.refreshToken,
+    csrfToken,
+  });
+  send(200, { ...payload, csrfToken });
+}
+
+async function handleAuthRequest({ req, url, raw, db, secret, send, extraHeaders = {} }) {
   if (!url.pathname.startsWith("/api/auth/")) return false;
 
   const route = url.pathname.slice("/api/auth/".length);
@@ -157,7 +198,7 @@ async function handleAuthRequest({ req, url, raw, db, secret, send }) {
       "INSERT INTO auth.users(id, email, password_hash) VALUES($1,$2,$3)",
       [id, email, hashPassword(password)],
     );
-    send(200, sessionPayload({ id, email }, secret));
+    emitSession(req, send, extraHeaders, sessionPayload({ id, email }, secret));
     return true;
   }
 
@@ -168,13 +209,27 @@ async function handleAuthRequest({ req, url, raw, db, secret, send }) {
       send(401, { error: "invalid_credentials", message: "invalid email or password" });
       return true;
     }
-    send(200, sessionPayload(row, secret));
+    emitSession(req, send, extraHeaders, sessionPayload(row, secret));
     return true;
   }
 
   if (route === "refresh" && req.method === "POST") {
     const body = await readJson(raw);
-    const token = body.refresh_token || body.refreshToken || "";
+    let token = body.refresh_token || body.refreshToken || "";
+    // Browser (SPA SDK) flow: empty body, refresh token in the HttpOnly
+    // cookie. Mirror-submit CSRF protects the cookie path — a cross-site
+    // form cannot read the JS-visible CSRF cookie to put into the header.
+    if (!token) {
+      const cookies = parseCookies(req.headers.cookie);
+      token = cookies[REFRESH_COOKIE] || "";
+      if (token) {
+        const headerCsrF = String(req.headers["x-csrf-token"] || "");
+        if (!headerCsrF || headerCsrF !== cookies[CSRF_COOKIE]) {
+          send(401, { error: "invalid_refresh_token", message: "csrf token mismatch" });
+          return true;
+        }
+      }
+    }
     const payload = verifyToken(token, secret);
     if (!payload || payload.typ !== "refresh") {
       send(401, { error: "invalid_refresh_token", message: "refresh token is invalid or expired" });
@@ -192,7 +247,13 @@ async function handleAuthRequest({ req, url, raw, db, secret, send }) {
     );
     // No rotation: the client keeps its refresh token, and mintAccessToken
     // reports refreshToken:null when nothing rotated.
-    send(200, { accessToken, user: publicUser(row) });
+    const csrfToken = randomUUID();
+    extraHeaders["Set-Cookie"] = sessionCookieHeaders({
+      req,
+      refreshToken: token,
+      csrfToken,
+    });
+    send(200, { accessToken, refreshToken: token, csrfToken, user: publicUser(row) });
     return true;
   }
 
