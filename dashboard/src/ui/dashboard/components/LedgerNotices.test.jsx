@@ -35,8 +35,11 @@ function liveSpend(extra = {}) {
 
 async function renderNotices(qoderCn) {
   resetLedgerNoticesCacheForTests();
-  vi.stubGlobal("fetch", vi.fn(async () => limitsResponse(qoderCn)));
-  render(<QoderCnOfficialSpend from="2030-07-01" to="2030-07-31" />);
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    return limitsResponse(qoderCn);
+  }));
+  const view = <QoderCnOfficialSpend from="2030-07-01" to="2030-07-31" />;
+  render(view);
 }
 
 describe("QoderCnOfficialSpend freshness", () => {

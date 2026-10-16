@@ -15,6 +15,11 @@ const REQUIRED_COLUMNS = ["key", "module", "page", "component", "slot", "text"];
 // and model names, protocol abbreviations, or formatting-only labels. Keep
 // this key-based so a newly added English sentence cannot silently pass.
 const SOURCE_IDENTICAL_KEY_ALLOWLIST = [
+  // Brand / quota-window labels with no Chinese rendering in this product:
+  // "TRAE CN" is the product's own name, "Flash-Lite 5h" is SenseNova's
+  // window label (2026-10-16).
+  /^provider[.]display[.]trae_work_cn$/,
+  /^limits[.]label[.]sensenova_flash_lite_5h$/,
   /^landing[.]install[.]command$/,
   /^(landing|share)[.]meta[.]/,
   /^landing[.]cta[.]secondary$/,
