@@ -168,6 +168,7 @@ const {
   parseRetryAfterMs,
 } = require("../lib/upload-throttle");
 const { compactPendingQueue, iterateQueueLines, sessionSnapshotMs } = require("../lib/upload-queue");
+const { persistQoderEstimateRows } = require("../lib/qoder-estimate-upload");
 const AUTO_UPLOAD_CONFIG = {
   intervalMs: 15 * 60_000,
   batchSize: 200,
@@ -3692,6 +3693,22 @@ async function cmdSync(argv, context = {}) {
       // Decide the window budget from the original backlog. Compact only once
       // upload is allowed so a cooldown run cannot shrink away that budget.
       const state = (await readJson(queueStatePath)) || { offset: 0 };
+      // Land the qoder estimate rows into the queue ahead of the upload so
+      // the cloud account aggregate matches the local dashboard's numbers
+      // (the read-time fold never reached the cloud before 2026-10-16).
+      // Best effort: an estimate-persistence failure must not block uploads.
+      try {
+        const persistedEstimates = await persistQoderEstimateRows({
+          queuePath,
+          statePath: path.join(trackerDir, "qoder-estimate.upload.json"),
+          projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
+        });
+        if (persistedEstimates.appended > 0) {
+          console.log(`[qoder] persisted ${persistedEstimates.appended} estimate rows to the upload queue (cn ${persistedEstimates.cnAppended}, intl ${persistedEstimates.intlAppended})`);
+        }
+      } catch (estimateError) {
+        console.error(`[qoder] estimate persistence failed (non-fatal): ${estimateError?.message || estimateError}`);
+      }
       await compactPendingQueue({ queuePath, offset: Number(state.offset || 0) });
       uploadAttempted = true;
       // Mirror the machine identity into the purge-surviving seed file so a
