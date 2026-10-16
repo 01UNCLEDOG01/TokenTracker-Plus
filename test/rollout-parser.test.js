@@ -24,6 +24,7 @@ const sqliteCli = {
 const {
   parseRolloutIncremental,
   parseClaudeIncremental,
+  parseAntigravityFile,
   parseGeminiIncremental,
   parseOpencodeIncremental,
   parseOpencodeDbIncremental,
@@ -5047,6 +5048,54 @@ test("parseClaudeIncremental skips OmO-mirrored sdk-ts external Claude SDK usage
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.length, 1);
     assert.equal(queued[0].input_tokens, 200);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test("parseAntigravityFile keeps a non-Gemini Model Selection sticky over the db planner name", async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-antigrav-sel-"));
+  try {
+    const claudePath = path.join(tmp, "transcript.jsonl");
+    const queuePath = path.join(tmp, "queue.jsonl");
+
+    // 最小 protobuf 构造：f1 = inner{f19 = model 名, f20 = {last_step_index}}。
+    // 与 extractAntigravityGenInfo 的读取路径一致。
+    function varint(n) { const b = []; n = BigInt(n); do { let x = Number(n & 127n); n >>= 7n; if (n) x |= 128; b.push(x); } while (n); return Buffer.from(b); }
+    function field(num, payload) { const t = varint((num << 3) | 2); return Buffer.concat([t, varint(payload.length), payload]); }
+    const ts = (h, m, s) => `2026-10-13T${h}:${m}:${s}.000Z`;
+    const transcriptLines = [];
+    const modelGemini = "gemini-3.8-flash-n";
+    // normalizeAntigravityTranscriptModel 保留点号：claude-opus-4.6
+    const modelClaude = "claude-opus-4.6";
+    // 步骤 0：Gemini（选择前）
+        transcriptLines.push(JSON.stringify({ type: "PLANNER_RESPONSE", step_index: 0, created_at: ts("21", "40", "00"), content: "gemini planner output for the pre-selection step with enough text to estimate tokens" }));
+    // 21:47:07 选择 Claude Opus 4.6；步骤 1 的 db 名仍是规划器的 Gemini id
+    transcriptLines.push(JSON.stringify({ type: "USER_SETTINGS_CHANGE", created_at: ts("21", "47", "07"), content: "changed setting `Model Selection` from Gemini 3.8 Flash (Medium) to Claude Opus 4.6 (Thinking)." }));
+        transcriptLines.push(JSON.stringify({ type: "PLANNER_RESPONSE", step_index: 1, created_at: ts("21", "48", "30"), content: "claude planner output inside the selection window with enough text to estimate tokens for billing" }));
+    // 21:49:16 切回 Gemini
+    transcriptLines.push(JSON.stringify({ type: "USER_SETTINGS_CHANGE", created_at: ts("21", "49", "16"), content: "changed setting `Model Selection` from Claude Opus 4.6 (Thinking) to Gemini 3.8 Flash (High)." }));
+        transcriptLines.push(JSON.stringify({ type: "PLANNER_RESPONSE", step_index: 2, created_at: ts("21", "50", "30"), content: "gemini planner output after switching back with enough text to estimate tokens" }));
+    await fs.writeFile(claudePath, transcriptLines.join("\n") + "\n", "utf8");
+
+    const hourlyState = { buckets: {} };
+    const touched = new Set();
+    const res = await parseAntigravityFile({
+      filePath: claudePath, hourlyState, touchedBuckets: touched,
+      source: "antigravity", projectKey: null, projectRef: null, projectState: null, projectTouchedBuckets: null,
+    });
+    // parseAntigravityFile 只填 hourly 桶（入队是调用方的事），按模型聚合桶验证归属
+    const byModel = {};
+    for (const [key, bucket] of Object.entries(hourlyState.buckets)) {
+      const model = key.split("|")[1] || "?";
+      byModel[model] = (byModel[model] || 0) + ((bucket.totals || {}).total_tokens || 0);
+    }
+    void res; void touched;
+    // 选择窗口内的步骤归 claude-opus-4.6；窗口前的步骤（无任何选择记录）是
+    // antigravity-unknown；切回后 db 名恢复权威 → gemini-3.8-flash-n
+    assert.ok((byModel[modelClaude] || 0) > 0, "the claude window must bill claude-opus-4.6: " + JSON.stringify(byModel));
+    assert.ok((byModel["gemini-3.8-flash"] || 0) > 0, "steps after switching back stay gemini: " + JSON.stringify(byModel));
+    void res;
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

@@ -21482,7 +21482,11 @@ const ANTIGRAVITY_CURSOR_VERSION = 2;
 // IDE's internal planner channel, which fires even on sessions the owner ran
 // entirely on Gemini. Model = the per-step db name and the user's own
 // Model Selection records, nothing else.
-const ANTIGRAVITY_EXTRACTOR_REVISION = 4;
+// r5: a non-Gemini Model Selection now sticks — the per-step db name records
+// the planner's Gemini id even while the work runs on the selected Claude
+// model, so during a non-Gemini selection window the db name no longer
+// overrides the user's explicit choice.
+const ANTIGRAVITY_EXTRACTOR_REVISION = 5;
 const ANTIGRAVITY_MAX_CONTRIBUTIONS = 4096;
 
 function hashAntigravityTranscript(buffer) {
@@ -22633,6 +22637,12 @@ async function parseAntigravityFile({
       typeof initialLastPlannerModel === "string" ? initialLastPlannerModel : cachedModel;
   }
   let lastCompletedLine = Math.min(Number.isFinite(lastLine) ? lastLine : 0, lines.length);
+  // A non-Gemini Model Selection routes the work off the planner channel, and
+  // the per-step db name keeps reporting the planner's Gemini id regardless —
+  // so while such a selection is active, the db name must not overwrite the
+  // user's explicit choice (verified 2026-10-13: a Claude Opus 4.6 window
+  // recorded every step as gemini-3.8-flash-n).
+  let selectionNonGemini = initialModel ? !/^(gemini)-/.test(initialModel) : false;
 
   for (let i = scanStart; i < lines.length; i++) {
     const line = lines[i];
@@ -22650,7 +22660,10 @@ async function parseAntigravityFile({
     if (parsed.type === "USER_INPUT" || parsed.type === "USER_SETTINGS_CHANGE") {
       const content = typeof parsed.content === "string" ? parsed.content : "";
       const model = parseAntigravityModelSelection(content);
-      if (model) currentModel = model;
+      if (model) {
+        currentModel = model;
+        selectionNonGemini = !/^(gemini)-/.test(model);
+      }
     }
 
     const eventContextTokens = antigravityContextTokens(parsed);
@@ -22661,7 +22674,8 @@ async function parseAntigravityFile({
     const dbContextTokens = dbTurn && dbTurn.contextTokens > 0 ? dbTurn.contextTokens : 0;
     if (dbTurn && dbTurn.model) {
       const norm = normalizeAntigravityTranscriptModel(dbTurn.model);
-      if (norm) currentModel = norm;
+      if (process.env.TT_DBG) console.error("[dbg]", JSON.stringify({ line: i, step: parsed.step_index, db: dbTurn.model, norm, sticky: selectionNonGemini, prev: currentModel }));
+      if (norm && !selectionNonGemini) currentModel = norm;
     }
     // The shared-channel flag (used_non_gemini_model / used_claude) is NOT
     // model evidence and must not name buckets. It fires on steps whose own
@@ -25829,6 +25843,7 @@ module.exports = {
   listAntigravityTranscripts,
   listAntigravityTranscriptsWithStatus,
   parseAntigravityIncremental,
+  parseAntigravityFile,
   parseAntigravityFile,
   estimateAntigravityTokens,
   isCjkCodePoint,
