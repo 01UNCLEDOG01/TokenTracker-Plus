@@ -21,7 +21,7 @@
 import { createClient } from "npm:@insforge/sdk";
 import { readProBadges } from "./cloud/pro.ts";
 
-const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline"]);
+const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline", "qoder"]);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -273,6 +273,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // Hy4 preview: 6 / 0.3 (cache hit) / 18 RMB per MTok at ~7.2 RMB/USD (#633).
   // Alibaba Model Studio Singapore reference rates; see curated-overrides.json (#715).
   "qwen3.8-flash": { input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 },
+  "qwen3.8-max": { input: 1.65, output: 4.951, cache_read: 0.206, cache_write: 2.063 },
   "hy4-preview": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
   "hy4-preview-agent": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
   // ── Misc / Free ──

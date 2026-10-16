@@ -161,6 +161,7 @@ test("Qoder CN estimate model ids strip the （估算） suffix and price the SK
     ["Qwen3.8-Flash（估算）", { input: 0.15, output: 0.47 }],
     ["Auto（估算）", { input: 0.15, output: 0.47 }],
     ["DeepSeek-Flash（估算）", { input: 0.3, output: 1.2 }],
+    ["Qwen3.8-Max（估算）", { input: 1.65, output: 4.951 }],
   ];
   for (const name of [CANONICAL, ...MIRRORS]) {
     const { code } = transformSync(extractBlock(name), { loader: "ts", target: "es2020" });
@@ -386,7 +387,7 @@ test("all cloud cost paths only prefer provider-reported costs for authoritative
     assert.ok(source.includes("reportedCost"), `${name}: reported cost branch missing`);
     assert.match(
       source,
-      /const SOURCES_WITH_AUTHORITATIVE_COST = new Set\(\["grok", "cline"\]\);/,
+      /const SOURCES_WITH_AUTHORITATIVE_COST = new Set\(\["grok", "cline", "qoder"\]\);/,
       `${name}: authoritative cost sources must be explicitly allowlisted`,
     );
     assert.match(
