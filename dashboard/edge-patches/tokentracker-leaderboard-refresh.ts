@@ -281,6 +281,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // $0.30 / $1.20 / $0.006 cache read per MTok peak; getRowPricing halves it
   // off-peak. deepseek-v4.1-flash is the OpenRouter / Command Code / WorkBuddy id.
   "deepseek-v4.1-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  // Dot-form id the Agent2API/Claude sources report for DeepSeek V4.1 Flash —
+  // same card as deepseek-v4.1-flash (2026-10-16).
+  "deepseek-v4-1-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   "deepseek-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   "deepseek-chat": { input: 0.14, output: 0.28, cache_read: 0.0028, cache_write: 0.14 },
   "deepseek-reasoner": { input: 0.14, output: 0.28, cache_read: 0.0028, cache_write: 0.14 },
@@ -315,6 +318,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // Alibaba Model Studio Singapore reference rates; see curated-overrides.json (#715).
   "qwen3.8-flash": { input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 },
   "qwen3.8-max": { input: 1.65, output: 4.951, cache_read: 0.206, cache_write: 2.063 },
+  "qwen3.7-plus": { input: 0.3333, output: 1.3333, cache_read: 0.0667, cache_write: 0.4167 },
   "hy4-preview": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
   "hy4-preview-agent": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
   // ── Misc / Free ──
@@ -331,6 +335,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "mimo-v2.5-pro": { input: 1, output: 3, cache_read: 0.2 },
   "mimo-v2.5": { input: 0.4, output: 2, cache_read: 0.08 },
   "mimo-v2-flash": { input: 0.1, output: 0.3, cache_read: 0.02 },
+  // OpenRouter free route: the local matcher's contained matching bills it at
+  // the deepseek-chat card; pinned here so the cloud prices the same (2026-10-16).
+  "mimo-v2.6-flash-free": { input: 0.14, output: 0.28, cache_read: 0.0028 },
   // ── Sakana Fugu (OpenAI-compatible API via sakana.ai PAYG / OpenRouter,
   //    used through Codex/Cursor/Cline/ZCode etc.; mirrored from
   //    src/lib/pricing/curated-overrides.json). OpenRouter rate: $5/$30 per
@@ -439,6 +446,27 @@ function normalizeIFlytekMaasModel(model: string) {
   return lower;
 }
 
+// Source-scoped exact pricing, mirrored from curated-overrides.json's
+// source_exact (2026-10-16). These are self-defined alias names LiteLLM will
+// never carry, and a bare-model lookup must not leak a public rate onto them
+// (autoclaw's zai_auto is a router name, codely-* are Tuanjie's own ids,
+// luna-02 is Cola's id for GPT 6 Luna). loomy's spark-x keeps its dedicated
+// branch inside getModelPricing; acode has the full iFlytek MaaS table.
+const SOURCE_EXACT_PRICING = {
+  "autoclaw": {
+    "zai_auto": { input: 1.4, output: 4.4, cache_read: 0.26, cache_write: 1.4 },
+  },
+  "tuanjie-cowork": {
+    "codely-core": { input: 1.4, output: 4.4, cache_read: 0.26, cache_write: 1.4 },
+    "codely-air": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+    "codely-basic": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+    "codely-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  },
+  "cola": {
+    "luna-02": { input: 0.2, output: 1.2, cache_read: 0.02, cache_write: 0.25 },
+  },
+};
+
 function getModelPricing(model: string, source = "") {
   if (!model) return ZERO_PRICING;
   if (source.toLowerCase() === "workbuddy-ai" && model.trim().toLowerCase() === "auto") return ZERO_PRICING;
@@ -455,7 +483,12 @@ function getModelPricing(model: string, source = "") {
   // (curated source_exact, 2026-10-13).
   if (source.toLowerCase() === "loomy" && model.trim().toLowerCase() === "spark-x")
     return { input: 0.22, output: 0.83, cache_read: 0.03, cache_write: 0.22 };
-  const exact = MODEL_PRICING[model];
+  const sourceExact = SOURCE_EXACT_PRICING[source.toLowerCase()];
+  if (sourceExact) {
+    const sourceCard = sourceExact[model] || sourceExact[model.toLowerCase()];
+    if (sourceCard) return sourceCard;
+  }
+  const exact = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()];
   if (exact) return exact;
   const lower = model.toLowerCase();
   if (source === "cline" && lower.endsWith(":free")) return ZERO_PRICING;

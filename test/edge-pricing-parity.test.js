@@ -178,6 +178,41 @@ getModelPricing;`);
   }
 });
 
+test("source_exact cards mirror into every edge file and price before public rates", () => {
+  const { getModelPricing: localPricing } = require("../src/lib/pricing");
+  const cases = [
+    // [source, model, expected subset]
+    ["autoclaw", "zai_auto", { input: 1.4, output: 4.4, cache_read: 0.26 }],
+    ["tuanjie-cowork", "codely-core", { input: 1.4, output: 4.4, cache_read: 0.26 }],
+    ["tuanjie-cowork", "codely-air", { input: 0.3, output: 1.2, cache_read: 0.006 }],
+    ["cola", "luna-02", { input: 0.2, output: 1.2, cache_read: 0.02 }],
+    // The bare ids must NOT inherit a public rate when the source differs.
+    [null, "zai_auto", null],
+    [null, "codely-core", null],
+    ["agent2api", "deepseek-v4-1-flash", { input: 0.3, output: 1.2 }],
+    ["trae-cn", "qwen3.7-plus", { input: 0.3333, output: 1.3333 }],
+    ["opencode", "mimo-v2.6-flash-free", { input: 0.14, output: 0.28 }],
+  ];
+  for (const name of [CANONICAL, ...MIRRORS]) {
+    const { code } = transformSync(extractBlock(name), { loader: "ts", target: "es2020" });
+    const edgePricing = vm.runInNewContext(`${code}
+getModelPricing;`);
+    for (const [source, model, expected] of cases) {
+      const local = localPricing(model, source ? { source } : undefined);
+      const edge = JSON.parse(JSON.stringify(edgePricing(model, source || "")));
+      if (!expected) {
+        const allZero = Object.entries(edge).every(([, v]) => !v);
+        assert.ok(allZero, `${name}: ${model} must stay unpriced without its source`);
+        continue;
+      }
+      assert.deepEqual(Object.fromEntries(Object.keys(expected).map(key => [key, local[key]])), expected, `${source}/${model} local`);
+      for (const [key, value] of Object.entries(expected)) {
+        assert.equal(edge[key], value, `${name}: ${source}/${model} ${key}`);
+      }
+    }
+  }
+});
+
 test("canonical pricing block retains regression-prone entries and matcher order", () => {
   const block = extractBlock(CANONICAL);
 
