@@ -152,6 +152,31 @@ getModelPricing;`);
   }
 });
 
+test("Qoder CN estimate model ids strip the （估算） suffix and price the SKU", () => {
+  const { getModelPricing: localPricing } = require("../src/lib/pricing");
+  // qoder-cn-estimate.js derives per-day rows whose model ids carry the fixed
+  // "（估算）" suffix; the local matcher prices them via contained matching,
+  // so the cloud must re-resolve the stripped id to the same card.
+  const cases = [
+    ["Qwen3.8-Flash（估算）", { input: 0.15, output: 0.47 }],
+    ["Auto（估算）", { input: 0.15, output: 0.47 }],
+    ["DeepSeek-Flash（估算）", { input: 0.3, output: 1.2 }],
+  ];
+  for (const name of [CANONICAL, ...MIRRORS]) {
+    const { code } = transformSync(extractBlock(name), { loader: "ts", target: "es2020" });
+    const edgePricing = vm.runInNewContext(`${code}
+getModelPricing;`);
+    for (const [model, expected] of cases) {
+      const local = localPricing(model, { source: "qoder-cn" });
+      assert.deepEqual(Object.fromEntries(Object.keys(expected).map(key => [key, local[key]])), expected, model);
+      const edge = JSON.parse(JSON.stringify(edgePricing(model, "qoder-cn")));
+      for (const [key, value] of Object.entries(expected)) {
+        assert.equal(edge[key], value, `${name}: ${model} ${key}`);
+      }
+    }
+  }
+});
+
 test("canonical pricing block retains regression-prone entries and matcher order", () => {
   const block = extractBlock(CANONICAL);
 

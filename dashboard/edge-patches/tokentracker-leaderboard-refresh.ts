@@ -499,6 +499,22 @@ function getModelPricing(model: string, source = "") {
     if (contained) return MODEL_PRICING[contained];
     return getModelPricing(stripped, source);
   }
+  // Qoder CN: mirror the src/lib/pricing matcher's source normalizer
+  // (normalizeQoderCnModel). Estimate rows decorate the id with a "（估算）"
+  // suffix, Qoder's auto-router is the literal "Auto" (which must map onto
+  // Qoder's representative Qwen3.8-Flash, NOT the Cursor "auto" alias), and
+  // the API reports mixed-case ids over lowercase curated keys (2026-10-16).
+  if (source.toLowerCase() === "qoder-cn") {
+    const bare = model.endsWith("（估算）")
+      ? model.slice(0, model.length - "（估算）".length)
+      : model;
+    const normalized = bare.trim().toLowerCase() === "auto" ? "qwen3.8-flash" : bare.trim().toLowerCase();
+    if (normalized !== model) {
+      const normalizedExact = MODEL_PRICING[normalized];
+      if (normalizedExact) return normalizedExact;
+      return getModelPricing(normalized, source);
+    }
+  }
   // space-bunny family: the curated card is keyed `space-bunny`; the alias
   // entries (space-bunny-free, stealth/space-bunny-alpha) resolve to it
   // (curated alias, 2026-10-13).
