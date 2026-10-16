@@ -259,6 +259,14 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // the separate "k3" exact key below. Not yet in LiteLLM.
   "kimi-k3": { input: 3, output: 15, cache_read: 0.3 },
   "k3": { input: 3, output: 15, cache_read: 0.3 },
+  // Kimi desktop (Electron) reports internal runtime ids, not official API ids
+  // (mirrored from src/lib/pricing/curated-overrides.json, 2026-10-16):
+  // k3-agent = Kimi K3 in agent mode at the official kimi-k3 rates;
+  // k2d8-preview = Kimi K2.8 Preview, which has no published API price and is
+  // approximated with the official K2 coding tier kimi-k2.7-code.
+  "k3-agent": { input: 3, output: 15, cache_read: 0.3, cache_write: 3 },
+  "k2d6-agent": { input: 0.95, output: 4, cache_read: 0.16 },
+  "k2d8-preview": { input: 0.95, output: 4, cache_read: 0.19 },
   // ── Z.ai GLM (mirrored from src/lib/pricing/curated-overrides.json).
   //    LiteLLM only keys these under provider prefixes like `zai/glm-5`,
   //    `openrouter/z-ai/glm-4.6`, etc. The reverse-substring fallback in the

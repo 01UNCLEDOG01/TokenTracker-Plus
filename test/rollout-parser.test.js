@@ -7745,6 +7745,37 @@ test("parseKimiIncremental reads StatusUpdate events from wire.jsonl", async () 
   }
 });
 
+test("resolveKimiCodeWireFiles scans the Kimi desktop home only with a real APPDATA env", async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-kimi-desktop-"));
+  try {
+    // Kimi desktop layout: sessions/<workspace>/<conv>/agents/main/wire.jsonl
+    const desktopHome = path.join(tmp, "kimi-desktop", "daimon-share", "daimon", "runtime", "kimi-code", "home");
+    const desktopWire = path.join(desktopHome, "sessions", "ws1", "conv1", "agents", "main", "wire.jsonl");
+    await fs.mkdir(path.dirname(desktopWire), { recursive: true });
+    await fs.writeFile(desktopWire, "");
+
+    // CLI layout for the same reader: sessions/<workspace>/<session>/wire.jsonl
+    const cliHome = path.join(tmp, "kc-home");
+    const cliWire = path.join(cliHome, "sessions", "ws1", "sess1", "wire.jsonl");
+    await fs.mkdir(path.dirname(cliWire), { recursive: true });
+    await fs.writeFile(cliWire, "");
+
+    // Production shape: env carries APPDATA, no explicit override -> desktop root.
+    const env = { APPDATA: tmp };
+    const found = resolveKimiCodeWireFiles(env);
+    assert.ok(found.includes(desktopWire), "desktop wire file is discovered");
+
+    // Sandbox shape: no APPDATA -> desktop root never contributes.
+    assert.ok(!resolveKimiCodeWireFiles({}).includes(desktopWire));
+
+    // Explicit KIMI_CODE_HOME (tests, custom installs) -> desktop root skipped.
+    const explicit = resolveKimiCodeWireFiles({ APPDATA: tmp, KIMI_CODE_HOME: cliHome });
+    assert.deepEqual(explicit, [cliWire]);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test("parseKimiIncremental returns zero when no wire files exist", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-kimi-"));
   try {

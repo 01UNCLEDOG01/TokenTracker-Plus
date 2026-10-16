@@ -9697,12 +9697,9 @@ function resolveKimiCodeHome(env = process.env) {
   return path.join(home, ".kimi-code");
 }
 
-function resolveKimiCodeWireFiles(env = process.env) {
-  const kimiHome = resolveKimiCodeHome(env);
-  if (!kimiHome) return [];
-  const sessionsDir = path.join(kimiHome, "sessions");
-  if (!fssync.existsSync(sessionsDir)) return [];
+function walkKimiCodeWireFiles(sessionsDir) {
   const files = [];
+  if (!sessionsDir || !fssync.existsSync(sessionsDir)) return files;
   const walk = (dir, depth) => {
     if (depth > 5) return;
     let entries;
@@ -9714,6 +9711,31 @@ function resolveKimiCodeWireFiles(env = process.env) {
     }
   };
   walk(sessionsDir, 0);
+  return files;
+}
+
+// Kimi 桌面版（Electron）自带同一套 kimi-code 运行时，wire 布局与 CLI 完全
+// 一致（sessions/<workspace>/<conv>/agents/main/wire.jsonl），走查深度 5 恰好
+// 覆盖。只在 env 带真实 APPDATA 时启用（生产 process.env 必有，沙箱化的测试
+// env 没有），显式 KIMI_CODE_HOME（测试/自定义安装）时也跳过。(2026-10-16)
+function resolveKimiDesktopHome(env = process.env) {
+  const appData = typeof env?.APPDATA === "string" ? env.APPDATA.trim() : "";
+  if (!appData) return null;
+  return path.join(appData, "kimi-desktop", "daimon-share", "daimon", "runtime", "kimi-code", "home");
+}
+
+function resolveKimiCodeWireFiles(env = process.env) {
+  const kimiHome = resolveKimiCodeHome(env);
+  const files = walkKimiCodeWireFiles(kimiHome ? path.join(kimiHome, "sessions") : null);
+  const explicit = typeof env?.KIMI_CODE_HOME === "string" ? env.KIMI_CODE_HOME.trim() : "";
+  if (!explicit) {
+    const desktopHome = resolveKimiDesktopHome(env);
+    if (desktopHome && path.resolve(desktopHome) !== path.resolve(kimiHome || "")) {
+      for (const file of walkKimiCodeWireFiles(path.join(desktopHome, "sessions"))) {
+        if (!files.includes(file)) files.push(file);
+      }
+    }
+  }
   return files;
 }
 

@@ -130,6 +130,28 @@ test("SenseNova gateway ids (sn-*) strip the namespace and price the upstream SK
   }
 });
 
+test("Kimi desktop runtime ids price at the official Kimi rates", () => {
+  const { getModelPricing: localPricing } = require("../src/lib/pricing");
+  // k3-agent = Kimi K3 agent mode: official kimi-k3 API rates. k2d8-preview =
+  // Kimi K2.8 Preview has no published API price; approximated with the K2
+  // coding tier kimi-k2.7-code (curated-overrides.json, read 2026-10-16).
+  const cases = [
+    ["k3-agent", { input: 3, output: 15, cache_read: 0.3, cache_write: 3 }],
+    ["k2d6-agent", { input: 0.95, output: 4, cache_read: 0.16 }],
+    ["k2d8-preview", { input: 0.95, output: 4, cache_read: 0.19 }],
+  ];
+  for (const name of [CANONICAL, ...MIRRORS]) {
+    const { code } = transformSync(extractBlock(name), { loader: "ts", target: "es2020" });
+    const edgePricing = vm.runInNewContext(`${code}
+getModelPricing;`);
+    for (const [model, expected] of cases) {
+      const local = localPricing(model);
+      assert.deepEqual(Object.fromEntries(Object.keys(expected).map(key => [key, local[key]])), expected, model);
+      assert.deepEqual(JSON.parse(JSON.stringify(edgePricing(model))), expected, `${name}: ${model}`);
+    }
+  }
+});
+
 test("canonical pricing block retains regression-prone entries and matcher order", () => {
   const block = extractBlock(CANONICAL);
 
