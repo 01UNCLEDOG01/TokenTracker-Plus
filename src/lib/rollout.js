@@ -58,7 +58,7 @@ const {
   buildDevinUsageEvents,
 } = require("./devin-usage");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
-const { resolveTraeDbPaths, readTraeUsageRows } = require("./trae-db");
+const { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows } = require("./trae-db");
 const { normalizeTraeUsage, normalizeTraeModel, traeTimestamp } = require("./trae-usage");
 
 const DEFAULT_SOURCE = "codex";
@@ -24487,6 +24487,131 @@ async function parseTraeCnApiIncremental({
   return { recordsProcessed: total, eventsAggregated, bucketsQueued, skippedRows };
 }
 
+// ── TRAE CN merged-app local database (companion to the cloud bill above) ──
+//
+// The unified Trae CN IDE keeps its turns in
+// %APPDATA%/Trae CN/ModularData/ai-agent/database.db (SQLCipher, streamed page
+// by page). Those sessions are disjoint from the SOLO CN cloud bill (verified:
+// zero session-id overlap), and the bill's rolling window never sees them, so
+// this store is the only path for that usage. Rows are watermark-incremental
+// on chat_turn.rowid; project attribution joins chat_session → project and
+// resolves absolute_path like every other cwd-sourced provider.
+async function parseTraeCnLocalIncremental({
+  dbPath,
+  cursors,
+  queuePath,
+  projectQueuePath,
+  publicRepoResolver,
+  onProgress,
+  readRowsImpl = readTraeCnLocalRows,
+} = {}) {
+  await ensureDir(path.dirname(queuePath));
+  if (!cursors || typeof cursors !== "object") cursors = {};
+  const traeCnLocalState = cursors.traeCnLocal &&
+    typeof cursors.traeCnLocal === "object"
+    ? cursors.traeCnLocal
+    : {};
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  hourlyState.buckets = Object.fromEntries(Object.entries(hourlyState.buckets || {}).map(([key, bucket]) => [
+    key, key.startsWith("trae-cn|") ? { ...bucket, totals: { ...bucket.totals } } : bucket,
+  ]));
+  hourlyState.groupQueued = { ...(hourlyState.groupQueued || {}) };
+  const touchedBuckets = new Set();
+  const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
+
+  // The store is ~GBs of SQLCipher pages: skip the whole decrypt when the file
+  // is byte-identical to the last successful read.
+  let stat = null;
+  try { stat = fssync.statSync(dbPath); } catch { stat = null; }
+  if (!stat || !stat.isFile()) {
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
+  }
+  const signature = `${stat.size}:${stat.mtimeMs}`;
+  const lastId = Number.isSafeInteger(traeCnLocalState.lastId) ? traeCnLocalState.lastId : 0;
+  if (traeCnLocalState.signature === signature && lastId > 0) {
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
+  }
+
+  const rows = await readRowsImpl(dbPath, { lastId });
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+  let recordsSkipped = 0;
+  let maxRowId = lastId;
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  const total = Array.isArray(rows) ? rows.length : 0;
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    recordsProcessed += 1;
+    if (cb) cb({ index: recordsProcessed, total, recordsProcessed, eventsAggregated });
+    const totals = normalizeTraeUsage(row.usage, { model: row.model });
+    const timestamp = traeTimestamp(row.created_at) || traeTimestamp(row.updated_at);
+    const bucketStart = timestamp && toUtcHalfHourStart(timestamp);
+    const rowId = Number(row.id);
+    if (Number.isSafeInteger(rowId) && rowId > maxRowId) maxRowId = rowId;
+    const model = normalizeTraeModel(row.model);
+    if (!totals || !bucketStart) {
+      recordsSkipped += 1;
+      continue;
+    }
+
+    const bucket = getHourlyBucket(hourlyState, TRAE_CN_SOURCE, model, bucketStart);
+    addTotals(bucket.totals, totals);
+    touchedBuckets.add(bucketKey(TRAE_CN_SOURCE, model, bucketStart));
+    eventsAggregated += 1;
+
+    if (projectEnabled && typeof row.absolute_path === "string" && row.absolute_path) {
+      let cached = projectMetaCache.get(row.absolute_path);
+      if (!cached) {
+        const projectContext = await resolveProjectContextForPath({
+          startDir: wsl.mapWslCwdToUnc(row.absolute_path, dbPath),
+          projectMetaCache,
+          publicRepoCache,
+          publicRepoResolver,
+          projectState,
+        });
+        cached = {
+          projectRef: projectContext?.projectRef || null,
+          projectKey: projectContext?.projectKey || null,
+        };
+        projectMetaCache.set(row.absolute_path, cached);
+      }
+      if (cached.projectRef && cached.projectKey) {
+        const projectBucket = getProjectBucket(
+          projectState,
+          cached.projectKey,
+          TRAE_CN_SOURCE,
+          bucketStart,
+          cached.projectRef,
+        );
+        addTotals(projectBucket.totals, totals);
+        projectTouchedBuckets.add(projectBucketKey(cached.projectKey, TRAE_CN_SOURCE, bucketStart));
+      }
+    }
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = updatedAt;
+    cursors.projectHourly = projectState;
+  }
+  traeCnLocalState.lastId = maxRowId;
+  traeCnLocalState.signature = signature;
+  traeCnLocalState.updatedAt = updatedAt;
+  cursors.traeCnLocal = traeCnLocalState;
+
+  return { recordsProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued, recordsSkipped };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DeepSeek Harness (dsh) — passive reader of the harness's session logs.
 //
@@ -26801,6 +26926,8 @@ module.exports = {
   resolveTraeStoragePath,
   readTraeEntitlementFromStorage,
   parseTraeCnApiIncremental,
+  parseTraeCnLocalIncremental,
+  resolveTraeCnLocalDbPath,
   // DeepSeek Harness (dsh) — passive session-log reader
   resolveDshHome,
   resolveDshHomes,

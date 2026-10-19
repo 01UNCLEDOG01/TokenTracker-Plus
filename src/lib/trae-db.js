@@ -124,4 +124,90 @@ async function readTraeUsageRows(dbPath, { env = process.env } = {}) {
   throw error("database changed during the read; retry after TRAE finishes its current turn.");
 }
 
-module.exports = { resolveTraeDbPaths, readTraeUsageRows };
+// ── TRAE CN merged-app local database ──
+// The unified "Trae CN" IDE (the Work CN × CN merge) keeps its turns in
+// %APPDATA%/Trae CN/ModularData/ai-agent/database.db. The SOLO CN cloud bill
+// does not cover those sessions (verified: zero session-id overlap), so this
+// store is the only source for that usage. The reader joins each turn with
+// its chat_session → project row so the caller can attribute projects.
+function resolveTraeCnLocalDbPath({ env = process.env, home = os.homedir(), platform = process.platform } = {}) {
+  const explicit = String(env.TOKENTRACKER_TRAE_CN_LOCAL_DB || "").trim();
+  if (explicit) return path.resolve(explicit);
+  if (platform !== "win32") return null;
+  const parent = env.APPDATA || path.join(home, "AppData", "Roaming");
+  return path.join(parent, "Trae CN", "ModularData", "ai-agent", "database.db");
+}
+
+// Same projection as readTraeUsageRows' chat_turn query, plus the
+// chat_session → project join for cwd attribution and a rowid watermark so
+// the 3.7 GB decrypt only re-runs when the store actually grew.
+async function readTraeCnLocalRows(dbPath, { lastId = 0, env = process.env } = {}) {
+  const watermark = Number.isSafeInteger(lastId) && lastId > 0 ? lastId : 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let snapshot;
+    try { snapshot = openTraeSnapshot(dbPath, env); }
+    catch (err) {
+      if (err?.transient && attempt < 2) continue;
+      throw err;
+    }
+    try {
+      let result;
+      try { result = await withTraeSqlite(snapshot, (queryRows) => projectTraeCnLocalRows(queryRows, watermark)); }
+      catch (err) {
+        if (snapshot.isStable()) throw err;
+        continue;
+      }
+      if (snapshot.isStable()) return result;
+    } finally { snapshot.close(); }
+  }
+  throw error("database changed during the read; retry after TRAE finishes its current turn.");
+}
+
+async function projectTraeCnLocalRows(queryRows, watermark) {
+  const columns = new Set((await queryRows("PRAGMA table_info(chat_turn)")).map((row) => row.name));
+  const modelPaths = [
+    "persist_user_message_context.model_info.display_model_name",
+    "persist_user_message_context.model_info.model_name",
+    "persist_user_message_context.model_info.config_name", "model_name", "model",
+    "agent_model", "selected_model.name", "selectedModel.name",
+  ];
+  const model = modelPaths.map((field) => `CASE WHEN json_type(t.context, '$.${field}') = 'text'
+    THEN NULLIF(NULLIF(TRIM(json_extract(t.context, '$.${field}')), ''), '-') END`);
+  const fields = TOKEN_FIELDS.map((field) => `CASE
+    WHEN json_type(t.context, '$.token_usage.${field}') IN ('integer', 'real')
+    THEN json_extract(t.context, '$.token_usage.${field}') END AS "${field}"`);
+  const invalidFields = TOKEN_FIELDS.map((field) =>
+    `COALESCE(json_type(t.context, '$.token_usage.${field}') NOT IN ('integer', 'real', 'null'), 0)`);
+  const query = `SELECT CAST(t.rowid AS TEXT) AS id,
+    t.session_id AS session_id,
+    COALESCE(t.created_at, t.updated_at) AS created_at,
+    t.updated_at AS updated_at,
+    COALESCE(${model.join(", ")}, 'trae-unknown') AS model,
+    ${fields.join(", ")}, (${invalidFields.join(" OR ")}) AS invalid_usage,
+    cs.project_id AS project_id, p.absolute_path AS absolute_path
+    FROM chat_turn t
+    LEFT JOIN chat_session cs ON cs.session_id = t.session_id
+    LEFT JOIN project p ON p.project_id = cs.project_id
+    WHERE CASE WHEN json_valid(t.context)
+      THEN json_type(t.context, '$.token_usage') = 'object' ELSE 0 END
+      AND t.rowid > ${watermark}
+    ORDER BY t.rowid ASC`;
+  return (await queryRows(query)).map((row) => {
+    const usage = {};
+    let invalid = Boolean(row.invalid_usage);
+    for (const field of TOKEN_FIELDS) {
+      const value = row[field];
+      if (value == null) continue;
+      if (!Number.isSafeInteger(value) || value < 0) invalid = true;
+      else usage[field] = value;
+    }
+    return {
+      id: row.id, session_id: row.session_id,
+      created_at: row.created_at, updated_at: row.updated_at,
+      model: row.model, usage: invalid ? null : usage,
+      project_id: row.project_id, absolute_path: row.absolute_path,
+    };
+  });
+}
+
+module.exports = { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows };

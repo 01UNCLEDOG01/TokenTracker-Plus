@@ -152,6 +152,8 @@ const {
   resolveCommandCodeSessionFiles,
   parseCommandCodeIncremental,
   parseTraeCnApiIncremental,
+  parseTraeCnLocalIncremental,
+  resolveTraeCnLocalDbPath,
   parseTraeIncremental,
   bucketKey,
   toUtcHalfHourStart,
@@ -2335,6 +2337,7 @@ async function cmdSync(argv, context = {}) {
     // any other fetch/page/schema/auth failure) skips the parser and leaves
     // prior data untouched while unrelated providers continue.
     let traeCnResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    let traeCnLocalResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
     if (
       !isBackgroundLightweightSync &&
       isTraeCnUsageEnabled(process.env) &&
@@ -2403,6 +2406,30 @@ async function cmdSync(argv, context = {}) {
         }
       } catch (err) {
         warnProviderParseFailure("TRAE CN", err, opts);
+      }
+
+      // ── TRAE CN merged-app local database — the unified Trae CN IDE's own
+      // store. Its sessions are disjoint from the SOLO CN cloud bill (zero
+      // session-id overlap, verified on the real store), so this history has
+      // never been ingested anywhere and cannot double-count the bill.
+      if (sourceAllowed("trae-cn")) {
+        const traeCnLocalDb = resolveTraeCnLocalDbPath({ env: process.env, home });
+        if (traeCnLocalDb && fssync.existsSync(traeCnLocalDb)) {
+          if (progress?.enabled) {
+            progress.start(`Parsing TRAE CN local history...`);
+          }
+          try {
+            traeCnLocalResult = await parseTraeCnLocalIncremental({
+              dbPath: traeCnLocalDb,
+              cursors,
+              queuePath,
+              projectQueuePath,
+              onProgress: makeProviderProgress("TRAE CN (local)"),
+            });
+          } catch (err) {
+            warnProviderParseFailure("TRAE CN (local)", err, opts);
+          }
+        }
       }
     }
 
@@ -3530,6 +3557,7 @@ async function cmdSync(argv, context = {}) {
       claudeScienceResult.recordsProcessed +
       cursorResult.recordsProcessed +
       traeCnResult.recordsProcessed +
+      traeCnLocalResult.recordsProcessed +
       traeResult.recordsProcessed +
       kiroResult.recordsProcessed +
       kiroCliResult.recordsProcessed +
@@ -3577,6 +3605,7 @@ async function cmdSync(argv, context = {}) {
       claudeScienceResult.bucketsQueued +
       cursorResult.bucketsQueued +
       traeCnResult.bucketsQueued +
+      traeCnLocalResult.bucketsQueued +
       traeResult.bucketsQueued +
       kiroResult.bucketsQueued +
       kiroCliResult.bucketsQueued +
