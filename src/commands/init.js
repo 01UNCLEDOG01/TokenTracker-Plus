@@ -168,6 +168,7 @@ const SUPPORTED_PROVIDERS = [
   "Devin CLI",
   "Cline",
   "MiniMax Code",
+  "CodeArts Agent",
   "Command Code",
 ];
 

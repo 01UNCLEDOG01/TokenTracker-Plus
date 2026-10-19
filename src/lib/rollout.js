@@ -9754,6 +9754,110 @@ function resolveKimiCodeDefaultModel(env = process.env) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CodeArts Agent (Huawei's VS Code fork). Its embedded AgentCore is an
+// OpenCode derivative: sessions/tokens live in a drizzle sqlite db at
+//
+//   ~/.codeartsdoer/codearts-data/opencode.db
+//
+// message.data (assistant rows) carries the authoritative usage after the
+// turn finishes (data.finish set): tokens {total, input, output, reasoning,
+// cache {read, write}}, modelID and providerID (Huawei's internal gateway).
+// Only finished rows are aggregated, so a turn scanned mid-flight is picked
+// up complete on a later sync and never double-counted. Emitted under source
+// "codearts". Independent cursor (cursors.codearts). (2026-10-19)
+function resolveCodeartsDbPath(env = process.env) {
+  const explicit = typeof env?.TOKENTRACKER_CODEARTS_DB === "string" ? env.TOKENTRACKER_CODEARTS_DB.trim() : "";
+  if (explicit) return path.resolve(explicit);
+  const home = require("node:os").homedir();
+  return path.join(home, ".codeartsdoer", "codearts-data", "opencode.db");
+}
+
+async function parseCodeartsIncremental({ dbPath, cursors, queuePath, onProgress, env } = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const state = cursors.codearts && typeof cursors.codearts === "object"
+    ? { lastRowId: Number(cursors.codearts.lastRowId) || 0, seenIds: new Set(Array.isArray(cursors.codearts.seenIds) ? cursors.codearts.seenIds : []), updatedAt: cursors.codearts.updatedAt }
+    : { lastRowId: 0, seenIds: new Set(), updatedAt: null };
+  const seenIds = new Set(state.seenIds);
+
+  const target = dbPath || resolveCodeartsDbPath(env || process.env);
+  let db = null;
+  try {
+    const { DatabaseSync } = require("node:sqlite");
+    db = new DatabaseSync(target, { readOnly: true });
+  } catch {
+    // Not installed, db not created yet, or locked — nothing to scan.
+    cursors.codearts = { lastRowId: state.lastRowId, seenIds: Array.from(seenIds), updatedAt: state.updatedAt };
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+  let maxRowId = state.lastRowId;
+
+  try {
+    const rows = db.prepare(
+      "SELECT rowid AS rid, data FROM message WHERE rowid > ? ORDER BY rowid",
+    ).all(state.lastRowId);
+    for (const row of rows) {
+      if (row.rid > maxRowId) maxRowId = row.rid;
+      let parsed;
+      try { parsed = JSON.parse(row.data); } catch { continue; }
+      if (!parsed || parsed.role !== "assistant" || parsed.finish == null) continue;
+      const tokens = parsed.tokens || {};
+      const input = toNonNegativeInt(tokens.input);
+      const output = toNonNegativeInt(tokens.output);
+      const reasoning = toNonNegativeInt(tokens.reasoning);
+      const cacheRead = toNonNegativeInt(tokens.cache?.read);
+      const cacheWrite = toNonNegativeInt(tokens.cache?.write);
+      if (input === 0 && output === 0 && cacheRead === 0 && cacheWrite === 0) {
+        seenIds.add(row.rid + ":" + String(parsed.id || ""));
+        continue;
+      }
+      const created = parsed.time?.created;
+      const bucketStart = Number.isFinite(Number(created))
+        ? toUtcHalfHourStart(new Date(Number(created)).toISOString())
+        : null;
+      if (!bucketStart) continue;
+      recordsProcessed++;
+
+      const codeartsModel = String(parsed.modelID || "unknown").trim() || "unknown";
+      const delta = {
+        input_tokens: input,
+        cached_input_tokens: cacheRead,
+        cache_creation_input_tokens: cacheWrite,
+        output_tokens: output,
+        reasoning_output_tokens: reasoning,
+        total_tokens: input + output + cacheRead + cacheWrite + reasoning,
+        conversation_count: 1,
+      };
+      const bucket = getHourlyBucket(hourlyState, "codearts", codeartsModel, bucketStart);
+      addTotals(bucket.totals, delta);
+      touchedBuckets.add(bucketKey("codearts", codeartsModel, bucketStart));
+      seenIds.add(row.rid + ":" + String(parsed.id || ""));
+      eventsAggregated++;
+    }
+  } finally {
+    try { db.close(); } catch { /* already closed */ }
+  }
+  if (cb) {
+    cb({ recordsProcessed, eventsAggregated, bucketsQueued: touchedBuckets.size });
+  }
+
+  const seenArr = Array.from(seenIds);
+  const cappedSeen = seenArr.length > 20_000 ? seenArr.slice(seenArr.length - 20_000) : seenArr;
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  cursors.codearts = { lastRowId: maxRowId, seenIds: cappedSeen, updatedAt };
+
+  return { recordsProcessed, eventsAggregated, bucketsQueued };
+}
+
 function kimiCodeModelAlias(value) {
   if (typeof value !== "string" || !value) return null;
   return value.includes("/") ? value.split("/").pop() : value;
@@ -25716,6 +25820,8 @@ module.exports = {
   resolveKimiCodeWireFiles,
   resolveKimiCodeDefaultModel,
   parseKimiCodeIncremental,
+  parseCodeartsIncremental,
+  resolveCodeartsDbPath,
   resolveCodebuddyHome,
   codebuddyJsonlHasUsage,
   resolveCodebuddyProjectFiles,

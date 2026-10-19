@@ -75,6 +75,7 @@ const {
   resolveKimiHome,
   resolveKimiCodeHome,
   resolveKimiCodeWireFiles,
+  parseCodeartsIncremental,
   resolveKimiCodeDefaultModel,
   resolveKilocodeRoots,
   resolveZedDbPath,
@@ -15826,6 +15827,97 @@ test("parseKimiCodeIncremental persists model from config.update on cursor for i
     const queued = (await fs.readFile(queuePath, "utf8")).trim().split("\n").map(JSON.parse);
     const lastEntry = queued[queued.length - 1];
     assert.equal(lastEntry.model, "kimi-k2.6");
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test("parseCodeartsIncremental reads finished assistant rows from the AgentCore sqlite and never double-counts", async () => {
+  const { DatabaseSync } = require("node:sqlite");
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-codearts-"));
+  const dbPath = path.join(tmp, "opencode.db");
+  try {
+    const db = new DatabaseSync(dbPath);
+    db.exec("CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+    const insert = (id, sessionId, data) => db.prepare(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+    ).run(id, sessionId, Date.now(), Date.now(), JSON.stringify(data));
+
+    // A turn still in flight (no finish) must be skipped…
+    insert("msg_inflight", "ses_1", {
+      role: "assistant", modelID: "deepseek-v4.1-flash", providerID: "inferhub-provider",
+      tokens: { total: 100, input: 90, output: 10, reasoning: 0, cache: { read: 0, write: 0 } },
+      time: { created: Date.UTC(2026, 9, 19, 8, 5, 0) },
+    });
+    // …a finished assistant turn aggregates…
+    insert("msg_done_1", "ses_1", {
+      role: "assistant", modelID: "deepseek-v4.1-flash", providerID: "inferhub-provider", finish: "stop",
+      tokens: { total: 13941, input: 11004, output: 39, reasoning: 82, cache: { read: 2816, write: 0 } },
+      time: { created: Date.UTC(2026, 9, 19, 8, 10, 0) },
+    });
+    // …a zero-token finished row is seen but not aggregated…
+    insert("msg_zero", "ses_1", {
+      role: "assistant", modelID: "deepseek-v4.1-flash", providerID: "inferhub-provider", finish: "stop",
+      tokens: { total: 0, input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      time: { created: Date.UTC(2026, 9, 19, 8, 15, 0) },
+    });
+    // …and user rows are ignored entirely.
+    insert("msg_user", "ses_1", { role: "user", time: { created: Date.UTC(2026, 9, 19, 8, 0, 0) } });
+    db.close();
+
+    const queuePath = path.join(tmp, "queue.jsonl");
+    const cursors = { version: 1 };
+    const first = await parseCodeartsIncremental({ dbPath, cursors, queuePath });
+    assert.equal(first.recordsProcessed, 1, "only the finished non-zero row aggregates");
+    assert.equal(first.eventsAggregated, 1);
+    assert.ok(first.bucketsQueued > 0);
+    assert.equal(cursors.codearts.seenIds.length, 2, "zero-token row is marked seen too");
+    assert.ok(cursors.codearts.lastRowId >= 4, "watermark passed every row");
+
+    const q = (await fs.readFile(queuePath, "utf8")).trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(q.length, 1);
+    assert.equal(q[0].source, "codearts");
+    assert.equal(q[0].model, "deepseek-v4.1-flash");
+    assert.equal(q[0].input_tokens, 11004);
+    assert.equal(q[0].output_tokens, 39);
+    assert.equal(q[0].reasoning_output_tokens, 82);
+    assert.equal(q[0].cached_input_tokens, 2816);
+    assert.equal(q[0].total_tokens, 13941);
+
+    // Idempotent: an unchanged db aggregates nothing new.
+    const second = await parseCodeartsIncremental({ dbPath, cursors, queuePath });
+    assert.equal(second.eventsAggregated, 0);
+
+    // A NEW finished turn appends past the watermark.
+    const db2 = new DatabaseSync(dbPath);
+    db2.prepare(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+    ).run("msg_done_2", "ses_1", Date.now(), Date.now(), JSON.stringify({
+      role: "assistant", modelID: "deepseek-v4.1-flash", providerID: "inferhub-provider", finish: "stop",
+      tokens: { total: 2000, input: 1500, output: 400, reasoning: 100, cache: { read: 0, write: 0 } },
+      time: { created: Date.UTC(2026, 9, 19, 9, 30, 0) },
+    }));
+    db2.close();
+    const third = await parseCodeartsIncremental({ dbPath, cursors, queuePath });
+    assert.equal(third.eventsAggregated, 1, "the new turn appends");
+    const q2 = (await fs.readFile(queuePath, "utf8")).trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(q2.length, 2);
+    assert.equal(q2[1].total_tokens, 2000);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test("parseCodeartsIncremental skips a missing db without touching cursors", async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-codearts-missing-"));
+  try {
+    const cursors = { version: 1 };
+    const result = await parseCodeartsIncremental({
+      dbPath: path.join(tmp, "absent.db"), cursors, queuePath: path.join(tmp, "queue.jsonl"),
+    });
+    assert.equal(result.recordsProcessed, 0);
+    assert.equal(result.eventsAggregated, 0);
+    assert.ok(cursors.codearts, "cursor state is still written");
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

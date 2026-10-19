@@ -14,7 +14,7 @@
 
 ### AI に使ったコストを正確に把握 — すべての CLI を横断して
 
-**51 種類の AI コーディングツール**からトークン数を自動収集し、ローカルで集計、美しいダッシュボードで本当のコスト推移を可視化します。クラウドアカウント不要、API キー不要、セットアップ不要 — コマンド 1 つで完了です。
+**52 種類の AI コーディングツール**からトークン数を自動収集し、ローカルで集計、美しいダッシュボードで本当のコスト推移を可視化します。クラウドアカウント不要、API キー不要、セットアップ不要 — コマンド 1 つで完了です。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/macOS-supported-lightgrey.svg)](https://www.apple.com/macos/)
@@ -48,7 +48,7 @@ node bin/tracker.js      # opens the dashboard at http://localhost:7680
 
 ## ✨ 機能
 
-- 🔌 **51 種類の AI ツールを標準対応** — Claude Code、Codex CLI、AStudio、Cursor、Gemini CLI、Antigravity、Kiro、OpenCode、OpenClaw、Loomy、AutoClaw、Cola、Every Code、Hermes Agent、GitHub Copilot、Kimi Code、CodeBuddy、WorkBuddy、WorkBuddy AI、Grok Build、oh-my-pi、OmO、pi、Dots、Prime Agent、Craft Agents、Reasonix、Muse Code、Kilo CLI、Kilo Code、Roo Code、Zed Agent、Goose、Droid、Mimo Code、DuMate、ZCode、Qoder、AnythingLLM Desktop、Claude Science、DeepSeek Harness、TRAE CN、LM Studio、Unsloth Studio、Devin CLI、Cline、MiniMax Code、Command Code、TRAE、Tuanjie Cowork、Agent2API
+- 🔌 **52 種類の AI ツールを標準対応** — Claude Code、Codex CLI、AStudio、Cursor、Gemini CLI、Antigravity、Kiro、OpenCode、OpenClaw、Loomy、AutoClaw、Cola、Every Code、Hermes Agent、GitHub Copilot、Kimi Code、CodeBuddy、WorkBuddy、WorkBuddy AI、Grok Build、oh-my-pi、OmO、pi、Dots、Prime Agent、Craft Agents、Reasonix、Muse Code、Kilo CLI、Kilo Code、Roo Code、Zed Agent、Goose、Droid、Mimo Code、DuMate、ZCode、Qoder、AnythingLLM Desktop、Claude Science、DeepSeek Harness、TRAE CN、LM Studio、Unsloth Studio、Devin CLI、Cline、CodeArts Agent、MiniMax Code、Command Code、TRAE、Tuanjie Cowork、Agent2API
 - 🏠 **ローカルファースト** — すべてマシン上で動作。アカウントや API キーなしでログをローカル解析します。
 - 🚀 **ゼロコンフィグ** — Hook は初回実行で自動インストール。0 からダッシュボードまで 30 秒。
 - 📊 **美しいダッシュボード** — 使用トレンド、モデル別コスト内訳、GitHub スタイルのアクティビティヒートマップ、プロジェクト別の帰属表示
@@ -164,7 +164,7 @@ node bin/tracker.js      # opens the dashboard at http://localhost:7680
 | **AnythingLLM Desktop** | ✅ 自動 | パッシブな SQLite リーダー (`anythingllm-desktop/storage/anythingllm.db`、メッセージごとの token 指標のみ) |
 | **Devin CLI** (Cognition) | ✅ 自動 | パッシブな SQLite リーダー (`$XDG_DATA_HOME/devin/cli/sessions.db`、デフォルト `~/.local/share/devin/cli/sessions.db`)。`request_id` でリクエスト単位の usage 指標を重複排除 (replay/fork/compaction のコピーは二重計上しない) し、記録された generation model を使います。prompt・応答・`cogs_json` は読みません。Devin のモデル (`swe-2`、`swe-2-high`、`compactor`) には現在価格データがないため、token 数は報告されますがドル見積りからは除外されます — $0 表示は無料を意味しません。ネイティブ Windows のデータディレクトリは未確認で、WSL インストールは `\\wsl$` 経由で読み取ります。 |
 | **Cline**（CLI v3 / デスクトップアプリ） | ✅ 自動 | パッシブリーダー (`~/.cline/data/sessions/<id>/*.messages.json`)。各ターンの `metrics` は使用量差分で、`inputTokens` には cache 読み書きが、`outputTokens` には reasoning が既に含まれるため、キャッシュ済みプレフィックスは差し引かれ、reasoning は二重計上されません。Cline 自身が報告する `cost` を優先します。`cline-free/*`・`cline-pass/*` のゲートウェイモデルは $0 扱い。VS Code 拡張の globalStorage は読み取りません。パス上書き: `TOKENTRACKER_CLINE_SESSIONS_DIR`、`TOKENTRACKER_CLINE_DATA_DIR`、`TOKENTRACKER_CLINE_HOME`、`CLINE_SESSION_DATA_DIR`、`CLINE_DATA_DIR`、`CLINE_DIR` |
-| **MiniMax Code** | ✅ 自動 | パッシブリーダー (`~/.minimax/v2/sessions/YYYY/MM/DD/<session>/messages.jsonl`)。`message_id` で重複排除し、メッセージごとにルーティング先の上流モデルを記録します。常に 0 の `usage.cost` は使わず通常の料金表で計算します。ディレクトリは `TOKENTRACKER_MINIMAX_HOME` で上書き可能 |
+| **CodeArts Agent、MiniMax Code** | ✅ 自動 | パッシブリーダー (`~/.minimax/v2/sessions/YYYY/MM/DD/<session>/messages.jsonl`)。`message_id` で重複排除し、メッセージごとにルーティング先の上流モデルを記録します。常に 0 の `usage.cost` は使わず通常の料金表で計算します。ディレクトリは `TOKENTRACKER_MINIMAX_HOME` で上書き可能 |
 | **Command Code** | ✅ 自動 | パッシブなセッションログリーダー (`~/.commandcode/projects/<cwd-slug>/<session-id>.jsonl`、`*.checkpoints.jsonl` スナップショットと `.prompts.` 補助ファイルはスキップ)。トランスクリプトをローカルでスキャンし、トークン数や CLI の表示用見積もり `costUsd` など、必要な使用量メタデータを抽出します。費用は Token Tracker の共通モデル料金表で推定します。キャッシュを含む input からキャッシュ読み取り・書き込みの両方を差し引き、二重計上を防ぎます。Token Tracker はプロンプト・応答・コードの本文を保存・アップロードしません。ディレクトリは `TOKENTRACKER_COMMANDCODE_HOME` で上書き可能 |
 | **Claude Science** | ✅ 自動 | パッシブな SQLite リーダー (`~/.claude-science/operon-cli.db`、`frames` テーブルの token カウンタのみ。prompt・成果物・研究内容は読みません)。ネイティブ Windows 版はなく、Windows では WSL 内で動作するアプリを読み取ります。 |
 | **DeepSeek Harness** | ✅ 自動 | パッシブなセッションリーダー (`~/.dsh/sessions/**/session.jsonl[.zstd]`、セッションヘッダーと assistant イベントを解析し、複数フレームの zstd 展開に対応) |
@@ -174,7 +174,7 @@ node bin/tracker.js      # opens the dashboard at http://localhost:7680
 > **プラグインや hook を手動でインストールする必要はありますか?** いいえ。`tokentracker`（または `tokentracker init`）が初回実行ですべて処理します:
 > - **Hook ベース**のツール (Claude Code、Codex、AStudio、Gemini、Every Code、**CodeBuddy**、**WorkBuddy**、**Grok Build**) — ツール自身の設定に SessionEnd hook または TOML notify エントリーを書き込みます。
 > - **プラグインベース**のツール (OpenCode、**OpenClaw**) — プラグインは npm パッケージ内に同梱されています。OpenClaw のセッションプラグインは `~/.tokentracker/tracker/openclaw-plugin/openclaw-session-sync/` にあり、OpenClaw 自身の CLI でリンクして有効化したうえで、同期を起動するセッション終了イベントを許可するために `hooks.allowConversationAccess=true` を設定します。ダウンロードもドラッグ＆ドロップも不要です。
-> - **パッシブリーダー** (Cursor、Kiro、Hermes、Kimi Code、Copilot、**Grok Build**、**oh-my-pi**、**pi**、**Craft Agents**、**Reasonix**、**Muse Code**、**Kilo CLI**、**Kilo Code**、**Roo Code**、**Antigravity**、**Zed Agent**、**Goose**、**Droid**、**Mimo Code**、**DuMate**、**ZCode**、**LM Studio**、**Unsloth Studio**、**AnythingLLM Desktop**、**Devin CLI**、**MiniMax Code**、**Claude Science**、**DeepSeek Harness**、**Cline**) — これらのツールには何もインストールしません。ツールがすでに出力しているファイル (SQLite DB、JSONL、OTEL エクスポート、session logs) を読むだけです。Copilot App / CLI の使用量は `~/.copilot/session-store.db` からリクエスト単位で読み取ります。`data.db` は旧データ移行時のベースラインとして一度だけ使い、store が正規ソースになった後は監視専用です。Chat 拡張と旧 CLI は引き続き OTEL を使用し、重複するリクエストは TokenTracker が一度だけ集計します。移行前の混在 App/CLI 履歴でモデルを安全に分離できない残量は、推測したリクエストモデルではなく `github-copilot-legacy` の集計値として保持します。
+> - **パッシブリーダー** (Cursor、Kiro、Hermes、Kimi Code、Copilot、**Grok Build**、**oh-my-pi**、**pi**、**Craft Agents**、**Reasonix**、**Muse Code**、**Kilo CLI**、**Kilo Code**、**Roo Code**、**Antigravity**、**Zed Agent**、**Goose**、**Droid**、**Mimo Code**、**DuMate**、**ZCode**、**LM Studio**、**Unsloth Studio**、**AnythingLLM Desktop**、**Devin CLI**、**CodeArts Agent、MiniMax Code**、**Claude Science**、**DeepSeek Harness**、**Cline**) — これらのツールには何もインストールしません。ツールがすでに出力しているファイル (SQLite DB、JSONL、OTEL エクスポート、session logs) を読むだけです。Copilot App / CLI の使用量は `~/.copilot/session-store.db` からリクエスト単位で読み取ります。`data.db` は旧データ移行時のベースラインとして一度だけ使い、store が正規ソースになった後は監視専用です。Chat 拡張と旧 CLI は引き続き OTEL を使用し、重複するリクエストは TokenTracker が一度だけ集計します。移行前の混在 App/CLI 履歴でモデルを安全に分離できない残量は、推測したリクエストモデルではなく `github-copilot-legacy` の集計値として保持します。
 > - **Grok Build の推定** — 現在のローカルテレメトリは `updates.jsonl` の累積 `totalTokens` を公開していますが、安定したプロンプト/出力/キャッシュの内訳はありません。`signals.json` は `contextTokensUsed` のスナップショットを使ったフォールバックとして残っています。コールごとの利用詳細が利用可能になるまで、TokenTracker は Grok のコストを推定します。
 >
 > いつでも `tokentracker status` を実行すれば、各統合の状態を確認できます。`skipped` と表示されている場合、`detail` 列にその理由が示されます（例: ツール CLI が `PATH` にない、設定が読めない）。
@@ -191,7 +191,7 @@ node bin/tracker.js      # opens the dashboard at http://localhost:7680
 
 | 機能 | **[TokenTracker](https://github.com/xiufengsun/TokenTracker)** | **[ccusage](https://github.com/ccusage/ccusage)** | **[Tokscale](https://github.com/junhoyeo/tokscale)** |
 |---|:---:|:---:|:---:|
-| **対応 AI ツール数** | **51** | マルチエージェント | マルチエージェント |
+| **対応 AI ツール数** | **52** | マルチエージェント | マルチエージェント |
 | **主なインターフェース** | ネイティブデスクトップアプリ & Web ダッシュボード | ターミナル CLI | ターミナル TUI & CLI |
 | **ローカルファースト解析** | ✅ | ✅ | ✅ |
 | **ネイティブデスクトップアプリ** | ✅ macOS, Windows, Linux | ❌ | ❌ |
@@ -207,7 +207,7 @@ node bin/tracker.js      # opens the dashboard at http://localhost:7680
 
 ```mermaid
 flowchart LR
-    A["AI coding tools<br/>Claude Code · Codex · AStudio · Cursor · Gemini · Kiro<br/>OpenCode · OpenClaw · Every Code · Hermes · Copilot<br/>Kimi · CodeBuddy · WorkBuddy · Grok · Kilo · Roo · Zed · Goose<br/>Antigravity · oh-my-pi · pi · Craft · Droid · Mimo · DuMate · ZCode · Qoder · AnythingLLM · Claude Science · DeepSeek Harness · TRAE · TRAE CN · LM Studio · Unsloth Studio · Devin CLI · MiniMax Code · Cline · Command Code"]
+    A["AI coding tools<br/>Claude Code · Codex · AStudio · Cursor · Gemini · Kiro<br/>OpenCode · OpenClaw · Every Code · Hermes · Copilot<br/>Kimi · CodeBuddy · WorkBuddy · Grok · Kilo · Roo · Zed · Goose<br/>Antigravity · oh-my-pi · pi · Craft · Droid · Mimo · DuMate · ZCode · Qoder · AnythingLLM · Claude Science · DeepSeek Harness · TRAE · TRAE CN · LM Studio · Unsloth Studio · Devin CLI · CodeArts Agent、MiniMax Code · Cline · Command Code"]
     A -->|hooks trigger| B[Token Tracker]
     B -->|parse logs<br/>30-min UTC buckets| C[(Local SQLite)]
     C --> D[Web Dashboard]

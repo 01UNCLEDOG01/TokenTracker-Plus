@@ -85,6 +85,7 @@ const {
   parseKimiIncremental,
   resolveKimiCodeWireFiles,
   parseKimiCodeIncremental,
+  parseCodeartsIncremental,
   resolveOmpSessionFiles,
   resolveOmpSubagentFiles,
   parseOmpIncremental,
@@ -2581,6 +2582,27 @@ async function cmdSync(argv, context = {}) {
             process.stderr.write(`Kiro CLI sync: ${err.message}\n`);
           }
         }
+      }
+    }
+
+    // ── CodeArts Agent (Huawei VS Code fork; embedded OpenCode kernel sqlite) ──
+    if (sourceAllowed("codearts")) {
+      if (progress?.enabled) {
+        progress.start("Parsing CodeArts Agent | buckets 0");
+      }
+      try {
+        const codeartsResult = await parseCodeartsIncremental({
+          cursors,
+          queuePath,
+          env: process.env,
+          onProgress: (p) => {
+            if (!progress?.enabled) return;
+            progress.update(`Parsing CodeArts Agent | buckets ${formatNumber(p.bucketsQueued)}`);
+          },
+        });
+        void codeartsResult;
+      } catch (err) {
+        warnProviderParseFailure("CodeArts Agent", err, opts);
       }
     }
 
