@@ -105,10 +105,13 @@ async function listRolloutFiles(sessionsDir, options = {}) {
       : null;
   const stats = options?.stats && typeof options.stats === "object" ? options.stats : null;
   if (dayInventoryCache) {
-    if (dayInventoryCache.version !== 1) {
+    // v2: isRolloutFileName also accepts rollout-*.jsonl.zst/.zstd. Old v1
+    // day lists omit archives that were already on disk when the directory
+    // metadata last matched, so bump to force a one-time rescan.
+    if (dayInventoryCache.version !== 2) {
       dayInventoryCache.days = {};
     }
-    dayInventoryCache.version = 1;
+    dayInventoryCache.version = 2;
     if (!dayInventoryCache.days || typeof dayInventoryCache.days !== "object") {
       dayInventoryCache.days = {};
     }
@@ -189,7 +192,75 @@ function isRolloutFileName(name) {
   if (typeof name !== "string") return false;
   if (name.includes("/") || name.includes("\\")) return false;
   if (name !== path.basename(name)) return false;
-  return name.startsWith("rollout-") && name.endsWith(".jsonl");
+  if (!name.startsWith("rollout-")) return false;
+  return name.endsWith(".jsonl") || isCompressedRolloutFileName(name);
+}
+
+// Compressed rollout archives cannot be tailed by byte offset: the cursor
+// stores compressed bytes while the parser consumes decompressed text. Treat
+// them as content-addressed snapshots — one parse per (inode, size) version —
+// reusing the DSH session's zstd machinery (built-in zlib first,
+// `@mongodb-js/zstd` fallback) including its multi-frame handling. Returns
+// null for a missing/non-file path; an empty archive yields no lines (the
+// same outcome as an empty uncompressed rollout).
+const CODEX_ROLLOUT_COMPRESSED_PATTERN = /^rollout-.*\.jsonl\.zstd?$/;
+const CODEX_ROLLOUT_TEXT_MAX_BYTES = 256 * 1024 * 1024;
+
+function isCompressedRolloutFileName(name) {
+  return typeof name === "string" && CODEX_ROLLOUT_COMPRESSED_PATTERN.test(name);
+}
+
+function isCompressedRolloutPath(filePath) {
+  if (typeof filePath !== "string") return false;
+  return isCompressedRolloutFileName(path.basename(filePath));
+}
+
+async function readCodexRolloutSnapshot(filePath, { maxOutputBytes = CODEX_ROLLOUT_TEXT_MAX_BYTES } = {}) {
+  const handle = await fs.open(filePath, "r").catch(() => null);
+  if (!handle) return null;
+  try {
+    const initialStat = await handle.stat().catch(() => null);
+    if (!initialStat || !initialStat.isFile()) return null;
+    const outputLimit = Number.isSafeInteger(maxOutputBytes) && maxOutputBytes >= 0
+      ? maxOutputBytes
+      : CODEX_ROLLOUT_TEXT_MAX_BYTES;
+    let data;
+    try {
+      data = await handle.readFile();
+    } catch (_error) {
+      // Transient mount/IO failures (e.g. WSL ESTALE) must not abort the rest
+      // of sync; treat like a missing archive and keep the prior cursor.
+      return null;
+    }
+    const metadata = {
+      size: data.length,
+      mtimeMs: Number.isFinite(initialStat.mtimeMs) ? initialStat.mtimeMs : 0,
+      inode: initialStat.ino || 0,
+    };
+    if (data.length === 0) return { ...metadata, unchanged: false, lines: [] };
+    let decoded;
+    try {
+      const inspected = inspectDshZstdFrames(data, outputLimit);
+      decoded = await decodeDshZstd(data, { maxOutputBytes: outputLimit, inspected });
+    } catch (_error) {
+      // Malformed / truncated / oversized archives must not abort the rest of
+      // the sync: return null so the caller keeps the prior cursor and retries.
+      return null;
+    }
+    // Fatal UTF-8: uncompressed JSONL parsing rejects invalid bytes under
+    // invalidRecordPolicy=throw. toString("utf8") would silently replace them
+    // and claim utf8Valid, so a corrupted discriminator could drop usage
+    // during repairCodexRescanInflation. Fail the snapshot instead.
+    let text;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(decoded);
+    } catch (_error) {
+      return null;
+    }
+    return { ...metadata, unchanged: false, lines: text.length > 0 ? text.split("\n") : [] };
+  } finally {
+    await handle.close().catch(() => {});
+  }
 }
 
 function directoryInventoryStatKey(st) {
@@ -215,7 +286,7 @@ async function listRolloutFilesDeep(dir) {
       const p = path.join(d, e.name);
       if (e.isDirectory()) {
         await walk(p);
-      } else if (e.isFile() && e.name.startsWith("rollout-") && e.name.endsWith(".jsonl")) {
+      } else if (e.isFile() && isRolloutFileName(e.name)) {
         out.push(p);
       }
     }
@@ -526,6 +597,16 @@ async function parseRolloutIncremental({
       ? prev?.codexUsageRecord || (prev?.lastTotal ? { sawTokenCount: true } : null)
       : null;
 
+    // Compressed archives are whole-file snapshots. If the compressed bytes
+    // changed under the same inode, force historical dedup; parseRolloutFile
+    // ignores retained baselines for the parse itself. Do NOT clear cursor
+    // fields here — a soft decode failure must leave the prior cursor intact.
+    const compressedSnapshotRescan = isCompressedRolloutPath(filePath)
+      && sameInode
+      && !truncated
+      && prevOffset > 0
+      && prevOffset !== st.size;
+
     const codexProjectFastPath =
       projectEnabled && (fileSource === DEFAULT_SOURCE || fileSource === "acode");
     const projectOffset = sameInode && !truncated ? Number(prev.projectOffset || 0) : 0;
@@ -584,7 +665,8 @@ async function parseRolloutIncremental({
         ? getAcodeEventDedup()
         : null;
     const codexEventTracker = rolloutEventDedup
-      ? (needsHistoricalRolloutDedup({
+      ? (compressedSnapshotRescan
+          || needsHistoricalRolloutDedup({
           filePath,
           prev,
           sameInode,
@@ -637,6 +719,22 @@ async function parseRolloutIncremental({
           sessionId: codexSessionIdFromPath(filePath),
           invalidRecordPolicy,
         });
+
+    if (result.snapshotUnavailable) {
+      // Leave cursors.files[key] untouched so the next readable snapshot is
+      // compared against the prior (inode, offset, baselines).
+      if (cb) {
+        cb({
+          index: idx + 1,
+          total: totalFiles,
+          filePath,
+          filesProcessed,
+          eventsAggregated,
+          bucketsQueued: touchedBuckets.size,
+        });
+      }
+      continue;
+    }
 
     const nextCursor = {
       inode,
@@ -2265,7 +2363,7 @@ function openclawUsageEventIdentity(obj, msg, usage, model) {
 function codexSessionIdFromPath(filePath) {
   if (typeof filePath !== "string") return null;
   const m = filePath.match(
-    /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\.jsonl$/,
+    /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\.jsonl(?:\.zstd?)?$/,
   );
   return m ? m[1] : null;
 }
@@ -2300,6 +2398,108 @@ async function parseRolloutFile({
   const endOffset = st.size;
   const projectFileContexts = [];
   addProjectFileContext(projectFileContexts, projectContext);
+  // Compressed archives are immutable snapshots, not append-only logs: a byte
+  // range of the compressed file is not a prefix of the decompressed text, so
+  // resume-in-the-middle is impossible. Parse the whole snapshot whenever its
+  // (inode, size) identity is new; unchanged snapshots are skipped by the
+  // caller before reaching this function.
+  if (isCompressedRolloutPath(filePath)) {
+    // Mirror the uncompressed exhausted-cursor guard. When a custom
+    // publicRepoResolver disables the outer skip, an unchanged archive must
+    // not be re-parsed with retained baselines (that inflates totals).
+    if (startOffset >= endOffset) {
+      return {
+        endOffset,
+        lastTotal,
+        tokenUsageBaselines,
+        lastModel,
+        lastServiceTier: typeof lastServiceTier === "string" ? lastServiceTier : null,
+        modelAttributionState: previousModelAttributionState,
+        usageRecordState: previousUsageRecordState,
+        eventsAggregated: 0,
+        projectFileContexts,
+      };
+    }
+    const snapshot = await readCodexRolloutSnapshot(filePath);
+    if (!snapshot) {
+      // Soft sync skips a bad archive and keeps the prior cursor so later
+      // files still count. Strict rebuilds (invalidRecordPolicy=throw), used
+      // by repairCodexRescanInflation, must fail closed: a silent skip here
+      // would let another readable session satisfy the non-empty-bucket
+      // safeguard and permanently delete this archive's prior usage.
+      if (invalidRecordPolicy === "throw") {
+        throw new Error(`unreadable Codex compressed archive: ${filePath}`);
+      }
+      return {
+        endOffset: startOffset,
+        lastTotal,
+        tokenUsageBaselines,
+        lastModel,
+        lastServiceTier: typeof lastServiceTier === "string" ? lastServiceTier : null,
+        modelAttributionState: previousModelAttributionState,
+        usageRecordState: previousUsageRecordState,
+        eventsAggregated: 0,
+        projectFileContexts,
+        // Tell the incremental caller not to rewrite cursors.files[key]. If the
+        // archive inode changed under a transient decode miss, overwriting the
+        // prior cursor would drop historical-dedup baselines and double-count.
+        snapshotUnavailable: true,
+      };
+    }
+    // Decompressed lines have no meaningful compressed-byte offsets; the
+    // shared parser only needs their content plus termination flags. Byte
+    // counters stay at the snapshot's compressed size so the cursor records
+    // (inode, size) identity, not decompressed progress.
+    const records = (async function* snapshotRecords() {
+      for (let index = 0; index < snapshot.lines.length; index += 1) {
+        const raw = snapshot.lines[index];
+        const terminated = index + 1 < snapshot.lines.length || raw.endsWith("\n");
+        yield {
+          line: terminated ? raw : `${raw}`,
+          physicalBytes: 0,
+          terminated,
+          utf8Valid: true,
+        };
+      }
+    })();
+    // Size changed under the same inode: drop retained baselines for THIS
+    // parse only. Soft-fail above still returns the caller-supplied baselines
+    // so the prior cursor is preserved when decode fails.
+    const rescanBaselines = startOffset > 0 && startOffset < endOffset;
+    const parsed = await parseRolloutRecords({
+      records,
+      startOffset: 0,
+      endOffset: 0,
+      lastTotal: rescanBaselines ? null : lastTotal,
+      tokenUsageBaselines: rescanBaselines ? null : tokenUsageBaselines,
+      lastModel: rescanBaselines ? null : lastModel,
+      lastServiceTier: rescanBaselines ? null : lastServiceTier,
+      modelAttributionState: rescanBaselines ? null : previousModelAttributionState,
+      usageRecordState: rescanBaselines ? null : previousUsageRecordState,
+      compactionResponseIds,
+      hourlyState,
+      touchedBuckets,
+      source,
+      projectState,
+      projectTouchedBuckets,
+      projectRef,
+      projectKey,
+      projectMetaCache,
+      publicRepoCache,
+      publicRepoResolver,
+      projectContext,
+      projectFileContexts,
+      seenCodexEvents,
+      sessionId,
+      filePath,
+      invalidRecordPolicy,
+    });
+    // parseRolloutRecords counts streamed bytes; snapshots have none, so pin
+    // the cursor to the compressed size — the (inode, size) identity that
+    // makes an unchanged archive skip on the next sync.
+    parsed.endOffset = snapshot.size;
+    return parsed;
+  }
   if (startOffset >= endOffset) {
     return {
       endOffset,
@@ -2318,7 +2518,78 @@ async function parseRolloutFile({
     start: startOffset,
     end: endOffset - 1,
   });
+  // Compressed snapshots never reach this branch (parseRolloutFile routes them
+  // to parseRolloutRecords directly); the byte-counting stream below is only
+  // meaningful for append-only uncompressed logs.
+  const records = (async function* streamRecords() {
+    const invalidUtf8 = invalidRecordPolicy === "throw" ? "throw" : "record";
+    for await (const record of physicalJsonlRecords(stream, { invalidUtf8 })) {
+      yield record;
+    }
+  })();
 
+  return parseRolloutRecords({
+    records,
+    startOffset,
+    endOffset,
+    lastTotal,
+    tokenUsageBaselines,
+    lastModel,
+    lastServiceTier,
+    modelAttributionState: previousModelAttributionState,
+    usageRecordState: previousUsageRecordState,
+    compactionResponseIds,
+    hourlyState,
+    touchedBuckets,
+    source,
+    projectState,
+    projectTouchedBuckets,
+    projectRef,
+    projectKey,
+    projectMetaCache,
+    publicRepoCache,
+    publicRepoResolver,
+    projectContext,
+    projectFileContexts,
+    seenCodexEvents,
+    sessionId,
+    filePath,
+    invalidRecordPolicy,
+  });
+}
+
+async function parseRolloutRecords({
+  records,
+  startOffset,
+  endOffset,
+  lastTotal,
+  tokenUsageBaselines,
+  lastModel,
+  lastServiceTier,
+  modelAttributionState: previousModelAttributionState,
+  usageRecordState: previousUsageRecordState = null,
+  compactionResponseIds = null,
+  hourlyState,
+  touchedBuckets,
+  source,
+  projectState,
+  projectTouchedBuckets,
+  projectRef,
+  projectKey,
+  projectMetaCache,
+  publicRepoCache,
+  publicRepoResolver,
+  projectContext,
+  projectFileContexts: existingProjectFileContexts,
+  seenCodexEvents,
+  sessionId,
+  filePath,
+  invalidRecordPolicy,
+}) {
+  const projectFileContexts = Array.isArray(existingProjectFileContexts)
+    ? existingProjectFileContexts
+    : [];
+  addProjectFileContext(projectFileContexts, projectContext);
   let model = typeof lastModel === "string" ? lastModel : null;
   // Codex writes thread_settings_applied before the turn_context of the turn it
   // takes effect on, and token_count rows carry no turn id, so a row's tier is
@@ -2402,8 +2673,7 @@ async function parseRolloutFile({
     eventsAggregated += 1;
   }
 
-  const invalidUtf8 = invalidRecordPolicy === "throw" ? "throw" : "record";
-  for await (const record of physicalJsonlRecords(stream, { invalidUtf8 })) {
+  for await (const record of records) {
     scannedEndOffset += record.physicalBytes;
     if (record.terminated) committedEndOffset = scannedEndOffset;
     if (!record.utf8Valid) {
@@ -2694,6 +2964,80 @@ async function scanRolloutProjectFileContexts({
   if (!projectState || endOffset <= 0) {
     return {
       endOffset,
+      lastTotal,
+      tokenUsageBaselines,
+      lastModel,
+      lastServiceTier: lastServiceTier || null,
+      modelAttributionState,
+      eventsAggregated: 0,
+      projectFileContexts,
+    };
+  }
+
+  // Compressed archives cannot be scanned as byte streams: JSONL newlines in
+  // the compressed payload are not record boundaries. Decode the snapshot,
+  // then walk decompressed lines for cwd changes. Pin the cursor to the
+  // compressed size so the next sync's unchanged check keeps working.
+  if (isCompressedRolloutPath(filePath)) {
+    const snapshot = await readCodexRolloutSnapshot(filePath);
+    if (!snapshot) {
+      if (invalidRecordPolicy === "throw") {
+        throw new Error(`unreadable Codex compressed archive: ${filePath}`);
+      }
+      return {
+        endOffset,
+        lastTotal,
+        tokenUsageBaselines,
+        lastModel,
+        lastServiceTier: lastServiceTier || null,
+        modelAttributionState,
+        eventsAggregated: 0,
+        projectFileContexts,
+        snapshotUnavailable: true,
+      };
+    }
+    let currentCwd = null;
+    for (const raw of snapshot.lines) {
+      const line = typeof raw === "string" ? raw : "";
+      if (
+        !line ||
+        !(
+          line.includes('"turn_context"') ||
+          line.includes('"session_meta"')
+        ) ||
+        !line.includes('"cwd"')
+      ) {
+        continue;
+      }
+      let obj;
+      try {
+        obj = JSON.parse(line);
+      } catch (error) {
+        if (invalidRecordPolicy === "throw") throw error;
+        continue;
+      }
+      if (
+        (obj?.type !== "turn_context" && obj?.type !== "session_meta") ||
+        !obj?.payload ||
+        typeof obj.payload !== "object" ||
+        typeof obj.payload.cwd !== "string"
+      ) {
+        continue;
+      }
+      const nextCwd = obj.payload.cwd.trim();
+      if (!nextCwd || nextCwd === currentCwd) continue;
+      const context = await resolveProjectContextForPath({
+        startDir: wsl.mapWslCwdToUnc(nextCwd, filePath),
+        projectMetaCache,
+        publicRepoCache,
+        publicRepoResolver,
+        projectState,
+      });
+      currentCwd = nextCwd;
+      addProjectFileContext(projectFileContexts, context);
+    }
+    return {
+      endOffset: snapshot.size,
       lastTotal,
       tokenUsageBaselines,
       lastModel,
@@ -11064,14 +11408,79 @@ function workbuddySqliteUsageSnapshot(row) {
   };
 }
 
+// WorkBuddy writes OpenAI/DeepSeek-shaped rawUsage on every LLM round-trip.
+// The totals pass and the project pass below need the same breakdown, so the
+// arithmetic lives here once. Callers treat total_tokens === 0 as "no billable
+// usage": every component is non-negative, so that is equivalent to testing
+// each field for zero.
+function workbuddyUsageDelta(rawUsage) {
+  // Delegates to the shared cache-aware authority (workbuddyUsageFromRawUsage):
+  // cache reads take the largest of three mirrors, cache writes fall back to
+  // prompt_cache_write_tokens (OpenAI-shaped upstreams omit
+  // cache_creation_input_tokens — booking those as fresh input misprices them),
+  // and reasoning is split out of completion_tokens.
+  const usage = workbuddyUsageFromRawUsage(rawUsage);
+  return {
+    input_tokens: usage.input_tokens,
+    cached_input_tokens: usage.cached_input_tokens,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens,
+    output_tokens: usage.output_tokens,
+    reasoning_output_tokens: usage.reasoning_output_tokens,
+    total_tokens: usage.total_tokens,
+    conversation_count: 1,
+  };
+}
+
+// WorkBuddy stamps `cwd` on its records rather than in a session header, and a
+// session can open with a record that lacks it while later appends omit it
+// altogether. Resolve it from a bounded prefix of the file so every record in
+// the incremental window is attributed, not just the ones that happen to carry
+// their own cwd. A file with no recoverable cwd stays outside project
+// attribution — there is nothing to attribute it to.
+async function resolveWorkbuddyFileCwd(filePath, maxScanBytes = 8 * 1024 * 1024) {
+  let stream;
+  try {
+    const stat = fssync.statSync(filePath);
+    if (stat.size <= 0) return null;
+    stream = fssync.createReadStream(filePath, {
+      start: 0,
+      end: Math.min(stat.size, maxScanBytes) - 1,
+    });
+  } catch {
+    return null;
+  }
+  let cwd = null;
+  try {
+    for await (const record of physicalJsonlRecords(stream, {
+      invalidUtf8: "record",
+      maxRecordBytes: OMP_LIKE_MAX_RECORD_BYTES,
+    })) {
+      if (!record.line || !record.line.trim()) continue;
+      let entry;
+      try { entry = JSON.parse(record.line); } catch { continue; }
+      if (entry && typeof entry === "object" && typeof entry.cwd === "string" && entry.cwd) {
+        cwd = entry.cwd;
+        break;
+      }
+    }
+  } catch {
+    // No recoverable cwd — the file stays un-attributed.
+  } finally {
+    try { stream.destroy(); } catch {}
+  }
+  return cwd;
+}
+
 async function parseWorkbuddyIncremental({
   projectFiles,
   cursors,
   queuePath,
+  projectQueuePath,
   onProgress,
   env,
   defaultModel,
   source = "workbuddy",
+  publicRepoResolver,
 } = {}) {
   await ensureDir(path.dirname(queuePath));
   // `source` doubles as the variant selector and the bucket source key, so the
@@ -11103,6 +11512,45 @@ async function parseWorkbuddyIncremental({
   );
   const detailedSessionsWithUsage = new Set();
 
+  // The shared normalizers copy the bucket maps but alias each bucket/totals
+  // object, and the enqueue helpers stamp queuedKey before appendFile runs.
+  // Give the buckets this parser can mutate private copies so a failed append
+  // leaves the caller's published state untouched — the same staging contract
+  // the Devin reader uses. Callers retry from unchanged offsets, so a polluted
+  // published state would add the same usage twice.
+  const ownsWorkbuddyBucket = (key) =>
+    (normalizeSourceInput(key.split(BUCKET_SEPARATOR)[0]) || DEFAULT_SOURCE) === variant;
+  const ownsWorkbuddyProjectBucket = (key) => {
+    // Project keys are `projectKey|source|hour`; a projectKey may itself
+    // contain the separator, so read the source segment from the right.
+    const last = key.lastIndexOf(BUCKET_SEPARATOR);
+    const prev = last > 0 ? key.lastIndexOf(BUCKET_SEPARATOR, last - 1) : -1;
+    const source = prev >= 0 ? key.slice(prev + 1, last) : "";
+    return (normalizeSourceInput(source) || DEFAULT_SOURCE) === variant;
+  };
+
+  // Project attribution runs as a second, independent pass over the same JSONL
+  // files (see "Project pass" below). It keeps its own offsets and seen-set, so
+  // an install that already has totals backfills project history on upgrade
+  // without re-counting a single token in the totals queue.
+  const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  if (projectState) {
+    projectState.buckets = stageProviderBuckets(projectState.buckets, ownsWorkbuddyProjectBucket);
+  }
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
+  const projectSeenIds = new Set(
+    Array.isArray(workbuddyState.projectSeenIds) ? workbuddyState.projectSeenIds : [],
+  );
+  const projectFileOffsets =
+    workbuddyState.projectFileOffsets && typeof workbuddyState.projectFileOffsets === "object"
+      ? { ...workbuddyState.projectFileOffsets }
+      : {};
+  let projectBucketsQueued = 0;
+  let projectCursorUpdated = false;
+
   const allFiles = Array.isArray(projectFiles)
     ? projectFiles
     : resolveWorkbuddyProjectFiles(env || process.env, variant);
@@ -11128,10 +11576,15 @@ async function parseWorkbuddyIncremental({
       detailedSessions,
       updatedAt: new Date().toISOString(),
     };
-    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0, projectCursorUpdated: false };
   }
 
   const hourlyState = normalizeHourlyState(cursors?.hourly);
+  hourlyState.buckets = stageProviderBuckets(hourlyState.buckets, ownsWorkbuddyBucket);
+  hourlyState.groupQueued =
+    hourlyState.groupQueued && typeof hourlyState.groupQueued === "object"
+      ? { ...hourlyState.groupQueued }
+      : {};
   const touchedBuckets = new Set();
   const cb = typeof onProgress === "function" ? onProgress : null;
   let recordsProcessed = 0;
@@ -11203,10 +11656,8 @@ async function parseWorkbuddyIncremental({
 
       recordsProcessed++;
 
-      const usage = workbuddyUsageFromRawUsage(rawUsage);
-      const { inputTokens, outputTokens, cacheRead, cacheCreation, reasoningTokens } = usage;
-
-      if (usage.allZero) {
+      const delta = workbuddyUsageDelta(rawUsage);
+      if (delta.total_tokens === 0) {
         seenIds.add(messageId);
         continue;
       }
@@ -11224,16 +11675,6 @@ async function parseWorkbuddyIncremental({
         normalizeModelInput(provider.requestModelId) ||
         normalizeModelInput(entry.model) ||
         fallbackModel;
-
-      const delta = {
-        input_tokens: usage.input_tokens,
-        cached_input_tokens: usage.cached_input_tokens,
-        cache_creation_input_tokens: usage.cache_creation_input_tokens,
-        output_tokens: usage.output_tokens,
-        reasoning_output_tokens: usage.reasoning_output_tokens,
-        total_tokens: usage.total_tokens,
-        conversation_count: 1,
-      };
 
       const bucket = getHourlyBucket(hourlyState, variant, model, bucketStart);
       addTotals(bucket.totals, delta);
@@ -11267,6 +11708,165 @@ async function parseWorkbuddyIncremental({
       mtimeMs: postStat.mtimeMs,
       ino: postStat.ino,
     };
+  }
+
+  // ── Project pass ───────────────────────────────────────────────────────
+  // WorkBuddy stamps `cwd` on its records, so unlike the trace summaries below
+  // there is nothing to infer: attribute each round-trip to the git repository
+  // its cwd belongs to. This is a second loop over the same files with its own
+  // cursor, so an install that already has totals backfills project history on
+  // upgrade without touching (or double-counting) them.
+  if (projectEnabled) {
+    for (let fileIdx = 0; fileIdx < jsonlFiles.length; fileIdx++) {
+      const filePath = jsonlFiles[fileIdx];
+      let stat;
+      try { stat = fssync.statSync(filePath); } catch { continue; }
+
+      const prevEntry = projectFileOffsets[filePath] || {};
+      const prevSize = Number(prevEntry.size) || 0;
+      const prevIno = prevEntry.ino;
+      const inodeChanged = typeof prevIno === "number" && prevIno !== stat.ino;
+      const truncated = stat.size < prevSize;
+      const startOffset = truncated || inodeChanged ? 0 : prevSize;
+      if (stat.size <= startOffset) continue;
+
+      // cwd is fixed for a session file's lifetime. Reuse the resolved value
+      // while it is the same file, otherwise read it from the file head — not
+      // from the incremental window, which may hold only appends that omit it.
+      // Truncation (same inode, smaller size) must drop the cached cwd: the
+      // replacement transcript may belong to a different checkout.
+      let cwd =
+        !inodeChanged && !truncated && typeof prevEntry.cwd === "string"
+          ? prevEntry.cwd
+          : null;
+
+      // No recoverable cwd yet: do not advance past history. A later append
+      // may stamp cwd, and early records must still be attributable then.
+      // Check the unchanged-probe cache BEFORE the head scan so idle syncs do
+      // not re-read up to 8 MiB of JSONL on every pass.
+      if (
+        !cwd &&
+        Number(prevEntry.noCwdProbedSize) === stat.size &&
+        prevEntry.ino === stat.ino &&
+        Number(prevEntry.size) === startOffset
+      ) {
+        continue;
+      }
+      if (!cwd) cwd = await resolveWorkbuddyFileCwd(filePath);
+      if (!cwd) {
+        projectCursorUpdated = true;
+        projectFileOffsets[filePath] = {
+          size: startOffset,
+          mtimeMs: stat.mtimeMs,
+          ino: stat.ino,
+          noCwdProbedSize: stat.size,
+        };
+        continue;
+      }
+
+      let projectRef = null;
+      let projectKey = null;
+      const projectContext = await resolveProjectContextForPath({
+        startDir: wsl.mapWslCwdToUnc(cwd, filePath),
+        projectMetaCache,
+        publicRepoCache,
+        publicRepoResolver,
+        projectState,
+      });
+      projectRef = projectContext?.projectRef || null;
+      projectKey = projectContext?.projectKey || null;
+
+      // cwd resolved but the repo is not yet public_verified (or has no git
+      // checkout): keep the offset unadvanced so a later sync can retry, but
+      // do not JSON-parse the transcript on every pass — there is nothing to
+      // attribute until both identifiers exist.
+      if (!projectKey || !projectRef) {
+        projectCursorUpdated = true;
+        projectFileOffsets[filePath] = {
+          size: startOffset,
+          mtimeMs: stat.mtimeMs,
+          ino: stat.ino,
+          cwd,
+        };
+        continue;
+      }
+
+      const committedEndOffset = await scanOmpLikeTranscript(
+        filePath,
+        startOffset,
+        OMP_LIKE_MAX_RECORD_BYTES,
+        (entry) => {
+          // Mirror the totals pass: a JSON null / non-object line must not
+          // abort the whole WorkBuddy parse (and strand both cursors).
+          if (!entry || typeof entry !== "object") return;
+
+          const provider = entry.providerData;
+          const rawUsage = provider && typeof provider === "object" ? provider.rawUsage : null;
+          if (!rawUsage || typeof rawUsage !== "object") return;
+
+          // Mirror the totals pass's suppression rules so the project queue
+          // never reports a session the totals queue deliberately skipped.
+          const sessionId =
+            typeof entry.sessionId === "string" && entry.sessionId
+              ? entry.sessionId
+              : path.basename(filePath, ".jsonl");
+          const sqliteSession = sqliteSessions[sessionId];
+          if (sqliteSession?.detailed || tracedSessionIds.has(sessionId)) return;
+
+          const tsMs =
+            Number.isFinite(Number(entry.timestamp)) && Number(entry.timestamp) > 0
+              ? Number(entry.timestamp)
+              : null;
+          if (tsMs == null) return;
+
+          // Same response-level id preference as the totals pass, so both
+          // queues dedup on identical keys.
+          const messageId =
+            typeof provider?.messageId === "string" && provider.messageId
+              ? provider.messageId
+              : typeof entry.uuid === "string" && entry.uuid
+                ? entry.uuid
+                : typeof entry.id === "string" && entry.id
+                  ? entry.id
+                  : `${sessionId}:${tsMs}`;
+          if (projectSeenIds.has(messageId)) return;
+          projectSeenIds.add(messageId);
+          // The totals pass also registers the raw entry id so an older or
+          // rewritten copy of the same record cannot be counted twice; the
+          // project pass has to keep the same alias.
+          if (typeof entry.id === "string" && entry.id && entry.id !== messageId) {
+            projectSeenIds.add(entry.id);
+          }
+
+          const delta = workbuddyUsageDelta(rawUsage);
+          if (delta.total_tokens === 0) return;
+
+          const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
+          if (!bucketStart) return;
+
+          const projectBucket = getProjectBucket(
+            projectState,
+            projectKey,
+            source,
+            bucketStart,
+            projectRef,
+          );
+          addTotals(projectBucket.totals, delta);
+          projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
+        },
+      );
+
+      // Commit only past records that were read in full: a record appended
+      // while this pass was running, or an unfinished tail line, has to stay
+      // visible to the next sync. Only advance after successful attribution.
+      projectCursorUpdated = true;
+      projectFileOffsets[filePath] = {
+        size: committedEndOffset,
+        mtimeMs: stat.mtimeMs,
+        ino: stat.ino,
+        cwd,
+      };
+    }
   }
 
   // Trace summaries are a fallback for sessions whose JSONL has no detailed
@@ -11529,6 +12129,23 @@ async function parseWorkbuddyIncremental({
       ? tracedSessionArr.slice(tracedSessionArr.length - 10_000)
       : tracedSessionArr;
 
+  const projectSeenArr = Array.from(projectSeenIds);
+  const cappedProjectSeenIds =
+    projectSeenArr.length > 10_000
+      ? projectSeenArr.slice(projectSeenArr.length - 10_000)
+      : projectSeenArr;
+
+  // Publish only after both appends succeed: a throw here leaves `cursors`
+  // untouched, so a retry re-derives the same contribution from the same
+  // offsets instead of adding it on top of a half-applied state.
+  projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({
+        projectQueuePath,
+        projectState,
+        projectTouchedBuckets,
+      })
+    : 0;
+
   const bucketsQueued = await enqueueTouchedBuckets({
     queuePath,
     hourlyState,
@@ -11537,6 +12154,10 @@ async function parseWorkbuddyIncremental({
   const updatedAt = new Date().toISOString();
   hourlyState.updatedAt = updatedAt;
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = updatedAt;
+    cursors.projectHourly = projectState;
+  }
   cursors[variant] = {
     ...workbuddyState,
     seenIds: cappedSeen,
@@ -11545,10 +12166,22 @@ async function parseWorkbuddyIncremental({
     fileOffsets,
     sqliteSessions: cappedSqliteSessions,
     detailedSessions: cappedDetailedSessions,
+    ...(projectEnabled
+      ? {
+          projectSeenIds: cappedProjectSeenIds,
+          projectFileOffsets,
+        }
+      : {}),
     updatedAt,
   };
 
-  return { recordsProcessed, eventsAggregated, bucketsQueued };
+  return {
+    recordsProcessed,
+    eventsAggregated,
+    bucketsQueued,
+    projectBucketsQueued,
+    projectCursorUpdated: projectEnabled && projectCursorUpdated,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14523,14 +15156,14 @@ function devinStringMap(value) {
 // Stage only the bucket objects this parser can mutate. The shared
 // normalizers copy the bucket maps but alias each bucket/totals object, and
 // the enqueue helpers stamp queuedKey before appendFile runs — so a failed
-// append used to leave the caller's published state polluted. Only
-// devin-owned entries get private copies; every other provider's buckets
+// append used to leave the caller's published state polluted. Only entries
+// the calling parser owns get private copies; every other provider's buckets
 // stay shared read-only references.
-function stageDevinBuckets(buckets, isDevinBucket) {
+function stageProviderBuckets(buckets, isOwnedBucket) {
   const staged = {};
   for (const [key, bucket] of Object.entries(buckets || {})) {
     staged[key] =
-      bucket && typeof bucket === "object" && isDevinBucket(key, bucket)
+      bucket && typeof bucket === "object" && isOwnedBucket(key, bucket)
         ? {
             ...bucket,
             totals:
@@ -14619,7 +15252,7 @@ async function parseDevinIncremental({
   // rows recover either queue. Unrelated providers' buckets stay shared
   // read-only references (this parser never writes their keys).
   const hourlyState = normalizeHourlyState(cursors?.hourly);
-  hourlyState.buckets = stageDevinBuckets(
+  hourlyState.buckets = stageProviderBuckets(
     hourlyState.buckets,
     (key) =>
       (normalizeSourceInput(parseBucketKey(key).source) || DEFAULT_SOURCE) ===
@@ -14638,7 +15271,7 @@ async function parseDevinIncremental({
   if (projectState) {
     // Project bucket keys are `projectKey|source|hourStart`; this parser only
     // ever looks up keys whose middle segment is the devin source.
-    projectState.buckets = stageDevinBuckets(projectState.buckets, (key) => {
+    projectState.buckets = stageProviderBuckets(projectState.buckets, (key) => {
       const last = key.lastIndexOf(BUCKET_SEPARATOR);
       const prev = last > 0 ? key.lastIndexOf(BUCKET_SEPARATOR, last - 1) : -1;
       const source = prev >= 0 ? key.slice(prev + 1, last) : "";
@@ -25740,6 +26373,10 @@ module.exports = {
   listRolloutFiles,
   listRolloutFilesDeep,
   codexSessionIdFromPath,
+  isRolloutFileName,
+  isCompressedRolloutFileName,
+  isCompressedRolloutPath,
+  readCodexRolloutSnapshot,
   filterColdCodexRolloutFiles,
   listClaudeProjectFiles,
   listGeminiSessionFiles,
