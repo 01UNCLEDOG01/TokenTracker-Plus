@@ -1904,6 +1904,7 @@ async function cmdSync(argv, context = {}) {
             sessionFiles: dshSessionFiles,
             cursors,
             queuePath,
+            projectQueuePath,
             onProgress: makeProviderProgress("DeepSeek Harness"),
           });
           if (dshResult.deferredMigrations > 0) {

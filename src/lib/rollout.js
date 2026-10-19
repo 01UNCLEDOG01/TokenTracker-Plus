@@ -24961,6 +24961,52 @@ function applyDshContributions({ hourlyState, touchedBuckets, contributions, sub
   }
 }
 
+// Project-attribution twin of applyDshContributions: the same contribution
+// ledger shape applied to project buckets under a fixed project scope.
+function applyDshProjectContributions({
+  projectState,
+  projectTouchedBuckets,
+  projectRef,
+  projectKey,
+  contributions,
+  subtract = false,
+}) {
+  if (!projectState || !projectRef || !projectKey) return;
+  for (const contribution of Object.values(contributions || {})) {
+    if (!contribution?.model || !contribution.bucketStart || !contribution.totals) continue;
+    const projectBucket = getProjectBucket(
+      projectState,
+      projectKey,
+      DSH_SOURCE,
+      contribution.bucketStart,
+      projectRef,
+    );
+    if (subtract) subtractTotals(projectBucket.totals, contribution.totals);
+    else addTotals(projectBucket.totals, contribution.totals);
+    projectTouchedBuckets.add(projectBucketKey(projectKey, DSH_SOURCE, contribution.bucketStart));
+  }
+}
+
+// A stored project scope (ref + key + ledger) is only trustworthy when every
+// piece survived; a partial one would subtract under the wrong project.
+function storedDshProjectState(state) {
+  if (!state || typeof state !== "object") return null;
+  if (typeof state.projectRef !== "string" || !state.projectRef) return null;
+  if (typeof state.projectKey !== "string" || !state.projectKey) return null;
+  const contributions = storedDshContributions({ contributions: state.projectContributions });
+  if (!contributions) return null;
+  return {
+    projectRef: state.projectRef,
+    projectKey: state.projectKey,
+    projectContributions: contributions,
+  };
+}
+
+function storedDshProjectContributions(state) {
+  if (!state || typeof state !== "object") return null;
+  return storedDshContributions({ contributions: state.projectContributions });
+}
+
 // Open, inspect and read through one handle so a path replacement cannot make
 // the metadata describe a different file from the bytes we parse.
 async function readDshSessionSnapshot(
@@ -25297,6 +25343,7 @@ function extractDshSessionUsage(text, lastSeq = -1) {
   let maxSeq = watermark;
   let sessionId = null;
   let headerModel = null;
+  let cwd = null;
   let complete = true;
 
   const lines = String(text || "").split("\n");
@@ -25318,6 +25365,14 @@ function extractDshSessionUsage(text, lastSeq = -1) {
         parseDshJsonString(findDshJsonProperty(findDshJsonProperty(line, "data"), "id")) ||
         parseDshJsonString(findDshJsonProperty(findDshJsonProperty(line, "data"), "sessionId"));
       if (id) sessionId = id;
+      // The session record stamps the launch cwd; project attribution needs
+      // it even when the seq watermark suppresses every usage delta.
+      if (!cwd) {
+        cwd =
+          parseDshJsonString(findDshJsonProperty(line, "cwd")) ||
+          parseDshJsonString(findDshJsonProperty(findDshJsonProperty(line, "data"), "cwd")) ||
+          null;
+      }
       continue;
     }
 
@@ -25363,7 +25418,7 @@ function extractDshSessionUsage(text, lastSeq = -1) {
     deltas.push({ seq: seqKnown ? seq : null, model, timeMs, totals });
   }
 
-  return { deltas, maxSeq, sessionId, complete };
+  return { deltas, maxSeq, sessionId, cwd, complete };
 }
 
 // Incremental parser entrypoint. Mirrors the other passive JSONL readers:
@@ -25371,7 +25426,7 @@ function extractDshSessionUsage(text, lastSeq = -1) {
 // changed, dedup via the per-file seq watermark, accumulate into hourly
 // buckets, then flush touched buckets to the queue. Session contribution ledgers
 // make artifact-path migrations replace one session instead of resetting DSH.
-async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgress }) {
+async function parseDshIncremental({ sessionFiles, cursors, queuePath, projectQueuePath, publicRepoResolver, onProgress }) {
   await ensureDir(path.dirname(queuePath));
   if (!cursors || typeof cursors !== "object") cursors = {};
   if (!cursors.dsh || typeof cursors.dsh !== "object") cursors.dsh = {};
@@ -25393,11 +25448,16 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
       ...(bucket && typeof bucket === "object" ? bucket : {}),
       totals: {
         ...initTotals(),
-        ...(bucket?.totals && typeof bucket.totals === "object" ? bucket.totals : {}),
+        ...(bucket?.totals && typeof bucket?.totals === "object" ? bucket.totals : {}),
       },
     };
   }
   const touchedBuckets = new Set();
+  const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
   const deferredMigrationPaths = new Map();
   const cb = typeof onProgress === "function" ? onProgress : null;
 
@@ -25469,10 +25529,15 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
     let fullParsed = null;
     let fileReset = false;
     let sessionChanged = false;
+    // One-time project attribution backfill: files counted before the project
+    // pass existed carry no scan marker, so a full re-read is forced once to
+    // recover the launch cwd and attribute their whole stored contribution.
+    const needsProjectBackfill =
+      projectEnabled && (!prev || prev.projectScanned !== true);
 
     try {
       snapshot = await readDshSessionSnapshot(filePath, {
-        previous: needsLedgerBackfill ? null : prev,
+        previous: needsLedgerBackfill || needsProjectBackfill ? null : prev,
       });
       if (!snapshot) {
         // A resolver-selected replacement can disappear between discovery and
@@ -25512,7 +25577,7 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
         parsed.sessionId !== previousSessionId,
       );
       if (sessionChanged) parsed = extractDshSessionUsage(snapshot.text, -1);
-      if (!prev || needsLedgerBackfill || sessionChanged || fileReset) {
+      if (!prev || needsLedgerBackfill || needsProjectBackfill || sessionChanged || fileReset) {
         fullParsed = extractDshSessionUsage(snapshot.text, -1);
         if (!prev || sessionChanged || fileReset) parsed = fullParsed;
       }
@@ -25665,6 +25730,84 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
       eventsAggregated += 1;
     }
 
+    // Project attribution: the session record stamps the launch cwd; resolve
+    // it to a project scope and mirror the same deltas into the project
+    // buckets. A cwd without a resolvable project stays unscanned so a later
+    // sync can retry once the checkout (or its public verification) appears.
+    let projectRef = null;
+    let projectKey = null;
+    let projectScanned = false;
+    let nextProjectContributions = null;
+    if (projectEnabled) {
+      const storedProjectSession = sessionId ? sessionState[sessionId] : null;
+      const projectCwd =
+        parsed.cwd ||
+        (prev && typeof prev.cwd === "string" && prev.cwd) ||
+        (storedProjectSession && typeof storedProjectSession.cwd === "string" && storedProjectSession.cwd) ||
+        (previousSession && typeof previousSession.cwd === "string" && previousSession.cwd) ||
+        null;
+      if (projectCwd) {
+        const projectContext = await resolveProjectContextForPath({
+          startDir: wsl.mapWslCwdToUnc(projectCwd, filePath),
+          projectMetaCache,
+          publicRepoCache,
+          publicRepoResolver,
+          projectState,
+        });
+        projectRef = projectContext?.projectRef || null;
+        projectKey = projectContext?.projectKey || null;
+      }
+      projectScanned = !projectCwd || Boolean(projectRef && projectKey);
+      if (projectRef && projectKey) {
+        // A replaced session subtracts what its previous project scope
+        // contributed; the stored scope (ref + key + ledger) must be complete
+        // or the subtraction is skipped entirely.
+        if (replaceSession) {
+          // The hourly replace block deletes fileState[previousPath] before
+          // this runs, so the surviving sessionState entry (same session id)
+          // is the first place the old project scope can still be read.
+          const previousProjectState =
+            storedDshProjectState(storedProjectSession) ||
+            storedDshProjectState(previousSession) ||
+            storedDshProjectState(stalePath ? fileState[stalePath] : null) ||
+            storedDshProjectState(prev);
+          if (previousProjectState) {
+            applyDshProjectContributions({
+              projectState,
+              projectTouchedBuckets,
+              projectRef: previousProjectState.projectRef,
+              projectKey: previousProjectState.projectKey,
+              contributions: previousProjectState.projectContributions,
+              subtract: true,
+            });
+          }
+        }
+        nextProjectContributions = replaceSession
+          ? {}
+          : storedDshProjectContributions(storedProjectSession) ||
+            storedDshProjectContributions(prev) ||
+            {};
+        // The backfill path attributes a file's whole stored contribution
+        // once (the buckets never saw it); later runs add only new deltas.
+        const projectDeltas =
+          needsProjectBackfill && fullParsed ? fullParsed.deltas : parsed.deltas;
+        for (const delta of projectDeltas) {
+          const bucketStart = toUtcHalfHourStart(delta.timeMs);
+          if (!bucketStart) continue;
+          addDshContribution(nextProjectContributions, delta.model, bucketStart, delta.totals);
+          const projectBucket = getProjectBucket(
+            projectState,
+            projectKey,
+            DSH_SOURCE,
+            bucketStart,
+            projectRef,
+          );
+          addTotals(projectBucket.totals, delta.totals);
+          projectTouchedBuckets.add(projectBucketKey(projectKey, DSH_SOURCE, bucketStart));
+        }
+      }
+    }
+
     const updatedAt = new Date().toISOString();
     fileState[filePath] = {
       inode: snapshot.inode,
@@ -25681,6 +25824,33 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
         contributions: nextContributions,
         updatedAt,
       };
+    }
+    const storedDshCwd =
+      parsed.cwd ||
+      (previousSession && typeof previousSession.cwd === "string" && previousSession.cwd) ||
+      (prev && typeof prev.cwd === "string" && prev.cwd) ||
+      null;
+    if (storedDshCwd) {
+      fileState[filePath].cwd = storedDshCwd;
+      if (sessionId) sessionState[sessionId].cwd = storedDshCwd;
+    }
+    if (projectEnabled) {
+      if (projectScanned) {
+        fileState[filePath].projectScanned = true;
+        if (sessionId) sessionState[sessionId].projectScanned = true;
+      }
+      if (projectRef) {
+        fileState[filePath].projectRef = projectRef;
+        if (sessionId) sessionState[sessionId].projectRef = projectRef;
+      }
+      if (projectKey) {
+        fileState[filePath].projectKey = projectKey;
+        if (sessionId) sessionState[sessionId].projectKey = projectKey;
+      }
+      if (nextProjectContributions) {
+        fileState[filePath].projectContributions = nextProjectContributions;
+        if (sessionId) sessionState[sessionId].projectContributions = nextProjectContributions;
+      }
     }
     recordsProcessed += 1;
 
@@ -25705,9 +25875,16 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
   }
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   const updatedAt = new Date().toISOString();
   hourlyState.updatedAt = updatedAt;
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = new Date().toISOString();
+    cursors.projectHourly = projectState;
+  }
   dshState.files = fileState;
   dshState.sessions = sessionState;
   if (deferredMigrationPaths.size > 0) {
@@ -25726,6 +25903,7 @@ async function parseDshIncremental({ sessionFiles, cursors, queuePath, onProgres
     recordsProcessed,
     eventsAggregated,
     bucketsQueued,
+    projectBucketsQueued,
     deferredMigrations: deferredMigrationPaths.size,
   };
 }

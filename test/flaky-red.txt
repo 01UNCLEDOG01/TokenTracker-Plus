@@ -1,2 +1,3 @@
 Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves
 notify sync permits only one coalesced lock waiter
+status --json emits a JSON object with required summary fields
