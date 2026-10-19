@@ -336,6 +336,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "claude",
   "claude-science",
   "cline",
+  "codearts",
   "codebuddy",
   "codex",
   "agent2api",
