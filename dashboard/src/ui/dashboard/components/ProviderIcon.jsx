@@ -429,7 +429,7 @@ const PROVIDER_LOGO_MAP = {
   // CodeArts Agent's own product icon (codearts-product-icon-theme/media/
   // logo.png from the installed app) - a teal glyph on a dark rounded square,
   // same tile treatment as AutoClaw: keep the dark tile in both themes.
-  CODEARTS: "/brand-logos/codearts.png",
+  CODEARTS: "/brand-logos/codearts.png?v=2",
   CLAUDE: "/brand-logos/claude-code.svg",
   "CLAUDE-SCIENCE": "/brand-logos/claude-code.svg",
   CODEX: "/brand-logos/codex.svg",
