@@ -91,6 +91,9 @@ export function DataDetails({
   // { from, to, timeZone, tzOffsetMinutes } — forwarded to the per-project
   // drill-down modal so it queries the same range the panel shows.
   projectDetailQuery = {},
+  agent2ApiSpeedModels = [],
+  agent2ApiSpeedAvailable = true,
+  agent2ApiSpeedLoading = false,
   // Daily breakdown props
   copy,
   hasDetailsActual,
@@ -152,6 +155,19 @@ export function DataDetails({
           >
             {copy("dashboard.projects.title")}
           </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "speed"}
+            type="button"
+            onClick={() => setActiveTab("speed")}
+            className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
+              activeTab === "speed"
+                ? "text-oai-black dark:text-oai-white bg-oai-gray-100 dark:bg-oai-gray-800"
+                : "text-oai-gray-500 dark:text-oai-gray-300 hover:text-oai-black dark:hover:text-oai-white hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/50"
+            }`}
+          >
+            {copy("dashboard.speed.title")}
+          </button>
         </div>
         {activeTab === "projects" && (
           <Select
@@ -196,6 +212,70 @@ export function DataDetails({
                 onSelect={setDetailEntry}
               />
             ))}
+          </div>
+        );
+      })()}
+
+      {/* Speed Tab — Agent2API gateway-native measurements */}
+      {activeTab === "speed" && (() => {
+        if (!agent2ApiSpeedAvailable) {
+          return (
+            <div className="oai-text-body-sm text-oai-gray-500 dark:text-oai-gray-300">
+              {copy("dashboard.speed.unavailable")}
+            </div>
+          );
+        }
+        if (agent2ApiSpeedModels.length === 0) {
+          return (
+            <div className="oai-text-body-sm text-oai-gray-500 dark:text-oai-gray-300">
+              {agent2ApiSpeedLoading ? "…" : copy("dashboard.speed.empty")}
+            </div>
+          );
+        }
+        return (
+          <div className="overflow-auto max-h-[384px] -mx-4 oai-scrollbar">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-oai-gray-200 dark:border-oai-gray-700">
+                  {["dashboard.speed.model", "dashboard.speed.requests", "dashboard.speed.output", "dashboard.speed.tps", "dashboard.speed.ttft"].map((key) => (
+                    <th
+                      key={key}
+                      className="text-left px-2.5 sm:px-4 py-2 oai-text-caption font-semibold text-oai-gray-600 dark:text-oai-gray-300 bg-white dark:bg-oai-gray-900"
+                    >
+                      {copy(key)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {agent2ApiSpeedModels.map((entry) => (
+                  <tr
+                    key={entry.model}
+                    className="border-b border-oai-gray-100 dark:border-oai-gray-800/60 hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40 transition-colors"
+                  >
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-black dark:text-oai-white font-mono">
+                      {entry.model}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200">
+                      {entry.requests}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200">
+                      {formatTokens(entry.output_tokens)}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200">
+                      {entry.tokens_per_second == null ? "—" : `${entry.tokens_per_second} tok/s`}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200">
+                      {entry.avg_first_response_ms == null
+                        ? "—"
+                        : entry.avg_first_response_ms >= 1000
+                          ? `${(entry.avg_first_response_ms / 1000).toFixed(1)} s`
+                          : `${entry.avg_first_response_ms} ms`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         );
       })()}

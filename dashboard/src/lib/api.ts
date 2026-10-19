@@ -147,6 +147,7 @@ const PATHS = {
   usageModelBreakdown: "tokentracker-usage-model-breakdown",
   usageCategoryBreakdown: "tokentracker-usage-category-breakdown",
   projectUsageSummary: "tokentracker-project-usage-summary",
+  agent2apiSpeed: "tokentracker-agent2api-speed",
   projectUsageDetail: "tokentracker-project-usage-detail",
   achievements: "tokentracker-achievements",
   userStatus: "tokentracker-user-status",
@@ -307,6 +308,19 @@ export async function getProjectUsageSummary({
   if (to) params.to = to;
   if (limit != null) params.limit = String(limit);
   return fetchLocalJson(PATHS.projectUsageSummary, params);
+}
+
+export async function getAgent2ApiSpeed({
+  from,
+  to,
+  timeZone,
+  tzOffsetMinutes,
+}: AnyRecord = {}) {
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const params: AnyRecord = { ...tzParams };
+  if (from) params.from = from;
+  if (to) params.to = to;
+  return fetchLocalJson(PATHS.agent2apiSpeed, params);
 }
 
 export async function getProjectUsageDetail({

@@ -2643,6 +2643,7 @@ async function cmdSync(argv, context = {}) {
         const codeartsResult = await parseCodeartsIncremental({
           cursors,
           queuePath,
+          projectQueuePath,
           env: process.env,
           onProgress: (p) => {
             if (!progress?.enabled) return;
@@ -2680,6 +2681,7 @@ async function cmdSync(argv, context = {}) {
           wireFiles: kimiWireFiles,
           cursors,
           queuePath,
+          projectQueuePath,
           env: process.env,
           onProgress: (p) => {
             if (!progress?.enabled) return;

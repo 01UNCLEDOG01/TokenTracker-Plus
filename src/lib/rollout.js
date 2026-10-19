@@ -9886,7 +9886,7 @@ function resolveKimiWireFiles(env = process.env) {
   return files;
 }
 
-async function parseKimiIncremental({ wireFiles, cursors, queuePath, onProgress, env, model } = {}) {
+async function parseKimiIncremental({ wireFiles, cursors, queuePath, projectQueuePath, publicRepoResolver, onProgress, env, model } = {}) {
   await ensureDir(path.dirname(queuePath));
   const kimiState = cursors.kimi && typeof cursors.kimi === "object" ? cursors.kimi : {};
   const seenIds = new Set(Array.isArray(kimiState.seenIds) ? kimiState.seenIds : []);
@@ -9906,6 +9906,12 @@ async function parseKimiIncremental({ wireFiles, cursors, queuePath, onProgress,
 
   const hourlyState = normalizeHourlyState(cursors?.hourly);
   const touchedBuckets = new Set();
+  const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
+  const projectContextByCwd = projectEnabled ? new Map() : null;
   const cb = typeof onProgress === "function" ? onProgress : null;
   let recordsProcessed = 0;
   let eventsAggregated = 0;
@@ -9928,10 +9934,40 @@ async function parseKimiIncremental({ wireFiles, cursors, queuePath, onProgress,
     } catch { continue; }
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
+    let fileCwd = null;
+    let fileProjectScope = null;
     for await (const line of rl) {
       if (!line || !line.trim()) continue;
       let entry;
       try { entry = JSON.parse(line); } catch { continue; }
+
+      // The loop event stamps the workspace cwd; the first one seen wins and
+      // attributes every delta this file contributes to the project queue.
+      if (!fileCwd) {
+        const recordCwd = entry?.event?.display?.cwd || entry?.cwd || null;
+        if (typeof recordCwd === "string" && recordCwd) {
+          fileCwd = recordCwd;
+          if (projectEnabled && projectState) {
+            const cached = projectContextByCwd.get(fileCwd);
+            if (cached !== undefined) {
+              fileProjectScope = cached;
+            } else {
+              const projectContext = await resolveProjectContextForPath({
+                startDir: wsl.mapWslCwdToUnc(fileCwd, filePath),
+                projectMetaCache,
+                publicRepoCache,
+                publicRepoResolver,
+                projectState,
+              });
+              fileProjectScope = {
+                projectRef: projectContext?.projectRef || null,
+                projectKey: projectContext?.projectKey || null,
+              };
+              projectContextByCwd.set(fileCwd, fileProjectScope);
+            }
+          }
+        }
+      }
 
       const msg = entry.message;
       if (!msg || msg.type !== "StatusUpdate") continue;
@@ -9972,6 +10008,17 @@ async function parseKimiIncremental({ wireFiles, cursors, queuePath, onProgress,
       const bucket = getHourlyBucket(hourlyState, "kimi", kimiModel, bucketStart);
       addTotals(bucket.totals, delta);
       touchedBuckets.add(bucketKey("kimi", kimiModel, bucketStart));
+      if (fileProjectScope?.projectRef && fileProjectScope?.projectKey) {
+        const projectBucket = getProjectBucket(
+          projectState,
+          fileProjectScope.projectKey,
+          "kimi",
+          bucketStart,
+          fileProjectScope.projectRef,
+        );
+        addTotals(projectBucket.totals, delta);
+        projectTouchedBuckets.add(projectBucketKey(fileProjectScope.projectKey, "kimi", bucketStart));
+      }
       seenIds.add(message_id);
       eventsAggregated++;
 
@@ -9996,12 +10043,19 @@ async function parseKimiIncremental({ wireFiles, cursors, queuePath, onProgress,
   const cappedSeen = seenArr.length > 10_000 ? seenArr.slice(seenArr.length - 10_000) : seenArr;
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   const updatedAt = new Date().toISOString();
   hourlyState.updatedAt = updatedAt;
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = updatedAt;
+    cursors.projectHourly = projectState;
+  }
   cursors.kimi = { ...kimiState, seenIds: cappedSeen, fileOffsets, updatedAt };
 
-  return { recordsProcessed, eventsAggregated, bucketsQueued };
+  return { recordsProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10117,7 +10171,7 @@ function resolveCodeartsDbPath(env = process.env) {
   return path.join(home, ".codeartsdoer", "codearts-data", "opencode.db");
 }
 
-async function parseCodeartsIncremental({ dbPath, cursors, queuePath, onProgress, env } = {}) {
+async function parseCodeartsIncremental({ dbPath, cursors, queuePath, projectQueuePath, publicRepoResolver, onProgress, env } = {}) {
   await ensureDir(path.dirname(queuePath));
   const state = cursors.codearts && typeof cursors.codearts === "object"
     ? { lastRowId: Number(cursors.codearts.lastRowId) || 0, seenIds: new Set(Array.isArray(cursors.codearts.seenIds) ? cursors.codearts.seenIds : []), updatedAt: cursors.codearts.updatedAt }
@@ -10137,15 +10191,32 @@ async function parseCodeartsIncremental({ dbPath, cursors, queuePath, onProgress
 
   const hourlyState = normalizeHourlyState(cursors?.hourly);
   const touchedBuckets = new Set();
+  const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
+  const projectContextByDirectory = projectEnabled ? new Map() : null;
   const cb = typeof onProgress === "function" ? onProgress : null;
   let recordsProcessed = 0;
   let eventsAggregated = 0;
   let maxRowId = state.lastRowId;
 
   try {
-    const rows = db.prepare(
-      "SELECT rowid AS rid, data FROM message WHERE rowid > ? ORDER BY rowid",
-    ).all(state.lastRowId);
+    // Older AgentCore schemas have no session table — degrade to hourly-only
+    // attribution instead of failing the whole parse.
+    const hasSessionTable = db.prepare(
+      "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'session'",
+    ).get().n > 0;
+    const rows = hasSessionTable
+      ? db.prepare(
+          "SELECT m.rowid AS rid, m.data, s.directory AS directory FROM message m "
+            + "LEFT JOIN session s ON s.id = m.session_id "
+            + "WHERE m.rowid > ? ORDER BY m.rowid",
+        ).all(state.lastRowId)
+      : db.prepare(
+          "SELECT rowid AS rid, data FROM message WHERE rowid > ? ORDER BY rowid",
+        ).all(state.lastRowId);
     for (const row of rows) {
       if (row.rid > maxRowId) maxRowId = row.rid;
       let parsed;
@@ -10181,6 +10252,36 @@ async function parseCodeartsIncremental({ dbPath, cursors, queuePath, onProgress
       const bucket = getHourlyBucket(hourlyState, "codearts", codeartsModel, bucketStart);
       addTotals(bucket.totals, delta);
       touchedBuckets.add(bucketKey("codearts", codeartsModel, bucketStart));
+      // Project attribution: the session row stamps the workspace directory;
+      // resolve it once per directory (cached) and mirror the same delta.
+      if (projectEnabled && typeof row.directory === "string" && row.directory) {
+        let scope = projectContextByDirectory.get(row.directory);
+        if (scope === undefined) {
+          const projectContext = await resolveProjectContextForPath({
+            startDir: wsl.mapWslCwdToUnc(row.directory, dbPath),
+            projectMetaCache,
+            publicRepoCache,
+            publicRepoResolver,
+            projectState,
+          });
+          scope = {
+            projectRef: projectContext?.projectRef || null,
+            projectKey: projectContext?.projectKey || null,
+          };
+          projectContextByDirectory.set(row.directory, scope);
+        }
+        if (scope?.projectRef && scope?.projectKey) {
+          const projectBucket = getProjectBucket(
+            projectState,
+            scope.projectKey,
+            "codearts",
+            bucketStart,
+            scope.projectRef,
+          );
+          addTotals(projectBucket.totals, delta);
+          projectTouchedBuckets.add(projectBucketKey(scope.projectKey, "codearts", bucketStart));
+        }
+      }
       seenIds.add(row.rid + ":" + String(parsed.id || ""));
       eventsAggregated++;
     }
@@ -10194,12 +10295,19 @@ async function parseCodeartsIncremental({ dbPath, cursors, queuePath, onProgress
   const seenArr = Array.from(seenIds);
   const cappedSeen = seenArr.length > 20_000 ? seenArr.slice(seenArr.length - 20_000) : seenArr;
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   const updatedAt = new Date().toISOString();
   hourlyState.updatedAt = updatedAt;
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = updatedAt;
+    cursors.projectHourly = projectState;
+  }
   cursors.codearts = { lastRowId: maxRowId, seenIds: cappedSeen, updatedAt };
 
-  return { recordsProcessed, eventsAggregated, bucketsQueued };
+  return { recordsProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued };
 }
 
 function kimiCodeModelAlias(value) {

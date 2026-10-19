@@ -365,7 +365,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   //    ids space-bunny-free and stealth/space-bunny-alpha), step-5-preview
   //    (platform.stepfun.com USD list, issue #283 family). ──
   "gpt-6-luna": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
-  "space-bunny": { input: 0.15, output: 0.6, cache_read: 0.03, cache_write: 0 },
+  "space-bunny": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
   "step-5-preview": { input: 1, output: 2.7, cache_read: 0.05, cache_write: 1 },
 };
 const ZERO_PRICING = { input: 0, output: 0, cache_read: 0, cache_write: 0 };

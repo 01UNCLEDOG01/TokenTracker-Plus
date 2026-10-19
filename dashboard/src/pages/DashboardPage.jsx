@@ -3,6 +3,7 @@ import { useAccountView } from "../contexts/AccountViewContext.jsx";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useDashboardCardOrder } from "../hooks/use-dashboard-card-order.js";
 import { useProjectUsageSummary } from "../hooks/use-project-usage-summary";
+import { useAgent2ApiSpeed } from "../hooks/use-agent2api-speed";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
 import { useUsageLimits } from "../hooks/use-usage-limits.js";
@@ -558,6 +559,18 @@ export function DashboardPage({
     to,
     timeZone,
     tzOffsetMinutes,
+  });
+
+  const {
+    models: agent2ApiSpeedModels,
+    available: agent2ApiSpeedAvailable,
+    loading: agent2ApiSpeedLoading,
+  } = useAgent2ApiSpeed({
+    from,
+    to,
+    timeZone,
+    tzOffsetMinutes,
+    enabled: isLocalMode,
   });
 
   const shareDailyToTrend = period === "week" || period === "month";
@@ -1400,6 +1413,9 @@ export function DashboardPage({
       identityScrambleDurationMs={identityScrambleDurationMs}
       projectUsageEntries={projectUsageEntries}
       projectUsageLimit={projectUsageLimit}
+      agent2ApiSpeedModels={agent2ApiSpeedModels}
+      agent2ApiSpeedAvailable={agent2ApiSpeedAvailable}
+      agent2ApiSpeedLoading={agent2ApiSpeedLoading}
       setProjectUsageLimit={setProjectUsageLimit}
       projectDetailQuery={{ from, to, timeZone, tzOffsetMinutes }}
       topModels={topModels}

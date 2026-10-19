@@ -116,6 +116,9 @@ export function DashboardView(props) {
     identityScrambleDurationMs,
     projectUsageEntries,
     projectUsageLimit,
+    agent2ApiSpeedModels,
+    agent2ApiSpeedAvailable,
+    agent2ApiSpeedLoading,
     setProjectUsageLimit,
     projectDetailQuery,
     topModels,
@@ -348,6 +351,9 @@ export function DashboardView(props) {
             <DataDetails
               projectEntries={projectUsageEntries}
               projectLimit={projectUsageLimit}
+              agent2ApiSpeedModels={agent2ApiSpeedModels}
+              agent2ApiSpeedAvailable={agent2ApiSpeedAvailable}
+              agent2ApiSpeedLoading={agent2ApiSpeedLoading}
               onProjectLimitChange={setProjectUsageLimit}
               projectDetailQuery={projectDetailQuery}
               copy={copy}

@@ -153,6 +153,14 @@ dashboard.projects.limit_top_3,ui,DataDetails,DataDetails,limit_top_3,"TOP 3",,a
 dashboard.projects.limit_top_6,ui,DataDetails,DataDetails,limit_top_6,"TOP 6",,active
 dashboard.projects.limit_top_10,ui,DataDetails,DataDetails,limit_top_10,"TOP 10",,active
 dashboard.projects.empty,ui,DataDetails,DataDetails,empty,"No project usage yet. Run a supported CLI inside a git repository and its usage lands here.",,active
+dashboard.speed.title,ui,DataDetails,DataDetails,title,"Token Speed",,active
+dashboard.speed.model,ui,DataDetails,DataDetails,column_model,"Model",,active
+dashboard.speed.requests,ui,DataDetails,DataDetails,column_requests,"Requests",,active
+dashboard.speed.output,ui,DataDetails,DataDetails,column_output,"Output Tokens",,active
+dashboard.speed.tps,ui,DataDetails,DataDetails,column_tps,"Avg Speed (tok/s)",,active
+dashboard.speed.ttft,ui,DataDetails,DataDetails,column_ttft,"Avg First Response (ms)",,active
+dashboard.speed.empty,ui,DataDetails,DataDetails,empty,"No completed Agent2API requests in this range.",,active
+dashboard.speed.unavailable,ui,DataDetails,DataDetails,unavailable,"Agent2API gateway database unavailable (local only).",,active
 dashboard.projects.sources_more,ui,DataDetails,DataDetails,sources_more,"+{{n}}",,active
 dashboard.projects.detail.badge,ui,DataDetails,ProjectDetailModal,badge,"Project",,active
 dashboard.projects.detail.close_aria,ui,DataDetails,ProjectDetailModal,close_aria,"Close project details",,active

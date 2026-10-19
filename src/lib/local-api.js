@@ -81,8 +81,10 @@ const { repriceAccountModelCosts } = require("./reprice-account-costs");
 const {
   deriveProjectKeyFromRef,
   resolveQoderProjectsDir,
+  resolveAgent2ApiDbPath,
   CLAUDE_MEM_OBSERVER_PROJECT_REF,
 } = require("./rollout");
+const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 
 // ---------------------------------------------------------------------------
 // Queue data helpers
@@ -2946,6 +2948,83 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       }
 
       json(res, { from, to, ...unsupportedCategoryPayload(requestedSource) });
+      return true;
+    }
+
+    // --- agent2api-speed ---
+    // Per-model token speed from the gateway's own request ledger. Every 200
+    // request carries duration_ms and (for streamed replies) first_response_ms
+    // natively, so these are measured values — not timestamp-delta estimates.
+    // Local-only by nature: the gateway database lives on this machine.
+    if (p === "/functions/tokentracker-agent2api-speed") {
+      const timeZoneContext = getTimeZoneContext(url);
+      const dbPath = resolveAgent2ApiDbPath(process.env);
+      if (!dbPath || !fs.existsSync(dbPath)) {
+        json(res, { generated_at: new Date().toISOString(), available: false, models: [] });
+        return true;
+      }
+      let rows = [];
+      try {
+        rows = await readSqliteJsonRowsAsync(
+          dbPath,
+          "SELECT model, ts, duration_ms, first_response_ms, completion_tokens FROM requests "
+            + "WHERE status = 200 AND duration_ms > 0 AND completion_tokens > 0",
+          { label: "Agent2API speed", maxBuffer: 32 * 1024 * 1024, timeout: 30_000, readOnly: true },
+        );
+      } catch (err) {
+        // A writer lock on the gateway database must not 500 the dashboard.
+        json(res, { generated_at: new Date().toISOString(), available: false, models: [], error: String(err?.message || err) });
+        return true;
+      }
+      const from = url.searchParams.get("from") || "";
+      const to = url.searchParams.get("to") || "";
+      const hasRange = Boolean(from || to);
+      const dayInRange = (day) => {
+        if (!hasRange) return true;
+        if (!day) return false;
+        return (!from || day >= from) && (!to || day <= to);
+      };
+      const byModel = new Map();
+      let matched = 0;
+      for (const raw of rows) {
+        const row = { hour_start: new Date(Number(raw.ts)).toISOString() };
+        if (hasRange && !dayInRange(rowDayKey(row, timeZoneContext))) continue;
+        matched += 1;
+        const model = String(raw.model || "").trim() || "unknown";
+        let entry = byModel.get(model);
+        if (!entry) {
+          entry = { model, requests: 0, output_tokens: 0, duration_ms: 0, first_response_total_ms: 0, first_response_samples: 0 };
+          byModel.set(model, entry);
+        }
+        entry.requests += 1;
+        entry.output_tokens += Number(raw.completion_tokens) || 0;
+        entry.duration_ms += Number(raw.duration_ms) || 0;
+        const ttft = Number(raw.first_response_ms) || 0;
+        if (ttft > 0) {
+          entry.first_response_total_ms += ttft;
+          entry.first_response_samples += 1;
+        }
+      }
+      const models = [...byModel.values()].map((entry) => ({
+        model: entry.model,
+        requests: entry.requests,
+        output_tokens: entry.output_tokens,
+        duration_ms: entry.duration_ms,
+        tokens_per_second: entry.duration_ms > 0
+          ? Math.round((entry.output_tokens * 1000 / entry.duration_ms) * 10) / 10
+          : null,
+        avg_first_response_ms: entry.first_response_samples > 0
+          ? Math.round(entry.first_response_total_ms / entry.first_response_samples)
+          : null,
+      })).sort((a, b) => b.output_tokens - a.output_tokens);
+      json(res, {
+        generated_at: new Date().toISOString(),
+        available: true,
+        from,
+        to,
+        matched_requests: matched,
+        models,
+      });
       return true;
     }
 

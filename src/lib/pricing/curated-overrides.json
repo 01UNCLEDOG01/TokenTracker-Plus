@@ -616,11 +616,11 @@
       "note": "Qwen3.7-Max snapshot (2026-05-20). Alibaba Model Studio international table: $2.50 input / $7.50 output per MTok (domestic list is lower). Cache lines for this snapshot are not published in the sources checked, so they are derived from Qwen3.7-Plus ratios: hit = 20% of input, create = 125% of input."
     },
     "space-bunny": {
-      "input": 0.15,
-      "output": 0.6,
+      "input": 0.3,
+      "output": 1.2,
       "cache_read": 0.03,
-      "cache_write": 0,
-      "note": "Unreleased codename carried by OpenRouter/OPCGO stealth routes; priced from models.dev entry opencode-go/space-bunny ($0.15 in / $0.60 out / $0.03 cache-read per MTok), the same table Token Monitor resolves through (tokscale pricing, 2026-10-10). cacheCreation is 0 there, so cache writes are free. Owner rule: usage is valued at list price even when the route was free."
+      "cache_write": 0.3,
+      "note": "Codename revealed as MiniMax M3.1 Flash (official launch pricing supersedes the models.dev codename entry: input $0.30 / output $1.20 / cache read $0.03 per million, cache_write = input — the codename table had writes free). Owner rule unchanged: usage is valued at list price even when the route was free. The space-bunny-free alias (Trae CN's internal id) keeps routing here."
     },
     "k3-agent": {
       "input": 3.0,

@@ -186,6 +186,9 @@ test("source_exact cards mirror into every edge file and price before public rat
     ["tuanjie-cowork", "codely-core", { input: 1.4, output: 4.4, cache_read: 0.26 }],
     ["tuanjie-cowork", "codely-air", { input: 0.3, output: 1.2, cache_read: 0.006 }],
     ["cola", "luna-02", { input: 0.2, output: 1.2, cache_read: 0.02 }],
+    // The Trae CN internal alias routes through the space-bunny card, whose
+    // codename rates were superseded by MiniMax M3.1 Flash launch pricing.
+    ["trae-cn", "space-bunny-free", { input: 0.3, output: 1.2, cache_read: 0.03 }],
     // The bare ids must NOT inherit a public rate when the source differs.
     [null, "zai_auto", null],
     [null, "codely-core", null],
