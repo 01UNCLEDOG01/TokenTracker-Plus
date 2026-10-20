@@ -67,6 +67,14 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     {id:"11-token-environment-validation",sql:read("migrations/20261008120001_validate-cloud-token-environment.sql")},
     {id:"12-pro-gifts",sql:read("migrations/20261009120000_cloud-gifts.sql")},
     {id:"13-machine-alias-cascade",sql:read("migrations/20261012120000_cloud-machine-alias-cascade.sql")},
+    // trae-cn joins the machine-level hourly arm: its local-store feed writes
+    // tokentracker_hourly rows (like every other source), while the old third
+    // arm read tokentracker_account_session_states — which only ever held the
+    // retired cloud-bill sessions (9 models / 17.2亿), so the account views
+    // under-counted hourly-backed surfaces by the whole local-feed volume
+    // (hero 396.6亿 vs leaderboard 400.2亿; 10-19 daily -2.11亿). Reading
+    // hourly unifies trae-cn with every other machine-level source.
+    {id:"14-trae-cn-hourly-account",sql:read("migrations/20261020120000_self-host-trae-cn-hourly.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};
