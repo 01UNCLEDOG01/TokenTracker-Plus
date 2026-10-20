@@ -503,6 +503,16 @@ const SOURCE_EXACT_PRICING = {
   "qoder-cn": {
     "glm5.3-flash": { input: 0.15, output: 0.5, cache_read: 0.03 },
   },
+  // Qoder international's credit wire exposes no per-model split, so its
+  // estimate rows all carry the pseudo-model 官方云端（积分）; the ingest wire
+  // also carries no cost dimension, so without a card they price at $0 here
+  // while the local view bills the authoritative stored spend. The owner
+  // confirmed the underlying model is Qwen3.8-Flash, whose card reproduces
+  // the stored spend to four decimals. Mirror of curated-overrides.json
+  // source_exact.qoder (2026-10-20).
+  "qoder": {
+    "官方云端（积分）": { input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 },
+  },
 };
 
 function getModelPricing(model: string, source = "") {

@@ -750,6 +750,14 @@
         "note": "Qoder CN's server-side model-group spelling for Zhipu's flash SKU is dash-less (\"GLM5.3-Flash\", group added 2026-10-20), which misses the glm-5.3-flash exact key both verbatim and via containment. Priced at that card's rates (input 0.15 / output 0.5 / cache_read 0.03; no published cache-write surcharge, matching the canonical entry's shape). Applies only to qoder-cn rows - other sources' glm5.3-flash spellings, if any ever appear, stay unpriced until reviewed."
       }
     },
+    "qoder": {
+      "官方云端（积分）": {
+        "input": 0.15,
+        "output": 0.47,
+        "cache_read": 0.016,
+        "note": "Qoder international bills credits and its wire exposes no per-model split, so every intl estimate row lands on this pseudo-model. The owner confirmed all their Qoder intl usage is Qwen3.8-Flash, and the official credits-derived spend stored on these rows ($3.6526) matches the qwen3.8-flash card computed on the estimated tokens to four decimals ($3.653) - the card is that rate. Locally the authoritative stored cost still wins (SOURCES_WITH_AUTHORITATIVE_COST); this card prices the cloud rows, whose ingest wire carries no cost dimension and which would otherwise show $0 (2026-10-20)."
+      }
+    },
     "acode": {
       "spark-x2.5": {
         "input": 0.13,

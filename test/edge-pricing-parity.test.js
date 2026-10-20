@@ -192,6 +192,9 @@ test("source_exact cards mirror into every edge file and price before public rat
     ["qoder-cn", "GLM5.3-Flash（估算）", { input: 0.15, output: 0.5, cache_read: 0.03 }],
     // The dash-less spelling must NOT inherit the GLM card from other sources.
     [null, "GLM5.3-Flash（估算）", null],
+    // Qoder intl's credit-wire pseudo-model prices at the Qwen3.8-Flash card
+    // the owner confirmed as its only underlying model (2026-10-20).
+    ["qoder", "官方云端（积分）", { input: 0.15, output: 0.47, cache_read: 0.016 }],
     // The Trae CN internal alias routes through the space-bunny card, whose
     // codename rates were superseded by MiniMax M3.1 Flash launch pricing.
     ["trae-cn", "space-bunny-free", { input: 0.3, output: 1.2, cache_read: 0.03 }],
