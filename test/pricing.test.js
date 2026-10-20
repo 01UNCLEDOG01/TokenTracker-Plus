@@ -216,8 +216,10 @@ test("matcher: GLM-5.3 and GLM-5.3-Flash resolve to their own curated rates (not
     ["glm-5.3", 1.4, 4.4, 0.26, "curated:exact"],
     // flash SKU mirrors LiteLLM `zai/glm-5.3-flash`
     ["glm-5.3-flash", 0.15, 0.5, 0.03, "curated:exact"],
-    // cased / suffixed variants land on the flash entry via fuzzy
-    ["GLM-5.3-Flash", 0.15, 0.5, 0.03, "curated:fuzzy"],
+    // cased variants land on the flash entry via the case-insensitive exact
+    // pass (stronger than the fuzzy needle that used to catch them); suffixed
+    // variants still resolve via fuzzy
+    ["GLM-5.3-Flash", 0.15, 0.5, 0.03, "curated:exact-ci"],
     ["glm-5.3-flash-thinking", 0.15, 0.5, 0.03, "curated:fuzzy"],
     // droid dash-forms restore the dot and hit exact-dot
     ["glm-5-3-flash", 0.15, 0.5, 0.03, "curated:exact-dot"],

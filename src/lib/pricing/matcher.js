@@ -344,6 +344,15 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
   if (curatedDotExact) {
     return { hit: true, source: "curated:exact-dot", value: curatedDotExact };
   }
+  // Mixed-case reporters ("Qwen3.7-Plus" from Trae CN) miss the lowercase
+  // curated keys verbatim, and buildDotRestoredModel returns "" when there is
+  // no digit-dash-digit run to restore, which skipped the case-insensitive
+  // pass above entirely. Try the raw name case-insensitively too — mirrors
+  // the edge's `MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()]`.
+  const curatedCiExact = lookupExactCaseInsensitive(curated.exact, lookupModel);
+  if (curatedCiExact) {
+    return { hit: true, source: "curated:exact-ci", value: curatedCiExact };
+  }
 
   // 2. LiteLLM exact
   if (litellm && litellm[lookupModel]) {

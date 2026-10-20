@@ -682,7 +682,8 @@
     "ox-alpha": "glm-5.3-flash",
     "x-preview-f-free": "glm-5.3-flash",
     "qwen-3.7-plus": "qwen3.7-plus",
-    "qwen3.7-max-preview": "qwen3.7-max-2026-05-20"
+    "qwen3.7-max-preview": "qwen3.7-max-2026-05-20",
+    "qwen3.7-max": "qwen3.7-max-2026-05-20"
   },
   "source_exact": {
     "autoclaw": {

@@ -200,6 +200,11 @@ test("source_exact cards mirror into every edge file and price before public rat
     [null, "codely-core", null],
     ["agent2api", "deepseek-v4-1-flash", { input: 0.3, output: 1.2 }],
     ["trae-cn", "qwen3.7-plus", { input: 0.3333, output: 1.3333 }],
+    // Trae CN's real rows spell the plus id mixed-case; the local matcher's
+    // case-insensitive exact pass must meet the edge's toLowerCase fallback.
+    ["trae-cn", "Qwen3.7-Plus", { input: 0.3333, output: 1.3333 }],
+    // The undated max spelling is the same 05-20 snapshot SKU on both sides.
+    ["trae-cn", "qwen3.7-max", { input: 2.5, output: 7.5 }],
     ["opencode", "mimo-v2.6-flash-free", { input: 0.14, output: 0.28 }],
   ];
   for (const name of [CANONICAL, ...MIRRORS]) {

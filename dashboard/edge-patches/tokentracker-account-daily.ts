@@ -693,7 +693,8 @@ function getModelPricing(model: string, source = "") {
   // Qwen3.7 family: Trae CN dash-spells the plus id (qwen-3.7-plus) and tags
   // the max snapshot as a preview; the flash SKU is its own rate (must not
   // inherit qwen3.8-flash — pinned as a distinct SKU by edge-pricing-parity).
-  if (lower.includes("qwen3.7-max-preview")) return MODEL_PRICING["qwen3.7-max-2026-05-20"];
+  // The undated max spelling (2026-08-17 rows) is the same 05-20 snapshot SKU.
+  if (lower.includes("qwen3.7-max")) return MODEL_PRICING["qwen3.7-max-2026-05-20"];
   if (lower.includes("qwen-3.7-plus") || lower.includes("qwen3.7-plus")) return MODEL_PRICING["qwen3.7-plus"];
   if (lower.includes("qwen3.7-flash")) return MODEL_PRICING["qwen3.7-flash"];
   if (lower.includes("hy4")) return MODEL_PRICING["hy4-preview"];
