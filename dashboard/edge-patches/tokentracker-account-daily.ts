@@ -288,6 +288,17 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "deepseek-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   "deepseek-chat": { input: 0.14, output: 0.28, cache_read: 0.0028, cache_write: 0.14 },
   "deepseek-reasoner": { input: 0.14, output: 0.28, cache_read: 0.0028, cache_write: 0.14 },
+  // ── 2026-10 unpriced sweep (mirrored from src/lib/pricing/curated-overrides.json;
+  //    rates and sources are documented there). China vendors convert at ~7.2 CNY/USD. ──
+  "qwen3.7-plus": { input: 0.3333, output: 1.3333, cache_read: 0.0667, cache_write: 0.4167 },
+  "qwen3.7-max-2026-05-20": { input: 2.5, output: 7.5, cache_read: 0.5, cache_write: 3.13 },
+  "qwen3.7-flash": { input: 0.0333, output: 0.1333, cache_read: 0.0067, cache_write: 0.0417 },
+  "doubao-seed-2.1-turbo": { input: 0.4167, output: 2.0833, cache_read: 0.0833, cache_write: 0.4167 },
+  // Known zeros, not unknowns: free-by-design routes (SenseNova Token Plan public
+  // beta quota-based; OpenRouter's own free route; Cohere North Mini Code :free).
+  "sensenova-6.8-flash-lite": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+  "openrouter/free": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+  "north-mini-code-free": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
   // ── xAI Grok (mirrored from src/lib/pricing/curated-overrides.json;
   //    Grok parser emits cache_creation_input_tokens = 0, so cache_write is
   //    omitted — same as the canonical table). ──
@@ -489,6 +500,13 @@ function getModelPricing(model: string, source = "") {
     const sourceCard = sourceExact[model] || sourceExact[model.toLowerCase()];
     if (sourceCard) return sourceCard;
   }
+  if (source.toLowerCase() === "trae-cn") {
+    // Trae CN underscore-spells some ids (deepseek_v4_pro) while every pricing
+    // key in the family is dash-spelled. Lookup-only, mirroring
+    // normalizeTraeCnModel in src/lib/pricing/matcher.js — the raw name is
+    // still what gets stored/displayed.
+    model = model.replace(/_/g, "-");
+  }
   const exact = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()];
   if (exact) return exact;
   const lower = model.toLowerCase();
@@ -608,6 +626,12 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("grok-4.7")) return MODEL_PRICING["cursor-grok-4.7"];
   if (lower.includes("grok-4.6") && lower.includes("fast")) return MODEL_PRICING["cursor-grok-4.6-fast"];
   if (lower.includes("grok-4.6")) return MODEL_PRICING["cursor-grok-4.6"];
+  // 2026-10 unpriced sweep: China vendors and known-zero free routes
+  // (curated-overrides.json documents rates and sources).
+  if (lower.includes("sensenova-6.8-flash-lite")) return MODEL_PRICING["sensenova-6.8-flash-lite"];
+  if (lower.includes("doubao-seed-2.1-turbo")) return MODEL_PRICING["doubao-seed-2.1-turbo"];
+  if (lower.includes("north-mini-code")) return MODEL_PRICING["north-mini-code-free"];
+  if (lower === "openrouter/free") return MODEL_PRICING["openrouter/free"];
   if (lower.includes("grok-4.5") && lower.includes("fast")) return MODEL_PRICING["cursor-grok-4.5-fast"];
   if (lower.includes("grok-4.5")) return MODEL_PRICING["cursor-grok-4.5"];
   if (lower.includes("grok-build")) return MODEL_PRICING["grok-build"];
@@ -644,6 +668,12 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("glm-4.7-flash")) return MODEL_PRICING["glm-4.7-flash"];
   if (lower.includes("glm-4.7")) return MODEL_PRICING["glm-4.7"];
   if (lower.includes("glm-4.6")) return MODEL_PRICING["glm-4.6"];
+  // Z.ai's anonymous preview aliases (x-preview-f-free, Ox Alpha) are all
+  // GLM-5.3-Flash behind the mask — Z.ai confirmed this on 2026-08-26. They
+  // must precede the glm-5.3 matchers so the flash rate (not the flagship's)
+  // applies.
+  if (lower.includes("x-preview-f-free")) return MODEL_PRICING["glm-5.3-flash"];
+  if (lower.includes("ox-alpha")) return MODEL_PRICING["glm-5.3-flash"];
   if (lower.includes("glm-5.3-flash")) return MODEL_PRICING["glm-5.3-flash"];
   if (lower.includes("glm-5.3")) return MODEL_PRICING["glm-5.3"];
   if (lower.includes("glm-5-turbo")) return MODEL_PRICING["glm-5-turbo"];
@@ -653,6 +683,12 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("kiro")) return MODEL_PRICING["kiro-cli-agent"];
   if (lower.includes("hy3")) return MODEL_PRICING["hy3-preview-agent"];
   if (/(?:^|\/)qwen3[.-]8-flash(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim())) return MODEL_PRICING["qwen3.8-flash"];
+  // Qwen3.7 family: Trae CN dash-spells the plus id (qwen-3.7-plus) and tags
+  // the max snapshot as a preview; the flash SKU is its own rate (must not
+  // inherit qwen3.8-flash — pinned as a distinct SKU by edge-pricing-parity).
+  if (lower.includes("qwen3.7-max-preview")) return MODEL_PRICING["qwen3.7-max-2026-05-20"];
+  if (lower.includes("qwen-3.7-plus") || lower.includes("qwen3.7-plus")) return MODEL_PRICING["qwen3.7-plus"];
+  if (lower.includes("qwen3.7-flash")) return MODEL_PRICING["qwen3.7-flash"];
   if (lower.includes("hy4")) return MODEL_PRICING["hy4-preview"];
   if (lower.includes("composer-2.5") && lower.includes("fast")) return MODEL_PRICING["composer-2.5-fast"];
   if (lower.includes("composer-2.5")) return MODEL_PRICING["composer-2.5"];
@@ -674,7 +710,10 @@ function getModelPricing(model: string, source = "") {
 function getRowPricing(row: { model?: string; source?: string; hour_start?: string; pricing_tier?: string }) {
   const pricing = getModelPricing(row.model || "", row.source);
   if ((row.source || "").toLowerCase() === "acode") return pricing;
-  const lower = String(row.model || "").toLowerCase();
+  // Trae CN underscore-spells the deepseek ids (deepseek_v4_pro); fold the
+  // separator before the family check so those rows reach the time-of-use
+  // discount, mirroring isDeepSeekTimePricedModel in src/lib/pricing/index.js.
+  const lower = String(row.model || "").toLowerCase().replace(/_/g, "-");
   if (
     !lower.includes("deepseek-v4-flash") &&
     !lower.includes("deepseek-v4.1-flash") &&

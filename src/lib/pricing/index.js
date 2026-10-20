@@ -186,7 +186,10 @@ function computeModelPricingInfo(model, opts, sourceKey) {
 }
 
 function isDeepSeekTimePricedModel(model) {
-  const lower = String(model || "").toLowerCase();
+  // Trae CN dash-underscores the ids (`deepseek_v4_pro`); normalize the
+  // separator before matching so those rows reach the time-of-use discount.
+  // Display-style names ("DeepSeek V4 Pro (Thinking)") still never match.
+  const lower = String(model || "").toLowerCase().replace(/_/g, "-");
   return DEEPSEEK_TIME_PRICED_MODELS.some((name) => lower.includes(name));
 }
 

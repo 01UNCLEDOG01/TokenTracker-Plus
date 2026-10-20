@@ -587,6 +587,41 @@
       "cache_write": 0.4167,
       "note": "Qwen3.7-Plus, Alibaba Model Studio China (Beijing/Shanghai/Hangzhou/Shenzhen/Ulanqab). Official list CNY per MTok: input 2.4, implicit-cache hit 0.48, explicit-cache hit 0.24, explicit-cache create 3.0, output 9.6 for 0<Token<=256K; 256K-1M is 7.2/... /28.8. Converted at ~7.2 CNY/USD to match this file's other China-vendor entries (aliyun's own USD table shows $0.3312/$1.3212, within 1%). Verified on help.aliyun.com/zh/maxcompute/token-fee and help.aliyun.com/document_detail/3025712.html. Emitted by Trae CN as Qwen3.7-Plus."
     },
+    "qwen3.7-flash": {
+      "input": 0.0333,
+      "output": 0.1333,
+      "cache_read": 0.0067,
+      "cache_write": 0.0417,
+      "note": "Qwen3.7-Flash, Alibaba Model Studio China. Official list CNY per MTok for the 0<32K tier: input 0.24, cache hit 0.048, output 0.96 (32K-256K is 0.72/0.144/2.88; 256K-1M is 1.44/0.288/5.76 — Trae CN requests observed so far sit far below 32K, so the first tier is the billing basis). Converted at ~7.2 CNY/USD like qwen3.7-plus. The cache-create price is unpublished, so cache_write is derived from the Qwen3.7-Plus ratio (125% of input). Cross-check: OpenRouter lists qwen/qwen3.7-flash at $0.03/$0.13 per MTok — the same rates within rounding, so two independent bases agree. Verified on help.aliyun.com/document_detail/3025712.html (2026-10-20). Emitted by Trae CN as qwen3.7-flash."
+    },
+    "doubao-seed-2.1-turbo": {
+      "input": 0.4167,
+      "output": 2.0833,
+      "cache_read": 0.0833,
+      "cache_write": 0.4167,
+      "note": "Doubao Seed 2.1 Turbo, Volcano Engine Ark. Official standard online inference CNY per MTok: input 3, cache hit 0.6, output 15 — a single 0-256K context tier, no segment split like the 2.0 series (low-priority/batch inference is a separate half-rate service class at 1.5/0.6/7.5). Converted at ~7.2 CNY/USD like the other China-vendor entries. Ark bills cache writes at the input rate (implicit cache; the separate 0.017 CNY/MTok/hour storage fee has no per-token analogue here), so cache_write = input. Emitted by Trae CN. Verified on docs.volcengine.com/docs/82379/1099320 (2026-10-20)."
+    },
+    "sensenova-6.8-flash-lite": {
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "note": "SenseNova 6.8 Flash Lite (SenseTime 日日新). Known zero, not unknown: the model is free during the SenseNova Token Plan public beta as of 2026-10 — usage is metered by a request-count quota (1500 requests / 5h for this model), no per-token price list exists yet, and third-party aggregators list input/output/cache at $0. Emitted by the DeepSeek Harness (dsh source) when routed to a SenseNova model. Reprice when SenseTime publishes the paid Lite/Pro tiers."
+    },
+    "openrouter/free": {
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "note": "OpenRouter's own free route, emitted by OpenCode as openrouter/free. Known zero, not unknown: the models.dev/pi-ai provider catalog prices openrouter `openrouter/free` at $0 across input/output/cache (free-tier routes). Same convention as Cline's zero-priced gateway namespaces."
+    },
+    "north-mini-code-free": {
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "note": "Cohere North Mini Code, free tier. Trae CN emits the OpenRouter `:free` variant dash-spelled as north-mini-code-free. Known zero, not unknown: the models.dev/pi-ai catalog prices cohere/north-mini-code:free at $0 across input/output/cache and lists no paid North Mini Code SKU, so the stealth-route owner rule (value at list price even when the route is free) has no list price to apply."
+    },
     "mimo-v2.6-flash": {
       "input": 0.14,
       "output": 0.28,
@@ -644,7 +679,10 @@
   },
   "alias": {
     "auto": "composer-1",
-    "ox-alpha": "glm-5.3-flash"
+    "ox-alpha": "glm-5.3-flash",
+    "x-preview-f-free": "glm-5.3-flash",
+    "qwen-3.7-plus": "qwen3.7-plus",
+    "qwen3.7-max-preview": "qwen3.7-max-2026-05-20"
   },
   "source_exact": {
     "autoclaw": {
@@ -1091,6 +1129,38 @@
     }
   },
   "fuzzy": [
+    {
+      "match": "google/gemma-4-26b-a4b-it:free",
+      "ref": "google/gemma-4-26b-a4b-it"
+    },
+    {
+      "match": "mimo-v2.5-free",
+      "ref": "mimo-v2.5-flash"
+    },
+    {
+      "match": "mimo-v2.6-flash-free",
+      "ref": "mimo-v2.6-flash"
+    },
+    {
+      "match": "deepseek-v4-flash-free",
+      "ref": "deepseek-v4-flash"
+    },
+    {
+      "match": "z-ai/glm-5.2:free",
+      "ref": "glm-5.2"
+    },
+    {
+      "match": "ox-alpha-free",
+      "ref": "glm-5.3-flash"
+    },
+    {
+      "match": "stealth/ox-alpha",
+      "ref": "glm-5.3-flash"
+    },
+    {
+      "match": "x-preview-f-free",
+      "ref": "glm-5.3-flash"
+    },
     {
       "match": "cline-free/",
       "ref": "cline-gateway-models"

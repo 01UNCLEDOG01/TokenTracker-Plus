@@ -1027,6 +1027,60 @@ test("index: 旧 Provider 的展示型 DeepSeek 名称不触发分时折扣", ()
   );
 });
 
+test("matcher: 2026-10 unpriced sweep — preview aliases and China vendors resolve", () => {
+  const curated = require("../src/lib/pricing/curated-overrides.json");
+  const litellm = {};
+  const cases = [
+    // Z.ai confirmed (2026-08-26) that its anonymous preview aliases —
+    // x-preview-f-free, Ox Alpha — are all GLM-5.3-Flash behind the mask.
+    ["x-preview-f-free", 0.15, 0.5, 0.03, "curated:alias"],
+    ["stealth/x-preview-f-free", 0.15, 0.5, 0.03, "curated:fuzzy"],
+    // Trae CN dash-spells the Qwen3.7 ids the curated file keys without it.
+    ["qwen-3.7-plus", 0.3333, 1.3333, 0.0667, "curated:alias"],
+    ["qwen3.7-max-preview", 2.5, 7.5, 0.5, "curated:alias"],
+    ["qwen3.7-flash", 0.0333, 0.1333, 0.0067, "curated:exact"],
+    ["doubao-seed-2.1-turbo", 0.4167, 2.0833, 0.0833, "curated:exact"],
+  ];
+  for (const [model, input, output, cache_read, source] of cases) {
+    const r = matcher.lookupPricing(model, { curated, litellm });
+    assert.equal(r.hit, true, `${model} should resolve`);
+    assert.equal(r.value.input, input, `${model} input`);
+    assert.equal(r.value.output, output, `${model} output`);
+    assert.equal(r.value.cache_read, cache_read, `${model} cache_read`);
+    assert.equal(r.source, source, `${model} source`);
+  }
+
+  // Known zeros: free-by-design routes must show as free, not unpriced.
+  for (const model of ["sensenova-6.8-flash-lite", "openrouter/free", "north-mini-code-free"]) {
+    const r = matcher.lookupPricing(model, { curated, litellm });
+    assert.equal(r.hit, true, `${model} should resolve`);
+    assert.deepEqual(
+      { ...r.value, note: undefined },
+      { input: 0, output: 0, cache_read: 0, cache_write: 0, note: undefined },
+      `${model} is a known zero`,
+    );
+  }
+});
+
+test("matcher: trae-cn underscore ids normalize for lookup and DeepSeek weekend tiers", () => {
+  pricing.resetPricingForTests();
+  assert.deepEqual(
+    pricing.getModelPricing("deepseek_v4_pro", { source: "trae-cn" }),
+    { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 },
+    "underscore spelling must reach the dash-keyed curated entry",
+  );
+  assert.deepEqual(
+    pricing.getRowPricing({ source: "trae-cn", model: "deepseek_v4_pro", pricing_tier: "off_peak" }),
+    { input: 0.66, output: 1.98, cache_read: 0.022, cache_write: 0.66 },
+    "underscore spelling must reach the DeepSeek time-of-use discount",
+  );
+  assert.equal(
+    matcher.normalizeTraeCnModel("search_agent_model"),
+    "search-agent-model",
+    "separator normalization is uniform, not deepseek-specific",
+  );
+});
+
 test("index: Cursor Fast SKUs keep their distinct curated pricing (#446)", () => {
   const rates = (model) => {
     const { input, output, cache_read, cache_write } = model;

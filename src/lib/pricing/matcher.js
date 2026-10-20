@@ -182,6 +182,17 @@ function normalizeIFlytekMaasModel(model) {
   return trimmed;
 }
 
+// Trae CN reports some model ids with underscore-separated segments
+// (`deepseek_v4_pro`), while every pricing key in the same family is
+// dash-spelled (`deepseek-v4-pro`). Normalizing the separator is lookup-only
+// (the raw name is still stored/displayed) and is what lets the DeepSeek
+// time-of-use discount — a substring check against the dash spelling — apply
+// to these rows too.
+function normalizeTraeCnModel(model) {
+  if (typeof model !== "string") return model;
+  return model.replace(/_/g, "-");
+}
+
 // Unsloth Studio can mix local engines and paid API providers in one database.
 // The parser qualifies metered models with their provider and marks local,
 // subscription-backed, or ambiguous custom routes as unpriced. Returning a
@@ -227,6 +238,7 @@ const SOURCE_MODEL_NORMALIZERS = {
   "pi-anthropic": normalizeClaudeModel,
   "prime-agent-anthropic": normalizeClaudeModel,
   "qoder-cn": normalizeQoderCnModel,
+  "trae-cn": normalizeTraeCnModel,
   zed: normalizeZedModel,
   unsloth: normalizeUnslothModel,
   workbuddy: normalizeWorkbuddyModel,
@@ -466,6 +478,7 @@ module.exports = {
   normalizeAntigravityModel,
   normalizeIFlytekMaasModel,
   normalizeQoderCnModel,
+  normalizeTraeCnModel,
   normalizeClaudeModel,
   normalizeCursorModel,
   normalizeZedModel,
