@@ -435,6 +435,13 @@ const SOURCE_EXACT_PRICING = {
   "cola": {
     "luna-02": { input: 0.2, output: 1.2, cache_read: 0.02, cache_write: 0.25 },
   },
+  // Qoder CN's server-side GLM group spells the flash SKU dash-less
+  // ("GLM5.3-Flash", group added 2026-10-20), which misses both the
+  // glm-5.3-flash MODEL_PRICING key and its includes() branch. Mirror of
+  // curated-overrides.json source_exact.qoder-cn (2026-10-20).
+  "qoder-cn": {
+    "glm5.3-flash": { input: 0.15, output: 0.5, cache_read: 0.03 },
+  },
 };
 
 function getModelPricing(model: string, source = "") {

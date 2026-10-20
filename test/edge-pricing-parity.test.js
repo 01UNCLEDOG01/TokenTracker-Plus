@@ -186,6 +186,12 @@ test("source_exact cards mirror into every edge file and price before public rat
     ["tuanjie-cowork", "codely-core", { input: 1.4, output: 4.4, cache_read: 0.26 }],
     ["tuanjie-cowork", "codely-air", { input: 0.3, output: 1.2, cache_read: 0.006 }],
     ["cola", "luna-02", { input: 0.2, output: 1.2, cache_read: 0.02 }],
+    // Qoder CN's 2026-10-20 server-side GLM group spells the flash SKU
+    // dash-less ("GLM5.3-Flash"); the estimate suffix must ride the source
+    // normalizer into the source-scoped glm-5.3-flash card on both sides.
+    ["qoder-cn", "GLM5.3-Flash（估算）", { input: 0.15, output: 0.5, cache_read: 0.03 }],
+    // The dash-less spelling must NOT inherit the GLM card from other sources.
+    [null, "GLM5.3-Flash（估算）", null],
     // The Trae CN internal alias routes through the space-bunny card, whose
     // codename rates were superseded by MiniMax M3.1 Flash launch pricing.
     ["trae-cn", "space-bunny-free", { input: 0.3, output: 1.2, cache_read: 0.03 }],

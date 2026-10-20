@@ -741,6 +741,14 @@
         "cache_write": 0.22
       }
     },
+    "qoder-cn": {
+      "glm5.3-flash": {
+        "input": 0.15,
+        "output": 0.5,
+        "cache_read": 0.03,
+        "note": "Qoder CN's server-side model-group spelling for Zhipu's flash SKU is dash-less (\"GLM5.3-Flash\", group added 2026-10-20), which misses the glm-5.3-flash exact key both verbatim and via containment. Priced at that card's rates (input 0.15 / output 0.5 / cache_read 0.03; no published cache-write surcharge, matching the canonical entry's shape). Applies only to qoder-cn rows - other sources' glm5.3-flash spellings, if any ever appear, stay unpriced until reviewed."
+      }
+    },
     "acode": {
       "spark-x2.5": {
         "input": 0.13,
