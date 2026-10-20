@@ -80,7 +80,13 @@ def scale_emblem(height_map, accent_layer):
     """Scale the emblem about the UNION bounding box of both layers so the
     steel relief and the accent tint stay perfectly aligned. The emblem's
     max dimension is normalized to EMBLEM_TARGET (77.5% of the canvas —
-    measured from the original medallions)."""
+    measured from the original medallions). Normalizing the max dimension
+    alone is NOT enough for emblems whose elements sit on the bbox DIAGONAL
+    (around-the-clock's sun/moon): a corner sits at sqrt(w²+h²)/2 from the
+    coin center and crosses into the frame. After scaling, clamp the
+    farthest bbox corner to the dark-face radius (212px @512, minus a hair)
+    so every emblem stays ON the face — flush against the frame is fine,
+    crossing it is not. Applies to all faces through this single function."""
     boxes = [l.getbbox() for l in (height_map, accent_layer)]
     boxes = [b for b in boxes if b]
     x0 = min(b[0] for b in boxes)
@@ -90,6 +96,21 @@ def scale_emblem(height_map, accent_layer):
     factor = EMBLEM_TARGET / float(max(x1 - x0, y1 - y0))
     w = max(1, int((x1 - x0) * factor))
     hgt = max(1, int((y1 - y0) * factor))
+    # corner-distance clamp (see docstring)
+    far = max(
+        math.hypot(px - S / 2.0, py - S / 2.0)
+        for px, py in (
+            ((S - w) / 2.0, (S - hgt) / 2.0),
+            ((S + w) / 2.0, (S - hgt) / 2.0),
+            ((S - w) / 2.0, (S + hgt) / 2.0),
+            ((S + w) / 2.0, (S + hgt) / 2.0),
+        )
+    )
+    limit = 210.0  # dark face radius 212 minus a hair
+    if far > limit:
+        shrink = limit / far
+        w = max(1, int(w * shrink))
+        hgt = max(1, int(hgt * shrink))
     out_h = Image.new("L", (S, S), 0)
     out_a = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     ox, oy = (S - w) // 2, (S - hgt) // 2
