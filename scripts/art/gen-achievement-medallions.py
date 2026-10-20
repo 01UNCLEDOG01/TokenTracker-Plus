@@ -1,8 +1,7 @@
 # Generator for the self-drawn TokenTracker achievement medallion faces
-# (256px, dark gunmetal disc + dark engraved band + hairline bright edge
-# + steel relief emblem + one accent color). Style target: the existing
-# AI-made medallions that live beside the outputs. Rerun to tweak; outputs
-# land in dashboard/public.
+# (256px, solid bright silver frame + dark face + steel relief emblem + one
+# accent color). Style target: the existing AI-made medallions that live
+# beside the outputs. Rerun to tweak; outputs land in dashboard/public.
 from PIL import Image, ImageDraw, ImageOps, ImageChops, ImageFilter
 import math
 
@@ -12,8 +11,9 @@ OUT = "D:/tt-rebase/dashboard/public/achievements"
 STEEL = 235    # height for raised steel parts
 ACCENT_H = 205 # slightly lower relief for accent parts
 # Measured from the original medallions (veteran/streak/night-owl/wordsmith):
-# emblem bbox max-dimension ≈ 77.5% of the canvas; bright beveled ring at
-# ~82-91% of the disc radius; mid-dark outer rim beyond it.
+# emblem bbox max-dimension ≈ 77.5% of the canvas; the artwork carries a
+# SOLID bright silver frame (luminance >120 across r 82-92% of the disc,
+# ~11px at 256) with a mid-dark outer rim beyond it.
 EMBLEM_TARGET = 0.775 * S
 
 
@@ -21,24 +21,24 @@ def base_disc():
     img = Image.new("RGB", (S, S), (8, 9, 11))
     d = ImageDraw.Draw(img)
     cx = cy = S // 2
-    # dark face (out to the ring's inner edge)
-    for r in range(210, 0, -2):
-        t = r / 210.0
+    # dark face
+    for r in range(212, 0, -2):
+        t = r / 212.0
         v = int(26 + 14 * math.sin(t * math.pi * 0.9))
         d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(v, v + 3, v + 6))
-    # inner shadow groove
-    d.ellipse((cx - 213, cy - 213, cx + 213, cy + 213), outline=(18, 21, 25), width=7)
-    # bright beveled ring: dark inner edge → bright middle → mid outer edge
-    for r in range(234, 210, -1):
-        t = (r - 210) / 24.0
-        v = int(96 + 128 * math.sin(t * math.pi))
+    # solid bright silver frame (plateau with a subtle radial sheen)
+    for r in range(236, 210, -1):
+        t = (r - 210) / 26.0
+        v = int(200 + 24 * math.sin(t * math.pi))
         d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 5, v + 11), width=1)
-    # mid-dark outer rim up to the edge
-    for r in range(252, 234, -1):
-        t = (r - 234) / 18.0
-        v = int(74 - 26 * t)
+    # darker inner lip between face and frame
+    d.ellipse((cx - 211, cy - 211, cx + 211, cy + 211), outline=(58, 64, 71), width=3)
+    # mid-dark outer rim beyond the frame
+    for r in range(252, 236, -1):
+        t = (r - 236) / 16.0
+        v = int(80 - 30 * t)
         d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 4, v + 9), width=1)
-    d.ellipse((cx - 252, cy - 252, cx + 252, cy + 252), outline=(30, 34, 40), width=4)
+    d.ellipse((cx - 252, cy - 252, cx + 252, cy + 252), outline=(26, 30, 35), width=4)
     return img
 
 
