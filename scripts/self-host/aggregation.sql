@@ -35,7 +35,7 @@ AS $func$
       AND (
         h.source = 'cursor'
         OR (
-          h.source NOT IN ('cursor')
+          h.source NOT IN ('cursor', 'trae-cn')
           AND h.device_id = ANY(p_device_ids)
         )
       )
@@ -55,7 +55,7 @@ AS $func$
         h.reasoning_output_tokens, h.conversations
       FROM base h
       LEFT JOIN public.tokentracker_device_machine dm ON dm.device_id = h.device_id
-      WHERE h.source NOT IN ('cursor')
+      WHERE h.source NOT IN ('cursor', 'trae-cn')
         AND h.device_id = ANY(p_device_ids)
       ORDER BY COALESCE(dm.machine_cluster_id, h.device_id::text),
         h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC
@@ -78,6 +78,18 @@ AS $func$
       ORDER BY h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC
     ) d
 
+    UNION ALL
+
+    SELECT s.bucket_start, s.source, s.model,
+      SUM(s.total_tokens)::bigint, SUM(s.input_tokens)::bigint,
+      SUM(s.output_tokens)::bigint, SUM(s.cached_input_tokens)::bigint,
+      SUM(s.cache_creation_input_tokens)::bigint,
+      SUM(s.reasoning_output_tokens)::bigint, COUNT(*)::bigint
+    FROM public.tokentracker_account_session_states s
+    WHERE s.user_id = p_user_id
+      AND s.bucket_start >= p_from AND s.bucket_start < p_to
+      AND s.source = 'trae-cn'
+    GROUP BY s.bucket_start, s.source, s.model
   ), located AS (
     SELECT
       CASE p_trunc
