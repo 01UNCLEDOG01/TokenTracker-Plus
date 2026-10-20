@@ -1,7 +1,8 @@
 # Generator for the self-drawn TokenTracker achievement medallion faces
-# (256px, dark gunmetal disc + wide polished silver band + steel relief emblem
-# + one accent color). Style target: the existing AI-made medallions that live
-# beside the outputs. Rerun to tweak; outputs land in dashboard/public.
+# (256px, dark gunmetal disc + dark engraved band + hairline bright edge
+# + steel relief emblem + one accent color). Style target: the existing
+# AI-made medallions that live beside the outputs. Rerun to tweak; outputs
+# land in dashboard/public.
 from PIL import Image, ImageDraw, ImageOps, ImageChops, ImageFilter
 import math
 
@@ -10,27 +11,34 @@ OUT = "D:/tt-rebase/dashboard/public/achievements"
 
 STEEL = 235    # height for raised steel parts
 ACCENT_H = 205 # slightly lower relief for accent parts
-EMBLEM_SCALE = 1.32
+# Measured from the original medallions (veteran/streak/night-owl/wordsmith):
+# emblem bbox max-dimension ≈ 77.5% of the canvas; bright beveled ring at
+# ~82-91% of the disc radius; mid-dark outer rim beyond it.
+EMBLEM_TARGET = 0.775 * S
 
 
 def base_disc():
-    """Dark gunmetal face wrapped in a wide polished silver band — the thick
-    edge that reads as 'medallion' even before the CSS tier ring is applied."""
     img = Image.new("RGB", (S, S), (8, 9, 11))
     d = ImageDraw.Draw(img)
     cx = cy = S // 2
-    BAND_OUT, BAND_IN = 252, 212
-    for r in range(BAND_OUT, BAND_IN, -1):
-        t = (BAND_OUT - r) / float(BAND_OUT - BAND_IN)  # 0 outer → 1 inner
-        v = int(212 - 70 * t)
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 4, v + 9), width=2)
-    d.ellipse((cx - 251, cy - 251, cx + 251, cy + 251), outline=(236, 240, 245), width=4)
-    d.ellipse((cx - BAND_IN, cy - BAND_IN, cx + BAND_IN, cy + BAND_IN), outline=(56, 61, 67), width=5)
-    for r in range(BAND_IN - 6, 0, -2):
-        t = r / float(BAND_IN)
-        v = int(22 + 14 * math.sin(t * math.pi * 0.9))
+    # dark face (out to the ring's inner edge)
+    for r in range(210, 0, -2):
+        t = r / 210.0
+        v = int(26 + 14 * math.sin(t * math.pi * 0.9))
         d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(v, v + 3, v + 6))
-    d.ellipse((cx - 196, cy - 196, cx + 196, cy + 196), outline=(44, 49, 55), width=3)
+    # inner shadow groove
+    d.ellipse((cx - 213, cy - 213, cx + 213, cy + 213), outline=(18, 21, 25), width=7)
+    # bright beveled ring: dark inner edge → bright middle → mid outer edge
+    for r in range(234, 210, -1):
+        t = (r - 210) / 24.0
+        v = int(96 + 128 * math.sin(t * math.pi))
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 5, v + 11), width=1)
+    # mid-dark outer rim up to the edge
+    for r in range(252, 234, -1):
+        t = (r - 234) / 18.0
+        v = int(74 - 26 * t)
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 4, v + 9), width=1)
+    d.ellipse((cx - 252, cy - 252, cx + 252, cy + 252), outline=(30, 34, 40), width=4)
     return img
 
 
@@ -43,15 +51,18 @@ def emboss(height_map):
     )
 
 
-def scale_emblem(height_map, accent_layer, factor):
+def scale_emblem(height_map, accent_layer):
     """Scale the emblem about the UNION bounding box of both layers so the
-    steel relief and the accent tint stay perfectly aligned."""
+    steel relief and the accent tint stay perfectly aligned. The emblem's
+    max dimension is normalized to EMBLEM_TARGET (77.5% of the canvas —
+    measured from the original medallions)."""
     boxes = [l.getbbox() for l in (height_map, accent_layer)]
     boxes = [b for b in boxes if b]
     x0 = min(b[0] for b in boxes)
     y0 = min(b[1] for b in boxes)
     x1 = max(b[2] for b in boxes)
     y1 = max(b[3] for b in boxes)
+    factor = EMBLEM_TARGET / float(max(x1 - x0, y1 - y0))
     w = max(1, int((x1 - x0) * factor))
     hgt = max(1, int((y1 - y0) * factor))
     out_h = Image.new("L", (S, S), 0)
@@ -116,7 +127,7 @@ def early_bird():
         dh.arc((bx - 14 * s, by - 10 * s, bx, by + 10 * s), 200, 320, fill=STEEL, width=5)
         dh.arc((bx, by - 10 * s, bx + 14 * s, by + 10 * s), 220, 340, fill=STEEL, width=5)
     ImageDraw.Draw(acc).pieslice((202, 254, 310, 362), 180, 360, fill=ACC)
-    h, acc = scale_emblem(h, acc, EMBLEM_SCALE)
+    h, acc = scale_emblem(h, acc)
     save(compose(disc, h, acc), "early-bird.png")
 
 
@@ -145,7 +156,7 @@ def around_the_clock():
     moon = crescent_mask(149, 395, 23, 10)  # lower-left crescent
     acc.paste(MOON, (0, 0), moon)
     h.paste(ACCENT_H, (0, 0), moon)
-    h, acc = scale_emblem(h, acc, EMBLEM_SCALE)
+    h, acc = scale_emblem(h, acc)
     save(compose(disc, h, acc), "around-the-clock.png")
 
 
@@ -160,7 +171,7 @@ def sprinter():
     da.polygon(bolt, fill=ACC)
     for y in (216, 258, 300):
         dh.rounded_rectangle((118, y - 5, 178, y + 5), 5, fill=STEEL)
-    h, acc = scale_emblem(h, acc, EMBLEM_SCALE)
+    h, acc = scale_emblem(h, acc)
     save(compose(disc, h, acc), "sprinter.png")
 
 
@@ -178,7 +189,7 @@ def cache_alchemist():
         da.ellipse((bx - r, by - r, bx + r, by + r), fill=ACC)
     dh.line((330, 140, 330, 168), fill=STEEL, width=6)  # sparkle, raised
     dh.line((316, 154, 344, 154), fill=STEEL, width=6)
-    h, acc = scale_emblem(h, acc, EMBLEM_SCALE)
+    h, acc = scale_emblem(h, acc)
     save(compose(disc, h, acc), "cache-alchemist.png")
 
 
@@ -198,7 +209,7 @@ def real_money():
         da.ellipse((178, cy - 30, 334, cy + 18), fill=GOLD)
     for cy in (306, 334, 362):
         da.ellipse((196, cy - 18, 316, cy + 12), outline=GOLD_D[:3] + (255,), width=4)
-    h, acc = scale_emblem(h, acc, EMBLEM_SCALE)
+    h, acc = scale_emblem(h, acc)
     save(compose(disc, h, acc), "real-money.png")
 
 
@@ -215,7 +226,7 @@ def session_marathon():
     da.polygon([(224, 196), (288, 196), (256, 244)], fill=ACC)
     da.polygon([(256, 296), (222, 352), (290, 352)], fill=ACC)
     dh.line((254, 252, 254, 300), fill=ACCENT_H, width=lw(7))
-    h, acc = scale_emblem(h, acc, EMBLEM_SCALE)
+    h, acc = scale_emblem(h, acc)
     save(compose(disc, h, acc), "session-marathon.png")
 
 
