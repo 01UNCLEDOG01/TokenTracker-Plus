@@ -633,7 +633,7 @@ export function getMockAchievements() {
     thresholds: number[],
     meta: AnyRecord = {},
   ) => {
-    const isCloud = !["project_hopper", "project_devotion", "night_owl"].includes(id);
+    const isCloud = !["project_hopper", "project_devotion", "night_owl", "early_bird", "around_the_clock", "sprinter", "cache_alchemist", "deep_thinker", "real_money", "session_marathon"].includes(id);
     return {
       id,
       tier,
@@ -676,6 +676,13 @@ export function getMockAchievements() {
       make("project_hopper", 2, 6, [3, 5, 10, 20]),
       make("project_devotion", 3, 240_000_000, [1_000_000, 10_000_000, 100_000_000, 1_000_000_000], { project_key: "mock" }),
       make("night_owl", 1, 9, [5, 20, 60, 150]),
+      make("early_bird", 2, 31, [5, 20, 60, 150]),
+      make("around_the_clock", 1, 14, [6, 12, 18, 24]),
+      make("sprinter", 2, 42_000_000, [1_000_000, 10_000_000, 100_000_000, 1_000_000_000], { hour_start: iso(3) }),
+      make("cache_alchemist", 3, 6_200_000_000, [50_000_000, 500_000_000, 5_000_000_000, 50_000_000_000]),
+      make("deep_thinker", 1, 6_400_000, [1_000_000, 5_000_000, 20_000_000, 60_000_000]),
+      make("real_money", 1, 66, [5, 50, 500, 5000]),
+      make("session_marathon", 2, 4.6 * 3_600_000, [3_600_000, 4 * 3_600_000, 8 * 3_600_000, 12 * 3_600_000]),
     ],
   };
 }

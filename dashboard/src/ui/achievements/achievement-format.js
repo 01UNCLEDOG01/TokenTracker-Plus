@@ -10,6 +10,14 @@ export function formatBadgeValue(format, value) {
       return `#${Math.round(n)}`;
     case "multiplier":
       return `${(Math.round(n * 10) / 10).toString()}×`;
+    case "usd":
+      return `$${(Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+    case "duration": {
+      // metric + thresholds are milliseconds of active session time
+      const hours = n / 3_600_000;
+      if (hours >= 1) return `${Math.round(hours * 10) / 10}h`;
+      return `${Math.max(1, Math.round(n / 60_000))}m`;
+    }
     default:
       return Math.round(n).toLocaleString();
   }

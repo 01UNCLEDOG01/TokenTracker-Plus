@@ -444,6 +444,13 @@ const LOCAL_BADGE_THRESHOLDS = {
   project_hopper: [3, 5, 10, 20], // distinct projects
   project_devotion: [1000000, 10000000, 100000000, 1000000000], // max tokens in one project
   night_owl: [5, 20, 60, 150], // active hour buckets between 00:00–05:59 local
+  early_bird: [5, 20, 60, 150], // active hour buckets between 04:00–09:59 local
+  around_the_clock: [6, 12, 18, 24], // distinct local hour-of-day buckets (0–23) with any activity
+  sprinter: [1000000, 10000000, 100000000, 1000000000], // most tokens in a single hour bucket
+  cache_alchemist: [50000000, 500000000, 5000000000, 50000000000], // lifetime cached-input tokens (reads + cache writes)
+  deep_thinker: [1000000, 5000000, 20000000, 60000000], // lifetime reasoning output tokens
+  real_money: [5, 50, 500, 5000], // lifetime tracked cost, USD
+  session_marathon: [3600000, 14400000, 28800000, 43200000], // longest single-session active time, ms (1/4/8/12h)
 };
 
 // The cloud nine (see scripts/ops/user-badges.sql) are normally computed
@@ -492,13 +499,14 @@ function isoWeekStartMs(dayMs) {
 const LOCAL_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
 
 /**
- * Compute the local badge set from deduped queue rows.
- * Rows are replayed in hour_start order so each tier's `achieved` timestamp is
- * the hour at which the running metric first crossed that threshold. Local
- * time (night_owl) follows the caller's tz query params like every other
+ * Compute the local badge set from deduped queue rows (plus the device's
+ * session rows for the session marathon). Rows are replayed in hour_start
+ * order so each tier's `achieved` timestamp is the hour at which the running
+ * metric first crossed that threshold. Local time (night_owl / early_bird /
+ * around_the_clock) follows the caller's tz query params like every other
  * usage endpoint.
  */
-function computeLocalAchievements(queueRows, projectRows, { timeZoneContext } = {}) {
+function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions = [] } = {}) {
   const sortByHour = (rows) =>
     rows
       .filter((row) => row && row.hour_start)
@@ -519,7 +527,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext } = 
     for (let i = 0; i < thresholds.length; i += 1) {
       const tierKey = LOCAL_TIER_KEYS[i];
       if (newValue >= thresholds[i] && !tracker.achieved[tierKey]) {
-        tracker.achieved[tierKey] = atIso;
+        tracker.achieved[tierKey] = atIso || null;
       }
     }
   };
@@ -542,13 +550,47 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext } = 
   }
 
   const nightHours = new Set();
+  const earlyHours = new Set();
+  const dayHourBuckets = new Set();
+  let sprintPeak = 0;
+  let cachedTotal = 0;
+  let reasoningTotal = 0;
+  let costTotal = 0;
   for (const row of sortByHour(queueRows || [])) {
-    if (Number(row.total_tokens || 0) <= 0) continue;
-    if (nightHours.has(row.hour_start)) continue;
+    const tokens = Number(row.total_tokens || 0);
+    if (tokens <= 0) continue;
+    // Token-category sums accrue across every active row regardless of hour.
+    cachedTotal += Number(row.cached_input_tokens || 0) + Number(row.cache_creation_input_tokens || 0);
+    reasoningTotal += Number(row.reasoning_output_tokens || 0);
+    // Same cost semantics as the usage summary (the corner ¥ number):
+    // authoritative provider-reported cost wins, everything else prices from
+    // the model tables at read time. Rows rarely carry a stored cost.
+    costTotal += computeRowCost(row);
+    bump("cache_alchemist", cachedTotal, row.hour_start);
+    bump("deep_thinker", reasoningTotal, row.hour_start);
+    bump("real_money", costTotal, row.hour_start);
+    if (tokens > sprintPeak) {
+      sprintPeak = tokens;
+      bump("sprinter", sprintPeak, row.hour_start, { hour_start: row.hour_start });
+    }
     const parts = getZonedParts(new Date(row.hour_start), timeZoneContext || {});
-    if (!parts || parts.hour >= 6) continue;
-    nightHours.add(row.hour_start);
-    bump("night_owl", nightHours.size, row.hour_start);
+    if (!parts) continue;
+    // Hour-of-day footprints for around_the_clock: one point per local hour
+    // 0–23, across the whole history.
+    if (!dayHourBuckets.has(parts.hour)) {
+      dayHourBuckets.add(parts.hour);
+      bump("around_the_clock", dayHourBuckets.size, row.hour_start);
+    }
+    // night_owl / early_bird: one point per active hour_start bucket inside
+    // 00:00–05:59 / 04:00–09:59 local time.
+    if (parts.hour < 6 && !nightHours.has(row.hour_start)) {
+      nightHours.add(row.hour_start);
+      bump("night_owl", nightHours.size, row.hour_start);
+    }
+    if (parts.hour >= 4 && parts.hour < 10 && !earlyHours.has(row.hour_start)) {
+      earlyHours.add(row.hour_start);
+      bump("early_bird", earlyHours.size, row.hour_start);
+    }
   }
 
   // ── Cloud-parity replay, straight from the local queue ─────────────────────
@@ -634,6 +676,27 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext } = 
   }
   if (momentumCrossedMs !== null) {
     bump("momentum", bestMomentum, new Date(momentumCrossedMs + 7 * DAY_MS).toISOString());
+  }
+
+  // session_marathon: longest single session that actually spent tokens.
+  // Session rows may arrive as fragments; taking the max row duration is
+  // conservative (never overstates a session's length).
+  let longestSessionMs = 0;
+  let longestSession = null;
+  for (const session of sessions || []) {
+    if (!session || Number(session.total_tokens || 0) <= 0) continue;
+    if (Number(session.duration_ms || 0) > longestSessionMs) {
+      longestSessionMs = Number(session.duration_ms || 0);
+      longestSession = session;
+    }
+  }
+  if (longestSession) {
+    bump(
+      "session_marathon",
+      longestSessionMs,
+      longestSession.ended_at || longestSession.started_at || null,
+      { session_hash: longestSession.session_hash || null },
+    );
   }
 
   return Object.entries(ALL_LOCAL_BADGE_THRESHOLDS).map(([badgeId, thresholds]) => {
@@ -3772,9 +3835,18 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const timeZoneContext = getTimeZoneContext(url);
       const queueRows = await readQueueData(qp);
       const { projectRows } = await readProjectUsageContext(qp, url);
+      // session_marathon needs the device's session rows. buildSessionAnalytics
+      // serves from its sidecar cache (5-min TTL), so repeated polls stay cheap.
+      let sessions = [];
+      try {
+        const { buildSessionAnalytics } = require("./session-analytics");
+        sessions = await buildSessionAnalytics({ force: false });
+      } catch (error) {
+        console.warn("[local-api] achievements session scan failed:", error?.message || error);
+      }
       json(res, {
         generated_at: new Date().toISOString(),
-        achievements: computeLocalAchievements(queueRows, projectRows, { timeZoneContext }),
+        achievements: computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions }),
       });
       return true;
     }

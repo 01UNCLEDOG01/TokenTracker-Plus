@@ -5,19 +5,26 @@
 // test/user-badges-thresholds-single-source.test.js enforces that no
 // threshold literals appear in dashboard code. Array order = display order.
 import {
+  Banknote,
   Blocks,
   Brain,
+  BrainCircuit,
   CalendarDays,
+  Clock,
   Crown,
   Feather,
+  FlaskConical,
   Flame,
   FolderGit2,
   Footprints,
+  Gauge,
   Heart,
+  Hourglass,
   Medal,
   MoonStar,
   Rocket,
   ShieldCheck,
+  Sunrise,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -41,6 +48,16 @@ export const BADGE_CATALOG = [
   { id: "project_hopper", scope: "local", icon: FolderGit2, format: "count", art: "/achievements/project-hopper.png" },
   { id: "project_devotion", scope: "local", icon: Heart, format: "tokens", art: "/achievements/project-devotion.png" },
   { id: "night_owl", scope: "local", icon: MoonStar, format: "count", art: "/achievements/night-owl.png" },
+  // Habit badges computed on-device. Faces are self-drawn medallions matched
+  // to each badge's meaning, except deep_thinker which reuses the unused
+  // galaxy-brain face (brain → reasoning; the name semantics carry over).
+  { id: "early_bird", scope: "local", icon: Sunrise, format: "count", art: "/achievements/early-bird.png" },
+  { id: "around_the_clock", scope: "local", icon: Clock, format: "count", art: "/achievements/around-the-clock.png" },
+  { id: "sprinter", scope: "local", icon: Gauge, format: "tokens", art: "/achievements/sprinter.png" },
+  { id: "cache_alchemist", scope: "local", icon: FlaskConical, format: "tokens", art: "/achievements/cache-alchemist.png" },
+  { id: "deep_thinker", scope: "local", icon: BrainCircuit, format: "tokens", art: "/achievements/galaxy-brain.png" },
+  { id: "real_money", scope: "local", icon: Banknote, format: "usd", art: "/achievements/real-money.png" },
+  { id: "session_marathon", scope: "local", icon: Hourglass, format: "duration", art: "/achievements/session-marathon.png" },
 ];
 
 export const BADGE_BY_ID = new Map(BADGE_CATALOG.map((b) => [b.id, b]));

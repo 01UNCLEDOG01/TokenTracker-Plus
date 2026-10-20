@@ -1415,6 +1415,20 @@ achievements.badge.project_devotion.name,dashboard,*,AchievementsSection,project
 achievements.badge.project_devotion.desc,dashboard,*,BadgeDetailModal,project_devotion_desc,"Pour tokens into a single beloved project.",,active
 achievements.badge.night_owl.name,dashboard,*,AchievementsSection,night_owl_name,"Night Owl",,active
 achievements.badge.night_owl.desc,dashboard,*,BadgeDetailModal,night_owl_desc,"Code in the small hours between midnight and 6 AM.",,active
+achievements.badge.early_bird.name,dashboard,*,AchievementsSection,early_bird_name,"Early Bird",,active
+achievements.badge.early_bird.desc,dashboard,*,BadgeDetailModal,early_bird_desc,"Code in the early hours between 4 and 10 AM.",,active
+achievements.badge.around_the_clock.name,dashboard,*,AchievementsSection,around_the_clock_name,"Around the Clock",,active
+achievements.badge.around_the_clock.desc,dashboard,*,BadgeDetailModal,around_the_clock_desc,"Leave a usage footprint in all 24 hours of the day.",,active
+achievements.badge.sprinter.name,dashboard,*,AchievementsSection,sprinter_name,"Sprinter",,active
+achievements.badge.sprinter.desc,dashboard,*,BadgeDetailModal,sprinter_desc,"Burn more tokens in a single hour than ever before.",,active
+achievements.badge.cache_alchemist.name,dashboard,*,AchievementsSection,cache_alchemist_name,"Cache Alchemist",,active
+achievements.badge.cache_alchemist.desc,dashboard,*,BadgeDetailModal,cache_alchemist_desc,"Accumulate lifetime cached tokens — the art of saving.",,active
+achievements.badge.deep_thinker.name,dashboard,*,AchievementsSection,deep_thinker_name,"Deep Thinker",,active
+achievements.badge.deep_thinker.desc,dashboard,*,BadgeDetailModal,deep_thinker_desc,"Accumulate lifetime reasoning output tokens.",,active
+achievements.badge.real_money.name,dashboard,*,AchievementsSection,real_money_name,"Real Money",,active
+achievements.badge.real_money.desc,dashboard,*,BadgeDetailModal,real_money_desc,"Accumulate lifetime tracked AI spend.",,active
+achievements.badge.session_marathon.name,dashboard,*,AchievementsSection,session_marathon_name,"Session Marathon",,active
+achievements.badge.session_marathon.desc,dashboard,*,BadgeDetailModal,session_marathon_desc,"Log the longest active time in a single session.",,active
 achievements.signin.action,dashboard,AchievementsPage,AchievementsPage,signin_action,"Sign in",,active
 achievements.scope.local,dashboard,*,AchievementsSection,scope_local,"Local",,active
 achievements.page.suggest,dashboard,AchievementsPage,AchievementsPage,suggest,"Have an idea for a new badge?",,active
@@ -2134,3 +2148,4 @@ cloud.rebuild.error,cloud,SettingsPage,CloudRebuildControl,error,Rebuild did not
 cloud.rebuild.busy,cloud,SettingsPage,CloudRebuildControl,busy,"Sync is running. Wait for it to finish, then retry.",,active
 usage.overview.kiro_notice_title,dashboard,DashboardPage,UsageOverview,kiro_notice_title,CLI token estimates,,active
 usage.overview.kiro_notice_body,dashboard,DashboardPage,UsageOverview,kiro_notice_body,"When Kiro CLI does not report token counts, tokens are estimated from new user messages, tool outputs and assistant text at ~4 characters/token. Re-sent history, system context and cache usage are not measured. Dollar amounts use model rates and do not represent Kiro credit charges.",,active
+achievements.modal.tier_threshold,dashboard,*,BadgeDetailModal,tier_threshold,"{{tier}} threshold",,active

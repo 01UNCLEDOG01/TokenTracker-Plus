@@ -40,3 +40,22 @@ on-device in real time and never leave the machine.
 | **Project Hopper** (`project_hopper`) | Distinct projects with tracked usage | 3 | 5 | 10 | 20 |
 | **Project Devotion** (`project_devotion`) | Lifetime tokens poured into a single project | 1M | 10M | 100M | 1B |
 | **Night Owl** (`night_owl`) | Active hours between midnight and 6 AM local time | 5 | 20 | 60 | 150 |
+| **Early Bird** (`early_bird`) | Active hours between 4 AM and 10 AM local time | 5 | 20 | 60 | 150 |
+| **Around the Clock** (`around_the_clock`) | Distinct local hour-of-day buckets (0–23) with any activity | 6 | 12 | 18 | 24 |
+| **Sprinter** (`sprinter`) | Most tokens in a single hour bucket | 1M | 10M | 100M | 1B |
+| **Cache Alchemist** (`cache_alchemist`) | Lifetime cached-input tokens (cache reads + cache writes) | 50M | 500M | 5B | 50B |
+| **Deep Thinker** (`deep_thinker`) | Lifetime reasoning output tokens | 1M | 5M | 20M | 60M |
+| **Real Money** (`real_money`) | Lifetime tracked cost (USD; provider-reported where available, model pricing otherwise) | $5 | $50 | $500 | $5,000 |
+| **Session Marathon** (`session_marathon`) | Longest single session's active time (idle gaps excluded) | 1h | 4h | 8h | 12h |
+
+### Face art provenance
+
+The six habit badges (`early-bird`, `around-the-clock`, `sprinter`,
+`cache-alchemist`, `real-money`, `session-marathon`) carry self-drawn
+medallion faces — dark gunmetal disc, steel relief emblem, one accent
+color — each matched to its badge's meaning. `deep_thinker` reuses the
+unused `galaxy-brain.png` face (brain → reasoning; the name semantics carry
+over). The remaining unused faces (`pull-shark`, `starstruck`,
+`pair-extraordinaire`, `open-sourcerer`, `heart-on-your-sleeve`,
+`arctic-code-vault-contributor`, `proxima-*`) keep their GitHub-flavored
+meanings and stay unassigned — don't force them onto unrelated badges.

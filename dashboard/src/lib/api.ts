@@ -341,10 +341,26 @@ export async function getProjectUsageDetail({
 }
 
 /**
- * Local (privacy-scoped) achievements: project_hopper / project_devotion /
- * night_owl, computed by the local CLI from queue data that never leaves the
- * machine. Cloud badges use the badges-only leaderboard profile fast path.
+ * Local (privacy-scoped) achievements, computed by the local CLI from queue
+ * data that never leaves the machine: the project/night originals
+ * (project_hopper / project_devotion / night_owl) plus the on-device habit
+ * badges (early_bird / around_the_clock / sprinter / cache_alchemist /
+ * deep_thinker / real_money / session_marathon). Cloud badges use the
+ * badges-only leaderboard profile fast path.
  */
+const LOCAL_BADGE_IDS = [
+  "project_hopper",
+  "project_devotion",
+  "night_owl",
+  "early_bird",
+  "around_the_clock",
+  "sprinter",
+  "cache_alchemist",
+  "deep_thinker",
+  "real_money",
+  "session_marathon",
+];
+
 export async function getLocalAchievements({ timeZone, tzOffsetMinutes }: AnyRecord = {}) {
   if (isMockEnabled()) {
     return getMockAchievements();
@@ -530,7 +546,7 @@ export async function getLeaderboardProfile({
       heatmap,
       daily_trend: dailyTrend,
       badges: getMockAchievements().achievements.filter(
-        (badge: any) => badge.tier >= 1 && !["project_hopper", "project_devotion", "night_owl"].includes(badge.id),
+        (badge: any) => badge.tier >= 1 && !LOCAL_BADGE_IDS.includes(badge.id),
       ),
       badges_include_unearned: false,
     };
@@ -553,7 +569,7 @@ export async function getUserBadges({ accessToken, userId }: AnyRecord = {}) {
   if (isMockEnabled()) {
     return {
       badges: getMockAchievements().achievements.filter(
-        (badge: any) => !["project_hopper", "project_devotion", "night_owl"].includes(badge.id),
+        (badge: any) => !LOCAL_BADGE_IDS.includes(badge.id),
       ),
       badges_include_unearned: true,
     };
