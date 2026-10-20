@@ -30,6 +30,16 @@ const BADGE_IDS = [
   "multitool",
   "podium",
   "veteran",
+  // wave 2 (2026-10-21)
+  "phoenix",
+  "iron_month",
+  "full_blast",
+  "deep_diver",
+  "multitool_day",
+  "heart_model",
+  "claude_survivor",
+  "wishing_well",
+  "grand_slam",
 ];
 
 test("both tables enable RLS with deny-all grants", () => {
@@ -100,21 +110,33 @@ test("refresh claims the shared lock and reads the rollup + live tail", () => {
   assert.match(sql, /leaderboard_hourly_dedup\(v_through, now\(\)\)/);
 });
 
-test("catalog seeds exactly the twelve cloud badges with 4-tier thresholds", () => {
+test("catalog seeds exactly the twenty-one cloud badges with 4-tier thresholds", () => {
   for (const id of BADGE_IDS) {
     assert.match(sql, new RegExp(`\\('${id}',`), `missing catalog seed for ${id}`);
   }
+  // The hidden flag is part of the seed (wave 2); hidden easter eggs are
+  // claude_survivor and wishing_well.
+  assert.match(sql, /hidden boolean NOT NULL DEFAULT false/);
+  assert.match(sql, /'claude_survivor',\s*19,\s*false,\s*true/);
+  assert.match(sql, /'wishing_well',\s*20,\s*false,\s*true/);
   // Spot-check threshold literals (single source of truth lives HERE).
   assert.match(sql, /100000000, 1000000000, 10000000000, 100000000000/); // token_titan
-  assert.match(sql, /'podium',\s*11,\s*true,\s*100, 30, 10, 3/); // podium lower_is_better
-  assert.match(sql, /'streak',\s*5,\s*false,\s*3, 7, 30, 100/);
+  // podium lower_is_better (the hidden column sits between the flags and
+  // the thresholds).
+  assert.match(sql, /'podium',\s*11,\s*true,\s*(?:true|false),\s*100, 30, 10, 3/);
+  assert.match(sql, /'streak',\s*5,\s*false,\s*(?:true|false),\s*3, 7, 30, 100/);
   // 2026-07-14 recalibration values (see the seed comment in the SQL).
-  assert.match(sql, /'momentum',\s*7,\s*false,\s*2, 6, 15, 40/);
-  assert.match(sql, /'polyglot',\s*8,\s*false,\s*5, 15, 30, 60/);
-  assert.match(sql, /'big_day',\s*2,\s*false,\s*10000000, 100000000, 500000000, 3000000000/);
-  assert.match(sql, /'wordsmith',\s*3,\s*false,\s*5000000, 25000000, 100000000, 300000000/);
-  assert.match(sql, /'weekend_warrior',\s*6,\s*false,\s*5, 20, 50, 100/);
-  assert.match(sql, /'trendsetter',\s*9,\s*false,\s*2, 5, 10, 20/);
+  assert.match(sql, /'momentum',\s*7,\s*false,\s*(?:true|false),\s*2, 6, 15, 40/);
+  assert.match(sql, /'polyglot',\s*8,\s*false,\s*(?:true|false),\s*5, 15, 30, 60/);
+  assert.match(sql, /'big_day',\s*2,\s*false,\s*(?:true|false),\s*10000000, 100000000, 500000000, 3000000000/);
+  assert.match(sql, /'wordsmith',\s*3,\s*false,\s*(?:true|false),\s*5000000, 25000000, 100000000, 300000000/);
+  assert.match(sql, /'weekend_warrior',\s*6,\s*false,\s*(?:true|false),\s*5, 20, 50, 100/);
+  assert.match(sql, /'trendsetter',\s*9,\s*false,\s*(?:true|false),\s*2, 5, 10, 20/);
+  // Wave-2 spot checks. grand_slam's Diamond line is "every other badge" —
+  // the catalog value (20) is the current catalog size minus itself and MUST
+  // be bumped by any later migration that adds catalog rows.
+  assert.match(sql, /'grand_slam',\s*21,\s*false,\s*false,\s*3,\s*6,\s*9,\s*20/);
+  assert.match(sql, /'full_blast',\s*15,\s*false,\s*false,\s*50000000, 500000000,\s*2500000000,\s*15000000000/);
 });
 
 test("trendsetter guards against self-debuting models and dataset burn-in", () => {

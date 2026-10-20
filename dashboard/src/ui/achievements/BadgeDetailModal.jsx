@@ -89,8 +89,12 @@ function TierTrack({ badge, viewTier, onSelect }) {
 
 function BadgeDetailBody({ badge, onClose }) {
   const entry = BADGE_BY_ID.get(badge.id);
-  const name = copy(badgeCopyKey(badge.id, "name"));
   const currentTier = badge.tier || 0;
+  // Hidden badge still locked: the whole dialog stays anonymous — name,
+  // description, face and metrics all mask out until any tier is earned.
+  const hiddenLocked = Boolean(entry?.hidden) && currentTier < 1;
+  const name = hiddenLocked ? copy("achievements.hidden.name") : copy(badgeCopyKey(badge.id, "name"));
+  const desc = hiddenLocked ? copy("achievements.hidden.desc") : copy(badgeCopyKey(badge.id, "desc"));
   // The dialog previews one tier at a time — defaults to the earned/current
   // one; clicking a segment in the tier track switches the face, the
   // threshold line and that tier's achieved date.
@@ -102,8 +106,8 @@ function BadgeDetailBody({ badge, onClose }) {
   const achievedDate = formatDate(
     earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null,
   );
-  const valueText = formatBadgeValue(entry?.format, badge.metric_value);
-  const progress = badgeProgress(badge);
+  const valueText = hiddenLocked ? "???" : formatBadgeValue(entry?.format, badge.metric_value);
+  const progress = hiddenLocked ? 0 : badgeProgress(badge);
   const nextTierName = currentTier < 4 ? tierName(currentTier + 1) : null;
   // Coin back side reflects the previewed tier: mint number (cloud), current
   // value or the previewed tier's threshold, and that tier's date.
@@ -111,20 +115,22 @@ function BadgeDetailBody({ badge, onClose }) {
   const formattedIssueNumber = formatIssueNumber(viewIssueNumber);
   const viewDate = formatDate(view.date);
   const viewThresholdText =
-    view.threshold != null ? formatBadgeValue(entry?.format, view.threshold) : null;
-  const backLines = formattedIssueNumber
-    ? [
-        copy("achievements.modal.achieved_label"),
-        copy("achievements.modal.issue_number", { number: formattedIssueNumber }),
-        viewDate || name,
-      ]
-    : view.achieved
+    !hiddenLocked && view.threshold != null ? formatBadgeValue(entry?.format, view.threshold) : null;
+  const backLines = hiddenLocked
+    ? [copy("achievements.modal.locked"), "···", name]
+    : formattedIssueNumber
       ? [
           copy("achievements.modal.achieved_label"),
-          view.viewingCurrent ? valueText : viewThresholdText || valueText,
+          copy("achievements.modal.issue_number", { number: formattedIssueNumber }),
           viewDate || name,
         ]
-      : [copy("achievements.modal.locked"), viewThresholdText || "···", name];
+      : view.achieved
+        ? [
+            copy("achievements.modal.achieved_label"),
+            view.viewingCurrent ? valueText : viewThresholdText || valueText,
+            viewDate || name,
+          ]
+        : [copy("achievements.modal.locked"), viewThresholdText || "···", name];
 
   return (
     <div className="flex flex-col items-center px-6 pb-6 pt-5 text-center">
@@ -132,7 +138,7 @@ function BadgeDetailBody({ badge, onClose }) {
         <div className="min-w-0 flex-1 text-left">
           <h2 className="truncate text-lg font-semibold tracking-tight text-oai-black dark:text-white">{name}</h2>
           <p className="mt-0.5 text-xs text-oai-gray-500 dark:text-oai-gray-400">
-            {copy(badgeCopyKey(badge.id, "desc"))}
+            {desc}
           </p>
         </div>
         <button
@@ -150,6 +156,7 @@ function BadgeDetailBody({ badge, onClose }) {
           badgeId={badge.id}
           tier={view.tier}
           locked={view.tier < 1}
+          hidden={hiddenLocked}
           backLines={backLines}
           label={copy("achievements.modal.coin_aria", { name })}
         />
@@ -196,7 +203,7 @@ function BadgeDetailBody({ badge, onClose }) {
             </dd>
           </div>
         ) : null}
-        {view.viewingCurrent && (
+        {view.viewingCurrent && !hiddenLocked && (
           <div>
             <div className="flex items-baseline justify-between gap-3 text-xs text-oai-gray-500 dark:text-oai-gray-400">
               <span>
@@ -305,7 +312,9 @@ export function BadgeDetailModal({ badge, onClose }) {
         <Dialog.Viewport className="fixed inset-0 z-[120] flex items-center justify-center p-4">
           <Dialog.Popup className={cn("cost-modal-popup", POPUP_CLASS)}>
             <Dialog.Title render={<h2 className="sr-only" />}>
-              {copy(badgeCopyKey(badge.id, "name"))}
+              {(BADGE_BY_ID.get(badge.id)?.hidden && (badge.tier || 0) < 1)
+                ? copy("achievements.hidden.name")
+                : copy(badgeCopyKey(badge.id, "name"))}
             </Dialog.Title>
             <BadgeDetailBody key={badge.id} badge={badge} onClose={onClose} />
           </Dialog.Popup>

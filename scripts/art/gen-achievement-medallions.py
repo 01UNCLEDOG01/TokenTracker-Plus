@@ -18,28 +18,51 @@ EMBLEM_TARGET = 0.775 * S
 
 
 def base_disc():
-    img = Image.new("RGB", (S, S), (8, 9, 11))
-    d = ImageDraw.Draw(img)
-    cx = cy = S // 2
-    # dark face
-    for r in range(212, 0, -2):
-        t = r / 212.0
-        v = int(26 + 14 * math.sin(t * math.pi * 0.9))
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(v, v + 3, v + 6))
-    # solid bright silver frame (plateau with a subtle radial sheen)
-    for r in range(236, 210, -1):
-        t = (r - 210) / 26.0
-        v = int(200 + 24 * math.sin(t * math.pi))
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 5, v + 11), width=1)
-    # darker inner lip between face and frame
-    d.ellipse((cx - 211, cy - 211, cx + 211, cy + 211), outline=(58, 64, 71), width=3)
-    # mid-dark outer rim beyond the frame
-    for r in range(252, 236, -1):
-        t = (r - 236) / 16.0
-        v = int(80 - 30 * t)
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=(v, v + 4, v + 9), width=1)
-    d.ellipse((cx - 252, cy - 252, cx + 252, cy + 252), outline=(26, 30, 35), width=4)
-    return img
+    """One-piece casting (numpy): dark face with a soft ambient bounce toward
+    the rim, a wide brushed-silver frame lit from the upper-left, and NO hard
+    seams — the frame ramps into the face so the coin reads as a single metal
+    body (the old hard inner lip made it look like stacked rings)."""
+    import numpy as np
+    yy, xx = np.mgrid[0:S, 0:S].astype(float)
+    dx, dy = xx - (S - 1) / 2.0, yy - (S - 1) / 2.0
+    r = np.sqrt(dx * dx + dy * dy)
+    theta = np.degrees(np.arctan2(dy, dx))
+    rng = np.random.default_rng(20261021)
+    brush = (rng.random(S) - 0.5) * 9.0  # concentric brushed-metal noise
+    br = brush[np.clip(r.astype(int), 0, S - 1)]
+    key = np.cos(np.radians(theta - 135.0))  # key light from upper-left
+
+    v = np.zeros((S, S), dtype=float)
+    # dark face (same radial gradient as before) + faint key-light shading
+    face = np.clip(r / 212.0, 0, 1)
+    v = 26 + 14 * np.sin(face * math.pi * 0.9) + 4 * key
+    # ambient bounce rising toward the frame (no hard lip line)
+    bounce = (r >= 196) & (r < 212)
+    v[bounce] += ((r[bounce] - 196) / 16.0) * 30.0
+    # seamless ramp face -> frame
+    ramp = (r >= 212) & (r < 220)
+    t = (r[ramp] - 212) / 8.0
+    v[ramp] = 58 + (172 - 58) * t
+    # brushed silver frame with angular key light
+    frame = (r >= 220) & (r <= 236)
+    v[frame] = 206 + 26 * key[frame] + br[frame]
+    # bright edge highlight at the outer rim
+    edge = (r > 234) & (r <= 236)
+    v[edge] = np.minimum(244, v[edge] + 16)
+    # beyond the frame: silver continuation, NOT the dark face color — the
+    # circular alpha mask sits right at 236 and its anti-aliased rim samples
+    # these pixels; dark ones here showed up as a black seam between the
+    # frame and the CSS tier ring.
+    v[r > 236] = 244.0
+
+    rgb = np.zeros((S, S, 3), dtype=np.uint8)
+    is_frame = r >= 212
+    rgb[..., 0] = np.where(is_frame, np.clip(v, 0, 244), np.clip(v, 0, 255))
+    rgb[..., 1] = rgb[..., 0] + np.where(is_frame, 5, 3)
+    rgb[..., 2] = rgb[..., 0] + np.where(is_frame, 11, 6)
+    rgb[..., 1] = np.clip(rgb[..., 1], 0, 255)
+    rgb[..., 2] = np.clip(rgb[..., 2], 0, 255)
+    return Image.fromarray(rgb, "RGB")
 
 
 def emboss(height_map):
@@ -92,10 +115,65 @@ def new_layer():
 
 
 def save(img, name):
-    img.resize((256, 256), Image.LANCZOS).quantize(
-        colors=256, method=Image.MEDIANCUT
+    # Round-coin alpha that stops at the silver frame (r≈238): everything
+    # beyond it is transparent so the CSS tier ring / coin edge (rarity
+    # color) sits directly against the frame. The artwork guardrail
+    # (test/user-badges-artwork.test.js) requires a tRNS chunk — quantize
+    # keeps it as palette transparency.
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).ellipse((20, 20, S - 20, S - 20), fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(1.2))  # soft anti-aliased rim
+    rgba = img.convert("RGBA")
+    rgba.putalpha(mask)
+    rgba.resize((256, 256), Image.LANCZOS).quantize(
+        colors=256, method=Image.FASTOCTREE
     ).save(f"{OUT}/{name}", optimize=True)
     print("saved", name)
+
+
+def logo_height(path, fill=ACCENT_H, cutoff=200):
+    """Rasterized brand logo -> height map: opaque shape at `fill` height,
+    in-shape light details and the white background recessed to 0."""
+    img = Image.open(path).convert("L")
+    return img.point(lambda v: fill if v <= cutoff else 0)
+
+
+def recolor_github_face(src, name, rim_inner=110):
+    """The upstream wall mixes two sources: AI-painted faces and quantized
+    copies of GitHub's official achievement faces (upstream commit message:
+    "Badge artwork sourced from GitHub profile achievements"). GitHub's
+    frames are WHITE; recolor the rim band to the house brushed silver so
+    these faces match the rest of the wall. Alpha (incl. the soft edge and
+    the tRNS chunk after quantize) is preserved."""
+    import numpy as np
+    img = Image.open(src).convert("RGBA")
+    a = np.array(img).astype(float)
+    n = a.shape[0]
+    yy, xx = np.mgrid[0:n, 0:n].astype(float)
+    dx, dy = xx - (n - 1) / 2.0, yy - (n - 1) / 2.0
+    r = np.sqrt(dx * dx + dy * dy)
+    theta = np.degrees(np.arctan2(dy, dx))
+    rng = np.random.default_rng(20261021)
+    brush = (rng.random(n) - 0.5) * 9.0
+    br = brush[np.clip(r.astype(int), 0, n - 1)]
+    key = np.cos(np.radians(theta - 135.0))
+    lum = 206 + 26 * key + br
+    band = r >= rim_inner
+    for c, off in ((0, 0), (1, 5), (2, 11)):
+        ch = a[..., c]
+        ch[band] = np.clip(lum[band] + off, 0, 248)
+        a[..., c] = ch
+    out = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGBA")
+    out.quantize(colors=256, method=Image.FASTOCTREE).save(f"{OUT}/{name}", optimize=True)
+    print("saved", name)
+
+
+def deep_thinker():
+    recolor_github_face(f"{OUT}/galaxy-brain.png", "deep-thinker.png")
+
+
+def heart_model():
+    recolor_github_face(f"{OUT}/heart-on-your-sleeve.png", "heart-model.png")
 
 
 def lw(width):
@@ -230,9 +308,214 @@ def session_marathon():
     save(compose(disc, h, acc), "session-marathon.png")
 
 
+# ── phoenix: firebird rising from ash flecks ────────────────────────────────
+def phoenix():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    ACC = (242, 128, 62, 240)
+    # raised wings: two sweeping arcs meeting at a raised body
+    dh.arc((96, 128, 268, 320), 210, 330, fill=STEEL, width=lw(14))
+    dh.arc((244, 128, 416, 320), 210, 330, fill=STEEL, width=lw(14))
+    # feather tips (short strokes at the wing ends)
+    for x0, y0, dx, dy in ((118, 224, -26, 44), (394, 224, 26, 44)):
+        dh.line((x0, y0, x0 + dx, y0 + dy), fill=STEEL, width=lw(9))
+    # body: slim raised diamond + head
+    dh.polygon([(256, 176), (282, 268), (256, 352), (230, 268)], fill=STEEL)
+    dh.ellipse((240, 148, 272, 182), fill=STEEL)
+    # beak
+    dh.polygon([(270, 158), (296, 168), (270, 178)], fill=ACCENT_H)
+    # flames rising from the ash bed below (accent)
+    da.polygon([(206, 400), (226, 344), (246, 400)], fill=ACC)
+    da.polygon([(240, 404), (266, 318), (292, 404)], fill=ACC)
+    da.polygon([(286, 400), (306, 356), (326, 400)], fill=ACC)
+    # ash bed: low relief bar the bird rises from
+    dh.rounded_rectangle((176, 396, 336, 414), 8, fill=ACCENT_H)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "phoenix.png")
+
+
+# ── iron-month: calendar page with filled day cells ─────────────────────────
+def iron_month():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    ACC = (124, 186, 224, 240)
+    dh.rounded_rectangle((146, 150, 366, 372), 14, fill=STEEL)
+    # recessed header strip + binder rings
+    dh.rectangle((146, 196, 366, 216), fill=110)
+    for rx in (196, 316):
+        dh.rounded_rectangle((rx - 8, 118, rx + 8, 162), 8, fill=STEEL)
+    # day cells: 4x3, some filled (accent) — active days
+    y0 = 232
+    for row in range(3):
+        for col in range(4):
+            x0 = 166 + col * 48
+            if (row * 4 + col) % 2 == 0:
+                da.rounded_rectangle((x0, y0 + row * 44, x0 + 38, y0 + row * 44 + 34), 5, fill=ACC)
+            else:
+                dh.rounded_rectangle((x0, y0 + row * 44, x0 + 38, y0 + row * 44 + 34), 5, fill=ACCENT_H)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "iron-month.png")
+
+
+# ── full-blast: starburst detonation with radial sparks ─────────────────────
+def full_blast():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    ACC = (245, 152, 58, 245)
+    cx = cy = 256
+    # 8-point star (low relief) with a hot accent core
+    pts = []
+    for i in range(16):
+        ang = math.pi * i / 8.0 - math.pi / 2
+        r = 150 if i % 2 == 0 else 62
+        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
+    dh.polygon(pts, fill=ACCENT_H)
+    da.ellipse((cx - 46, cy - 46, cx + 46, cy + 46), fill=ACC)
+    # radial spark strokes (raised steel) in the diagonals
+    for ang in (35, 125, 215, 305):
+        a = math.radians(ang)
+        dh.line((cx + 88 * math.cos(a), cy + 88 * math.sin(a),
+                 cx + 132 * math.cos(a), cy + 132 * math.sin(a)), fill=STEEL, width=lw(8))
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "full-blast.png")
+
+
+# ── deep-diver: anchor over rising bubbles ──────────────────────────────────
+def deep_diver():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    ACC = (112, 176, 228, 240)
+    cx = 256
+    # stock ring on top
+    dh.ellipse((cx - 26, 118, cx + 26, 170), outline=STEEL, width=lw(11))
+    # shank + stock bar
+    dh.line((cx, 158, cx, 388), fill=STEEL, width=lw(13))
+    dh.line((cx - 84, 200, cx + 84, 200), fill=STEEL, width=lw(11))
+    # flukes: two sweeping arms ending in barbed tips
+    dh.arc((cx - 148, 250, cx, 404), 180, 296, fill=STEEL, width=lw(13))
+    dh.arc((cx, 250, cx + 148, 404), 244, 360, fill=STEEL, width=lw(13))
+    dh.polygon([(cx - 158, 330), (cx - 178, 386), (cx - 120, 372)], fill=STEEL)
+    dh.polygon([(cx + 158, 330), (cx + 178, 386), (cx + 120, 372)], fill=STEEL)
+    # bubbles drifting up beside the shank (accent)
+    for bx, by, r in ((196, 176, 10), (180, 130, 7), (322, 210, 9), (338, 162, 6)):
+        da.ellipse((bx - r, by - r, bx + r, by + r), fill=ACC)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "deep-diver.png")
+
+
+# ── multitool-day: stacked tool plates (one day, many tools) ────────────────
+def multitool_day():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    ACC = (176, 142, 228, 240)
+    # three isometric plates stacked with offsets; top plate carries the accent
+    for i, (dx, dy) in enumerate(((-34, 34), (-17, 17), (0, 0))):
+        box = (166 + dx, 190 + dy, 346 + dx, 330 + dy)
+        if i == 2:
+            dh.rounded_rectangle(box, 16, fill=STEEL)
+            da.rounded_rectangle((box[0] + 22, box[1] + 22, box[2] - 22, box[3] - 22), 10, fill=ACC)
+        else:
+            dh.rounded_rectangle(box, 16, fill=ACCENT_H)
+            dh.rounded_rectangle(box, 16, outline=STEEL, width=lw(6))
+    # tool slots on the top plate (recessed)
+    for sx in (232, 296):
+        dh.rectangle((sx - 9, 240, sx + 9, 300), fill=90)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "multitool-day.png")
+
+
+# ── claude-survivor: the Claude starburst over crossed survivor bones ───────
+def claude_survivor():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    ACC = (240, 128, 96, 235)
+    # crossed bones peeking out below the logo (steel, low)
+    dh.line((150, 356, 342, 408), fill=STEEL, width=lw(20))
+    dh.line((342, 356, 150, 408), fill=STEEL, width=lw(20))
+    for ex, ey in ((150, 356), (342, 408), (342, 356), (150, 408)):
+        dh.ellipse((ex - 15, ey - 15, ex + 15, ey + 15), fill=STEEL)
+    # official Claude starburst, cast in accent metal, front and center
+    star = Image.open(r"D:\tt-rebase\.tmp\claude-code.png")
+    hh = logo_height(r"D:\tt-rebase\.tmp\claude-code.png", ACCENT_H).resize((356, 356), Image.LANCZOS)
+    h.paste(hh, (78, 62), hh)
+    m = star.convert("L").point(lambda v: 255 if v <= 200 else 0).resize((356, 356), Image.LANCZOS)
+    acc.paste(ACC, (78, 62), m)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "claude-survivor.png")
+
+
+# ── wishing-well: the DeepSeek whale with coins dropping in ─────────────────
+def wishing_well():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    GOLD = (238, 196, 90, 245)
+    # official DeepSeek whale, cast in accent metal
+    whale = Image.open(r"D:\tt-rebase\.tmp\deepseek.png")
+    hh = logo_height(r"D:\tt-rebase\.tmp\deepseek.png", ACCENT_H).resize((360, 360), Image.LANCZOS)
+    h.paste(hh, (76, 86), hh)
+    m = whale.convert("L").point(lambda v: 255 if v <= 200 else 0).resize((360, 360), Image.LANCZOS)
+    acc.paste((90, 126, 240, 235), (76, 86), m)
+    # wish-coins dropping toward the whale (raised steel rims, gold faces)
+    for bx, by, r in ((88, 120, 17), (122, 82, 12), (424, 132, 14), (398, 88, 10)):
+        da.ellipse((bx - r, by - r, bx + r, by + r), fill=GOLD)
+        da.ellipse((bx - r + 4, by - r + 4, bx + r - 4, by + r - 4), outline=(176, 136, 44, 255), width=4)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "wishing-well.png")
+
+
+# ── grand-slam: trophy cup with a star ──────────────────────────────────────
+def grand_slam():
+    disc = base_disc()
+    h, acc = new_layer()
+    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
+    GOLD = (238, 196, 90, 245)
+    cx = 256
+    # cup body (raised) + accent front panel
+    dh.polygon([(170, 140), (342, 140), (322, 262), (256, 292), (190, 262)], fill=STEEL)
+    da.polygon([(198, 160), (314, 160), (300, 250), (256, 274), (212, 250)], fill=GOLD)
+    # handles
+    dh.arc((96, 148, 200, 244), 90, 270, fill=STEEL, width=lw(11))
+    dh.arc((312, 148, 416, 244), 270, 90, fill=STEEL, width=lw(11))
+    # stem + base
+    dh.rounded_rectangle((238, 292, 274, 330), 6, fill=STEEL)
+    dh.rounded_rectangle((196, 330, 316, 352), 8, fill=STEEL)
+    dh.rounded_rectangle((180, 352, 332, 378), 8, fill=ACCENT_H)
+    # star on the cup (recessed into the accent panel)
+    pts = []
+    for i in range(10):
+        ang = math.pi * i / 5.0 - math.pi / 2
+        r = 34 if i % 2 == 0 else 14
+        pts.append((cx + r * math.cos(ang), 205 + r * math.sin(ang)))
+    da.polygon(pts, fill=(176, 136, 44, 255))
+    # sparkles above the rim
+    dh.line((cx - 92, 118, cx - 92, 142), fill=STEEL, width=6)
+    dh.line((cx - 104, 130, cx - 80, 130), fill=STEEL, width=6)
+    dh.line((cx + 92, 118, cx + 92, 142), fill=STEEL, width=6)
+    dh.line((cx + 80, 130, cx + 104, 130), fill=STEEL, width=6)
+    h, acc = scale_emblem(h, acc)
+    save(compose(disc, h, acc), "grand-slam.png")
+
+
 early_bird()
 around_the_clock()
 sprinter()
 cache_alchemist()
 real_money()
 session_marathon()
+phoenix()
+iron_month()
+full_blast()
+deep_diver()
+multitool_day()
+claude_survivor()
+wishing_well()
+grand_slam()
+deep_thinker()
+heart_model()

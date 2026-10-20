@@ -78,9 +78,13 @@ export function AchievementsSection({
     <div className={`${optical} grid justify-between gap-y-7 ${gridCols} ${className}`}>
       {cells.map(({ entry, record }, index) => {
         const earned = (record.tier || 0) >= 1;
-        const name = copy(badgeCopyKey(entry.id, "name"));
+        // Hidden badges stay anonymous until any tier is earned — even on
+        // the owner's own wall. The flag lives in the catalog (which mirrors
+        // the SQL catalog's hidden column).
+        const hiddenLocked = Boolean(entry.hidden) && !earned;
+        const name = hiddenLocked ? copy("achievements.hidden.name") : copy(badgeCopyKey(entry.id, "name"));
         const tName = earned ? tierName(record.tier) : null;
-        const progress = badgeProgress(record);
+        const progress = hiddenLocked ? 0 : badgeProgress(record);
         return (
           <motion.button
             key={entry.id}
@@ -102,12 +106,13 @@ export function AchievementsSection({
               badgeId={entry.id}
               tier={record.tier}
               locked={!earned}
+              hidden={hiddenLocked}
               size={size}
               className="transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-105"
             />
             <span className="mt-2.5 flex w-full items-center justify-center gap-1">
               <span
-                title={name}
+                title={hiddenLocked ? undefined : name}
                 className="min-w-0 truncate text-xs font-medium leading-tight text-oai-gray-800 dark:text-oai-gray-200"
               >
                 {name}

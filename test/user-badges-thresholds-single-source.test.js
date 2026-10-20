@@ -85,11 +85,37 @@ test("badge id sets agree across SQL, frontend catalog, and copy.csv", () => {
     "multitool",
     "podium",
     "veteran",
+    // wave 2 (2026-10-21): grand_slam has no local replay (it counts diamond
+    // tiers across the whole cloud catalog), the rest replay in local-api.
+    "phoenix",
+    "iron_month",
+    "full_blast",
+    "deep_diver",
+    "multitool_day",
+    "heart_model",
+    "claude_survivor",
+    "wishing_well",
+    "grand_slam",
+  ];
+  // Wave-2 badges that the local replay computes on-device. grand_slam is
+  // deliberately absent (cloud-only).
+  const LOCAL_REPLAYED_CLOUD_IDS = [
+    "phoenix",
+    "iron_month",
+    "full_blast",
+    "deep_diver",
+    "multitool_day",
+    "heart_model",
+    "claude_survivor",
+    "wishing_well",
   ];
   const LOCAL_IDS = ["project_hopper", "project_devotion", "night_owl"];
 
   for (const id of CLOUD_IDS) {
     assert.ok(sql.includes(`'${id}'`), `SQL catalog missing ${id}`);
+  }
+  for (const id of LOCAL_REPLAYED_CLOUD_IDS) {
+    assert.ok(localApi.includes(id), `local-api missing cloud-parity badge ${id}`);
   }
   for (const id of LOCAL_IDS) {
     assert.ok(localApi.includes(id), `local-api missing local badge ${id}`);

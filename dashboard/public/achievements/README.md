@@ -32,6 +32,18 @@ on-device in real time and never leave the machine.
 | **Multitool** (`multitool`) | Distinct AI tools (providers) tracked | 2 | 4 | 6 | 10 |
 | **Podium** (`podium`) | Best-ever rank on the all-time leaderboard | Top 100 | Top 30 | Top 10 | Top 3 |
 | **Veteran** (`veteran`) | Days since your first tracked day | 30 | 90 | 180 | 365 |
+| **Phoenix Rising** (`phoenix`) | Longest return gap between two active days (the interval spans both endpoints) | 7 days | 14 days | 30 days | 90 days |
+| **Iron Month** (`iron_month`) | Most active days inside one calendar month | 10 | 20 | 26 | 29 |
+| **Full Blast** (`full_blast`) | Heaviest ISO week of tokens ever | 50M | 500M | 2.5B | 15B |
+| **Deep Diver** (`deep_diver`) | Distinct models past a billion lifetime tokens each | 1 | 2 | 3 | 5 |
+| **One-Man Band** (`multitool_day`) | Distinct AI tools used inside a single active day | 2 | 3 | 4 | 6 |
+| **The One** (`heart_model`) | Favorite model's share of lifetime tokens (needs ≥5 distinct models to qualify) | 50% | 70% | 85% | 95% |
+| **Ban Wave Survivor** (`claude_survivor`, hidden) | Lifetime tokens through claude-family models (recalibrated 2026-10-21: the original 50M/500M/5B/50B line predates real claude volume) | 1M | 10M | 100M | 1B |
+| **Wishing Well** (`wishing_well`, hidden) | Lifetime tokens tossed into deepseek-family models | 10M | 100M | 1B | 10B |
+| **Grand Slam** (`grand_slam`) | Diamond-tier badges already earned (self excluded — every other catalog badge is the Diamond line) | 3 | 6 | 9 | all |
+
+Hidden badges render as `???` (name, description and face) until any tier is
+earned — even on their owner's own wall.
 
 ### Local badges (this device only, never uploaded)
 
@@ -51,11 +63,19 @@ on-device in real time and never leave the machine.
 ### Face art provenance
 
 The six habit badges (`early-bird`, `around-the-clock`, `sprinter`,
-`cache-alchemist`, `real-money`, `session-marathon`) carry self-drawn
-medallion faces — dark gunmetal disc, steel relief emblem, one accent
-color — each matched to its badge's meaning. `deep_thinker` reuses the
-unused `galaxy-brain.png` face (brain → reasoning; the name semantics carry
-over). The remaining unused faces (`pull-shark`, `starstruck`,
-`pair-extraordinaire`, `open-sourcerer`, `heart-on-your-sleeve`,
-`arctic-code-vault-contributor`, `proxima-*`) keep their GitHub-flavored
-meanings and stay unassigned — don't force them onto unrelated badges.
+`cache-alchemist`, `real-money`, `session-marathon`) and the wave-2 cloud
+badges (`phoenix`, `iron-month`, `full-blast`, `deep-diver`,
+`multitool-day`, `claude-survivor`, `wishing-well`, `grand-slam`) carry
+self-drawn medallion faces — dark gunmetal disc, steel relief emblem, one
+accent color — each matched to its badge's meaning (the generator lives at
+`scripts/art/gen-achievement-medallions.py`; rerun to tweak). `deep_thinker`
+carries a copy of the unused `galaxy-brain.png` face as `deep-thinker.png`
+(brain → reasoning; the name semantics carry over) and `heart_model`
+carries a copy of the unused `heart-on-your-sleeve.png` face as
+`heart-model.png` (a favorite worn openly — the original name semantics
+carry over). The
+remaining unused faces (`pull-shark`, `starstruck`, `pair-extraordinaire`,
+`open-sourcerer`, `heart-on-your-sleeve`,
+`arctic-code-vault-contributor`, `proxima-*`) keep their
+GitHub-flavored meanings and stay unassigned — don't force them onto
+unrelated badges.

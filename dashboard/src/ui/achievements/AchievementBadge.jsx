@@ -1,4 +1,5 @@
 import React from "react";
+import { CircleHelp } from "lucide-react";
 import { BADGE_BY_ID } from "./badge-catalog";
 import { paletteForTier } from "./tier-palette";
 
@@ -14,17 +15,20 @@ const RING_PX = { xs: 0.75, sm: 1, md: 1.5, xl: 2, lg: 2 };
  * framed by a metallic tier ring — bronze/silver/gold/diamond is carried by
  * the ring, since the artwork itself is tier-less. Locked badges render the
  * gray ring + desaturated art. If the artwork fails to load, the lucide glyph
- * from the catalog renders on a tier-gradient face as fallback.
+ * from the catalog renders on a tier-gradient face as fallback. `hidden`
+ * (locked hidden badge) skips the catalog entry entirely and renders a
+ * question-mark face — the real face/name would spoil the surprise.
  */
 export function AchievementBadge({
   badgeId,
   tier = 0,
   size = "md",
   locked = false,
+  hidden = false,
   label,
   className = "",
 }) {
-  const entry = BADGE_BY_ID.get(badgeId);
+  const entry = hidden ? null : BADGE_BY_ID.get(badgeId);
   const isLocked = locked || !tier || tier < 1;
   const palette = paletteForTier(tier, isLocked);
   // size="fill" stretches to the parent box (Badge3DCoin's coin face);
@@ -33,8 +37,8 @@ export function AchievementBadge({
   const px = fill ? "100%" : SIZE_PX[size] || SIZE_PX.md;
   const ring = fill ? 4 : RING_PX[size] || RING_PX.md;
   const [artFailed, setArtFailed] = React.useState(false);
-  const Glyph = entry?.icon || null;
-  const showArt = Boolean(entry?.art) && !artFailed;
+  const Glyph = entry?.icon || (hidden ? CircleHelp : null);
+  const showArt = Boolean(entry?.art) && !artFailed && !hidden;
 
   return (
     <span

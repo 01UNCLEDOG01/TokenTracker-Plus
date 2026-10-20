@@ -75,6 +75,11 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // (hero 396.6亿 vs leaderboard 400.2亿; 10-19 daily -2.11亿). Reading
     // hourly unifies trae-cn with every other machine-level source.
     {id:"14-trae-cn-hourly-account",sql:read("migrations/20261020120000_self-host-trae-cn-hourly.sql")},
+    // Badge wave 2: nine cloud badges (phoenix .. grand_slam) + catalog
+    // hidden flag; rewrites user_badges_refresh/user_badges_full.
+    {id:"15-badge-wave-2",sql:read("migrations/20261021120000_self-host-badge-wave-2.sql")},
+    // claude_survivor thresholds 50M/500M/5B/50B → 1M/10M/100M/1B.
+    {id:"16-claude-survivor-recalibrate",sql:read("migrations/20261021121000_self-host-claude-survivor-recalibrate.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

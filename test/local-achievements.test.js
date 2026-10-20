@@ -24,10 +24,12 @@ function byId(result, id) {
 test("empty inputs yield the full locked catalog", () => {
   const result = computeLocalAchievements([], [], { timeZoneContext: TZ_SHANGHAI });
   // Ten local badges (three originals plus the seven habit badges) plus the
-  // ten cloud-parity badges the fork also replays locally (trendsetter and
-  // podium stay cloud-only — they need cross-user facts).
+  // eighteen cloud-parity badges the fork also replays locally (trendsetter
+  // and podium stay cloud-only — cross-user facts — and grand_slam stays
+  // cloud-only because it counts diamond tiers across the whole cloud
+  // catalog, which the local replay cannot see).
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 20);
+  assert.equal(result.length, 28);
   for (const badge of result) {
     assert.equal(badge.tier, 0);
     assert.equal(badge.metric_value, 0);
@@ -56,6 +58,92 @@ test("cloud-parity badges replay from the local queue with the SQL semantics", (
   assert.equal(byId(result, "weekend_warrior").metric_value, 1);
   // veteran counts calendar days since the first recorded day, not active days.
   assert.equal(byId(result, "veteran").metric_value, 3);
+});
+
+test("wave-2 cloud-parity badges replay with SQL semantics", () => {
+  const rows = [
+    { source: "claude", model: "a", hour_start: "2026-07-01T10:00:00Z", total_tokens: 40 },
+    { source: "codex", model: "b", hour_start: "2026-07-01T11:00:00Z", total_tokens: 60 },
+    { source: "claude", model: "a", hour_start: "2026-07-02T10:00:00Z", total_tokens: 5 },
+    { source: "claude", model: "a", hour_start: "2026-07-04T10:00:00Z", total_tokens: 5 },
+    // 11-day gap (07-04 → 07-15), a fresh ISO week, and still July.
+    { source: "codex", model: "c", hour_start: "2026-07-15T10:00:00Z", total_tokens: 5 },
+  ];
+  const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
+  // phoenix: the longest return gap spans both endpoints (Fri → Mon gaps 3).
+  const phoenix = byId(result, "phoenix");
+  assert.equal(phoenix.metric_value, 11);
+  assert.equal(phoenix.meta.gap_start, "2026-07-04");
+  assert.equal(phoenix.meta.return_day, "2026-07-15");
+  // iron_month counts active UTC days per calendar month.
+  const iron = byId(result, "iron_month");
+  assert.equal(iron.metric_value, 4);
+  assert.equal(iron.meta.month, "2026-07");
+  // full_blast: heaviest ISO week (the 06-29 week holds 110, 07-13 week 5).
+  const blast = byId(result, "full_blast");
+  assert.equal(blast.metric_value, 110);
+  assert.equal(blast.meta.week, "2026-06-29");
+  // multitool_day: 2026-07-01 saw two distinct sources; no day beats it.
+  const swarm = byId(result, "multitool_day");
+  assert.equal(swarm.metric_value, 2);
+  assert.equal(swarm.meta.day, "2026-07-01");
+  assert.deepEqual(swarm.meta.tools.slice().sort(), ["claude", "codex"]);
+  // grand_slam stays cloud-only (diamond tiers span the whole cloud catalog).
+  assert.equal(result.find((b) => b.id === "grand_slam"), undefined);
+});
+
+test("heart_model needs five models and tracks the favorite's share", () => {
+  const guarded = byId(
+    computeLocalAchievements(
+      ["a", "b", "c", "d"].map((model, i) => ({
+        source: "claude", model, hour_start: `2026-07-0${i + 1}T10:00:00Z`, total_tokens: 100,
+      })),
+      [],
+      { timeZoneContext: TZ_SHANGHAI },
+    ),
+    "heart_model",
+  );
+  assert.equal(guarded.metric_value, 0); // one model short of the guard — no share at all
+
+  const rows = [
+    ...["a", "b", "c", "d"].map((model, i) => ({
+      source: "claude", model, hour_start: `2026-07-0${i + 1}T10:00:00Z`, total_tokens: 100,
+    })),
+    { source: "claude", model: "e", hour_start: "2026-07-05T10:00:00Z", total_tokens: 600 },
+  ];
+  const heart = byId(computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }), "heart_model");
+  assert.equal(heart.metric_value, 60); // 600 of 1000 lifetime tokens
+  assert.equal(heart.tier, 1); // bronze 50%
+  assert.equal(heart.meta.model, "e");
+});
+
+test("deep_diver counts models past the billion-token floor", () => {
+  const rows = [
+    { source: "claude", model: "a", hour_start: "2026-07-01T10:00:00Z", total_tokens: 1_200_000_000 },
+    { source: "claude", model: "b", hour_start: "2026-07-02T10:00:00Z", total_tokens: 900_000_000 },
+    { source: "claude", model: "b", hour_start: "2026-07-03T10:00:00Z", total_tokens: 150_000_000 },
+    { source: "claude", model: "c", hour_start: "2026-07-04T10:00:00Z", total_tokens: 50 },
+  ];
+  const diver = byId(computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }), "deep_diver");
+  assert.equal(diver.metric_value, 2); // a crossed on arrival, b on the 07-03 row
+  assert.equal(diver.tier, 2); // silver 2
+  assert.deepEqual(diver.meta.models, ["a", "b"]);
+});
+
+test("claude_survivor and wishing_well accrue per model-name family", () => {
+  const rows = [
+    { source: "claude", model: "claude-opus-4-6", hour_start: "2026-07-01T10:00:00Z", total_tokens: 30_000_000 },
+    { source: "codex", model: "claude-sonnet-4-6", hour_start: "2026-07-02T10:00:00Z", total_tokens: 20_000_000 },
+    { source: "codex", model: "deepseek-v4-1-flash", hour_start: "2026-07-03T10:00:00Z", total_tokens: 10_000_000 },
+    { source: "codex", model: "gpt-x", hour_start: "2026-07-04T10:00:00Z", total_tokens: 999_999_999 },
+  ];
+  const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
+  const survivor = byId(result, "claude_survivor");
+  assert.equal(survivor.metric_value, 50_000_000); // claude-* regardless of source
+  assert.equal(survivor.tier, 1); // bronze 50M
+  const well = byId(result, "wishing_well");
+  assert.equal(well.metric_value, 10_000_000);
+  assert.equal(well.tier, 1); // bronze 10M
 });
 
 test("project_hopper tiers on distinct projects with boundary exactness", () => {

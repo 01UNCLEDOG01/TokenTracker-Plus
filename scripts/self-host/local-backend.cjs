@@ -742,6 +742,9 @@ async function main() {
       // THRESHOLDS in src/lib/local-api.js): UTC day grain, machine-cluster
       // dedup, ISO weeks for momentum. trendsetter and podium have no local
       // metric (cross-user facts), so they keep their dedicated awards.
+      // grand_slam's diamond line ("every other badge") lives in the catalog;
+      // its metric is the diamond count from the monotonic badge table, so a
+      // newly crossed diamond lands one refresh tick later.
       try {
         const metrics = (await db.query(
           "WITH hourly AS ("
@@ -766,14 +769,28 @@ async function main() {
           + "   \'sources\', (SELECT COUNT(DISTINCT source) FROM hourly),"
           + "   \'weekend_days\', (SELECT COUNT(*) FROM days WHERE EXTRACT(dow FROM day) IN (0,6)),"
           + "   \'streak\', (SELECT COALESCE(MAX(run),0) FROM (SELECT COUNT(*) AS run FROM (SELECT day, day - (ROW_NUMBER() OVER (ORDER BY day))::int * INTERVAL \'1 day\' AS grp FROM days) g GROUP BY grp) r),"
-          + "   \'momentum\', (SELECT COALESCE(MAX(CASE WHEN prev >= 10000000 AND prev > 0 THEN curr::numeric / prev ELSE 0 END),0) FROM (SELECT SUM(tokens)::bigint AS curr, LAG(SUM(tokens)::bigint) OVER (ORDER BY wk) AS prev FROM weeks GROUP BY wk) m)"
+          + "   \'momentum\', (SELECT COALESCE(MAX(CASE WHEN prev >= 10000000 AND prev > 0 THEN curr::numeric / prev ELSE 0 END),0) FROM (SELECT SUM(tokens)::bigint AS curr, LAG(SUM(tokens)::bigint) OVER (ORDER BY wk) AS prev FROM weeks GROUP BY wk) m),"
+          + "   \'phoenix\', (SELECT COALESCE(MAX(day - prev_day), 0) FROM (SELECT day, LAG(day) OVER (ORDER BY day) AS prev_day FROM days) g),"
+          + "   \'iron_month\', (SELECT COALESCE(MAX(c), 0) FROM (SELECT COUNT(*) AS c FROM days GROUP BY date_trunc(\'month\', day)) x),"
+          + "   \'full_blast\', (SELECT COALESCE(MAX(tokens), 0) FROM weeks),"
+          + "   \'deep_diver\', (SELECT COUNT(*) FROM (SELECT model FROM hourly GROUP BY model HAVING SUM(total_tokens) >= 1000000000) m),"
+          + "   \'multitool_day\', (SELECT COALESCE(MAX(c), 0) FROM (SELECT COUNT(DISTINCT source) AS c FROM hourly GROUP BY (hour_start AT TIME ZONE \'UTC\')::date) x),"
+          + "   \'heart_model\', (SELECT CASE WHEN (SELECT COUNT(DISTINCT model) FROM hourly) >= 5 THEN (m.t::numeric * 100 / NULLIF((SELECT SUM(total_tokens) FROM hourly), 0)) ELSE 0 END FROM (SELECT model, SUM(total_tokens) AS t FROM hourly GROUP BY model) m ORDER BY m.t DESC LIMIT 1),"
+          + "   \'claude_survivor\', (SELECT COALESCE(SUM(total_tokens), 0) FROM hourly WHERE model LIKE \'claude%\'),"
+          + "   \'wishing_well\', (SELECT COALESCE(SUM(total_tokens), 0) FROM hourly WHERE model LIKE \'deepseek%\')"
           + " ) AS m"
           ,
           [user.id],
         )).rows[0].m;
 
-        // Metric per catalog badge id; veteran is derived, and the two
-        // cross-user badges are handled by the dedicated awards below.
+        // Metric per catalog badge id; veteran is derived, grand_slam reads
+        // the monotonic badge table, and the two cross-user badges are
+        // handled by the dedicated awards below.
+        const diamondCount = Number((await db.query(
+          "SELECT COUNT(*)::int AS c FROM tokentracker_user_badges"
+          + " WHERE user_id = $1 AND tier = 4 AND badge_id <> \'grand_slam\'",
+          [user.id],
+        )).rows[0].c);
         const metricFor = (badgeId) => {
           switch (badgeId) {
             case "token_titan": return Number(metrics.total_tokens);
@@ -785,6 +802,15 @@ async function main() {
             case "polyglot": return Number(metrics.models);
             case "multitool": return Number(metrics.sources);
             case "momentum": return Number(metrics.momentum);
+            case "phoenix": return Number(metrics.phoenix);
+            case "iron_month": return Number(metrics.iron_month);
+            case "full_blast": return Number(metrics.full_blast);
+            case "deep_diver": return Number(metrics.deep_diver);
+            case "multitool_day": return Number(metrics.multitool_day);
+            case "heart_model": return Number(metrics.heart_model);
+            case "claude_survivor": return Number(metrics.claude_survivor);
+            case "wishing_well": return Number(metrics.wishing_well);
+            case "grand_slam": return diamondCount;
             case "veteran": {
               if (!metrics.first_day) return 0;
               const first = Date.parse(metrics.first_day + "T00:00:00Z");

@@ -47,11 +47,18 @@ CREATE TABLE IF NOT EXISTS public.tokentracker_badge_catalog (
   sort_order      int  NOT NULL,
   -- podium: rank 3 beats rank 100 — thresholds compare downward.
   lower_is_better boolean NOT NULL DEFAULT false,
+  -- Hidden badges render as "???" (name, description, face) until any tier
+  -- is earned — even for the owner. Added in badge wave 2 (2026-10-21).
+  hidden          boolean NOT NULL DEFAULT false,
   bronze  numeric NOT NULL,
   silver  numeric NOT NULL,
   gold    numeric NOT NULL,
   diamond numeric NOT NULL
 );
+
+-- CREATE TABLE IF NOT EXISTS does not evolve an existing installation.
+ALTER TABLE public.tokentracker_badge_catalog
+  ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false;
 
 -- 2026-07-14 recalibration (launch data, 710 users): the original big_day /
 -- momentum / polyglot thresholds put 17% / 55% / 21% of users at DIAMOND —
@@ -60,24 +67,42 @@ CREATE TABLE IF NOT EXISTS public.tokentracker_badge_catalog (
 -- live metric_value distributions). wordsmith / weekend_warrior added on the
 -- same data: cumulative output_tokens (real generated work — cache replay
 -- can't inflate it) and weekend active days (UTC-day grain).
+-- 2026-10-21 badge wave 2: nine more cloud badges (sort 13–21). claude_
+-- survivor / wishing_well are HIDDEN easter eggs; grand_slam's diamond line
+-- is "every other badge" — the value below is the current catalog size minus
+-- itself (21 - 1). Any later migration that adds catalog rows MUST bump
+-- grand_slam's diamond in the same migration.
+-- (claude_survivor was recalibrated the same day, 50M/500M/5B/50B →
+-- 1M/10M/100M/1B — see migrations/20261021121000_self-host-claude-survivor-
+-- recalibrate.sql; the seed below already carries the final values.)
 INSERT INTO public.tokentracker_badge_catalog
-  (badge_id, sort_order, lower_is_better, bronze, silver, gold, diamond)
+  (badge_id, sort_order, lower_is_better, hidden, bronze, silver, gold, diamond)
 VALUES
-  ('token_titan',     1,  false, 100000000, 1000000000, 10000000000, 100000000000),
-  ('big_day',         2,  false, 10000000, 100000000, 500000000, 3000000000),
-  ('wordsmith',       3,  false, 5000000, 25000000, 100000000, 300000000),
-  ('marathoner',      4,  false, 7, 30, 100, 365),
-  ('streak',          5,  false, 3, 7, 30, 100),
-  ('weekend_warrior', 6,  false, 5, 20, 50, 100),
-  ('momentum',        7,  false, 2, 6, 15, 40),
-  ('polyglot',        8,  false, 5, 15, 30, 60),
-  ('trendsetter',     9,  false, 2, 5, 10, 20),
-  ('multitool',       10, false, 2, 4, 6, 10),
-  ('podium',          11, true,  100, 30, 10, 3),
-  ('veteran',         12, false, 30, 90, 180, 365)
+  ('token_titan',     1,  false, false, 100000000, 1000000000, 10000000000, 100000000000),
+  ('big_day',         2,  false, false, 10000000, 100000000, 500000000, 3000000000),
+  ('wordsmith',       3,  false, false, 5000000, 25000000, 100000000, 300000000),
+  ('marathoner',      4,  false, false, 7, 30, 100, 365),
+  ('streak',          5,  false, false, 3, 7, 30, 100),
+  ('weekend_warrior', 6,  false, false, 5, 20, 50, 100),
+  ('momentum',        7,  false, false, 2, 6, 15, 40),
+  ('polyglot',        8,  false, false, 5, 15, 30, 60),
+  ('trendsetter',     9,  false, false, 2, 5, 10, 20),
+  ('multitool',       10, false, false, 2, 4, 6, 10),
+  ('podium',          11, true,  false, 100, 30, 10, 3),
+  ('veteran',         12, false, false, 30, 90, 180, 365),
+  ('phoenix',         13, false, false, 7,        14,         30,          90),
+  ('iron_month',      14, false, false, 10,       20,         26,          29),
+  ('full_blast',      15, false, false, 50000000, 500000000,  2500000000,  15000000000),
+  ('deep_diver',      16, false, false, 1,        2,          3,           5),
+  ('multitool_day',   17, false, false, 2,        3,          4,           6),
+  ('heart_model',     18, false, false, 50,       70,         85,          95),
+  ('claude_survivor', 19, false, true,  1000000, 10000000,  100000000,   1000000000),
+  ('wishing_well',    20, false, true,  10000000, 100000000,  1000000000,  10000000000),
+  ('grand_slam',      21, false, false, 3,        6,          9,           20)
 ON CONFLICT (badge_id) DO UPDATE SET
   sort_order      = EXCLUDED.sort_order,
   lower_is_better = EXCLUDED.lower_is_better,
+  hidden          = EXCLUDED.hidden,
   bronze  = EXCLUDED.bronze,
   silver  = EXCLUDED.silver,
   gold    = EXCLUDED.gold,
@@ -406,12 +431,110 @@ BEGIN
     GROUP BY uf.user_id
   ),
   fav AS (
-    SELECT DISTINCT ON (user_id) user_id, model AS favorite_model
+    SELECT DISTINCT ON (user_id) user_id,
+           model AS favorite_model, t AS favorite_tokens
     FROM (
       SELECT user_id, model, SUM(tokens) AS t
       FROM usm GROUP BY user_id, model
     ) m
     ORDER BY user_id, t DESC
+  ),
+  -- phoenix: longest return interval between two active days (the gap spans
+  -- both endpoints — a Friday-active, Monday-active week gaps 3). First day
+  -- has no predecessor and never counts as "coming back".
+  phoenix AS (
+    SELECT DISTINCT ON (user_id) user_id,
+           (day - prev_day) AS gap_days,
+           prev_day AS gap_start,
+           day AS return_day
+    FROM (
+      SELECT user_id, day,
+             LAG(day) OVER (PARTITION BY user_id ORDER BY day) AS prev_day
+      FROM daily
+    ) g
+    WHERE prev_day IS NOT NULL
+    ORDER BY user_id, (day - prev_day) DESC, day ASC
+  ),
+  -- iron_month: most active UTC days inside one calendar month.
+  monthly AS (
+    SELECT user_id, date_trunc('month', day)::date AS mon, COUNT(*) AS month_active
+    FROM daily
+    GROUP BY user_id, date_trunc('month', day)::date
+  ),
+  iron_month AS (
+    SELECT DISTINCT ON (user_id) user_id, month_active, mon AS best_month
+    FROM monthly
+    ORDER BY user_id, month_active DESC, mon ASC
+  ),
+  -- full_blast: heaviest ISO week ever (weekly already aggregates daily).
+  full_blast AS (
+    SELECT DISTINCT ON (user_id) user_id,
+           wtok AS max_week_tokens, wk AS best_week
+    FROM weekly
+    ORDER BY user_id, wtok DESC, wk ASC
+  ),
+  -- deep_diver: distinct models whose lifetime total crossed 1B tokens.
+  deep_diver AS (
+    SELECT user_id, COUNT(*) AS big_models,
+           COALESCE(jsonb_agg(model ORDER BY t DESC), '[]'::jsonb) AS big_model_list
+    FROM (
+      SELECT user_id, model, SUM(tokens) AS t
+      FROM usm
+      WHERE tokens > 0
+      GROUP BY user_id, model
+    ) m
+    WHERE t >= 1000000000
+    GROUP BY user_id
+  ),
+  -- multitool_day: most distinct sources inside one active UTC day.
+  daily_tools AS (
+    SELECT user_id, day, COUNT(DISTINCT source) AS day_tools,
+           COALESCE(jsonb_agg(DISTINCT source), '[]'::jsonb) AS tool_list
+    FROM usm
+    WHERE tokens > 0
+    GROUP BY user_id, day
+  ),
+  multitool_day AS (
+    SELECT DISTINCT ON (user_id) user_id,
+           day_tools, day AS tool_day, tool_list
+    FROM daily_tools
+    ORDER BY user_id, day_tools DESC, day ASC
+  ),
+  -- heart_model: the favorite model's share of lifetime tokens, in percent.
+  -- Guard: >= 5 distinct models — a one-model history is 100% by definition,
+  -- not devotion. total_tokens > 0 mirrors the val IS NOT NULL skip below.
+  heart AS (
+    SELECT f.user_id,
+           f.favorite_model AS top_model,
+           (f.favorite_tokens::numeric * 100 / b.total_tokens) AS share_pct
+    FROM fav f
+    JOIN base b USING (user_id)
+    JOIN variety v USING (user_id)
+    WHERE v.models >= 5 AND b.total_tokens > 0
+  ),
+  -- Family badges: lifetime tokens through model-name prefixes. Claude family
+  -- ("封号幸存者") and deepseek family ("许愿池") are the hidden ones.
+  claude_family AS (
+    SELECT user_id, SUM(tokens) AS claude_tokens
+    FROM usm
+    WHERE model LIKE 'claude%' AND tokens > 0
+    GROUP BY user_id
+  ),
+  deepseek_family AS (
+    SELECT user_id, SUM(tokens) AS deepseek_tokens
+    FROM usm
+    WHERE model LIKE 'deepseek%' AND tokens > 0
+    GROUP BY user_id
+  ),
+  -- grand_slam: diamond-tier badges already earned, self excluded. Reads the
+  -- monotonic badge table (last refresh's tiers), so a newly crossed diamond
+  -- lands in the slam count one refresh tick later.
+  diamonds AS (
+    SELECT user_id, COUNT(*) AS diamond_badges
+    FROM tokentracker_user_badges
+    WHERE tier = 4
+      AND badge_id <> 'grand_slam'
+    GROUP BY user_id
   ),
   -- Current rank from the newest total-period snapshot window (sampled; the
   -- monotonic upsert turns samples into best-ever).
@@ -431,6 +554,14 @@ BEGIN
            mo.max_wow, mo.wow_week,
            v.models, v.sources, f.favorite_model,
            t.early_models,
+           p.gap_days, p.gap_start, p.return_day,
+           im.month_active, im.best_month,
+           fb.max_week_tokens, fb.best_week,
+           dd.big_models, dd.big_model_list,
+           mt.day_tools, mt.tool_day, mt.tool_list,
+           h.share_pct, h.top_model,
+           cf.claude_tokens, ds.deepseek_tokens,
+           dz.diamond_badges,
            r.rank AS current_rank
     FROM base b
     LEFT JOIN best_day bd USING (user_id)
@@ -439,6 +570,15 @@ BEGIN
     LEFT JOIN variety  v  USING (user_id)
     LEFT JOIN fav      f  USING (user_id)
     LEFT JOIN trend    t  USING (user_id)
+    LEFT JOIN phoenix  p  USING (user_id)
+    LEFT JOIN iron_month im USING (user_id)
+    LEFT JOIN full_blast fb USING (user_id)
+    LEFT JOIN deep_diver dd USING (user_id)
+    LEFT JOIN multitool_day mt USING (user_id)
+    LEFT JOIN heart    h  USING (user_id)
+    LEFT JOIN claude_family cf USING (user_id)
+    LEFT JOIN deepseek_family ds USING (user_id)
+    LEFT JOIN diamonds dz USING (user_id)
     LEFT JOIN cur_rank r  USING (user_id)
   )
   INSERT INTO tokentracker_user_badges AS ub
@@ -463,7 +603,16 @@ BEGIN
     ('trendsetter',     f.early_models::numeric,   '{}'::jsonb),
     ('multitool',       f.sources::numeric,        '{}'::jsonb),
     ('podium',          f.current_rank::numeric,   '{}'::jsonb),
-    ('veteran',         f.veteran_days::numeric,   jsonb_build_object('first_day', f.first_day))
+    ('veteran',         f.veteran_days::numeric,   jsonb_build_object('first_day', f.first_day)),
+    ('phoenix',         f.gap_days::numeric,       jsonb_build_object('gap_start', f.gap_start, 'return_day', f.return_day)),
+    ('iron_month',      f.month_active::numeric,   jsonb_build_object('month', f.best_month)),
+    ('full_blast',      f.max_week_tokens::numeric, jsonb_build_object('week', f.best_week)),
+    ('deep_diver',      f.big_models::numeric,     jsonb_build_object('models', f.big_model_list)),
+    ('multitool_day',   f.day_tools::numeric,      jsonb_build_object('day', f.tool_day, 'tools', f.tool_list)),
+    ('heart_model',     f.share_pct::numeric,      jsonb_build_object('model', f.top_model)),
+    ('claude_survivor', f.claude_tokens::numeric,  '{}'::jsonb),
+    ('wishing_well',    f.deepseek_tokens::numeric, '{}'::jsonb),
+    ('grand_slam',      f.diamond_badges::numeric, '{}'::jsonb)
   ) AS m(badge_id, val, meta)
   JOIN tokentracker_badge_catalog c ON c.badge_id = m.badge_id
   CROSS JOIN LATERAL (
@@ -483,8 +632,9 @@ BEGIN
         ELSE 0 END
       END AS tier
   ) ev
-  -- momentum/podium have no value until a qualifying week / a rank exists;
-  -- skip those rows (the dashboard renders missing rows as locked at zero).
+  -- momentum/podium/heart_model/phoenix have no value until a qualifying
+  -- week / a rank / a 5-model history / a second active day exists; skip
+  -- those rows (the dashboard renders missing rows as locked at zero).
   WHERE m.val IS NOT NULL
   ON CONFLICT (user_id, badge_id) DO UPDATE SET
     -- MONOTONIC: tier only ever ratchets up.
@@ -557,6 +707,7 @@ AS $func$
     'metric_value', b.metric_value,
     'thresholds', jsonb_build_array(c.bronze, c.silver, c.gold, c.diamond),
     'lower_is_better', c.lower_is_better,
+    'hidden', c.hidden,
     'next_threshold', CASE b.tier
       WHEN 4 THEN NULL
       WHEN 3 THEN c.diamond

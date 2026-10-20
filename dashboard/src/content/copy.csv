@@ -1409,6 +1409,26 @@ achievements.badge.podium.name,dashboard,*,AchievementsSection,podium_name,"Podi
 achievements.badge.podium.desc,dashboard,*,BadgeDetailModal,podium_desc,"Climb the all-time leaderboard.",,active
 achievements.badge.veteran.name,dashboard,*,AchievementsSection,veteran_name,"Veteran",,active
 achievements.badge.veteran.desc,dashboard,*,BadgeDetailModal,veteran_desc,"Stick around — counted from your first tracked day.",,active
+achievements.badge.phoenix.name,dashboard,*,AchievementsSection,phoenix_name,"Phoenix Rising",,active
+achievements.badge.phoenix.desc,dashboard,*,BadgeDetailModal,phoenix_desc,"Come back from your longest break — the gap between two active days measured in days.",,active
+achievements.badge.iron_month.name,dashboard,*,AchievementsSection,iron_month_name,"Iron Month",,active
+achievements.badge.iron_month.desc,dashboard,*,BadgeDetailModal,iron_month_desc,"Your most active calendar month — days spent shipping rather than skipping.",,active
+achievements.badge.full_blast.name,dashboard,*,AchievementsSection,full_blast_name,"Full Blast",,active
+achievements.badge.full_blast.desc,dashboard,*,BadgeDetailModal,full_blast_desc,"Burn through your heaviest single ISO week of tokens.",,active
+achievements.badge.deep_diver.name,dashboard,*,AchievementsSection,deep_diver_name,"Deep Diver",,active
+achievements.badge.deep_diver.desc,dashboard,*,BadgeDetailModal,deep_diver_desc,"Push that many distinct models past a billion lifetime tokens.",,active
+achievements.badge.multitool_day.name,dashboard,*,AchievementsSection,multitool_day_name,"One-Man Band",,active
+achievements.badge.multitool_day.desc,dashboard,*,BadgeDetailModal,multitool_day_desc,"Juggle that many different AI tools inside a single active day.",,active
+achievements.badge.heart_model.name,dashboard,*,AchievementsSection,heart_model_name,"The One",,active
+achievements.badge.heart_model.desc,dashboard,*,BadgeDetailModal,heart_model_desc,"Let one model take this share of your lifetime tokens — heart on your sleeve. Needs five models to qualify.",,active
+achievements.badge.claude_survivor.name,dashboard,*,AchievementsSection,claude_survivor_name,"Ban Wave Survivor",,active
+achievements.badge.claude_survivor.desc,dashboard,*,BadgeDetailModal,claude_survivor_desc,"Lifetime tokens through claude-family models — you outlived every ban wave.",,active
+achievements.badge.wishing_well.name,dashboard,*,AchievementsSection,wishing_well_name,"Wishing Well",,active
+achievements.badge.wishing_well.desc,dashboard,*,BadgeDetailModal,wishing_well_desc,"Lifetime tokens tossed into deepseek-family models — every coin carries a wish.",,active
+achievements.badge.grand_slam.name,dashboard,*,AchievementsSection,grand_slam_name,"Grand Slam",,active
+achievements.badge.grand_slam.desc,dashboard,*,BadgeDetailModal,grand_slam_desc,"Collect diamond-tier badges — the trophy case fills itself.",,active
+achievements.hidden.name,dashboard,*,AchievementsSection,hidden_name,"???",,active
+achievements.hidden.desc,dashboard,*,BadgeDetailModal,hidden_desc,"Hidden achievement — unlock it to reveal.",,active
 achievements.badge.project_hopper.name,dashboard,*,AchievementsSection,project_hopper_name,"Project Hopper",,active
 achievements.badge.project_hopper.desc,dashboard,*,BadgeDetailModal,project_hopper_desc,"Spread your tokens across many projects.",,active
 achievements.badge.project_devotion.name,dashboard,*,AchievementsSection,project_devotion_name,"Project Devotion",,active

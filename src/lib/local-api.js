@@ -473,7 +473,22 @@ const CLOUD_PARITY_BADGE_THRESHOLDS = {
   polyglot: [5, 15, 30, 60], // distinct models
   multitool: [2, 4, 6, 10], // distinct sources
   veteran: [30, 90, 180, 365], // days since the first recorded day
+  phoenix: [7, 14, 30, 90], // longest return gap between two active days
+  iron_month: [10, 20, 26, 29], // most active UTC days in one calendar month
+  full_blast: [50000000, 500000000, 2500000000, 15000000000], // heaviest ISO week
+  deep_diver: [1, 2, 3, 5], // distinct models with lifetime >= 1B tokens
+  multitool_day: [2, 3, 4, 6], // most distinct sources in one active UTC day
+  heart_model: [50, 70, 85, 95], // favorite model's share of lifetime tokens, % (needs >= 5 models)
+  claude_survivor: [1000000, 10000000, 100000000, 1000000000], // lifetime claude-family tokens (hidden badge)
+  wishing_well: [10000000, 100000000, 1000000000, 10000000000], // lifetime deepseek-family tokens (hidden badge)
+  // grand_slam stays cloud-only: it counts diamond tiers across the whole
+  // CLOUD catalog (including trendsetter/podium, which have no local
+  // metric), so a local replay could never agree with the server's number.
 };
+
+// deep_diver's per-model lifetime floor — same constant as the SQL CTE and
+// the self-hosted writer's HAVING clause.
+const DEEP_DIVER_MODEL_FLOOR = 1000000000;
 
 const ALL_LOCAL_BADGE_THRESHOLDS = {
   ...LOCAL_BADGE_THRESHOLDS,
@@ -556,6 +571,13 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   let cachedTotal = 0;
   let reasoningTotal = 0;
   let costTotal = 0;
+  // Wave-2 cloud-parity accumulators (deep_diver / heart_model input,
+  // claude_survivor / wishing_well). Family prefixes match the SQL
+  // `model LIKE 'claude%'` / `'deepseek%'` semantics.
+  let claudeTokens = 0;
+  let deepseekTokens = 0;
+  const modelTokens = new Map();
+  const bigModels = new Set();
   for (const row of sortByHour(queueRows || [])) {
     const tokens = Number(row.total_tokens || 0);
     if (tokens <= 0) continue;
@@ -572,6 +594,23 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     if (tokens > sprintPeak) {
       sprintPeak = tokens;
       bump("sprinter", sprintPeak, row.hour_start, { hour_start: row.hour_start });
+    }
+    if (row.model) {
+      const modelKey = String(row.model);
+      const modelRunning = (modelTokens.get(modelKey) || 0) + tokens;
+      modelTokens.set(modelKey, modelRunning);
+      if (modelRunning >= DEEP_DIVER_MODEL_FLOOR && !bigModels.has(modelKey)) {
+        bigModels.add(modelKey);
+        bump("deep_diver", bigModels.size, row.hour_start, { models: [...bigModels] });
+      }
+      if (modelKey.startsWith("claude")) {
+        claudeTokens += tokens;
+        bump("claude_survivor", claudeTokens, row.hour_start);
+      }
+      if (modelKey.startsWith("deepseek")) {
+        deepseekTokens += tokens;
+        bump("wishing_well", deepseekTokens, row.hour_start);
+      }
     }
     const parts = getZonedParts(new Date(row.hour_start), timeZoneContext || {});
     if (!parts) continue;
@@ -617,6 +656,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   const seenModels = new Set();
   const seenSources = new Set();
   const weekTokens = new Map();
+  const monthActiveDays = new Map();
   const firstDayMs = dayKeys.length ? Date.parse(`${dayKeys[0]}T00:00:00Z`) : null;
   let totalTokens = 0;
   let totalOutput = 0;
@@ -639,11 +679,30 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     if (dow === 0 || dow === 6) weekendDays += 1;
     for (const model of entry.models) seenModels.add(model);
     for (const source of entry.sources) seenSources.add(source);
+    // phoenix: a skipped stretch counts on the day the user returns — the
+    // gap spans both endpoints, same as the SQL CTE (Fri → Mon gaps 3).
+    if (prevDayMs !== null && dayMs - prevDayMs > DAY_MS) {
+      bump("phoenix", Math.round((dayMs - prevDayMs) / DAY_MS), atIso, {
+        gap_start: new Date(prevDayMs).toISOString().slice(0, 10),
+        return_day: day,
+      });
+    }
     runLength = prevDayMs !== null && dayMs - prevDayMs === DAY_MS ? runLength + 1 : 1;
     prevDayMs = dayMs;
     if (runLength > longestRun) longestRun = runLength;
     const weekStart = isoWeekStartMs(dayMs);
     weekTokens.set(weekStart, (weekTokens.get(weekStart) || 0) + entry.tokens);
+    // iron_month / multitool_day / full_blast: per-month active-day count,
+    // per-day tool breadth, and the running ISO-week total. bump() keeps
+    // only the running maximum, so partial weeks/months never downgrade.
+    const monthKey = day.slice(0, 7);
+    const monthCount = (monthActiveDays.get(monthKey) || 0) + 1;
+    monthActiveDays.set(monthKey, monthCount);
+    bump("iron_month", monthCount, atIso, { month: monthKey });
+    bump("multitool_day", entry.sources.size, atIso, { day, tools: [...entry.sources] });
+    bump("full_blast", weekTokens.get(weekStart), atIso, {
+      week: new Date(weekStart).toISOString().slice(0, 10),
+    });
 
     bump("token_titan", totalTokens, atIso);
     bump("big_day", entry.tokens, atIso);
@@ -676,6 +735,29 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   }
   if (momentumCrossedMs !== null) {
     bump("momentum", bestMomentum, new Date(momentumCrossedMs + 7 * DAY_MS).toISOString());
+  }
+
+  // heart_model: the favorite model's share of lifetime tokens, in percent.
+  // Needs >= 5 distinct models — a one-model history is 100% by definition,
+  // not devotion. Achieved timestamp lands on the last active day (the
+  // share is a whole-history ratio, replayed once the queue is consumed).
+  if (seenModels.size >= 5 && totalTokens > 0) {
+    let topModel = null;
+    let topTokens = 0;
+    for (const [model, t] of modelTokens) {
+      if (t > topTokens) {
+        topTokens = t;
+        topModel = model;
+      }
+    }
+    if (topModel) {
+      bump(
+        "heart_model",
+        (topTokens * 100) / totalTokens,
+        dayKeys.length ? `${dayKeys[dayKeys.length - 1]}T00:00:00.000Z` : null,
+        { model: topModel },
+      );
+    }
   }
 
   // session_marathon: longest single session that actually spent tokens.

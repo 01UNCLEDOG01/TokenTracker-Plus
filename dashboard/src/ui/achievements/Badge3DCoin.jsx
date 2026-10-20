@@ -1,5 +1,6 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import React, { useEffect, useRef } from "react";
+import { CircleHelp } from "lucide-react";
 import { AchievementBadge } from "./AchievementBadge";
 import { BADGE_BY_ID } from "./badge-catalog";
 import { paletteForTier } from "./tier-palette";
@@ -17,14 +18,14 @@ const COIN_THICKNESS = 8; // px between front and back face planes
  * - Reduced motion: no idle sway; release settles with a short tween. The
  *   drag itself stays — it is user-driven, not decorative.
  */
-export function Badge3DCoin({ badgeId, tier, locked = false, size = 176, backLines = [], label }) {
+export function Badge3DCoin({ badgeId, tier, locked = false, hidden = false, size = 176, backLines = [], label }) {
   const rotY = useMotionValue(0);
   const reducedMotion = useReducedMotion();
   const dragRef = useRef(null);
   const animRef = useRef(null);
   const interactedRef = useRef(false);
   const palette = paletteForTier(tier, locked);
-  const BackGlyph = BADGE_BY_ID.get(badgeId)?.icon || null;
+  const BackGlyph = hidden ? CircleHelp : BADGE_BY_ID.get(badgeId)?.icon || null;
 
   // Sheen tracks rotation so light appears to travel across the metal. The
   // back face is pre-rotated 180°, so its sheen sweeps the opposite way — the
@@ -174,6 +175,7 @@ export function Badge3DCoin({ badgeId, tier, locked = false, size = 176, backLin
               badgeId={badgeId}
               tier={tier}
               locked={locked}
+              hidden={hidden}
               size="fill"
               className="brightness-105 saturate-[1.08]"
             />
