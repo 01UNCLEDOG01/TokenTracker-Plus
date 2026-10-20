@@ -15,7 +15,7 @@ const CATALOG_PATH = path.join(
 
 test("every achievement uses an original badge-id artwork file", () => {
   const catalog = fs.readFileSync(CATALOG_PATH, "utf8");
-  const rows = [...catalog.matchAll(/id: "([a-z_]+)"[^\n]+art: "\/achievements\/([^"]+)"/g)];
+  const rows = [...catalog.matchAll(/id: "([a-z_]+)"[^\n]+art: "\/achievements\/([^"?]+)/g)];
 
   assert.ok(rows.length >= 15, "expected the full achievement artwork catalog");
 

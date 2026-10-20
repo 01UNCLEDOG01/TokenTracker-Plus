@@ -140,10 +140,10 @@ test("claude_survivor and wishing_well accrue per model-name family", () => {
   const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
   const survivor = byId(result, "claude_survivor");
   assert.equal(survivor.metric_value, 50_000_000); // claude-* regardless of source
-  assert.equal(survivor.tier, 1); // bronze 50M
+  assert.equal(survivor.tier, 2); // recalibrated lines 1M/10M/100M/1B — 50M is silver
   const well = byId(result, "wishing_well");
   assert.equal(well.metric_value, 10_000_000);
-  assert.equal(well.tier, 1); // bronze 10M
+  assert.equal(well.tier, 1); // wishing lines are 10M/100M/1B/10B — 10M is bronze
 });
 
 test("project_hopper tiers on distinct projects with boundary exactness", () => {

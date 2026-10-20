@@ -35,25 +35,26 @@ def base_disc():
     v = np.zeros((S, S), dtype=float)
     # dark face (same radial gradient as before) + faint key-light shading
     face = np.clip(r / 212.0, 0, 1)
-    v = 26 + 14 * np.sin(face * math.pi * 0.9) + 4 * key
+    v = 24 + 13 * np.sin(face * math.pi * 0.9) + 4 * key
     # ambient bounce rising toward the frame (no hard lip line)
     bounce = (r >= 196) & (r < 212)
-    v[bounce] += ((r[bounce] - 196) / 16.0) * 30.0
+    v[bounce] += ((r[bounce] - 196) / 16.0) * 26.0
     # seamless ramp face -> frame
     ramp = (r >= 212) & (r < 220)
     t = (r[ramp] - 212) / 8.0
-    v[ramp] = 58 + (172 - 58) * t
-    # brushed silver frame with angular key light
+    v[ramp] = 54 + (160 - 54) * t
+    # brushed silver frame with angular key light — darker than v1: the
+    # original faces' frames sit visibly darker than the CSS tier ring.
     frame = (r >= 220) & (r <= 236)
-    v[frame] = 206 + 26 * key[frame] + br[frame]
+    v[frame] = 190 + 26 * key[frame] + br[frame]
     # bright edge highlight at the outer rim
     edge = (r > 234) & (r <= 236)
-    v[edge] = np.minimum(244, v[edge] + 16)
+    v[edge] = np.minimum(238, v[edge] + 14)
     # beyond the frame: silver continuation, NOT the dark face color — the
     # circular alpha mask sits right at 236 and its anti-aliased rim samples
     # these pixels; dark ones here showed up as a black seam between the
     # frame and the CSS tier ring.
-    v[r > 236] = 244.0
+    v[r > 236] = 238.0
 
     rgb = np.zeros((S, S, 3), dtype=np.uint8)
     is_frame = r >= 212
@@ -66,9 +67,10 @@ def base_disc():
 
 
 def emboss(height_map):
-    """Height map -> cast-metal look (light from top-left)."""
-    shifted = ImageChops.offset(height_map, 3, 3)
-    relief = ImageChops.subtract(height_map, shifted, 1, 118)
+    """Height map -> cast-metal look (light from top-left). Offset 2px +
+    a >1 subtract scale keep the relief crisp at 256px (3px/1.0 read soft)."""
+    shifted = ImageChops.offset(height_map, 2, 2)
+    relief = ImageChops.subtract(height_map, shifted, 1.3, 118)
     return ImageOps.colorize(
         relief, black=(14, 16, 19), white=(240, 244, 249), mid=(120, 130, 141)
     )

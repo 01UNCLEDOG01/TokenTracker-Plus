@@ -209,6 +209,11 @@ test("source_exact cards mirror into every edge file and price before public rat
     // The undated max spelling is the same 05-20 snapshot SKU on both sides.
     ["trae-cn", "qwen3.7-max", { input: 2.5, output: 7.5 }],
     ["opencode", "mimo-v2.6-flash-free", { input: 0.14, output: 0.28 }],
+    // The upstream free-suffix rule (2026-10-21 merge) zero-bills `-free` ids
+    // without their own curated card, after the exact lookups: an id with a
+    // real published card keeps billing from it (mimo above), and a bare id
+    // never reaches this rule at all (source-scoped).
+    ["opencode", "deepseek-v4.1-flash-free", null],
   ];
   for (const name of [CANONICAL, ...MIRRORS]) {
     const { code } = transformSync(extractBlock(name), { loader: "ts", target: "es2020" });
