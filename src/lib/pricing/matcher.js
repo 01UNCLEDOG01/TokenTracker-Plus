@@ -376,25 +376,6 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
     };
   }
 
-  // 3b. OpenCode Zen free models carry a `-free` suffix on the paid model id
-  // (`deepseek-v4.1-flash-free`); the base-name FUZZY match must not bill
-  // them. Sits after the exact lookups, and an id whose own full name has a
-  // curated fuzzy entry (Xiaomi's mimo-v2.6-flash-free card) is NOT the
-  // base-name inheritance this rule guards against — it keeps pricing from
-  // that card in step 4.
-  if (sourceKey === "opencode" && lower.endsWith("-free")) {
-    const ownFuzzyCard =
-      Array.isArray(curated.fuzzy) &&
-      curated.fuzzy.some(({ match }) => match && match.toLowerCase() === lower);
-    if (!ownFuzzyCard) {
-      return {
-        hit: true,
-        source: "curated:opencode-free-suffix",
-        value: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
-      };
-    }
-  }
-
   // 4. CURATED fuzzy substring. Also try a dot-restored variant of the input
   // (digits separated by `-` rejoined as `.`) so providers that dash-normalize
   // numeric segments — Droid emits `glm-5-1-0` for upstream `GLM-5.1` — still
