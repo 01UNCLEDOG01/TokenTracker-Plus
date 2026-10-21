@@ -167,6 +167,7 @@
   "limits.provider.grok": "Grok Build",
   "limits.provider.copilot": "GitHub Copilot",
   "limits.provider.antigravity": "Antigravity",
+  "limits.label.apigoto_subscription": "サブスク期間",
   "limits.provider.apigoto": "APIGOTO",
   "limits.provider.raccoon": "Raccoon",
   "limits.label.raccoon_wallets": "{{wallets}}、合計 {{total}} {{unit}}",

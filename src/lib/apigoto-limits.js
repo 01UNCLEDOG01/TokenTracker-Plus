@@ -14,6 +14,8 @@ const path = require("node:path");
 //        {refresh_token} → data.{access_token, refresh_token}
 //   GET  /api/v1/user/user/subscription/policy-limit
 //        → data.usage_limits[] {dim, window_sec, used, limit, reset_at, unit}
+//   GET  /api/v1/user/user/subscription/current
+//        → data.{plan_name, status, started_at, expires_at}   (expiry row)
 //
 // Credentials live in ~/.tokentracker/apigoto-credentials.json (chmod 600):
 //   { "access_token": "...", "refresh_token": "...", "access_exp_ms": 1792098331000 }
@@ -116,6 +118,32 @@ async function refreshAccessToken(fetchImpl, refreshToken, timeoutMs) {
   return { access_token: accessToken, refresh_token: nextRefresh };
 }
 
+// The panel's axios baseURL doubles the user segment: /api/v1/user/user/….
+// Verified live (2026-10-22): returns the subscription identity with microsecond
+// ISO timestamps, e.g. {plan_name:"RouterCode PLUS", status:"active",
+// started_at:"2026-10-09T09:30:40.222837Z", expires_at:"2026-11-09T09:30:40.222837Z"}.
+function parseApigotoTimestamp(value) {
+  if (typeof value !== "string" || !value) return NaN;
+  // V8 tolerates >3 fractional digits, but trim to milliseconds so the parse
+  // stays valid on stricter engines.
+  const normalized = value.replace(/(\.\d{3})\d+/, "$1");
+  const ms = Date.parse(normalized);
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
+async function fetchApigotoSubscription(fetchImpl, accessToken, timeoutMs) {
+  const body = await fetchJson(fetchImpl, `${APIGOTO_BASE_URL}/user/subscription/current`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }, timeoutMs);
+  const sub = body?.data || {};
+  return {
+    planName: typeof sub.plan_name === "string" && sub.plan_name.trim() ? sub.plan_name.trim() : null,
+    status: typeof sub.status === "string" ? sub.status : null,
+    startedMs: parseApigotoTimestamp(sub.started_at),
+    expiresMs: parseApigotoTimestamp(sub.expires_at),
+  };
+}
+
 // Returns {configured:true, apigoto:{configured:true, plan_name, primary_window}}
 // in the shared usage-limits shape, or {configured:false} when no credentials
 // exist (the provider is invisible rather than erroring).
@@ -178,11 +206,39 @@ async function fetchApigotoLimits({
     used: Number(weekly.used) || 0,
     limit: Number(weekly.limit) || 0,
   };
-  writeLastGood(home, { plan_name: planName, primary_window: primaryWindow, captured_at: new Date(nowMs).toISOString() });
+
+  // The subscription's own lifetime (RouterCode PLUS, monthly): an expiry row
+  // paced by elapsed period, the same timeKind contract as Qoder's Ultimate
+  // row. Fail-soft — a /current blip must not blank the quota window above.
+  let subscriptionWindow = null;
+  try {
+    const sub = await fetchApigotoSubscription(fetchImpl, accessToken, timeoutMs);
+    if (sub.status === "active" && Number.isFinite(sub.expiresMs) && sub.expiresMs > nowMs) {
+      const startedMs = Number.isFinite(sub.startedMs) && sub.startedMs > 0 && sub.startedMs < sub.expiresMs
+        ? sub.startedMs
+        : sub.expiresMs - 30 * 86400 * 1000;
+      const spanMs = sub.expiresMs - startedMs;
+      subscriptionWindow = {
+        used_percent: Math.max(0, Math.min(100, Math.round(((nowMs - startedMs) / spanMs) * 100))),
+        reset_at: new Date(sub.expiresMs).toISOString(),
+        subscription_plan_name: sub.planName,
+      };
+    }
+  } catch {
+    // Garnish row only.
+  }
+
+  writeLastGood(home, {
+    plan_name: planName,
+    primary_window: primaryWindow,
+    secondary_window: subscriptionWindow,
+    captured_at: new Date(nowMs).toISOString(),
+  });
   return {
     configured: true,
     plan_name: planName,
     primary_window: primaryWindow,
+    ...(subscriptionWindow ? { secondary_window: subscriptionWindow } : {}),
   };
 }
 

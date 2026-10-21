@@ -21,6 +21,10 @@ function sandbox() {
   return home;
 }
 
+function cleanup(home) {
+  fs.rmSync(home, { recursive: true, force: true });
+}
+
 function jsonResponse(body) {
   return { ok: true, status: 200, json: async () => body };
 }
@@ -88,8 +92,11 @@ test("reuses a live access token instead of refreshing every poll", async () => 
 
   const result = await fetchApigotoLimits({ home, fetchImpl, nowMs: Date.now() });
   assert.equal(result.primary_window.used_percent, 1);
-  assert.equal(calls.length, 1);
+  // The poll now also carries the subscription identity read; neither call
+  // may be a token refresh while the stored access token is live.
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].endsWith("/subscription/policy-limit"), true);
+  assert.equal(calls[1].endsWith("/subscription/current"), true);
 });
 
 test("surfaces a stale marker when the panel returns no usage window", async () => {
@@ -106,4 +113,97 @@ test("surfaces a stale marker when the panel returns no usage window", async () 
   assert.equal(result.configured, true);
   assert.equal(result.configured, true);
   assert.match(result.error, /no usage window/);
+});
+
+// The subscription identity (/user/subscription/current, verified live
+// 2026-10-22) feeds an expiry row paced by elapsed period — RouterCode PLUS's
+// own lifetime, not a quota window.
+
+function credsSandbox() {
+  const home = sandbox();
+  fs.writeFileSync(path.join(home, ".tokentracker", "apigoto-credentials.json"), JSON.stringify({
+    access_token: ACCESS_JWT,
+    refresh_token: "rt",
+    access_exp_ms: Date.now() + 3600 * 1000,
+  }));
+  return home;
+}
+
+function subscriptionFetchImpl({ policyLimit, current }) {
+  return async (url) => {
+    if (url.endsWith("/subscription/policy-limit")) return jsonResponse(policyLimit);
+    if (url.endsWith("/subscription/current")) return jsonResponse(current);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+}
+
+test("builds the subscription expiry row from the current-subscription endpoint", async () => {
+  const startedMs = Date.parse("2026-10-09T09:30:40Z");
+  const expiresMs = Date.parse("2026-11-09T09:30:40Z");
+  // The injected clock sits inside the subscription period; the stored access
+  // token must still be live against THAT clock, not the real one.
+  const nowMs = startedMs + Math.round((expiresMs - startedMs) * 0.6);
+  const home = sandbox();
+  fs.writeFileSync(path.join(home, ".tokentracker", "apigoto-credentials.json"), JSON.stringify({
+    access_token: ACCESS_JWT,
+    refresh_token: "rt",
+    access_exp_ms: nowMs + 3600 * 1000,
+  }));
+  try {
+    const result = await fetchApigotoLimits({
+      home,
+      fetchImpl: subscriptionFetchImpl({
+        policyLimit: { code: 0, data: { policy_name: "APIGOTO PLUS", usage_limits: [{ dim: "f", window_sec: 604800, used: 23, limit: 100, reset_at: 1792146995 }] } },
+        // Microsecond fractional seconds, exactly what the live endpoint returns.
+        current: { code: 0, data: { plan_name: "RouterCode PLUS", status: "active", started_at: "2026-10-09T09:30:40.222837Z", expires_at: new Date(expiresMs).toISOString().replace("Z", "000000Z") } },
+      }),
+      nowMs,
+    });
+    assert.equal(result.configured, true);
+    assert.equal(result.secondary_window.used_percent, 60);
+    assert.equal(new Date(result.secondary_window.reset_at).getTime(), expiresMs);
+    assert.equal(result.secondary_window.subscription_plan_name, "RouterCode PLUS");
+  } finally {
+    cleanup(home);
+  }
+});
+
+test("keeps the quota window when the subscription endpoint blips", async () => {
+  const home = credsSandbox();
+  try {
+    const result = await fetchApigotoLimits({
+      home,
+      fetchImpl: async (url) => {
+        if (url.endsWith("/subscription/policy-limit")) {
+          return jsonResponse({ code: 0, data: { policy_name: "APIGOTO PLUS", usage_limits: [{ dim: "f", window_sec: 604800, used: 23, limit: 100, reset_at: 1792146995 }] } });
+        }
+        throw new Error("current endpoint down");
+      },
+      nowMs: Date.now(),
+    });
+    assert.equal(result.configured, true);
+    assert.equal(result.primary_window.used_percent, 23);
+    assert.equal(result.secondary_window, undefined);
+    assert.equal(result.error, undefined);
+  } finally {
+    cleanup(home);
+  }
+});
+
+test("omits the expiry row for a non-active subscription", async () => {
+  const home = credsSandbox();
+  try {
+    const result = await fetchApigotoLimits({
+      home,
+      fetchImpl: subscriptionFetchImpl({
+        policyLimit: { code: 0, data: { policy_name: "APIGOTO PLUS", usage_limits: [{ dim: "f", window_sec: 604800, used: 23, limit: 100, reset_at: 1792146995 }] } },
+        current: { code: 0, data: { plan_name: "RouterCode PLUS", status: "expired", started_at: "2026-09-09T00:00:00Z", expires_at: "2026-10-01T00:00:00Z" } },
+      }),
+      nowMs: Date.now(),
+    });
+    assert.equal(result.configured, true);
+    assert.equal(result.secondary_window, undefined);
+  } finally {
+    cleanup(home);
+  }
 });

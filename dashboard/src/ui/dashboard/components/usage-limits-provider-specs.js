@@ -139,11 +139,13 @@ export const PROVIDER_LIMIT_SPECS = {
   },
   apigoto: {
     // APIGOTO (apigoto.com): one weekly TCredits window served by
-    // /api/v1/user/user/subscription/policy-limit. Literal label — the panel
-    // brands it itself and no locale key exists.
+    // /api/v1/user/user/subscription/policy-limit, plus the subscription's own
+    // lifetime (RouterCode PLUS) as an expiry row paced by elapsed period.
+    // Literal label — the panel brands it itself and no locale key exists.
     windows(data) {
       return [
         { key: "weekly", label: "APIGOTO weekly", window: data.primary_window },
+        { key: "subscription", labelKey: "limits.label.apigoto_subscription", window: data.secondary_window, timeKind: "expiry" },
       ];
     },
   },
@@ -397,5 +399,6 @@ export function usageLimitsLabelCopyAnchor() {
     copy("limits.label.devin_weekly"),
     copy("limits.provider.raccoon"),
     copy("limits.label.raccoon_wallets"),
+    copy("limits.label.apigoto_subscription"),
   ];
 }

@@ -180,6 +180,7 @@
   "provider.display.trae": "TRAE",
   "provider.display.trae_work_cn": "TRAE CN",
   "limits.provider.antigravity": "Antigravity",
+  "limits.label.apigoto_subscription": "訂閱期",
   "limits.provider.apigoto": "APIGOTO",
   "limits.provider.raccoon": "小浣熊",
   "limits.label.raccoon_wallets": "{{wallets}}，合計 {{total}} {{unit}}",

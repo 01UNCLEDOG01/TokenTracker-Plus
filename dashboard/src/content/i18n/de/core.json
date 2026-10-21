@@ -424,6 +424,7 @@
   "limits.label.zcode_glm52": "GLM-5.2",
   "limits.label.zcode_glm5t": "GLM-5-Turbo",
   "limits.provider.antigravity": "Antigravity",
+  "limits.label.apigoto_subscription": "Abo-Zeitraum",
   "limits.provider.apigoto": "APIGOTO",
   "limits.provider.raccoon": "Raccoon",
   "limits.label.raccoon_wallets": "{{wallets}}, insgesamt {{total}} {{unit}}",

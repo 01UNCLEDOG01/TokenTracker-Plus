@@ -2171,3 +2171,4 @@ usage.overview.kiro_notice_body,dashboard,DashboardPage,UsageOverview,kiro_notic
 achievements.modal.tier_threshold,dashboard,*,BadgeDetailModal,tier_threshold,"{{tier}} threshold",,active
 limits.provider.raccoon,ui,LimitsPage,UsageLimitsPanel,provider_raccoon,"Raccoon",,active
 limits.label.raccoon_wallets,ui,LimitsPage,UsageLimitsPanel,raccoon_wallets,"{{wallets}} · {{total}} {{unit}} in total",,active
+limits.label.apigoto_subscription,ui,LimitsPage,UsageLimitsPanel,apigoto_subscription,"Subscription period",,active
