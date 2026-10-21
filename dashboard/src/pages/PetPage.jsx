@@ -440,13 +440,21 @@ export function PetPage() {
     { value: "large", label: copy("pet.size.large") },
   ];
 
-  // 「动作」picker: Auto + the six preview states. Only rendered when the host
-  // pushed the actionLock capability (older hosts keep the control hidden).
+  // 「动作」picker: multi-select over the six preview states — ticked actions stay
+  // in the pet's rotation, unticked ones are removed (Auto restores everything).
+  // Only rendered when the host pushed the actionLock capability (older hosts keep
+  // the control hidden).
   const actionOptions = [
-    { id: "auto", label: copy("pet.action.auto") },
     ...PREVIEW_STATES.map((previewState) => ({ id: previewState.id, label: copy(previewState.labelKey) })),
   ];
   const currentActionLock = normalizePetActionLock(settings.actionLock);
+  const selectedActions = currentActionLock === "auto" ? [] : currentActionLock.split(",");
+  const toggleAction = (id) => {
+    const next = selectedActions.includes(id)
+      ? selectedActions.filter((kept) => kept !== id)
+      : [...selectedActions, id];
+    setSetting("actionLock", normalizePetActionLock(next.join(",")));
+  };
 
   return (
     <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
@@ -670,16 +678,29 @@ export function PetPage() {
                         <p className="mt-0.5 text-[11px] leading-relaxed text-oai-gray-500 dark:text-oai-gray-400">
                           {copy("pet.action.subtitle")}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={copy("pet.action.title")}>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label={copy("pet.action.title")}>
+                          <button
+                            type="button"
+                            aria-pressed={selectedActions.length === 0}
+                            onClick={() => setSetting("actionLock", "auto")}
+                            className={
+                              "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 " +
+                              (selectedActions.length === 0
+                                ? "border-oai-brand-500/40 bg-oai-brand-500/10 text-oai-brand-600 dark:text-oai-brand-400"
+                                : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800")
+                            }
+                          >
+                            {copy("pet.action.auto")}
+                          </button>
                           {actionOptions.map((option) => (
                             <button
                               key={option.id}
                               type="button"
-                              aria-pressed={currentActionLock === option.id}
-                              onClick={() => setSetting("actionLock", option.id)}
+                              aria-pressed={selectedActions.includes(option.id)}
+                              onClick={() => toggleAction(option.id)}
                               className={
                                 "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 " +
-                                (currentActionLock === option.id
+                                (selectedActions.includes(option.id)
                                   ? "border-oai-brand-500/40 bg-oai-brand-500/10 text-oai-brand-600 dark:text-oai-brand-400"
                                   : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800")
                               }

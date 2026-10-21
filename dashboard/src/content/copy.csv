@@ -1318,7 +1318,7 @@ pet.controls.show_hint,dashboard,PetPage,PetPage,show_hint,"Keep your companion 
 pet.controls.size,dashboard,PetPage,PetPage,size,"Pet size",,active
 pet.controls.native_only,dashboard,PetPage,PetPage,native_only,"Open this page in the TokenTracker desktop app to control the live pet.",,active
 pet.action.title,dashboard,PetPage,PetPage,action_title,"Action",,active
-pet.action.subtitle,dashboard,PetPage,PetPage,action_subtitle,"Pin the desktop pet to one action, or leave it on Auto to switch with your usage.",,active
+pet.action.subtitle,dashboard,PetPage,PetPage,action_subtitle,"Choose which actions the pet may use (multi-select); Auto or all six returns to usage-driven switching.",,active
 pet.action.auto,dashboard,PetPage,PetPage,action_auto,"Auto",,active
 pet.characters.title,dashboard,PetPage,PetPage,characters_title,"Choose your companion",,active
 pet.characters.subtitle,dashboard,PetPage,PetPage,characters_subtitle,"Every character shares the full state system, with its own palette and silhouette.",,active

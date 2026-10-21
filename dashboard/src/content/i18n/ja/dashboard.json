@@ -382,7 +382,7 @@
   "pet.controls.size": "ペットのサイズ",
   "pet.controls.native_only": "実際のペットを操作するには TokenTracker デスクトップアプリでこのページを開いてください。",
   "pet.action.title": "アクション",
-  "pet.action.subtitle": "デスクトップペットを 1 つのアクションに固定します。「自動」にすると使用量に応じた自動切替に戻ります。",
+  "pet.action.subtitle": "ペットが使うアクションを選択します（複数選択可）。「自動」または全選択で使用量に応じた自動切替に戻ります。",
   "pet.action.auto": "自動",
   "pet.characters.title": "コンパニオンを選択",
   "pet.characters.subtitle": "すべてのキャラクターが完全な状態システムと独自の配色・シルエットを備えています。",

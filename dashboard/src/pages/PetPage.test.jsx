@@ -224,7 +224,7 @@ describe("PetPage", () => {
     expect(screen.queryByText(copy("pet.action.title"))).not.toBeInTheDocument();
   });
 
-  it("pins the pet to a chosen action through the native bridge", async () => {
+  it("multi-selects which actions the pet may use through the native bridge", async () => {
     const user = userEvent.setup();
     const messages = installNativeBridge();
     render(<PetPage />);
@@ -240,9 +240,24 @@ describe("PetPage", () => {
     expect(actionGroup.getByRole("button", { name: copy("pet.action.auto") })).toHaveAttribute("aria-pressed", "true");
 
     await user.click(actionGroup.getByRole("button", { name: copy("pet.state.streak") }));
-    expect(actionGroup.getByRole("button", { name: copy("pet.state.streak") })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => {
       expect(messages).toContainEqual({ type: "setPetSetting", key: "actionLock", value: "working-wizard" });
     });
+    expect(actionGroup.getByRole("button", { name: copy("pet.action.auto") })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(actionGroup.getByRole("button", { name: copy("pet.state.rest") }));
+    await waitFor(() => {
+      expect(messages).toContainEqual({
+        type: "setPetSetting",
+        key: "actionLock",
+        value: "working-wizard,sleeping",
+      });
+    });
+
+    await user.click(actionGroup.getByRole("button", { name: copy("pet.action.auto") }));
+    await waitFor(() => {
+      expect(messages).toContainEqual({ type: "setPetSetting", key: "actionLock", value: "auto" });
+    });
+    expect(actionGroup.getByRole("button", { name: copy("pet.state.streak") })).toHaveAttribute("aria-pressed", "false");
   });
 });

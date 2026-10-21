@@ -945,13 +945,24 @@ internal sealed class PetWindow : Window
         WriteSettings(s => s["PetActionLock"] = NormalizeActionLock(value));
     }
 
-    // Whitelist over the six lockable sprite states (mirrors PET_ACTION_IDS in the
-    // dashboard's lib/pet-personality.js); anything else means "auto".
+    // Whitelist over the lockable sprite states (mirrors normalizePetActionLock in
+    // the dashboard's lib/pet-personality.js): "auto" or a comma-joined subset of
+    // the six ids. Duplicates/unknown tokens drop, order persists, and an empty,
+    // over-long, or complete (all six) subset means "auto".
     public static string NormalizeActionLock(string? value)
     {
-        var id = (value ?? string.Empty).Trim().ToLowerInvariant();
-        return id is "idle-living" or "working-thinking" or "working-juggling"
-            or "working-wizard" or "happy" or "sleeping" ? id : ActionLockAuto;
+        var raw = (value ?? string.Empty).Trim().ToLowerInvariant();
+        if (raw.Length == 0 || raw == ActionLockAuto || raw.Length > 200) return ActionLockAuto;
+        List<string> seen = new();
+        foreach (var part in raw.Split(','))
+        {
+            var id = part.Trim();
+            if (id is not ("idle-living" or "working-thinking" or "working-juggling"
+                    or "working-wizard" or "happy" or "sleeping")) continue;
+            if (!seen.Contains(id)) seen.Add(id);
+        }
+        if (seen.Count == 0 || seen.Count == 6) return ActionLockAuto;
+        return string.Join(",", seen);
     }
 
     public static string CurrentActionLock

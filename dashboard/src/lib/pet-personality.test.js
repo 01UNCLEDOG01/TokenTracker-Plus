@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   normalizePetActionLock,
   normalizePetCharacter,
+  parsePetActionLock,
   pickPetAmbientState,
+  restrictPetStateToActions,
   resolvePetState,
   PET_ACTION_IDS,
 } from "./pet-personality";
@@ -32,20 +34,58 @@ describe("pet personality", () => {
 });
 
 describe("normalizePetActionLock", () => {
-  it("passes through the six lockable actions and pins nothing else", () => {
-    for (const id of PET_ACTION_IDS) {
-      expect(normalizePetActionLock(id)).toBe(id);
-      expect(PET_ACTION_IDS.includes(normalizePetActionLock(id.toUpperCase()))).toBe(true);
-    }
+  it("keeps whitelisted subsets, drops unknown tokens and dedupes", () => {
+    expect(normalizePetActionLock("working-wizard,sleeping")).toBe("working-wizard,sleeping");
+    expect(normalizePetActionLock("SLEEPING, working-wizard ,sleeping")).toBe("sleeping,working-wizard");
+    expect(normalizePetActionLock("happy,nonsense,sleeping")).toBe("happy,sleeping");
+    expect(normalizePetActionLock("nonsense")).toBe("auto");
     expect(normalizePetActionLock("working-overheated")).toBe("auto");
     expect(normalizePetActionLock("mini-sleep")).toBe("auto");
   });
 
-  it("treats missing, empty and auto values as usage-driven switching", () => {
+  it("collapses empty, complete and oversized selections to auto", () => {
     expect(normalizePetActionLock(undefined)).toBe("auto");
     expect(normalizePetActionLock(null)).toBe("auto");
     expect(normalizePetActionLock("")).toBe("auto");
-    expect(normalizePetActionLock("  ")).toBe("auto");
     expect(normalizePetActionLock("auto")).toBe("auto");
+    expect(normalizePetActionLock(PET_ACTION_IDS.join(","))).toBe("auto");
+    expect(normalizePetActionLock(`${PET_ACTION_IDS.join(",")},,x`.repeat(30))).toBe("auto");
+  });
+
+  it("still accepts the single-id form from the first picker release", () => {
+    expect(normalizePetActionLock("working-wizard")).toBe("working-wizard");
+    expect(parsePetActionLock("working-wizard")).toEqual(["working-wizard"]);
+  });
+
+  it("parse returns the allowed subset, empty for auto", () => {
+    expect(parsePetActionLock("auto")).toEqual([]);
+    expect(parsePetActionLock("sleeping,happy")).toEqual(["sleeping", "happy"]);
+    expect(parsePetActionLock(undefined)).toEqual([]);
+  });
+});
+
+describe("restrictPetStateToActions", () => {
+  it("passes kept states through untouched", () => {
+    expect(restrictPetStateToActions("working-wizard", ["working-wizard", "sleeping"])).toBe("working-wizard");
+  });
+
+  it("maps removed actions to the closest kept bucket", () => {
+    const kept = ["working-thinking", "sleeping"];
+    expect(restrictPetStateToActions("working-typing", kept)).toBe("working-thinking");
+    expect(restrictPetStateToActions("working-overheated", kept)).toBe("working-thinking");
+    expect(restrictPetStateToActions("idle-living", kept)).toBe("working-thinking");
+    expect(restrictPetStateToActions("happy", kept)).toBe("working-thinking");
+    expect(restrictPetStateToActions("disconnected", kept)).toBe("working-thinking");
+    expect(restrictPetStateToActions("sleeping", kept)).toBe("sleeping");
+  });
+
+  it("falls back to the first allowed action as the last resort", () => {
+    expect(restrictPetStateToActions("working-typing", ["sleeping"])).toBe("sleeping");
+    expect(restrictPetStateToActions("sleeping", ["idle-living"])).toBe("idle-living");
+  });
+
+  it("leaves everything alone for the auto (empty) rotation", () => {
+    expect(restrictPetStateToActions("working-typing", [])).toBe("working-typing");
+    expect(restrictPetStateToActions("disconnected", [])).toBe("disconnected");
   });
 });

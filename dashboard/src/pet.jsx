@@ -10,10 +10,11 @@ import {
   petLabels,
 } from "./lib/pet-quips.js";
 import {
-  normalizePetActionLock,
   normalizePetCharacter,
+  parsePetActionLock,
   petRenderer,
   pickPetAmbientState,
+  restrictPetStateToActions,
   resolvePetState,
 } from "./lib/pet-personality.js";
 import { BOT_COLOR_CHOICES } from "./lib/bot-appearance.js";
@@ -150,7 +151,7 @@ function readPetBotColor() {
 }
 
 function readPetActionLock() {
-  return normalizePetActionLock(typeof window !== "undefined" ? window.__ttPetActionLock : null);
+  return parsePetActionLock(typeof window !== "undefined" ? window.__ttPetActionLock : null);
 }
 
 function post(type) {
@@ -674,8 +675,8 @@ function Pet() {
     window.addEventListener("pet:botColor", update);
     return () => window.removeEventListener("pet:botColor", update);
   }, []);
-  // Action lock pushed by the native host (PetPage「动作」picker). "auto" keeps
-  // the usage-driven state machine below untouched.
+  // Action rotation pushed by the native host (PetPage「动作」multi-select).
+  // Empty subset = "auto", the usage-driven state machine runs untouched.
   useEffect(() => {
     const update = () => setActionLock(readPetActionLock());
     update();
@@ -818,12 +819,11 @@ function Pet() {
     autoState = sleepState;
   }
 
-  // Manual action lock (PetPage「动作」): the picked action overrides every
-  // automatic state — urgent context included, the user asked for exactly this.
-  // Taps and drags still take precedence below, and mini-mode still redirects
-  // the locked state to its mini analogue.
-  if (actionLock !== "auto") {
-    autoState = actionLock;
+  // Manual action rotation (PetPage「动作」multi-select): removed actions fall back
+  // to the closest kept one; taps and drags still take precedence below, and
+  // mini-mode still redirects the resulting state to its mini analogue.
+  if (actionLock.length) {
+    autoState = restrictPetStateToActions(autoState, actionLock);
   }
 
   // Mini mode state redirection

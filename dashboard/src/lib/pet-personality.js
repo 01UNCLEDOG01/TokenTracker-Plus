@@ -79,10 +79,74 @@ export const PET_ACTION_IDS = [
 ];
 
 /**
- * Normalize an action-lock value. "auto" (the default) and anything unknown keep
- * the usage-driven state machine; only the six known sprite states may pin it.
+ * Normalize an action-lock value: "auto" (the default) or a comma-joined subset of
+ * the six known sprite states ("working-wizard,sleeping"). Duplicates and unknown
+ * tokens are dropped, order is preserved, and selecting all six (or none) means
+ * "auto" — no restriction. The single-id form from the first picker release stays
+ * valid: it is just a subset of one.
  */
 export function normalizePetActionLock(value) {
-  const id = String(value || "").trim().toLowerCase();
-  return PET_ACTION_IDS.includes(id) ? id : "auto";
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw || raw === "auto" || raw.length > 200) return "auto";
+  const ids = [];
+  for (const part of raw.split(",")) {
+    const id = part.trim();
+    if (PET_ACTION_IDS.includes(id) && !ids.includes(id)) ids.push(id);
+  }
+  if (ids.length === 0 || ids.length === PET_ACTION_IDS.length) return "auto";
+  return ids.join(",");
+}
+
+/** @returns {string[]} the allowed subset; empty = "auto", no restriction. */
+export function parsePetActionLock(value) {
+  const normalized = normalizePetActionLock(value);
+  return normalized === "auto" ? [] : normalized.split(",");
+}
+
+// Which fallback bucket an automatic state belongs to when the user removed it
+// from the rotation. Context states (typing/overheat/ultrathink/look) inherit the
+// bucket of the action they visually resemble.
+const PET_ACTION_BUCKETS = {
+  "working-thinking": "working",
+  "working-juggling": "working",
+  "working-wizard": "working",
+  "working-typing": "working",
+  "working-overheated": "working",
+  "working-ultrathink": "working",
+  "idle-living": "idle",
+  "idle-look": "idle",
+  "idle-doze": "idle",
+  happy: "happy",
+  sleeping: "sleep",
+  disconnected: "disconnected",
+};
+
+const PET_ACTION_BUCKET_REPRESENTATIVES = {
+  working: "working-thinking",
+  idle: "idle-living",
+  happy: "happy",
+  sleep: "sleeping",
+  disconnected: "idle-living",
+};
+
+/**
+ * Restrict an automatic state to the user-chosen subset: a state still in the
+ * rotation passes through; a removed one falls back to the closest allowed action
+ * (same bucket first, then working → idle → happy → sleep → first allowed).
+ */
+export function restrictPetStateToActions(state, allowed) {
+  if (!allowed.length || allowed.includes(state)) return state;
+  const bucket = PET_ACTION_BUCKETS[state] ?? "idle";
+  const fallbackOrder = [
+    bucket,
+    "working",
+    "idle",
+    "happy",
+    "sleep",
+  ];
+  for (const key of fallbackOrder) {
+    const candidate = PET_ACTION_BUCKET_REPRESENTATIVES[key];
+    if (allowed.includes(candidate)) return candidate;
+  }
+  return allowed[0];
 }

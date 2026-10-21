@@ -367,7 +367,7 @@
   "pet.controls.size": "寵物大小",
   "pet.controls.native_only": "請在 TokenTracker 桌面 App 中開啟此頁面，以控制實際桌寵。",
   "pet.action.title": "動作",
-  "pet.action.subtitle": "把桌面寵物固定在某個動作上；選「自動」則恢復隨用量自動切換。",
+  "pet.action.subtitle": "勾選桌寵可以使用的動作（可多選，取消勾選即去掉）；「自動」或全選恢復隨用量自動切換。",
   "pet.action.auto": "自動",
   "pet.characters.title": "選擇你的陪伴角色",
   "pet.characters.subtitle": "每個角色都擁有完整狀態系統，並有獨立配色與輪廓。",
