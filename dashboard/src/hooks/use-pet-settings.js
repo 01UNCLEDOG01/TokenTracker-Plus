@@ -10,7 +10,13 @@ import {
 import { BOT_COLOR_CHOICES } from "../lib/bot-appearance.js";
 import { normalizePetCharacter } from "../lib/pet-personality";
 
-const DEFAULTS = { visible: false, character: "clawd", size: "medium", botColor: "auto" };
+const DEFAULTS = {
+  visible: false,
+  character: "clawd",
+  size: "medium",
+  botColor: "auto",
+  actionLock: undefined,
+};
 
 export function usePetSettings() {
   // The Linux app loads the dashboard without `?app=1`, so it can't pass isNativeApp().
@@ -32,6 +38,9 @@ export function usePetSettings() {
         // field, and the page hides the toggle rather than shipping a control
         // that would silently do nothing.
         monitor: typeof next.monitor === "boolean" ? next.monitor : undefined,
+        // Same probe for the action picker: hosts predating the「动作」lock omit
+        // the field, and the page hides the picker instead of a dead control.
+        actionLock: typeof next.actionLock === "string" ? next.actionLock : undefined,
       });
     });
     requestNativePetSettings();

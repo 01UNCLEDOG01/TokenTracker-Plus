@@ -10,6 +10,7 @@ import {
   petLabels,
 } from "./lib/pet-quips.js";
 import {
+  normalizePetActionLock,
   normalizePetCharacter,
   petRenderer,
   pickPetAmbientState,
@@ -146,6 +147,10 @@ function readPetCharacter() {
 function readPetBotColor() {
   const value = typeof window !== "undefined" ? window.__ttPetBotColor : null;
   return BOT_COLOR_CHOICES.includes(value) ? value : "auto";
+}
+
+function readPetActionLock() {
+  return normalizePetActionLock(typeof window !== "undefined" ? window.__ttPetActionLock : null);
 }
 
 function post(type) {
@@ -536,6 +541,7 @@ function Pet() {
   const [unitSystem, setUnitSystem] = useState(readPetUnitSystem);
   const [character, setCharacter] = useState(readPetCharacter);
   const [botColor, setBotColor] = useState(readPetBotColor);
+  const [actionLock, setActionLock] = useState(readPetActionLock);
   const [isSyncing, setIsSyncing] = useState(false);
   const [userTyping, setUserTyping] = useState(false);
   const [rage, setRage] = useState(false);
@@ -667,6 +673,14 @@ function Pet() {
     update();
     window.addEventListener("pet:botColor", update);
     return () => window.removeEventListener("pet:botColor", update);
+  }, []);
+  // Action lock pushed by the native host (PetPage「动作」picker). "auto" keeps
+  // the usage-driven state machine below untouched.
+  useEffect(() => {
+    const update = () => setActionLock(readPetActionLock());
+    update();
+    window.addEventListener("pet:action-lock", update);
+    return () => window.removeEventListener("pet:action-lock", update);
   }, []);
   // This host renders without ThemeProvider, so the `dark` class nothing else sets
   // here is applied from the appearance the native shell pushes. BotAnimated reads
@@ -802,6 +816,14 @@ function Pet() {
     autoState === "disconnected";
   if (sleepState && !busy) {
     autoState = sleepState;
+  }
+
+  // Manual action lock (PetPage「动作」): the picked action overrides every
+  // automatic state — urgent context included, the user asked for exactly this.
+  // Taps and drags still take precedence below, and mini-mode still redirects
+  // the locked state to its mini analogue.
+  if (actionLock !== "auto") {
+    autoState = actionLock;
   }
 
   // Mini mode state redirection

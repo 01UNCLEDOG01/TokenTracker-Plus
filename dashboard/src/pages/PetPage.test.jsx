@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { copy } from "../lib/copy";
@@ -208,5 +208,41 @@ describe("PetPage", () => {
 
     await waitFor(() => expect(petApiMocks.importCodexPets).toHaveBeenCalledWith(["rocky"]));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: copy("pet.codex.title") })).not.toBeInTheDocument());
+  });
+
+  it("hides the action picker for hosts that do not push the actionLock capability", async () => {
+    installNativeBridge();
+    render(<PetPage />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium" },
+      }));
+    });
+
+    expect(await screen.findByRole("switch", { name: copy("pet.controls.show") })).toBeChecked();
+    expect(screen.queryByText(copy("pet.action.title"))).not.toBeInTheDocument();
+  });
+
+  it("pins the pet to a chosen action through the native bridge", async () => {
+    const user = userEvent.setup();
+    const messages = installNativeBridge();
+    render(<PetPage />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium", actionLock: "auto" },
+      }));
+    });
+
+    expect(await screen.findByText(copy("pet.action.title"))).toBeInTheDocument();
+    const actionGroup = within(screen.getByRole("group", { name: copy("pet.action.title") }));
+    expect(actionGroup.getByRole("button", { name: copy("pet.action.auto") })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(actionGroup.getByRole("button", { name: copy("pet.state.streak") }));
+    expect(actionGroup.getByRole("button", { name: copy("pet.state.streak") })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(messages).toContainEqual({ type: "setPetSetting", key: "actionLock", value: "working-wizard" });
+    });
   });
 });

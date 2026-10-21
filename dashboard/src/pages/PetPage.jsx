@@ -6,6 +6,7 @@ import { ProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 import { usePetSettings } from "../hooks/use-pet-settings.js";
 import { usePetCatalog } from "../hooks/use-pet-catalog.js";
 import { useNativeSettings } from "../hooks/use-native-settings.js";
+import { normalizePetActionLock } from "../lib/pet-personality";
 import { refreshNativePetCatalog } from "../lib/native-bridge.js";
 import {
   importCodexPets,
@@ -439,6 +440,14 @@ export function PetPage() {
     { value: "large", label: copy("pet.size.large") },
   ];
 
+  // 「动作」picker: Auto + the six preview states. Only rendered when the host
+  // pushed the actionLock capability (older hosts keep the control hidden).
+  const actionOptions = [
+    { id: "auto", label: copy("pet.action.auto") },
+    ...PREVIEW_STATES.map((previewState) => ({ id: previewState.id, label: copy(previewState.labelKey) })),
+  ];
+  const currentActionLock = normalizePetActionLock(settings.actionLock);
+
   return (
     <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
       <main className="flex-1 pb-14 pt-8 sm:pt-10">
@@ -655,6 +664,32 @@ export function PetPage() {
                         />
                       </div>
                     </div>
+                    {settings.actionLock !== undefined ? (
+                      <div>
+                        <div className="text-sm font-medium">{copy("pet.action.title")}</div>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-oai-gray-500 dark:text-oai-gray-400">
+                          {copy("pet.action.subtitle")}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={copy("pet.action.title")}>
+                          {actionOptions.map((option) => (
+                            <button
+                              key={option.id}
+                              type="button"
+                              aria-pressed={currentActionLock === option.id}
+                              onClick={() => setSetting("actionLock", option.id)}
+                              className={
+                                "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 " +
+                                (currentActionLock === option.id
+                                  ? "border-oai-brand-500/40 bg-oai-brand-500/10 text-oai-brand-600 dark:text-oai-brand-400"
+                                  : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800")
+                              }
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </section>
                 {!available ? (

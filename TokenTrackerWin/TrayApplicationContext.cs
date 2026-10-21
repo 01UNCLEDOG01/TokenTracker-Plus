@@ -817,6 +817,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "botColor":
                 SetPetBotColor(value ?? "auto");
                 break;
+            case "actionLock":
+                SetPetActionLock(value);
+                break;
         }
     }
 
@@ -827,6 +830,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         PushDashboardPetSettings();
     }
 
+    private void SetPetActionLock(string? value)
+    {
+        if (_petWindow is not null) _petWindow.ApplyActionLock(value);
+        else PetWindow.PersistActionLock(value);
+        PushDashboardPetSettings();
+    }
+
     private void PushDashboardPetSettings()
     {
         _dashboard?.PushPetSettings(
@@ -834,7 +844,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             PetWindow.CurrentSize,
             PetWindow.CurrentCharacter,
             PetWindow.CurrentBotColor,
-            _monitorWindow?.Enabled == true);
+            _monitorWindow?.Enabled == true,
+            PetWindow.CurrentActionLock);
     }
 
     /// <summary>Send the Windows-native settings consumed by the dashboard.</summary>

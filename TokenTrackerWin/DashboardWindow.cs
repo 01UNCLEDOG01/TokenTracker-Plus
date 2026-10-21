@@ -660,10 +660,10 @@ internal sealed class DashboardWindow : Window
     private void UpdateWebViewActivity() =>
         _activity?.Update(IsVisible && WindowState != WindowState.Minimized, _oauthInFlight);
 
-    public void PushPetSettings(bool visible, string size, string character, string botColor, bool monitor = false)
+    public void PushPetSettings(bool visible, string size, string character, string botColor, bool monitor = false, string actionLock = "auto")
     {
         if (!_coreReady) return;
-        var json = JsonSerializer.Serialize(new { visible, size, character, botColor, monitor });
+        var json = JsonSerializer.Serialize(new { visible, size, character, botColor, monitor, actionLock });
         try
         {
             _ = _webView.CoreWebView2.ExecuteScriptAsync(

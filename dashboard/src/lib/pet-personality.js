@@ -63,3 +63,26 @@ export function resolvePetState({
   if ((Number(todayTokens) || 0) <= 0) return "sleeping";
   return ambientState;
 }
+
+/**
+ * The six lockable desktop-pet actions (PetPage「动作」picker). Ids are pet sprite
+ * states — the same set the PetPage preview strip cycles, so a locked id always
+ * resolves to a sprite in src/pet.jsx.
+ */
+export const PET_ACTION_IDS = [
+  "idle-living",
+  "working-thinking",
+  "working-juggling",
+  "working-wizard",
+  "happy",
+  "sleeping",
+];
+
+/**
+ * Normalize an action-lock value. "auto" (the default) and anything unknown keep
+ * the usage-driven state machine; only the six known sprite states may pin it.
+ */
+export function normalizePetActionLock(value) {
+  const id = String(value || "").trim().toLowerCase();
+  return PET_ACTION_IDS.includes(id) ? id : "auto";
+}

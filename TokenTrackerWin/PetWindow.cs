@@ -64,6 +64,7 @@ internal sealed class PetWindow : Window
     private string? _limitsJson;
     private string _character = CurrentCharacter;
     private string _botColor = CurrentBotColor;
+    private string _actionLock = CurrentActionLock;
     private UsagePoller.UsageStats _stats;
     private bool _connected = true;
     private double _bubbleBand = MinBubbleBand;
@@ -784,6 +785,7 @@ internal sealed class PetWindow : Window
         var unitSystem = System.Text.Json.JsonSerializer.Serialize(_tokenUnitSystem);
         var character = System.Text.Json.JsonSerializer.Serialize(_character);
         var botColor = System.Text.Json.JsonSerializer.Serialize(_botColor);
+        var actionLock = System.Text.Json.JsonSerializer.Serialize(_actionLock);
         // The pet host renders without ThemeProvider, so nothing there can resolve the
         // appearance on its own. Without this the bot's default "auto" body colour is
         // stuck on the light value — a near-black blob on a dark desktop.
@@ -817,6 +819,7 @@ internal sealed class PetWindow : Window
                 $"window.__ttPetTokenUnitSystem={unitSystem};" +
                 $"window.__ttPetCharacter={character};" +
                 $"window.__ttPetBotColor={botColor};" +
+                $"window.__ttPetActionLock={actionLock};" +
                 $"window.__ttPetDark={petDark};" +
                 $"window.__ttPetLookDirectionIndex={lookDirection};" +
                 $"window.__ttPetSyncing={syncing};" +
@@ -831,6 +834,7 @@ internal sealed class PetWindow : Window
                 "window.dispatchEvent(new Event('pet:locale'));" +
                 "window.dispatchEvent(new Event('pet:character'));" +
                 "window.dispatchEvent(new Event('pet:botColor'));" +
+                "window.dispatchEvent(new Event('pet:action-lock'));" +
                 "window.dispatchEvent(new Event('pet:dark'));" +
                 "window.dispatchEvent(new Event('pet:look'));" +
                 "window.dispatchEvent(new Event('pet:syncing'));" +
@@ -927,6 +931,43 @@ internal sealed class PetWindow : Window
         }
     }
 
+    /// <summary>Switch the pinned action ("auto" = usage-driven switching) and persist it.</summary>
+    public void ApplyActionLock(string? value)
+    {
+        _actionLock = NormalizeActionLock(value);
+        WriteSettings(s => s["PetActionLock"] = _actionLock);
+        PushContext();
+    }
+
+    /// <summary>Persist an action lock without creating the floating window.</summary>
+    public static void PersistActionLock(string? value)
+    {
+        WriteSettings(s => s["PetActionLock"] = NormalizeActionLock(value));
+    }
+
+    // Whitelist over the six lockable sprite states (mirrors PET_ACTION_IDS in the
+    // dashboard's lib/pet-personality.js); anything else means "auto".
+    public static string NormalizeActionLock(string? value)
+    {
+        var id = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return id is "idle-living" or "working-thinking" or "working-juggling"
+            or "working-wizard" or "happy" or "sleeping" ? id : ActionLockAuto;
+    }
+
+    public static string CurrentActionLock
+    {
+        get
+        {
+            try
+            {
+                if (!File.Exists(SettingsPath)) return ActionLockAuto;
+                var s = JsonNode.Parse(File.ReadAllText(SettingsPath))?.AsObject();
+                return NormalizeActionLock(s?["PetActionLock"]?.GetValue<string>());
+            }
+            catch { return ActionLockAuto; }
+        }
+    }
+
     public void TogglePet()
     {
         if (IsVisible) HidePet();
@@ -1000,6 +1041,9 @@ internal sealed class PetWindow : Window
     public const string CharacterSprout = "sprout";
     public const string CharacterByte = "byte";
     public const string CharacterEmber = "ember";
+
+    /// <summary>Not pinned — the companion switches actions from usage context.</summary>
+    public const string ActionLockAuto = "auto";
     private const string HiddenBuiltinsFilename = ".hidden-builtins.json";
 
     public static string NormalizeSize(string? value)
