@@ -33,22 +33,10 @@ const README_EXPECTATIONS = [
     /限额追踪.*✅ 17 家 provider/,
   ],
   [
-    "README.ja.md",
-    () => new RegExp(`${TOOL_COUNT} 種類の AI コーディングツール`),
-    () => new RegExp(`\\|\\s+\\*\\*対応 AI ツール数\\*\\*\\s+\\|\\s+\\*\\*${TOOL_COUNT}\\*\\*`),
-    /レート制限トラッキング.*✅ 17 プロバイダー/,
-  ],
-  [
-    "README.ko.md",
-    () => new RegExp(`${TOOL_COUNT}개의 AI 코딩 도구`),
-    () => new RegExp(`\\|\\s+\\*\\*지원하는 AI 도구 수\\*\\*\\s+\\|\\s+\\*\\*${TOOL_COUNT}\\*\\*`),
-    /레이트 제한 추적.*✅ 17개 프로바이더/,
-  ],
-  [
-    "README.de.md",
-    () => new RegExp(`${TOOL_COUNT} KI-Coding-Tools`),
-    () => new RegExp(`\\|\\s+\\*\\*Unterstützte KI-Tools\\*\\*\\s+\\|\\s+\\*\\*${TOOL_COUNT}\\*\\*`),
-    /Rate-Limit-Tracking.*✅ 17 Provider/,
+    "README.zh-TW.md",
+    () => new RegExp(`${TOOL_COUNT} 款 AI 編碼工具`),
+    () => /支援的 AI 工具數.*52/,
+    /限額追蹤.*✅ 17 家 provider/,
   ],
 ];
 

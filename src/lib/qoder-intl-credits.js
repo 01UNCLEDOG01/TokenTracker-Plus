@@ -36,17 +36,18 @@ const QODER_INTL_SHAPE_FIELD_RATE = {
   output_tokens: "output",
   reasoning_output_tokens: "output",
 };
-// Qoder's transcripts name their router, not a model: all 1,398 credit records
-// on this machine read `qfmodel`, which carries no identity and no rate. The CN
-// estimate labels the same undisclosed-router case after the cloud plan, so
-// this does too instead of printing an opaque internal string as a model.
-const QODER_INTL_UNDISCLOSED_MODELS = new Set(["qfmodel"]);
+// Qoder's transcripts name their router, not a model. The original 1,398
+// credit records read `qfmodel`; the 2026-10 build also emits `dfmodel`.
+// Neither carries an identity or a rate, so both use the cloud-plan label
+// instead of printing an opaque internal string as a model.
+const QODER_INTL_UNDISCLOSED_MODELS = new Set(["qfmodel", "dfmodel"]);
 // Bumped whenever the rows this module derives change shape or meaning, so an
 // existing mirror is rebuilt instead of replayed. The version is the only thing
 // that can distinguish two derivations of one unchanged transcript tree.
 //   2 = the router-name mapping, 3 = derived token figures,
-//   4 = those figures priced at the blended token mix.
-const QODER_INTL_MIRROR_VERSION = 4;
+//   4 = those figures priced at the blended token mix,
+//   5 = per-day/model queue coverage instead of source-wide suppression.
+const QODER_INTL_MIRROR_VERSION = 5;
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
 const TOKEN_FIELDS = [
   "input_tokens",
@@ -128,6 +129,39 @@ function beijingDayKey(isoOrMs) {
   return new Date(ms + BEIJING_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+function qoderIntlModelLabel(rawModel) {
+  const raw = String(rawModel || "").trim();
+  return !raw || QODER_INTL_UNDISCLOSED_MODELS.has(raw.toLowerCase())
+    ? QODER_INTL_FALLBACK_MODEL
+    : raw;
+}
+
+function qoderIntlDayKey(row) {
+  const hourStart = typeof row?.hour_start === "string" ? row.hour_start : "";
+  return hourStart.length >= 10 ? hourStart.slice(0, 10) : "";
+}
+
+// A queue row with real spend or tokens is authoritative for its own day and
+// model. Do not let a historical row suppress every newer day: the old
+// source-wide guard froze the card at the last persisted day.
+function qoderIntlExistingKeys(allRows) {
+  const keys = new Set();
+  for (const row of Array.isArray(allRows) ? allRows : []) {
+    if (row?.source !== QODER_INTL_SOURCE) continue;
+    if (!(Number(row.total_cost_usd) > 0 || Number(row.total_tokens) > 0)) continue;
+    const day = qoderIntlDayKey(row);
+    if (!day) continue;
+    keys.add(`${day}|${qoderIntlModelLabel(row.model)}`);
+  }
+  return keys;
+}
+
+function qoderIntlFilterCovered(rows, allRows) {
+  const existing = qoderIntlExistingKeys(allRows);
+  if (existing.size === 0) return rows;
+  return rows.filter((row) => !existing.has(`${qoderIntlDayKey(row)}|${qoderIntlModelLabel(row.model)}`));
+}
+
 function readMirror({ home }) {
   try {
     const parsed = JSON.parse(fs.readFileSync(qoderIntlCreditMirrorFile({ home }), "utf8"));
@@ -171,10 +205,7 @@ function scanCredits(projectsDir, allRows) {
       if (!Number.isFinite(credits) || credits <= 0) continue;
       const day = beijingDayKey(record?.timestamp ?? usage.timestamp ?? record?.message?.timestamp);
       if (!day) continue;
-      const rawModel = String(record?.message?.model || usage.model || "").trim();
-      const model = !rawModel || QODER_INTL_UNDISCLOSED_MODELS.has(rawModel.toLowerCase())
-        ? QODER_INTL_FALLBACK_MODEL
-        : rawModel;
+      const model = qoderIntlModelLabel(record?.message?.model || usage.model);
       const key = `${day}|${model}`;
       const entry = byDayModel.get(key) || { day, model, credits: 0, requests: 0 };
       entry.credits += credits;
@@ -245,26 +276,16 @@ function scanCredits(projectsDir, allRows) {
 
 function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {}) {
   if (!projectsDir) return [];
-  // A queue that already carries Qoder spend is authoritative; adding the
-  // transcript scan on top would bill the same credits twice. Rows that record
-  // neither money nor tokens are placeholders, so they must not suppress the
-  // card - that is the case this module exists for.
-  const reportedSpend = (Array.isArray(allRows) ? allRows : []).some(
-    (row) =>
-      row?.source === QODER_INTL_SOURCE &&
-      (Number(row.total_cost_usd) > 0 || Number(row.total_tokens) > 0),
-  );
-  if (reportedSpend) return [];
   let files;
   try { files = listJsonl(projectsDir); } catch { files = []; }
-  if (files.length === 0) return readMirror({ home })?.rows || [];
+  if (files.length === 0) return qoderIntlFilterCovered(readMirror({ home })?.rows || [], allRows);
   const signature = treeSignature(files);
   const mirror = readMirror({ home });
-  if (mirror && mirror.signature === signature) return mirror.rows;
+  if (mirror && mirror.signature === signature) return qoderIntlFilterCovered(mirror.rows, allRows);
   const scanned = scanCredits(projectsDir, allRows);
-  if (scanned.rows.length === 0) return mirror?.rows || [];
+  if (scanned.rows.length === 0) return qoderIntlFilterCovered(mirror?.rows || [], allRows);
   writeMirror({ version: QODER_INTL_MIRROR_VERSION, synced_at: new Date().toISOString(), signature, rows: scanned.rows }, { home });
-  return scanned.rows;
+  return qoderIntlFilterCovered(scanned.rows, allRows);
 }
 
 module.exports = {

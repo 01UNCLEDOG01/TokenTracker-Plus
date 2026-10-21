@@ -14,7 +14,7 @@ const path = require("node:path");
 
 const { persistQoderEstimateRows, readAllQueueRows } = require("../src/lib/qoder-estimate-upload");
 const { qoderCnLimitsCacheFile, qoderCnEstimateMirrorFile } = require("../src/lib/qoder-cn-estimate");
-const { qoderIntlCreditMirrorFile } = require("../src/lib/qoder-intl-credits");
+const { qoderIntlCreditMirrorFile, QODER_INTL_MIRROR_VERSION } = require("../src/lib/qoder-intl-credits");
 
 const HEALTHY_SPEND = {
   cached_at: "2026-10-16T01:00:00Z",
@@ -40,7 +40,7 @@ function sandbox(files = {}) {
 }
 
 function intlMirror(rows) {
-  return { version: 4, synced_at: "2026-10-16T00:00:00Z", signature: ["mirror"], rows };
+  return { version: QODER_INTL_MIRROR_VERSION, synced_at: "2026-10-16T00:00:00Z", signature: ["mirror"], rows };
 }
 
 const INTL_ROWS = [

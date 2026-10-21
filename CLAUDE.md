@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> **Fork note:** for TT-plus workflow, docs, gates, deployment and worktree rules, [AGENTS.md](./AGENTS.md) is authoritative. This file documents upstream architecture, conventions and release mechanics.
+
 Guidance for Claude Code working in this repository. Every line here is loaded into every conversation turn — keep it lean and current.
 
 ## Project shape

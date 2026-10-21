@@ -34,6 +34,7 @@ maps cover actual handler calls without custom schemas or identifier truncation
 ownership probes escape quote characters in ids
 pack storage measurement reports actual PostgreSQL datum bytes and row counts
 parseCopilotAppDbIncremental reprocesses when only SQLite sidecars change
+parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn model and reasoning attribution
 prepare, correction, commit preserves overlay and a repeat compaction retains every field
 public lifetime triggers and dirty-day repairs use cold truth for downward corrections
 real QA issuance and ingest never register a token in the original table

@@ -162,24 +162,67 @@ test("an unreadable tree falls back to the mirror, not to zero", () => {
   }
 });
 
-test("queue rows that already carry Qoder spend suppress the credit scan", () => {
+test("a historical queue row must not suppress newer Qoder days", () => {
+  const { home, projects } = sandbox([
+    usageRecord("2026-10-09T06:00:00.000Z", 9, "gpt-5.6-high"),
+    usageRecord("2026-10-10T06:00:00.000Z", 3, "gpt-5.6-high"),
+  ]);
+  try {
+    const queueDay9 = {
+      source: "qoder",
+      model: "gpt-5.6-high",
+      hour_start: "2026-10-09T04:00:00.000Z",
+      total_tokens: 600_000,
+      total_cost_usd: 0.09,
+    };
+    const rows = qoderIntlCreditRows([queueDay9], { projectsDir: projects, home });
+    assert.deepEqual(rows.map((row) => row.hour_start.slice(0, 10)), ["2026-10-10"],
+      "only the day already covered by the queue is skipped");
+    assert.equal(rows[0].total_cost_usd, 0.03, "the newer day keeps its own credits");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a queue row suppresses only its own day and model", () => {
+  const { home, projects } = sandbox([
+    usageRecord("2026-10-09T06:00:00.000Z", 1.5, "gpt-5.6-high"),
+    usageRecord("2026-10-09T07:00:00.000Z", 2.5, "claude-opus-5"),
+  ]);
+  try {
+    const queueCovered = {
+      source: "qoder",
+      model: "gpt-5.6-high",
+      hour_start: "2026-10-09T04:00:00.000Z",
+      total_tokens: 100_000,
+      total_cost_usd: 0.015,
+    };
+    const rows = qoderIntlCreditRows([queueCovered], { projectsDir: projects, home });
+    assert.deepEqual(rows.map((row) => row.model), ["claude-opus-5"],
+      "a different model on the same day is still missing");
+    assert.equal(rows[0].total_cost_usd, 0.025);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a placeholder qoder row does not suppress the credit scan", () => {
   const { home, projects } = sandbox([usageRecord("2026-10-09T06:00:00.000Z", 9)]);
   try {
-    const call = (rows) => qoderIntlCreditRows(rows, { projectsDir: projects, home });
-    assert.deepEqual(
-      call([{ source: "qoder", total_tokens: 0, total_cost_usd: 1.2 }]),
-      [],
-      "money already in the queue must not be billed a second time",
-    );
-    assert.deepEqual(
-      call([{ source: "qoder", total_tokens: 5000, total_cost_usd: 0 }]),
-      [],
-      "tokens already in the queue are equally authoritative",
-    );
-    // A row recording neither is the exact gap this module fills.
-    assert.equal(call([{ source: "qoder", total_tokens: 0, total_cost_usd: 0 }]).length, 1);
+    const placeholder = {
+      source: "qoder",
+      model: "官方云端（积分）",
+      hour_start: "2026-10-09T04:00:00.000Z",
+      total_tokens: 0,
+      total_cost_usd: 0,
+    };
+    assert.equal(qoderIntlCreditRows([placeholder], { projectsDir: projects, home }).length, 1,
+      "0/0 is the gap this module exists to fill");
     // The CN edition is a different source and never suppresses this card.
-    assert.equal(call([{ source: "qoder-cn", total_tokens: 900, total_cost_usd: 4 }]).length, 1);
+    assert.equal(qoderIntlCreditRows(
+      [{ source: "qoder-cn", total_tokens: 900, total_cost_usd: 4 }],
+      { projectsDir: projects, home },
+    ).length, 1);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -201,11 +244,12 @@ test("an opaque router name is labelled as the cloud plan, not as the router", (
   const { home, projects } = sandbox([
     usageRecord("2026-10-09T06:00:00.000Z", 1.5, "qfmodel"),
     usageRecord("2026-10-09T07:00:00.000Z", 2.5, "QFModel"),
+    usageRecord("2026-10-09T08:00:00.000Z", 1, "dfmodel"),
   ]);
   try {
     const rows = qoderIntlCreditRows([], { projectsDir: projects, home });
     assert.deepEqual(rows.map((r) => r.model), ["官方云端（积分）"], "case-folded and collapsed to one line");
-    assert.equal(rows[0].credits, 4);
+    assert.equal(rows[0].credits, 5, "dfmodel is another router alias, not a model");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

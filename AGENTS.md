@@ -1,8 +1,26 @@
 # Agent Instructions
 
-Use [CLAUDE.md](./CLAUDE.md) as the single source of truth for this repository's project guidance, architecture notes, release workflow, and conventions.
+**This file is the single source of truth for how agents work in TT-plus.** It overrides `CLAUDE.md` for fork workflow, documentation, gates, deployment, and working-tree rules. [CLAUDE.md](./CLAUDE.md) is the upstream architecture/conventions/release reference: use it for code-level detail, but when it conflicts with this file on fork workflow or docs, follow `AGENTS.md`.
 
-If any project-specific instructions appear to conflict across files, follow `CLAUDE.md` and update this file only to keep that pointer intact.
+## Read order for this fork
+
+| 顺序 | 文件 | 用途 |
+|---|---|---|
+| 1 | [README.md](./README.md) | 对外定位、安装/构建、隐私与许可 |
+| 2 | [FORK_STATUS.md](./FORK_STATUS.md) | 当前 HEAD、部署状态、门禁摘要 |
+| 3 | [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) | 未完成项、待拍板、已知限制 |
+| 4 | [GATE_REGISTRY.md](./GATE_REGISTRY.md) | 提交/部署前必须跑的门禁 |
+| 5 | [CHANGELOG.md](./CHANGELOG.md) | 历史台账；查「当时为什么这么改」 |
+| 6 | [CLAUDE.md](./CLAUDE.md) | 上游架构、代码约定、发布流程参考；fork 规则以本文件为准 |
+
+## Fork-specific working rules
+
+- **Development happens only in `D:\tt-rebase` on branch `usage-desk-135`.**
+- `D:\tt-fork` is a detached mirror of the main object store. Never commit or create branches there; sync it with `git checkout --detach usage-desk-135` after new commits.
+- After a work batch: update `FORK_STATUS.md` (current state), append to `CHANGELOG.md` (what happened and how it was verified), and add/remove `KNOWN_ISSUES.md` entries.
+- Never commit secrets. Put local overrides in `.env.local` (gitignored); `.env.example` is the template. Do **not** create `.dev.vars` (Cloudflare Workers convention, not used here).
+- Merging upstream: any commit that changes pricing/billing semantics must be reconciled against local totals before and after. The upstream `-free` → zero-price rule is permanently rejected in this fork.
+- Before claiming a UI feature is delivered, read the rendered text/DOM, not only the server endpoint.
 
 <!-- INSFORGE:START -->
 ## InsForge backend
