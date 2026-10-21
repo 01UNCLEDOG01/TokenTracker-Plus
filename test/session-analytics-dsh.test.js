@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const zlib = require("node:zlib");
 
-const { readDshSessions, buildDshSessionRow } = require("../src/lib/session-analytics");
+const { readDshSessions, buildDshSessionRow, resetDshIncrementalCacheForTests, getDshIncrementalStatsForTests } = require("../src/lib/session-analytics");
 
 // Harness writes {type, seq, time, data}; usage sits only on assistant/message
 // and the routed model only on request/context.
@@ -130,6 +130,34 @@ test("a concatenated multi-frame zstd log loses no frame", async () => {
   }
 });
 
+test("zstd appends are decoded frame-by-frame without re-reading the head", async () => {
+  resetDshIncrementalCacheForTests();
+  const { home, dir } = sandbox();
+  try {
+    const file = path.join(dir, "session.v4.jsonl.zstd");
+    const head = [
+      sessionHeader("abc-123", { start: 1791590000000 }),
+      record("turn/start", 10, 1791590000020, { turn: 1 }),
+      record("request/context", 11, 1791590000040, { provider: "apigoto", model: "deepseek-flash" }),
+      record("assistant/message", 12, 1791590000050, { turn: 1, step: 1, message: { role: "assistant", content: [] }, usage: usage(100, 20, 120, 0) }),
+    ].join("\n") + "\n";
+    fs.writeFileSync(file, zlib.zstdCompressSync(Buffer.from(head, "utf8")));
+    const first = await rowsFrom(home);
+    assert.equal(first[0].total_tokens, 120);
+    assert.equal(getDshIncrementalStatsForTests().fullReads, 1);
+
+    const tail = record("assistant/message", 13, 1791590000060, {
+      turn: 1, step: 2, message: { role: "assistant", content: [] }, usage: usage(10, 5, 15, 0),
+    }) + "\n";
+    fs.appendFileSync(file, zlib.zstdCompressSync(Buffer.from(tail, "utf8")));
+    const second = await rowsFrom(home);
+    assert.equal(second[0].total_tokens, 135);
+    assert.equal(getDshIncrementalStatsForTests().incrementalReads, 1, "only the appended frame is decoded");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("a torn trailing line is skipped instead of dropping the session", async () => {
   const { home, dir } = sandbox();
   try {
@@ -233,6 +261,7 @@ test("a transcript with neither usage nor turns produces no row", async () => {
 });
 
 test("the per-file row cache serves unchanged transcripts and still sees appends", async () => {
+  resetDshIncrementalCacheForTests();
   const { home, dir } = sandbox();
   try {
     const file = path.join(dir, "session.v4.jsonl");
@@ -244,6 +273,7 @@ test("the per-file row cache serves unchanged transcripts and still sees appends
     const first = (await readDshSessions({ home, verifyRead: true })).map((entry) => entry.row);
     assert.equal(first.length, 1);
     assert.equal(first[0].total_tokens, 1400, "1000 in + 200 out + 200 cache-read");
+    assert.equal(getDshIncrementalStatsForTests().fullReads, 1, "the first read is a full parse");
 
     // Unchanged tree, forced verification: served from the cache, same row.
     const cached = (await readDshSessions({ home, verifyRead: true })).map((entry) => entry.row);
@@ -257,6 +287,7 @@ test("the per-file row cache serves unchanged transcripts and still sees appends
     const after = (await readDshSessions({ home, verifyRead: true })).map((entry) => entry.row);
     assert.equal(after.length, 1);
     assert.equal(after[0].total_tokens, 1430, "1400 plus the appended 10+20");
+    assert.equal(getDshIncrementalStatsForTests().incrementalReads, 1, "the append is fed incrementally");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

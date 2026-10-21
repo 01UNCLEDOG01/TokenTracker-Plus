@@ -41,6 +41,8 @@ const {
   normalizeOpencodeModelFields,
   normalizeOpencodeTokens,
   readDshSessionText,
+  inspectDshZstdFrames,
+  decodeDshZstd,
   readZcodeDbMessages,
   resolveDshSessionFiles,
   resolveWorkbuddyDefaultModel,
@@ -53,6 +55,7 @@ const {
 } = require("./rollout");
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
+const { readAntigravityTokscaleUsageCached } = require("./antigravity-tokscale");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector, createZcodePerformanceCollector } = require("./session-performance");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
 const { resolveZcodeNativeDbPath, resolveInstallPaths } = require("./install-resolver");
@@ -1094,145 +1097,255 @@ function dshToolName(data) {
   return typeof name === "string" ? name.trim().toLowerCase() : "";
 }
 
-async function buildDshSessionRow(filePath) {
-  const text = await readDshSessionText(filePath);
-  if (!text) return null;
-  const bounds = emptyBounds();
-  const modelUsageByModel = new Map();
-  const subagentTypes = new Map();
-  const tokens = {
-    input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
-    output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
+function createDshParseState() {
+  return {
+    bounds: emptyBounds(),
+    modelUsageByModel: new Map(),
+    subagentTypes: new Map(),
+    tokens: {
+      input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0,
+      output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
+    },
+    currentModel: null,
+    sessionId: null,
+    parentSessionId: null,
+    cwd: null,
+    title: null,
+    createdAt: null,
+    turns: 0,
+    editTurns: 0,
+    retryTurns: 0,
+    subagentCalls: 0,
+    currentTurnHadEdit: false,
+    lastPromptFingerprint: null,
   };
-  let currentModel = null;
-  let sessionId = null;
-  let parentSessionId = null;
-  let cwd = null;
-  let title = null;
-  let createdAt = null;
-  let turns = 0;
-  let editTurns = 0;
-  let retryTurns = 0;
-  let subagentCalls = 0;
-  let currentTurnHadEdit = false;
-  let lastPromptFingerprint = null;
+}
 
-  const closeTurn = () => {
-    if (currentTurnHadEdit) editTurns += 1;
-    currentTurnHadEdit = false;
-  };
+function closeDshTurn(state) {
+  if (state.currentTurnHadEdit) state.editTurns += 1;
+  state.currentTurnHadEdit = false;
+}
 
-  for (const line of text.split("\n")) {
+function consumeDshRecord(state, record) {
+  const type = record?.type;
+  const data = record?.data || null;
+  const stamp = dshIso(record?.time);
+  if (stamp) updateBounds(state.bounds, stamp);
+
+  if (type === "session") {
+    if (typeof record.id === "string" && record.id) state.sessionId = record.id;
+    if (typeof record.cwd === "string" && record.cwd) state.cwd = record.cwd;
+    if (typeof record.parentSession === "string" && record.parentSession) state.parentSessionId = record.parentSession;
+    state.createdAt = dshIso(record.createdAt) || state.createdAt;
+  } else if (type === "session/title") {
+    if (typeof data?.title === "string" && data.title.trim()) state.title = data.title;
+  } else if (type === "request/context") {
+    if (typeof data?.model === "string" && data.model) state.currentModel = normalizeSessionModel(data.model);
+  } else if (type === "turn/start") {
+    closeDshTurn(state);
+    state.turns += 1;
+  } else if (type === "user/message") {
+    const prompt = dshTextOf(data);
+    if (!prompt) return;
+    const fingerprint = promptFingerprint(prompt);
+    if (state.lastPromptFingerprint && fingerprint === state.lastPromptFingerprint) state.retryTurns += 1;
+    state.lastPromptFingerprint = fingerprint;
+  } else if (type === "assistant/message") {
+    const usage = dshUsageTotals(data?.usage);
+    if (!usage || usage.total_tokens <= 0) return;
+    addTotals(state.tokens, usage);
+    const key = state.currentModel || "unknown";
+    const entry = state.modelUsageByModel.get(key) || { model: key, ...emptyTotals(), usage_events: 0 };
+    addTotals(entry, usage);
+    entry.usage_events += 1;
+    state.modelUsageByModel.set(key, entry);
+  } else if (type === "tool/call") {
+    const name = dshToolName(data);
+    if (!name) return;
+    if (DSH_EDIT_TOOLS.has(name)) state.currentTurnHadEdit = true;
+    if (DSH_SUBAGENT_TOOLS.has(name)) {
+      state.subagentCalls += 1;
+      state.subagentTypes.set(name, (state.subagentTypes.get(name) || 0) + 1);
+    }
+  } else if (type === "subagent/descriptor") {
+    state.subagentCalls += 1;
+  }
+}
+
+// Feed only complete lines; a torn tail stays pending until the next append.
+function feedDshText(state, pendingText, text) {
+  const lines = `${pendingText || ""}${text || ""}`.split("\n");
+  const pending = lines.pop() ?? "";
+  for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     let record;
-    // Harness appends while it runs, so the last line can be torn; a record
-    // that does not parse is skipped rather than ending the session.
     try { record = JSON.parse(trimmed); } catch { continue; }
-    const type = record?.type;
-    const data = record?.data || null;
-    const stamp = dshIso(record?.time);
-    if (stamp) updateBounds(bounds, stamp);
-
-    if (type === "session") {
-      if (typeof record.id === "string" && record.id) sessionId = record.id;
-      if (typeof record.cwd === "string" && record.cwd) cwd = record.cwd;
-      if (typeof record.parentSession === "string" && record.parentSession) parentSessionId = record.parentSession;
-      createdAt = dshIso(record.createdAt) || createdAt;
-    } else if (type === "session/title") {
-      if (typeof data?.title === "string" && data.title.trim()) title = data.title;
-    } else if (type === "request/context") {
-      if (typeof data?.model === "string" && data.model) currentModel = normalizeSessionModel(data.model);
-    } else if (type === "turn/start") {
-      closeTurn();
-      turns += 1;
-    } else if (type === "user/message") {
-      const prompt = dshTextOf(data);
-      if (!prompt) continue;
-      const fingerprint = promptFingerprint(prompt);
-      if (lastPromptFingerprint && fingerprint === lastPromptFingerprint) retryTurns += 1;
-      lastPromptFingerprint = fingerprint;
-    } else if (type === "assistant/message") {
-      const usage = dshUsageTotals(data?.usage);
-      if (!usage || usage.total_tokens <= 0) continue;
-      addTotals(tokens, usage);
-      const key = currentModel || "unknown";
-      const entry = modelUsageByModel.get(key) || { model: key, ...emptyTotals(), usage_events: 0 };
-      addTotals(entry, usage);
-      entry.usage_events += 1;
-      modelUsageByModel.set(key, entry);
-    } else if (type === "tool/call") {
-      const name = dshToolName(data);
-      if (!name) continue;
-      if (DSH_EDIT_TOOLS.has(name)) currentTurnHadEdit = true;
-      if (DSH_SUBAGENT_TOOLS.has(name)) {
-        subagentCalls += 1;
-        subagentTypes.set(name, (subagentTypes.get(name) || 0) + 1);
-      }
-    } else if (type === "subagent/descriptor") {
-      subagentCalls += 1;
-    }
+    consumeDshRecord(state, record);
   }
-  closeTurn();
+  return pending;
+}
 
-  if (!sessionId) sessionId = path.basename(path.dirname(filePath));
-  if (tokens.total_tokens <= 0 && turns <= 0) return null;
-  const startedAt = createdAt || bounds.started_at;
-  const endedAt = bounds.ended_at || createdAt;
+function finalizeDshState(state, filePath) {
+  if (!state.sessionId) state.sessionId = path.basename(path.dirname(filePath));
+  if (state.tokens.total_tokens <= 0 && state.turns <= 0) return null;
+  const startedAt = state.createdAt || state.bounds.started_at;
+  const endedAt = state.bounds.ended_at || state.createdAt;
+  // An open turn has not seen its turn/start close yet; count it once here
+  // without mutating state, so an incremental batch cannot close it twice.
+  const editTurns = state.editTurns + (state.currentTurnHadEdit ? 1 : 0);
   const row = {
     version: SIDECAR_VERSION,
-    session_hash: sessionHash(DSH_SOURCE, sessionId),
-    session_id: sessionId,
-    parent_session_id: parentSessionId,
-    title: cleanSessionTitle(title),
+    session_hash: sessionHash(DSH_SOURCE, state.sessionId),
+    session_id: state.sessionId,
+    parent_session_id: state.parentSessionId,
+    title: cleanSessionTitle(state.title),
     source: DSH_SOURCE,
-    project_key: projectKey(cwd, null),
-    project_ref: typeof cwd === "string" && cwd ? cwd : null,
-    model: modelUsageByModel.size === 1
-      ? [...modelUsageByModel.values()][0].model
-      : (modelUsageByModel.size > 1 ? "mixed" : (currentModel || "unknown")),
-    model_usage: [...modelUsageByModel.values()].map((usage) => ({
+    project_key: projectKey(state.cwd, null),
+    project_ref: typeof state.cwd === "string" && state.cwd ? state.cwd : null,
+    model: state.modelUsageByModel.size === 1
+      ? [...state.modelUsageByModel.values()][0].model
+      : (state.modelUsageByModel.size > 1 ? "mixed" : (state.currentModel || "unknown")),
+    model_usage: [...state.modelUsageByModel.values()].map((usage) => ({
       ...usage,
       performance: normalizePerformance(),
     })),
-    ...bounds,
+    ...state.bounds,
     started_at: startedAt,
     ended_at: endedAt,
-    turns,
+    turns: state.turns,
     edit_turns: editTurns,
-    retry_turns: retryTurns,
-    subagent_calls: subagentCalls,
-    subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
-    tokens,
+    retry_turns: state.retryTurns,
+    subagent_calls: state.subagentCalls,
+    subagent_types: Object.fromEntries([...state.subagentTypes.entries()].sort()),
+    tokens: state.tokens,
     provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "observed", content_retained: false },
   };
-  // The row reads nothing but this one transcript, so these are the only
-  // inputs a reuse check has to cover.
   const statKey = [
-    sessionId, parentSessionId || "", title || "", cwd || "", tokens.total_tokens,
-    turns, editTurns, retryTurns, subagentCalls, row.model_usage.length, endedAt || "",
+    state.sessionId, state.parentSessionId || "", state.title || "", state.cwd || "",
+    state.tokens.total_tokens, state.turns, editTurns, state.retryTurns,
+    state.subagentCalls, row.model_usage.length, endedAt || "",
   ].join("|");
   return { row: finalizeRecord(row), statKey };
 }
 
+async function parseDshSessionText(text, filePath) {
+  const state = createDshParseState();
+  const pending = feedDshText(state, "", text);
+  const built = finalizeDshState(state, filePath);
+  return { state, pending, built };
+}
+
+async function buildDshSessionRow(filePath) {
+  const text = await readDshSessionText(filePath);
+  if (!text) return null;
+  const parsed = await parseDshSessionText(text, filePath);
+  return parsed.built;
+}
+
+const dshRowCache = new Map();
+const dshIncrementalCache = new Map();
+const dshIncrementalStats = { fullReads: 0, incrementalReads: 0 };
+
+function resetDshIncrementalCacheForTests() {
+  dshRowCache.clear();
+  dshIncrementalCache.clear();
+  dshIncrementalStats.fullReads = 0;
+  dshIncrementalStats.incrementalReads = 0;
+}
+
+function getDshIncrementalStatsForTests() {
+  return { ...dshIncrementalStats };
+}
+
+function dshFileIdentity(filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    return `${stat.dev}:${stat.ino}:${Math.floor(Number(stat.birthtimeMs) || 0)}`;
+  } catch {
+    return null;
+  }
+}
+
+async function fullDshSession(filePath) {
+  const text = await readDshSessionText(filePath);
+  if (!text) return null;
+  const parsed = await parseDshSessionText(text, filePath);
+  const stat = fs.statSync(filePath);
+  let frames = 0;
+  if (filePath.endsWith(".zstd")) {
+    try {
+      frames = inspectDshZstdFrames(fs.readFileSync(filePath)).frames;
+    } catch {
+      frames = 0;
+    }
+  }
+  dshIncrementalCache.set(path.resolve(filePath), {
+    identity: dshFileIdentity(filePath),
+    bytesConsumed: stat.size,
+    frames,
+    state: parsed.state,
+    pending: parsed.pending,
+    line: parsed.built ? serializeSessionRecord(parsed.built.row) : null,
+    statKey: parsed.built?.statKey || null,
+  });
+  dshIncrementalStats.fullReads += 1;
+  return parsed.built;
+}
+
+async function readDshSessionIncremental(filePath) {
+  const key = path.resolve(filePath);
+  const cached = dshIncrementalCache.get(key);
+  const identity = dshFileIdentity(filePath);
+  if (!cached || cached.identity !== identity) return fullDshSession(filePath);
+  const stat = fs.statSync(filePath);
+  if (stat.size < cached.bytesConsumed) return fullDshSession(filePath);
+
+  let newText = "";
+  let frames = cached.frames;
+  if (filePath.endsWith(".zstd")) {
+    const data = fs.readFileSync(filePath);
+    let info;
+    try {
+      info = inspectDshZstdFrames(data);
+    } catch {
+      // A torn append frame is not safe to parse yet; keep the last complete
+      // row and retry on the next refresh instead of dropping the session.
+      return cached.line
+        ? { row: JSON.parse(cached.line), statKey: cached.statKey, stale: true }
+        : null;
+    }
+    if (info.frames < cached.frames) return fullDshSession(filePath);
+    if (info.frames === cached.frames) {
+      cached.bytesConsumed = data.length;
+      return cached.line ? { row: JSON.parse(cached.line), statKey: cached.statKey } : null;
+    }
+    const decoded = await decodeDshZstd(data.subarray(info.frameRanges[cached.frames].start));
+    newText = decoded.toString("utf8");
+    frames = info.frames;
+  } else {
+    const data = fs.readFileSync(filePath);
+    newText = data.subarray(cached.bytesConsumed).toString("utf8");
+  }
+
+  const pending = feedDshText(cached.state, cached.pending, newText);
+  const built = finalizeDshState(cached.state, filePath);
+  cached.bytesConsumed = stat.size;
+  cached.frames = frames;
+  cached.pending = pending;
+  cached.line = built ? serializeSessionRecord(built.row) : null;
+  cached.statKey = built?.statKey || null;
+  dshIncrementalStats.incrementalReads += 1;
+  return built;
+}
+
 // An absent or unreadable Harness home yields no rows: a machine without dsh
 // must not lose the other providers' sessions over one missing directory.
-// Parsed transcripts are cached per file stat because decompressing and
-// walking one is the expensive part and the files are append-only; validation
-// uses the file stat (it sees appended or rewritten text), while the entry
-// handed back keeps buildDshSessionRow's content-derived statKey so the
-// build loop's meta semantics stay exactly what they were. Reused rows come
-// back as fresh JSON.parse objects (same shape as sidecar rows), so no build
-// can mutate another's cached state. A forced refresh re-verifies readability
-// before trusting a stat match — stat cannot see a permission failure, and a
-// probe failure falls through to the real parse.
-const dshRowCache = new Map();
-
+// Parsed transcripts are cached per file stat; when a file grows, only the new
+// bytes/frames are fed into the existing parse state. The row cache still
+// serves completely unchanged files without touching the file contents.
 async function readDshSessions({ home, env = process.env, verifyRead = false } = {}) {
   const dshEnv = { ...env };
-  // Only redirect the home when the caller really is sandboxed: setting
-  // DSH_HOME for the live machine would switch off the native/WSL pairing that
-  // resolveDshHomes does for users running Harness inside WSL.
   if (home && path.resolve(String(home)) !== path.resolve(os.homedir())) {
     dshEnv.DSH_HOME = path.join(String(home), ".dsh");
   }
@@ -1251,16 +1364,16 @@ async function readDshSessions({ home, env = process.env, verifyRead = false } =
         out.push({ row: JSON.parse(cached.line), statKey: cached.contentStatKey });
         continue;
       }
-      const built = await buildDshSessionRow(filePath);
+      const built = await readDshSessionIncremental(filePath);
       if (built) {
-        if (fileStatKey) {
+        if (fileStatKey && !built.stale) {
           dshRowCache.set(path.resolve(filePath), {
             fileStatKey,
             contentStatKey: built.statKey,
             line: serializeSessionRecord(built.row),
           });
         }
-        out.push(built);
+        out.push({ row: built.row, statKey: built.statKey });
       }
     } catch (error) {
       if (!process.env.NODE_TEST_CONTEXT) {
@@ -3104,6 +3217,11 @@ function antigravityRequestText(content) {
   return body.length > ANTIGRAVITY_TITLE_MAX ? `${body.slice(0, ANTIGRAVITY_TITLE_MAX)}…` : body;
 }
 
+function isRealAntigravityDbPath(dbPath) {
+  const root = path.join(os.homedir(), ".gemini", "antigravity");
+  return path.resolve(dbPath).startsWith(`${path.resolve(root)}${path.sep}`);
+}
+
 async function scanAntigravitySession(dbPath) {
   const uuid = path.basename(dbPath).replace(/\.db$/i, "");
   const antigravityRoot = path.dirname(path.dirname(dbPath));
@@ -3190,7 +3308,7 @@ async function scanAntigravitySession(dbPath) {
     acc.total_tokens += finite(totals.total_tokens);
     byModel.set(model, acc);
   }
-  const modelUsage = [...byModel.values()];
+  let modelUsage = [...byModel.values()];
   if (!modelUsage.length && result.currentModel) {
     modelUsage.push({
       model: result.currentModel,
@@ -3198,7 +3316,7 @@ async function scanAntigravitySession(dbPath) {
       output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0,
     });
   }
-  const totals = modelUsage.reduce((acc, m) => ({
+  let totals = modelUsage.reduce((acc, m) => ({
     input_tokens: acc.input_tokens + m.input_tokens,
     cached_input_tokens: acc.cached_input_tokens + m.cached_input_tokens,
     cache_creation_input_tokens: acc.cache_creation_input_tokens + m.cache_creation_input_tokens,
@@ -3206,6 +3324,27 @@ async function scanAntigravitySession(dbPath) {
     reasoning_output_tokens: acc.reasoning_output_tokens + m.reasoning_output_tokens,
     total_tokens: acc.total_tokens + m.total_tokens,
   }), { input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0 });
+  let cachedUsage = null;
+  let usageEvents = finite(result.eventsAggregated);
+  let usagePrecision = result.usageSource === "sqlite" ? "exact" : "estimated";
+  if (isRealAntigravityDbPath(dbPath)) {
+    try {
+      const snapshot = readAntigravityTokscaleUsageCached({ home: os.homedir(), env: process.env });
+      const session = snapshot.bySession.get(uuid);
+      if (session && session.models.size > 0) {
+        cachedUsage = session;
+        modelUsage = [...session.models.values()].map((usage) => ({
+          ...usage,
+          performance: normalizePerformance(),
+        }));
+        totals = { ...session.usage };
+        usageEvents = [...session.models.values()].reduce((sum, usage) => sum + finite(usage.usage_events), 0);
+        usagePrecision = "exact";
+      }
+    } catch {
+      // A missing or unreadable tokscale cache keeps the transcript estimate.
+    }
+  }
   const project = contributions.find((c) => c?.projectKey) || {};
   const workspace = readAntigravityWorkspace(dbPath);
   const projectRef = workspace || project.projectRef || null;
@@ -3232,10 +3371,11 @@ async function scanAntigravitySession(dbPath) {
     subagent_calls: 0,
     ...totals,
     provenance: "measured",
-    usage_precision: result.usageSource === "sqlite" ? "exact" : "estimated",
-    usage_is_incomplete: !result.dbReadOk,
-    usage_events: finite(result.eventsAggregated),
-    model_calls: finite(result.eventsAggregated),
+    usage_source: cachedUsage ? "tokscale-antigravity-cache" : undefined,
+    usage_precision: usagePrecision,
+    usage_is_incomplete: cachedUsage ? false : !result.dbReadOk,
+    usage_events: usageEvents,
+    model_calls: usageEvents,
     tool_calls: toolCalls,
     tool_failures: 0,
     error_count: errorCount,
@@ -4140,4 +4280,6 @@ module.exports = {
   analyticsEntryStatKey,
   resetOpencodeInputCacheForTests,
   getOpencodeInputCacheStatsForTests,
+  resetDshIncrementalCacheForTests,
+  getDshIncrementalStatsForTests,
 };

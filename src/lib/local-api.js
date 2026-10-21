@@ -74,6 +74,7 @@ const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
 const { qoderIntlCreditRows } = require("./qoder-intl-credits");
+const { readAntigravityTokscaleUsageCached, mergeAntigravityTokscaleRows } = require("./antigravity-tokscale");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
 const { repriceAccountModelCosts } = require("./reprice-account-costs");
@@ -424,9 +425,23 @@ async function scopedQueueRows(queuePath, url) {
   const intlCreditRows = qoderIntlCreditRows(allRows, {
     projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
   });
-  const mergedRows = estimatedRows.length || intlCreditRows.length
-    ? allRows.concat(estimatedRows, intlCreditRows)
-    : allRows;
+  // Antigravity's transcripts carry no token counters. Token Monitor's
+  // tokscale cache does; replace estimates only on the days that cache covers
+  // and keep the estimate for every other day.
+  const realQueuePath = path.join(os.homedir(), ".tokentracker", "tracker", "queue.jsonl");
+  const allowAntigravityCache = path.resolve(queuePath) === path.resolve(realQueuePath)
+    || Boolean(process.env.TOKENTRACKER_TOKSCALE_ANTIGRAVITY_DIR);
+  const antigravityCache = allowAntigravityCache
+    ? readAntigravityTokscaleUsageCached({
+      home: os.homedir(),
+      env: process.env,
+      platform: process.platform,
+    })
+    : { rows: [], coveredDays: new Set() };
+  const rowsWithAntigravity = mergeAntigravityTokscaleRows(allRows, antigravityCache);
+  const mergedRows = estimatedRows.length || intlCreditRows.length || antigravityCache.rows.length
+    ? rowsWithAntigravity.concat(estimatedRows, intlCreditRows)
+    : rowsWithAntigravity;
   return {
     scope,
     allRows: mergedRows,
