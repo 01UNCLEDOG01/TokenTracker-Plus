@@ -100,6 +100,18 @@ scripts/self-host/internal-backup.sh
 - **AgentRouter 中转面值不并入总花费**：codex 流量已按 token 记入总账；站方面值只由 AgentRouter 卡承载。
 - 估算值会显式标注（如 antigravity、Qoder CN）。
 
+### 热力图等级
+
+热力图 **Level 0–4** 是相对当前窗口的等级，不是固定的每日 token 门槛。服务端规则：
+
+- `P` = 窗口内最高单日 `billable_total_tokens`；
+- Level 1：`0 < tokens ≤ 25% × P`
+- Level 2：`≤ 50% × P`
+- Level 3：`≤ 75% × P`
+- Level 4：`> 75% × P`
+
+客户端 fallback 目前用的是活跃日分位数（50/75/90 分位），两套规则尚未统一，界面也还没有显示当前门槛。见 KI-016。
+
 ## 配置
 
 ```bash
@@ -153,7 +165,7 @@ TOKENTRACKER_BUILD_PET=1 npm --prefix dashboard run build
 ## 已知限制
 
 - **opencode 首读慢、之后增量**：SQLite 库约 27GB，首次扫描约 18s（应用新进程也是冷启动）；之后只读新增/更新行，本机该源约 6.4s，整轮第二次刷新约 12.6s。v2/过渡布局仍走全量。
-- **antigravity 是估算**：本机 transcript 没有 token 字段，真数在 Token Monitor 的 tokscale 缓存里，尚未替换。
+- **antigravity 优先用 tokscale 真数**：Token Monitor 的 tokscale 缓存覆盖到的天用实测值，没覆盖到的天继续用 transcript 估算。本机缓存只覆盖 2026-10-03..10-10。
 - **Qoder token 是按 credits 反推的**：Qoder 国际版 JSONL 的 token 字段全是 0，TT 按 credits 反推，并标成 Qwen3.8-Flash（积分）/ DeepSeek-Flash（积分）。Qoder CN 的官方消耗与 Qoder 国际版额度都依赖 `qoder-usage-cookie.txt`；国际版 cookie 是 httpOnly，需要在 DevTools 复制一次（用刷新脚本）。
 - **Qoder 国际版在 Windows 没有本地配额服务**：数据在 `~/.qoder`，限额卡走 cookie 路线，不找 `%APPDATA%\Qoder`。
 - **DeepSeek 只有余额卡**：旧的 `/user/balance/models` 逐日用量端点已不存在，卡片只显示余额与赠送额。

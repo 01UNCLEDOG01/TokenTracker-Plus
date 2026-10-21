@@ -100,6 +100,18 @@ scripts/self-host/internal-backup.sh
 - **AgentRouter face value is not added to total spend**: codex traffic is already accounted by tokens; the relay face value is carried only by the AgentRouter card.
 - Estimates (antigravity, Qoder CN, etc.) are labeled explicitly.
 
+### Activity heatmap levels
+
+The heatmap's **Level 0–4** is relative to the selected window, not a fixed daily-token ladder. The server rule is:
+
+- `P` = the busiest day's `billable_total_tokens` in the window;
+- Level 1: `0 < tokens ≤ 25% × P`
+- Level 2: `≤ 50% × P`
+- Level 3: `≤ 75% × P`
+- Level 4: `> 75% × P`
+
+The client-side fallback currently uses active-day quantiles (50/75/90th percentile) instead; the two rules are not yet unified, and the UI does not show the current threshold. Tracked as KI-016.
+
 ## Configuration
 
 ```bash
@@ -153,7 +165,7 @@ On this machine the full Node suite has about 50 environment/baseline reds plus 
 ## Known limitations
 
 - **opencode refresh is incremental after the first read**: the first scan of the ~27GB database still costs about 18s (and a fresh app process starts cold); later refreshes read only new/updated rows, about 6.4s for this source and 12.6s for a second full session refresh on this machine. v2/transitional layouts still take the full path.
-- **antigravity is estimated**: local transcripts have no token fields; real numbers live in Token Monitor's tokscale cache and are not yet substituted.
+- **antigravity prefers measured tokscale data**: where Token Monitor's tokscale cache covers a day, TT uses its measured usage; days with no cache fall back to the transcript estimate. The cache on this machine covers 2026-10-03..10-10 only.
 - **Qoder tokens are derived from credits**: Qoder international's JSONL carries zero token fields; TT derives tokens from the credits and labels the rows Qwen3.8-Flash（积分）/ DeepSeek-Flash（积分）. Qoder CN's official spend and Qoder international's quota both rely on `qoder-usage-cookie.txt`; the international cookie is httpOnly and must be copied once via DevTools (use the refresh script).
 - **Qoder international has no local quota service on Windows**: its data lives in `~/.qoder`, so the limit card uses the cookie route rather than `%APPDATA%\Qoder`.
 - **DeepSeek is balance-only**: the old `/user/balance/models` daily-usage endpoint is gone; the card shows balance and granted amount only.
