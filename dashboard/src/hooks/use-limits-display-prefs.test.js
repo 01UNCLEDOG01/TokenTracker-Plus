@@ -127,6 +127,7 @@ describe("useLimitsDisplayPrefs", () => {
         "trae",
         "codearts",
         "clinePass",
+        "agentRouter",
         "claude",
         "codex",
         "codingPlan",

@@ -172,6 +172,8 @@
   "limits.provider.deepseek": "DeepSeek",
   "limits.provider.trae": "Trae (alt)",
   "limits.provider.codearts": "CodeArts",
+  "limits.provider.agentrouter": "AgentRouter",
+  "limits.label.agentrouter_balance": "잔액 {{balance}} (누적 사용 {{used}})",
   "limits.provider.cline_pass": "Cline Pass",
   "limits.label.deepseek_balance": "{{currency}} {{total}} (지급 {{granted}})",
   "limits.label.trae_balance": "사용 가능 {{credits}} 포인트",

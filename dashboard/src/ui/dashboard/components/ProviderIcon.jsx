@@ -426,9 +426,12 @@ const PROVIDER_LOGO_MAP = {
   // (app-icon-square). It is a white glyph on a dark rounded square, so it keeps
   // that tile in both themes rather than being recolored.
   AUTOCLAW: "/brand-logos/autoclaw.png",
-  // CodeArts Agent's own product icon (codearts-product-icon-theme/media/
-  // logo.png from the installed app) - a teal glyph on a dark rounded square,
-  // same tile treatment as AutoClaw: keep the dark tile in both themes.
+  // CodeArts Agent's real brand mark - the colorful X extracted from the
+  // installed exe's embedded icon (PrivateExtractIcons 256px, RGBA transparent;
+  // the product-icon-theme logo.png is a theme attachment, NOT the brand icon
+  // - user-corrected 2026-10-19). The dark square reads in both themes.
+  // ?v= is mandatory on this asset: it was replaced under the same URL once
+  // already, and a bare reference serves the stale pre-fix cache.
   CODEARTS: "/brand-logos/codearts.png?v=2",
   CLAUDE: "/brand-logos/claude-code.svg",
   "CLAUDE-SCIENCE": "/brand-logos/claude-code.svg",
@@ -496,9 +499,9 @@ const PROVIDER_LOGO_MAP = {
   // Distinct key from the DSH fish: the DeepSeek open-platform limits card
   // uses the official whale logo, while DEEPSEEK/DSH keep the theme-aware fish.
   "DEEPSEEK-PLATFORM": "/brand-logos/deepseek.svg",
-  TRAE: "/brand-logos/trae.svg",
-  CODEARTS: "/brand-logos/codearts.png",
   "CLINE-PASS": "/brand-logos/cline.png",
+  // AgentRouter.org (New API relay panel) — the site\u0027s own logo.png.
+  AGENTROUTER: "/brand-logos/agentrouter.png",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

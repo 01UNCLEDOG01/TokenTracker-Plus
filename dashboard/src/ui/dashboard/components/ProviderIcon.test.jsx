@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -194,3 +196,34 @@ describe("ProviderIcon", () => {
     expect(container.querySelector(".text-oai-gray-400")).toBeNull();
     expect(container.querySelector("circle")).toBeNull();
   });
+
+describe("ProviderIcon brand logo map hygiene", () => {
+  // 2026-10-22 regression: a second CODEARTS entry (bare URL) was appended to
+  // PROVIDER_LOGO_MAP and silently shadowed the fixed ?v=2 reference — JS
+  // duplicate keys collapse at parse time, so no runtime check can catch it.
+  // These assertions read the SOURCE so a duplicate can never land again.
+  const source = readFileSync(join(__dirname, "ProviderIcon.jsx"), "utf8");
+
+  function mapKeys(name) {
+    const start = source.indexOf(`const ${name} = {`);
+    if (start < 0) return null;
+    const end = source.indexOf("\n};", start);
+    const block = source.slice(start, end);
+    return [...block.matchAll(/^\s+"?([A-Za-z0-9-]+)"?:/gm)].map((m) => m[1]);
+  }
+
+  it("has no duplicate keys in any icon map", () => {
+    for (const name of ["PROVIDER_ICON_MAP", "PROVIDER_LOGO_MAP", "PROVIDER_LOGO_CLASS_MAP"]) {
+      const keys = mapKeys(name);
+      expect(keys, `map ${name} not found`).not.toBeNull();
+      const dupes = keys.filter((key, i) => keys.indexOf(key) !== i);
+      expect(dupes, `duplicate keys in ${name}: ${dupes.join(", ")}`).toEqual([]);
+    }
+  });
+
+  it("always references codearts.png with a version param (replaced under the same URL once already)", () => {
+    for (const match of source.matchAll(/\/brand-logos\/codearts\.png[^"'\s]*/g)) {
+      expect(match[0], `codearts.png reference without ?v=: ${match[0]}`).toMatch(/\?v=/);
+    }
+  });
+});

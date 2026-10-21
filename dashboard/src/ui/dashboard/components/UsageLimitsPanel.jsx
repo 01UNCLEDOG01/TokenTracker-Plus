@@ -673,6 +673,18 @@ function renderProviderExtra(kind, data) {
       </StatusLine>
     );
   }
+  if (kind === "agentrouter_balance" && Number.isFinite(Number(data.agentrouter_balance_usd))) {
+    return (
+      <StatusLine>
+        {copy("limits.label.agentrouter_balance", {
+          balance: formatCreditAmount(Number(data.agentrouter_balance_usd), { maximumFractionDigits: 2 }),
+          used: Number.isFinite(Number(data.agentrouter_used_usd))
+            ? formatCreditAmount(Number(data.agentrouter_used_usd), { maximumFractionDigits: 2 })
+            : "—",
+        })}
+      </StatusLine>
+    );
+  }
   if (kind === "deepseek_balance" && Number.isFinite(Number(data.deepseek_total_balance))) {
     return (
       <StatusLine>
@@ -1374,8 +1386,8 @@ function useWidestLabelWidth(containerRef) {
   return labelWidth;
 }
 
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, codearts, clinePass, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, codearts, clinePass };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, codearts, clinePass, agentRouter };
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

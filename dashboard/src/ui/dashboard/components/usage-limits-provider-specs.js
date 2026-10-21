@@ -319,6 +319,14 @@ export const PROVIDER_LIMIT_SPECS = {
       return [];
     },
   },
+  agentRouter: {
+    // AgentRouter.org prepaid balance: a currency amount read from the New
+    // API panel with the user\u0027s access token — status line, no bars.
+    extra: "agentrouter_balance",
+    windows() {
+      return [];
+    },
+  },
   raccoon: {
     // 小浣熊 (Raccoon) credit wallets are pure balances with refill schedules
     // of their own (the daily wallet accumulates per check-in, no fixed grant

@@ -37,6 +37,7 @@ const { fetchApigotoLimits } = require("./apigoto-limits");
 const { fetchSensenovaLimits } = require("./sensenova-limits");
 const { fetchRaccoonLimits } = require("./raccoon-limits");
 const { fetchDeepSeekLimits } = require("./deepseek-limits");
+const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchTraeLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
@@ -4102,7 +4103,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, codeartsGateway, clinePassGateway] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4248,6 +4249,8 @@ async function fetchUsageLimitsUncached({
     fetchTraeLimits({ home, nowMs }),
     fetchCodeartsLimits({ home, nowMs }),
     fetchClinePassLimits({ home, nowMs }),
+    // AgentRouter.org panel balance (New API access token + user id).
+    fetchAgentRouterLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;
@@ -4518,6 +4521,7 @@ async function fetchUsageLimitsUncached({
     trae: withPlanLabel(traeGateway, traeGateway?.plan_name, "Trae"),
     codearts: withPlanLabel(codeartsGateway, codeartsGateway?.plan_name, "CodeArts"),
     clinePass: withPlanLabel(clinePassGateway, clinePassGateway?.plan_name, "Cline Pass"),
+    agentRouter: withPlanLabel(agentRouter, agentRouter?.plan_name, "AgentRouter"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

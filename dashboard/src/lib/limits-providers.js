@@ -26,6 +26,7 @@ export const LIMIT_PROVIDER_IDS = [
   "trae",
   "codearts",
   "clinePass",
+  "agentRouter",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -71,6 +72,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   codearts: "CODEARTS",
   // Cline Pass micro-credits, fed by the gateway snapshot.
   clinePass: "CLINE-PASS",
+  // AgentRouter.org (New API panel) balance — official site logo.
+  agentRouter: "AGENTROUTER",
 };
 
 export function limitProviderIconKey(id) {
@@ -127,6 +130,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.codearts");
     case "clinePass":
       return copy("limits.provider.cline_pass");
+    case "agentRouter":
+      return copy("limits.provider.agentrouter");
     default:
       return String(id || "");
   }

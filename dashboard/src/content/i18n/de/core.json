@@ -429,6 +429,8 @@
   "limits.provider.deepseek": "DeepSeek",
   "limits.provider.trae": "Trae (alt)",
   "limits.provider.codearts": "CodeArts",
+  "limits.provider.agentrouter": "AgentRouter",
+  "limits.label.agentrouter_balance": "Guthaben {{balance}} (insgesamt {{used}} verbraucht)",
   "limits.provider.cline_pass": "Cline Pass",
   "limits.label.deepseek_balance": "{{currency}} {{total}} (gewährt {{granted}})",
   "limits.label.trae_balance": "{{credits}} Punkte verfügbar",

@@ -323,6 +323,7 @@ const PET_LIMIT_PROVIDER_NAMES = {
   trae: "Trae",
   codearts: "CodeArts",
   clinePass: "Cline Pass",
+  agentRouter: "AgentRouter",
 };
 
 // Ark Agent Plan and Command Code resolve through the copy registry (reviews

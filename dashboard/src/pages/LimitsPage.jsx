@@ -263,6 +263,7 @@ export function LimitsPage() {
                 trae={usageLimits?.trae}
                 codearts={usageLimits?.codearts}
                 clinePass={usageLimits?.clinePass}
+                agentRouter={usageLimits?.agentRouter}
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}
