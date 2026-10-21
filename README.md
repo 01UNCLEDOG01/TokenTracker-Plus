@@ -152,9 +152,9 @@ On this machine the full Node suite has about 50 environment/baseline reds plus 
 
 ## Known limitations
 
-- **opencode refresh is slow**: the SQLite database is about 27GB; a forced refresh full-scans it for about 15s. Incremental reads are not yet wired into the session layer.
+- **opencode refresh is incremental after the first read**: the first scan of the ~27GB database still costs about 18s (and a fresh app process starts cold); later refreshes read only new/updated rows, about 6.4s for this source and 12.6s for a second full session refresh on this machine. v2/transitional layouts still take the full path.
 - **antigravity is estimated**: local transcripts have no token fields; real numbers live in Token Monitor's tokscale cache and are not yet substituted.
-- **Qoder limit cards need a valid cookie**: Qoder CN's official spend and Qoder international's quota both rely on `qoder-usage-cookie.txt`; the international cookie is httpOnly and must be copied once via DevTools (use the refresh script).
+- **Qoder tokens are derived from credits**: Qoder international's JSONL carries zero token fields; TT derives tokens from the credits and labels the rows Qwen3.8-Flash（积分）/ DeepSeek-Flash（积分）. Qoder CN's official spend and Qoder international's quota both rely on `qoder-usage-cookie.txt`; the international cookie is httpOnly and must be copied once via DevTools (use the refresh script).
 - **Qoder international has no local quota service on Windows**: its data lives in `~/.qoder`, so the limit card uses the cookie route rather than `%APPDATA%\Qoder`.
 - **DeepSeek is balance-only**: the old `/user/balance/models` daily-usage endpoint is gone; the card shows balance and granted amount only.
 - **Some sources have no per-conversation data**: cursor / minimax-code / reasonix are not wired into the session layer yet.

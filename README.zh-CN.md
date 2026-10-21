@@ -152,9 +152,9 @@ TOKENTRACKER_BUILD_PET=1 npm --prefix dashboard run build
 
 ## 已知限制
 
-- **opencode 刷新慢**：SQLite 库约 27GB，强制刷新全表扫描约占 15s；增量读取尚未接入会话层。
+- **opencode 首读慢、之后增量**：SQLite 库约 27GB，首次扫描约 18s（应用新进程也是冷启动）；之后只读新增/更新行，本机该源约 6.4s，整轮第二次刷新约 12.6s。v2/过渡布局仍走全量。
 - **antigravity 是估算**：本机 transcript 没有 token 字段，真数在 Token Monitor 的 tokscale 缓存里，尚未替换。
-- **Qoder 限额卡需要有效 cookie**：Qoder CN 的官方消耗与 Qoder 国际版额度都依赖 `qoder-usage-cookie.txt`；国际版 cookie 是 httpOnly，需要在 DevTools 复制一次（用刷新脚本）。
+- **Qoder token 是按 credits 反推的**：Qoder 国际版 JSONL 的 token 字段全是 0，TT 按 credits 反推，并标成 Qwen3.8-Flash（积分）/ DeepSeek-Flash（积分）。Qoder CN 的官方消耗与 Qoder 国际版额度都依赖 `qoder-usage-cookie.txt`；国际版 cookie 是 httpOnly，需要在 DevTools 复制一次（用刷新脚本）。
 - **Qoder 国际版在 Windows 没有本地配额服务**：数据在 `~/.qoder`，限额卡走 cookie 路线，不找 `%APPDATA%\Qoder`。
 - **DeepSeek 只有余额卡**：旧的 `/user/balance/models` 逐日用量端点已不存在，卡片只显示余额与赠送额。
 - **部分源没有逐对话数据**：cursor / minimax-code / reasonix 的会话层尚未接入。
