@@ -493,6 +493,12 @@ const PROVIDER_LOGO_MAP = {
   // 小浣熊 (Raccoon, raccoon.sensetime.com) — the gateway's own provider icon,
   // copied from Program Files/Agent2API/_up_/ui/assets/providers/raccoon.png.
   RACCOON: "/brand-logos/raccoon.png",
+  // Distinct key from the DSH fish: the DeepSeek open-platform limits card
+  // uses the official whale logo, while DEEPSEEK/DSH keep the theme-aware fish.
+  "DEEPSEEK-PLATFORM": "/brand-logos/deepseek.svg",
+  TRAE: "/brand-logos/trae.svg",
+  CODEARTS: "/brand-logos/codearts.png",
+  "CLINE-PASS": "/brand-logos/cline.png",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

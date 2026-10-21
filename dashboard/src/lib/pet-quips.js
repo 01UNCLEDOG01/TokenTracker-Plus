@@ -319,6 +319,10 @@ const PET_LIMIT_PROVIDER_NAMES = {
   // 小浣熊 (Raccoon) — balance-only card, no windows: the name map entry keeps
   // quips that mention the provider consistent with the Limits page title.
   raccoon: "Raccoon",
+  deepseek: "DeepSeek",
+  trae: "Trae",
+  codearts: "CodeArts",
+  clinePass: "Cline Pass",
 };
 
 // Ark Agent Plan and Command Code resolve through the copy registry (reviews

@@ -259,6 +259,10 @@ export function LimitsPage() {
                 agentPlan={usageLimits?.agentPlan}
                 devin={usageLimits?.devin}
                 raccoon={usageLimits?.raccoon}
+                deepseek={usageLimits?.deepseek}
+                trae={usageLimits?.trae}
+                codearts={usageLimits?.codearts}
+                clinePass={usageLimits?.clinePass}
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}

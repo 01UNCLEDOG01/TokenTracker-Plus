@@ -123,6 +123,10 @@ describe("useLimitsDisplayPrefs", () => {
         // and the Raccoon credit balances (read from the local gateway db).
         "apigoto",
         "raccoon",
+        "deepseek",
+        "trae",
+        "codearts",
+        "clinePass",
         "claude",
         "codex",
         "codingPlan",

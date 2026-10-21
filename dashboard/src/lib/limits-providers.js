@@ -22,6 +22,10 @@ export const LIMIT_PROVIDER_IDS = [
   "agentPlan",
   "devin",
   "raccoon",
+  "deepseek",
+  "trae",
+  "codearts",
+  "clinePass",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -59,6 +63,14 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   // 小浣熊 (Raccoon, raccoon.sensetime.com) — the gateway's own provider icon
   // (Program Files/Agent2API/_up_/ui/assets/providers/raccoon.png).
   raccoon: "RACCOON",
+  // DeepSeek open platform (api.deepseek.com) balance — official logo asset.
+  deepseek: "DEEPSEEK-PLATFORM",
+  // TRAE SOLO secondary account, fed by the gateway snapshot.
+  trae: "TRAE",
+  // Huawei CodeArts Agent trial credits, fed by the gateway snapshot.
+  codearts: "CODEARTS",
+  // Cline Pass micro-credits, fed by the gateway snapshot.
+  clinePass: "CLINE-PASS",
 };
 
 export function limitProviderIconKey(id) {
@@ -107,6 +119,14 @@ export function limitProviderName(id) {
       return copy("limits.provider.devin");
     case "raccoon":
       return copy("limits.provider.raccoon");
+    case "deepseek":
+      return copy("limits.provider.deepseek");
+    case "trae":
+      return copy("limits.provider.trae");
+    case "codearts":
+      return copy("limits.provider.codearts");
+    case "clinePass":
+      return copy("limits.provider.cline_pass");
     default:
       return String(id || "");
   }

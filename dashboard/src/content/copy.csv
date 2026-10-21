@@ -2172,3 +2172,12 @@ achievements.modal.tier_threshold,dashboard,*,BadgeDetailModal,tier_threshold,"{
 limits.provider.raccoon,ui,LimitsPage,UsageLimitsPanel,provider_raccoon,"Raccoon",,active
 limits.label.raccoon_wallets,ui,LimitsPage,UsageLimitsPanel,raccoon_wallets,"{{wallets}} · {{total}} {{unit}} in total",,active
 limits.label.apigoto_subscription,ui,LimitsPage,UsageLimitsPanel,apigoto_subscription,"Subscription period",,active
+limits.provider.deepseek,ui,LimitsPage,UsageLimitsPanel,provider_deepseek,"DeepSeek",,active
+limits.provider.trae,ui,LimitsPage,UsageLimitsPanel,provider_trae,"Trae (alt)",,active
+limits.provider.codearts,ui,LimitsPage,UsageLimitsPanel,provider_codearts,"CodeArts",,active
+limits.provider.cline_pass,ui,LimitsPage,UsageLimitsPanel,provider_cline_pass,"Cline Pass",,active
+limits.label.deepseek_balance,ui,LimitsPage,UsageLimitsPanel,deepseek_balance,"{{currency}} {{total}} (granted {{granted}})",,active
+limits.label.trae_balance,ui,LimitsPage,UsageLimitsPanel,trae_balance,"{{credits}} points available",,active
+limits.label.trae_nearest,ui,LimitsPage,UsageLimitsPanel,trae_nearest,"{{credits}} expire {{date}}",,active
+limits.label.codearts_wallets,ui,LimitsPage,UsageLimitsPanel,codearts_wallets,"{{credits}} credits, resets {{date}}",,active
+limits.label.cline_wallets,ui,LimitsPage,UsageLimitsPanel,cline_wallets,"{{wallets}}",,active

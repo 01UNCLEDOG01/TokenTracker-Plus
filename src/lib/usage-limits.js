@@ -36,6 +36,8 @@ const { fetchQoderLimits, fetchQoderCnLimits } = require("./qoder-limits");
 const { fetchApigotoLimits } = require("./apigoto-limits");
 const { fetchSensenovaLimits } = require("./sensenova-limits");
 const { fetchRaccoonLimits } = require("./raccoon-limits");
+const { fetchDeepSeekLimits } = require("./deepseek-limits");
+const { fetchTraeLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
 const { fetchProviderServiceStatus } = require("./provider-status");
@@ -4100,7 +4102,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, codeartsGateway, clinePassGateway] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4239,6 +4241,13 @@ async function fetchUsageLimitsUncached({
     // 小浣熊 (Raccoon) credit balances read straight from the local Agent2API
     // gateway db — zero auth, no network, fail-soft inside the fetcher.
     fetchRaccoonLimits({ home, env, nowMs }),
+    // DeepSeek open-platform balance, keyed by the user's own API key.
+    fetchDeepSeekLimits({ home, fetchImpl: providerFetch, nowMs }),
+    // Gateway-fed cards (Trae secondary account / CodeArts / Cline Pass) —
+    // same local snapshot table the raccoon card reads.
+    fetchTraeLimits({ home, nowMs }),
+    fetchCodeartsLimits({ home, nowMs }),
+    fetchClinePassLimits({ home, nowMs }),
   ]);
 
   let claude;
@@ -4505,6 +4514,10 @@ async function fetchUsageLimitsUncached({
     // Balances, not windows: the fetcher never sets plan_name, so the panel
     // falls back to the bare brand and the wallets render as the status line.
     raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),
+    deepseek: withPlanLabel(deepseek, deepseek?.plan_name, "DeepSeek"),
+    trae: withPlanLabel(traeGateway, traeGateway?.plan_name, "Trae"),
+    codearts: withPlanLabel(codeartsGateway, codeartsGateway?.plan_name, "CodeArts"),
+    clinePass: withPlanLabel(clinePassGateway, clinePassGateway?.plan_name, "Cline Pass"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

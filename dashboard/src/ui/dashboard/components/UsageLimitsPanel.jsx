@@ -673,6 +673,57 @@ function renderProviderExtra(kind, data) {
       </StatusLine>
     );
   }
+  if (kind === "deepseek_balance" && Number.isFinite(Number(data.deepseek_total_balance))) {
+    return (
+      <StatusLine>
+        {copy("limits.label.deepseek_balance", {
+          currency: typeof data.deepseek_currency === "string" ? data.deepseek_currency : "",
+          total: formatCreditAmount(Number(data.deepseek_total_balance), { maximumFractionDigits: 2 }),
+          granted: formatCreditAmount(Number(data.deepseek_granted_balance), { maximumFractionDigits: 2 }),
+        })}
+      </StatusLine>
+    );
+  }
+  if (kind === "trae_wallets" && Number.isFinite(Number(data.trae_available_points))) {
+    const lines = [
+      <StatusLine key="balance">
+        {copy("limits.label.trae_balance", {
+          credits: formatCreditAmount(Number(data.trae_available_points), { maximumFractionDigits: 0 }),
+        })}
+      </StatusLine>,
+    ];
+    if (typeof data.trae_nearest_expire_at === "string" && data.trae_nearest_expire_at) {
+      lines.push(
+        <StatusLine key="expiry">
+          {copy("limits.label.trae_nearest", {
+            credits: formatCreditAmount(Number(data.trae_nearest_points), { maximumFractionDigits: 0 }),
+            date: data.trae_nearest_expire_at.slice(0, 10),
+          })}
+        </StatusLine>,
+      );
+    }
+    return lines;
+  }
+  if (kind === "codearts_wallets" && Number.isFinite(Number(data.codearts_available_credits))) {
+    return (
+      <StatusLine>
+        {copy("limits.label.codearts_wallets", {
+          credits: formatCreditAmount(Number(data.codearts_available_credits), { maximumFractionDigits: 2 }),
+          date: typeof data.codearts_reset_date === "string" && data.codearts_reset_date ? data.codearts_reset_date : "—",
+        })}
+      </StatusLine>
+    );
+  }
+  if (kind === "cline_wallets" && Array.isArray(data.cline_wallets) && data.cline_wallets.length) {
+    const summary = data.cline_wallets
+      .map((wallet) => wallet.name + " " + formatCreditAmount(Number(wallet.balance), { maximumFractionDigits: 2 }))
+      .join(" · ");
+    return (
+      <StatusLine>
+        {copy("limits.label.cline_wallets", { wallets: summary })}
+      </StatusLine>
+    );
+  }
   if (kind === "raccoon_wallets" && Array.isArray(data.raccoon_wallets) && data.raccoon_wallets.length) {
     // 小浣熊 (Raccoon) wallets are balances without a fixed grant to pace
     // against, so they read as one status line: each non-zero wallet's own
@@ -1323,8 +1374,8 @@ function useWidestLabelWidth(containerRef) {
   return labelWidth;
 }
 
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, codearts, clinePass, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, codearts, clinePass };
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

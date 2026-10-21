@@ -288,6 +288,37 @@ export const PROVIDER_LIMIT_SPECS = {
       ];
     },
   },
+  deepseek: {
+    // DeepSeek open-platform balance: a currency amount, not a window —
+    // renders as the deepseek_balance status line, no bars.
+    extra: "deepseek_balance",
+    windows() {
+      return [];
+    },
+  },
+  trae: {
+    // TRAE SOLO secondary account: rolling check-in grants with individual
+    // expiries — balance line plus the soonest expiry, no bars.
+    extra: "trae_wallets",
+    windows() {
+      return [];
+    },
+  },
+  codearts: {
+    // CodeArts Agent trial credits: one balance line with the reset date.
+    extra: "codearts_wallets",
+    windows() {
+      return [];
+    },
+  },
+  clinePass: {
+    // Cline Pass micro-credits; the gateway account sits disabled so the
+    // snapshot ages — the shared staleness flag says so.
+    extra: "cline_wallets",
+    windows() {
+      return [];
+    },
+  },
   raccoon: {
     // 小浣熊 (Raccoon) credit wallets are pure balances with refill schedules
     // of their own (the daily wallet accumulates per check-in, no fixed grant
