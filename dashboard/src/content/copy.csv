@@ -2182,4 +2182,4 @@ limits.label.trae_nearest,ui,LimitsPage,UsageLimitsPanel,trae_nearest,"{{credits
 limits.label.codearts_wallets,ui,LimitsPage,UsageLimitsPanel,codearts_wallets,"{{credits}} credits, resets {{date}}",,active
 limits.label.cline_wallets,ui,LimitsPage,UsageLimitsPanel,cline_wallets,"{{wallets}}",,active
 limits.provider.agentrouter,ui,LimitsPage,UsageLimitsPanel,provider_agentrouter,"AgentRouter",,active
-limits.label.agentrouter_balance,ui,LimitsPage,UsageLimitsPanel,agentrouter_balance,"{{balance}} left, {{used}} used in total",,active
+limits.label.agentrouter_balance,ui,LimitsPage,UsageLimitsPanel,agentrouter_balance,"${{balance}} left, ${{used}} used in total",,active

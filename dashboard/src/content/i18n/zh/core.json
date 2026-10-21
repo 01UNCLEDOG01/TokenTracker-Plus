@@ -186,7 +186,7 @@
   "limits.provider.trae": "Trae（小号）",
   "limits.provider.codearts": "CodeArts",
   "limits.provider.agentrouter": "AgentRouter",
-  "limits.label.agentrouter_balance": "余额 {{balance}}（累计已用 {{used}}）",
+  "limits.label.agentrouter_balance": "余额 ${{balance}}（累计已用 ${{used}}）",
   "limits.provider.cline_pass": "Cline Pass",
   "limits.label.deepseek_balance": "{{currency}} {{total}}（赠送 {{granted}}）",
   "limits.label.trae_balance": "可用 {{credits}} 积分",
