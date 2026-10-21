@@ -25,6 +25,23 @@ describe("useCommunityStats", () => {
     window.cancelIdleCallback = vi.fn();
   });
 
+  it("cancels the fetch timeout when the hook unmounts", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(getLeaderboard).mockReturnValue(new Promise(() => {}));
+      vi.mocked(getCommunityModels).mockReturnValue(new Promise(() => {}));
+      const { unmount } = renderHook(() => useCommunityStats());
+      await Promise.resolve();
+      expect(getLeaderboard).toHaveBeenCalledTimes(1);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("hydrates a fresh persistent cache without refetching", async () => {
     window.localStorage.setItem(COMMUNITY_STATS_STORAGE_KEY, JSON.stringify({
       cachedAt: Date.now(),

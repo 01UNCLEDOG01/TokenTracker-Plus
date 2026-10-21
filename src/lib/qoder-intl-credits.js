@@ -36,18 +36,23 @@ const QODER_INTL_SHAPE_FIELD_RATE = {
   output_tokens: "output",
   reasoning_output_tokens: "output",
 };
-// Qoder's transcripts name their router, not a model. The original 1,398
-// credit records read `qfmodel`; the 2026-10 build also emits `dfmodel`.
-// Neither carries an identity or a rate, so both use the cloud-plan label
-// instead of printing an opaque internal string as a model.
-const QODER_INTL_UNDISCLOSED_MODELS = new Set(["qfmodel", "dfmodel"]);
+// Qoder's transcripts name their router, not a model. The 2026-10 build
+// emits `qfmodel` for Qwen3.8-Flash and `dfmodel` for DeepSeek-Flash; both
+// still carry zero token columns and a real credit value. Map the known
+// router aliases to the user-visible model names so the All-models ranking
+// can carry them, and keep the generic cloud-plan label for anything unknown.
+const QODER_INTL_ROUTER_MODEL_LABELS = new Map([
+  ["qfmodel", "Qwen3.8-Flash（积分）"],
+  ["dfmodel", "DeepSeek-Flash（积分）"],
+]);
 // Bumped whenever the rows this module derives change shape or meaning, so an
 // existing mirror is rebuilt instead of replayed. The version is the only thing
 // that can distinguish two derivations of one unchanged transcript tree.
 //   2 = the router-name mapping, 3 = derived token figures,
 //   4 = those figures priced at the blended token mix,
-//   5 = per-day/model queue coverage instead of source-wide suppression.
-const QODER_INTL_MIRROR_VERSION = 5;
+//   5 = per-day/model queue coverage instead of source-wide suppression,
+//   6 = model labels split from the legacy generic cloud-plan row.
+const QODER_INTL_MIRROR_VERSION = 6;
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
 const TOKEN_FIELDS = [
   "input_tokens",
@@ -131,9 +136,8 @@ function beijingDayKey(isoOrMs) {
 
 function qoderIntlModelLabel(rawModel) {
   const raw = String(rawModel || "").trim();
-  return !raw || QODER_INTL_UNDISCLOSED_MODELS.has(raw.toLowerCase())
-    ? QODER_INTL_FALLBACK_MODEL
-    : raw;
+  if (!raw) return QODER_INTL_FALLBACK_MODEL;
+  return QODER_INTL_ROUTER_MODEL_LABELS.get(raw.toLowerCase()) || raw;
 }
 
 function qoderIntlDayKey(row) {
@@ -151,7 +155,11 @@ function qoderIntlExistingKeys(allRows) {
     if (!(Number(row.total_cost_usd) > 0 || Number(row.total_tokens) > 0)) continue;
     const day = qoderIntlDayKey(row);
     if (!day) continue;
-    keys.add(`${day}|${qoderIntlModelLabel(row.model)}`);
+    const label = qoderIntlModelLabel(row.model);
+    // Legacy rows aggregated every router alias into one generic model for
+    // the whole day. Treat that row as covering the day, otherwise the new
+    // per-model labels would re-bill the same credits.
+    keys.add(label === QODER_INTL_FALLBACK_MODEL ? `${day}|*` : `${day}|${label}`);
   }
   return keys;
 }
@@ -159,7 +167,10 @@ function qoderIntlExistingKeys(allRows) {
 function qoderIntlFilterCovered(rows, allRows) {
   const existing = qoderIntlExistingKeys(allRows);
   if (existing.size === 0) return rows;
-  return rows.filter((row) => !existing.has(`${qoderIntlDayKey(row)}|${qoderIntlModelLabel(row.model)}`));
+  return rows.filter((row) => {
+    const day = qoderIntlDayKey(row);
+    return !existing.has(`${day}|*`) && !existing.has(`${day}|${qoderIntlModelLabel(row.model)}`);
+  });
 }
 
 function readMirror({ home }) {

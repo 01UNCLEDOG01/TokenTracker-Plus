@@ -1776,23 +1776,37 @@ async function scanGrokSession(filePath) {
 
 // Project and title metadata stay local. SQL projects only numeric usage and
 // identity fields; user/assistant bodies and tool arguments never enter JS.
-async function readOpencodeSessionInputs(dbPath) {
-  const options = { label: "OpenCode", timeout: 30_000, maxBuffer: 50 * 1024 * 1024, readOnly: true, throwOnReadFailure: true };
-  const query = (sql) => readSqliteJsonRowsAsync(dbPath, sql, options);
-  const tables = new Set((await query("SELECT name FROM sqlite_master WHERE name IN ('session','session_v2','message','session_message','part','session_part')")).map((row) => row.name));
-  const sessionRows = [];
-  for (const table of ["session_v2", "session"]) {
-    if (!tables.has(table)) continue;
-    const columns = new Set((await query(`SELECT name FROM pragma_table_info('${table}')`)).map((row) => row.name));
-    if (!columns.has("id")) continue;
-    const selected = ["id", "parent_id", "directory", "title", "time_created", "time_updated"].filter((column) => columns.has(column));
-    sessionRows.push(...await query(`SELECT ${selected.join(", ")} FROM ${table} ORDER BY id ASC`));
+const OPENCODE_INPUT_CACHE_VERSION = 1;
+const OPENCODE_SQLITE_OPTIONS = {
+  label: "OpenCode",
+  timeout: 30_000,
+  maxBuffer: 50 * 1024 * 1024,
+  readOnly: true,
+  throwOnReadFailure: true,
+};
+const opencodeInputCache = new Map();
+const opencodeInputStats = { fullReads: 0, incrementalReads: 0 };
+
+function opencodeQuery(dbPath) {
+  return (sql) => readSqliteJsonRowsAsync(dbPath, sql, OPENCODE_SQLITE_OPTIONS);
+}
+
+function opencodeDbIdentity(dbPath) {
+  try {
+    const stat = fs.statSync(dbPath);
+    return `${stat.dev}:${stat.ino}:${Math.floor(Number(stat.birthtimeMs) || 0)}`;
+  } catch {
+    return null;
   }
-  const messages = [];
-  for (const table of ["message", "session_message"]) {
-    if (!tables.has(table)) continue;
-    const role = table === "session_message" ? "type" : "json_extract(data, '$.role')";
-    messages.push(...await query(`SELECT id, session_id, time_created, time_updated, ${role} AS role,
+}
+
+function opencodeMessageRole(table) {
+  return table === "session_message" ? "type" : "json_extract(data, '$.role')";
+}
+
+function opencodeMessageSelect(table) {
+  const role = opencodeMessageRole(table);
+  return `SELECT rowid AS _rowid, id, session_id, time_created, time_updated, ${role} AS role,
       CASE WHEN ${role} = 'assistant' THEN json_object(
         'tokens', json_extract(data, '$.tokens'),
         'modelID', json_extract(data, '$.modelID'),
@@ -1801,22 +1815,198 @@ async function readOpencodeSessionInputs(dbPath) {
         'time', json_extract(data, '$.time'),
         'path', json_object('cwd', json_extract(data, '$.path.cwd'))
       ) END AS metadata
-      FROM ${table} WHERE ${role} IN ('user', 'assistant') ORDER BY time_created ASC, id ASC`));
+      FROM ${table}`;
+}
+
+function opencodeMessageWhere(table, extra = "") {
+  const role = opencodeMessageRole(table);
+  return `WHERE ${role} IN ('user', 'assistant')${extra ? ` AND (${extra})` : ""}`;
+}
+
+function opencodePartSelect(table, columns) {
+  const timeUpdated = columns.has("time_updated") ? ", time_updated" : "";
+  return `SELECT rowid AS _rowid, id, session_id, message_id${timeUpdated},
+      json_extract(data, '$.tool') AS tool
+      FROM ${table}`;
+}
+
+async function readOpencodeSessionRows(query, tables) {
+  const sessionRows = [];
+  for (const table of ["session_v2", "session"]) {
+    if (!tables.has(table)) continue;
+    const columns = new Set((await query(`SELECT name FROM pragma_table_info('${table}')`)).map((row) => row.name));
+    if (!columns.has("id")) continue;
+    const selected = ["id", "parent_id", "directory", "title", "time_created", "time_updated"].filter((column) => columns.has(column));
+    sessionRows.push(...await query(`SELECT ${selected.join(", ")} FROM ${table} ORDER BY id ASC`));
+  }
+  return sessionRows;
+}
+
+async function readOpencodeTableStats(query, table, { hasTimeUpdated = true } = {}) {
+  if (!table) return { count: 0, maxRowId: 0, maxUpdatedAt: 0 };
+  const updated = hasTimeUpdated ? ", MAX(time_updated) AS max_updated" : ", 0 AS max_updated";
+  const rows = await query(`SELECT COUNT(*) AS count, MAX(rowid) AS max_row_id${updated} FROM ${table}`);
+  const row = rows[0] || {};
+  return {
+    count: Math.max(0, Math.floor(Number(row.count) || 0)),
+    maxRowId: Math.max(0, Math.floor(Number(row.max_row_id) || 0)),
+    maxUpdatedAt: Math.max(0, Math.floor(Number(row.max_updated) || 0)),
+  };
+}
+
+async function readOpencodeSessionInputsFull(dbPath) {
+  const query = opencodeQuery(dbPath);
+  const tables = new Set((await query("SELECT name FROM sqlite_master WHERE name IN ('session','session_v2','message','session_message','part','session_part')")).map((row) => row.name));
+  const sessionRows = await readOpencodeSessionRows(query, tables);
+  const messages = [];
+  for (const table of ["message", "session_message"]) {
+    if (!tables.has(table)) continue;
+    messages.push(...await query(`${opencodeMessageSelect(table)} ${opencodeMessageWhere(table)} ORDER BY time_created ASC, id ASC`));
   }
   // Tool parts are the only place OpenCode records which tool ran, so the
   // panel's edit-turn and sub-agent columns are built from them. Both layouts
   // are probed: newer databases keep parts under session_part.
   const toolRows = [];
+  const partColumnsByTable = new Map();
   for (const table of ["part", "session_part"]) {
     if (!tables.has(table)) continue;
     const partColumns = new Set((await query(`SELECT name FROM pragma_table_info('${table}')`)).map((row) => row.name));
     if (!partColumns.has("data") || !partColumns.has("session_id")) continue;
-    toolRows.push(...await query(`SELECT id, session_id, message_id,
-      json_extract(data, '$.tool') AS tool
-      FROM ${table}
+    partColumnsByTable.set(table, partColumns);
+    toolRows.push(...await query(`${opencodePartSelect(table, partColumns)}
       ${partColumns.has("time_created") ? "ORDER BY time_created ASC, id ASC" : "ORDER BY id ASC"}`));
   }
-  return { sessionRows, messages, toolRows };
+  // Incremental resume is only safe for the single v1 message table. A v2
+  // session_message row or a transitional dual layout keeps the full path.
+  const v2HasRows = tables.has("session_message")
+    ? Number((await query("SELECT COUNT(*) AS count FROM session_message"))[0]?.count || 0) > 0
+    : false;
+  const layout = tables.has("message") && !v2HasRows ? "v1" : "full";
+  const partColumns = partColumnsByTable.get("part") || new Set();
+  return {
+    sessionRows,
+    messages,
+    toolRows,
+    layout,
+    tables: [...tables],
+    partTable: partColumnsByTable.has("part") ? "part" : null,
+    partHasTimeUpdated: partColumns.has("time_updated"),
+    messageStats: await readOpencodeTableStats(query, tables.has("message") ? "message" : null),
+    partStats: await readOpencodeTableStats(query, partColumnsByTable.has("part") ? "part" : null, {
+      hasTimeUpdated: partColumns.has("time_updated"),
+    }),
+  };
+}
+
+function cacheOpencodeInputs(dbPath, data) {
+  if (data.layout !== "v1") return;
+  const identity = opencodeDbIdentity(dbPath);
+  if (!identity) return;
+  opencodeInputCache.set(path.resolve(dbPath), {
+    version: OPENCODE_INPUT_CACHE_VERSION,
+    identity,
+    layout: data.layout,
+    tables: data.tables,
+    partTable: data.partTable,
+    partHasTimeUpdated: data.partHasTimeUpdated,
+    sessionRows: data.sessionRows,
+    sessionIds: data.sessionRows.map((row) => row.id),
+    messages: data.messages,
+    toolRows: data.toolRows,
+    messageCount: data.messageStats.count,
+    maxMessageRowId: data.messageStats.maxRowId,
+    maxMessageUpdatedAt: data.messageStats.maxUpdatedAt,
+    partCount: data.partStats.count,
+    maxPartRowId: data.partStats.maxRowId,
+    maxPartUpdatedAt: data.partStats.maxUpdatedAt,
+  });
+}
+
+async function readOpencodeSessionInputs(dbPath, { allowCache = true, forceFull = false } = {}) {
+  const full = async () => {
+    opencodeInputStats.fullReads += 1;
+    const data = await readOpencodeSessionInputsFull(dbPath);
+    if (allowCache) cacheOpencodeInputs(dbPath, data);
+    return data;
+  };
+  if (!allowCache || forceFull) {
+    const data = await full();
+    return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
+  }
+  const key = path.resolve(dbPath);
+  const cached = opencodeInputCache.get(key);
+  const identity = opencodeDbIdentity(dbPath);
+  if (!cached || cached.version !== OPENCODE_INPUT_CACHE_VERSION || cached.identity !== identity || cached.layout !== "v1") {
+    const data = await full();
+    return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
+  }
+  const query = opencodeQuery(dbPath);
+  const tables = new Set(cached.tables);
+  const sessionRows = await readOpencodeSessionRows(query, tables);
+  const sessionIds = new Set(sessionRows.map((row) => row.id));
+  if (sessionRows.length < cached.sessionIds.length || cached.sessionIds.some((id) => !sessionIds.has(id))) {
+    const data = await full();
+    return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
+  }
+  const messageStats = await readOpencodeTableStats(query, "message");
+  const partStats = await readOpencodeTableStats(query, cached.partTable, {
+    hasTimeUpdated: cached.partHasTimeUpdated,
+  });
+  if (messageStats.count < cached.messageCount || messageStats.maxRowId < cached.maxMessageRowId
+      || partStats.count < cached.partCount || partStats.maxRowId < cached.maxPartRowId) {
+    const data = await full();
+    return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
+  }
+  const newMessages = await query(`${opencodeMessageSelect("message")} ${opencodeMessageWhere(
+    "message",
+    `rowid > ${cached.maxMessageRowId} OR time_updated >= ${cached.maxMessageUpdatedAt}`,
+  )} ORDER BY time_created ASC, id ASC`);
+  const newParts = cached.partTable
+    ? await query(`${opencodePartSelect(cached.partTable, cached.partHasTimeUpdated ? new Set(["time_updated"]) : new Set())}
+      WHERE rowid > ${cached.maxPartRowId}${cached.partHasTimeUpdated ? ` OR time_updated >= ${cached.maxPartUpdatedAt}` : ""}
+      ORDER BY rowid ASC`)
+    : [];
+  const messages = new Map(cached.messages.map((row) => [`${row.session_id}\0${row.id}`, row]));
+  for (const row of newMessages) {
+    const messageKey = `${row.session_id}\0${row.id}`;
+    const previous = messages.get(messageKey);
+    if (!previous || Number(row.time_updated) >= Number(previous.time_updated)) messages.set(messageKey, row);
+  }
+  const toolRows = new Map();
+  for (const row of cached.toolRows) {
+    const id = String(row?.id || "");
+    toolRows.set(id ? id : `anon:${toolRows.size}`, row);
+  }
+  for (const row of newParts) {
+    const id = String(row?.id || "");
+    toolRows.set(id ? id : `anon:${toolRows.size}`, row);
+  }
+  const next = {
+    ...cached,
+    sessionRows,
+    sessionIds: sessionRows.map((row) => row.id),
+    messages: [...messages.values()],
+    toolRows: [...toolRows.values()],
+    messageCount: messageStats.count,
+    maxMessageRowId: messageStats.maxRowId,
+    maxMessageUpdatedAt: messageStats.maxUpdatedAt,
+    partCount: partStats.count,
+    maxPartRowId: partStats.maxRowId,
+    maxPartUpdatedAt: partStats.maxUpdatedAt,
+  };
+  opencodeInputCache.set(key, next);
+  opencodeInputStats.incrementalReads += 1;
+  return { sessionRows, messages: next.messages, toolRows: next.toolRows };
+}
+
+function resetOpencodeInputCacheForTests() {
+  opencodeInputCache.clear();
+  opencodeInputStats.fullReads = 0;
+  opencodeInputStats.incrementalReads = 0;
+}
+
+function getOpencodeInputCacheStatsForTests() {
+  return { ...opencodeInputStats };
 }
 
 // OpenCode and Loomy share one database schema (Loomy embeds its own OpenCode
@@ -1835,14 +2025,19 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
   try {
     for (const dbPath of paths) {
       let effectivePath = dbPath;
+      let fromSnapshot = false;
       if (wsl.isUncPath(dbPath)) {
         try {
           const snapshot = wsl.snapshotSqliteDb(dbPath);
           snapshots.push(snapshot);
           effectivePath = snapshot.path;
+          fromSnapshot = true;
         } catch { /* Direct read determines whether this mount supports SQLite. */ }
       }
-      inputs.push(await readOpencodeSessionInputs(effectivePath));
+      inputs.push(await readOpencodeSessionInputs(effectivePath, {
+        allowCache: !fromSnapshot,
+        forceFull: Boolean(options.forceFull),
+      }));
     }
     const sessionRows = new Map();
     const messages = new Map();
@@ -3943,4 +4138,6 @@ module.exports = {
   discoverSessionFiles,
   dedupeClaudeFilesAcrossRoots,
   analyticsEntryStatKey,
+  resetOpencodeInputCacheForTests,
+  getOpencodeInputCacheStatsForTests,
 };

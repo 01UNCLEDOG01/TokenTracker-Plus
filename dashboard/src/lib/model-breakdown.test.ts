@@ -190,6 +190,33 @@ describe("buildAllModels", () => {
     ]);
   });
 
+  it("keeps a token-derived Qoder credit model in All models", () => {
+    const models = buildAllModels([
+      {
+        label: "QODER",
+        models: [
+          {
+            id: "Qwen3.8-Flash（积分）",
+            name: "Qwen3.8-Flash（积分）",
+            usage: 11_600_000,
+            cost: 0.42,
+          },
+        ],
+      },
+    ]);
+
+    expect(models).toEqual([
+      {
+        id: "qwen3.8-flash（积分）",
+        name: "Qwen3.8-Flash（积分）",
+        usage: 11_600_000,
+        cost: 0.42,
+        tokens: { input: 0, output: 0, cached: 0, cacheCreate: 0, reasoning: 0 },
+        share: 100,
+      },
+    ]);
+  });
+
   it("combines per-model token-type splits across tools", () => {
     const models = buildAllModels([
       {

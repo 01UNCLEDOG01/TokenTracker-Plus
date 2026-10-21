@@ -8,7 +8,7 @@ const { test } = require("node:test");
 let DatabaseSync;
 try { ({ DatabaseSync } = require("node:sqlite")); } catch { /* Node 20 */ }
 const sqliteTest = DatabaseSync ? test : test.skip;
-const { scanOpencodeSessions, discoverSessionFiles, buildSessionAnalytics, listSessionsForBrowser, summarizeSessions, sessionsToCsv, resumeCommandFor, resolveSessionSidecarPath } = require("../src/lib/session-analytics");
+const { scanOpencodeSessions, discoverSessionFiles, buildSessionAnalytics, listSessionsForBrowser, summarizeSessions, sessionsToCsv, resumeCommandFor, resolveSessionSidecarPath, resetOpencodeInputCacheForTests, getOpencodeInputCacheStatsForTests } = require("../src/lib/session-analytics");
 const { readOpencodeDbMessages, parseOpencodeDbIncremental } = require("../src/lib/rollout");
 const T0 = Date.UTC(2026, 9, 8, 10);
 const SECRET = "private prompt and assistant body never retained";
@@ -259,6 +259,46 @@ sqliteTest("failed OpenCode rebuild retains complete cache and retries even with
 test("OpenCode resume commands reject flags and shell metacharacters", () => {
   assert.equal(resumeCommandFor("opencode", "ses_123"), "opencode --session ses_123");
   for (const id of ["--help", "abc;echo secret", "abc\nnode", "$(whoami)"]) assert.equal(resumeCommandFor("opencode", id), null);
+});
+
+sqliteTest("v1 incremental refresh appends new rows, replaces updates and falls back on deletion", async (t) => {
+  resetOpencodeInputCacheForTests();
+  const f = fixture(t);
+  f.db.exec("CREATE TABLE part (id TEXT, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  session(f, "ses_root");
+  message(f, { role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f, { id: "assistant", start: T0, end: T0 + 10000 });
+
+  const first = await scanOpencodeSessions(f.dbPath);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].total_tokens, 190);
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 1, incrementalReads: 0 });
+
+  message(f, { id: "assistant-2", start: T0 + 20000, end: T0 + 30000, tokens: { input: 10, output: 5 } });
+  const appended = await scanOpencodeSessions(f.dbPath);
+  assert.equal(appended[0].total_tokens, 205, "the second message is added without re-reading the whole table");
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 1, incrementalReads: 1 });
+
+  const original = JSON.parse(f.db.prepare("SELECT data FROM message WHERE id = 'assistant'").get().data);
+  original.tokens = { input: 20, output: 5, reasoning: 10, cache: { read: 25, write: 5 } };
+  original.time.completed = T0 + 40000;
+  f.db.prepare("UPDATE message SET data = ?, time_updated = ? WHERE id = 'assistant'")
+    .run(JSON.stringify(original), T0 + 40000);
+  const updated = await scanOpencodeSessions(f.dbPath);
+  assert.equal(updated[0].total_tokens, 80, "the replacement row is used, not added to the old one");
+  assert.equal(getOpencodeInputCacheStatsForTests().incrementalReads, 2);
+
+  f.db.prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?, ?)")
+    .run("p1", "assistant", "ses_root", T0 + 50000, T0 + 50000, JSON.stringify({ type: "tool", tool: "edit" }));
+  const withPart = await scanOpencodeSessions(f.dbPath);
+  assert.equal(withPart[0].edit_turns, 1, "a new part is merged without a full part-table scan");
+  assert.equal(getOpencodeInputCacheStatsForTests().incrementalReads, 3);
+
+  f.db.prepare("DELETE FROM message WHERE id = 'assistant-2'").run();
+  const afterDelete = await scanOpencodeSessions(f.dbPath);
+  assert.equal(afterDelete[0].total_tokens, 65, "a row count drop triggers a full rebuild");
+  assert.equal(getOpencodeInputCacheStatsForTests().fullReads, 2);
+  f.db.close();
 });
 
 sqliteTest("OpenCode tool parts drive edit turns and sub-agent calls", async (t) => {

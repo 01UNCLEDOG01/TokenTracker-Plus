@@ -9,12 +9,24 @@ const SAMPLE_LIMIT = 100;
 
 function withTimeout(promise, ms) {
   let timeoutId;
+  let settled = false;
   const timeout = new Promise((_resolve, reject) => {
-    timeoutId = setTimeout(() => reject(new Error("landing stats timeout")), ms);
+    timeoutId = setTimeout(() => {
+      if (!settled) reject(new Error("landing stats timeout"));
+    }, ms);
   });
-  return Promise.race([promise, timeout]).finally(() => {
+  // The consumer may unmount before the race settles. Keep the timer's
+  // rejection handled even when nobody is left to await the race.
+  timeout.catch(() => {});
+  const raced = Promise.race([promise, timeout]).finally(() => {
+    settled = true;
     if (timeoutId != null) clearTimeout(timeoutId);
   });
+  raced.cancel = () => {
+    settled = true;
+    if (timeoutId != null) clearTimeout(timeoutId);
+  };
+  return raced;
 }
 
 // The stats are global and slow-moving, but the hook mounts on both the
@@ -83,24 +95,50 @@ function writePersistentCache(data) {
 
 function fetchCommunityData(accessToken) {
   if (cachedFetch && Date.now() - cachedFetch.at < CACHE_TTL_MS) {
-    return cachedFetch.promise;
+    cachedFetch.refs += 1;
+    return cachedFetch;
   }
-  const promise = Promise.all([
-    withTimeout(
-      getLeaderboard({ accessToken, period: "total", limit: SAMPLE_LIMIT, offset: 0 }),
-      FETCH_TIMEOUT_MS,
-    ),
-    withTimeout(getCommunityModels(), MODEL_FETCH_TIMEOUT_MS).catch(() => null),
-  ]);
-  cachedFetch = { at: Date.now(), promise };
+  const leaderboard = withTimeout(
+    getLeaderboard({ accessToken, period: "total", limit: SAMPLE_LIMIT, offset: 0 }),
+    FETCH_TIMEOUT_MS,
+  );
+  const modelsTimed = withTimeout(getCommunityModels(), MODEL_FETCH_TIMEOUT_MS);
+  const models = modelsTimed.catch(() => null);
+  const promise = Promise.all([leaderboard, models]);
+  const entry = {
+    at: Date.now(),
+    promise,
+    refs: 1,
+    pending: true,
+    cancel() {
+      leaderboard.cancel();
+      modelsTimed.cancel();
+    },
+  };
+  promise.then(
+    () => { entry.pending = false; },
+    () => { entry.pending = false; },
+  );
   // Never cache a failure: the next consumer should retry.
   promise.catch(() => {
-    if (cachedFetch?.promise === promise) cachedFetch = null;
+    if (cachedFetch === entry) cachedFetch = null;
   });
-  return promise;
+  cachedFetch = entry;
+  return entry;
+}
+
+function releaseCommunityFetch(entry) {
+  if (!entry) return;
+  entry.refs = Math.max(0, (entry.refs || 0) - 1);
+  if (entry.refs > 0) return;
+  if (entry.pending) {
+    entry.cancel();
+    if (cachedFetch === entry) cachedFetch = null;
+  }
 }
 
 export function resetCommunityStatsCacheForTests() {
+  if (cachedFetch?.pending) cachedFetch.cancel();
   cachedFetch = null;
 }
 
@@ -130,12 +168,14 @@ export function useCommunityStats({ enabled = true } = {}) {
     let idleId = null;
     let timerId = null;
 
+    let fetchEntry = null;
     const run = async () => {
       try {
         // Fetch leaderboard + model breakdown in parallel.
         // Model breakdown is best-effort: if it fails we still show
         // provider-level data from the snapshot.
-        const [data, modelsData] = await fetchCommunityData();
+        fetchEntry = fetchCommunityData();
+        const [data, modelsData] = await fetchEntry.promise;
         if (cancelled) return;
         const entries = Array.isArray(data?.entries) ? data.entries : [];
         const sampledTokenFloor = entries.reduce(
@@ -215,6 +255,7 @@ export function useCommunityStats({ enabled = true } = {}) {
 
     return () => {
       cancelled = true;
+      releaseCommunityFetch(fetchEntry);
       if (idleId != null && typeof window.cancelIdleCallback === "function") {
         window.cancelIdleCallback(idleId);
       }

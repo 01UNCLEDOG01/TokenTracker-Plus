@@ -240,6 +240,26 @@ test("transcripts that carry no credits leave no mirror behind", () => {
   }
 });
 
+test("a legacy generic cloud-plan row still covers the whole day", () => {
+  const { home, projects } = sandbox([
+    usageRecord("2026-10-09T06:00:00.000Z", 1.5, "qfmodel"),
+    usageRecord("2026-10-09T07:00:00.000Z", 2.5, "dfmodel"),
+  ]);
+  try {
+    const legacy = {
+      source: "qoder",
+      model: "官方云端（积分）",
+      hour_start: "2026-10-09T04:00:00.000Z",
+      total_tokens: 1_000_000,
+      total_cost_usd: 0.04,
+    };
+    assert.deepEqual(qoderIntlCreditRows([legacy], { projectsDir: projects, home }), [],
+      "the pre-split row already aggregated both aliases; do not bill the day twice");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("an opaque router name is labelled as the cloud plan, not as the router", () => {
   const { home, projects } = sandbox([
     usageRecord("2026-10-09T06:00:00.000Z", 1.5, "qfmodel"),
@@ -248,8 +268,11 @@ test("an opaque router name is labelled as the cloud plan, not as the router", (
   ]);
   try {
     const rows = qoderIntlCreditRows([], { projectsDir: projects, home });
-    assert.deepEqual(rows.map((r) => r.model), ["官方云端（积分）"], "case-folded and collapsed to one line");
-    assert.equal(rows[0].credits, 5, "dfmodel is another router alias, not a model");
+    assert.deepEqual(rows.map((r) => r.model), ["DeepSeek-Flash（积分）", "Qwen3.8-Flash（积分）"],
+      "known router aliases map to the models the user actually ran");
+    const creditsBy = Object.fromEntries(rows.map((r) => [r.model, r.credits]));
+    assert.equal(creditsBy["Qwen3.8-Flash（积分）"], 4, "case-folded qfmodel rows stay together");
+    assert.equal(creditsBy["DeepSeek-Flash（积分）"], 1, "dfmodel is its own model family");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -259,7 +282,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
   const { home, projects } = sandbox([usageRecord("2026-10-09T06:00:00.000Z", 4, "qfmodel")]);
   try {
     const first = qoderIntlCreditRows([], { projectsDir: projects, home });
-    assert.deepEqual(first.map((r) => r.model), ["官方云端（积分）"]);
+    assert.deepEqual(first.map((r) => r.model), ["Qwen3.8-Flash（积分）"]);
     const file = qoderIntlCreditMirrorFile({ home });
     const mirror = JSON.parse(fs.readFileSync(file, "utf8"));
     assert.equal(mirror.version, QODER_INTL_MIRROR_VERSION, "the current derivation version is recorded");
@@ -271,7 +294,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
     mirror.rows = [{ ...first[0], model: "qfmodel" }];
     fs.writeFileSync(file, JSON.stringify(mirror));
     const second = qoderIntlCreditRows([], { projectsDir: projects, home });
-    assert.deepEqual(second.map((r) => r.model), ["官方云端（积分）"], "the stale label must not come back");
+    assert.deepEqual(second.map((r) => r.model), ["Qwen3.8-Flash（积分）"], "the stale label must not come back");
     assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, QODER_INTL_MIRROR_VERSION, "the mirror is upgraded in place");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
