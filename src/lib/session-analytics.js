@@ -1217,7 +1217,18 @@ async function buildDshSessionRow(filePath) {
 
 // An absent or unreadable Harness home yields no rows: a machine without dsh
 // must not lose the other providers' sessions over one missing directory.
-async function readDshSessions({ home, env = process.env } = {}) {
+// Parsed transcripts are cached per file stat because decompressing and
+// walking one is the expensive part and the files are append-only; validation
+// uses the file stat (it sees appended or rewritten text), while the entry
+// handed back keeps buildDshSessionRow's content-derived statKey so the
+// build loop's meta semantics stay exactly what they were. Reused rows come
+// back as fresh JSON.parse objects (same shape as sidecar rows), so no build
+// can mutate another's cached state. A forced refresh re-verifies readability
+// before trusting a stat match — stat cannot see a permission failure, and a
+// probe failure falls through to the real parse.
+const dshRowCache = new Map();
+
+async function readDshSessions({ home, env = process.env, verifyRead = false } = {}) {
   const dshEnv = { ...env };
   // Only redirect the home when the caller really is sandboxed: setting
   // DSH_HOME for the live machine would switch off the native/WSL pairing that
@@ -1234,8 +1245,23 @@ async function readDshSessions({ home, env = process.env } = {}) {
   const out = [];
   for (const filePath of files) {
     try {
+      const fileStatKey = sessionFileStatKey(filePath);
+      const cached = fileStatKey ? dshRowCache.get(path.resolve(filePath)) : null;
+      if (cached && cached.fileStatKey === fileStatKey && (!verifyRead || await fileStillReadable(filePath))) {
+        out.push({ row: JSON.parse(cached.line), statKey: cached.contentStatKey });
+        continue;
+      }
       const built = await buildDshSessionRow(filePath);
-      if (built) out.push(built);
+      if (built) {
+        if (fileStatKey) {
+          dshRowCache.set(path.resolve(filePath), {
+            fileStatKey,
+            contentStatKey: built.statKey,
+            line: serializeSessionRecord(built.row),
+          });
+        }
+        out.push(built);
+      }
     } catch (error) {
       if (!process.env.NODE_TEST_CONTEXT) {
         console.warn(`[session-analytics] skipped dsh session file: ${error?.message || error}`);
@@ -3021,6 +3047,34 @@ async function scanAntigravitySession(dbPath) {
     context_tokens_used: finite(result.contextTokens),
   })];
 }
+// Session files are read through the stream API, so an open probe through the
+// same API exercises the same permission surface a real scan would hit. A stat
+// match cannot see a permission failure — without this, a forced refresh would
+// silently serve a cached row for a file it can no longer read.
+function fileStillReadable(filePaths) {
+  const list = (Array.isArray(filePaths) ? filePaths : [filePaths]).filter(Boolean);
+  return Promise.all(list.map((filePath) => new Promise((resolve) => {
+    let settled = false;
+    const settle = (value) => { if (!settled) { settled = true; resolve(value); } };
+    let stream;
+    try {
+      stream = fs.createReadStream(filePath, { start: 0, end: 0 });
+    } catch {
+      settle(false);
+      return;
+    }
+    stream.on("error", () => settle(false));
+    stream.on("open", () => { stream.destroy(); settle(true); });
+  }))).then((results) => results.length > 0 && results.every(Boolean));
+}
+
+// A SQLite lock is invisible to a filesystem probe, so database-backed sources
+// do not reuse rows on a forced refresh — there are only a handful of these
+// files, and their scan is what detects a held lock.
+function isDatabaseBackedSessionSource(source) {
+  return source === "zcode" || isOpencodeFamilySource(source) || source === "antigravity";
+}
+
 async function buildSessionAnalyticsInternal({ home = os.homedir(), force = false, cacheTtlMs = 5 * 60_000 } = {}) {
   const sidecarPath = resolveSessionSidecarPath(home);
   const metaPath = `${sidecarPath}.meta.json`;
@@ -3033,19 +3087,26 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   const retryOpencodeScan = fs.existsSync(incompleteOpencodePath);
   const incompleteKimiPath = `${metaPath}.kimi-incomplete`;
   const retryKimiScan = fs.existsSync(incompleteKimiPath);
+  // The meta and its cached rows also drive the forced path: a refresh still
+  // re-walks and re-stats every file (no TTL or whole-signature shortcut), but
+  // a per-file stat_key match (plus a readability probe for file sources)
+  // reuses the cached row — what made ?refresh=1 a full re-parse was re-reading
+  // thousands of unchanged transcripts, not a lack of thoroughness. A parser
+  // change that must rebuild cached rows bumps SIDECAR_VERSION, which empties
+  // both maps for every caller.
   let previousMeta = null;
+  try {
+    previousMeta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+  } catch { /* first run */ }
   if (!force) {
-    try {
-      previousMeta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
-      const checkedAt = Date.parse(previousMeta.checked_at || previousMeta.generated_at || "");
-      if (
-        !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && previousMeta.version === SIDECAR_VERSION &&
-        Number.isFinite(checkedAt) &&
-        Date.now() - checkedAt < Math.max(0, Number(cacheTtlMs) || 0)
-      ) {
-        return readSidecar(sidecarPath);
-      }
-    } catch { /* first run */ }
+    const checkedAt = Date.parse(previousMeta?.checked_at || previousMeta?.generated_at || "");
+    if (
+      !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && previousMeta?.version === SIDECAR_VERSION &&
+      Number.isFinite(checkedAt) &&
+      Date.now() - checkedAt < Math.max(0, Number(cacheTtlMs) || 0)
+    ) {
+      return readSidecar(sidecarPath);
+    }
   }
   const discovered = await discoverSessionFiles(home);
   // Incomplete discovery (an unreadable projects/ or sessions/ dir): never let
@@ -3088,7 +3149,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     return readSidecar(sidecarPath);
   }
 
-  const previousRows = !force && previousMeta?.version === SIDECAR_VERSION
+  const previousRows = previousMeta?.version === SIDECAR_VERSION
     ? readSidecar(sidecarPath)
     : [];
   const previousRowsByFile = new Map(previousRows
@@ -3137,7 +3198,8 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       continue;
     }
     let rows = null;
-    if (!force && !(entry.source === "zcode" && retryZcodeScan) && !(isOpencodeFamilySource(entry.source) && retryOpencodeScan) && !(entry.source === "kimi" && retryKimiScan) && previousFiles[cacheKey]?.stat_key === statKey) {
+    if (!(entry.source === "zcode" && retryZcodeScan) && !(isOpencodeFamilySource(entry.source) && retryOpencodeScan) && !(entry.source === "kimi" && retryKimiScan) && previousFiles[cacheKey]?.stat_key === statKey &&
+        (!force || (!isDatabaseBackedSessionSource(entry.source) && await fileStillReadable(entry.filePath)))) {
       if (entry.source === "zcode" || isOpencodeFamilySource(entry.source) || entry.source === "kimi") {
 
         // One db scans to many cached rows; recover them all from the previous
@@ -3197,7 +3259,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   // dsh (DeepSeek Harness) stores one compressed transcript per conversation,
   // so like OpenCode it is read after the file sources and cached by its own
   // stat key rather than a file stat.
-  for (const { row, statKey } of await readDshSessions({ home })) {
+  for (const { row, statKey } of await readDshSessions({ home, verifyRead: force })) {
     const cacheKey = DSH_SOURCE + "|" + (row.session_id || row.session_hash);
     if (!force && previousFiles[cacheKey]?.stat_key === statKey) {
       const cached = previousRowsByFile.get(cacheKey);

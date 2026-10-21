@@ -231,3 +231,33 @@ test("a transcript with neither usage nor turns produces no row", async () => {
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("the per-file row cache serves unchanged transcripts and still sees appends", async () => {
+  const { home, dir } = sandbox();
+  try {
+    const file = path.join(dir, "session.v4.jsonl");
+    fs.writeFileSync(file, transcript("abc-123", {
+      title: "缓存回归",
+      start: 1791590000000,
+      usages: [usage(1000, 200, 1400, 200)],
+    }));
+    const first = (await readDshSessions({ home, verifyRead: true })).map((entry) => entry.row);
+    assert.equal(first.length, 1);
+    assert.equal(first[0].total_tokens, 1400, "1000 in + 200 out + 200 cache-read");
+
+    // Unchanged tree, forced verification: served from the cache, same row.
+    const cached = (await readDshSessions({ home, verifyRead: true })).map((entry) => entry.row);
+    assert.deepEqual(cached.map((row) => row.total_tokens), first.map((row) => row.total_tokens));
+    assert.equal(cached[0].title, "缓存回归");
+
+    // An appended usage row changes the file stat; the cache must not serve
+    // the stale totals on the next read.
+    fs.appendFileSync(file, record("assistant/message", 90, 1791590000090,
+      { turn: 1, step: 2, message: { role: "assistant", content: [] }, usage: usage(10, 20, 30, 0) }) + "\n");
+    const after = (await readDshSessions({ home, verifyRead: true })).map((entry) => entry.row);
+    assert.equal(after.length, 1);
+    assert.equal(after[0].total_tokens, 1430, "1400 plus the appended 10+20");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
