@@ -119,8 +119,10 @@ describe("useLimitsDisplayPrefs", () => {
       [
         "agentPlan",
         "antigravity",
-        // TT-plus additions: APIGOTO weekly quota and the SenseNova token pools.
+        // TT-plus additions: APIGOTO weekly quota, the SenseNova token pools
+        // and the Raccoon credit balances (read from the local gateway db).
         "apigoto",
+        "raccoon",
         "claude",
         "codex",
         "codingPlan",

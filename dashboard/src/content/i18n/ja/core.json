@@ -168,6 +168,8 @@
   "limits.provider.copilot": "GitHub Copilot",
   "limits.provider.antigravity": "Antigravity",
   "limits.provider.apigoto": "APIGOTO",
+  "limits.provider.raccoon": "Raccoon",
+  "limits.label.raccoon_wallets": "{{wallets}}、合計 {{total}} {{unit}}",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "汎用 5h",
   "limits.label.sensenova_general_weekly": "汎用 週間",

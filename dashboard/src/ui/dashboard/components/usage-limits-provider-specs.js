@@ -286,6 +286,16 @@ export const PROVIDER_LIMIT_SPECS = {
       ];
     },
   },
+  raccoon: {
+    // 小浣熊 (Raccoon) credit wallets are pure balances with refill schedules
+    // of their own (the daily wallet accumulates per check-in, no fixed grant
+    // to pace against) — there is no honest used_percent, so no bar rows: the
+    // balances render as the raccoon_wallets status line below the header.
+    extra: "raccoon_wallets",
+    windows() {
+      return [];
+    },
+  },
 };
 
 const GROK_PRODUCT_LABEL_KEYS = {
@@ -385,5 +395,7 @@ export function usageLimitsLabelCopyAnchor() {
     copy("limits.label.ark_agent_plan_monthly"),
     copy("limits.label.devin_daily"),
     copy("limits.label.devin_weekly"),
+    copy("limits.provider.raccoon"),
+    copy("limits.label.raccoon_wallets"),
   ];
 }

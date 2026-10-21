@@ -35,6 +35,7 @@ const { fetchDevinLimits } = require("./devin-limits");
 const { fetchQoderLimits, fetchQoderCnLimits } = require("./qoder-limits");
 const { fetchApigotoLimits } = require("./apigoto-limits");
 const { fetchSensenovaLimits } = require("./sensenova-limits");
+const { fetchRaccoonLimits } = require("./raccoon-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
 const { fetchProviderServiceStatus } = require("./provider-status");
@@ -4099,7 +4100,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4235,6 +4236,9 @@ async function fetchUsageLimitsUncached({
     claudeToken
       ? fetchProviderServiceStatus("claude", { fetchImpl, nowMs })
       : Promise.resolve(null),
+    // 小浣熊 (Raccoon) credit balances read straight from the local Agent2API
+    // gateway db — zero auth, no network, fail-soft inside the fetcher.
+    fetchRaccoonLimits({ home, env, nowMs }),
   ]);
 
   let claude;
@@ -4498,6 +4502,9 @@ async function fetchUsageLimitsUncached({
     workbuddyCredits: readWorkbuddyCreditsSafe(home),
     codingPlan: withPlanLabel(codingPlan, codingPlan?.plan_label, "Ark Coding Plan"),
     agentPlan: withPlanLabel(agentPlan, agentPlan?.plan_label, "Ark Agent Plan"),
+    // Balances, not windows: the fetcher never sets plan_name, so the panel
+    // falls back to the bare brand and the wallets render as the status line.
+    raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

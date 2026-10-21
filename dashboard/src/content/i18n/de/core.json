@@ -425,6 +425,8 @@
   "limits.label.zcode_glm5t": "GLM-5-Turbo",
   "limits.provider.antigravity": "Antigravity",
   "limits.provider.apigoto": "APIGOTO",
+  "limits.provider.raccoon": "Raccoon",
+  "limits.label.raccoon_wallets": "{{wallets}}, insgesamt {{total}} {{unit}}",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "Allgemein 5h",
   "limits.label.sensenova_general_weekly": "Allgemein wöchentlich",

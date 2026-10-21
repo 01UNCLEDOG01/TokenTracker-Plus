@@ -316,6 +316,9 @@ const PET_LIMIT_PROVIDER_NAMES = {
   opencodeGo: "OpenCode Go",
   qoder: "Qoder",
   codingPlan: "Ark Coding Plan",
+  // 小浣熊 (Raccoon) — balance-only card, no windows: the name map entry keeps
+  // quips that mention the provider consistent with the Limits page title.
+  raccoon: "Raccoon",
 };
 
 // Ark Agent Plan and Command Code resolve through the copy registry (reviews

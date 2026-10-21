@@ -21,6 +21,7 @@ export const LIMIT_PROVIDER_IDS = [
   "codingPlan",
   "agentPlan",
   "devin",
+  "raccoon",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -55,6 +56,9 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   agentPlan: "VOLCANO-ARK",
   // Devin (devin.ai) — the three-hexagon "nodes" mark under /brand-logos/.
   devin: "DEVIN",
+  // 小浣熊 (Raccoon, raccoon.sensetime.com) — the gateway's own provider icon
+  // (Program Files/Agent2API/_up_/ui/assets/providers/raccoon.png).
+  raccoon: "RACCOON",
 };
 
 export function limitProviderIconKey(id) {
@@ -101,6 +105,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.ark_agent_plan");
     case "devin":
       return copy("limits.provider.devin");
+    case "raccoon":
+      return copy("limits.provider.raccoon");
     default:
       return String(id || "");
   }

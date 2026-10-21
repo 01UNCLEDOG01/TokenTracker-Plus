@@ -2169,3 +2169,5 @@ cloud.rebuild.busy,cloud,SettingsPage,CloudRebuildControl,busy,"Sync is running.
 usage.overview.kiro_notice_title,dashboard,DashboardPage,UsageOverview,kiro_notice_title,CLI token estimates,,active
 usage.overview.kiro_notice_body,dashboard,DashboardPage,UsageOverview,kiro_notice_body,"When Kiro CLI does not report token counts, tokens are estimated from new user messages, tool outputs and assistant text at ~4 characters/token. Re-sent history, system context and cache usage are not measured. Dollar amounts use model rates and do not represent Kiro credit charges.",,active
 achievements.modal.tier_threshold,dashboard,*,BadgeDetailModal,tier_threshold,"{{tier}} threshold",,active
+limits.provider.raccoon,ui,LimitsPage,UsageLimitsPanel,provider_raccoon,"Raccoon",,active
+limits.label.raccoon_wallets,ui,LimitsPage,UsageLimitsPanel,raccoon_wallets,"{{wallets}} · {{total}} {{unit}} in total",,active

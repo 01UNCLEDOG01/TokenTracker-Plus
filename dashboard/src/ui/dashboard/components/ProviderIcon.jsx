@@ -490,6 +490,9 @@ const PROVIDER_LOGO_MAP = {
   // (Program Files/Agent2API/_up_/ui/icons.js "brand": the blue swap-arrows
   // tile), rendered verbatim as SVG.
   AGENT2API: "/brand-logos/agent2api.svg",
+  // 小浣熊 (Raccoon, raccoon.sensetime.com) — the gateway's own provider icon,
+  // copied from Program Files/Agent2API/_up_/ui/assets/providers/raccoon.png.
+  RACCOON: "/brand-logos/raccoon.png",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset
