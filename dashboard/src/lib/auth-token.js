@@ -89,6 +89,12 @@ export async function resolveAuthAccessToken(auth) {
  * 首帧尚未就绪。短重试避免无 Authorization 的 401。
  */
 export async function resolveAuthAccessTokenWithRetry(auth, options = {}) {
+  // A provider that structurally cannot produce a token (an object without
+  // getAccessToken) will not improve across retries — fail fast instead of
+  // burning the backoff budget on every mount.
+  if (auth && typeof auth === "object" && typeof auth.getAccessToken !== "function") {
+    return resolveAuthAccessToken(auth);
+  }
   const maxAttempts = Math.max(1, Math.min(12, Math.floor(Number(options.maxAttempts) || 8)));
   const baseDelayMs = Math.max(20, Math.floor(Number(options.baseDelayMs) || 50));
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

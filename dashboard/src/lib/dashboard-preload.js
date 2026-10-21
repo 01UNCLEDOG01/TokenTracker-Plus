@@ -1,4 +1,5 @@
 import { getLeaderboard } from "./api";
+import { resolveAuthAccessTokenWithRetry } from "./auth-token";
 
 export const DASHBOARD_PRELOAD_TARGETS = Object.freeze(["limits", "leaderboard"]);
 
@@ -389,6 +390,11 @@ export function preloadLeaderboardDefaultState(options = {}) {
   const pageSize = options.pageSize ?? getLeaderboardPreloadPageSize();
   const offset = options.offset ?? LEADERBOARD_DEFAULT_OFFSET;
   const userId = getLeaderboardPreloadUserId(options);
+  // The private instance gates the leaderboard behind the account tier-2, so
+  // the silent preload forwards the caller's token like the page does; a
+  // signed-out or token-less caller reads anonymously (401 on a gated
+  // instance, data on an open one).
+  const getAccessToken = typeof options.getAccessToken === "function" ? options.getAccessToken : null;
   const contextKey = getLeaderboardPreloadContextKey({
     accessMode,
     baseUrl,
@@ -430,7 +436,10 @@ export function preloadLeaderboardDefaultState(options = {}) {
   target.error = null;
 
   const promise = Promise.resolve()
-    .then(() =>
+    .then(() => (getAccessToken
+      ? resolveAuthAccessTokenWithRetry({ getAccessToken }).catch(() => "")
+      : null))
+    .then((accessToken) =>
       getLeaderboard({
         accessToken,
         baseUrl,

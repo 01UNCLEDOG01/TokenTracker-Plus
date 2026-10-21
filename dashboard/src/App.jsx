@@ -196,6 +196,7 @@ export default function App() {
       signedIn,
       authLoading: Boolean(insforge.loading),
       userId: cloudAuthSignedIn ? insforge.user?.id || null : null,
+      getAccessToken: () => insforge.getAccessToken(),
     };
     const contextKey = getLeaderboardPreloadContextKey(preloadOptions);
     if (leaderboardStatePreloadContextKeysRef.current.has(contextKey)) return;

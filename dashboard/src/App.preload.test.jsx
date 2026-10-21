@@ -195,6 +195,7 @@ describe("App deferred dashboard preload", () => {
       expect(markDashboardMainContentVisible).toHaveBeenCalledTimes(1);
       expect(preloadDashboardPageResources).toHaveBeenCalledTimes(1);
       expect(preloadLeaderboardDefaultState).toHaveBeenCalledWith({
+        getAccessToken: expect.any(Function),
         accessMode: "cloud",
         baseUrl: "https://edge.example",
         mockEnabled: false,
@@ -233,6 +234,7 @@ describe("App deferred dashboard preload", () => {
     await waitFor(() => {
       expect(preloadDashboardPageResources).toHaveBeenCalledTimes(1);
       expect(preloadLeaderboardDefaultState).toHaveBeenCalledWith({
+        getAccessToken: expect.any(Function),
         accessMode: "local",
         baseUrl: "https://edge.example",
         mockEnabled: false,
@@ -255,6 +257,7 @@ describe("App deferred dashboard preload", () => {
     await waitFor(() => {
       expect(preloadLeaderboardDefaultState).toHaveBeenCalledTimes(1);
       expect(preloadLeaderboardDefaultState).toHaveBeenLastCalledWith({
+        getAccessToken: expect.any(Function),
         accessMode: "local",
         baseUrl: "https://edge.example",
         mockEnabled: false,
@@ -275,6 +278,7 @@ describe("App deferred dashboard preload", () => {
     await waitFor(() => {
       expect(preloadLeaderboardDefaultState).toHaveBeenCalledTimes(2);
       expect(preloadLeaderboardDefaultState).toHaveBeenLastCalledWith({
+        getAccessToken: expect.any(Function),
         accessMode: "cloud",
         baseUrl: "https://edge.example",
         mockEnabled: false,
@@ -312,6 +316,7 @@ describe("App deferred dashboard preload", () => {
     await waitFor(() => {
       expect(preloadLeaderboardDefaultState).toHaveBeenCalledTimes(1);
       expect(preloadLeaderboardDefaultState).toHaveBeenCalledWith({
+        getAccessToken: expect.any(Function),
         accessMode: "cloud",
         baseUrl: "https://edge.example",
         mockEnabled: false,

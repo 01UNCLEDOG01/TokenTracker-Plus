@@ -119,6 +119,8 @@ describe("useLimitsDisplayPrefs", () => {
       [
         "agentPlan",
         "antigravity",
+        // TT-plus additions: APIGOTO weekly quota and the SenseNova token pools.
+        "apigoto",
         "claude",
         "codex",
         "codingPlan",
@@ -133,6 +135,7 @@ describe("useLimitsDisplayPrefs", () => {
         "opencodeGo",
         "qoder",
         "qoderCn",
+        "sensenova",
         "zcode",
       ].sort(),
     );

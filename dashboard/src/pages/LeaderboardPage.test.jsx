@@ -19,6 +19,7 @@ const insforgeAuthMock = vi.hoisted(() => ({
   signedIn: true,
   loading: false,
   user: { id: "user-1" },
+  getAccessToken: vi.fn(async () => "tok-test"),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -134,7 +135,7 @@ describe("LeaderboardPage window-session cache reuse", () => {
     expect(document.querySelector(".gh-avatar-frame")).not.toBeNull();
   });
 
-  it("renders a matching cache immediately and starts a background refresh", () => {
+  it("renders a matching cache immediately and starts a background refresh", async () => {
     const contextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",
       baseUrl: "https://edge.example",
@@ -148,12 +149,17 @@ describe("LeaderboardPage window-session cache reuse", () => {
 
     expect(screen.getAllByText("Preloaded User").length).toBeGreaterThan(0);
     expect(screen.queryByTestId("leaderboard-skeleton")).not.toBeInTheDocument();
-    expect(getLeaderboard).toHaveBeenCalledWith({
-      baseUrl: "https://edge.example",
-      userId: "user-1",
-      period: "total",
-      limit: 20,
-      offset: 0,
+    // The fork resolves the access token before the first fetch, so the
+    // background refresh lands a microtask after mount — await it.
+    await waitFor(() => {
+      expect(getLeaderboard).toHaveBeenCalledWith({
+        accessToken: "tok-test",
+        baseUrl: "https://edge.example",
+        userId: "user-1",
+        period: "total",
+        limit: 20,
+        offset: 0,
+      });
     });
   });
 
@@ -351,7 +357,7 @@ describe("LeaderboardPage window-session cache reuse", () => {
     expect(readLeaderboardPreloadState(contextKey)).toBeNull();
   });
 
-  it("keeps the existing loading path when the preload context does not match the page defaults", () => {
+  it("keeps the existing loading path when the preload context does not match the page defaults", async () => {
     const staleContextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",
       baseUrl: "https://edge.example",
@@ -366,12 +372,15 @@ describe("LeaderboardPage window-session cache reuse", () => {
 
     expect(screen.queryByText("Preloaded User")).not.toBeInTheDocument();
     expect(screen.getByTestId("leaderboard-skeleton")).toBeInTheDocument();
-    expect(getLeaderboard).toHaveBeenCalledWith({
-      baseUrl: "https://edge.example",
-      userId: "user-1",
-      period: "total",
-      limit: 20,
-      offset: 0,
+    await waitFor(() => {
+      expect(getLeaderboard).toHaveBeenCalledWith({
+        accessToken: "tok-test",
+        baseUrl: "https://edge.example",
+        userId: "user-1",
+        period: "total",
+        limit: 20,
+        offset: 0,
+      });
     });
   });
 
@@ -430,6 +439,7 @@ describe("LeaderboardPage window-session cache reuse", () => {
 
     await waitFor(() => {
       expect(getLeaderboard).toHaveBeenCalledWith({
+        accessToken: "",
         baseUrl: "https://edge.example",
         userId: null,
         period: "total",
@@ -471,7 +481,7 @@ describe("LeaderboardPage window-session cache reuse", () => {
     expect(readLeaderboardPreloadState(contextKey)).toMatchObject({ data: preloadedData });
   });
 
-  it("uses the matching cache for pageSize-specific contexts", () => {
+  it("uses the matching cache for pageSize-specific contexts", async () => {
     window.localStorage.setItem("tokentracker:leaderboard:pageSize", "50");
     const contextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",
@@ -486,12 +496,15 @@ describe("LeaderboardPage window-session cache reuse", () => {
     renderLeaderboard();
 
     expect(screen.getAllByText("Preloaded User").length).toBeGreaterThan(0);
-    expect(getLeaderboard).toHaveBeenCalledWith({
-      baseUrl: "https://edge.example",
-      userId: "user-1",
-      period: "total",
-      limit: 50,
-      offset: 0,
+    await waitFor(() => {
+      expect(getLeaderboard).toHaveBeenCalledWith({
+        accessToken: "tok-test",
+        baseUrl: "https://edge.example",
+        userId: "user-1",
+        period: "total",
+        limit: 50,
+        offset: 0,
+      });
     });
   });
 

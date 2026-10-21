@@ -4,7 +4,16 @@ import { cloudPromptOwnerFromToken, readCloudPromptState, recordCloudPromptInten
 
 vi.mock("./insforge-config", () => ({ getInsforgeRemoteUrl: () => "https://backend.test", getInsforgeAnonKey: () => "anon" }));
 let counter = 0;
-beforeEach(() => invalidateAccountResponseCache());
+beforeEach(() => {
+  invalidateAccountResponseCache();
+  // The fork routes account reads on a localhost dashboard to the local CLI
+  // server (?account=1), whose error shape lacks the cloud prompt metadata.
+  // This test pins the cloud denial flow; pretend the dashboard is remote.
+  Object.defineProperty(window, "location", {
+    value: new URL("https://dashboard.example/"),
+    writable: true,
+  });
+});
 afterEach(() => vi.unstubAllGlobals());
 it("reuses the existing denied response for an owned contextual reason without another request", async () => {
   const owner = `api-prompt-${++counter}`;

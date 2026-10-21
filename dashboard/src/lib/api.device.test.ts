@@ -28,6 +28,14 @@ function lastFetchUrl() {
 describe("api device filter", () => {
   beforeEach(() => {
     invalidateAccountResponseCache();
+    // The fork routes account reads on a localhost dashboard to the local CLI
+    // server (?account=1), bypassing the cloud response cache these tests pin.
+    // Pretend the dashboard is a remote host; vitest's jsdom default is
+    // localhost:3000.
+    Object.defineProperty(window, "location", {
+      value: new URL("https://dashboard.example/"),
+      writable: true,
+    });
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({}), {
       status: 200,
       headers: { "Content-Type": "application/json" },

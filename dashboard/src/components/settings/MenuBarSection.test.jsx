@@ -62,27 +62,24 @@ describe("MenuBarSection limit-reset feedback", () => {
     expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("confettiOnReset", false);
   });
 
-  it("toggles automatic updates independently of manual checks", async () => {
-    const user = userEvent.setup();
+  it("no longer offers an auto-update toggle (TT-plus removed automatic updates)", () => {
     render(
       <MemoryRouter>
         <MenuBarSection />
       </MemoryRouter>,
     );
 
-    const autoUpdateSwitch = screen.getByRole("switch", {
-      name: "settings.menubar.autoUpdate",
-    });
-    expect(autoUpdateSwitch).toHaveAttribute("aria-checked", "true");
-
-    await act(async () => {
-      await user.click(autoUpdateSwitch);
-    });
-
-    expect(nativeSettingsMock.setSetting).toHaveBeenCalledWith("autoUpdateEnabled", false);
-    // Manual check stays available: the button is untouched by the toggle.
+    // The fork pins the desktop app to its own build: no auto-update switch
+    // and no autoUpdateEnabled writes. The manual check-updates button stays.
+    expect(
+      screen.queryByRole("switch", { name: "settings.menubar.autoUpdate" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /settings\.menubar\.checkUpdates/ }),
     ).toBeEnabled();
+    expect(nativeSettingsMock.setSetting).not.toHaveBeenCalledWith(
+      "autoUpdateEnabled",
+      expect.anything(),
+    );
   });
 });

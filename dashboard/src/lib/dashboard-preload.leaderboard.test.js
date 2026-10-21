@@ -67,15 +67,38 @@ describe("leaderboard default state preload", () => {
     });
 
     expect(getLeaderboard).toHaveBeenCalledWith({
+      accessToken: null,
       baseUrl: "https://edge.example",
       userId: "user-1",
       period: "total",
       limit: 50,
       offset: 0,
     });
-    expect(getLeaderboard.mock.calls[0][0]).not.toHaveProperty("accessToken");
+    // The fork gates the leaderboard behind the account, so the preload
+    // forwards a token when the caller has one and sends null anonymously —
+    // upstream kept this call a bare public read; we deliberately did not.
     expect(getLeaderboard.mock.calls[0][0]).not.toHaveProperty("Authorization");
     expect(readLeaderboardPreloadState(contextKey)).toMatchObject({ data });
+  });
+
+  it("forwards the resolved access token to the gated leaderboard read", async () => {
+    const data = { entries: [{ rank: 1, display_name: "Ada" }], page: 1 };
+    getLeaderboard.mockResolvedValue(data);
+
+    await expect(
+      preloadLeaderboardDefaultState({
+        baseUrl: "https://edge.example",
+        mockEnabled: false,
+        signedIn: true,
+        authLoading: false,
+        userId: "user-1",
+        getAccessToken: async () => "tok-1",
+      }),
+    ).resolves.toMatchObject({ status: "fulfilled", data });
+
+    expect(getLeaderboard).toHaveBeenCalledWith(
+      expect.objectContaining({ accessToken: "tok-1" }),
+    );
   });
 
   it("separates readable leaderboard cache by every data access context dimension", () => {
@@ -150,6 +173,7 @@ describe("leaderboard default state preload", () => {
     ).resolves.toMatchObject({ status: "fulfilled" });
 
     expect(getLeaderboard).toHaveBeenCalledWith({
+      accessToken: null,
       baseUrl: "",
       userId: null,
       period: "total",
@@ -184,6 +208,7 @@ describe("leaderboard default state preload", () => {
     });
 
     expect(getLeaderboard).toHaveBeenCalledWith({
+      accessToken: null,
       baseUrl: "https://edge.example",
       userId: null,
       period: "total",
