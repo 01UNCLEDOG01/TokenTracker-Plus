@@ -464,8 +464,8 @@ def claude_survivor():
     for ex, ey in ((150, 356), (342, 408), (342, 356), (150, 408)):
         dh.ellipse((ex - 15, ey - 15, ex + 15, ey + 15), fill=STEEL)
     # official Claude starburst, cast in accent metal, front and center
-    star = Image.open(r"D:\tt-rebase\.tmp\claude-code.png")
-    hh = logo_height(r"D:\tt-rebase\.tmp\claude-code.png", ACCENT_H).resize((356, 356), Image.LANCZOS)
+    star = Image.open("D:/tt-rebase/scripts/art/brand-cache/claude-code.png")
+    hh = logo_height("D:/tt-rebase/scripts/art/brand-cache/claude-code.png", ACCENT_H).resize((356, 356), Image.LANCZOS)
     h.paste(hh, (78, 62), hh)
     m = star.convert("L").point(lambda v: 255 if v <= 200 else 0).resize((356, 356), Image.LANCZOS)
     acc.paste(ACC, (78, 62), m)
@@ -480,8 +480,8 @@ def wishing_well():
     dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
     GOLD = (238, 196, 90, 245)
     # official DeepSeek whale, cast in accent metal
-    whale = Image.open(r"D:\tt-rebase\.tmp\deepseek.png")
-    hh = logo_height(r"D:\tt-rebase\.tmp\deepseek.png", ACCENT_H).resize((360, 360), Image.LANCZOS)
+    whale = Image.open("D:/tt-rebase/scripts/art/brand-cache/deepseek.png")
+    hh = logo_height("D:/tt-rebase/scripts/art/brand-cache/deepseek.png", ACCENT_H).resize((360, 360), Image.LANCZOS)
     h.paste(hh, (76, 86), hh)
     m = whale.convert("L").point(lambda v: 255 if v <= 200 else 0).resize((360, 360), Image.LANCZOS)
     acc.paste((90, 126, 240, 235), (76, 86), m)
