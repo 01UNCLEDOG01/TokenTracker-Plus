@@ -713,6 +713,18 @@ function getModelPricing(model: string, source = "") {
 
 function getRowPricing(row: { model?: string; source?: string; hour_start?: string; pricing_tier?: string }) {
   const pricing = getModelPricing(row.model || "", row.source);
+  // Every Qoder international row is credits-derived: the edition records no
+  // token counts, so the figures on its rows are money divided by the reference
+  // model's blended rate. Price them at that rate whatever router name the row
+  // carries, or a label no price table knows shows no cost. Mirrors
+  // getRowPricing in src/lib/pricing/index.js, and must precede the DeepSeek
+  // time-of-use branch below — a "DeepSeek-Flash（积分）" label is not a DeepSeek
+  // API row, so halving it at off-peak bills the same credits differently per
+  // hour (the account view ran $0.348 where this machine bills $0.485).
+  if ((row.source || "").toLowerCase() === "qoder") {
+    const reference = getModelPricing("qwen3.8-flash");
+    if (reference && (reference.input || reference.output)) return reference;
+  }
   if ((row.source || "").toLowerCase() === "acode") return pricing;
   // Trae CN underscore-spells the deepseek ids (deepseek_v4_pro); fold the
   // separator before the family check so those rows reach the time-of-use

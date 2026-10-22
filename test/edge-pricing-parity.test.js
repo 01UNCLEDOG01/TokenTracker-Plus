@@ -562,3 +562,87 @@ test("all cloud cost paths retain DeepSeek V4 peak/off-peak pricing tiers", () =
     "model breakdown must price each pricing-tier row before collapsing models",
   );
 });
+
+// Qoder international bills credits and its ingest wire carries no money, so a
+// cloud qoder row is only ever tokens x price. Those tokens are themselves
+// money / the reference model's blended rate, so the reference rate is the one
+// price that reproduces what Qoder charged. Two live rows are pinned below at
+// the figures this machine bills; the DeepSeek one carries an off-peak
+// hour_start on purpose, because that label used to fall into the DeepSeek
+// time-of-use branch and bill the same credits $0.348 instead of $0.485.
+for (const name of [CANONICAL, ...MIRRORS]) {
+  test(`Qoder credits rows price at the reference rate in ${name}`, () => {
+    const source = readEdge(name);
+    const allowlist = source.match(/const SOURCES_WITH_AUTHORITATIVE_COST = new Set\([^;]+\);/);
+    assert.ok(allowlist, `${name}: cost source allowlist exists`);
+    let costFunction = source.match(/\nfunction computeRowCost\([\s\S]*?\n\}/)?.[0];
+    if (!costFunction) {
+      assert.equal(name, "tokentracker-account-model-breakdown.ts");
+      const costBlock = source.match(/    const unslothUnpriced = src === "unsloth"[\s\S]*?1_000_000;/);
+      assert.ok(costBlock, "model breakdown per-row cost block exists");
+      costFunction = `function computeRowCost(row) {
+        const src = row.source || "unknown";
+        const mdl = String(row.model || "unknown").trim() || "unknown";
+        const ma = { totalCostUsd: 0 };
+        ${costBlock[0]}
+        return ma.totalCostUsd;
+      }`;
+    }
+    const { code } = transformSync([
+      allowlist[0], extractBlock(name), extractRowPricing(name), costFunction,
+    ].join("\n"), { loader: "ts", target: "es2020" });
+    const edgeCost = vm.runInNewContext(`${code}\ncomputeRowCost;`);
+    const { computeRowCost: localCost } = require("../src/lib/pricing");
+    const cases = [
+      ["Qwen3.8-Flash（积分）", { input_tokens: 385253, output_tokens: 16384, cached_input_tokens: 2425150 }, 0.104291],
+      ["DeepSeek-Flash（积分）", { input_tokens: 1791224, output_tokens: 76180, cached_input_tokens: 11275689 }, 0.484899],
+      ["官方云端（积分）", { input_tokens: 1581305, output_tokens: 67251, cached_input_tokens: 9957467 }, 0.428123],
+    ];
+    for (const [model, split, expected] of cases) {
+      // A Beijing Saturday 03:00 = UTC Friday 19:00: off-peak for DeepSeek.
+      const row = { source: "qoder", model, hour_start: "2026-10-17T19:00:00.000Z",
+        reasoning_output_tokens: 0, cache_creation_input_tokens: 0, total_cost_usd: 0, ...split };
+      row.total_tokens = split.input_tokens + split.output_tokens + split.cached_input_tokens;
+      row.billable_total_tokens = row.total_tokens;
+      assert.ok(Math.abs(edgeCost(row) - expected) < 1e-6,
+        `${name}: ${model} must bill ${expected}, got ${edgeCost(row)}`);
+      assert.ok(Math.abs(localCost(row) - expected) < 1e-6,
+        `local: ${model} must bill ${expected}, got ${localCost(row)}`);
+      assert.equal(edgeCost(row), localCost(row), `${name}: ${model} drifts from local`);
+    }
+    // The router ids are the same money under a name no table knows.
+    for (const model of ["mmodel", "gfmodel", "qfmodel", "dfmodel"]) {
+      const row = { source: "qoder", model, hour_start: "2026-10-17T19:00:00.000Z",
+        input_tokens: 1e6, output_tokens: 1e6, cached_input_tokens: 0,
+        cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: 0 };
+      assert.ok(Math.abs(edgeCost(row) - 0.62) < 1e-9, `${name}: ${model} at the reference rate`);
+      assert.equal(edgeCost(row), localCost(row), `${name}: ${model} drifts from local`);
+    }
+  });
+}
+
+// The card's price badge comes from getUsageModelPricing, which reads
+// getModelPricing directly and so never sees getRowPricing's reference-rate
+// rule. Without the same rule there the row bills money while still being
+// labelled unpriced - the exact mismatch the local side closed in
+// getModelPricingInfo (src/lib/pricing/index.js, 2026-10-22).
+test("the cloud badge calls a Qoder credits row priced, as the local badge does", () => {
+  const name = "tokentracker-account-model-breakdown.ts";
+  const badge = readEdge(name).match(/\nfunction getUsageModelPricing\([\s\S]*?\n\}/)?.[0];
+  assert.ok(badge, `${name}: getUsageModelPricing not found`);
+  const { code } = transformSync([extractBlock(name), badge].join("\n"), { loader: "ts", target: "es2020" });
+  const edgeBadge = vm.runInNewContext(`${code}\ngetUsageModelPricing;`);
+  const { getModelPricingInfo: localInfo } = require("../src/lib/pricing");
+  for (const model of ["Qwen3.8-Flash（积分）", "DeepSeek-Flash（积分）", "mmodel", "官方云端（积分）"]) {
+    const edge = edgeBadge(model, "qoder");
+    const local = localInfo(model, { source: "qoder" });
+    assert.equal(edge.status, "priced", `${name}: ${model} badge`);
+    assert.equal(edge.input, 0.15, `${name}: ${model} badge input is the reference rate`);
+    assert.equal(edge.output, 0.47, `${name}: ${model} badge output is the reference rate`);
+    assert.deepEqual(
+      [edge.status, edge.input, edge.output, edge.cache_read],
+      [local.status, local.input, local.output, local.cache_read],
+      `${name}: ${model} badge drifts from the local one`,
+    );
+  }
+});

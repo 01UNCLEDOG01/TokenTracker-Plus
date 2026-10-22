@@ -193,9 +193,12 @@ test("a cloud source that already lists qoder money is added to, not replaced", 
     assert.equal(out.sources.length, 1, "one card, not two");
     assert.equal(out.sources[0].totals.total_cost_usd, "1.050000");
     assert.equal(out.sources[0].models.length, 2, "the legacy generic row and the specific local row both survive");
-    const generic = out.sources[0].models.find((m) => m.model === "官方云端（积分）");
+    // The legacy row keeps its own money; it only loses the （积分） marker the
+    // scanner used to bake into the label, same as the local view renders it.
+    const generic = out.sources[0].models.find((m) => m.model === "官方云端");
     const specific = out.sources[0].models.find((m) => m.model_id === "qfmodel");
     assert.ok(generic && specific, "both model labels are present");
+    assert.equal(generic.model_id, "官方云端（积分）", "the stored id survives the rename");
     assert.equal(generic.totals.total_cost_usd, "1.000000");
     assert.equal(specific.totals.total_cost_usd, "0.050000");
   } finally {
@@ -244,3 +247,95 @@ test("buckets are clipped by the Beijing day, not the UTC one", () => {
   const outside = buildCostBuckets(rows, { from: "2026-10-02", to: "2026-10-31", offsetMinutes: 480 });
   assert.equal(outside.byDay.size, 0);
 });
+
+const { applyAccountViewQoderIntlMerge: mergeWithQueue } = require("../src/lib/qoder-intl-account-merge");
+
+// The cloud groups by the stored model key, so one model can come back twice:
+// the router id the scanner writes now, and the credits label an older build
+// wrote into the row. Both must land on the name this machine shows, and a day
+// the queue already carries tokens for must not have them added again.
+function cloudQoderRow(model, tokens, cost, priced) {
+  return {
+    model,
+    model_id: model,
+    pricing: priced
+      ? { status: "priced", input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 }
+      : { status: "unpriced", input: 0, output: 0, cache_read: 0, cache_write: 0 },
+    cost_source: "model_pricing",
+    totals: {
+      total_tokens: tokens, billable_total_tokens: tokens, input_tokens: 0, output_tokens: 0,
+      cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0,
+      total_cost_usd: cost,
+    },
+  };
+}
+
+test("cloud rows named by router id fold onto the model name, without re-billing a covered day", () => {
+  const fixture = sandbox([
+    creditFor("mmodel", "2026-10-22T04:00:00.000Z", 100),
+    creditFor("qfmodel", "2026-10-22T04:00:00.000Z", 40),
+  ]);
+  try {
+    // Qoder's client texts are what name its routers, so the fixture ships them.
+    const authDir = path.join(fixture.home, ".qoder", ".auth");
+    fs.mkdirSync(authDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(authDir, "dynamic-texts.json"),
+      JSON.stringify({ modelSelector: { item: { mmodel: "MiniMax-M3.1-Flash", qfmodel: "Qwen3.8-Flash" } } }),
+    );
+    const payload = {
+      sources: [{
+        source: "qoder",
+        source_scope: "cloud",
+        totals: {
+          total_tokens: 2826787, billable_total_tokens: 2826787, input_tokens: 0, output_tokens: 0,
+          cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0,
+          total_cost_usd: "0.104291",
+        },
+        models: [
+          cloudQoderRow("MiniMax-M3.1-Flash（积分）", 0, "0.000000", true),
+          cloudQoderRow("mmodel", 0, "0.000000", false),
+          cloudQoderRow("Qwen3.8-Flash（积分）", 2826787, "0.104291", true),
+        ],
+      }],
+    };
+    const out = mergeWithQueue("tokentracker-account-model-breakdown", payload, {
+      // The scanner's own row for that day: it carries the tokens, so the
+      // credits row for the same model must not add them a second time.
+      queueRows: [{
+        source: "qoder", model: "Qwen3.8-Flash（积分）", hour_start: "2026-10-22T04:00:00.000Z",
+        total_tokens: 2826787, billable_total_tokens: 2826787, total_cost_usd: 0,
+      }],
+      projectsDir: fixture.projectsDir,
+      home: fixture.home,
+      searchParams: new Map([["from", "2026-10-01"], ["to", "2026-10-31"]]),
+    });
+    const models = out.sources[0].models;
+    assert.deepEqual(
+      models.map((m) => m.model),
+      ["MiniMax-M3.1-Flash", "Qwen3.8-Flash"],
+      "no raw router id and no duplicate row reaches the card",
+    );
+    assert.deepEqual(models.map((m) => m.model_id), ["MiniMax-M3.1-Flash（积分）", "Qwen3.8-Flash（积分）"],
+      "the folded row still records the id the cloud stored it under");
+    const mini = models[0];
+    assert.equal(mini.totals.total_cost_usd, "1.000000", "the credits money lands on the folded row");
+    assert.equal(mini.totals.total_tokens, derivedTokens(100), "both zero-token rows folded into one");
+    assert.equal(mini.pricing.status, "priced", "folding must not drop the priced badge");
+    const qwen = models[1];
+    assert.equal(qwen.totals.total_cost_usd, "0.104291", "the covered day keeps the cloud's own figure");
+    assert.equal(qwen.totals.total_tokens, 2826787, "covered tokens are not added again");
+    assert.equal(out.sources[0].totals.total_cost_usd, "1.104291", "the card total is cloud money + credits");
+    assert.equal(out.sources[0].totals.total_tokens, 2826787 + derivedTokens(100));
+  } finally {
+    fs.rmSync(fixture.home, { recursive: true, force: true });
+  }
+});
+
+function creditFor(model, timestamp, value) {
+  return {
+    type: "assistant",
+    timestamp,
+    message: { role: "assistant", model, usage: { input_tokens: 0, output_tokens: 0, credits: value } },
+  };
+}

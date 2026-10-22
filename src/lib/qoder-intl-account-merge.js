@@ -146,11 +146,40 @@ function mergeSummary(payload, buckets) {
   mergeSummaryTokens(payload, buckets.grandTokens);
 }
 
+// Fold the cloud's per-model rows onto the display name, summing the token
+// fields and the money. A row that carries real rates wins the metadata slot,
+// so folding a priced row into an unpriced one does not lose the price badge.
+function collapseQoderRows(models) {
+  const byDisplay = new Map();
+  const out = [];
+  for (const row of models) {
+    const raw = String(row?.model ?? row?.model_id ?? "");
+    const display = qoderIntlDisplayModel(raw);
+    let kept = byDisplay.get(display);
+    if (!kept) {
+      // `model` is what the card shows; `model_id` keeps the id the row was
+      // actually stored under, the same split the credits rows use.
+      kept = { ...row, model: display, totals: { ...(row?.totals || {}) } };
+      byDisplay.set(display, kept);
+      out.push(kept);
+      continue;
+    }
+    for (const field of TOKEN_FIELDS) kept.totals[field] = num(kept.totals[field]) + num(row?.totals?.[field]);
+    kept.totals.total_cost_usd = money6(num(kept.totals.total_cost_usd) + num(row?.totals?.total_cost_usd));
+    if (kept.pricing?.status !== "priced" && row?.pricing?.status === "priced") {
+      kept.pricing = row.pricing;
+      kept.cost_source = row.cost_source;
+    }
+  }
+  return out;
+}
+
 function mergeModelBreakdown(payload, buckets) {
   const sources = Array.isArray(payload?.sources) ? payload.sources : null;
-  if (!sources || !(buckets.grand > 0)) return;
+  if (!sources) return;
   let entry = sources.find((s) => String(s?.source) === QODER_INTL_SOURCE);
   if (!entry) {
+    if (!(buckets.grand > 0)) return;
     entry = { source: QODER_INTL_SOURCE, source_scope: "local", totals: {}, models: [] };
     for (const field of TOKEN_FIELDS) entry.totals[field] = 0;
     entry.totals.total_cost_usd = "0.000000";
@@ -158,6 +187,14 @@ function mergeModelBreakdown(payload, buckets) {
   }
   entry.totals = entry.totals || {};
   entry.models = Array.isArray(entry.models) ? entry.models : [];
+  // The cloud groups by the stored model key, so one Qoder model can come back
+  // as two rows: the router id the scanner writes now, and the credits label an
+  // older build wrote into the row itself. Fold both onto the name this machine
+  // shows — the edge is deliberately a pass-through aggregator (see the
+  // display-name guard in test/edge-pricing-parity.test.js), so the rename has
+  // to happen here, where the router-id table lives.
+  entry.models = collapseQoderRows(entry.models);
+  if (!(buckets.grand > 0)) return;
   entry.totals.total_cost_usd = money6(num(entry.totals.total_cost_usd) + buckets.grand);
   entry.totals.total_tokens = num(entry.totals.total_tokens) + buckets.grandTokens;
   entry.totals.billable_total_tokens = num(entry.totals.billable_total_tokens) + buckets.grandTokens;
@@ -165,7 +202,7 @@ function mergeModelBreakdown(payload, buckets) {
     // The display name is the model Qoder itself names (its client texts know
     // every router id); the row keeps the id it was stored under.
     const display = qoderIntlDisplayModel(model);
-    let row = entry.models.find((m) => String(m?.model_id) === model || String(m?.model) === model);
+    let row = entry.models.find((m) => String(m?.model) === display);
     if (!row) {
       row = {
         model: display,
