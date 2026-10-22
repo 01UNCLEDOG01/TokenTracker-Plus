@@ -59,15 +59,15 @@ export const BADGE_CATALOG = [
   // the flag lives in the SQL catalog and user_badges_full payloads.
   // heart_model reuses the unused heart-on-your-sleeve face (a favorite
   // worn openly — the name semantics carry over).
-  { id: "phoenix", scope: "cloud", icon: FlameKindling, format: "days", art: "/achievements/phoenix.png?v=9" },
-  { id: "iron_month", scope: "cloud", icon: CalendarCheck2, format: "days", art: "/achievements/iron-month.png?v=9" },
-  { id: "full_blast", scope: "cloud", icon: Activity, format: "tokens", art: "/achievements/full-blast.png?v=9" },
-  { id: "deep_diver", scope: "cloud", icon: Anchor, format: "count", art: "/achievements/deep-diver.png?v=9" },
-  { id: "multitool_day", scope: "cloud", icon: Layers, format: "count", art: "/achievements/multitool-day.png?v=9" },
+  { id: "phoenix", scope: "cloud", icon: FlameKindling, format: "days", art: "/achievements/phoenix.png?v=10" },
+  { id: "iron_month", scope: "cloud", icon: CalendarCheck2, format: "days", art: "/achievements/iron-month.png?v=10" },
+  { id: "full_blast", scope: "cloud", icon: Activity, format: "tokens", art: "/achievements/full-blast.png?v=10" },
+  { id: "deep_diver", scope: "cloud", icon: Anchor, format: "count", art: "/achievements/deep-diver.png?v=10" },
+  { id: "multitool_day", scope: "cloud", icon: Layers, format: "count", art: "/achievements/multitool-day.png?v=10" },
   { id: "heart_model", scope: "cloud", icon: HeartPulse, format: "percent", art: "/achievements/heart-model.png?v=7" },
-  { id: "claude_survivor", scope: "cloud", hidden: true, icon: Skull, format: "tokens", art: "/achievements/claude-survivor.png?v=9" },
-  { id: "wishing_well", scope: "cloud", hidden: true, icon: Coins, format: "tokens", art: "/achievements/wishing-well.png?v=9" },
-  { id: "grand_slam", scope: "cloud", icon: Trophy, format: "count", art: "/achievements/grand-slam.png?v=9" },
+  { id: "claude_survivor", scope: "cloud", hidden: true, icon: Skull, format: "tokens", art: "/achievements/claude-survivor.png?v=10" },
+  { id: "wishing_well", scope: "cloud", hidden: true, icon: Coins, format: "tokens", art: "/achievements/wishing-well.png?v=10" },
+  { id: "grand_slam", scope: "cloud", icon: Trophy, format: "count", art: "/achievements/grand-slam.png?v=10" },
   { id: "project_hopper", scope: "local", icon: FolderGit2, format: "count", art: "/achievements/project-hopper.png?v=7" },
   { id: "project_devotion", scope: "local", icon: Heart, format: "tokens", art: "/achievements/project-devotion.png?v=7" },
   { id: "night_owl", scope: "local", icon: MoonStar, format: "count", art: "/achievements/night-owl.png?v=7" },
@@ -75,13 +75,13 @@ export const BADGE_CATALOG = [
   // set (provenance: dashboard/public/achievements/README.md), except
   // deep_thinker which reuses the unused galaxy-brain face (brain →
   // reasoning; the name semantics carry over).
-  { id: "early_bird", scope: "local", icon: Sunrise, format: "count", art: "/achievements/early-bird.png?v=9" },
-  { id: "around_the_clock", scope: "local", icon: Clock, format: "count", art: "/achievements/around-the-clock.png?v=9" },
-  { id: "sprinter", scope: "local", icon: Gauge, format: "tokens", art: "/achievements/sprinter.png?v=9" },
-  { id: "cache_alchemist", scope: "local", icon: FlaskConical, format: "tokens", art: "/achievements/cache-alchemist.png?v=9" },
+  { id: "early_bird", scope: "local", icon: Sunrise, format: "count", art: "/achievements/early-bird.png?v=10" },
+  { id: "around_the_clock", scope: "local", icon: Clock, format: "count", art: "/achievements/around-the-clock.png?v=10" },
+  { id: "sprinter", scope: "local", icon: Gauge, format: "tokens", art: "/achievements/sprinter.png?v=10" },
+  { id: "cache_alchemist", scope: "local", icon: FlaskConical, format: "tokens", art: "/achievements/cache-alchemist.png?v=10" },
   { id: "deep_thinker", scope: "local", icon: BrainCircuit, format: "tokens", art: "/achievements/deep-thinker.png?v=7" },
-  { id: "real_money", scope: "local", icon: Banknote, format: "usd", art: "/achievements/real-money.png?v=9" },
-  { id: "session_marathon", scope: "local", icon: Hourglass, format: "duration", art: "/achievements/session-marathon.png?v=9" },
+  { id: "real_money", scope: "local", icon: Banknote, format: "usd", art: "/achievements/real-money.png?v=10" },
+  { id: "session_marathon", scope: "local", icon: Hourglass, format: "duration", art: "/achievements/session-marathon.png?v=10" },
 ];
 
 export const BADGE_BY_ID = new Map(BADGE_CATALOG.map((b) => [b.id, b]));

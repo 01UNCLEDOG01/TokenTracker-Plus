@@ -72,13 +72,15 @@ frame at display size. The second pass keeps only the painted face and casts
 the rim programmatically:
 
 - `scripts/art/source-badges/` — the painted 256px faces.
-- `scripts/art/source-emblem/` — the one-man-band and skull emblems.
+- `scripts/art/source-emblem/` — the one-man-band emblem.
 - `scripts/art/brand-cache/deepseek.png` / `claude-code.png` — the official
   DeepSeek whale and Claude starburst used for `wishing_well` and
   `claude_survivor`. The whale's white belly is filled as light enamel
-  rather than left as a hole onto the coin face.
+  rather than left as a hole onto the coin face; the Claude badge is the
+  starburst alone, with no skull.
 - Rebuild with `python scripts/art/rebuild-badge-rims.py`. The house rim
-  rolls from the face into a warm champagne frame with no dark groove, and
+  rolls from the face into a warm champagne frame with no dark groove; the
+  outer chamfer stays bright so the tier ring meets it without a dark line, and
   the saved PNG has binary alpha (opaque coin, fully transparent outside),
   so a scaled edge cannot show a checkerboard or a dot fringe.
 - The older self-drawn generator `scripts/art/gen-achievement-medallions.py`

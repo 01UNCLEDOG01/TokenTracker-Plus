@@ -53,13 +53,15 @@ def house_coin():
     lip = (r >= 208) & (r < 211)
     v[lip] = np.clip(206 + 28 * key[lip], 168, 252)
 
-    # rolled edge 230..234, then a narrow darker rim to close the coin
+    # bright polished edge: the original medallions end on their brightest
+    # chamfer, so the tier ring meets the rim directly. A dark outer band
+    # here is the black line users see between the two frames.
     edge_band = (r >= 230) & (r < 234)
-    v[edge_band] = np.clip(150 + 34 * key[edge_band] + br[edge_band] * 0.6, 96, 210)
+    v[edge_band] = np.clip(196 + 22 * key[edge_band] + br[edge_band] * 0.6, 160, 230)
     edge = (r >= 234) & (r < 237)
-    v[edge] = np.clip(92 + 36 * key[edge], 48, 170)
+    v[edge] = np.clip(212 + 18 * key[edge], 185, 240)
     outer = r >= 237
-    v[outer] = 40
+    v[outer] = 220
 
     rgb = np.zeros((S, S, 3), dtype=np.uint8)
     warm = r >= 198  # face stays neutral gunmetal, frame is champagne
@@ -282,9 +284,9 @@ def multitool_day():
 
 
 def claude_survivor():
-    """The official Claude starburst, with a steel survivor skull over it."""
+    """Only the official Claude starburst — the brand mark is the badge."""
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    star = fit(key_white(f"{BRAND}/claude-code.png"), 388, 388)
+    star = fit(key_white(f"{BRAND}/claude-code.png"), 380, 380)
     star_mask = star.getchannel("A")
     star = enamel(
         star_mask,
@@ -294,9 +296,7 @@ def claude_survivor():
         glow=(255, 184, 152),
     )
     star.alpha_composite(bevel_overlay(star_mask, 0.55))
-    paste_center(layer, star, 256, 252)
-    skull = fit(key_black(str(SRC_EMBLEM / "skull-crossbones.png")), 312, 282)
-    paste_center(layer, skull, 256, 276)
+    paste_center(layer, star, 256, 256)
     save(compose(layer), "claude-survivor.png")
 
 
