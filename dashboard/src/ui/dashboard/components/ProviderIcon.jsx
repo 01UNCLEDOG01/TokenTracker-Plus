@@ -478,7 +478,9 @@ const PROVIDER_LOGO_MAP = {
   // Cline (CLI v3 / desktop app) — the official robot mark.
   CLINE: "/brand-logos/cline.png",
   // International TRAE mark from the installed app's resources/app/out/media/trae-logo.svg.
-  TRAE: "/brand-logos/trae.svg",
+  // ?v=2: the white-plate mark replaced the dark-plate one on 2026-10-23, and a
+  // bare path stayed green in WebView2 because the URL had no version to bust.
+  TRAE: "/brand-logos/trae.svg?v=2",
   // Loomy's own app icon, extracted from D:\Loomy\Loomy.exe (the mascot on a
   // green disc). Corners are fully transparent, so it reads on both themes.
   LOOMY: "/brand-logos/loomy.png",

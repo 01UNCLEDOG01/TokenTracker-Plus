@@ -128,12 +128,12 @@ describe("ProviderIcon", () => {
 
   it.each(["trae", "TRAE"])("renders the international TRAE mark for %s", (provider) => {
     const { container } = render(<ProviderIcon provider={provider} size={20} className="shrink-0" />);
-    const icon = container.querySelector('img[src="/brand-logos/trae.svg"]');
+    const icon = container.querySelector('img[src="/brand-logos/trae.svg?v=2"]');
 
     expect(icon).toHaveAttribute("width", "20");
     expect(icon).toHaveAttribute("height", "20");
     expect(icon).toHaveClass("shrink-0");
-    expect(icon).toHaveAttribute("src", "/brand-logos/trae.svg");
+    expect(icon).toHaveAttribute("src", "/brand-logos/trae.svg?v=2");
     expect(icon).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelector('svg[data-brand="trae-cn"]')).toBeNull();
     expect(container.querySelector(".text-oai-gray-400")).toBeNull();
