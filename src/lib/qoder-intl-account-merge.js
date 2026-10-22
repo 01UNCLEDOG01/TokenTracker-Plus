@@ -19,7 +19,8 @@
 // Monthly, hourly and heatmap carry no cost field at all, so they are left
 // untouched rather than given a field nothing reads.
 
-const { qoderIntlCreditRows } = require("./qoder-intl-credits");
+const { qoderIntlCreditRows, qoderIntlDisplayModel } = require("./qoder-intl-credits");
+const { getModelPricingInfo } = require("./pricing");
 
 const QODER_INTL_SOURCE = "qoder";
 const TOKEN_FIELDS = [
@@ -161,15 +162,19 @@ function mergeModelBreakdown(payload, buckets) {
   entry.totals.total_tokens = num(entry.totals.total_tokens) + buckets.grandTokens;
   entry.totals.billable_total_tokens = num(entry.totals.billable_total_tokens) + buckets.grandTokens;
   for (const [model, agg] of buckets.byModel) {
+    // The display name is the model Qoder itself names (its client texts know
+    // every router id); the row keeps the id it was stored under.
+    const display = qoderIntlDisplayModel(model);
     let row = entry.models.find((m) => String(m?.model_id) === model || String(m?.model) === model);
     if (!row) {
       row = {
-        model,
+        model: display,
         model_id: model,
-        pricing: { status: "unpriced", source: null, input: 0, output: 0, cache_read: 0, cache_write: 0 },
+        // A credits row's tokens are money divided by the reference model's
+        // blended rate, so the reference rate is the price behind the figure.
+        pricing: getModelPricingInfo(model, { source: QODER_INTL_SOURCE }),
         // Credits are what Qoder charged, priced at the published plan rate -
-        // there is no model price behind this figure, so it must not read as an
-        // estimate from model pricing.
+        // the cost is the provider's money, not an estimate.
         cost_source: "provider_reported",
         totals: Object.fromEntries([...TOKEN_FIELDS, "total_cost_usd"].map((field) => [field, 0])),
       };

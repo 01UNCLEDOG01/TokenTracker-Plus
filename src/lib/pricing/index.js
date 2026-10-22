@@ -187,10 +187,7 @@ function computeModelPricingInfo(model, opts, sourceKey) {
   // A credits-derived Qoder row is priced at the reference rate its tokens
   // were derived from (see getRowPricing), so the panel must not call that
   // model unpriced.
-  if (
-    sourceKey === "qoder" &&
-    String(model || "").includes(QODER_INTL_CREDIT_LABEL_MARKER)
-  ) {
+  if (sourceKey === "qoder") {
     const reference = getModelPricing(QODER_INTL_CREDIT_REFERENCE_MODEL);
     if (reference && (reference.input || reference.output)) {
       result = { hit: true, source: "curated:qoder-intl-reference", value: reference };
@@ -255,12 +252,11 @@ function isDeepSeekOffPeak(row) {
 
 function getRowPricing(row) {
   const pricing = getModelPricing(row?.model, { source: row?.source });
-  // A credits-derived Qoder row is priced at the reference rate its tokens
-  // were derived from, whatever router name the row carries.
-  if (
-    String(row?.source || "").toLowerCase() === "qoder" &&
-    String(row?.model || "").includes(QODER_INTL_CREDIT_LABEL_MARKER)
-  ) {
+  // Every Qoder international row is credits-derived: the edition records no
+  // token counts, so the figures on its rows are money divided by the
+  // reference model's blended rate. Price them at that rate whatever router
+  // name the row carries, or a label no price table knows shows no cost.
+  if (String(row?.source || "").toLowerCase() === "qoder") {
     const reference = getModelPricing(QODER_INTL_CREDIT_REFERENCE_MODEL);
     if (reference && (reference.input || reference.output)) return reference;
   }

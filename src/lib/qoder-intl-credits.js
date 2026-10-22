@@ -56,8 +56,9 @@ const QODER_INTL_ROUTER_MODEL_NAMES = new Map([
 //   4 = those figures priced at the blended token mix,
 //   5 = per-day/model queue coverage instead of source-wide suppression,
 //   6 = model labels split from the legacy generic cloud-plan row,
-//   7 = router ids named from Qoder's own client texts.
-const QODER_INTL_MIRROR_VERSION = 7;
+//   7 = router ids named from Qoder's own client texts,
+//   8 = rows keep the router id again; the name moved to the display layer.
+const QODER_INTL_MIRROR_VERSION = 8;
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
 const TOKEN_FIELDS = [
   "input_tokens",
@@ -179,15 +180,34 @@ function qoderIntlRouterNames({ home = os.homedir() } = {}) {
   return names;
 }
 
-function qoderIntlModelLabel(rawModel, { home = os.homedir() } = {}) {
+// The row keeps the router id it came from. Renaming a row's model would
+// create a new key in the cloud ingest (which dedupes per
+// hour_start|source|model), leaving the old spelling behind and counting
+// the same usage twice. The friendly name belongs to the display layer.
+function qoderIntlModelLabel(rawModel) {
   const raw = String(rawModel || "").trim();
   if (!raw) return QODER_INTL_FALLBACK_MODEL;
-  const key = raw.toLowerCase();
+  // Case-folded: the transcripts spell the same router differently across
+  // days ("QFModel" vs "qfmodel") and those rows belong together.
+  return raw.toLowerCase();
+}
+
+// Display name for a Qoder international row: Qoder's own model name for
+// the router id, with the credits marker stripped (every intl row is
+// credits-derived, so the marker says nothing the cost source does not).
+function qoderIntlDisplayModel(rawModel, { home = os.homedir() } = {}) {
+  const raw = String(rawModel || "").trim();
+  if (!raw) return QODER_INTL_FALLBACK_MODEL;
+  // Keep the leading name characters only: that drops the credits marker
+  // ("（积分）") and anything a shell mangled it into, so a label that was
+  // written with broken brackets still lands on its model.
+  const base = raw.split(/[^\p{L}\p{N}._-]/u)[0] || raw;
+  const key = base.toLowerCase();
   const dynamic = qoderIntlRouterNames({ home }).get(key);
-  if (dynamic) return `${dynamic}${QODER_INTL_CREDIT_SUFFIX}`;
+  if (dynamic) return dynamic;
   const known = QODER_INTL_ROUTER_MODEL_NAMES.get(key);
-  if (known) return `${known}${QODER_INTL_CREDIT_SUFFIX}`;
-  return raw;
+  if (known) return known;
+  return base;
 }
 
 function qoderIntlDayKey(row) {
@@ -198,28 +218,28 @@ function qoderIntlDayKey(row) {
 // A queue row with real spend or tokens is authoritative for its own day and
 // model. Do not let a historical row suppress every newer day: the old
 // source-wide guard froze the card at the last persisted day.
-function qoderIntlExistingKeys(allRows) {
+function qoderIntlExistingKeys(allRows, { home = os.homedir() } = {}) {
   const keys = new Set();
   for (const row of Array.isArray(allRows) ? allRows : []) {
     if (row?.source !== QODER_INTL_SOURCE) continue;
     if (!(Number(row.total_cost_usd) > 0 || Number(row.total_tokens) > 0)) continue;
     const day = qoderIntlDayKey(row);
     if (!day) continue;
-    const label = qoderIntlModelLabel(row.model);
+    const label = qoderIntlDisplayModel(row.model, { home });
     // Legacy rows aggregated every router alias into one generic model for
     // the whole day. Treat that row as covering the day, otherwise the new
-    // per-model labels would re-bill the same credits.
-    keys.add(label === QODER_INTL_FALLBACK_MODEL ? `${day}|*` : `${day}|${label}`);
+    // per-model rows would re-bill the same credits.
+    keys.add(row.model === QODER_INTL_FALLBACK_MODEL ? `${day}|*` : `${day}|${label}`);
   }
   return keys;
 }
 
-function qoderIntlFilterCovered(rows, allRows) {
-  const existing = qoderIntlExistingKeys(allRows);
+function qoderIntlFilterCovered(rows, allRows, { home = os.homedir() } = {}) {
+  const existing = qoderIntlExistingKeys(allRows, { home });
   if (existing.size === 0) return rows;
   return rows.filter((row) => {
     const day = qoderIntlDayKey(row);
-    return !existing.has(`${day}|*`) && !existing.has(`${day}|${qoderIntlModelLabel(row.model)}`);
+    return !existing.has(`${day}|*`) && !existing.has(`${day}|${qoderIntlDisplayModel(row.model, { home })}`);
   });
 }
 
@@ -339,19 +359,21 @@ function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {})
   if (!projectsDir) return [];
   let files;
   try { files = listJsonl(projectsDir); } catch { files = []; }
-  if (files.length === 0) return qoderIntlFilterCovered(readMirror({ home })?.rows || [], allRows);
+  if (files.length === 0) return qoderIntlFilterCovered(readMirror({ home })?.rows || [], allRows, { home });
   const signature = treeSignature(files);
   const mirror = readMirror({ home });
-  if (mirror && mirror.signature === signature) return qoderIntlFilterCovered(mirror.rows, allRows);
+  if (mirror && mirror.signature === signature) return qoderIntlFilterCovered(mirror.rows, allRows, { home });
   const scanned = scanCredits(projectsDir, allRows, { home });
-  if (scanned.rows.length === 0) return qoderIntlFilterCovered(mirror?.rows || [], allRows);
+  if (scanned.rows.length === 0) return qoderIntlFilterCovered(mirror?.rows || [], allRows, { home });
   writeMirror({ version: QODER_INTL_MIRROR_VERSION, synced_at: new Date().toISOString(), signature, rows: scanned.rows }, { home });
-  return qoderIntlFilterCovered(scanned.rows, allRows);
+  return qoderIntlFilterCovered(scanned.rows, allRows, { home });
 }
 
 module.exports = {
   QODER_INTL_SOURCE,
   qoderIntlModelLabel,
+  qoderIntlDisplayModel,
+  qoderIntlRouterNames,
   QODER_INTL_USD_PER_CREDIT,
   QODER_INTL_REFERENCE_MODEL,
   QODER_INTL_MIRROR_VERSION,

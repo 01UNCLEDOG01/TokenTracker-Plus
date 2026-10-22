@@ -127,7 +127,7 @@ test("the credit spend joins an existing cloud day and its model map at zero", (
     const day = out.data.find((d) => d.day === "2026-10-09");
     assert.equal(day.total_cost_usd, 2.75, "daily cost stays a number and adds to what the cloud reported");
     assert.equal(day.total_tokens, 20 + derivedTokens(25));
-    assert.equal(day.models["Qwen3.8-Flash（积分）"], 0, "the model map is token-valued, so this edition joins at zero");
+    assert.equal(day.models["qfmodel"], 0, "the model map is token-valued, so this edition joins at zero");
     assert.equal(out.data[0].total_cost_usd, 1.5, "another day is not credited twice");
   } finally {
     fs.rmSync(fixture.home, { recursive: true, force: true });
@@ -167,9 +167,10 @@ test("the credit spend becomes its own source card in the cloud breakdown", () =
     assert.equal(qoder.totals.total_cost_usd, "0.400000");
     assert.equal(qoder.totals.total_tokens, derivedTokens(40));
     assert.equal(qoder.models.length, 1);
-    assert.equal(qoder.models[0].model, "Qwen3.8-Flash（积分）");
+    assert.equal(qoder.models[0].model, "Qwen3.8-Flash", "the card shows the model name, not the router id");
+    assert.equal(qoder.models[0].model_id, "qfmodel", "the row keeps the router id the transcript used");
     assert.equal(qoder.models[0].cost_source, "provider_reported");
-    assert.equal(qoder.models[0].pricing.status, "unpriced", "no model price is claimed for a credit bill");
+    assert.equal(qoder.models[0].pricing.status, "priced", "a credits row is priced at the reference rate its tokens were derived from");
     assert.equal(qoder.models[0].totals.total_tokens, derivedTokens(40));
     assert.equal(out.sources[0].totals.total_cost_usd, "9.000000", "the other card is untouched");
   } finally {
@@ -193,7 +194,7 @@ test("a cloud source that already lists qoder money is added to, not replaced", 
     assert.equal(out.sources[0].totals.total_cost_usd, "1.050000");
     assert.equal(out.sources[0].models.length, 2, "the legacy generic row and the specific local row both survive");
     const generic = out.sources[0].models.find((m) => m.model === "官方云端（积分）");
-    const specific = out.sources[0].models.find((m) => m.model === "Qwen3.8-Flash（积分）");
+    const specific = out.sources[0].models.find((m) => m.model_id === "qfmodel");
     assert.ok(generic && specific, "both model labels are present");
     assert.equal(generic.totals.total_cost_usd, "1.000000");
     assert.equal(specific.totals.total_cost_usd, "0.050000");

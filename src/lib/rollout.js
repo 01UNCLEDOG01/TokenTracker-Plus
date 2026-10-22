@@ -6834,19 +6834,6 @@ async function listQoderNewSessionFiles(projectsDir) {
   return out;
 }
 
-// Lazy require: qoder-intl-credits pulls in the pricing tables, and this
-// module is loaded by every scanner.
-function qoderIntlConversationModel(raw) {
-  const name = String(raw || "").trim();
-  if (!name) return raw;
-  try {
-    const { qoderIntlModelLabel } = require("./qoder-intl-credits");
-    return qoderIntlModelLabel(name);
-  } catch {
-    return raw;
-  }
-}
-
 function qoderNewModelFromRecord(record) {
   const msgModel = record?.message?.model;
   const direct = typeof msgModel === "string" ? msgModel.trim() : "";
@@ -7009,14 +6996,7 @@ async function parseQoderNewIncremental({
       if (!bucketStart) continue;
       const messageKey = qoderNewMessageKey(record, filePath, lineIdx);
       if (!messageKey) continue;
-      // The international edition's transcripts name their router, not a model
-      // ("gfmodel" for GLM-5.3-Flash on 2026-10-22). Name those rows the way the
-      // credits rows are named, so one day does not show the same usage under
-      // two spellings. The CN edition keeps its own ids: its pricing is keyed
-      // on them.
-      const model = cursorKey === "qoderNew"
-        ? qoderIntlConversationModel(qoderNewModelFromRecord(record))
-        : qoderNewModelFromRecord(record);
+      const model = qoderNewModelFromRecord(record);
       const totals = base ? {
         input_tokens: base.input_tokens,
         cached_input_tokens: base.cached_input_tokens,

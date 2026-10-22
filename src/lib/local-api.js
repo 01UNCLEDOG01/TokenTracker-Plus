@@ -73,7 +73,7 @@ const {
 const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
-const { qoderIntlCreditRows } = require("./qoder-intl-credits");
+const { qoderIntlCreditRows, qoderIntlDisplayModel } = require("./qoder-intl-credits");
 const { readAntigravityTokscaleUsageCached, mergeAntigravityTokscaleRows } = require("./antigravity-tokscale");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
@@ -2988,7 +2988,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const day = rowDayKey(row, timeZoneContext);
         if (day < from || day > to) continue;
         const src = row.source || "unknown";
-        const mdl = row.model || "unknown";
+        // Qoder's transcripts name their router, not a model ("gfmodel" for
+        // GLM-5.3-Flash). The row keeps that id so the cloud ingest key stays
+        // stable; the card shows the model Qoder's own client texts name.
+        const mdl = src === "qoder" ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
         if (!bySource.has(src))
           bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" }, models: new Map() });
         const sa = bySource.get(src);

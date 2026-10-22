@@ -13,6 +13,7 @@ const {
   QODER_INTL_USD_PER_CREDIT,
   QODER_INTL_REFERENCE_MODEL,
   QODER_INTL_MIRROR_VERSION,
+  qoderIntlDisplayModel,
 } = require("../src/lib/qoder-intl-credits");
 const { computeRowCost } = require("../src/lib/pricing");
 
@@ -268,11 +269,11 @@ test("an opaque router name is labelled as the cloud plan, not as the router", (
   ]);
   try {
     const rows = qoderIntlCreditRows([], { projectsDir: projects, home });
-    assert.deepEqual(rows.map((r) => r.model), ["DeepSeek-Flash（积分）", "Qwen3.8-Flash（积分）"],
+    assert.deepEqual(rows.map((r) => r.model), ["dfmodel", "qfmodel"],
       "known router aliases map to the models the user actually ran");
     const creditsBy = Object.fromEntries(rows.map((r) => [r.model, r.credits]));
-    assert.equal(creditsBy["Qwen3.8-Flash（积分）"], 4, "case-folded qfmodel rows stay together");
-    assert.equal(creditsBy["DeepSeek-Flash（积分）"], 1, "dfmodel is its own model family");
+    assert.equal(creditsBy["qfmodel"], 4, "case-folded qfmodel rows stay together");
+    assert.equal(creditsBy["dfmodel"], 1, "dfmodel is its own model family");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -282,7 +283,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
   const { home, projects } = sandbox([usageRecord("2026-10-09T06:00:00.000Z", 4, "qfmodel")]);
   try {
     const first = qoderIntlCreditRows([], { projectsDir: projects, home });
-    assert.deepEqual(first.map((r) => r.model), ["Qwen3.8-Flash（积分）"]);
+    assert.deepEqual(first.map((r) => r.model), ["qfmodel"]);
     const file = qoderIntlCreditMirrorFile({ home });
     const mirror = JSON.parse(fs.readFileSync(file, "utf8"));
     assert.equal(mirror.version, QODER_INTL_MIRROR_VERSION, "the current derivation version is recorded");
@@ -294,7 +295,7 @@ test("a mirror from an older derivation is rebuilt, not replayed", () => {
     mirror.rows = [{ ...first[0], model: "qfmodel" }];
     fs.writeFileSync(file, JSON.stringify(mirror));
     const second = qoderIntlCreditRows([], { projectsDir: projects, home });
-    assert.deepEqual(second.map((r) => r.model), ["Qwen3.8-Flash（积分）"], "the stale label must not come back");
+    assert.deepEqual(second.map((r) => r.model), ["qfmodel"], "the stale row must not come back");
     assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).version, QODER_INTL_MIRROR_VERSION, "the mirror is upgraded in place");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
@@ -373,12 +374,13 @@ test("router ids are named from Qoder's own client texts", () => {
       })
     );
     const rows = qoderIntlCreditRows([], { projectsDir: projects, home });
-    const labels = rows.map((r) => r.model).sort();
-    assert.deepEqual(labels, [
-      "GLM-5.3-Flash（积分）",
-      "MiniMax-M3.1-Flash（积分）",
-      "some-new-router",
-    ], "known ids get their Qoder name, an unknown id stays raw");
+    // The row keeps the router id: renaming it would create a second key in
+    // the cloud ingest and count the same usage twice.
+    assert.deepEqual(rows.map((r) => r.model).sort(), ["gfmodel", "mmodel", "some-new-router"]);
+    // The friendly name belongs to the display layer.
+    assert.equal(qoderIntlDisplayModel("gfmodel", { home }), "GLM-5.3-Flash");
+    assert.equal(qoderIntlDisplayModel("mmodel", { home }), "MiniMax-M3.1-Flash");
+    assert.equal(qoderIntlDisplayModel("some-new-router", { home }), "some-new-router");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
