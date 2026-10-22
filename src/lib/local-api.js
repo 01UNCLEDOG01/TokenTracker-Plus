@@ -530,6 +530,8 @@ function isoWeekStartMs(dayMs) {
 }
 
 const LOCAL_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
+
+const MODEL_DEBUTS = require("./pricing/model-debuts.json").debuts || {};
 const LOWER_IS_BETTER_BADGES = new Set(["podium"]);
 
 function tierForValue(value, thresholds, lowerIsBetter = false) {
@@ -770,11 +772,24 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   }
   void longestRun;
 
-  // LOCAL trendsetter: on a single machine a model's debut IS its first local
-  // use, so "used within 7 days of debut" covers every model the ledger has
-  // ever seen. Metric = distinct models; never downgrades an earned tier.
+  // LOCAL trendsetter: models with a curated debut date use the original rule
+  // (first use within 7 days of that date); everything else falls back to the
+  // local floor (distinct models), so an incomplete catalog never downgrades
+  // an earned tier. The floor also IS the original semantics on a machine
+  // whose ledger predates every catalogued debut.
   if (dayKeys.length > 0) {
-    const earlyModels = firstModelDay.size;
+    let debutWeekModels = 0;
+    for (const [model, day] of firstModelDay) {
+      const debut = MODEL_DEBUTS[model];
+      if (!debut) continue;
+      const firstUseMs = Date.parse(`${day}T00:00:00Z`);
+      const debutMs = Date.parse(`${debut}T00:00:00Z`);
+      if (Number.isFinite(firstUseMs) && Number.isFinite(debutMs)
+        && firstUseMs - debutMs <= 7 * DAY_MS && firstUseMs >= debutMs) {
+        debutWeekModels += 1;
+      }
+    }
+    const earlyModels = Math.max(firstModelDay.size, debutWeekModels);
     if (earlyModels > 0) {
       bump("trendsetter", earlyModels, `${dayKeys[dayKeys.length - 1]}T00:00:00.000Z`, {
         first_day: dayKeys[0],
