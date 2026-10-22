@@ -349,3 +349,37 @@ test("no transcripts and no mirror yields nothing", () => {
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("router ids are named from Qoder's own client texts", () => {
+  // Qoder renames its router ids whenever it adds a model (2026-10-22 brought
+  // gfmodel = GLM-5.3-Flash and mmodel = MiniMax-M3.1-Flash). Reading the
+  // client's own table keeps the panel showing model names instead of raw ids,
+  // without a code change per new id.
+  const { home, projects } = sandbox([
+    usageRecord("2026-10-22T03:16:00.000Z", 2, "gfmodel"),
+    usageRecord("2026-10-22T09:37:00.000Z", 1, "mmodel"),
+    usageRecord("2026-10-22T11:00:00.000Z", 1, "some-new-router"),
+  ]);
+  try {
+    fs.mkdirSync(path.join(home, ".qoder", ".auth"), { recursive: true });
+    fs.writeFileSync(
+      path.join(home, ".qoder", ".auth", "dynamic-texts.json"),
+      JSON.stringify({
+        strings: {
+          "modelSelector.item.gfmodel": "GLM-5.3-Flash",
+          "modelSelector.item.mmodel": "MiniMax-M3.1-Flash",
+          "modelSelector.item.gfmodel.description": "ignored",
+        },
+      })
+    );
+    const rows = qoderIntlCreditRows([], { projectsDir: projects, home });
+    const labels = rows.map((r) => r.model).sort();
+    assert.deepEqual(labels, [
+      "GLM-5.3-Flash（积分）",
+      "MiniMax-M3.1-Flash（积分）",
+      "some-new-router",
+    ], "known ids get their Qoder name, an unknown id stays raw");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});

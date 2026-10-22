@@ -40,6 +40,17 @@ function hasAuthoritativeRowCost(source) {
   return SOURCES_WITH_AUTHORITATIVE_COST.has(String(source || ""));
 }
 
+// Qoder international bills in credits and records no token counts, so the
+// token figures on its rows are money divided by this reference model's
+// blended rate. Pricing those derived rows at any other model's rates makes
+// the card's parts stop adding up to the credits the plan charged, and a
+// label no price table knows (e.g. "Qwen3.8-Flash（积分）") shows no cost at
+// all - only its DeepSeek sibling priced, because that one accidentally
+// fuzzy-matches a real model id. The marker is the suffix the intl labeler
+// adds to every credits row.
+const QODER_INTL_CREDIT_REFERENCE_MODEL = "qwen3.8-flash";
+const QODER_INTL_CREDIT_LABEL_MARKER = "（积分）";
+
 const SEED_SNAPSHOT_PATH = path.resolve(__dirname, "seed-snapshot.json");
 const DEEPSEEK_TIME_PRICED_MODELS = [
   "deepseek-v4-flash",
@@ -168,12 +179,26 @@ function computeModelPricingInfo(model, opts, sourceKey) {
   if (LOCAL_INFERENCE_SOURCES.has(sourceKey) || PI_SUBSCRIPTION_SOURCES.has(sourceKey)) {
     return { status: "free", source: LOCAL_INFERENCE_SOURCES.has(sourceKey) ? "local_inference" : "subscription", ...ZERO_PRICING };
   }
-  const result = lookupPricing(model, {
+  let result = lookupPricing(model, {
     curated: curatedOverrides,
     litellm: state.litellmPerMillionMap,
     source: sourceKey,
   });
-  const rates = getModelPricing(model, opts);
+  // A credits-derived Qoder row is priced at the reference rate its tokens
+  // were derived from (see getRowPricing), so the panel must not call that
+  // model unpriced.
+  if (
+    sourceKey === "qoder" &&
+    String(model || "").includes(QODER_INTL_CREDIT_LABEL_MARKER)
+  ) {
+    const reference = getModelPricing(QODER_INTL_CREDIT_REFERENCE_MODEL);
+    if (reference && (reference.input || reference.output)) {
+      result = { hit: true, source: "curated:qoder-intl-reference", value: reference };
+    }
+  }
+  const rates = result.hit && result.source === "curated:qoder-intl-reference"
+    ? result.value
+    : getModelPricing(model, opts);
   return {
     status: !result.hit ? "unpriced" : [rates.input, rates.output, rates.cache_read, rates.cache_write]
       .some((value) => Number(value) > 0) ? "priced" : "free",
@@ -230,6 +255,15 @@ function isDeepSeekOffPeak(row) {
 
 function getRowPricing(row) {
   const pricing = getModelPricing(row?.model, { source: row?.source });
+  // A credits-derived Qoder row is priced at the reference rate its tokens
+  // were derived from, whatever router name the row carries.
+  if (
+    String(row?.source || "").toLowerCase() === "qoder" &&
+    String(row?.model || "").includes(QODER_INTL_CREDIT_LABEL_MARKER)
+  ) {
+    const reference = getModelPricing(QODER_INTL_CREDIT_REFERENCE_MODEL);
+    if (reference && (reference.input || reference.output)) return reference;
+  }
   // AStudio uses iFlytek MaaS fixed prices and does not inherit DeepSeek public API
   // time-based discounts.
   if (String(row?.source || "").toLowerCase() === "acode") return pricing;
@@ -386,6 +420,8 @@ function computeRowCost(row) {
 const MODEL_PRICING = curatedOverrides.exact;
 
 module.exports = {
+  QODER_INTL_CREDIT_REFERENCE_MODEL,
+  QODER_INTL_CREDIT_LABEL_MARKER,
   ensurePricingLoaded,
   getPricingRevision,
   getModelPricing,

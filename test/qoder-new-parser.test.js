@@ -420,7 +420,11 @@ test("parseQoderNewIncremental uses isolated cursor namespace", async (t) => {
   assert.ok(cursors.qoder.messages.legacyKey);
   assert.ok(cursors.qoderNew);
   assert.equal(Object.keys(cursors.qoderNew.messages).length, 1);
-  assert.equal(cursors.qoderNew.messages["jsonl:sess-1|m1"]?.model, "qmodel_38max");
+  // The international edition's transcripts name their router, not a model.
+  // Rows are named with Qoder's own model name (read from the client's dynamic
+  // texts) and the credits marker, so one day does not show the same usage
+  // under two spellings.
+  assert.equal(cursors.qoderNew.messages["jsonl:sess-1|m1"]?.model, "Qwen3.8-Max（积分）");
 });
 
 test("parseQoderNewIncremental handles zero credit with only cache-creation tokens (precise, not estimated)", async (t) => {

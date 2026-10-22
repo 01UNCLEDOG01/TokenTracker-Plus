@@ -13,7 +13,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { qoderCnTokenShape } = require("./qoder-cn-estimate");
-const { getModelPricing } = require("./pricing");
+const { getModelPricing, QODER_INTL_CREDIT_REFERENCE_MODEL } = require("./pricing");
 
 const QODER_INTL_SOURCE = "qoder";
 // Pro is $20 for 2,000 credits. This is the published rate, not a fitted one.
@@ -23,7 +23,7 @@ const QODER_INTL_FALLBACK_MODEL = "官方云端（积分）";
 // attributed to that model instead of the opaque router string Qoder writes.
 // Its four rates are read from lib/pricing/curated-overrides.json rather than
 // repeated here, so one price edit moves this card and the estimate together.
-const QODER_INTL_REFERENCE_MODEL = "qwen3.8-flash";
+const QODER_INTL_REFERENCE_MODEL = QODER_INTL_CREDIT_REFERENCE_MODEL;
 const QODER_INTL_TOKEN_MODEL = `${QODER_INTL_REFERENCE_MODEL}（按积分反推）`;
 // Which of the reference model's four rates bills which measured shape field.
 // Reasoning bills at the output rate, the same rule computeRowCost applies:
@@ -38,12 +38,16 @@ const QODER_INTL_SHAPE_FIELD_RATE = {
 };
 // Qoder's transcripts name their router, not a model. The 2026-10 build
 // emits `qfmodel` for Qwen3.8-Flash and `dfmodel` for DeepSeek-Flash; both
-// still carry zero token columns and a real credit value. Map the known
-// router aliases to the user-visible model names so the All-models ranking
-// can carry them, and keep the generic cloud-plan label for anything unknown.
-const QODER_INTL_ROUTER_MODEL_LABELS = new Map([
-  ["qfmodel", "Qwen3.8-Flash（积分）"],
-  ["dfmodel", "DeepSeek-Flash（积分）"],
+// still carry zero token columns and a real credit value. The suffix marks a
+// credits-derived row, and it is also the marker the pricing layer uses to
+// price those rows at the reference rate their tokens were derived from.
+const QODER_INTL_CREDIT_SUFFIX = "（积分）";
+// Fallback for when Qoder's own client texts are unreadable. The live source
+// of truth is ~/.qoder/.auth/dynamic-texts.json, which names every router id
+// the client can pick (see qoderIntlRouterNames).
+const QODER_INTL_ROUTER_MODEL_NAMES = new Map([
+  ["qfmodel", "Qwen3.8-Flash"],
+  ["dfmodel", "DeepSeek-Flash"],
 ]);
 // Bumped whenever the rows this module derives change shape or meaning, so an
 // existing mirror is rebuilt instead of replayed. The version is the only thing
@@ -51,8 +55,9 @@ const QODER_INTL_ROUTER_MODEL_LABELS = new Map([
 //   2 = the router-name mapping, 3 = derived token figures,
 //   4 = those figures priced at the blended token mix,
 //   5 = per-day/model queue coverage instead of source-wide suppression,
-//   6 = model labels split from the legacy generic cloud-plan row.
-const QODER_INTL_MIRROR_VERSION = 6;
+//   6 = model labels split from the legacy generic cloud-plan row,
+//   7 = router ids named from Qoder's own client texts.
+const QODER_INTL_MIRROR_VERSION = 7;
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
 const TOKEN_FIELDS = [
   "input_tokens",
@@ -134,10 +139,55 @@ function beijingDayKey(isoOrMs) {
   return new Date(ms + BEIJING_OFFSET_MS).toISOString().slice(0, 10);
 }
 
-function qoderIntlModelLabel(rawModel) {
+// Qoder ships its own router-id table in the client's dynamic texts
+// (modelSelector.item.<id> -> display name). Read it instead of hardcoding a
+// two-entry map: the ids change whenever Qoder adds a model (2026-10-22
+// brought gfmodel = GLM-5.3-Flash and mmodel = MiniMax-M3.1-Flash), and an
+// unmapped id used to reach the panel as a raw "gfmodel".
+let routerNamesCache = { file: "", mtimeMs: -1, names: new Map() };
+
+function qoderIntlRouterNames({ home = os.homedir() } = {}) {
+  const file = path.join(home, ".qoder", ".auth", "dynamic-texts.json");
+  let mtimeMs = -1;
+  try {
+    mtimeMs = fs.statSync(file).mtimeMs;
+  } catch {
+    return new Map();
+  }
+  if (routerNamesCache.file === file && routerNamesCache.mtimeMs === mtimeMs) {
+    return routerNamesCache.names;
+  }
+  const names = new Map();
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    const visit = (node) => {
+      if (!node || typeof node !== "object") return;
+      for (const [key, value] of Object.entries(node)) {
+        const match = /^modelSelector\.item\.([A-Za-z0-9_.-]+)$/.exec(key);
+        if (match && typeof value === "string") {
+          names.set(match[1].toLowerCase(), value);
+        } else {
+          visit(value);
+        }
+      }
+    };
+    visit(parsed);
+  } catch {
+    return new Map();
+  }
+  routerNamesCache = { file, mtimeMs, names };
+  return names;
+}
+
+function qoderIntlModelLabel(rawModel, { home = os.homedir() } = {}) {
   const raw = String(rawModel || "").trim();
   if (!raw) return QODER_INTL_FALLBACK_MODEL;
-  return QODER_INTL_ROUTER_MODEL_LABELS.get(raw.toLowerCase()) || raw;
+  const key = raw.toLowerCase();
+  const dynamic = qoderIntlRouterNames({ home }).get(key);
+  if (dynamic) return `${dynamic}${QODER_INTL_CREDIT_SUFFIX}`;
+  const known = QODER_INTL_ROUTER_MODEL_NAMES.get(key);
+  if (known) return `${known}${QODER_INTL_CREDIT_SUFFIX}`;
+  return raw;
 }
 
 function qoderIntlDayKey(row) {
@@ -200,7 +250,7 @@ function writeMirror(payload, { home }) {
   }
 }
 
-function scanCredits(projectsDir, allRows) {
+function scanCredits(projectsDir, allRows, { home = os.homedir() } = {}) {
   const byDayModel = new Map();
   let requests = 0;
   for (const file of listJsonl(projectsDir)) {
@@ -216,7 +266,7 @@ function scanCredits(projectsDir, allRows) {
       if (!Number.isFinite(credits) || credits <= 0) continue;
       const day = beijingDayKey(record?.timestamp ?? usage.timestamp ?? record?.message?.timestamp);
       if (!day) continue;
-      const model = qoderIntlModelLabel(record?.message?.model || usage.model);
+      const model = qoderIntlModelLabel(record?.message?.model || usage.model, { home });
       const key = `${day}|${model}`;
       const entry = byDayModel.get(key) || { day, model, credits: 0, requests: 0 };
       entry.credits += credits;
@@ -293,7 +343,7 @@ function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {})
   const signature = treeSignature(files);
   const mirror = readMirror({ home });
   if (mirror && mirror.signature === signature) return qoderIntlFilterCovered(mirror.rows, allRows);
-  const scanned = scanCredits(projectsDir, allRows);
+  const scanned = scanCredits(projectsDir, allRows, { home });
   if (scanned.rows.length === 0) return qoderIntlFilterCovered(mirror?.rows || [], allRows);
   writeMirror({ version: QODER_INTL_MIRROR_VERSION, synced_at: new Date().toISOString(), signature, rows: scanned.rows }, { home });
   return qoderIntlFilterCovered(scanned.rows, allRows);
@@ -301,6 +351,7 @@ function qoderIntlCreditRows(allRows, { projectsDir, home = os.homedir() } = {})
 
 module.exports = {
   QODER_INTL_SOURCE,
+  qoderIntlModelLabel,
   QODER_INTL_USD_PER_CREDIT,
   QODER_INTL_REFERENCE_MODEL,
   QODER_INTL_MIRROR_VERSION,

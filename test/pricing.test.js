@@ -1459,3 +1459,27 @@ test("index: DeepSeek V4.1 Flash (deepseek-v4.1-flash / deepseek-flash) prices a
   assert.equal(pricing.computeRowCost(row("deepseek/deepseek-v4.1-flash", "2026-08-21T04:00:00Z")), 0.903);
   assert.equal(pricing.computeRowCost(row("deepseek-flash", "2026-08-21T04:00:00Z")), 0.903);
 });
+
+test("Qoder credits rows are priced at the rate their tokens were derived from", () => {
+  // A credits-derived row's token counts are money divided by the reference
+  // model's blended rate, so pricing it at any other model's rates makes the
+  // card's parts stop adding up to the credits the plan charged. A label that
+  // no price table knows (Qwen3.8-Flash（积分）) used to show no cost at all,
+  // while its DeepSeek sibling priced only because it accidentally fuzzy-
+  // matched a real model id.
+  pricing.resetPricingForTests();
+  const reference = pricing.getModelPricing(pricing.QODER_INTL_CREDIT_REFERENCE_MODEL);
+  assert.equal(pricing.QODER_INTL_CREDIT_REFERENCE_MODEL, "qwen3.8-flash");
+  for (const model of ["Qwen3.8-Flash（积分）", "DeepSeek-Flash（积分）", "GLM-5.3-Flash（积分）", "官方云端（积分）"]) {
+    const priced = pricing.getRowPricing({ source: "qoder", model });
+    assert.equal(priced.input, reference.input, `${model} input rate`);
+    assert.equal(priced.output, reference.output, `${model} output rate`);
+    assert.equal(priced.cache_read, reference.cache_read, `${model} cache read rate`);
+  }
+  // Another source keeps its own prices: the marker is qoder-intl specific.
+  const cn = pricing.getRowPricing({ source: "qoder-cn", model: "DeepSeek-Flash（积分）" });
+  assert.notEqual(cn.input, reference.input, "qoder-cn keeps its own model prices");
+  // A row that carries its own reported cost is still priced by that cost.
+  const row = { source: "qoder", model: "Qwen3.8-Flash（积分）", input_tokens: 1e6, output_tokens: 0, total_cost_usd: 0.25 };
+  assert.equal(pricing.computeRowCost(row), 0.25, "the credits money still wins when the row carries it");
+});
