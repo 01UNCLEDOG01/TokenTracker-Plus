@@ -26,9 +26,9 @@ PUBLIC = ROOT / "dashboard" / "public"
 WIN_ASSETS = ROOT / "TokenTrackerWin" / "assets"
 PREVIEWS = ROOT / "scripts" / "art" / "previews"
 
-PLATE_INSET_PX = 4
+PLATE_INSET_RATIO = 0.022  # cut inside the plate's own bright bevel
 CORNER_RADIUS_RATIO = 0.235
-BACKGROUND_LUMA_CUTOFF = 235
+BACKGROUND_LUMA_CUTOFF = 150  # dark plate only: excludes the AI source's white frame and gray shadow
 # AI sources may carry stray border pixels from reference images; trim a thin
 # margin before locating the dark plate.
 SOURCE_TRIM_RATIO = 0.04
@@ -91,13 +91,14 @@ def draw_plus_tag(plate: Image.Image, enabled: bool = True) -> Image.Image:
 
 def rounded_plate(
     image: Image.Image,
-    inset: int = PLATE_INSET_PX,
     with_tag: bool = True,
 ) -> Image.Image:
     box = plate_bbox(trim_source_margin(image))
     if box is None:
         raise SystemExit("source image has no visible plate")
     left, top, right, bottom = box
+    side0 = min(right - left, bottom - top)
+    inset = int(side0 * PLATE_INSET_RATIO)
     left += inset
     top += inset
     right -= inset

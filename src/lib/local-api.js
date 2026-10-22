@@ -770,21 +770,13 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   }
   void longestRun;
 
-  // LOCAL trendsetter: models first used within the first week of this
-  // machine's ledger. There is no offline source for global model debut dates,
-  // so this is an explicit local "early adopter" proxy, not a cloud replay.
+  // LOCAL trendsetter: on a single machine a model's debut IS its first local
+  // use, so "used within 7 days of debut" covers every model the ledger has
+  // ever seen. Metric = distinct models; never downgrades an earned tier.
   if (dayKeys.length > 0) {
-    const firstDayMs = Date.parse(`${dayKeys[0]}T00:00:00Z`);
-    let earlyModels = 0;
-    let lastEarlyDay = dayKeys[0];
-    for (const [, day] of firstModelDay) {
-      if (Date.parse(`${day}T00:00:00Z`) - firstDayMs <= 7 * DAY_MS) {
-        earlyModels += 1;
-        if (day > lastEarlyDay) lastEarlyDay = day;
-      }
-    }
+    const earlyModels = firstModelDay.size;
     if (earlyModels > 0) {
-      bump("trendsetter", earlyModels, `${lastEarlyDay}T00:00:00.000Z`, {
+      bump("trendsetter", earlyModels, `${dayKeys[dayKeys.length - 1]}T00:00:00.000Z`, {
         first_day: dayKeys[0],
       });
     }

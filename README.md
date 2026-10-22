@@ -179,3 +179,10 @@ On this machine the full Node suite has about 50 environment/baseline reds plus 
 - **Upstream**: [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker).
 - **Third-party**: see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). The Clawd character design belongs to Anthropic; this project has no official affiliation with Anthropic.
 - Please report upstream issues in the [upstream tracker](https://github.com/xiufengsun/TokenTracker/issues).
+
+## Two modes, one repository
+
+- **Local (default)** — the desktop app + CLI run fully offline. The runtime descriptor serves `localOnly: true`: cloud navigation and settings are hidden, the leaderboard reads this machine's queue history ("本机历史"), and all 31 achievements unlock locally.
+- **Self-hosted (optional)** — deploy `scripts/self-host/` to your own server for cross-device account views and a shared leaderboard. Everything cloud-gated lives behind that deployment; nothing in the local build calls it.
+
+Both modes ship from this single codebase; pick per install by pointing the CLI at (or away from) a backend.

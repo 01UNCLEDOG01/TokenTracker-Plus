@@ -179,3 +179,10 @@ TOKENTRACKER_BUILD_PET=1 npm --prefix dashboard run build
 - **上游项目**：[xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)。
 - **第三方组件**：见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。Clawd 角色设计归 Anthropic，本项目与 Anthropic 无官方关联。
 - 上游问题请提到 [上游 issue](https://github.com/xiufengsun/TokenTracker/issues)。
+
+## 一个仓库，两种模式
+
+- **单机版（默认）**：桌面端 + CLI 完全离线运行。运行时描述符带 `localOnly: true`：隐藏云服务导航与设置，排行榜读本机队列历史（本机历史），31 枚成就全部本机解锁。
+- **自部署联机版（可选）**：把 `scripts/self-host/` 部署到自己的服务器，获得跨设备账号视图与共享排行榜。所有云端能力都挂在这个部署后面，单机构建不会调用它。
+
+两种模式出自同一份代码；安装时按是否指向后端自动区分。

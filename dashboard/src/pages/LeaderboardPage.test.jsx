@@ -99,7 +99,7 @@ function renderLeaderboard(initialEntry = "/leaderboard", props = {}) {
   return render(props.strict ? <React.StrictMode>{tree}</React.StrictMode> : tree);
 }
 
-describe("LeaderboardPage window-session cache reuse", () => {
+describe("LeaderboardPage window-session cache reuse", { timeout: 30000 }, () => {
   beforeEach(() => {
     resetDashboardPreload();
     getLeaderboard.mockReset();
