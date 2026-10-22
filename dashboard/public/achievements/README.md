@@ -78,11 +78,17 @@ the rim programmatically:
   `claude_survivor`. The whale's white belly is filled as light enamel
   rather than left as a hole onto the coin face; the Claude badge is the
   starburst alone, with no skull.
-- Rebuild with `python scripts/art/rebuild-badge-rims.py`. The house rim
-  rolls from the face into a warm champagne frame with no dark groove; the
-  outer chamfer stays bright so the tier ring meets it without a dark line, and
-  the saved PNG has binary alpha (opaque coin, fully transparent outside),
-  so a scaled edge cannot show a checkerboard or a dot fringe.
+- Rebuild with `python scripts/art/rebuild-badge-rims.py`. The geometry is
+  measured from the original medallions at 256px: face to 100–102, bevel
+  102–106, silver frame 106–116, bright edge 116–118. The old generator
+  started the bevel at 94, which made the frame read wide; the new one starts
+  where the originals do. The saved PNG has binary alpha (opaque coin, fully
+  transparent outside), so a scaled edge cannot show a checkerboard or a dot
+  fringe.
+- Brand marks are un-blended from their white matte and resized with
+  premultiplied alpha, so no white fringe survives on the dark coin. The
+  enamel layers carry only a gradient and a dark outline — no broad glow or
+  bevel highlight, which used to read as haze at 176px.
 - The older self-drawn generator `scripts/art/gen-achievement-medallions.py`
   is kept for provenance and for the `deep_thinker` / `heart_model` copies;
   its draw calls for these 14 faces are commented out so a rerun cannot

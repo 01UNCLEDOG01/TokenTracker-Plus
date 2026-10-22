@@ -40,41 +40,51 @@ def house_coin():
 
     v = 44 + 9 * np.clip(r / 200.0, 0, 1) + 2.5 * key + grain * 0.55 + ring
 
-    # seamless roll: the face climbs straight into the frame with no dark
-    # groove; this band is also blended over the painted face edge
-    t = np.clip((r - 188.0) / 20.0, 0, 1)
-    ease = t * t * (3 - 2 * t)
-    roll = (r >= 188) & (r < 208)
-    v[roll] = 54 + (186 - 54) * ease[roll] + 6 * key[roll]
+    # Original geometry measured from veteran/trendsetter/polyglot at 256:
+    # face ends at 100..102, narrow bevel 102..106, silver frame 106..116,
+    # bright edge 116..118. The old roll started at 94 and read as a wide,
+    # hazy frame; this one starts at 200/512 (=100 at 256).
+    dip = (r >= 200) & (r < 204)
+    v[dip] = 46 + 10 * ((r[dip] - 200) / 4.0) + 2 * key[dip] + br[dip] * 0.3
+    rise = (r >= 204) & (r < 212)
+    v[rise] = 56 + 108 * ((r[rise] - 204) / 8.0) + 8 * key[rise]
 
-    # warm champagne frame 208..230
-    frame = (r >= 208) & (r < 230)
-    v[frame] = np.clip(184 + 38 * key[frame] + br[frame] * 1.4, 130, 244)
-    lip = (r >= 208) & (r < 211)
-    v[lip] = np.clip(206 + 28 * key[lip], 168, 252)
+    # silver frame 212..232, neutral-warm
+    frame = (r >= 212) & (r < 232)
+    v[frame] = np.clip(164 + 22 * ((r[frame] - 212) / 20.0) + 28 * key[frame] + br[frame] * 1.2, 132, 220)
+    lip = (r >= 212) & (r < 215)
+    v[lip] = np.clip(178 + 16 * key[lip], 158, 205)
 
     # bright polished edge: the original medallions end on their brightest
     # chamfer, so the tier ring meets the rim directly. A dark outer band
     # here is the black line users see between the two frames.
     edge_band = (r >= 230) & (r < 234)
-    v[edge_band] = np.clip(196 + 22 * key[edge_band] + br[edge_band] * 0.6, 160, 230)
+    v[edge_band] = np.clip(220 + 18 * key[edge_band] + br[edge_band] * 0.6, 196, 242)
     edge = (r >= 234) & (r < 237)
-    v[edge] = np.clip(212 + 18 * key[edge], 185, 240)
+    v[edge] = np.clip(232 + 12 * key[edge], 214, 248)
     outer = r >= 237
     v[outer] = 220
 
     rgb = np.zeros((S, S, 3), dtype=np.uint8)
-    warm = r >= 198  # face stays neutral gunmetal, frame is champagne
-    rgb[..., 0] = np.clip(v + np.where(warm, 5, 1), 0, 255)
-    rgb[..., 1] = np.clip(v + np.where(warm, -4, 0), 0, 255)
-    rgb[..., 2] = np.clip(v + np.where(warm, -14, 3), 0, 255)
+    warm = r >= 200  # face stays neutral gunmetal, frame is silver
+    rgb[..., 0] = np.clip(v + np.where(warm, 4, 1), 0, 255)
+    rgb[..., 1] = np.clip(v + np.where(warm, -2, 0), 0, 255)
+    rgb[..., 2] = np.clip(v + np.where(warm, -8, 3), 0, 255)
     return Image.fromarray(rgb, "RGB")
 
 
-def extract_face(path, radius=196, feather=6):
-    """Painted coin -> just the face, feathered so it melts into the house
-    dip instead of ending on its own groove."""
+def extract_face(path, radius=200, feather=2, zoom=1.05):
+    """Painted coin -> just the face. The source carries its own rim at
+    r≈200..212; a 1.05 zoom pushes that rim outside the new mask, so the
+    reclaimed pixels belong to the face. The original face radius is
+    ~100/256; the old 196 mask made our silver frame read too wide."""
     face = Image.open(path).convert("RGBA").resize((S, S), Image.LANCZOS)
+    if zoom != 1.0:
+        side = round(S / zoom)
+        off = (S - side) // 2
+        face = face.crop((off, off, off + side, off + side)).resize(
+            (S, S), Image.LANCZOS
+        )
     mask = Image.new("L", (S, S), 0)
     ImageDraw.Draw(mask).ellipse(
         (C - radius, C - radius, C + radius, C + radius), fill=255
@@ -93,10 +103,10 @@ def compose(face, coin=None, shadow=True):
         sh.putalpha(alpha.filter(ImageFilter.GaussianBlur(9)).point(lambda a: int(a * 0.68)))
         out.alpha_composite(sh, (5, 7))
     out.alpha_composite(face)
-    # the painted face ends on a hard dark painted groove; melt it into the
-    # house roll so no seam survives at display size
+    # blend the outer 2px of the painted face into the house bevel so the
+    # face ends exactly where the original does (r≈100 at 256)
     r, _ = radial_grid()
-    t = np.clip((r - 188.0) / 20.0, 0, 1)
+    t = np.clip((r - 196.0) / 6.0, 0, 1)
     ease = (t * t * (3 - 2 * t) * 255).astype(np.uint8)
     out = Image.composite(base, out, Image.fromarray(ease, "L"))
     return out
@@ -142,11 +152,18 @@ BRAND = str(ROOT / "scripts" / "art" / "brand-cache")
 
 
 def key_white(path):
-    """Colored logo on white -> RGBA with saturated pixels opaque."""
-    a = np.array(Image.open(path).convert("RGB")).astype(np.float32)
-    al = np.clip((255 - a.min(axis=2)) * 1.7, 0, 255)
+    """Colored logo on white -> RGBA. Edge pixels are un-blended from the
+    white matte (fg = (obs - 255*(1-a))/a); without this the antialiased
+    fringe keeps white RGB and reads as a haze around the mark on the dark
+    coin. Fully transparent pixels are zeroed so scaling cannot bleed white."""
+    obs = np.array(Image.open(path).convert("RGB")).astype(np.float32)
+    al = np.clip((255 - obs.min(axis=2)) * 1.7, 0, 255)
     al[al < 12] = 0
-    return Image.fromarray(np.dstack([a, al]).astype(np.uint8), "RGBA")
+    af = np.maximum(al / 255.0, 1e-4)[..., None]
+    fg = (obs - 255.0 * (1.0 - af)) / af
+    fg = np.clip(fg, 0, 255)
+    fg[al == 0] = 0
+    return Image.fromarray(np.dstack([fg, al]).astype(np.uint8), "RGBA")
 
 
 def key_black(path):
@@ -167,26 +184,59 @@ def key_black(path):
 
 def fill_holes(mask):
     """Split a logo mask into solid silhouette + enclosed negative space
-    (the DeepSeek belly, eye and mouth), so the white parts of the mark read
-    as light enamel instead of holes onto the coin face."""
-    inv = ImageOps.invert(mask)
-    flood = inv.copy()
-    w, h = flood.size
-    for corner in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
-        if flood.getpixel(corner) > 0:
-            ImageDraw.floodfill(flood, corner, 0, thresh=0)
-    holes = flood
-    solid = ImageChops.lighter(mask, holes)
-    return solid, holes
+    (the DeepSeek belly, eye and mouth). Works on a binary copy so the
+    low-alpha fringe along the crop border cannot seal an outside pocket;
+    corner-only flooding used to leave thin pockets that the belly layer
+    then painted light (the white halo)."""
+    arr = np.array(mask).copy()
+    # open the crop border: the keyed logo can leave a 1px semi-transparent
+    # fringe around the bbox, which otherwise seals the outside and makes the
+    # whole background read as an enclosed "hole" (a light halo/plate).
+    arr[:2, :] = 0
+    arr[-2:, :] = 0
+    arr[:, :2] = 0
+    arr[:, -2:] = 0
+    solid = arr > 16
+    outside = Image.fromarray(np.where(solid, 0, 255).astype(np.uint8), "L").copy()
+    w, h = outside.size
+    for x in range(w):
+        for y in (0, h - 1):
+            if outside.getpixel((x, y)) == 255:
+                ImageDraw.floodfill(outside, (x, y), 0, thresh=0)
+    for y in range(h):
+        for x in (0, w - 1):
+            if outside.getpixel((x, y)) == 255:
+                ImageDraw.floodfill(outside, (x, y), 0, thresh=0)
+    holes_bin = np.array(outside) > 0
+    holes = Image.fromarray((holes_bin * 255).astype(np.uint8), "L")
+    solid_img = Image.fromarray(np.maximum(arr, holes_bin * 255).astype(np.uint8), "L")
+    return solid_img, holes
+
+
+def resize_rgba(img, size):
+    """Premultiplied resize: transparent white/black matte cannot bleed
+    into the visible edge, which is what made keyed logos look airbrushed."""
+    a = np.array(img.convert("RGBA")).astype(np.float32)
+    af = a[..., 3:4] / 255.0
+    pre = Image.fromarray((a[..., :3] * af).astype(np.uint8), "RGB")
+    al = Image.fromarray(a[..., 3].astype(np.uint8), "L")
+    pre = pre.resize(size, Image.LANCZOS)
+    al = al.resize(size, Image.LANCZOS)
+    p = np.array(pre).astype(np.float32)
+    av = np.maximum(np.array(al).astype(np.float32) / 255.0, 1e-3)[..., None]
+    rgb = np.clip(p / av, 0, 255)
+    rgb[np.array(al) == 0] = 0
+    return Image.fromarray(
+        np.dstack([rgb, np.array(al)]).astype(np.uint8), "RGBA"
+    )
 
 
 def fit(img, max_w, max_h):
     box = img.getchannel("A").getbbox()
     img = img.crop(box)
     scale = min(max_w / img.width, max_h / img.height)
-    return img.resize(
-        (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
-        Image.LANCZOS,
+    return resize_rgba(
+        img, (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
     )
 
 
@@ -194,10 +244,10 @@ def paste_center(layer, img, cx, cy):
     layer.alpha_composite(img, (round(cx - img.width / 2), round(cy - img.height / 2)))
 
 
-def enamel(mask, top, bottom, outline=(154, 144, 132), glow=(255, 240, 226)):
+def enamel(mask, top, bottom, outline=(154, 144, 132)):
     """Give a logo silhouette an enamel-and-steel edge instead of a flat
     fill: cast outline, diagonal color, inner highlight, one specular."""
-    mask = mask.filter(ImageFilter.GaussianBlur(0.8))
+    mask = mask.filter(ImageFilter.GaussianBlur(0.45))
     w, h = mask.size
     yy, xx = np.mgrid[0:h, 0:w].astype(float)
     t = np.clip(0.58 * (yy / max(1, h - 1)) + 0.28 * (xx / max(1, w - 1)), 0, 1)
@@ -209,52 +259,14 @@ def enamel(mask, top, bottom, outline=(154, 144, 132), glow=(255, 240, 226)):
         np.dstack([rgb, np.array(mask)]).astype(np.uint8), "RGBA"
     )
 
-    dil = mask.filter(ImageFilter.MaxFilter(9))
-    ring = ImageChops.subtract(dil, mask).filter(ImageFilter.GaussianBlur(1.0))
+    dil = mask.filter(ImageFilter.MaxFilter(7))
+    ring = ImageChops.subtract(dil, mask).filter(ImageFilter.GaussianBlur(0.55))
     outline_img = Image.new("RGBA", (w, h), outline + (255,))
     outline_img.putalpha(ring.point(lambda v: int(v * 0.92)))
-
-    ero = mask.filter(ImageFilter.MinFilter(5))
-    hi = ImageChops.subtract(mask, ero).filter(ImageFilter.GaussianBlur(1.2))
-    hi_img = Image.new("RGBA", (w, h), glow + (255,))
-    hi_img.putalpha(hi.point(lambda v: int(v * 0.8)))
-
-    spec = np.clip(
-        1 - np.sqrt((xx - 0.34 * w) ** 2 + (yy - 0.28 * h) ** 2) / (0.62 * w),
-        0,
-        1,
-    ) ** 2
-    spec_img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
-    spec_img.putalpha(
-        Image.fromarray((spec * np.array(mask) / 255.0 * 90).astype(np.uint8), "L")
-    )
 
     out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     out.alpha_composite(outline_img)
     out.alpha_composite(grad)
-    out.alpha_composite(hi_img)
-    out.alpha_composite(spec_img)
-    return out
-
-
-def bevel_overlay(mask, strength=0.5):
-    """Directional light/shadow relief for flat enamel logos. White/black
-    only, so the brand hue stays saturated (a gray overlay washed the Claude
-    orange into salmon)."""
-    height = mask.filter(ImageFilter.GaussianBlur(2.2))
-    relief = np.array(
-        ImageChops.subtract(height, ImageChops.offset(height, 4, 4), 1.6, 128)
-    ).astype(float)
-    hi = np.clip((relief - 128) * 2.0, 0, 255) * strength
-    lo = np.clip((128 - relief) * 2.0, 0, 255) * strength
-    m = np.array(mask).astype(float) / 255.0
-    out = Image.new("RGBA", mask.size, (0, 0, 0, 0))
-    light = Image.new("RGBA", mask.size, (255, 248, 236, 255))
-    light.putalpha(Image.fromarray((hi * m).astype(np.uint8), "L"))
-    dark = Image.new("RGBA", mask.size, (10, 8, 6, 255))
-    dark.putalpha(Image.fromarray((lo * m).astype(np.uint8), "L"))
-    out.alpha_composite(light)
-    out.alpha_composite(dark)
     return out
 
 
@@ -293,9 +305,7 @@ def claude_survivor():
         (232, 132, 98),
         (196, 92, 66),
         outline=(118, 52, 34),
-        glow=(255, 184, 152),
-    )
-    star.alpha_composite(bevel_overlay(star_mask, 0.55))
+            )
     paste_center(layer, star, 256, 256)
     save(compose(layer), "claude-survivor.png")
 
@@ -310,17 +320,14 @@ def wishing_well():
         (88, 114, 255),
         (48, 76, 232),
         outline=(34, 52, 128),
-        glow=(190, 206, 255),
     )
     belly = enamel(
         holes,
         (219, 228, 246),
         (144, 160, 194),
-        outline=(150, 168, 204),
-        glow=(250, 252, 255),
+        outline=(70, 96, 160),
     )
     blue.alpha_composite(belly)
-    blue.alpha_composite(bevel_overlay(solid, 0.45))
     paste_center(layer, blue, 250, 220)
     for cx, cy, r in ((292, 352, 40), (348, 382, 34), (238, 386, 30)):
         coin(layer, cx, cy, r)
