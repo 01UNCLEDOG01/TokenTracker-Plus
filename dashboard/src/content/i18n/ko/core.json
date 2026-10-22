@@ -179,7 +179,7 @@
   "limits.label.deepseek_balance": "{{currency}} {{total}} (지급 {{granted}})",
   "limits.label.trae_balance": "사용 가능 {{credits}} 포인트",
   "limits.label.trae_nearest": "{{credits}} 포인트 {{date}} 만료",
-  "limits.label.trae_grant": "{{remain}} / {{total}} 남음, {{date}} 만료",
+  "limits.label.trae_usage": "총 {{total}} · 사용 {{used}}",
   "limits.label.codearts_wallets": "{{credits}} 크레딧, {{date}} 초기화",
   "limits.label.cline_wallets": "{{wallets}}",
   "limits.provider.raccoon": "Raccoon",

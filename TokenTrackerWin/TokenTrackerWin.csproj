@@ -24,7 +24,7 @@
     <ApplicationIcon>assets\trayicon.ico</ApplicationIcon>
     <!-- Keep in sync with package.json / project.yml on release. -->
     <Version>1.4.7</Version>
-    <Product>TokenTracker</Product>
+    <Product>TokenTracker Plus</Product>
     <Company>TokenTracker</Company>
     <!-- App UI strings live in TrayStrings/NativeLocalization (no .resx), so the
          self-contained publish only needs English framework satellite resources;

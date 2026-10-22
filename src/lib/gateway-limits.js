@@ -125,9 +125,26 @@ function shapeTrae(payload, _row, nowMs = Date.now()) {
     ? Number(payload.available)
     : live.reduce((sum, g) => sum + g.remain, 0);
   const nearest = live[0] || null;
+  // The gateway exposes the account's own totals under raw.entUsage. That is
+  // the only honest source for "total / used"; the per-grant list remains for
+  // the nearest expiry and as a fallback when a snapshot predates the summary.
+  const summary = payload?.raw?.entUsage?.usage_summary || payload?.usage_summary || null;
+  const grantTotal = live.reduce((sum, g) => sum + g.total, 0);
+  const totalPoints = Number.isFinite(Number(summary?.total_amount))
+    ? Number(summary.total_amount)
+    : grantTotal;
+  const usedPoints = Number.isFinite(Number(summary?.consumed_amount))
+    ? Number(summary.consumed_amount)
+    : Math.max(0, totalPoints - available);
+  const ratio = Number.isFinite(Number(summary?.consumption_ratio))
+    ? Number(summary.consumption_ratio)
+    : totalPoints > 0 ? usedPoints / totalPoints : null;
   return {
     plan_name: null,
     trae_available_points: available,
+    trae_total_points: totalPoints > 0 ? totalPoints : null,
+    trae_used_points: totalPoints > 0 ? usedPoints : null,
+    trae_consumption_ratio: ratio,
     trae_grants: live.map(({ _expireAtMs, ...grant }) => grant),
     ...(nearest ? {
       trae_nearest_points: nearest.remain,

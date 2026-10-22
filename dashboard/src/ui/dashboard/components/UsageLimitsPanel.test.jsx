@@ -46,34 +46,38 @@ describe("UsageLimitsPanel", () => {
     setCopyLocale(EN_LOCALE);
   });
 
-  it("draws one thin bar per Trae grant and no card-wide percentage", () => {
+  it("shows one green account summary for Trae and no grant list", () => {
     render(
       <UsageLimitsPanel
         order={["trae"]}
         trae={{
           configured: true,
-          trae_available_points: 600,
+          trae_available_points: 1835.48,
+          trae_total_points: 3950,
+          trae_used_points: 2114.52,
+          trae_nearest_points: 35.48,
+          trae_nearest_expire_at: "2030-11-04T17:45:01.000Z",
           trae_grants: [
-            { name: "每月登录赠送", remain: 500, total: 500, expire_at: "2030-10-31T15:59:59.000Z" },
-            { name: "签到奖励", remain: 100, total: 100, expire_at: "2030-11-02T09:26:03.000Z" },
+            { name: "签到奖励", remain: 35.48, total: 100, expire_at: "2030-11-04T17:45:01.000Z" },
+            { name: "签到奖励", remain: 100, total: 100, expire_at: "2030-11-05T17:45:01.000Z" },
           ],
         }}
       />,
     );
 
-    const monthly = screen.getByTitle("每月登录赠送 · 2030-10-31T15:59:59.000Z");
-    const checkin = screen.getByTitle("签到奖励 · 2030-11-02T09:26:03.000Z");
-    expect(within(monthly).getByText(copy("limits.label.trae_grant", {
-      remain: "500", total: "500", date: "10-31",
+    expect(screen.getByText(copy("limits.label.trae_balance", { credits: "1,835.48" }))).toBeInTheDocument();
+    expect(screen.getByText(copy("limits.label.trae_usage", {
+      total: "3,950", used: "2,114.52",
     }))).toBeInTheDocument();
-    expect(within(checkin).getByText(copy("limits.label.trae_grant", {
-      remain: "100", total: "100", date: "11-02",
+    expect(screen.getByText(copy("limits.label.trae_nearest", {
+      credits: "35.48", date: "11-04",
     }))).toBeInTheDocument();
-    expect(monthly.querySelector('[style*="width: 100%"]')).not.toBeNull();
-    expect(checkin.querySelector('[style*="width: 100%"]')).not.toBeNull();
-    // Each batch owns its bar; the card itself has no limit+used pair, so no
-    // percentage may be synthesized from the grant list.
-    expect(document.body.textContent).not.toMatch(/\d+%/);
+    const greenBars = document.querySelectorAll(".bg-green-500");
+    expect(greenBars).toHaveLength(1);
+    expect(greenBars[0].getAttribute("style")).toContain("46.4");
+    // The per-grant array is data only; listing it was the previous design.
+    expect(screen.queryByText("签到奖励")).not.toBeInTheDocument();
+    expect(screen.queryByText("每月登录赠送")).not.toBeInTheDocument();
   });
 
   it("keeps Start grants collapsed inside the Pro row and expands them independently", () => {

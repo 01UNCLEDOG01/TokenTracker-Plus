@@ -151,6 +151,7 @@ const PATHS = {
   projectUsageDetail: "tokentracker-project-usage-detail",
   achievements: "tokentracker-achievements",
   leaderboard: "tokentracker-leaderboard",
+  machineId: "tokentracker-machine-id",
   userStatus: "tokentracker-user-status",
   localSync: "tokentracker-local-sync",
   usageLimits: "tokentracker-usage-limits",
@@ -372,6 +373,11 @@ const LOCAL_BADGE_IDS = [
   "real_money",
   "session_marathon",
 ];
+
+/** Stable local machine identity used by the local profile card. */
+export async function getLocalMachineIdentity() {
+  return fetchLocalJson(PATHS.machineId);
+}
 
 export async function getLocalAchievements({ timeZone, tzOffsetMinutes }: AnyRecord = {}) {
   if (isMockEnabled()) {

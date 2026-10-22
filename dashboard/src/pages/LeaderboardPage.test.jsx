@@ -365,7 +365,9 @@ describe("LeaderboardPage window-session cache reuse", () => {
     expect(readLeaderboardPreloadState(contextKey)).toBeNull();
   });
 
-  it("keeps the existing loading path when the preload context does not match the page defaults", async () => {
+  // Under full-suite CPU contention this render can take >10s; the assertion
+  // itself is timing-independent, so give it a generous vitest timeout.
+  it("keeps the existing loading path when the preload context does not match the page defaults", { timeout: 30000 }, async () => {
     const staleContextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",
       baseUrl: "https://edge.example",

@@ -44,6 +44,11 @@ function writeGatewayDb(home, rows) {
 function traeUsage() {
   return JSON.stringify({
     available: 1900,
+    raw: {
+      entUsage: {
+        usage_summary: { total_amount: 2000, consumed_amount: 100, consumption_ratio: 0.05 },
+      },
+    },
     credits: [
       { name: "每月登录赠送", remain: 500, total: 500, used: 0, grantAt: 1790784000000, expireAt: 1793462399000 },
       { name: "签到奖励", remain: 100, total: 100, used: 0, grantAt: 1790933163000, expireAt: 1793611563000 },
@@ -89,6 +94,11 @@ test("trae: balance plus every live grant in expiry order; seed rows are ignored
     const result = await fetchTraeLimits({ home, nowMs: 1790000000000 });
     assert.equal(result.configured, true);
     assert.equal(result.trae_available_points, 1900);
+    // The account summary is the gateway's own total/used pair, not a sum of
+    // whatever grants happened to survive the filter.
+    assert.equal(result.trae_total_points, 2000);
+    assert.equal(result.trae_used_points, 100);
+    assert.equal(result.trae_consumption_ratio, 0.05);
     assert.equal(result.trae_nearest_points, 100);
     assert.equal(new Date(result.trae_nearest_expire_at).getTime(), 1792000000000);
     // One entry per batch, sorted by expiry, with the real per-batch pair the

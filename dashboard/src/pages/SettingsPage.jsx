@@ -3,6 +3,8 @@ import { Cloud, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRoun
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LimitsSettingsPanel } from "../components/LimitsSettingsPanel.jsx";
 import { AccountSection } from "../components/settings/AccountSection.jsx";
+import { LocalProfileSection } from "../components/settings/LocalProfileSection.jsx";
+import { isLocalOnlyDeployment } from "../lib/insforge-config";
 import { CloudSection } from "../components/settings/CloudSection.jsx";
 import { useAccountProfileSettings } from "../components/settings/useAccountProfileSettings.js";
 import { AppearanceSection } from "../components/settings/AppearanceSection.jsx";
@@ -53,6 +55,7 @@ function LimitsDisplayModeControl({ prefs }) {
 }
 
 export function SettingsPage() {
+  const localOnly = isLocalOnlyDeployment();
   const accountSettings = useAccountProfileSettings();
   const limitsPrefs = useLimitsDisplayPrefs();
   const {
@@ -119,19 +122,23 @@ export function SettingsPage() {
     {
       id: SETTINGS_SECTION_IDS.ACCOUNT,
       label: copy("settings.section.account"),
-      description: copy("settings.section.account.description"),
+      description: copy(localOnly
+        ? "settings.section.account.localDescription"
+        : "settings.section.account.description"),
       group: SETTINGS_GROUP_IDS.PERSONAL,
       Icon: UserRound,
-      content: <AccountSection settings={accountSettings} />,
+      content: localOnly
+        ? <LocalProfileSection />
+        : <AccountSection settings={accountSettings} />,
     },
-    {
+    ...(localOnly ? [] : [{
       id: SETTINGS_SECTION_IDS.CLOUD,
       label: copy("settings.section.cloud"),
       description: copy("settings.section.cloud.description"),
       group: SETTINGS_GROUP_IDS.PERSONAL,
       Icon: Cloud,
       content: <CloudSection settings={accountSettings} active={activeSection === SETTINGS_SECTION_IDS.CLOUD} />,
-    },
+    }]),
     {
       id: SETTINGS_SECTION_IDS.LIMITS,
       label: copy("settings.section.limits"),

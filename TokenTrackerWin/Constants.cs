@@ -17,8 +17,8 @@ internal static class Constants
     /// <summary>How long to wait for the server to answer after launch.</summary>
     public const int StartupTimeoutSeconds = 20;
 
-    public const string AppDisplayName = "TokenTracker";
-    public const string GitHubUrl = "https://github.com/xiufengsun/TokenTracker";
+    public const string AppDisplayName = "TokenTracker Plus";
+    public const string GitHubUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus";
 
     /// <summary>HKCU Run-key value name used for launch-at-startup.</summary>
     public const string StartupRegistryValueName = "TokenTracker";

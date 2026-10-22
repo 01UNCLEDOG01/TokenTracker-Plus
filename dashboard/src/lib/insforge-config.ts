@@ -22,7 +22,7 @@ export const INSFORGE_INSTANCE_CHANGED_EVENT = "tt.insforgeInstanceChanged";
 const INSTANCE_STORAGE_KEY = "tt.insforge.instance";
 type RuntimeConfiguration = {
   baseUrl?: string; anonKey?: string; dashboardUrl?: string; configurationError?: string;
-  localHistory?: boolean;
+  localHistory?: boolean; localOnly?: boolean;
 };
 declare global {
   interface Window { __TOKENTRACKER_RUNTIME_CONFIG__?: RuntimeConfiguration; }
@@ -50,6 +50,16 @@ export function getInsforgeConfiguration() {
 export function getInsforgeConfigurationError(): string | null {
   return getInsforgeConfiguration().errorCode;
 }
+/**
+ * Single-machine build: the CLI's runtime descriptor marks itself local-only.
+ * Cloud navigation, account chrome, and cloud settings are hidden; a local
+ * profile provides the visible identity instead.
+ */
+export function isLocalOnlyDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.__TOKENTRACKER_RUNTIME_CONFIG__?.localOnly === true;
+}
+
 export function getInsforgeRemoteUrl(): string { return getInsforgeConfiguration().baseUrl; }
 export function getInsforgeAnonKey(): string { return getInsforgeConfiguration().anonKey; }
 export function isCloudInsforgeConfigured(): boolean { return !getInsforgeConfigurationError(); }

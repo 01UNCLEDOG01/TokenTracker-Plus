@@ -26,15 +26,18 @@ import { cn } from "../../lib/cn";
 import { useTheme } from "../../hooks/useTheme.js";
 import { useLocale } from "../../hooks/useLocale.js";
 import { shouldFetchGithubStars } from "../dashboard/util/should-fetch-github-stars.js";
+import { GITHUB_REPO } from "../../lib/brand";
 import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderControls.jsx";
+import { LocalProfileIdentity } from "../../components/LocalProfileIdentity.jsx";
+import { isLocalOnlyDeployment } from "../../lib/insforge-config";
 import { isNativeApp, isNativeEmbed, isNativeLinuxApp, isNativeWindowsApp } from "../../lib/native-bridge.js";
 
 const STORAGE_KEY = "tt.sidebarCollapsed";
 
-export function getNavGroups() {
+export function getNavGroups({ localOnly = false } = {}) {
   // copy() must be called at render time so locale switches apply.
   // Validator regex picks up these literal calls.
-  return [
+  const groups = [
     {
       id: "general",
       label: copy("nav.group.general"),
@@ -61,11 +64,12 @@ export function getNavGroups() {
       id: "account",
       label: copy("nav.group.account"),
       items: [
-        { id: "cloud", to: "/cloud", icon: Cloud, label: copy("cloud.nav") },
+        ...(localOnly ? [] : [{ id: "cloud", to: "/cloud", icon: Cloud, label: copy("cloud.nav") }]),
         { id: "settings", to: "/settings", icon: SettingsIcon, label: copy("nav.settings") },
       ],
     },
   ];
+  return groups;
 }
 
 function readCollapsed() {
@@ -186,7 +190,7 @@ function IconButton({ as = "button", buttonRef, title, onClick, href, children, 
  * Refined GitHub Star pill — Linear "Free plan" style: bordered, tight, with text + count.
  * `glassChrome`: Mac 侧栏毛玻璃上：gray-500 描边 — 亮色 /20 更淡，暗色 dark:/30 保持可见。
  */
-function StarPill({ repo = "xiufengsun/TokenTracker", glassChrome = false }) {
+function StarPill({ repo = GITHUB_REPO, glassChrome = false }) {
   const [stars, setStars] = useState(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -334,18 +338,23 @@ function SidebarBody({
   // Re-compute copy() via getNavGroups when locale changes, otherwise the
   // labels stay stale after a language switch.
   const { resolvedLocale } = useLocale();
-  const navGroups = useMemo(() => getNavGroups(), [resolvedLocale]);
+  const localOnly = isLocalOnlyDeployment();
+  const navGroups = useMemo(() => getNavGroups({ localOnly }), [resolvedLocale, localOnly]);
 
   return (
     <>
       {/* Keep navigation sizing beside the identity instead of mixing it with utility links. */}
       <div className={cn("tt-sidebar-header flex px-2 pt-2 pb-2", collapsed ? "flex-col items-center" : "items-center gap-1")}>
         <div className={cn("min-w-0", !collapsed && "flex-1")}>
-          <InsforgeUserHeaderControls
-            variant="sidebar"
-            collapsed={collapsed}
-            onAfterAction={onItemClick}
-          />
+          {localOnly ? (
+            <LocalProfileIdentity collapsed={collapsed} />
+          ) : (
+            <InsforgeUserHeaderControls
+              variant="sidebar"
+              collapsed={collapsed}
+              onAfterAction={onItemClick}
+            />
+          )}
         </div>
         {showCloseButton ? (
             <button
@@ -561,11 +570,11 @@ function MobileTopBar({ open, onOpenDrawer, menuButtonRef }) {
       <Link
         to="/landing"
         className="flex items-center gap-2 no-underline hover:opacity-80 transition-opacity"
-        aria-label="Token Tracker"
+        aria-label={copy("shared.app_name")}
       >
         <img src="/app-icon.png" alt="" width={24} height={24} className="rounded-md" />
         <span className="text-sm font-semibold text-oai-black dark:text-oai-white">
-          Token Tracker
+          {copy("shared.app_name")}
         </span>
       </Link>
       <div className="w-10 shrink-0" aria-hidden />

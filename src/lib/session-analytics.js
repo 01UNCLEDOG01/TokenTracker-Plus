@@ -3027,6 +3027,10 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   // Loomy keeps its own embedded OpenCode database, so its conversations are
   // listed next to the standalone OpenCode install but under their own source.
   const loomy = resolveLoomyDbPaths({ env, home }).filter((dbPath) => fs.existsSync(dbPath));
+  // Qoder international + CN write per-conversation transcripts beside the
+  // other agent CLIs; list both editions under their own sources.
+  const qoder = listQoderSessionFiles(path.join(home, ".qoder", "projects"), incomplete);
+  const qoderCn = listQoderSessionFiles(path.join(home, ".qoder-cn", "projects"), incomplete);
   // Kimi (upstream v1.4.x): wire files across .kimi / .kimi-code roots.
   const kimiRoots = [".kimi", ".kimi-code"].flatMap((directory) => {
     const roots = providerRoots(home, directory, env, deps);
@@ -3058,6 +3062,8 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     cola: colaFiles,
     cowork: coworkFiles,
     antigravity: antigravityDbs,
+    qoder,
+    qoderCn,
     zcode,
     opencode,
     loomy,
@@ -3220,6 +3226,170 @@ function antigravityRequestText(content) {
 function isRealAntigravityDbPath(dbPath) {
   const root = path.join(os.homedir(), ".gemini", "antigravity");
   return path.resolve(dbPath).startsWith(`${path.resolve(root)}${path.sep}`);
+}
+
+// ── Qoder / Qoder CN transcripts ────────────────────────────────────────────
+// Both editions write Claude-Code-shaped JSONL under
+// <home>/.qoder[-cn]/projects/<workdir>/<uuid>.jsonl. Qoder bills in credits
+// and many assistant lines carry all-zero counters; sessions still list, and
+// usage_precision says whether any transcript actually carried tokens.
+function listQoderSessionFiles(projectsDir, incomplete) {
+  const state = scanRootDirState(projectsDir);
+  // Qoder is optional: an absent install is the normal case for most homes,
+  // and must NOT count as incomplete discovery (that would stop sidecar
+  // persistence for every other source on the machine).
+  if (!state.exists) return [];
+  if (state.error !== null) {
+    incomplete.push({ path: projectsDir, error: state.error });
+    return [];
+  }
+  const files = [];
+  try {
+    for (const entry of fs.readdirSync(projectsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const projectDir = path.join(projectsDir, entry.name);
+      for (const file of fs.readdirSync(projectDir, { withFileTypes: true })) {
+        if (file.isFile() && file.name.endsWith(".jsonl")) {
+          files.push(path.join(projectDir, file.name));
+        }
+      }
+    }
+  } catch (error) {
+    incomplete.push({ path: projectsDir, error: error?.message || String(error) });
+  }
+  return files.sort();
+}
+
+function qoderTitleFromContent(content) {
+  if (typeof content === "string") return content.trim() || null;
+  if (!Array.isArray(content)) return null;
+  for (const part of content) {
+    if (part && part.type === "text" && typeof part.text === "string" && part.text.trim()) {
+      return part.text.trim();
+    }
+  }
+  return null;
+}
+
+async function scanQoderSession(filePath, source = "qoder") {
+  const text = await fs.promises.readFile(filePath, "utf8");
+  const models = new Map();
+  let sessionId = null;
+  let startedMs = null;
+  let endedMs = null;
+  let turns = 0;
+  let usageEvents = 0;
+  let title = null;
+  let sawAnyToken = false;
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let row;
+    try {
+      row = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!sessionId && typeof row.sessionId === "string") sessionId = row.sessionId;
+    const tsMs = Date.parse(row.timestamp || "");
+    if (Number.isFinite(tsMs)) {
+      if (startedMs === null || tsMs < startedMs) startedMs = tsMs;
+      if (endedMs === null || tsMs > endedMs) endedMs = tsMs;
+    }
+    if (row.type === "user" && title === null) {
+      title = qoderTitleFromContent(row.message?.content);
+    }
+    if (row.type !== "assistant" || !row.message || !row.message.usage) continue;
+    turns += 1;
+    const usage = row.message.usage;
+    const model = typeof row.message.model === "string" && row.message.model
+      ? row.message.model
+      : "unknown";
+    const input = finite(usage.input_tokens);
+    const cachedRead = finite(usage.cache_read_input_tokens);
+    // Qoder nests the fresh-write breakdown one level down.
+    const cacheWrites = usage.cache_creation || {};
+    const cacheWrite = finite(usage.cache_creation_input_tokens)
+      + finite(cacheWrites.ephemeral_5m_input_tokens)
+      + finite(cacheWrites.ephemeral_1h_input_tokens);
+    const output = finite(usage.output_tokens);
+    if (input + cachedRead + cacheWrite + output <= 0) continue;
+    usageEvents += 1;
+    sawAnyToken = true;
+    const bucket = models.get(model) || {
+      model,
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+      usage_events: 0,
+    };
+    bucket.input_tokens += input;
+    bucket.cached_input_tokens += cachedRead;
+    bucket.cache_creation_input_tokens += cacheWrite;
+    bucket.output_tokens += output;
+    bucket.total_tokens = bucket.input_tokens + bucket.cached_input_tokens
+      + bucket.cache_creation_input_tokens + bucket.output_tokens;
+    bucket.usage_events += 1;
+    models.set(model, bucket);
+  }
+  if (!sessionId) sessionId = path.basename(filePath, ".jsonl");
+  const modelUsage = [...models.values()].map((bucket) => ({
+    ...bucket,
+    cost_usd: computeRowCost({
+      source,
+      model: bucket.model,
+      input_tokens: bucket.input_tokens,
+      cached_input_tokens: bucket.cached_input_tokens,
+      cache_creation_input_tokens: bucket.cache_creation_input_tokens,
+      output_tokens: bucket.output_tokens,
+    }),
+  }));
+  const totals = modelUsage.reduce((acc, bucket) => ({
+    input_tokens: acc.input_tokens + bucket.input_tokens,
+    cached_input_tokens: acc.cached_input_tokens + bucket.cached_input_tokens,
+    cache_creation_input_tokens: acc.cache_creation_input_tokens + bucket.cache_creation_input_tokens,
+    output_tokens: acc.output_tokens + bucket.output_tokens,
+    total_tokens: acc.total_tokens + bucket.total_tokens,
+  }), { input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, total_tokens: 0 });
+  const costUsd = modelUsage.reduce((sum, bucket) => sum + bucket.cost_usd, 0);
+  return finalizeRecord({
+    version: SIDECAR_VERSION,
+    session_hash: sessionHash(source, sessionId),
+    session_id: sessionId,
+    title: title || sessionId,
+    source,
+    project_key: path.basename(path.dirname(filePath)),
+    project_ref: null,
+    model: modelUsage[0]?.model ?? null,
+    model_usage: modelUsage,
+    performance: {},
+    started_at: startedMs !== null ? new Date(startedMs).toISOString() : null,
+    ended_at: endedMs !== null ? new Date(endedMs).toISOString() : null,
+    active_ms: startedMs !== null && endedMs !== null ? Math.max(0, endedMs - startedMs) : 0,
+    turns,
+    edit_turns: 0,
+    retry_turns: 0,
+    subagent_calls: 0,
+    input_tokens: totals.input_tokens,
+    cached_input_tokens: totals.cached_input_tokens,
+    cache_creation_input_tokens: totals.cache_creation_input_tokens,
+    output_tokens: totals.output_tokens,
+    reasoning_output_tokens: 0,
+    total_tokens: totals.total_tokens,
+    cost_usd: costUsd,
+    cost_source: "model_pricing",
+    usage_precision: sawAnyToken ? "reported" : "unavailable",
+    usage_is_incomplete: !sawAnyToken,
+    usage_events: usageEvents,
+    model_calls: usageEvents,
+    tool_calls: 0,
+    tool_failures: 0,
+    error_count: 0,
+    provenance: "measured",
+  });
 }
 
 async function scanAntigravitySession(dbPath) {
@@ -3478,6 +3648,8 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.grok.map(grokSignalsPathFor),
     // db + its WAL sidecars: the trio is one logical file for change detection.
     ...[...(discovered.zcode || []), ...(discovered.opencode || []), ...(discovered.loomy || [])].flatMap((dbPath) => [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]),
+    ...(discovered.qoder || []),
+    ...(discovered.qoderCn || []),
   ]);
   if (!force && !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && previousMeta?.version === SIDECAR_VERSION && previousMeta.signature === signature) {
     await writeAtomic(metaPath, `${JSON.stringify({ ...previousMeta, checked_at: new Date().toISOString() })}\n`);
@@ -3514,6 +3686,16 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       scan: scanWorkbuddySession,
     })),
     ...(discovered.kimi.length ? [{ source: "kimi", filePath: discovered.kimi, scan: scanKimiSessions }] : []),
+    ...(discovered.qoder || []).map((filePath) => ({
+      source: "qoder",
+      filePath,
+      scan: (file) => scanQoderSession(file, "qoder"),
+    })),
+    ...(discovered.qoderCn || []).map((filePath) => ({
+      source: "qoder-cn",
+      filePath,
+      scan: (file) => scanQoderSession(file, "qoder-cn"),
+    })),
   ];
   // Files we could not turn into a row (permission denied, half-written line,
   // vanished mid-scan). Swallowing these silently made sessions disappear with
@@ -4216,6 +4398,11 @@ function annotateThreadUsage(rows) {
 // summarizeSessions (cloud/CSV safe), this retains session_id + project_ref so
 // the UI can offer one-click resume. Callers must only expose it over the
 // local API.
+// Qoder bills in credits and its transcripts report all-zero token counters,
+// so the "spent tokens" rule below would hide every real conversation. These
+// editions stay listed with an explicit 0 — no synthetic tokens are invented.
+const CREDIT_BILLED_SESSION_SOURCES = new Set(["qoder", "qoder-cn"]);
+
 function listSessionsForBrowser(sessions, { from = "", to = "", limit = 0, timeZone, offsetMinutes } = {}) {
   const context = { timeZone, offsetMinutes };
   const filtered = annotateThreadUsage(mergeSessionFragments(sessions)
@@ -4223,8 +4410,10 @@ function listSessionsForBrowser(sessions, { from = "", to = "", limit = 0, timeZ
     // two kinds of noise: non-session logs under ~/.claude/projects
     // (skill-injections.jsonl, journal.jsonl, …), and sessions abandoned before
     // the model replied. Both render as "unknown · 0 tokens · $0.00" rows with
-    // no model, no cost and nothing to analyze.
-    .filter((row) => finite(row.total_tokens) > 0)
+    // no model, no cost and nothing to analyze. Credit-billed sources are
+    // exempt: their zero is the honest number, not noise.
+    .filter((row) => finite(row.total_tokens) > 0
+      || CREDIT_BILLED_SESSION_SOURCES.has(row.source))
     .filter((row) => withinDayRange(row, from, to, context))
     .map((row) => scopeSessionUsage(row, from, to, context))
     .filter((row) => !Array.isArray(row.usage_buckets) || finite(row.total_tokens) > 0));

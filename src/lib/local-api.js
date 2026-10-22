@@ -476,9 +476,10 @@ const LOCAL_BADGE_THRESHOLDS = {
 // whenever both carry the same badge id. Thresholds intentionally mirror the
 // SQL catalog; day grain is UTC because the SQL buckets
 // (hour_start AT TIME ZONE 'UTC')::date the same way.
-// trendsetter and podium have no local equivalent (global model debut dates and
-// leaderboard rank are cross-user facts) and stay cloud-only; everything else,
-// including grand_slam, is judged from the local queue alone.
+// trendsetter and podium use local proxies rather than staying locked: the
+// former counts models adopted in the first week of this machine's history,
+// the latter is rank 1 on the single-profile local leaderboard. Both are
+// labeled honestly by the page copy and keep the cloud thresholds.
 const CLOUD_PARITY_BADGE_THRESHOLDS = {
   token_titan: [100000000, 1000000000, 10000000000, 100000000000], // total tokens
   big_day: [10000000, 100000000, 500000000, 3000000000], // best UTC day
@@ -498,6 +499,8 @@ const CLOUD_PARITY_BADGE_THRESHOLDS = {
   heart_model: [50, 70, 85, 95], // favorite model's share of lifetime tokens, % (needs >= 5 models)
   claude_survivor: [1000000, 10000000, 100000000, 1000000000], // lifetime claude-family tokens (hidden badge)
   wishing_well: [10000000, 100000000, 1000000000, 10000000000], // lifetime deepseek-family tokens (hidden badge)
+  trendsetter: [2, 5, 10, 20], // models first used within 7 days of the first local record
+  podium: [100, 30, 10, 3], // best local rank; lower is better
   grand_slam: [3, 6, 9, 20], // diamond-tier badges, grand_slam itself excluded
 };
 
@@ -527,11 +530,13 @@ function isoWeekStartMs(dayMs) {
 }
 
 const LOCAL_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
+const LOWER_IS_BETTER_BADGES = new Set(["podium"]);
 
-function tierForValue(value, thresholds) {
+function tierForValue(value, thresholds, lowerIsBetter = false) {
   let tier = 0;
   for (let i = 0; i < thresholds.length; i += 1) {
-    if (value >= thresholds[i]) tier = i + 1;
+    const met = lowerIsBetter ? value <= thresholds[i] : value >= thresholds[i];
+    if (met) tier = i + 1;
   }
   return tier;
 }
@@ -553,7 +558,11 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
 
   const trackers = {};
   for (const badgeId of Object.keys(ALL_LOCAL_BADGE_THRESHOLDS)) {
-    trackers[badgeId] = { value: 0, achieved: {}, meta: {} };
+    trackers[badgeId] = {
+      value: LOWER_IS_BETTER_BADGES.has(badgeId) ? Number.POSITIVE_INFINITY : 0,
+      achieved: {},
+      meta: {},
+    };
   }
 
   const bump = (badgeId, newValue, atIso, meta) => {
@@ -565,6 +574,20 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     for (let i = 0; i < thresholds.length; i += 1) {
       const tierKey = LOCAL_TIER_KEYS[i];
       if (newValue >= thresholds[i] && !tracker.achieved[tierKey]) {
+        tracker.achieved[tierKey] = atIso || null;
+      }
+    }
+  };
+
+  const bumpLower = (badgeId, newValue, atIso, meta) => {
+    const tracker = trackers[badgeId];
+    if (!tracker || newValue >= tracker.value) return;
+    tracker.value = newValue;
+    if (meta) tracker.meta = meta;
+    const thresholds = ALL_LOCAL_BADGE_THRESHOLDS[badgeId];
+    for (let i = 0; i < thresholds.length; i += 1) {
+      const tierKey = LOCAL_TIER_KEYS[i];
+      if (newValue <= thresholds[i] && !tracker.achieved[tierKey]) {
         tracker.achieved[tierKey] = atIso || null;
       }
     }
@@ -678,6 +701,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   const dayKeys = [...days.keys()].sort();
   const seenModels = new Set();
   const seenSources = new Set();
+  const firstModelDay = new Map();
   const weekTokens = new Map();
   const monthActiveDays = new Map();
   const firstDayMs = dayKeys.length ? Date.parse(`${dayKeys[0]}T00:00:00Z`) : null;
@@ -700,7 +724,10 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     activeDays += 1;
     const dow = new Date(dayMs).getUTCDay();
     if (dow === 0 || dow === 6) weekendDays += 1;
-    for (const model of entry.models) seenModels.add(model);
+    for (const model of entry.models) {
+      seenModels.add(model);
+      if (!firstModelDay.has(model)) firstModelDay.set(model, day);
+    }
     for (const source of entry.sources) seenSources.add(source);
     // phoenix: a skipped stretch counts on the day the user returns — the
     // gap spans both endpoints, same as the SQL CTE (Fri → Mon gaps 3).
@@ -742,6 +769,31 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     }
   }
   void longestRun;
+
+  // LOCAL trendsetter: models first used within the first week of this
+  // machine's ledger. There is no offline source for global model debut dates,
+  // so this is an explicit local "early adopter" proxy, not a cloud replay.
+  if (dayKeys.length > 0) {
+    const firstDayMs = Date.parse(`${dayKeys[0]}T00:00:00Z`);
+    let earlyModels = 0;
+    let lastEarlyDay = dayKeys[0];
+    for (const [, day] of firstModelDay) {
+      if (Date.parse(`${day}T00:00:00Z`) - firstDayMs <= 7 * DAY_MS) {
+        earlyModels += 1;
+        if (day > lastEarlyDay) lastEarlyDay = day;
+      }
+    }
+    if (earlyModels > 0) {
+      bump("trendsetter", earlyModels, `${lastEarlyDay}T00:00:00.000Z`, {
+        first_day: dayKeys[0],
+      });
+    }
+    // LOCAL podium: one machine has one profile, so its local rank is 1.
+    // Cloud mode still uses the shared leaderboard rank and thresholds.
+    bumpLower("podium", 1, `${dayKeys[dayKeys.length - 1]}T00:00:00.000Z`, {
+      scope: "local",
+    });
+  }
 
   // Best adjacent-week growth. The previous week must sit exactly 7 days earlier
   // and clear the floor, mirroring the SQL momentum CTE.
@@ -813,7 +865,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   for (const [badgeId, thresholds] of Object.entries(ALL_LOCAL_BADGE_THRESHOLDS)) {
     if (badgeId === "grand_slam") continue;
     const tracker = trackers[badgeId];
-    if (tierForValue(tracker.value, thresholds) !== 4) continue;
+    if (tierForValue(tracker.value, thresholds, LOWER_IS_BETTER_BADGES.has(badgeId)) !== 4) continue;
     diamondBadges += 1;
     const at = tracker.achieved.diamond;
     if (at && (!latestDiamondAt || at > latestDiamondAt)) latestDiamondAt = at;
@@ -822,13 +874,18 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
 
   return Object.entries(ALL_LOCAL_BADGE_THRESHOLDS).map(([badgeId, thresholds]) => {
     const tracker = trackers[badgeId];
-    const tier = tierForValue(tracker.value, thresholds);
+    const lowerIsBetter = LOWER_IS_BETTER_BADGES.has(badgeId);
+    const hasValue = Number.isFinite(tracker.value);
+    const value = hasValue ? tracker.value : 0;
+    // Infinity is the "no rank observed yet" sentinel for lower-is-better
+    // badges; converting it to 0 would incorrectly look like rank #0.
+    const tier = hasValue ? tierForValue(value, thresholds, lowerIsBetter) : 0;
     return {
       id: badgeId,
       tier,
-      metric_value: tracker.value,
+      metric_value: value,
       thresholds: thresholds.slice(),
-      lower_is_better: false,
+      lower_is_better: lowerIsBetter,
       next_threshold: tier >= 4 ? null : thresholds[tier],
       achieved: {
         bronze: tracker.achieved.bronze || null,
@@ -2176,9 +2233,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const descriptor = { baseUrl: normalizeInstanceBaseUrl(selectedRuntime.baseUrl) || "",
         anonKey: selectedRuntime.configurationError ? null : selectedRuntime.anonKey,
         dashboardUrl: normalizeInstanceBaseUrl(selectedRuntime.dashboardUrl) || "", configurationError: selectedRuntime.configurationError,
-        // Capability flag: this origin is the local CLI, so social surfaces
-        // (leaderboard) can read the local history instead of the cloud.
-        localHistory: true };
+        // Capability flags: this origin is the local CLI, so social surfaces
+        // read local history and cloud-only chrome is hidden in this build.
+        localHistory: true,
+        localOnly: true };
       const value = JSON.stringify(descriptor).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       res.end(`window.__TOKENTRACKER_RUNTIME_CONFIG__=${value};`);

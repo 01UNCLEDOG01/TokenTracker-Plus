@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { shouldFetchGithubStars } from "../dashboard/util/should-fetch-github-stars.js";
 import { copy } from "../../lib/copy";
+import { GITHUB_REPO } from "../../lib/brand";
 
 /**
  * Dashboard / marketing header: single row — icon + Star + count (matches Shell header).
  */
-export function HeaderGithubStar({ repo = "xiufengsun/TokenTracker" }) {
+export function HeaderGithubStar({ repo = GITHUB_REPO }) {
   const [stars, setStars] = useState(null);
 
   useEffect(() => {

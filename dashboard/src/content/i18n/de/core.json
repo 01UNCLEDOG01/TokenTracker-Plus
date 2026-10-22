@@ -436,7 +436,7 @@
   "limits.label.deepseek_balance": "{{currency}} {{total}} (gewährt {{granted}})",
   "limits.label.trae_balance": "{{credits}} Punkte verfügbar",
   "limits.label.trae_nearest": "{{credits}} laufen am {{date}} ab",
-  "limits.label.trae_grant": "{{remain}} / {{total}} übrig · läuft am {{date}} ab",
+  "limits.label.trae_usage": "{{total}} gesamt · {{used}} verbraucht",
   "limits.label.codearts_wallets": "{{credits}} Guthaben, Reset am {{date}}",
   "limits.label.cline_wallets": "{{wallets}}",
   "limits.provider.raccoon": "Raccoon",

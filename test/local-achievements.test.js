@@ -24,13 +24,15 @@ function byId(result, id) {
 test("empty inputs yield the full locked catalog", () => {
   const result = computeLocalAchievements([], [], { timeZoneContext: TZ_SHANGHAI });
   // Ten local badges (three originals plus the seven habit badges) plus the
-  // nineteen cloud-parity badges the fork also replays locally. Only
-  // trendsetter and podium are absent — global model debut dates and a
-  // cross-user leaderboard rank cannot be derived from one machine's queue.
+  // twenty-one parity badges, now including local trendsetter/podium proxies.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 29);
-  assert.equal(result.find((badge) => badge.id === "trendsetter"), undefined);
-  assert.equal(result.find((badge) => badge.id === "podium"), undefined);
+  assert.equal(result.length, 31);
+  for (const id of ["trendsetter", "podium"]) {
+    const badge = result.find((entry) => entry.id === id);
+    assert.ok(badge, `${id} must exist in the local catalog`);
+    assert.equal(badge.tier, 0);
+    assert.equal(badge.metric_value, 0);
+  }
   for (const badge of result) {
     assert.equal(badge.tier, 0);
     assert.equal(badge.metric_value, 0);
@@ -89,10 +91,31 @@ test("wave-2 cloud-parity badges replay with SQL semantics", () => {
   assert.equal(swarm.metric_value, 2);
   assert.equal(swarm.meta.day, "2026-07-01");
   assert.deepEqual(swarm.meta.tools.slice().sort(), ["claude", "codex"]);
-  // grand_slam exists locally now; this modest history has no diamonds.
+  // grand_slam counts local diamonds; podium is rank 1 locally, so this
+  // modest history has exactly one diamond and stays below grand_slam bronze.
   const slam = result.find((b) => b.id === "grand_slam");
+  const diamonds = result.filter((b) => b.id !== "grand_slam" && b.tier === 4).length;
+  assert.equal(slam.metric_value, diamonds);
   assert.equal(slam.tier, 0);
-  assert.equal(slam.metric_value, 0);
+});
+
+test("trendsetter counts the first local week; podium is local rank 1", () => {
+  const rows = [
+    { source: "claude", model: "a", hour_start: "2026-07-01T10:00:00Z", total_tokens: 10 },
+    { source: "claude", model: "b", hour_start: "2026-07-03T10:00:00Z", total_tokens: 10 },
+    // Nine days after the first record: outside the local first week.
+    { source: "claude", model: "c", hour_start: "2026-07-10T10:00:00Z", total_tokens: 10 },
+  ];
+  const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
+  const trend = byId(result, "trendsetter");
+  assert.equal(trend.metric_value, 2);
+  assert.equal(trend.tier, 1);
+  assert.equal(trend.meta.first_day, "2026-07-01");
+  const podium = byId(result, "podium");
+  assert.equal(podium.metric_value, 1);
+  assert.equal(podium.tier, 4);
+  assert.equal(podium.lower_is_better, true);
+  assert.equal(podium.next_threshold, null);
 });
 
 test("grand_slam counts locally earned diamond badges and excludes itself", () => {

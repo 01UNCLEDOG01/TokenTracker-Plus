@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AppLayout } from "./Sidebar.jsx";
+import { AppLayout, getNavGroups } from "./Sidebar.jsx";
 
 const LABELS = {
   "nav.group.general": "General",
@@ -68,6 +68,15 @@ function renderLayout() {
     </MemoryRouter>,
   );
 }
+
+describe("getNavGroups", () => {
+  it("hides the cloud entry only in the single-machine build", () => {
+    const links = (groups) => groups.flatMap((group) => group.items.map((item) => item.to));
+    expect(links(getNavGroups())).toContain("/cloud");
+    expect(links(getNavGroups({ localOnly: true }))).not.toContain("/cloud");
+    expect(links(getNavGroups({ localOnly: true }))).toContain("/settings");
+  });
+});
 
 describe("AppLayout sidebar controls", () => {
   beforeEach(() => {
