@@ -62,19 +62,31 @@ earned — even on their owner's own wall.
 
 ### Face art provenance
 
-The six habit badges (`early-bird`, `around-the-clock`, `sprinter`,
-`cache-alchemist`, `real-money`, `session-marathon`) and the wave-2 cloud
-badges (`phoenix`, `iron-month`, `full-blast`, `deep-diver`,
-`multitool-day`, `claude-survivor`, `wishing-well`, `grand-slam`) carry
-self-drawn medallion faces — dark gunmetal disc, steel relief emblem, one
-accent color — each matched to its badge's meaning (the generator lives at
-`scripts/art/gen-achievement-medallions.py`; rerun to tweak). `deep_thinker`
-carries a copy of the unused `galaxy-brain.png` face as `deep-thinker.png`
-(brain → reasoning; the name semantics carry over) and `heart_model`
-carries a copy of the unused `heart-on-your-sleeve.png` face as
-`heart-model.png` (a favorite worn openly — the original name semantics
-carry over). The
-remaining unused faces (`pull-shark`, `starstruck`, `pair-extraordinaire`,
+The 12 upstream faces, plus `deep_thinker` / `heart_model` (copies of the
+unused `galaxy-brain` / `heart-on-your-sleeve` faces), are unchanged.
+
+The other 14 faces (6 habit badges + 8 wave-2 cloud badges) are AI-painted
+medallions finished with the house rim. The first pass baked its own rim,
+which left a beaded checker fringe and a hard dark groove between face and
+frame at display size. The second pass keeps only the painted face and casts
+the rim programmatically:
+
+- `scripts/art/source-badges/` — the painted 256px faces.
+- `scripts/art/source-emblem/` — the one-man-band and skull emblems.
+- `scripts/art/brand-cache/deepseek.png` / `claude-code.png` — the official
+  DeepSeek whale and Claude starburst used for `wishing_well` and
+  `claude_survivor`. The whale's white belly is filled as light enamel
+  rather than left as a hole onto the coin face.
+- Rebuild with `python scripts/art/rebuild-badge-rims.py`. The house rim
+  rolls from the face into a warm champagne frame with no dark groove, and
+  the saved PNG has binary alpha (opaque coin, fully transparent outside),
+  so a scaled edge cannot show a checkerboard or a dot fringe.
+- The older self-drawn generator `scripts/art/gen-achievement-medallions.py`
+  is kept for provenance and for the `deep_thinker` / `heart_model` copies;
+  its draw calls for these 14 faces are commented out so a rerun cannot
+  overwrite the painted art.
+
+The remaining unused faces (`pull-shark`, `starstruck`, `pair-extraordinaire`,
 `open-sourcerer`, `heart-on-your-sleeve`,
 `arctic-code-vault-contributor`, `proxima-*`) keep their
 GitHub-flavored meanings and stay unassigned — don't force them onto
