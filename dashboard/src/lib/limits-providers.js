@@ -24,6 +24,7 @@ export const LIMIT_PROVIDER_IDS = [
   "raccoon",
   "deepseek",
   "trae",
+  "traeMain",
   "codearts",
   "clinePass",
   "agentRouter",
@@ -68,6 +69,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   deepseek: "DEEPSEEK-PLATFORM",
   // TRAE SOLO secondary account, fed by the gateway snapshot.
   trae: "TRAE",
+  // TRAE main account — same white-plate asset as the alt card.
+  traeMain: "TRAE",
   // Huawei CodeArts Agent trial credits, fed by the gateway snapshot.
   codearts: "CODEARTS",
   // Cline Pass micro-credits, fed by the gateway snapshot.
@@ -126,6 +129,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.deepseek");
     case "trae":
       return copy("limits.provider.trae");
+    case "traeMain":
+      return copy("limits.provider.trae_main");
     case "codearts":
       return copy("limits.provider.codearts");
     case "clinePass":

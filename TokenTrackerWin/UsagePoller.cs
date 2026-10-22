@@ -42,7 +42,12 @@ internal sealed class UsagePoller : IDisposable
     // Cross-device ("account") aggregate request flag; the local server decides
     // whether to serve it (signed in + cloud sync on) or local data, keeping the
     // tray/pet figures aligned with the dashboard. Joined with an explicit '&'.
-    private const string AccountQuery = "account=1";
+    // Empty on purpose. The cloud aggregate is what the pill/tray/pet used to
+    // read, but it is only as fresh as the last upload — measured 2026-10-23 at
+    // 01:2x: 83% of the day's tokens had not reached the cloud yet, so the tray
+    // showed 3,103.8万 / ¥5.53 while the dashboard's local queue showed
+    // 2.41亿 / ¥42.40. The dashboard reads the local queue, so this does too.
+    private const string AccountQuery = "";
     private readonly Func<string> _baseUrl;
     private CancellationTokenSource? _cts;
     private int _refreshInFlight;

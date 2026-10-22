@@ -171,6 +171,7 @@
   "limits.provider.apigoto": "APIGOTO",
   "limits.provider.deepseek": "DeepSeek",
   "limits.provider.trae": "Trae (alt)",
+  "limits.provider.trae_main": "Trae（メイン）",
   "limits.provider.codearts": "CodeArts",
   "limits.provider.agentrouter": "AgentRouter",
   "limits.label.agentrouter_balance": "残高 ${{balance}}（累計 ${{used}} 使用）",

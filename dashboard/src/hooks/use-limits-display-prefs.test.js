@@ -125,6 +125,7 @@ describe("useLimitsDisplayPrefs", () => {
         "raccoon",
         "deepseek",
         "trae",
+        "traeMain",
         "codearts",
         "clinePass",
         "agentRouter",

@@ -304,6 +304,13 @@ export const PROVIDER_LIMIT_SPECS = {
       return [];
     },
   },
+  traeMain: {
+    // Same shape: the main account is also a balance with rolling expiries.
+    extra: "trae_wallets",
+    windows() {
+      return [];
+    },
+  },
   codearts: {
     // CodeArts Agent trial credits: one balance line with the reset date.
     extra: "codearts_wallets",

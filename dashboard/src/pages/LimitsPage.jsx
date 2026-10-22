@@ -261,6 +261,7 @@ export function LimitsPage() {
                 raccoon={usageLimits?.raccoon}
                 deepseek={usageLimits?.deepseek}
                 trae={usageLimits?.trae}
+                traeMain={usageLimits?.traeMain}
                 codearts={usageLimits?.codearts}
                 clinePass={usageLimits?.clinePass}
                 agentRouter={usageLimits?.agentRouter}

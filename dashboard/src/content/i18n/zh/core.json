@@ -184,6 +184,7 @@
   "limits.provider.apigoto": "APIGOTO",
   "limits.provider.deepseek": "DeepSeek",
   "limits.provider.trae": "Trae（小号）",
+  "limits.provider.trae_main": "Trae（大号）",
   "limits.provider.codearts": "CodeArts",
   "limits.provider.agentrouter": "AgentRouter",
   "limits.label.agentrouter_balance": "余额 ${{balance}}（累计已用 ${{used}}）",

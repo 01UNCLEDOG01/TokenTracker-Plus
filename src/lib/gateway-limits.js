@@ -47,6 +47,7 @@ async function fetchGatewayAccount({
   dbPath,
   nowMs,
   idPrefix,
+  accountId,
   label,
   shape,
 }) {
@@ -61,7 +62,11 @@ async function fetchGatewayAccount({
 
   let row = null;
   for (const entry of rows) {
-    if (!entry || typeof entry.account_id !== "string" || !entry.account_id.startsWith(idPrefix)) continue;
+    if (!entry || typeof entry.account_id !== "string") continue;
+    // An exact id wins over the prefix scan: two Trae accounts now live in the
+    // same table with the same "trae-solo-" prefix, and "freshest row wins"
+    // would make the two cards swap identities whenever one sweeps first.
+    if (accountId ? entry.account_id !== accountId : !entry.account_id.startsWith(idPrefix)) continue;
     if (!row || Number(entry.updated_at || 0) > Number(row.updated_at || 0)) row = entry;
   }
   if (!row) return null;
@@ -165,18 +170,26 @@ function shapeClinePass(payload) {
   };
 }
 
-function makeGatewayFetcher({ idPrefix, label, shape }) {
+function makeGatewayFetcher({ idPrefix, accountId, label, shape }) {
   return async function fetchGatewayLimits({ home, dbPath, nowMs = Date.now() } = {}) {
-    return fetchGatewayAccount({ home, dbPath, nowMs, idPrefix, label, shape });
+    return fetchGatewayAccount({ home, dbPath, nowMs, idPrefix, accountId, label, shape });
   };
 }
 
-const fetchTraeLimits = makeGatewayFetcher({ idPrefix: "trae-solo-", label: "Trae", shape: shapeTrae });
+// Two Trae accounts share this table (owner added the main one on 2026-10-22),
+// so each card pins its own id instead of racing on updated_at. Re-pin here if
+// either account is re-authorised and the gateway re-hashes it.
+const TRAE_ALT_ACCOUNT_ID = "trae-solo-4fc0b0ec01dfac776c2555fcca7e7f0859851e8c8f2504a1d8e38429b87e3dfe";
+const TRAE_MAIN_ACCOUNT_ID = "trae-solo-1123d1cb75a5db58931ce004f9e1db1bcec17e5a65ec20f29ac11eb95b08c06a";
+
+const fetchTraeLimits = makeGatewayFetcher({ idPrefix: "trae-solo-", accountId: TRAE_ALT_ACCOUNT_ID, label: "Trae", shape: shapeTrae });
+const fetchTraeMainLimits = makeGatewayFetcher({ idPrefix: "trae-solo-", accountId: TRAE_MAIN_ACCOUNT_ID, label: "Trae", shape: shapeTrae });
 const fetchCodeartsLimits = makeGatewayFetcher({ idPrefix: "codearts-", label: "CodeArts", shape: shapeCodearts });
 const fetchClinePassLimits = makeGatewayFetcher({ idPrefix: "cline-pass-", label: "Cline Pass", shape: shapeClinePass });
 
 module.exports = {
   fetchTraeLimits,
+  fetchTraeMainLimits,
   fetchCodeartsLimits,
   fetchClinePassLimits,
   gatewayDbPath,

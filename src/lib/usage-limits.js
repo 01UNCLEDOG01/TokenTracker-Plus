@@ -38,7 +38,7 @@ const { fetchSensenovaLimits } = require("./sensenova-limits");
 const { fetchRaccoonLimits } = require("./raccoon-limits");
 const { fetchDeepSeekLimits } = require("./deepseek-limits");
 const { fetchAgentRouterLimits } = require("./agentrouter-limits");
-const { fetchTraeLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
+const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
 const { fetchProviderServiceStatus } = require("./provider-status");
@@ -4103,7 +4103,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4247,6 +4247,7 @@ async function fetchUsageLimitsUncached({
     // Gateway-fed cards (Trae secondary account / CodeArts / Cline Pass) —
     // same local snapshot table the raccoon card reads.
     fetchTraeLimits({ home, nowMs }),
+    fetchTraeMainLimits({ home, nowMs }),
     fetchCodeartsLimits({ home, nowMs }),
     fetchClinePassLimits({ home, nowMs }),
     // AgentRouter.org panel balance (New API access token + user id).
@@ -4519,6 +4520,7 @@ async function fetchUsageLimitsUncached({
     raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),
     deepseek: withPlanLabel(deepseek, deepseek?.plan_name, "DeepSeek"),
     trae: withPlanLabel(traeGateway, traeGateway?.plan_name, "Trae"),
+    traeMain: withPlanLabel(traeMainGateway, traeMainGateway?.plan_name, "Trae"),
     codearts: withPlanLabel(codeartsGateway, codeartsGateway?.plan_name, "CodeArts"),
     clinePass: withPlanLabel(clinePassGateway, clinePassGateway?.plan_name, "Cline Pass"),
     agentRouter: withPlanLabel(agentRouter, agentRouter?.plan_name, "AgentRouter"),

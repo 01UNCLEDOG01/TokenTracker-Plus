@@ -2177,6 +2177,7 @@ limits.label.raccoon_wallets,ui,LimitsPage,UsageLimitsPanel,raccoon_wallets,"{{w
 limits.label.apigoto_subscription,ui,LimitsPage,UsageLimitsPanel,apigoto_subscription,"Subscription period",,active
 limits.provider.deepseek,ui,LimitsPage,UsageLimitsPanel,provider_deepseek,"DeepSeek",,active
 limits.provider.trae,ui,LimitsPage,UsageLimitsPanel,provider_trae,"Trae (alt)",,active
+limits.provider.trae_main,ui,LimitsPage,UsageLimitsPanel,provider_trae_main,"Trae (main)",,active
 limits.provider.codearts,ui,LimitsPage,UsageLimitsPanel,provider_codearts,"CodeArts",,active
 limits.provider.cline_pass,ui,LimitsPage,UsageLimitsPanel,provider_cline_pass,"Cline Pass",,active
 limits.label.deepseek_balance,ui,LimitsPage,UsageLimitsPanel,deepseek_balance,"{{currency}} {{total}} (granted {{granted}})",,active

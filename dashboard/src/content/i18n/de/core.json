@@ -428,6 +428,7 @@
   "limits.provider.apigoto": "APIGOTO",
   "limits.provider.deepseek": "DeepSeek",
   "limits.provider.trae": "Trae (alt)",
+  "limits.provider.trae_main": "Trae (Hauptkonto)",
   "limits.provider.codearts": "CodeArts",
   "limits.provider.agentrouter": "AgentRouter",
   "limits.label.agentrouter_balance": "Guthaben ${{balance}} (insgesamt ${{used}} verbraucht)",
