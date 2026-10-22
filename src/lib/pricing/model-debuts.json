@@ -2,7 +2,8 @@
   "_meta": {
     "note": "Curated model debut dates (YYYY-MM-DD, first public availability). Source of truth for the offline trendsetter badge: a model counts as 'adopted in its debut week' when the ledger's first use falls within 7 days of this date. Only add dates verified against a vendor announcement; models absent from this file fall back to the local floor (distinct models), so tiers can never downgrade.",
     "units": "iso_date",
-    "sources": []
+    "sources": [],
+    "codenamePolicy": "Internal codenames with no public announcement (dfmodel/gfmodel/mmodel, hy4-preview, space-bunny, ...) get their debut from first local use, per owner decision 2026-10-23 — they are already covered by the distinct-model floor."
   },
   "debuts": {}
 }
