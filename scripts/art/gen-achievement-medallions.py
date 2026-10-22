@@ -18,59 +18,54 @@ EMBLEM_TARGET = 0.775 * S
 
 
 def base_disc():
-    """One-piece casting (numpy): dark face with a soft ambient bounce toward
-    the rim, a wide brushed-silver frame lit from the upper-left, and NO hard
-    seams — the frame ramps into the face so the coin reads as a single metal
-    body (the old hard inner lip made it look like stacked rings)."""
+    """One-piece casting: textured dark face, a dark inner groove, a brushed
+    silver frame lit from the upper-left, and a darker outer rim. The extra
+    groove/rim is what makes the generated faces read as struck metal instead
+    of a flat disc with a gray ring."""
     import numpy as np
     yy, xx = np.mgrid[0:S, 0:S].astype(float)
     dx, dy = xx - (S - 1) / 2.0, yy - (S - 1) / 2.0
     r = np.sqrt(dx * dx + dy * dy)
     theta = np.degrees(np.arctan2(dy, dx))
-    rng = np.random.default_rng(20261021)
-    brush = (rng.random(S) - 0.5) * 9.0  # concentric brushed-metal noise
+    rng = np.random.default_rng(20261022)
+    brush = (rng.random(S) - 0.5) * 10.0
     br = brush[np.clip(r.astype(int), 0, S - 1)]
-    key = np.cos(np.radians(theta - 135.0))  # key light from upper-left
+    grain = (rng.random((S, S)) - 0.5) * 5.0
+    key = np.cos(np.radians(theta - 135.0))
 
     v = np.zeros((S, S), dtype=float)
-    # dark face (same radial gradient as before) + faint key-light shading
-    face = np.clip(r / 212.0, 0, 1)
-    v = 24 + 13 * np.sin(face * math.pi * 0.9) + 4 * key
-    # ambient bounce rising toward the frame (no hard lip line)
-    bounce = (r >= 196) & (r < 212)
-    v[bounce] += ((r[bounce] - 196) / 16.0) * 26.0
-    # seamless ramp face -> frame
-    ramp = (r >= 212) & (r < 220)
-    t = (r[ramp] - 212) / 8.0
-    v[ramp] = 54 + (160 - 54) * t
-    # brushed silver frame with angular key light — darker than v1: the
-    # original faces' frames sit visibly darker than the CSS tier ring.
-    frame = (r >= 220) & (r <= 236)
-    v[frame] = 190 + 26 * key[frame] + br[frame]
-    # bright edge highlight at the outer rim
-    edge = (r > 234) & (r <= 236)
-    v[edge] = np.minimum(238, v[edge] + 14)
-    # beyond the frame: silver continuation, NOT the dark face color — the
-    # circular alpha mask sits right at 236 and its anti-aliased rim samples
-    # these pixels; dark ones here showed up as a black seam between the
-    # frame and the CSS tier ring.
-    v[r > 236] = 238.0
+    face = np.clip(r / 208.0, 0, 1)
+    v = 17 + 14 * np.sin(face * math.pi * 0.9) + 4 * key + grain * 0.45
+    v += (rng.random(S) - 0.5)[np.clip(r.astype(int), 0, S - 1)] * 3.5
+    # engraved groove just inside the frame
+    groove = (r >= 198) & (r < 206)
+    v[groove] = 10 + 5 * key[groove] + br[groove] * 0.35
+    lip = (r >= 206) & (r < 212)
+    v[lip] = 62 + 16 * key[lip] + br[lip]
+    # brushed silver frame, darker at the bottom-right
+    frame = (r >= 212) & (r <= 236)
+    v[frame] = 168 + 36 * key[frame] + br[frame]
+    inner = (r >= 212) & (r < 217)
+    v[inner] = 202 + 18 * key[inner]
+    # dark outer rim before the transparent edge
+    outer = (r > 236) & (r <= 241)
+    v[outer] = 48 + 18 * key[outer] + br[outer] * 0.3
+    edge = (r > 240) & (r <= 242)
+    v[edge] = 96 + 18 * key[edge]
 
     rgb = np.zeros((S, S, 3), dtype=np.uint8)
     is_frame = r >= 212
     rgb[..., 0] = np.where(is_frame, np.clip(v, 0, 244), np.clip(v, 0, 255))
-    rgb[..., 1] = rgb[..., 0] + np.where(is_frame, 5, 3)
-    rgb[..., 2] = rgb[..., 0] + np.where(is_frame, 11, 6)
-    rgb[..., 1] = np.clip(rgb[..., 1], 0, 255)
-    rgb[..., 2] = np.clip(rgb[..., 2], 0, 255)
+    rgb[..., 1] = np.clip(rgb[..., 0] + np.where(is_frame, 5, 3), 0, 255)
+    rgb[..., 2] = np.clip(rgb[..., 0] + np.where(is_frame, 11, 6), 0, 255)
     return Image.fromarray(rgb, "RGB")
 
 
 def emboss(height_map):
     """Height map -> cast-metal look (light from top-left). Offset 2px +
     a >1 subtract scale keep the relief crisp at 256px (3px/1.0 read soft)."""
-    shifted = ImageChops.offset(height_map, 2, 2)
-    relief = ImageChops.subtract(height_map, shifted, 1.3, 118)
+    shifted = ImageChops.offset(height_map, 3, 3)
+    relief = ImageChops.subtract(height_map, shifted, 1.6, 112)
     return ImageOps.colorize(
         relief, black=(14, 16, 19), white=(240, 244, 249), mid=(120, 130, 141)
     )
@@ -106,7 +101,7 @@ def scale_emblem(height_map, accent_layer):
             ((S + w) / 2.0, (S + hgt) / 2.0),
         )
     )
-    limit = 210.0  # dark face radius 212 minus a hair
+    limit = 200.0  # dark face radius 208 minus the groove
     if far > limit:
         shrink = limit / far
         w = max(1, int(w * shrink))
@@ -125,8 +120,12 @@ def compose(disc, height_map, accent_layer):
     # the disc and its band
     mask = height_map.point(lambda v: 255 if v > 6 else 0)
     mask = mask.filter(ImageFilter.GaussianBlur(1.4))
-    metal.putalpha(mask)
+    # soft cast shadow under the relief, so the emblem lifts off the face
+    shadow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    shadow.putalpha(mask.filter(ImageFilter.GaussianBlur(6)).point(lambda v: int(v * 0.55)))
     out = disc.convert("RGBA")
+    out.alpha_composite(shadow, (4, 5))
+    metal.putalpha(mask)
     out.alpha_composite(metal)
     if accent_layer is not None:
         out.alpha_composite(accent_layer)
@@ -144,7 +143,7 @@ def save(img, name):
     # (test/user-badges-artwork.test.js) requires a tRNS chunk — quantize
     # keeps it as palette transparency.
     mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).ellipse((20, 20, S - 20, S - 20), fill=255)
+    ImageDraw.Draw(mask).ellipse((14, 14, S - 14, S - 14), fill=255)
     mask = mask.filter(ImageFilter.GaussianBlur(1.2))  # soft anti-aliased rim
     rgba = img.convert("RGBA")
     rgba.putalpha(mask)
@@ -526,19 +525,25 @@ def grand_slam():
     save(compose(disc, h, acc), "grand-slam.png")
 
 
-early_bird()
-around_the_clock()
-sprinter()
-cache_alchemist()
-real_money()
-session_marathon()
-phoenix()
-iron_month()
-full_blast()
-deep_diver()
-multitool_day()
-claude_survivor()
-wishing_well()
-grand_slam()
+# 2026-10-22: the 14 faces below were regenerated with ImageGen and imported
+# as 256px transparent medallions. Running these old Pillow draw calls would
+# overwrite them with the previous flat style, so they are intentionally not
+# invoked. The functions remain as reference for the original geometry.
+# early_bird()
+# around_the_clock()
+# sprinter()
+# cache_alchemist()
+# real_money()
+# session_marathon()
+# phoenix()
+# iron_month()
+# full_blast()
+# deep_diver()
+# multitool_day()
+# claude_survivor()
+# wishing_well()
+# grand_slam()
+
+# These two are palette recolors of original faces, not custom emblems.
 deep_thinker()
 heart_model()
