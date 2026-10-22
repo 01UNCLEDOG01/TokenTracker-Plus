@@ -412,7 +412,7 @@
   "dashboard.projects.detail.badge": "專案",
   "achievements.section.title": "成就",
   "achievements.page.title": "成就",
-  "achievements.page.local_note": "專案與夜貓子徽章僅保存在本機。",
+  "achievements.page.local_note": "進度按本機佇列判定，離線也能解鎖；嘗鮮先鋒與頒獎台需要共享排行榜。",
   "achievements.signin.prompt": "登入後可獲得雲端成就，並在排行榜上展示。",
   "achievements.mini.tooltip": "{{name}} — {{tier}}",
   "achievements.badge.aria": "{{name}} — {{tier}}",

@@ -436,7 +436,7 @@
   "dashboard.speed.unavailable": "Agent2API-Gateway-Datenbank nicht verfügbar (nur lokal).",
   "achievements.section.title": "Erfolge",
   "achievements.page.title": "Erfolge",
-  "achievements.page.local_note": "Projekt- und Nachteulen-Abzeichen bleiben auf diesem Gerät.",
+  "achievements.page.local_note": "Wird aus der Warteschlange dieses Geräts berechnet und schaltet offline frei. Trendsetter und Podium benötigen eine geteilte Rangliste.",
   "achievements.signin.prompt": "Melde dich an, um Cloud-Erfolge zu verdienen und sie auf dem Leaderboard zu zeigen.",
   "achievements.mini.tooltip": "{{name}} — {{tier}}",
   "achievements.badge.aria": "{{name}} — {{tier}}",

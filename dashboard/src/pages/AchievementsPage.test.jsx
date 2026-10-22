@@ -1,71 +1,31 @@
-import { describe, expect, it } from "vitest";
-import { cloudBadgesSettled, resolveCloudBadgeIdentity } from "./AchievementsPage.jsx";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { copy } from "../lib/copy";
 
-describe("resolveCloudBadgeIdentity", () => {
-  it("treats mock mode as a settled signed-in cloud identity", () => {
-    expect(
-      resolveCloudBadgeIdentity({
-        authLoading: true,
-        authEnabled: false,
-        authUserId: null,
-        mockEnabled: true,
-      }),
-    ).toEqual({ authLoading: false, signedIn: true, userId: "mock-user" });
-  });
+vi.mock("../hooks/use-achievements.js", () => ({
+  useAchievements: () => ({
+    status: "ready",
+    error: null,
+    achievements: [{ id: "project_hopper", tier: 2, metric_value: 7 }],
+  }),
+}));
 
-  it("keeps real auth semantics outside mock mode", () => {
-    expect(
-      resolveCloudBadgeIdentity({
-        authLoading: false,
-        authEnabled: true,
-        authUserId: "real-user",
-        mockEnabled: false,
-      }),
-    ).toEqual({ authLoading: false, signedIn: true, userId: "real-user" });
-  });
-});
+vi.mock("../ui/achievements/AchievementsSection.jsx", () => ({
+  AchievementsSection: ({ achievements }) => (
+    <div data-testid="local-wall" data-count={achievements.length} />
+  ),
+}));
 
-describe("cloudBadgesSettled", () => {
-  it("keeps the wall hidden while auth is hydrating", () => {
-    expect(
-      cloudBadgesSettled({
-        authLoading: true,
-        signedIn: false,
-        userId: null,
-        state: { status: "signed-out", userId: null },
-      }),
-    ).toBe(false);
-  });
+import AchievementsPage from "./AchievementsPage.jsx";
 
-  it("keeps the wall hidden when a signed-in user has not settled", () => {
-    expect(
-      cloudBadgesSettled({
-        authLoading: false,
-        signedIn: true,
-        userId: "new-user",
-        state: { status: "signed-out", userId: null },
-      }),
-    ).toBe(false);
-    expect(
-      cloudBadgesSettled({
-        authLoading: false,
-        signedIn: true,
-        userId: "new-user",
-        state: { status: "ready", userId: "previous-user" },
-      }),
-    ).toBe(false);
-  });
+describe("AchievementsPage local-only wall", () => {
+  it("renders the locally computed wall without a sign-in gate", () => {
+    render(<AchievementsPage />);
 
-  it("reveals once the current user's request succeeds or fails", () => {
-    for (const status of ["ready", "error"]) {
-      expect(
-        cloudBadgesSettled({
-          authLoading: false,
-          signedIn: true,
-          userId: "current-user",
-          state: { status, userId: "current-user" },
-        }),
-      ).toBe(true);
-    }
+    expect(screen.getByTestId("local-wall")).toHaveAttribute("data-count", "1");
+    expect(screen.getByText(copy("achievements.page.local_note"))).toBeInTheDocument();
+    expect(screen.queryByText(copy("achievements.signin.prompt"))).toBeNull();
+    // 1 earned out of the 31-badge catalog, all counted from local data.
+    expect(screen.getByText("/31")).toBeInTheDocument();
   });
 });

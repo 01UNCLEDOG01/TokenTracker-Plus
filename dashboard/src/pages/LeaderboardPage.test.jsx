@@ -25,6 +25,7 @@ const insforgeAuthMock = vi.hoisted(() => ({
 vi.mock("../lib/api", () => ({
   getLeaderboard: vi.fn(),
   refreshLeaderboard: vi.fn(),
+  isLocalLeaderboardHost: () => false,
 }));
 
 vi.mock("../lib/cloud-sync", () => ({
@@ -49,6 +50,13 @@ vi.mock("../contexts/InsforgeAuthContext.jsx", () => ({
 
 vi.mock("../hooks/useCurrency.js", () => ({
   useCurrency: () => ({ currency: "USD", rate: 1 }),
+}));
+
+// The page test is about list behavior; the community chip has its own hook
+// tests. Letting it hit its real 6s timeout leaks an unhandled rejection and
+// adds a network race to every render.
+vi.mock("../hooks/use-community-stats.js", () => ({
+  useCommunityStats: () => ({ status: "disabled", tokenFloor: null, totalEntries: null, top: [] }),
 }));
 
 vi.mock("../components/LeaderboardSkeleton.jsx", () => ({

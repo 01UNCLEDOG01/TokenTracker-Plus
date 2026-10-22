@@ -22,6 +22,7 @@ export const INSFORGE_INSTANCE_CHANGED_EVENT = "tt.insforgeInstanceChanged";
 const INSTANCE_STORAGE_KEY = "tt.insforge.instance";
 type RuntimeConfiguration = {
   baseUrl?: string; anonKey?: string; dashboardUrl?: string; configurationError?: string;
+  localHistory?: boolean;
 };
 declare global {
   interface Window { __TOKENTRACKER_RUNTIME_CONFIG__?: RuntimeConfiguration; }

@@ -13,9 +13,10 @@ const path = require("node:path");
 const test = require("node:test");
 const { DatabaseSync } = require("node:sqlite");
 
-const { fetchTraeLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("../src/lib/gateway-limits");
+const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("../src/lib/gateway-limits");
 
 const TRAE_ID = "trae-solo-4fc0b0ec01dfac776c2555fcca7e7f0859851e8c8f2504a1d8e38429b87e3dfe";
+const TRAE_MAIN_ID = "trae-solo-1123d1cb75a5db58931ce004f9e1db1bcec17e5a65ec20f29ac11eb95b08c06a";
 const CODEARTS_ID = "codearts-a827547aa241a4af2e8ad0ca2a36ef0e07debda7641aa87d2a07536ffded2039";
 const CLINE_ID = "cline-pass-usr-01M4RVNGN12B3DRMD7Z9J2BEPZ";
 const RACCOON_ID = "user-sample";
@@ -81,17 +82,50 @@ function clineUsage() {
   });
 }
 
-test("trae: balance plus the soonest-expiring grant; seed rows are ignored", async () => {
+test("trae: balance plus every live grant in expiry order; seed rows are ignored", async () => {
   const home = sandbox();
   try {
     writeGatewayDb(home, [{ account_id: TRAE_ID, usage: traeUsage(), updated_at: Date.now() - 60_000 }]);
-    const result = await fetchTraeLimits({ home });
+    const result = await fetchTraeLimits({ home, nowMs: 1790000000000 });
     assert.equal(result.configured, true);
     assert.equal(result.trae_available_points, 1900);
     assert.equal(result.trae_nearest_points, 100);
     assert.equal(new Date(result.trae_nearest_expire_at).getTime(), 1792000000000);
+    // One entry per batch, sorted by expiry, with the real per-batch pair the
+    // card needs for a bar. The "免费" seed row has no remain/total.
+    assert.deepEqual(result.trae_grants, [
+      { name: "签到奖励", remain: 100, total: 100, expire_at: "2026-10-14T17:46:40.000Z" },
+      { name: "每月登录赠送", remain: 500, total: 500, expire_at: "2026-10-31T15:59:59.000Z" },
+      { name: "签到奖励", remain: 100, total: 100, expire_at: "2026-11-02T09:26:03.000Z" },
+    ]);
     assert.equal(result.plan_name, null);
     assert.equal(result.stale, undefined);
+  } finally {
+    cleanup(home);
+  }
+});
+
+test("trae: drops expired, zero, and total-less grants from the batch list", async () => {
+  const home = sandbox();
+  const nowMs = 1790000000000;
+  try {
+    const usage = JSON.stringify({
+      available: 80,
+      credits: [
+        { name: "expired", remain: 50, total: 50, expireAt: nowMs - 1 },
+        { name: "no-total", remain: 5, expireAt: nowMs + 1000 },
+        { name: "zero", remain: 0, total: 100, expireAt: nowMs + 2000 },
+        { name: "live", remain: 25, total: 100, expireAt: nowMs + 3000 },
+      ],
+    });
+    writeGatewayDb(home, [{ account_id: TRAE_ID, usage, updated_at: Date.now() - 60_000 }]);
+    const result = await fetchTraeLimits({ home, nowMs });
+    assert.equal(result.trae_available_points, 80);
+    assert.deepEqual(result.trae_grants, [
+      { name: "live", remain: 25, total: 100, expire_at: new Date(nowMs + 3000).toISOString() },
+    ]);
+    assert.equal(result.trae_nearest_points, 25);
+    assert.equal(new Date(result.trae_nearest_expire_at).getTime(), nowMs + 3000);
   } finally {
     cleanup(home);
   }
@@ -142,15 +176,18 @@ test("cline: wallets shape and the staleness flag for an aged snapshot", async (
   }
 });
 
-test("picks the freshest row when the prefix matches more than one account", async () => {
+test("each Trae card pins its own account id instead of racing on freshness", async () => {
   const home = sandbox();
   try {
+    // Both rows share the trae-solo- prefix. Prefix+freshest matching used to
+    // make the two cards swap identities whenever the other account swept
+    // first; each card must read only its pinned id.
     writeGatewayDb(home, [
-      { account_id: "trae-solo-old", usage: JSON.stringify({ available: 111 }), updated_at: Date.now() - 3 * 3600 * 1000 },
-      { account_id: "trae-solo-new", usage: JSON.stringify({ available: 222 }), updated_at: Date.now() - 60_000 },
+      { account_id: TRAE_ID, usage: JSON.stringify({ available: 111 }), updated_at: Date.now() - 3 * 3600 * 1000 },
+      { account_id: TRAE_MAIN_ID, usage: JSON.stringify({ available: 222 }), updated_at: Date.now() - 60_000 },
     ]);
-    const result = await fetchTraeLimits({ home });
-    assert.equal(result.trae_available_points, 222);
+    assert.equal((await fetchTraeLimits({ home })).trae_available_points, 111);
+    assert.equal((await fetchTraeMainLimits({ home })).trae_available_points, 222);
   } finally {
     cleanup(home);
   }

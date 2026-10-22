@@ -24,12 +24,13 @@ function byId(result, id) {
 test("empty inputs yield the full locked catalog", () => {
   const result = computeLocalAchievements([], [], { timeZoneContext: TZ_SHANGHAI });
   // Ten local badges (three originals plus the seven habit badges) plus the
-  // eighteen cloud-parity badges the fork also replays locally (trendsetter
-  // and podium stay cloud-only — cross-user facts — and grand_slam stays
-  // cloud-only because it counts diamond tiers across the whole cloud
-  // catalog, which the local replay cannot see).
+  // nineteen cloud-parity badges the fork also replays locally. Only
+  // trendsetter and podium are absent — global model debut dates and a
+  // cross-user leaderboard rank cannot be derived from one machine's queue.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 28);
+  assert.equal(result.length, 29);
+  assert.equal(result.find((badge) => badge.id === "trendsetter"), undefined);
+  assert.equal(result.find((badge) => badge.id === "podium"), undefined);
   for (const badge of result) {
     assert.equal(badge.tier, 0);
     assert.equal(badge.metric_value, 0);
@@ -88,8 +89,28 @@ test("wave-2 cloud-parity badges replay with SQL semantics", () => {
   assert.equal(swarm.metric_value, 2);
   assert.equal(swarm.meta.day, "2026-07-01");
   assert.deepEqual(swarm.meta.tools.slice().sort(), ["claude", "codex"]);
-  // grand_slam stays cloud-only (diamond tiers span the whole cloud catalog).
-  assert.equal(result.find((b) => b.id === "grand_slam"), undefined);
+  // grand_slam exists locally now; this modest history has no diamonds.
+  const slam = result.find((b) => b.id === "grand_slam");
+  assert.equal(slam.tier, 0);
+  assert.equal(slam.metric_value, 0);
+});
+
+test("grand_slam counts locally earned diamond badges and excludes itself", () => {
+  const rows = [{
+    source: "claude",
+    model: "claude-opus",
+    hour_start: "2026-07-01T10:00:00Z",
+    total_tokens: 100_000_000_000,
+    output_tokens: 300_000_000,
+    cached_input_tokens: 50_000_000_000,
+    reasoning_output_tokens: 60_000_000,
+  }];
+  const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
+  const slam = byId(result, "grand_slam");
+  const diamonds = result.filter((badge) => badge.id !== "grand_slam" && badge.tier === 4).length;
+  assert.ok(diamonds >= 3, `expected at least three diamonds, got ${diamonds}`);
+  assert.equal(slam.metric_value, diamonds);
+  assert.ok(slam.tier >= 1);
 });
 
 test("heart_model needs five models and tracks the favorite's share", () => {

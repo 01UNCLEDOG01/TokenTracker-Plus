@@ -16,7 +16,10 @@ const { test } = require("node:test");
 const repoRoot = path.join(__dirname, "..");
 
 function read(relPath) {
-  return fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+  // The Windows checkout carries CRLF in some tracked files; every assertion
+  // below pins source layout with \n. Normalize first so the same invariants
+  // hold on both line-ending conventions.
+  return fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 }
 
 test("account fallback reasons are classified, and transient ones are recognised by prefix", () => {

@@ -69,6 +69,7 @@
   "leaderboard.profile.nav.back": "리더보드",
   "leaderboard.profile.nav.download": "다운로드",
   "leaderboard.title": "리더보드",
+  "leaderboard.title.local": "로컬 기록",
   "leaderboard.horizontal_scroll": "리더보드 열을 가로로 스크롤",
   "limits.settings.enable_all": "모두 켜기",
   "limits.settings.disable_all": "모두 끄기",

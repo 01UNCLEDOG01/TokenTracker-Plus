@@ -43,13 +43,22 @@ describe("getUsageLimits single-flight", () => {
   it("shares one upstream fetch round across concurrent cache misses", async () => {
     resetUsageLimitsCache();
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-limits-singleflight-"));
-    // Clear provider env so the OpenCode Go scraper doesn't fetch in this test.
-    const savedEnv = {
-      OPENCODE_GO_WORKSPACE_ID: process.env.OPENCODE_GO_WORKSPACE_ID,
-      OPENCODE_GO_AUTH_COOKIE: process.env.OPENCODE_GO_AUTH_COOKIE,
-    };
-    delete process.env.OPENCODE_GO_WORKSPACE_ID;
-    delete process.env.OPENCODE_GO_AUTH_COOKIE;
+    // Clear provider env so no scraper fetches in this test. QODERCN_CONFIG_DIR
+    // is exported by the Qoder CLI on this machine and pointed the CN provider
+    // at real credentials even with an empty home, which made the "no provider
+    // configured" premise false. Save/restore every credential-shaped key.
+    const PROVIDER_ENV_KEYS = [
+      "OPENCODE_GO_WORKSPACE_ID",
+      "OPENCODE_GO_AUTH_COOKIE",
+      "QODERCN_CONFIG_DIR",
+      "QODER_CONFIG_DIR",
+      "QODER_CN_COOKIE",
+      "QODER_COOKIE",
+    ];
+    const savedEnv = Object.fromEntries(
+      PROVIDER_ENV_KEYS.map((key) => [key, process.env[key]]),
+    );
+    for (const key of PROVIDER_ENV_KEYS) delete process.env[key];
     try {
       const { commandCalls, countFetchCalls, options } = makeCountingDeps();
       const opts = { home: tmp, ...options };
@@ -69,11 +78,9 @@ describe("getUsageLimits single-flight", () => {
       );
       assert.equal(countFetchCalls(), 0, "no provider is configured, so no HTTP fetch expected");
     } finally {
-      if (savedEnv.OPENCODE_GO_WORKSPACE_ID !== undefined) {
-        process.env.OPENCODE_GO_WORKSPACE_ID = savedEnv.OPENCODE_GO_WORKSPACE_ID;
-      }
-      if (savedEnv.OPENCODE_GO_AUTH_COOKIE !== undefined) {
-        process.env.OPENCODE_GO_AUTH_COOKIE = savedEnv.OPENCODE_GO_AUTH_COOKIE;
+      for (const key of PROVIDER_ENV_KEYS) {
+        if (savedEnv[key] !== undefined) process.env[key] = savedEnv[key];
+        else delete process.env[key];
       }
       resetUsageLimitsCache();
       fs.rmSync(tmp, { recursive: true, force: true });

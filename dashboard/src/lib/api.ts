@@ -150,6 +150,7 @@ const PATHS = {
   agent2apiSpeed: "tokentracker-agent2api-speed",
   projectUsageDetail: "tokentracker-project-usage-detail",
   achievements: "tokentracker-achievements",
+  leaderboard: "tokentracker-leaderboard",
   userStatus: "tokentracker-user-status",
   localSync: "tokentracker-local-sync",
   usageLimits: "tokentracker-usage-limits",
@@ -178,6 +179,17 @@ export function isLocalhostHost() {
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
   );
+}
+
+/**
+ * True only when the CLI served this page (its runtime descriptor advertises
+ * localHistory). Hostname alone is not enough: vitest and any static server on
+ * localhost are also "localhost" but have no local leaderboard endpoint.
+ */
+export function isLocalLeaderboardHost() {
+  if (!isLocalhostHost()) return false;
+  const runtime = (window as any).__TOKENTRACKER_RUNTIME_CONFIG__;
+  return runtime?.localHistory === true;
 }
 
 async function fetchLocalJson(slug: string, params?: AnyRecord, options?: AnyRecord) {
@@ -426,6 +438,12 @@ export async function getLeaderboard({
 }: AnyRecord = {}) {
   if (isMockEnabled()) {
     return getMockLeaderboard({ seed: accessToken || userId, period, metric, limit, offset });
+  }
+  // Localhost is the open-source/default surface: the page must show this
+  // machine's own history instead of requiring a cloud account. The local CLI
+  // computes it from the same deduped queue as the dashboard.
+  if (isLocalLeaderboardHost()) {
+    return fetchLocalJson(PATHS.leaderboard, { period, limit, offset });
   }
   // Upstream kept this a public read because InsForge's hosted gateway
   // returns an opaque 500 for any JWT problem. A private instance gates the

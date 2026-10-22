@@ -9,7 +9,6 @@ RPC client does not follow redirects carrying its service credential
 SQL shape drift aborts the whole migration before any archive schema is retained
 a restore failure after hot insertion rolls back rows, manifest and operation together
 a stale source snapshot refuses replay without changing original or QA rows
-a transient fallback never replaces an account snapshot that is already shown
 actual cloned aggregation retains cold truth and decreasing hot corrections
 all QA tables, sequences and functions reject anonymous and authenticated SQL roles
 archive operation replay reuses its preparation and cannot change scope
@@ -18,7 +17,6 @@ billing, machine admission, real ingest RPC and archive run together in the same
 bounded cleanup deletes only old superseded empty metadata and leaves another user intact
 checkpoint creation failure happens before any prepare or commit RPC
 complete truth keeps device, cluster, Cursor, TRAE and timezone parity after compaction
-dataset authority is keyed by query scope, not by dataset alone
 empty QA tables and scope guards isolate real paid and free users without copying payments
 failed checksum or stale generation cannot delete hot truth or switch the manifest
 five hundred buckets invalidate cache at statement scope and the user expression uses an index

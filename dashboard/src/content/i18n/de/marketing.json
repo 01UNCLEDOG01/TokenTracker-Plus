@@ -68,6 +68,7 @@
   "landing.v2.hero.subtagline": "Überwache automatisch den Token-Verbrauch deiner KI-Entwicklungswerkzeuge wie Claude Code, Cursor und Codex. Lokal first, datenschutzorientiert, keine Konfiguration nötig.",
   "leaderboard.profile.nav.back": "Rangliste",
   "leaderboard.title": "Rangliste",
+  "leaderboard.title.local": "Lokaler Verlauf",
   "leaderboard.horizontal_scroll": "Ranglistenspalten horizontal scrollen",
   "limits.settings.enable_all": "Alle aktivieren",
   "limits.settings.disable_all": "Alle deaktivieren",

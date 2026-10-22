@@ -283,6 +283,7 @@ leaderboard.profile.nav.back,dashboard,LeaderboardProfilePage,Header,nav_back,"L
 leaderboard.profile.nav.download,dashboard,LeaderboardProfilePage,Header,nav_download,"Download",Shown only to browser visitors without the app,active
 leaderboard.profile.hero.rank_label,dashboard,LeaderboardProfilePage,Hero,rank_label,"Rank",,active
 leaderboard.title,dashboard,LeaderboardPage,LeaderboardPage,title,"Leaderboard",,active
+leaderboard.title.local,dashboard,LeaderboardPage,LeaderboardPage,title_local,"Local history",,active
 leaderboard.horizontal_scroll,dashboard,LeaderboardPage,LeaderboardTableScroll,aria_label,"Scroll leaderboard columns horizontally",,active
 limits.settings.enable_all,dashboard,SettingsPage,LimitsSettingsPanel,action,"Enable all",,active
 limits.settings.disable_all,dashboard,SettingsPage,LimitsSettingsPanel,action,"Disable all",,active
@@ -1371,7 +1372,7 @@ pet.codex.imported,dashboard,PetPage,PetPage,codex_imported,"Imported from Codex
 nav.achievements,shared,*,Sidebar,nav_achievements,"Achievements",,active
 achievements.section.title,dashboard,*,AchievementsSection,section_title,"Achievements",,active
 achievements.page.title,dashboard,AchievementsPage,AchievementsPage,page_title,"Achievements",,active
-achievements.page.local_note,dashboard,AchievementsPage,AchievementsPage,local_note,"Project and night-owl badges stay on this device.",,active
+achievements.page.local_note,dashboard,AchievementsPage,AchievementsPage,local_note,"Judged from this device's queue; unlocks offline. Trendsetter and Podium need a shared leaderboard.",,active
 achievements.signin.prompt,dashboard,AchievementsPage,AchievementsPage,signin_prompt,"Sign in to earn cloud achievements and show them on the leaderboard.",,active
 achievements.mini.tooltip,dashboard,LeaderboardPage,BadgeMini,mini_tooltip,"{{name}} — {{tier}}",,active
 achievements.badge.aria,dashboard,*,AchievementsSection,badge_aria,"{{name}} — {{tier}}",,active
@@ -2183,6 +2184,7 @@ limits.provider.cline_pass,ui,LimitsPage,UsageLimitsPanel,provider_cline_pass,"C
 limits.label.deepseek_balance,ui,LimitsPage,UsageLimitsPanel,deepseek_balance,"{{currency}} {{total}} (granted {{granted}})",,active
 limits.label.trae_balance,ui,LimitsPage,UsageLimitsPanel,trae_balance,"{{credits}} points available",,active
 limits.label.trae_nearest,ui,LimitsPage,UsageLimitsPanel,trae_nearest,"{{credits}} expire {{date}}",,active
+limits.label.trae_grant,ui,LimitsPage,UsageLimitsPanel,trae_grant,"{{remain}} / {{total}} left · expires {{date}}",,active
 limits.label.codearts_wallets,ui,LimitsPage,UsageLimitsPanel,codearts_wallets,"{{credits}} credits, resets {{date}}",,active
 limits.label.cline_wallets,ui,LimitsPage,UsageLimitsPanel,cline_wallets,"{{wallets}}",,active
 limits.provider.agentrouter,ui,LimitsPage,UsageLimitsPanel,provider_agentrouter,"AgentRouter",,active

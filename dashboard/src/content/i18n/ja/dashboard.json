@@ -425,7 +425,7 @@
   "dashboard.speed.unavailable": "Agent2API ゲートウェイのデータベースを利用できません（ローカルのみ）。",
   "achievements.section.title": "実績",
   "achievements.page.title": "実績",
-  "achievements.page.local_note": "プロジェクト系と夜型バッジはこの端末にのみ保存されます。",
+  "achievements.page.local_note": "この端末のキューから判定し、オフラインでも解除できます。トレンドセッターと表彰台は共有リーダーボードが必要です。",
   "achievements.signin.prompt": "サインインするとクラウド実績を獲得し、リーダーボードに表示できます。",
   "achievements.mini.tooltip": "{{name}} — {{tier}}",
   "achievements.badge.aria": "{{name}} — {{tier}}",

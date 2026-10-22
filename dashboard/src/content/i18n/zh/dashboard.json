@@ -428,7 +428,7 @@
   "dashboard.projects.detail.badge": "项目",
   "achievements.section.title": "成就",
   "achievements.page.title": "成就",
-  "achievements.page.local_note": "项目与夜猫子徽章仅保存在本机。",
+  "achievements.page.local_note": "进度按本机队列判定，离线也能解锁；尝鲜先锋与领奖台需要共享排行榜。",
   "achievements.signin.prompt": "登录后可获得云端成就，并在排行榜上展示。",
   "achievements.mini.tooltip": "{{name}} — {{tier}}",
   "achievements.badge.aria": "{{name}} — {{tier}}",

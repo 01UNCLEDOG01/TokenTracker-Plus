@@ -631,6 +631,90 @@ function ZcodeResetBankSection({ data }) {
   );
 }
 
+/**
+ * TRAE SOLO check-in grants are independent batches, each with its own
+ * remaining/total pair and expiry. The API never supplies an account-wide
+ * limit, so one thin bar per batch is the only honest visualization; a
+ * card-wide percentage would need a denominator that does not exist.
+ */
+function TraeGrantBars({ grants }) {
+  const now = Date.now();
+  const live = (Array.isArray(grants) ? grants : []).filter((grant) => {
+    return (
+      Number(grant?.remain) > 0 &&
+      Number(grant?.total) > 0 &&
+      Date.parse(grant?.expire_at) > now
+    );
+  });
+  if (!live.length) return null;
+  return (
+    <div className="mt-1 flex flex-col gap-1.5">
+      {live.map((grant, index) => {
+        const remain = Number(grant.remain);
+        const total = Number(grant.total);
+        const pct = Math.max(0, Math.min(100, (remain / total) * 100));
+        const low = 20 > pct;
+        const remainText = formatCreditAmount(remain, { maximumFractionDigits: 2 });
+        const totalText = formatCreditAmount(total, { maximumFractionDigits: 2 });
+        const date = String(grant.expire_at).slice(5, 10);
+        const name = String(grant.name || "");
+        const label = copy("limits.label.trae_grant", {
+          remain: remainText,
+          total: totalText,
+          date,
+        });
+        return (
+          <div
+            key={`${grant.expire_at}-${name}-${index}`}
+            className="flex flex-col gap-0.5"
+            title={`${name ? `${name} · ` : ""}${grant.expire_at}`}
+          >
+            <div className="flex items-baseline justify-between gap-2 text-[10px] leading-tight">
+              <span className="min-w-0 truncate text-oai-gray-500 dark:text-oai-gray-400">
+                {name}
+              </span>
+              <span className="shrink-0 tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
+                {label}
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-oai-gray-100 dark:bg-oai-gray-700/50">
+              <div
+                className={`${low ? "bg-amber-500" : "bg-blue-500"} h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none`}
+                style={{ width: `${pct}%`, minWidth: pct > 0 ? "3px" : 0 }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TraeWalletExtra({ data }) {
+  const hasGrantList = Array.isArray(data.trae_grants);
+  const nearestExpireAt = typeof data.trae_nearest_expire_at === "string"
+    ? data.trae_nearest_expire_at
+    : null;
+  return (
+    <>
+      <StatusLine>
+        {copy("limits.label.trae_balance", {
+          credits: formatCreditAmount(Number(data.trae_available_points), { maximumFractionDigits: 0 }),
+        })}
+      </StatusLine>
+      {hasGrantList ? <TraeGrantBars grants={data.trae_grants} /> : null}
+      {!hasGrantList && nearestExpireAt ? (
+        <StatusLine>
+          {copy("limits.label.trae_nearest", {
+            credits: formatCreditAmount(Number(data.trae_nearest_points), { maximumFractionDigits: 0 }),
+            date: nearestExpireAt.slice(0, 10),
+          })}
+        </StatusLine>
+      ) : null}
+    </>
+  );
+}
+
 function renderProviderExtra(kind, data) {
   if (kind === "zcode_reset_bank") {
     return data.reset_credits ? <ZcodeResetBankSection data={data.reset_credits} /> : null;
@@ -697,24 +781,10 @@ function renderProviderExtra(kind, data) {
     );
   }
   if (kind === "trae_wallets" && Number.isFinite(Number(data.trae_available_points))) {
-    const lines = [
-      <StatusLine key="balance">
-        {copy("limits.label.trae_balance", {
-          credits: formatCreditAmount(Number(data.trae_available_points), { maximumFractionDigits: 0 }),
-        })}
-      </StatusLine>,
-    ];
-    if (typeof data.trae_nearest_expire_at === "string" && data.trae_nearest_expire_at) {
-      lines.push(
-        <StatusLine key="expiry">
-          {copy("limits.label.trae_nearest", {
-            credits: formatCreditAmount(Number(data.trae_nearest_points), { maximumFractionDigits: 0 }),
-            date: data.trae_nearest_expire_at.slice(0, 10),
-          })}
-        </StatusLine>,
-      );
-    }
-    return lines;
+    // Older cached payloads carry only the nearest-expiry summary; keep that
+    // line until the next fetch supplies trae_grants (then the per-batch bars
+    // replace it). An empty grants array means every batch already expired.
+    return <TraeWalletExtra data={data} />;
   }
   if (kind === "codearts_wallets" && Number.isFinite(Number(data.codearts_available_credits))) {
     return (

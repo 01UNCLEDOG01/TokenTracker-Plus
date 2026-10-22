@@ -451,10 +451,11 @@ async function scopedQueueRows(queuePath, url) {
 }
 
 // ── Local achievements ───────────────────────────────────────────────────────
-// Local-only badges (the cloud nine live in scripts/ops/user-badges.sql).
 // Thresholds are ordered bronze → silver → gold → diamond. This module is the
 // single server-side home for LOCAL thresholds; the dashboard renders whatever
-// the payload says and embeds none of these numbers.
+// the payload says and embeds none of these numbers. Every badge that can be
+// judged from this machine's queue/profile is computed here, with no account
+// or network call; only trendsetter and podium stay cross-user facts.
 const LOCAL_BADGE_THRESHOLDS = {
   project_hopper: [3, 5, 10, 20], // distinct projects
   project_devotion: [1000000, 10000000, 100000000, 1000000000], // max tokens in one project
@@ -476,7 +477,8 @@ const LOCAL_BADGE_THRESHOLDS = {
 // SQL catalog; day grain is UTC because the SQL buckets
 // (hour_start AT TIME ZONE 'UTC')::date the same way.
 // trendsetter and podium have no local equivalent (global model debut dates and
-// leaderboard rank are cross-user facts) and stay cloud-only.
+// leaderboard rank are cross-user facts) and stay cloud-only; everything else,
+// including grand_slam, is judged from the local queue alone.
 const CLOUD_PARITY_BADGE_THRESHOLDS = {
   token_titan: [100000000, 1000000000, 10000000000, 100000000000], // total tokens
   big_day: [10000000, 100000000, 500000000, 3000000000], // best UTC day
@@ -496,9 +498,7 @@ const CLOUD_PARITY_BADGE_THRESHOLDS = {
   heart_model: [50, 70, 85, 95], // favorite model's share of lifetime tokens, % (needs >= 5 models)
   claude_survivor: [1000000, 10000000, 100000000, 1000000000], // lifetime claude-family tokens (hidden badge)
   wishing_well: [10000000, 100000000, 1000000000, 10000000000], // lifetime deepseek-family tokens (hidden badge)
-  // grand_slam stays cloud-only: it counts diamond tiers across the whole
-  // CLOUD catalog (including trendsetter/podium, which have no local
-  // metric), so a local replay could never agree with the server's number.
+  grand_slam: [3, 6, 9, 20], // diamond-tier badges, grand_slam itself excluded
 };
 
 // deep_diver's per-model lifetime floor — same constant as the SQL CTE and
@@ -527,6 +527,14 @@ function isoWeekStartMs(dayMs) {
 }
 
 const LOCAL_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
+
+function tierForValue(value, thresholds) {
+  let tier = 0;
+  for (let i = 0; i < thresholds.length; i += 1) {
+    if (value >= thresholds[i]) tier = i + 1;
+  }
+  return tier;
+}
 
 /**
  * Compute the local badge set from deduped queue rows (plus the device's
@@ -796,12 +804,25 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     );
   }
 
+  // grand_slam reads the other badges' final tiers, so it is computed after
+  // every tracker has consumed the queue. The badge excludes itself, exactly
+  // like the SQL catalog's diamonds CTE. online-only cross-user badges are not
+  // in this map, so the local count is the honest local diamond count.
+  let diamondBadges = 0;
+  let latestDiamondAt = null;
+  for (const [badgeId, thresholds] of Object.entries(ALL_LOCAL_BADGE_THRESHOLDS)) {
+    if (badgeId === "grand_slam") continue;
+    const tracker = trackers[badgeId];
+    if (tierForValue(tracker.value, thresholds) !== 4) continue;
+    diamondBadges += 1;
+    const at = tracker.achieved.diamond;
+    if (at && (!latestDiamondAt || at > latestDiamondAt)) latestDiamondAt = at;
+  }
+  if (diamondBadges > 0) bump("grand_slam", diamondBadges, latestDiamondAt);
+
   return Object.entries(ALL_LOCAL_BADGE_THRESHOLDS).map(([badgeId, thresholds]) => {
     const tracker = trackers[badgeId];
-    let tier = 0;
-    for (let i = 0; i < thresholds.length; i += 1) {
-      if (tracker.value >= thresholds[i]) tier = i + 1;
-    }
+    const tier = tierForValue(tracker.value, thresholds);
     return {
       id: badgeId,
       tier,
@@ -818,6 +839,152 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       meta: tracker.meta,
     };
   });
+}
+
+// ── Local leaderboard (history on this machine) ─────────────────────────────
+// The shipped leaderboard used to require the cloud/self-host account. The
+// open-source default must not leave that page blank, so the local CLI serves
+// a one-profile history from the same deduped queue the dashboard already
+// uses. It is deliberately NOT a fake multi-user ranking: one machine is one
+// row, ranked #1, with its real period totals and provider split.
+
+const LEADERBOARD_PROVIDER_COLUMNS = [
+  ["gpt_tokens", (source) => source === "codex" || source === "every-code"],
+  ["claude_tokens", (source) => source.startsWith("claude")],
+  ["gemini_tokens", (source) => source.startsWith("gemini") || source === "antigravity"],
+  ["cursor_tokens", (source) => source === "cursor"],
+  ["kiro_tokens", (source) => source.startsWith("kiro")],
+  ["copilot_tokens", (source) => source === "copilot" || source === "github-copilot"],
+  ["kimi_tokens", (source) => source.startsWith("kimi")],
+  ["opencode_tokens", (source) => source.startsWith("opencode") || source === "loomy"],
+  ["openclaw_tokens", (source) => source.startsWith("openclaw") || source === "clawd"],
+  ["hermes_tokens", (source) => source.startsWith("hermes")],
+];
+
+function leaderboardProviderColumn(source) {
+  const normalized = String(source || "").trim().toLowerCase();
+  for (const [column, matches] of LEADERBOARD_PROVIDER_COLUMNS) {
+    if (matches(normalized)) return column;
+  }
+  return "other_tokens";
+}
+
+function leaderboardWindow(period, nowMs) {
+  const now = new Date(nowMs);
+  if (period === "week") {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) };
+  }
+  if (period === "month") {
+    return {
+      from: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`,
+      to: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
+        .toISOString()
+        .slice(0, 10),
+    };
+  }
+  return { from: null, to: now.toISOString().slice(0, 10) };
+}
+
+function computeLocalLeaderboard(queueRows, projectRows, {
+  period = "week",
+  nowMs = Date.now(),
+  displayName = null,
+  machineId = null,
+  timeZoneContext = null,
+} = {}) {
+  const window = leaderboardWindow(period, nowMs);
+  const inWindow = (row) => {
+    const day = String(row?.hour_start || "").slice(0, 10);
+    if (!day) return false;
+    if (window.from && day < window.from) return false;
+    return day <= window.to;
+  };
+  const rows = (Array.isArray(queueRows) ? queueRows : []).filter(inWindow);
+
+  const providerTotals = Object.fromEntries(
+    LEADERBOARD_PROVIDER_COLUMNS.map(([column]) => [column, 0]).concat([["other_tokens", 0]]),
+  );
+  const totals = {
+    total_tokens: 0,
+    input_tokens: 0,
+    output_tokens: 0,
+    cached_input_tokens: 0,
+    conversation_count: 0,
+    estimated_cost_usd: 0,
+  };
+  const models = {};
+  for (const row of rows) {
+    const tokens = Number(row.total_tokens || 0);
+    totals.total_tokens += tokens;
+    totals.input_tokens += Number(row.input_tokens || 0);
+    totals.output_tokens += Number(row.output_tokens || 0);
+    totals.cached_input_tokens += Number(row.cached_input_tokens || 0);
+    totals.conversation_count += Number(row.conversation_count || 0);
+    totals.estimated_cost_usd += computeRowCost(row);
+    providerTotals[leaderboardProviderColumn(row.source)] += tokens;
+    if (row.model) models[row.model] = (models[row.model] || 0) + tokens;
+  }
+
+  const from = window.from || String(
+    (Array.isArray(queueRows) ? queueRows : [])
+      .map((row) => String(row?.hour_start || "").slice(0, 10))
+      .filter(Boolean)
+      .sort()[0] || window.to,
+  );
+  const generatedAt = new Date(nowMs).toISOString();
+  const earned = computeLocalAchievements(queueRows, projectRows, { timeZoneContext })
+    .filter((badge) => (badge.tier || 0) >= 1)
+    .sort((a, b) => (b.tier || 0) - (a.tier || 0) || String(a.id).localeCompare(String(b.id)));
+  const badges = earned.slice(0, 3).map((badge) => ({ id: badge.id, tier: badge.tier }));
+
+  if (!rows.length || totals.total_tokens <= 0) {
+    return {
+      entries: [],
+      me: null,
+      total_entries: 0,
+      total_pages: 0,
+      page: 1,
+      from,
+      to: window.to,
+      generated_at: generatedAt,
+      source: "local",
+    };
+  }
+
+  const entry = {
+    rank: 1,
+    user_id: null,
+    display_name: displayName || "Local device",
+    avatar_url: null,
+    github_url: null,
+    is_public: false,
+    is_me: true,
+    pro_active: false,
+    machine_id: machineId || null,
+    ...totals,
+    ...providerTotals,
+    total_tokens: totals.total_tokens,
+    estimated_cost_usd: totals.estimated_cost_usd,
+    models,
+    badges,
+    badge_count: earned.length,
+    generated_at: generatedAt,
+  };
+  return {
+    entries: [entry],
+    me: entry,
+    total_entries: 1,
+    total_pages: 1,
+    page: 1,
+    from,
+    to: window.to,
+    generated_at: generatedAt,
+    source: "local",
+  };
 }
 
 function getTimeZoneContext(url) {
@@ -2008,7 +2175,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       if (String(req.method).toUpperCase() !== "GET") { json(res, { error: "Method Not Allowed" }, 405); return true; }
       const descriptor = { baseUrl: normalizeInstanceBaseUrl(selectedRuntime.baseUrl) || "",
         anonKey: selectedRuntime.configurationError ? null : selectedRuntime.anonKey,
-        dashboardUrl: normalizeInstanceBaseUrl(selectedRuntime.dashboardUrl) || "", configurationError: selectedRuntime.configurationError };
+        dashboardUrl: normalizeInstanceBaseUrl(selectedRuntime.dashboardUrl) || "", configurationError: selectedRuntime.configurationError,
+        // Capability flag: this origin is the local CLI, so social surfaces
+        // (leaderboard) can read the local history instead of the cloud.
+        localHistory: true };
       const value = JSON.stringify(descriptor).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       res.end(`window.__TOKENTRACKER_RUNTIME_CONFIG__=${value};`);
@@ -3951,6 +4121,21 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- leaderboard (local history) ---
+    if (p === "/functions/tokentracker-leaderboard") {
+      await ensurePricingLoaded();
+      const { rows } = await scopedQueueRows(qp, url);
+      const { projectRows } = await readProjectUsageContext(qp, url);
+      json(res, computeLocalLeaderboard(rows, projectRows, {
+        period: url.searchParams.get("period") || "week",
+        nowMs: Date.now(),
+        displayName: getSystemDeviceName(),
+        machineId: getOrCreateMachineId(qp),
+        timeZoneContext: getTimeZoneContext(url),
+      }));
+      return true;
+    }
+
     // --- usage-limits ---
     if (p === "/functions/tokentracker-usage-limits") {
       const { getUsageLimits, resetUsageLimitsCache } = require("./usage-limits");
@@ -4012,6 +4197,7 @@ module.exports = {
   getSystemDeviceName,
   // Local achievement compute — exported for test/local-achievements.test.js.
   computeLocalAchievements,
+  computeLocalLeaderboard,
   LOCAL_BADGE_THRESHOLDS,
   CLOUD_PARITY_BADGE_THRESHOLDS,
   ALL_LOCAL_BADGE_THRESHOLDS,

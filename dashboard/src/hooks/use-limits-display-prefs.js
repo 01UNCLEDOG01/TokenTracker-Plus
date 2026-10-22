@@ -71,19 +71,45 @@ function defaultVisibility() {
   );
 }
 
+/**
+ * A saved order is only evidence of a manual sort when its relative order
+ * differs from the canonical provider registry. Saving *any* preference also
+ * persists the order, so a stale default (e.g. before a provider was added)
+ * must not freeze newcomers at the tail. Canonical-relative orders therefore
+ * normalize to the full current default, which puts a new card in its default
+ * slot; genuinely reordered lists keep every user move and append newcomers.
+ */
+function isCanonicalRelativeOrder(ids) {
+  let previousIndex = -1;
+  for (const id of ids) {
+    const index = ALL_LIMIT_PROVIDERS.indexOf(id);
+    if (index < previousIndex) return false;
+    previousIndex = index;
+  }
+  return true;
+}
+
 function normalizeOrder(value) {
-  const known = [];
+  const saved = [];
   if (Array.isArray(value)) {
     for (const id of value) {
-      if (ALL_LIMIT_PROVIDERS.includes(id) && !known.includes(id)) {
-        known.push(id);
+      if (ALL_LIMIT_PROVIDERS.includes(id) && !saved.includes(id)) {
+        saved.push(id);
       }
     }
   }
-  for (const id of ALL_LIMIT_PROVIDERS) {
-    if (!known.includes(id)) known.push(id);
+  // No stored order, or a stored order that is still the default sequence:
+  // return the whole registry so newly registered cards land where the
+  // product puts them instead of at the end.
+  if (saved.length === 0 || isCanonicalRelativeOrder(saved)) {
+    return defaultOrder();
   }
-  return known;
+  // A manually sorted list wins; ids this release added (and anything the
+  // stored snapshot predates) go to the tail so no existing card moves.
+  for (const id of ALL_LIMIT_PROVIDERS) {
+    if (!saved.includes(id)) saved.push(id);
+  }
+  return saved;
 }
 
 function normalizeVisibility(value) {

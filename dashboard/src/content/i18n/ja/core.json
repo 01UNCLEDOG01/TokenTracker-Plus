@@ -179,6 +179,7 @@
   "limits.label.deepseek_balance": "{{currency}} {{total}}（付与 {{granted}}）",
   "limits.label.trae_balance": "利用可能 {{credits}} ポイント",
   "limits.label.trae_nearest": "{{credits}} が {{date}} に失効",
+  "limits.label.trae_grant": "残り {{remain}} / {{total}}、{{date}} まで",
   "limits.label.codearts_wallets": "{{credits}} クレジット、{{date}} リセット",
   "limits.label.cline_wallets": "{{wallets}}",
   "limits.provider.raccoon": "Raccoon",

@@ -69,6 +69,7 @@
   "leaderboard.profile.nav.back": "リーダーボード",
   "leaderboard.profile.nav.download": "ダウンロード",
   "leaderboard.title": "リーダーボード",
+  "leaderboard.title.local": "ローカル履歴",
   "leaderboard.horizontal_scroll": "リーダーボードの列を横にスクロール",
   "limits.settings.enable_all": "すべて有効にする",
   "limits.settings.disable_all": "すべて無効にする",

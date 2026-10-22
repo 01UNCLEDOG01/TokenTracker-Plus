@@ -149,7 +149,11 @@ describe("useLimitsDisplayPrefs", () => {
     );
   });
 
-  it("reads and normalizes the existing localStorage keys", () => {
+  // The five order cases below pin the two-mode rule explicitly:
+  //   saved order is canonical-relative -> rebuild the full default (new cards
+  //   take their registry slot); relative order is disrupted -> treat it as a
+  //   manual sort and keep it, appending ids the snapshot did not know.
+  it("keeps a manually sorted order and appends missing providers after it", () => {
     window.localStorage.setItem(
       ORDER_KEY,
       JSON.stringify(["gemini", "unknown", "claude", "gemini"]),
@@ -173,6 +177,34 @@ describe("useLimitsDisplayPrefs", () => {
       ...defaultVisibility(),
       claude: false,
     });
+  });
+
+  it("inserts a newly registered provider at its canonical slot when the saved order is a stale default", () => {
+    // What an older release persisted after any preference change: the full
+    // default of that release, which never knew traeMain. It must not freeze
+    // traeMain at the tail.
+    const previousDefault = LIMIT_PROVIDER_IDS.filter((id) => id !== "traeMain");
+    window.localStorage.setItem(ORDER_KEY, JSON.stringify(previousDefault));
+
+    const { result } = renderHook(() => useLimitsDisplayPrefs());
+
+    expect(result.current.order).toEqual(LIMIT_PROVIDER_IDS);
+    expect(result.current.order.indexOf("traeMain")).toBeLessThan(
+      result.current.order.indexOf("trae"),
+    );
+  });
+
+  it("keeps every manual move and appends an unknown newcomer at the tail", () => {
+    const manual = [
+      "codex",
+      "claude",
+      ...LIMIT_PROVIDER_IDS.filter((id) => id !== "codex" && id !== "claude" && id !== "traeMain"),
+    ];
+    window.localStorage.setItem(ORDER_KEY, JSON.stringify(manual));
+
+    const { result } = renderHook(() => useLimitsDisplayPrefs());
+
+    expect(result.current.order).toEqual([...manual, "traeMain"]);
   });
 
   it("falls back to used mode when localStorage holds an unknown value", () => {
@@ -310,7 +342,7 @@ describe("useLimitsDisplayPrefs", () => {
     expect(bridgeWrites(messages)[0].value).toEqual(defaultSnapshot(2000));
   });
 
-  it("applies newer native limitsPreferences snapshots and preserves their updatedAt", () => {
+  it("applies a newer native custom order and preserves its updatedAt", () => {
     vi.spyOn(Date, "now").mockReturnValue(9999);
     const messages = installNativeBridge();
     setStoredSnapshot({
@@ -364,7 +396,7 @@ describe("useLimitsDisplayPrefs", () => {
     expect(bridgeWrites(messages)).toHaveLength(0);
   });
 
-  it("applies native custom limitsPreferences without updatedAt when Dashboard storage is empty", () => {
+  it("applies a native custom order without updatedAt when Dashboard storage is empty", () => {
     const messages = installNativeBridge();
     const { result } = renderHook(() => useLimitsDisplayPrefs());
     messages.length = 0;
@@ -481,7 +513,7 @@ describe("useLimitsDisplayPrefs", () => {
     });
   });
 
-  it("lets Dashboard win when a local key exists and both sides have no updatedAt", () => {
+  it("falls back to the canonical default when Dashboard only has a preference key", () => {
     const messages = installNativeBridge();
     window.localStorage.setItem(DISPLAY_MODE_KEY, LIMIT_DISPLAY_MODES.REMAINING);
     const { result } = renderHook(() => useLimitsDisplayPrefs());
@@ -694,7 +726,7 @@ describe("useLimitsDisplayPrefs", () => {
     });
   });
 
-  it("bases Dashboard user changes on a newer localStorage snapshot", () => {
+  it("re-reads a newer manual order before applying a Dashboard change", () => {
     vi.spyOn(Date, "now").mockReturnValue(20);
     const messages = installNativeBridge();
     setStoredSnapshot({ ...defaultSnapshot(10), updatedAt: 10 });

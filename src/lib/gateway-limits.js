@@ -87,7 +87,7 @@ async function fetchGatewayAccount({
     // flag the card stale on every other poll. This flag is the staleness
     // signal instead.
     ...(updatedAtMs > 0 && nowMs - updatedAtMs > STALE_SNAPSHOT_MS ? { stale: true } : {}),
-    ...shape(payload, row),
+    ...shape(payload, row, nowMs),
   };
 }
 
@@ -98,22 +98,40 @@ function finiteNumber(value) {
 
 // TRAE SOLO: `available` plus rolling grants [{name, remain, total, grantAt,
 // expireAt}]; grants without remain (the "免费" seed row) carry nothing.
-function shapeTrae(payload) {
+// Every live grant is returned with both numbers so the card can draw one thin
+// bar per batch. There is no account-wide denominator here — summing `total`
+// across grants would invent a plan limit the API never supplied — so the card
+// must never render a whole-card percentage from this data.
+function shapeTrae(payload, _row, nowMs = Date.now()) {
   const grants = Array.isArray(payload?.credits) ? payload.credits : [];
-  const live = grants.filter((g) => g && Number.isFinite(Number(g.remain)) && Number(g.remain) > 0 && Number.isFinite(Number(g.expireAt)));
-  let nearest = null;
-  for (const grant of live) {
-    if (!nearest || Number(grant.expireAt) < Number(nearest.expireAt)) nearest = grant;
+  const live = [];
+  for (const grant of grants) {
+    const remain = Number(grant?.remain);
+    const total = Number(grant?.total);
+    const expireAt = Number(grant?.expireAt);
+    if (!Number.isFinite(remain) || remain <= 0) continue;
+    if (!Number.isFinite(total) || total <= 0) continue;
+    if (!Number.isFinite(expireAt) || expireAt <= nowMs) continue;
+    live.push({
+      name: typeof grant?.name === "string" ? grant.name : "",
+      remain,
+      total,
+      expire_at: new Date(expireAt).toISOString(),
+      _expireAtMs: expireAt,
+    });
   }
+  live.sort((a, b) => a._expireAtMs - b._expireAtMs);
   const available = Number.isFinite(Number(payload?.available))
     ? Number(payload.available)
-    : live.reduce((sum, g) => sum + Number(g.remain), 0);
+    : live.reduce((sum, g) => sum + g.remain, 0);
+  const nearest = live[0] || null;
   return {
     plan_name: null,
     trae_available_points: available,
+    trae_grants: live.map(({ _expireAtMs, ...grant }) => grant),
     ...(nearest ? {
-      trae_nearest_points: Number(nearest.remain),
-      trae_nearest_expire_at: new Date(Number(nearest.expireAt)).toISOString(),
+      trae_nearest_points: nearest.remain,
+      trae_nearest_expire_at: nearest.expire_at,
     } : {}),
   };
 }

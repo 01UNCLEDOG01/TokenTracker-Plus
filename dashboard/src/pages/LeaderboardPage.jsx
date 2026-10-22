@@ -38,6 +38,7 @@ import { getDashboardEntryPath } from "../lib/host-mode";
 import { isMockEnabled } from "../lib/mock-data";
 import {
   getLeaderboard,
+  isLocalLeaderboardHost,
 } from "../lib/api";
 import {
   getLeaderboardPreloadContextKey,
@@ -476,6 +477,19 @@ function GithubLinkWithTooltip({ githubUrl }) {
   );
 }
 
+/**
+ * Cloud login is a prompt for remote/account-backed leaderboards only. A
+ * local-history wall is self-sufficient and must not open a login dialog.
+ */
+export function shouldPromptLeaderboardLogin({
+  localHistory,
+  authLoading,
+  mockEnabled,
+  cloudSignedIn,
+}) {
+  return !localHistory && !authLoading && !mockEnabled && !cloudSignedIn;
+}
+
 export function LeaderboardPage({
   auth,
   signedIn,
@@ -487,6 +501,7 @@ export function LeaderboardPage({
   const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser, getAccessToken } = useInsforgeAuth();
   const { currency, rate } = useCurrency();
   const leaderboardBaseUrl = useMemo(() => getLeaderboardBaseUrl(), []);
+  const localHistory = isLocalLeaderboardHost();
   const mockEnabled = isMockEnabled();
   const authTokenAllowed = signedIn && !sessionSoftExpired;
   const authAccessToken = useMemo(() => {
@@ -580,12 +595,10 @@ export function LeaderboardPage({
   };
 
   useEffect(() => {
-    if (authLoading) return;
-    if (mockEnabled) return;
-    if (!cloudSignedIn) {
+    if (shouldPromptLeaderboardLogin({ localHistory, authLoading, mockEnabled, cloudSignedIn })) {
       openLoginModal();
     }
-  }, [cloudSignedIn, authLoading, mockEnabled, openLoginModal]);
+  }, [cloudSignedIn, authLoading, localHistory, mockEnabled, openLoginModal]);
 
   useEffect(() => {
     setListPage(1);
@@ -637,7 +650,10 @@ export function LeaderboardPage({
   });
 
   useEffect(() => {
-    if ((!leaderboardBaseUrl && !mockEnabled) || (!mockEnabled && leaderboardAccessMode === "unavailable")) {
+    if (
+      (!leaderboardBaseUrl && !mockEnabled && !localHistory) ||
+      (!mockEnabled && leaderboardAccessMode === "unavailable" && !localHistory)
+    ) {
       setListState({ loading: false, error: null, data: null, contextKey: null });
       return;
     }
@@ -662,13 +678,13 @@ export function LeaderboardPage({
       // The private instance gates leaderboard reads behind the account, so
       // resolve the token first (retrying through a refresh when needed);
       // anonymous-eligible callers simply proceed without one.
-      const accessToken = cloudSignedIn
+      const accessToken = !localHistory && cloudSignedIn
         ? await resolveAuthAccessTokenWithRetry({ getAccessToken }).catch(() => "")
         : "";
       const data = await getLeaderboard({
         accessToken,
         baseUrl: leaderboardBaseUrl,
-        userId: cloudUser?.id || null,
+        userId: localHistory ? null : cloudUser?.id || null,
         period,
         limit: pageSize,
         offset: listOffset,
@@ -705,6 +721,7 @@ export function LeaderboardPage({
     leaderboardPreloadContextKey,
     listOffset,
     listReloadToken,
+    localHistory,
     mockEnabled,
     period,
     pageSize,
@@ -725,7 +742,8 @@ export function LeaderboardPage({
       };
     }
     return {
-      loading: Boolean(leaderboardBaseUrl || mockEnabled) && leaderboardAccessMode !== "unavailable",
+      loading: Boolean(leaderboardBaseUrl || mockEnabled || localHistory)
+        && (localHistory || leaderboardAccessMode !== "unavailable"),
       error: null,
       data: null,
       contextKey: leaderboardPreloadContextKey,
@@ -735,6 +753,7 @@ export function LeaderboardPage({
     leaderboardBaseUrl,
     leaderboardPreloadContextKey,
     listState,
+    localHistory,
     mockEnabled,
     renderCachedState,
   ]);
@@ -752,7 +771,7 @@ export function LeaderboardPage({
   const generatedAt = listData?.generated_at || null;
   const generatedAtTime = formatLeaderboardUpdatedAt(generatedAt);
 
-  const communityStats = useCommunityStats();
+  const communityStats = useCommunityStats({ enabled: !localHistory });
   const me = listData?.me || null;
   const meLabel = copy("leaderboard.me_label");
   const anonLabel = copy("leaderboard.anon_label");
@@ -1065,7 +1084,7 @@ export function LeaderboardPage({
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3.5 sm:mb-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
             <h1 className="col-start-1 row-start-1 min-w-0 whitespace-nowrap text-3xl font-semibold tracking-tight text-oai-black dark:text-white sm:col-span-2 sm:row-start-1 sm:text-4xl">
-              {copy("leaderboard.title")}
+              {copy(localHistory ? "leaderboard.title.local" : "leaderboard.title")}
             </h1>
             <p className="col-span-2 row-start-2 hidden text-sm text-oai-gray-500 dark:text-oai-gray-400 sm:block sm:row-start-2 sm:text-base">
               {period === "total"
@@ -1114,10 +1133,12 @@ export function LeaderboardPage({
             </div>
 
             <div className="col-span-2 row-start-2 mb-0 flex w-full min-w-0 items-center justify-between sm:justify-end gap-2.5 sm:col-span-1 sm:col-start-2 sm:row-start-3 sm:mb-0 sm:w-auto sm:shrink-0">
-            <CommunityStatsChip
-              communityStats={communityStats}
-              onClick={() => setIsStatsModalOpen(true)}
-            />
+            {!localHistory && (
+              <CommunityStatsChip
+                communityStats={communityStats}
+                onClick={() => setIsStatsModalOpen(true)}
+              />
+            )}
             <LeaderboardMeChip
               me={me}
               totalEntries={totalEntries}
@@ -1130,7 +1151,7 @@ export function LeaderboardPage({
             </div>
           </div>
 
-          {!signedIn && (
+          {!signedIn && !localHistory && (
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm">
               <p className="text-oai-gray-500 dark:text-oai-gray-400">{copy("leaderboard.signin_prompt")}</p>
               <button
@@ -1142,7 +1163,7 @@ export function LeaderboardPage({
             </div>
           )}
 
-          {authTokenAllowed && authTokenReady && !cloudSyncOn && (
+          {authTokenAllowed && authTokenReady && !cloudSyncOn && !localHistory && (
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm">
               <p className="text-oai-gray-500 dark:text-oai-gray-400">{copy("leaderboard.sync_prompt")}</p>
               <button
