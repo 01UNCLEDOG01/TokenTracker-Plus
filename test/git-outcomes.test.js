@@ -5,6 +5,25 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+
+const origMkdtempSync = fs.mkdtempSync;
+const tempDirs = new Set();
+fs.mkdtempSync = function (...args) {
+  const dir = origMkdtempSync.apply(this, args);
+  tempDirs.add(dir);
+  return dir;
+};
+test.afterEach(() => {
+  for (const dir of tempDirs) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {}
+  }
+  tempDirs.clear();
+});
+test.after(() => {
+  fs.mkdtempSync = origMkdtempSync;
+});
 const { execFileSync } = require("node:child_process");
 const { buildGitOutcomes } = require("../src/lib/git-outcomes");
 
