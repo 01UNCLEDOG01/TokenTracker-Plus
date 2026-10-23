@@ -63,12 +63,16 @@ test("loadTokenMonitorSpeedMap and lookup with mock SQLite db", (t) => {
       'antigravity:ag-test-456',
       '{"sessionId":"ag-test-456","periods":{"today":{"timedOutputTokens":400,"timedDurationMs":5000,"messageCount":1}}}'
     );
+    INSERT INTO sessions VALUES (
+      'opencode:shared-id',
+      '{"sessionId":"shared-id","periods":{"today":{"timedOutputTokens":100,"timedDurationMs":2000,"messageCount":1}}}'
+    );
   `);
   db.close();
 
   const options = { env: { TOKENTRACKER_TOKEN_MONITOR_DB: dbPath } };
   const { byKey } = loadTokenMonitorSpeedMap(options);
-  assert.equal(byKey.size, 2);
+  assert.equal(byKey.size, 3);
 
   const dshPerf = lookupTokenMonitorPerformance("dsh", "session-test-123", options);
   assert.ok(dshPerf);
@@ -80,6 +84,13 @@ test("loadTokenMonitorSpeedMap and lookup with mock SQLite db", (t) => {
   assert.ok(agPerf);
   assert.equal(agPerf.estimated_tokens_per_second, 80);
 
-  // Missing session
-  assert.equal(lookupTokenMonitorPerformance("dsh", "non-existent", options), null);
+  // Scoped isolation: lookup with source="kimi" must not match "opencode:shared-id"
+  assert.equal(lookupTokenMonitorPerformance("kimi", "shared-id", options), null);
+  assert.ok(lookupTokenMonitorPerformance("opencode", "shared-id", options));
+
+  // WAL sensitivity: touching -wal forces cache invalidation
+  const walPath = `${dbPath}-wal`;
+  fs.writeFileSync(walPath, "dummy-wal-update");
+  const reloaded = loadTokenMonitorSpeedMap(options);
+  assert.equal(reloaded.byKey.size, 3);
 });

@@ -1183,7 +1183,7 @@ function consumeDshRecord(state, record) {
       const endMs = Number(lastChunk?.time);
       if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
         const reqDuration = endMs - startMs;
-        if (reqDuration >= 50 && reqDuration <= 60 * 60 * 1000) {
+        if (reqDuration >= 50 && reqDuration <= 5 * 60 * 1000) {
           state.timedOutputTokens += usage.output_tokens;
           state.timedDurationMs += reqDuration;
           state.timedRequestCount += 1;
@@ -2294,10 +2294,11 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
       // execution time. Incomplete requests contribute their start point alone.
       const completed = row.role === "assistant" ? coerceEpochMs(data.time?.completed) : 0;
       const end = completed >= start ? completed : start;
-      if (row.role === "assistant" && completed > start && delta && delta.output_tokens > 0) {
+      const opGeneratedTokens = Number(delta?.output_tokens || 0) + Number(delta?.reasoning_output_tokens || 0);
+      if (row.role === "assistant" && completed > start && opGeneratedTokens > 0) {
         const reqDuration = completed - start;
-        if (reqDuration >= 50 && reqDuration <= 60 * 60 * 1000) {
-          group.timedOutputTokens += delta.output_tokens;
+        if (reqDuration >= 50 && reqDuration <= 5 * 60 * 1000) {
+          group.timedOutputTokens += opGeneratedTokens;
           group.timedDurationMs += reqDuration;
           group.timedRequests += 1;
         }

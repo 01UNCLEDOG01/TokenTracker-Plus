@@ -7,6 +7,8 @@ const path = require("node:path");
 let cachedDbPath = null;
 let cachedMtimeMs = 0;
 let cachedSize = 0;
+let cachedWalMtimeMs = 0;
+let cachedWalSize = 0;
 let cachedSpeedIndex = null;
 
 function resolveTokenMonitorDbPath({ home = os.homedir(), env = process.env, platform = process.platform } = {}) {
@@ -61,7 +63,23 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
   } catch {
     return { byKey: new Map(), bySessionId: new Map() };
   }
-  if (cachedSpeedIndex && cachedDbPath === dbPath && cachedMtimeMs === stat.mtimeMs && cachedSize === stat.size) {
+
+  let walMtimeMs = 0;
+  let walSize = 0;
+  try {
+    const walStat = fs.statSync(`${dbPath}-wal`);
+    walMtimeMs = walStat.mtimeMs;
+    walSize = walStat.size;
+  } catch {}
+
+  if (
+    cachedSpeedIndex &&
+    cachedDbPath === dbPath &&
+    cachedMtimeMs === stat.mtimeMs &&
+    cachedSize === stat.size &&
+    cachedWalMtimeMs === walMtimeMs &&
+    cachedWalSize === walSize
+  ) {
     return cachedSpeedIndex;
   }
 
@@ -75,6 +93,7 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
   const byKey = new Map();
   const bySessionId = new Map();
   let db;
+  let readSuccess = false;
   try {
     db = new DatabaseSync(dbPath, { open: true, readOnly: true });
     const rows = db.prepare("SELECT session_key, entry_json FROM sessions").all();
@@ -98,19 +117,26 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
         // Skip malformed entries
       }
     }
+    readSuccess = true;
   } catch {
-    // Open/read failure
+    // Open/read failure - do not poison cache
   } finally {
     if (db) {
       try { db.close(); } catch { /* ignore */ }
     }
   }
 
-  cachedDbPath = dbPath;
-  cachedMtimeMs = stat.mtimeMs;
-  cachedSize = stat.size;
-  cachedSpeedIndex = { byKey, bySessionId };
-  return cachedSpeedIndex;
+  if (readSuccess) {
+    cachedDbPath = dbPath;
+    cachedMtimeMs = stat.mtimeMs;
+    cachedSize = stat.size;
+    cachedWalMtimeMs = walMtimeMs;
+    cachedWalSize = walSize;
+    cachedSpeedIndex = { byKey, bySessionId };
+    return cachedSpeedIndex;
+  }
+
+  return { byKey, bySessionId };
 }
 
 function lookupTokenMonitorPerformance(source, sessionId, options = {}) {
@@ -118,16 +144,17 @@ function lookupTokenMonitorPerformance(source, sessionId, options = {}) {
   const { byKey, bySessionId } = loadTokenMonitorSpeedMap(options);
   if (source) {
     const prefixed = `${source}:${sessionId}`;
-    if (byKey.has(prefixed)) return byKey.get(prefixed);
+    return byKey.get(prefixed) || null;
   }
-  if (bySessionId.has(sessionId)) return bySessionId.get(sessionId);
-  return null;
+  return bySessionId.get(sessionId) || null;
 }
 
 function resetTokenMonitorSpeedCacheForTests() {
   cachedDbPath = null;
   cachedMtimeMs = 0;
   cachedSize = 0;
+  cachedWalMtimeMs = 0;
+  cachedWalSize = 0;
   cachedSpeedIndex = null;
 }
 
