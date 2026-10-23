@@ -67,8 +67,8 @@ internal sealed record TrayStrings(
                 "隐藏灵动岛",
                 "托盘图标风格",
                 "奔跑小猫",
-                "经典吉祥物",
-                "闪电图标",
+                "应用图标",
+                "经典闪电",
                 "顶部灵动岛模式",
                 "自由悬浮窗模式"),
             NativeLocalization.TraditionalChineseLocale => new(
@@ -100,8 +100,8 @@ internal sealed record TrayStrings(
                 "隱藏靈動島",
                 "托盤圖示風格",
                 "奔跑小貓",
-                "經典吉祥物",
-                "閃電圖示",
+                "應用圖示",
+                "經典閃電",
                 "頂部靈動島模式",
                 "自由懸浮窗模式"),
             NativeLocalization.JapaneseLocale => new(

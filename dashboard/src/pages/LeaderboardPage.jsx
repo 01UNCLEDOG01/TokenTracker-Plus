@@ -70,6 +70,7 @@ import { LeaderboardSkeleton } from "../components/LeaderboardSkeleton.jsx";
 import { LeaderboardTableScroll } from "../components/LeaderboardTableScroll.jsx";
 import { SortableColumnHeader } from "../components/SortableColumnHeader.jsx";
 import { useColumnOrder } from "../hooks/use-column-order.js";
+import { useLocalProfile } from "../lib/local-profile.js";
 import { LeaderboardMeChip } from "../components/LeaderboardSummaryCard.jsx";
 import { useCommunityStats } from "../hooks/use-community-stats.js";
 import {
@@ -522,6 +523,7 @@ export function LeaderboardPage({
   const navigate = useNavigate();
   const { openLoginModal } = useLoginModal();
   const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser, displayName: cloudDisplayName, getAccessToken } = useInsforgeAuth();
+  const localProfile = useLocalProfile();
   const { currency, rate } = useCurrency();
   const leaderboardBaseUrl = useMemo(() => getLeaderboardBaseUrl(), []);
   const localHistory = isLocalLeaderboardHost();
@@ -805,12 +807,17 @@ export function LeaderboardPage({
     if (!isMe) {
       return { name: entryName, avatarUrl: entry?.avatar_url, isMe: false, badgeLabel: null };
     }
-    const customName = cloudDisplayName || pickAvatarName(cloudUser);
+    const customName = (localProfile?.displayName && localProfile.displayName.trim())
+      || cloudDisplayName
+      || pickAvatarName(cloudUser)
+      || null;
     const name = customName || entryName || meLabel;
-    const avatarUrl = pickAvatarUrl(cloudUser) || entry?.avatar_url;
+    const avatarUrl = (localProfile?.avatarDataUrl && localProfile.avatarDataUrl.trim())
+      || pickAvatarUrl(cloudUser)
+      || entry?.avatar_url;
     const badgeLabel = customName ? meLabel : null;
     return { name, avatarUrl, isMe: true, badgeLabel };
-  }, [cloudDisplayName, cloudUser, meLabel, anonLabel]);
+  }, [localProfile, cloudDisplayName, cloudUser, meLabel, anonLabel]);
   const weekLabel = copy("leaderboard.period.week");
   const monthLabel = copy("leaderboard.period.month");
   const totalLabel = copy("leaderboard.period.total");
@@ -1185,7 +1192,7 @@ export function LeaderboardPage({
               />
             )}
             <LeaderboardMeChip
-              me={me}
+              me={me ? { ...me, display_name: getEntryIdentity(me).name, avatar_url: getEntryIdentity(me).avatarUrl } : null}
               totalEntries={totalEntries}
               meLabel={meLabel}
               onOpenProfile={me?.user_id ? () => openProfileModal(me.user_id) : undefined}

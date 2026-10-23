@@ -441,8 +441,8 @@ export function PetPage() {
   ];
   const trayStyleOptions = [
     { value: "cat", label: copy("pet.controls.tray_cat") || "奔跑小猫" },
-    { value: "mascot", label: copy("pet.controls.tray_mascot") || "经典吉祥物" },
-    { value: "lightning", label: copy("pet.controls.tray_lightning") || "闪电图标" },
+    { value: "mascot", label: copy("pet.controls.tray_mascot") || "应用图标" },
+    { value: "lightning", label: copy("pet.controls.tray_lightning") || "经典闪电" },
   ];
   const islandModeOptions = [
     { value: "island", label: copy("pet.controls.island_mode") || "灵动岛" },
@@ -510,11 +510,15 @@ export function PetPage() {
                         onSelect={() => setSetting("character", character.id)}
                         removeDisabled={importBusy}
                         onRemove={catalogAvailable && character.id !== "clawd" && character.id !== "bot"
-                          ? () => runImport(async () => {
-                            await removePet(character.id);
-                            if (selectedCharacter === character.id) setSetting("character", "clawd");
-                            return null;
-                          }, copy("pet.import.removed"))
+                          ? () => {
+                            const name = character.nameKey ? copy(character.nameKey) : character.displayName;
+                            if (typeof window !== "undefined" && !window.confirm(`确定要移除宠物“${name}”吗？`)) return;
+                            runImport(async () => {
+                              await removePet(character.id);
+                              if (selectedCharacter === character.id) setSetting("character", "clawd");
+                              return null;
+                            }, copy("pet.import.removed"));
+                          }
                           : undefined}
                       />
                     ))}

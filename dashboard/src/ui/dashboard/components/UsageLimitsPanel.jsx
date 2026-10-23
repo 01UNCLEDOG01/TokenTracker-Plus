@@ -774,7 +774,7 @@ function AgentRouterWalletExtra({ data }) {
           })}
         >
           <div
-            className="h-full rounded-full bg-sky-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
+            className="h-full rounded-full bg-green-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
             style={{ width: `${remainingPct}%`, minWidth: remainingPct > 0 ? "3px" : 0 }}
           />
         </div>
