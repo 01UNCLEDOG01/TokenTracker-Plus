@@ -39,7 +39,7 @@ test("empty inputs yield the full locked catalog", () => {
   // Ten local badges (three originals plus the seven habit badges) plus the
   // twenty-one parity badges, now including local trendsetter/podium proxies.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 31);
+  assert.equal(result.length, 42);
   for (const id of ["trendsetter", "podium"]) {
     const badge = result.find((entry) => entry.id === id);
     assert.ok(badge, `${id} must exist in the local catalog`);
@@ -467,4 +467,35 @@ test("session_marathon takes the longest token-spending session", () => {
   assert.equal(badge.tier, 2); // bronze 1h, silver 4h
   assert.equal(badge.meta.session_hash, "long");
   assert.equal(badge.achieved.silver, "2026-07-06T20:00:00Z");
+});
+
+test("wave-3 local badges replay with expected semantics", () => {
+  const rows = [
+    // OpenAI model -> closed_source_loyalist
+    { source: "codex", model: "gpt-5-turbo", hour_start: "2026-07-01T10:00:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000, cached_input_tokens: 450000 },
+    // Free cost row -> frugal_architect
+    { source: "lmstudio", model: "qwen-coder", hour_start: "2026-07-01T10:15:00Z", total_tokens: 60000000, output_tokens: 500000, input_tokens: 100000 },
+    // Local source row -> offgrid_sovereign
+    { source: "ollama", model: "llama3:local", hour_start: "2026-07-01T23:55:00Z", total_tokens: 2000000, output_tokens: 100000 },
+    // Day 2 (weekday)
+    { source: "claude", model: "claude-4", hour_start: "2026-07-02T10:00:00Z", total_tokens: 1000, output_tokens: 100 },
+  ];
+  const projects = [
+    { project_key: "my-repo", source: "claude", hour_start: "2026-07-01T10:00:00Z", total_tokens: 1000 },
+    { project_key: "my-repo", source: "claude", hour_start: "2026-07-08T10:00:00Z", total_tokens: 1000 },
+  ];
+
+  const result = computeLocalAchievements(rows, projects, { timeZoneContext: TZ_SHANGHAI });
+  assert.ok(byId(result, "closed_source_loyalist").metric_value >= 15000000);
+  assert.equal(byId(result, "closed_source_loyalist").tier, 1);
+  assert.ok(byId(result, "frugal_architect").metric_value >= 60000000);
+  assert.equal(byId(result, "frugal_architect").tier, 1);
+  assert.ok(byId(result, "offgrid_sovereign").metric_value >= 2000000);
+  assert.equal(byId(result, "offgrid_sovereign").tier, 3);
+  assert.ok(byId(result, "megacontext_voyager").metric_value >= 500000);
+  assert.ok(byId(result, "cache_miser").metric_value >= 1);
+  assert.ok(byId(result, "code_cannon").metric_value >= 500000);
+  assert.ok(byId(result, "buzzer_beater").metric_value >= 1);
+  assert.ok(byId(result, "refactor_titan").metric_value >= 2);
+  assert.ok(byId(result, "zen_balancer").metric_value >= 1);
 });

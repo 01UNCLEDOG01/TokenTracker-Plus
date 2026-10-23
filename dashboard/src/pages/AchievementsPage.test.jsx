@@ -25,7 +25,7 @@ describe("AchievementsPage local-only wall", () => {
     expect(screen.getByTestId("local-wall")).toHaveAttribute("data-count", "1");
     expect(screen.getByText(copy("achievements.page.local_note"))).toBeInTheDocument();
     expect(screen.queryByText(copy("achievements.signin.prompt"))).toBeNull();
-    // 1 earned out of the 31-badge catalog, all counted from local data.
-    expect(screen.getByText("/31")).toBeInTheDocument();
+    // 1 earned out of the 42-badge catalog, all counted from local data.
+    expect(screen.getByText("/42")).toBeInTheDocument();
   });
 });

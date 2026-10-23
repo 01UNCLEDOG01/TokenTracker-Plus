@@ -110,6 +110,7 @@ describe("PetPage", () => {
   });
 
   it("removes bundled companions but always protects Clawd", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const messages = installNativeBridge();
     petApiMocks.removePet.mockResolvedValue({ ok: true, id: "sprout", hidden: true });

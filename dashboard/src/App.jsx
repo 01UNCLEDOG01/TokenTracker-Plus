@@ -50,6 +50,11 @@ const CommandPalette = lazy(() =>
     .then((m) => ({ default: m.CommandPalette }))
     .catch(() => ({ default: nullComponent })),
 );
+const SteamAchievementContainer = lazy(() =>
+  import("./ui/achievements/SteamAchievementToast.jsx")
+    .then((m) => ({ default: m.SteamAchievementContainer }))
+    .catch(() => ({ default: nullComponent })),
+);
 // NativeAuthCallbackPage must be eager-imported: its module-level code
 // captures the OAuth `insforge_code` query param synchronously at app
 // boot, BEFORE the InsForge SDK's detectAuthCallback() strips it. Lazy
@@ -415,6 +420,7 @@ export default function App() {
             <Suspense fallback={null}>
               {showSidebar ? <CommandPalette /> : null}
               <LoginModal />
+              <SteamAchievementContainer />
               <Analytics />
               <SpeedInsights />
             </Suspense>

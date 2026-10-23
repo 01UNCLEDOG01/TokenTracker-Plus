@@ -55,7 +55,7 @@ function quantile(sorted: number[], q: number) {
 
 function clampLevel(level: number) {
   if (level <= 0) return 0;
-  if (level >= 6) return 6;
+  if (level >= 7) return 7;
   return level;
 }
 
@@ -124,14 +124,17 @@ export function buildActivityHeatmap({
   }
   allValues.sort((a, b) => a - b);
 
-  const t1 = quantile(allValues, 0.35);
-  const t2 = quantile(allValues, 0.60);
-  const t3 = quantile(allValues, 0.80);
-  const t4 = quantile(allValues, 0.92);
-  const t5 = quantile(allValues, 0.97);
+  const SINGULARITY_THRESHOLD = 3_000_000_000;
+  const t1 = quantile(allValues, 0.30);
+  const t2 = quantile(allValues, 0.55);
+  const t3 = quantile(allValues, 0.75);
+  const t4 = quantile(allValues, 0.88);
+  const t5 = quantile(allValues, 0.95);
+  const t6 = quantile(allValues, 0.985);
 
   function levelFor(value: number) {
     if (!value || value <= 0) return 0;
+    if (value >= SINGULARITY_THRESHOLD || (allValues.length >= 8 && value >= t6 && value > t5)) return 7; // Lv7 宇宙奇点 (30亿+ 或顶级超爆发)
     if (value <= t1) return 1;
     if (value <= t2) return 2;
     if (value <= t3) return 3;

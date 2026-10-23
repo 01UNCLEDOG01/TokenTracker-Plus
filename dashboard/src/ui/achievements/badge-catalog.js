@@ -36,6 +36,19 @@ import {
   TrendingUp,
   Trophy,
   Zap,
+  Sparkles,
+  Bot,
+  Radio,
+  FileText,
+  Lock,
+  Timer,
+  Scale,
+  Network,
+  Terminal,
+  Hammer,
+  WifiOff,
+  Cpu,
+  Compass,
 } from "lucide-react";
 
 // `art` files live in dashboard/public/achievements/ (see the README there
@@ -82,6 +95,18 @@ export const BADGE_CATALOG = [
   { id: "deep_thinker", scope: "local", icon: BrainCircuit, format: "tokens", art: "/achievements/deep-thinker.png?v=7" },
   { id: "real_money", scope: "local", icon: Banknote, format: "usd", art: "/achievements/real-money.png?v=11" },
   { id: "session_marathon", scope: "local", icon: Hourglass, format: "duration", art: "/achievements/session-marathon.png?v=11" },
+  // Wave-3 badges (2026-10-23)
+  { id: "frugal_architect", scope: "local", icon: Coins, format: "tokens", art: "/achievements/frugal-architect.png?v=2" },
+  { id: "closed_source_loyalist", scope: "local", hidden: true, icon: Sparkles, format: "tokens", art: "/achievements/closed-source-loyalist.png?v=2" },
+  { id: "offgrid_sovereign", scope: "local", hidden: true, icon: WifiOff, format: "tokens", art: "/achievements/offgrid-sovereign.png?v=2" },
+  { id: "megacontext_voyager", scope: "local", icon: Layers, format: "tokens", art: "/achievements/megacontext-voyager.png?v=2" },
+  { id: "cache_miser", scope: "local", icon: Cpu, format: "count", art: "/achievements/cache-miser.png?v=2" },
+  { id: "code_cannon", scope: "local", icon: Flame, format: "tokens", art: "/achievements/code-cannon.png?v=2" },
+  { id: "buzzer_beater", scope: "local", icon: Timer, format: "count", art: "/achievements/buzzer-beater.png?v=2" },
+  { id: "zen_balancer", scope: "local", icon: Scale, format: "count", art: "/achievements/zen-balancer.png?v=2" },
+  { id: "swarm_commander", scope: "local", icon: Compass, format: "count", art: "/achievements/swarm-commander.png?v=2" },
+  { id: "terminal_purist", scope: "local", icon: Terminal, format: "days", art: "/achievements/terminal-purist.png?v=2" },
+  { id: "refactor_titan", scope: "local", icon: Hammer, format: "count", art: "/achievements/refactor-titan.png?v=2" },
 ];
 
 export const BADGE_BY_ID = new Map(BADGE_CATALOG.map((b) => [b.id, b]));

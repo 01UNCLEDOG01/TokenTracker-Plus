@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-10-23T02:10:26.649Z",
+  "generatedAt": "2026-10-23T15:20:50.030Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 424,
-    "rawText": 158
+    "colors": 474,
+    "rawText": 175
   },
   "files": {
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
@@ -199,6 +199,19 @@
       "rawText": 0,
       "rawTextTokens": []
     },
+    "dashboard/src/ui/achievements/AchievementShareModal.jsx": {
+      "colors": 22,
+      "rawText": 7,
+      "rawTextTokens": [
+        "TokenTracker Plus Milestone",
+        "下载高清海报 (PNG)",
+        "导出成就战报与勋章卡片",
+        "已解锁",
+        "生成你的个人成就战报，一键下载海报或复制格式化文案分享至社交圈。",
+        "钻石勋章",
+        "黄金勋章"
+      ]
+    },
     "dashboard/src/ui/achievements/AchievementsSection.jsx": {
       "colors": 0,
       "rawText": 3,
@@ -236,6 +249,28 @@
         "= 1); if (list.length === 0) return null; return ("
       ]
     },
+    "dashboard/src/ui/achievements/BadgeSynergyBanner.jsx": {
+      "colors": 0,
+      "rawText": 7,
+      "rawTextTokens": [
+        ") : isUnlocked ? (",
+        "t.id === activeTitleId) || unlockedTitles[0] || null; return (",
+        "专属称号与成就羁绊",
+        "当前佩戴",
+        "当特定徽章达到指定品阶时触发羁绊共鸣，解锁并佩戴你的极客专属称号。",
+        "未达成",
+        "点击佩戴"
+      ]
+    },
+    "dashboard/src/ui/achievements/SteamAchievementToast.jsx": {
+      "colors": 18,
+      "rawText": 3,
+      "rawTextTokens": [
+        ") : ( /* DISTINCT VISUAL 2: UNLOCK (CLASSIC STEAM OBSIDIAN & AMBER GLOW) */",
+        "ACHIEVEMENT PROMOTED · 勋章晋阶",
+        "ACHIEVEMENT UNLOCKED · 成就解锁"
+      ]
+    },
     "dashboard/src/ui/achievements/tier-palette.js": {
       "colors": 40,
       "rawText": 0,
@@ -269,14 +304,14 @@
       ]
     },
     "dashboard/src/ui/dashboard/components/ActivityHeatmap.jsx": {
-      "colors": 32,
+      "colors": 34,
       "rawText": 1,
       "rawTextTokens": [
         "0 ? ("
       ]
     },
     "dashboard/src/ui/dashboard/components/ActivityHeatmap3D.jsx": {
-      "colors": 69,
+      "colors": 77,
       "rawText": 2,
       "rawTextTokens": [
         "0 ? (",

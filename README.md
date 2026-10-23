@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>Track real AI token costs, session topologies, and real-time generation speeds across 52 AI tools & IDEs</strong></p>
+  <p><strong>Track real AI token costs, session topologies, and real-time generation speeds across 52 AI coding tools & IDEs</strong></p>
   <p>
     <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <b>English</b>
   </p>
@@ -11,7 +11,7 @@
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-data--privacy"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-key-features"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
-    <a href="#-heatmap-tiers--data-analytics"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv6%207--tier-blueviolet.svg" alt="7-tier Heatmap" /></a>
+    <a href="#-heatmap-tiers--data-analytics"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
     <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-plus?style=social" alt="GitHub stars" /></a>
   </p>
 </div>
@@ -44,7 +44,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 📊 **Local Dashboard** (default: `http://localhost:7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
 - 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 52 AI tools on your machine without cloud account lock-in or API key risks.
-- 🏆 **31 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
+- 🏆 **42 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
 
 > **Looking for native desktop apps?**
 > - **Windows** — Run `TokenTrackerWin` (C# .NET 8 + WebView2 system tray app), bundled with desktop pets, quota cards, and an always-on-top usage pill. See [TokenTrackerWin/README.md](./TokenTrackerWin/README.md).
@@ -55,13 +55,14 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ## ✨ Key Features
 
-- 🔌 **Out-of-the-Box Support for 52 AI Tools** — Broad coverage across CLIs, IDEs, and local clients (Claude Code, Codex CLI, Cursor, Gemini CLI, Antigravity, OpenCode, DeepSeek Harness, ZCode, WorkBuddy dual editions, TRAE CN local DB, Kimi desktop, etc.).
+- 🔌 **Built for Multi-Platform Power Users (52 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
+- 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
 - ⚡ **Nanosecond Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
 - 🏠 **100% Local-First & Private** — Runs locally. Parses on-device logs and databases; code snippets and prompts never leave your computer.
-- 📊 **Lv0~Lv6 7-Tier Heatmap** — Replaced the old Lv4 ceiling! Brand-new 5-quantile distribution (`P35`, `P60`, `P80`, `P92`, `P97`) supporting bursts of billions of tokens per day, rendered in both 2D and 3D voxel heatmaps.
+- 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights.
 - 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations.
-- 💰 **Auditable True-Cost Billing** — Strictly calculates `Σ(tokens × price)`; **permanently rejects the upstream `-free` zero-price rule** by valuing free routes at list price; accurately reconciles WorkBuddy consumption credits.
-- 🏆 **31 Offline Achievements** — 100% unlocked from the local queue; `trendsetter` compares early usage against a local curated model debut catalog.
+- 🏆 **42 Offline Achievements & Synergy Titles** — 100% local offline unlocking; authentic Steam unlock audio & toast popups, promotion fanfares, 8 developer synergy titles, and Canvas battle report export.
+- 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
 
 ---
@@ -95,7 +96,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 </td>
 <td width="50%">
 
-**Offline Achievements** — 31 achievements unlocked locally
+**Offline Achievements** — 42 offline achievements, synergy titles & Steam popups
 
 <img src="./docs/screenshots/achievements.png" alt="Achievements" />
 
@@ -112,14 +113,15 @@ node bin/tracker.js doctor     # System diagnostics and health check
 | Feature Dimension | ⚡ **TokenTracker Plus (This Fork)** | 📦 **Original TokenTracker (Upstream)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **Architecture & Focus** | **Macro Ledger + Deep Topology + Real-Time Speed** | General All-in-One Dashboard (optional hosted cloud) | Minimalist Desktop Floating Widget |
-| **Supported AI Tools** | **52 Tools** (Comprehensive CLI, IDE, and local clients) | 46 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
+| **AI tools supported** | **52** | 46 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
+| **Rate-limit tracking** | **✅ 17 providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
 | **Primary Interaction** | **Windows Tray + Web Dashboard + Widgets + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
 | **Data Privacy & Storage** | **100% Local-First** (Zero cloud requirement, WAL-aware) | Local SQLite + Optional official cloud sync | Local SQLite WAL (No macro historical reporting) |
 | **Token Speed (tok/s)** | **✅ Native Support** (Nanosecond duration, reasoning tokens) | ❌ Only totals and spend; no speed metrics | ✅ Supported (Key highlight of floating widget) |
 | **Agent Topologies** | **✅ Deep Topology** (Primary/subagent drill-down, tool calls) | ⚠️ Basic flat session listing | ❌ Flat request stream only; no hierarchy |
-| **Activity Heatmap** | **✅ 7 Tiers (Lv0~Lv6)** (5 quantiles, handles 4B+ tokens) | ⚠️ Traditional 4 tiers (Lv0~Lv4, saturated early) | ❌ No heatmap feature |
+| **Activity Heatmap** | **✅ 8 Tiers (Lv0~Lv7)** (Features Lv7 Singularity for 3B+ single-day bursts) | ⚠️ Traditional 4 tiers (Lv0~Lv4, saturated early) | ❌ No heatmap feature |
 | **Cost Valuation Truth** | **✅ Strict List Pricing** (Rejects `-free` zeroing; WorkBuddy points) | ⚠️ Forces `-free` routes to $0; points unrefined | ⚠️ Basic pricing config with limited scope |
-| **Achievements** | **✅ 31 Offline Achievements** (Local queue & debut catalog) | ⚠️ Depends on official cloud server & leaderboard | ❌ No achievement system |
+| **Achievements** | **✅ 42 Offline Achievements** (Local queue & debut catalog) | ⚠️ Depends on official cloud server & leaderboard | ❌ No achievement system |
 | **Desktop Companion** | **✅ Desktop Pet + Quota Pill + Floating Cards** | ✅ macOS menu bar mascot / Basic widgets | ⚠️ Basic floating window |
 | **Open Source & Transparency** | **✅ 100% Open Source** (Fully auditable, MIT) | ✅ Open Source (MIT) | ⚠️ Packaged Electron asar binary |
 

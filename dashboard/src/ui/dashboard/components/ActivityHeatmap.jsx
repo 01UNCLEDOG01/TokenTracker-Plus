@@ -22,6 +22,7 @@ const HEATMAP_COLORS_LIGHT = [
   "#10b981", // level 4
   "#059669", // level 5 - titan
   "#047857", // level 6 - overdrive / peak
+  "#022c22", // level 7 - singularity / 宇宙奇点
 ];
 
 const HEATMAP_COLORS_DARK = [
@@ -32,6 +33,7 @@ const HEATMAP_COLORS_DARK = [
   "#10b981", // level 4
   "#34d399", // level 5 - titan
   "#6ee7b7", // level 6 - overdrive / luminous mint
+  "#a7f3d0", // level 7 - singularity / 宇宙奇点
 ];
 
 function parseUtcDate(value) {

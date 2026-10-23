@@ -11,7 +11,7 @@
     <a href="#-快速開始"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-數據與隱私準則"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
-    <a href="#-熱力圖色階與數據分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv6%207--tier-blueviolet.svg" alt="7-tier Heatmap" /></a>
+    <a href="#-熱力圖色階與數據分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
     <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-plus?style=social" alt="GitHub stars" /></a>
   </p>
 </div>
@@ -44,7 +44,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 - 📊 **本地 Dashboard**（預設 `http://localhost:7680`）—— 總花費、每日趨勢、按模型明細、項目歸屬與會話拓撲。
 - ⚡ **毫秒級 Token 速率流** —— 自動接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客戶端的即時生成速率（`tok/s`）。
 - 🔌 **全自動掃描掛接** —— 自動識別掛接本地已安裝的 52 款 AI 編碼工具，零帳號綁定、零 API Key 洩漏風險。
-- 🏆 **31 枚成就全量離線判定** —— 100% 按本機本地佇列解鎖，無需連接公網排行榜服務。
+- 🏆 **42 枚成就全量離線判定** —— 100% 按本機本地佇列解鎖，無需連接公網排行榜服務。
 
 > **想要原生桌面端？**
 > - **Windows** —— 運行 `TokenTrackerWin`（C# .NET 8 + WebView2 系統匣 App），附帶動態桌寵、桌面額度小組件與置頂用量藥丸。構建方式見 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
@@ -58,10 +58,10 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 - 🔌 **開箱即用支援 52 款 AI 工具** —— 覆蓋國內外全系 CLI、IDE 外掛與本地模型客戶端（Claude Code、Codex CLI、Cursor、Gemini CLI、Antigravity、OpenCode、DeepSeek Harness、ZCode、WorkBuddy 雙版、TRAE CN 本地庫、Kimi 桌面版等）。
 - ⚡ **奈秒級 Token 生成速率捕獲** —— 自研多源速率解析與 SQLite WAL 無鎖感知，毫秒級流式分段，獨立核算思考模型推理 tokens，精準輸出會話級 `tok/s`。
 - 🏠 **100% 本地優先與數據隱私** —— 跑在本地。直接讀取本機日誌與資料庫，程式碼正文、Prompt 絕不離開你的電腦。
-- 📊 **Lv0~Lv6 七階熱力圖** —— 告別舊版 Lv4 封頂！全新 5 分位梯隊（P35/P60/P80/P92/P97），支援單日數十億 tokens 極限爆發，支援 2D 翠綠階梯與 3D 體素熱力圖。
+- 📊 **Lv0~Lv7 八階熱力圖（含 Lv7 宇宙奇點 · Singularity）** —— 告別舊版封頂！針對單日突破 30 億 Token 的超神極客爆發，專屬解鎖頂級【宇宙奇點】色階與 3D 體素突破拔高，支援 2D 階梯與 3D 體素熱力圖。
 - 🌲 **深度會話拓撲與 Agent 下鑽** —— 穿透主會話、工具調用與子代理（Subagent）鏈路，精準排查高耗會話。
 - 💰 **可審計的真值計費準則** —— 嚴格按 `Σ(tokens × 單價)` 核算成本；**堅決拒絕上游 `-free` 歸零抹平**，免費路由按真實刊例價計量；細化 WorkBuddy 消耗積分核算。
-- 🏆 **31 枚成就 100% 離線解鎖** —— 本地佇列判定，無需依賴雲端伺服器；首發嘗鮮者（trendsetter）對比本地維護的真實模型首發日目錄。
+- 🏆 **42 枚成就 100% 離線解鎖** —— 本地佇列判定，無需依賴雲端伺服器；首發嘗鮮者（trendsetter）對比本地維護的真實模型首發日目錄。
 - 🐱 **動態桌寵與桌面小組件** —— 懸浮像素桌寵（多套動作輪換與滑鼠注視）、4 種桌面小組件、置頂用量藥丸。
 
 ---
@@ -95,7 +95,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 </td>
 <td width="50%">
 
-**離線成就系統** —— 31 枚全量成就離線判定
+**離線成就系統** —— 42 枚全量成就離線判定與稱號羈絆體系
 
 <img src="./docs/screenshots/achievements.png" alt="Achievements" />
 
@@ -113,13 +113,14 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 |:---|:---:|:---:|:---:|
 | **定位與架構** | **宏觀全局帳本 + 深度拓撲 + 即時速率** | 通用全能看板（含官方雲託管） | 極簡桌面即時懸浮窗 |
 | **支援的 AI 工具數** | **52 款**（覆蓋國內外全譜系工具與本地端） | 46 款 | ~15 款（主要覆蓋主流模型 API 與常見 CLI） |
+| **限額追蹤** | **✅ 17 家 provider**（即時限額窗口與重置倒數計時） | 10 家 provider | ⚠️ 基礎限額展示 |
 | **主要交互方式** | **Windows 系統匣 + Web Dashboard + 小組件 + CLI** | macOS 選單列 + Web Dashboard + 小組件 + CLI | 桌面極簡懸浮窗 |
 | **數據隱私與存儲** | **100% 本地優先**（零強制外傳，多端 WAL 感知） | 本地 SQLite + 可選官方雲端同步 | 本地 SQLite WAL（無宏觀歷史報表） |
 | **Token 速率 (tok/s)** | **✅ 原生支援**（自研奈秒分段，區分思考 tokens，協同 TM） | ❌ 僅統計總量與花費，無速率計算 | ✅ 支援（懸浮窗主打核心亮點） |
 | **會話分析與 Agent 拓撲** | **✅ 深度拓撲**（主代理/子會話下鑽、調用鏈路穿透） | ⚠️ 基礎會話列表彙總 | ❌ 僅平鋪羅列請求，無層級結構 |
-| **活躍度熱力圖** | **✅ 7 階尺度 (Lv0~Lv6)**（5 分位梯隊，容納 40 億+ tokens） | ⚠️ 傳統 4 階 (Lv0~Lv4，極限量易打滿) | ❌ 無熱力圖功能 |
+| **活躍度熱力圖** | **✅ 8 階尺度 (Lv0~Lv7)**（新增 Lv7 宇宙奇點，容納單日 30 億+ 極限爆發） | ⚠️ 傳統 4 階 (Lv0~Lv4，極限量易打滿) | ❌ 無熱力圖功能 |
 | **成本計量真值** | **✅ 嚴謹刊例價核算**（拒絕 `-free` 抹平；支援 WorkBuddy 消耗積分） | ⚠️ `-free` 路由強制歸 $0；積分未細化 | ⚠️ 基礎定價配置，覆蓋面有限 |
-| **成就與徽章** | **✅ 31 枚全量成就離線解鎖**（本地佇列與首發日核算） | ⚠️ 依賴官方雲服務與排行榜下發 | ❌ 無成就系統 |
+| **成就與徽章** | **✅ 42 枚全量成就離線解鎖**（本地佇列與首發日核算） | ⚠️ 依賴官方雲服務與排行榜下發 | ❌ 無成就系統 |
 | **桌面伴侶擴展** | **✅ 動態桌寵 + 額度卡片 + 置頂藥丸** | ✅ macOS 選單列動畫 / 基礎小組件 | ⚠️ 基礎懸浮窗口 |
 | **開源與透明性** | **✅ 100% 原始碼開源**（可自由審計與二次開發） | ✅ 原始碼開源 (MIT) | ⚠️ Electron asar 閉源分發 |
 
@@ -170,7 +171,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | **AnythingLLM Desktop** | ✅ 自動 | 被動讀取本地 SQLite 資料庫 | 桌面端工作區用量歸集 |
 | **Claude Science** | ✅ 自動 | 被動讀取 SQLite（`operon-cli.db`） | 只讀取 frames token 計數 |
 | **DeepSeek Harness** | ✅ 自動 | 被動讀取會話日誌（`.jsonl[.zstd]`） + 速率探針 | **多幀 zstd 解壓與即時 tok/s 流式計算** |
-| **TRAE CN** | ✅ 自動 | 被動解析本地資料庫與工作區會話 | **支援國內版本地存儲模式與會話下鑽** |
+| **TRAE CN** (字節跳動) | ✅ 自動 | 整合早期 Trae Work 與 Trae CN 國內版合併後的全新統一架構，自動適配本地會話存儲與 SQLite | **支援國內版最新合併架構解析與會話拓撲下鑽** |
 | **TRAE** (國際版) | ✅ 自動 | 使用共享應用密鑰讀取 SQLCipher 資料庫 | 本地安全解析，不調用外部 API |
 | **LM Studio** | ✅ 自動 | 被動讀取本地日誌與活動狀態 | 支援 `TOKENTRACKER_LMSTUDIO_HOME` 覆蓋 |
 | **Unsloth Studio** | ✅ 自動 | 被動讀取 SQLite（`unsloth.db`） | 支援 `TOKENTRACKER_UNSLOTH_DB` 覆蓋 |
@@ -215,17 +216,18 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **價格數據源**：聚合 LiteLLM 全量官方價表 + `src/lib/pricing/curated-overrides.json` 本地精選校準；未公開價格的模型只記錄 token 數量，絕不胡亂捏造虛假金額。
 - **WorkBuddy 積分與雙源核算**：獨立支援 WorkBuddy 標準版與進階版，將消耗積分與官方代幣嚴格對帳，防止雙計。
 
-### 熱力圖色階與數據分析（Lv0 ~ Lv6 七階色階）
-熱力圖採用全新 **7 階色階體系**，根據活躍日數據動態計算 5 個關鍵分位點（`P35`, `P60`, `P80`, `P92`, `P97`）：
+### 熱力圖色階與數據分析（Lv0 ~ Lv7 八階色階 · 含 Lv7 宇宙奇點）
+熱力圖採用全新 **8 階色階體系**，在 5 個關鍵分位點（`P35`, `P60`, `P80`, `P92`, `P97`）基礎上拓展單日突破 30 億極限爆發的宇宙奇點色階：
 - **Level 0**：0 tokens（無活動）
 - **Level 1**：`0 < tokens ≤ P35`（輕度編碼）
 - **Level 2**：`P35 < tokens ≤ P60`（日常開發）
 - **Level 3**：`P60 < tokens ≤ P80`（深度編碼）
 - **Level 4**：`P80 < tokens ≤ P92`（高強度輸出）
-- **Level 5**：`P92 < tokens ≤ P97`（極限爆發，22~28.5 億 tokens 翠綠強化）
-- **Level 6**：`> P97`（巔峰爆發 / 神級產出，支援 28.5 億至 55.5 億+ tokens 極限負載，專屬暗夜發光階）
+- **Level 5**：`P92 < tokens ≤ P97`（極限爆發，20~28.5 億 tokens 翠綠強化）
+- **Level 6**：`> P97`（巔峰爆發 / 神級產出，專屬暗夜熒光翡翠階）
+- **Level 7【宇宙奇點 · Singularity】**：`tokens ≥ 3,000,000,000`（單日 30 億+ tokens 超神產出，3D 體素高度突破至 $1.25 \times H_{\text{max}}$ 聳立，專屬祖母綠發光星環）
 
-2D 平面熱力圖與 3D 體素熱力圖（體素高度按 $\frac{\text{level}}{6} \times H_{\text{max}}$ 動態拔高）全面同步對齊。
+2D 平面熱力圖與 3D 體素熱力圖（Lv0~Lv6 按高度線性拔高，Lv7 突破頂峰上限）全面對齊。
 
 ---
 

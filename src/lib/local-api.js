@@ -491,6 +491,17 @@ const LOCAL_BADGE_THRESHOLDS = {
   deep_thinker: [1000000, 5000000, 20000000, 60000000], // lifetime reasoning output tokens
   real_money: [5, 50, 500, 5000], // lifetime tracked cost, USD
   session_marathon: [3600000, 14400000, 28800000, 43200000], // longest single-session active time, ms (1/4/8/12h)
+  frugal_architect: [50000000, 500000000, 2000000000, 10000000000], // lifetime free/zero-cost tokens
+  closed_source_loyalist: [10000000, 100000000, 1000000000, 10000000000], // lifetime openai/gpt tokens (hidden badge)
+  offgrid_sovereign: [1000000, 10000000, 50000000, 200000000], // lifetime local/offline tokens (hidden badge)
+  megacontext_voyager: [200000, 1000000, 5000000, 20000000], // peak hour input/context tokens
+  cache_miser: [5, 25, 100, 300], // active hours with high cache hit ratio (>=80%)
+  code_cannon: [100000, 500000, 2000000, 10000000], // peak output tokens
+  buzzer_beater: [5, 20, 60, 150], // active intervals at hour/day margins
+  zen_balancer: [1, 4, 12, 26], // active weeks with zero weekend tokens
+  swarm_commander: [5, 20, 60, 150], // active hours with >= 2 distinct sources
+  terminal_purist: [7, 30, 90, 180], // active days with >= 90% CLI tokens
+  refactor_titan: [2, 6, 15, 30], // most active weeks invested in a single project
 };
 
 // The cloud nine (see scripts/ops/user-badges.sql) are normally computed
@@ -621,6 +632,8 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
 
   const seenProjects = new Set();
   const perProjectTokens = new Map();
+  const perProjectWeeks = new Map();
+  let maxProjectWeeks = 0;
   for (const row of sortByHour(projectRows || [])) {
     const projectKey = row.project_key;
     const tokens = Number(row.total_tokens || 0);
@@ -634,6 +647,21 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     if (running > trackers.project_devotion.value) {
       bump("project_devotion", running, row.hour_start, { project_key: projectKey });
     }
+    const pDay = utcDayKey(row.hour_start);
+    if (pDay) {
+      const pDayMs = Date.parse(`${pDay}T00:00:00Z`);
+      const pWeekStart = isoWeekStartMs(pDayMs);
+      let pWeeks = perProjectWeeks.get(projectKey);
+      if (!pWeeks) {
+        pWeeks = new Set();
+        perProjectWeeks.set(projectKey, pWeeks);
+      }
+      pWeeks.add(pWeekStart);
+      if (pWeeks.size > maxProjectWeeks) {
+        maxProjectWeeks = pWeeks.size;
+        bump("refactor_titan", maxProjectWeeks, row.hour_start, { project_key: projectKey });
+      }
+    }
   }
 
   const nightHours = new Set();
@@ -643,6 +671,15 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   let cachedTotal = 0;
   let reasoningTotal = 0;
   let costTotal = 0;
+  let frugalTokens = 0;
+  let openaiTokens = 0;
+  let offgridTokens = 0;
+  let megacontextPeak = 0;
+  let codeCannonPeak = 0;
+  let cacheMiserCount = 0;
+  let buzzerCount = 0;
+  const hourSources = new Map();
+  let multiSourceHours = 0;
   // Wave-2 cloud-parity accumulators (deep_diver / heart_model input,
   // claude_survivor / wishing_well). Family prefixes match the SQL
   // `model LIKE 'claude%'` / `'deepseek%'` semantics.
@@ -659,10 +696,48 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     // Same cost semantics as the usage summary (the corner ¥ number):
     // authoritative provider-reported cost wins, everything else prices from
     // the model tables at read time. Rows rarely carry a stored cost.
-    costTotal += computeRowCost(row);
+    const rowCost = computeRowCost(row);
+    costTotal += rowCost;
+    if (rowCost === 0) {
+      frugalTokens += tokens;
+      bump("frugal_architect", frugalTokens, row.hour_start);
+    }
     bump("cache_alchemist", cachedTotal, row.hour_start);
     bump("deep_thinker", reasoningTotal, row.hour_start);
     bump("real_money", costTotal, row.hour_start);
+
+    const inputVolume = Number(row.input_tokens || 0) + Number(row.cached_input_tokens || 0);
+    if (inputVolume > megacontextPeak) {
+      megacontextPeak = inputVolume;
+      bump("megacontext_voyager", megacontextPeak, row.hour_start);
+    }
+
+    const outTokens = Number(row.output_tokens || 0);
+    if (outTokens > codeCannonPeak) {
+      codeCannonPeak = outTokens;
+      bump("code_cannon", codeCannonPeak, row.hour_start);
+    }
+
+    const cachedIn = Number(row.cached_input_tokens || 0);
+    const totalIn = Number(row.input_tokens || 0) + cachedIn;
+    if (totalIn >= 50000 && cachedIn / totalIn >= 0.8) {
+      cacheMiserCount += 1;
+      bump("cache_miser", cacheMiserCount, row.hour_start);
+    }
+
+    if (row.source && row.hour_start) {
+      let srcSet = hourSources.get(row.hour_start);
+      if (!srcSet) {
+        srcSet = new Set();
+        hourSources.set(row.hour_start, srcSet);
+      }
+      const beforeSize = srcSet.size;
+      srcSet.add(row.source);
+      if (beforeSize < 2 && srcSet.size >= 2) {
+        multiSourceHours += 1;
+        bump("swarm_commander", multiSourceHours, row.hour_start);
+      }
+    }
     if (tokens > sprintPeak) {
       sprintPeak = tokens;
       bump("sprinter", sprintPeak, row.hour_start, { hour_start: row.hour_start });
@@ -683,8 +758,40 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         deepseekTokens += tokens;
         bump("wishing_well", deepseekTokens, row.hour_start);
       }
+      const lowerModel = modelKey.toLowerCase();
+      if (
+        lowerModel.startsWith("gpt") ||
+        lowerModel.startsWith("o1") ||
+        lowerModel.startsWith("o3") ||
+        lowerModel.startsWith("o4") ||
+        lowerModel.startsWith("chatgpt") ||
+        lowerModel.startsWith("text-davinci") ||
+        lowerModel.includes("openai")
+      ) {
+        openaiTokens += tokens;
+        bump("closed_source_loyalist", openaiTokens, row.hour_start);
+      }
+      const sourceKey = String(row.source || "").toLowerCase();
+      if (
+        sourceKey === "ollama" ||
+        sourceKey === "lmstudio" ||
+        sourceKey === "vllm" ||
+        sourceKey === "local" ||
+        sourceKey.includes("localhost") ||
+        lowerModel.startsWith("ollama/") ||
+        lowerModel.includes(":local")
+      ) {
+        offgridTokens += tokens;
+        bump("offgrid_sovereign", offgridTokens, row.hour_start);
+      }
     }
-    const parts = getZonedParts(new Date(row.hour_start), timeZoneContext || {});
+    const d = new Date(row.hour_start);
+    const mins = d.getUTCMinutes();
+    const parts = getZonedParts(d, timeZoneContext || {});
+    if (mins >= 50 || (parts && parts.hour === 23)) {
+      buzzerCount += 1;
+      bump("buzzer_beater", buzzerCount, row.hour_start);
+    }
     if (!parts) continue;
     // Hour-of-day footprints for around_the_clock: one point per local hour
     // 0–23, across the whole history.
@@ -715,8 +822,12 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     if (!day) continue;
     let entry = days.get(day);
     if (!entry) {
-      entry = { tokens: 0, output: 0, models: new Set(), sources: new Set() };
+      entry = { tokens: 0, output: 0, cliTokens: 0, models: new Set(), sources: new Set() };
       days.set(day, entry);
+    }
+    const src = String(row.source || "").toLowerCase();
+    if (src === "claude" || src === "codex" || src === "opencode" || src === "kilo-cli" || src.includes("cli")) {
+      entry.cliTokens += tokens;
     }
     entry.tokens += tokens;
     entry.output += Number(row.output_tokens || 0);
@@ -739,6 +850,8 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   let runLength = 0;
   let longestRun = 0;
   let prevDayMs = null;
+  let terminalDays = 0;
+  const isoWeeksTracking = new Map();
 
   for (const day of dayKeys) {
     const entry = days.get(day);
@@ -792,6 +905,27 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     // the set of active days — same definition as the SQL base CTE.
     if (firstDayMs !== null) {
       bump("veteran", Math.max(0, Math.round((dayMs - firstDayMs) / DAY_MS)), atIso);
+    }
+
+    if (entry.tokens > 0 && entry.cliTokens / entry.tokens >= 0.9) {
+      terminalDays += 1;
+      bump("terminal_purist", terminalDays, atIso);
+    }
+
+    let wInfo = isoWeeksTracking.get(weekStart);
+    if (!wInfo) {
+      wInfo = { weekdays: 0, weekendTokens: 0 };
+      isoWeeksTracking.set(weekStart, wInfo);
+    }
+    if (dow >= 1 && dow <= 5) wInfo.weekdays += 1;
+    if (dow === 0 || dow === 6) wInfo.weekendTokens += entry.tokens;
+  }
+
+  let zenWeeksCount = 0;
+  for (const [wStart, wInfo] of isoWeeksTracking) {
+    if (wInfo.weekdays > 0 && wInfo.weekendTokens === 0) {
+      zenWeeksCount += 1;
+      bump("zen_balancer", zenWeeksCount, new Date(wStart).toISOString());
     }
   }
   void longestRun;
@@ -3206,12 +3340,16 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const maxValue = allValues.length > 0 ? Math.max(...allValues) : 0;
       const calcLevel = (v) => {
         if (v <= 0) return 0;
+        if (v >= 3_000_000_000) return 7; // Lv7 宇宙奇点 · Singularity
         if (maxValue === 0) return 1;
         const r = v / maxValue;
-        if (r <= 0.25) return 1;
-        if (r <= 0.5) return 2;
-        if (r <= 0.75) return 3;
-        return 4;
+        if (r <= 0.15) return 1;
+        if (r <= 0.35) return 2;
+        if (r <= 0.55) return 3;
+        if (r <= 0.75) return 4;
+        if (r <= 0.90) return 5;
+        if (r <= 0.98) return 6;
+        return 7;
       };
 
       // Build cells and group into weeks (array of 7-cell arrays) for the dashboard

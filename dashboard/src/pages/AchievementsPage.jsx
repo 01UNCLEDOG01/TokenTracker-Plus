@@ -3,6 +3,10 @@ import { useAchievements } from "../hooks/use-achievements.js";
 import { copy } from "../lib/copy";
 import { AchievementsSection } from "../ui/achievements/AchievementsSection.jsx";
 import { BADGE_CATALOG } from "../ui/achievements/badge-catalog.js";
+import { BadgeSynergyBanner } from "../ui/achievements/BadgeSynergyBanner.jsx";
+import { AchievementShareModal } from "../ui/achievements/AchievementShareModal.jsx";
+import { SteamAchievementContainer, triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
+import { Share2, Volume2, Sparkles } from "lucide-react";
 
 // Lazy: 3D coin + dialog ship only when a badge is clicked.
 const BadgeDetailModal = React.lazy(() => import("../ui/achievements/BadgeDetailModal.jsx"));
@@ -32,6 +36,7 @@ export default function AchievementsPage() {
   // badges (trendsetter / podium) stay locked offline and say so in the note.
   const local = useAchievements();
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const loading = local.status === "loading";
   // One merged wall: the local endpoint is now the only source, but keeping
   // the `merged` name also keeps the UI-hardcode scanner's existing token.
@@ -46,9 +51,8 @@ export default function AchievementsPage() {
     <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
       <main className="flex-1 pb-12 pt-8 sm:pb-16 sm:pt-10">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          {/* items-baseline: the 12/12 figure sits on the SAME baseline as
-              the page title — the two big text elements read as one line. */}
-          <div className="mb-7 flex items-baseline justify-between gap-4">
+          {/* Header section with title and stats */}
+          <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-baseline sm:justify-between">
             <div className="min-w-0">
               <h1 className="text-3xl font-semibold tracking-tight text-oai-black dark:text-white sm:text-4xl">
                 {copy("achievements.page.title")}
@@ -58,20 +62,67 @@ export default function AchievementsPage() {
               </p>
             </div>
             {!loading && (
-              <div className="shrink-0 text-right">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
                 <div className="font-mono text-2xl font-semibold leading-none tabular-nums text-oai-black dark:text-white">
                   {earnedCount}
                   <span className="text-oai-gray-400 dark:text-oai-gray-600">/{total}</span>
                 </div>
-                <div className="mt-2 h-1 w-24 overflow-hidden rounded-full bg-oai-gray-200 dark:bg-oai-gray-800">
+                <div className="h-1 w-24 overflow-hidden rounded-full bg-oai-gray-200 dark:bg-oai-gray-800">
                   <div
                     className="h-full rounded-full bg-oai-brand-600 transition-[width] duration-500"
                     style={{ width: `${Math.round((earnedCount / total) * 100)}%` }}
                   />
                 </div>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerAchievementNotification({
+                        badge: BADGE_CATALOG.find((b) => b.id === "frugal_architect") || BADGE_CATALOG[0],
+                        tier: 1,
+                        isTierUp: false,
+                        name: "白嫖之光",
+                        desc: "达成成就！天下真有免费的午餐。",
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
+                    title={copy("achievements.action.test_unlock")}
+                  >
+                    <Volume2 className="h-3 w-3 text-amber-500" />
+                    {copy("achievements.action.test_unlock")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerAchievementNotification({
+                        badge: BADGE_CATALOG.find((b) => b.id === "code_cannon") || BADGE_CATALOG[0],
+                        tier: 3,
+                        isTierUp: true,
+                        name: "代码巨炮",
+                        desc: "晋阶至黄金阶！",
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
+                    title={copy("achievements.action.test_tier_up")}
+                  >
+                    <Sparkles className="h-3 w-3 text-cyan-500" />
+                    {copy("achievements.action.test_tier_up")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShareOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-600 shadow-sm transition hover:bg-amber-500/20 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400"
+                  >
+                    <Share2 className="h-3 w-3" />
+                    {copy("achievements.action.export_card")}
+                  </button>
+                </div>
               </div>
             )}
           </div>
+
+          {/* Synergies & Titles banner */}
+          {!loading && <BadgeSynergyBanner badges={merged} />}
 
           {loading ? (
             <GridSkeleton />
@@ -100,6 +151,16 @@ export default function AchievementsPage() {
           )}
         </div>
       </main>
+
+      {/* Steam achievement toast notifications container */}
+      <SteamAchievementContainer />
+
+      {/* Share report card modal */}
+      <AchievementShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        badges={merged}
+      />
 
       {selectedBadge && (
         <React.Suspense fallback={null}>

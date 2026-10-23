@@ -11,7 +11,7 @@
     <a href="#-快速开始"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-数据与隐私准则"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
-    <a href="#-热力图色阶与数据分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv6%207--tier-blueviolet.svg" alt="7-tier Heatmap" /></a>
+    <a href="#-热力图色阶与数据分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
     <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-plus?style=social" alt="GitHub stars" /></a>
   </p>
 </div>
@@ -44,7 +44,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 - 📊 **本地 Dashboard**（默认 `http://localhost:7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
 - ⚡ **毫秒级 Token 速率流** —— 自动接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客户端的实时生成速率（`tok/s`）。
 - 🔌 **全自动扫描挂接** —— 自动识别挂接本地已安装的 52 款 AI 编码工具，零账号绑定、零 API Key 泄露风险。
-- 🏆 **31 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。
+- 🏆 **42 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
@@ -55,13 +55,14 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 ## ✨ 核心特性
 
-- 🔌 **开箱即用支持 52 款 AI 工具** —— 覆盖国内国外全系 CLI、IDE 插件与本地模型客户端（Claude Code、Codex CLI、Cursor、Gemini CLI、Antigravity、OpenCode、DeepSeek Harness、ZCode、WorkBuddy 双版、TRAE CN 本地库、Kimi 桌面版等）。
+- 🔌 **专为多平台重度开发者打造（支持 52 款工具）** —— 专为日常混合使用多款 AI 客户端的高强度极客设计。无论是终端 CLI、VS Code / Cursor 插件，还是原生桌面 IDE，一键免密挂接全部碎片化账本，无需来回切换 10+ 网站查账。
+- 💰 **全网独家：Free 模型真值计费（看清自己到底白嫖赚了多少）** —— 坚决拒绝上游将 `-free` 路由粗暴归零！免费/限免模型一律按官方公开刊例价折算真实算力价值，清清楚楚量化自己薅到了多少真金白银的算力，专属解锁【白嫖之光】勋章与【零元精算巨匠】极客称号。
 - ⚡ **纳秒级 Token 生成速率捕获** —— 自研多源速率解析与 SQLite WAL 无锁感知，毫秒级流式分段，独立核算思考模型推理 tokens，精准输出会话级 `tok/s`。
 - 🏠 **100% 本地优先与数据私密** —— 跑在本地。直接读取本机日志与数据库，代码正文、Prompt 绝不离开你的电脑。
-- 📊 **Lv0~Lv6 七阶热力图** —— 告别旧版 Lv4 封顶！全新 5 分位梯队（P35/P60/P80/P92/P97），支持单日数十亿 tokens 极限爆发，支持 2D 翠绿阶梯与 3D 体素热力图。
+- 📊 **Lv0~Lv7 八阶热力图（含 Lv7 宇宙奇点 · Singularity）** —— 告别旧版封顶！针对单日突破 30 亿 Token 的超神极客爆发，专属解锁顶级【宇宙奇点】色阶与 3D 体素突破拔高，支持 2D 阶梯与 3D 体素热力图。
 - 🌲 **深度会话拓扑与 Agent 下钻** —— 穿透主会话、工具调用与子代理（Subagent）链路，精准排查高耗会话。
-- 💰 **可审计的真值计费准则** —— 严格按 `Σ(tokens × 单价)` 核算成本；**坚决拒绝上游 `-free` 归零抹平**，免费路由按真实刊例价计量；细化 WorkBuddy 消耗积分核算。
-- 🏆 **31 枚成就 100% 离线解锁** —— 本地队列判定，无需依赖云端服务器；首发尝鲜者（trendsetter）对比本地维护的真实模型首发日目录。
+- 🏆 **42 枚成就与称号羁绊体系（Steam 弹窗与音效）** —— 100% 本地离线判定；搭载 Steam 解锁音效与像素级弹窗、升阶音效、8 大极客专属称号羁绊与 Canvas 战报导出。
+- 🔄 **高频持续维护承诺** —— 站长与开源社区紧跟国内外 AI 编码圈最新动态，高频持续更新热门 AI 工具解析与额度监控卡片，随出随接，常用常新。
 - 🐱 **动态桌宠与桌面小组件** —— 悬浮像素桌宠（多套动作轮换与鼠标注视）、4 种桌面小组件、置顶用量药丸。
 
 ---
@@ -95,7 +96,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 </td>
 <td width="50%">
 
-**离线成就系统** —— 31 枚全量成就离线判定
+**离线成就系统** —— 42 枚全量成就离线判定与称号羁绊体系
 
 <img src="./docs/screenshots/achievements.png" alt="Achievements" />
 
@@ -112,14 +113,15 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | 功能维度 | ⚡ **TokenTracker Plus (本分支)** | 📦 **原版 TokenTracker (上游)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **定位与架构** | **宏观全局账本 + 深度拓扑 + 实时速率** | 通用全能看板（含官方云托管） | 极简桌面实时悬浮窗 |
-| **支持的 AI 工具数** | **52 款**（覆盖国内外全谱系工具与本地端） | 46 款 | ~15 款（主要覆盖主流模型 API 与常见 CLI） |
+| **支持的 AI 工具数** | **52** 款（覆盖国内外全谱系工具与本地端） | 46 款 | ~15 款（主要覆盖主流模型 API 与常见 CLI） |
+| **限额追踪** | **✅ 17 家 provider**（实时限额窗口与重置倒计时） | 10 家 provider | ⚠️ 基础限额展示 |
 | **主要交互方式** | **Windows 托盘 + Web Dashboard + 小组件 + CLI** | macOS 菜单栏 + Web Dashboard + 小组件 + CLI | 桌面极简悬浮窗 |
 | **数据隐私与存储** | **100% 本地优先**（零强制外传，多端 WAL 感知） | 本地 SQLite + 可选官方云端同步 | 本地 SQLite WAL（无宏观历史报表） |
 | **Token 速率 (tok/s)** | **✅ 原生支持**（自研纳秒分段，区分思考 tokens，协同 TM） | ❌ 仅统计总量与花费，无速率计算 | ✅ 支持（悬浮窗主打核心亮点） |
 | **会话分析与 Agent 拓扑** | **✅ 深度拓扑**（主代理/子会话下钻、调用链路穿透） | ⚠️ 基础会话列表汇总 | ❌ 仅平铺罗列请求，无层级结构 |
-| **活跃度热力图** | **✅ 7 阶尺度 (Lv0~Lv6)**（5 分位梯队，容纳 40 亿+ tokens） | ⚠️ 传统 4 阶 (Lv0~Lv4，极限量易打满) | ❌ 无热力图功能 |
-| **成本计量真值** | **✅ 严谨刊例价核算**（拒绝 `-free` 抹平；支持 WorkBuddy 消耗积分） | ⚠️ `-free` 路由强制归 $0；积分未细化 | ⚠️ 基础定价配置，覆盖面有限 |
-| **成就与徽章** | **✅ 31 枚全量成就离线解锁**（本地队列与首发日核算） | ⚠️ 依赖官方云服务与排行榜下发 | ❌ 无成就系统 |
+| **活跃度热力图** | **✅ 8 阶尺度 (Lv0~Lv7)**（新增 Lv7 宇宙奇点，容纳单日 30 亿+ 极限爆发） | ⚠️ 传统 4 阶 (Lv0~Lv4，极限量易打满) | ❌ 无热力图功能 |
+| **成本计量真值** | **✅ 严谨刊例价核算**（拒绝 `-free` 抹平，算清到底白嫖赚了多少；支持 WorkBuddy 消耗积分） | ⚠️ `-free` 路由强制归 $0（免费算力显示为 $0 空白）；积分未细化 | ⚠️ 基础定价配置，覆盖面有限 |
+| **成就与徽章** | **✅ 42 枚离线成就 + 称号羁绊 + Steam 音效与弹窗** | ⚠️ 依赖官方云服务与排行榜下发 | ❌ 无成就系统 |
 | **桌面伴侣扩展** | **✅ 动态桌宠 + 额度卡片 + 置顶药丸** | ✅ macOS 菜单栏动画 / 基础小组件 | ⚠️ 基础悬浮窗口 |
 | **开源与透明性** | **✅ 100% 源码开源**（可自由审计与二次开发） | ✅ 源码开源 (MIT) | ⚠️ Electron asar 闭源分发 |
 
@@ -170,7 +172,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **AnythingLLM Desktop** | ✅ 自动 | 被动读取本地 SQLite 数据库 | 桌面端工作区用量归集 |
 | **Claude Science** | ✅ 自动 | 被动读取 SQLite（`operon-cli.db`） | 只读取 frames token 计数 |
 | **DeepSeek Harness** | ✅ 自动 | 被动读取会话日志（`.jsonl[.zstd]`） + 速率探针 | **多帧 zstd 解压与实时 tok/s 流式计算** |
-| **TRAE CN** | ✅ 自动 | 被动解析本地数据库与工作区会话 | **支持国内版本地存储模式与会话下钻** |
+| **TRAE CN** (字节跳动) | ✅ 自动 | 整合早期 Trae Work 与 Trae CN 国内版合并后的全新统一架构，自动适配本地会话存储与 SQLite | **支持国内版最新合并架构解析与会话拓扑下钻** |
 | **TRAE** (国际版) | ✅ 自动 | 使用共享应用密钥读取 SQLCipher 数据库 | 本地安全解析，不调用外部 API |
 | **LM Studio** | ✅ 自动 | 被动读取本地日志与活动状态 | 支持 `TOKENTRACKER_LMSTUDIO_HOME` 覆盖 |
 | **Unsloth Studio** | ✅ 自动 | 被动读取 SQLite（`unsloth.db`） | 支持 `TOKENTRACKER_UNSLOTH_DB` 覆盖 |
@@ -215,17 +217,18 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **价格数据源**：聚合 LiteLLM 全量官方价表 + `src/lib/pricing/curated-overrides.json` 本地精选校准；未公开价格的模型只记录 token 数量，绝不胡乱捏造虚假金额。
 - **WorkBuddy 积分与双源核算**：独立支持 WorkBuddy 标准版与进阶版，将消耗积分与官方代币严格对账，防止双计。
 
-### 热力图色阶与数据分析（Lv0 ~ Lv6 七阶色阶）
-热力图采用全新 **7 阶色阶体系**，根据活跃日数据动态计算 5 个关键分位点（`P35`, `P60`, `P80`, `P92`, `P97`）：
+### 热力图色阶与数据分析（Lv0 ~ Lv7 八阶色阶 · 含 Lv7 宇宙奇点）
+热力图采用全新 **8 阶色阶体系**，在 5 个关键分位点（`P35`, `P60`, `P80`, `P92`, `P97`）基础上拓展单日突破 30 亿极限爆发的宇宙奇点色阶：
 - **Level 0**：0 tokens（无活动）
 - **Level 1**：`0 < tokens ≤ P35`（轻度编码）
 - **Level 2**：`P35 < tokens ≤ P60`（日常开发）
 - **Level 3**：`P60 < tokens ≤ P80`（深度编码）
 - **Level 4**：`P80 < tokens ≤ P92`（高强度输出）
-- **Level 5**：`P92 < tokens ≤ P97`（极限爆发，22~28.5 亿 tokens 翠绿强化）
-- **Level 6**：`> P97`（巅峰爆发 / 神级产出，支持 28.5 亿至 55.5 亿+ tokens 极限负载，专属暗夜发光阶）
+- **Level 5**：`P92 < tokens ≤ P97`（极限爆发，20~28.5 亿 tokens 翠绿强化）
+- **Level 6**：`> P97`（巅峰爆发 / 神级产出，专属暗夜荧光翡翠阶）
+- **Level 7【宇宙奇点 · Singularity】**：`tokens ≥ 3,000,000,000`（单日 30 亿+ tokens 超神产出，3D 体素高度突破至 $1.25 \times H_{\text{max}}$ 耸立，专属祖母绿发光星环）
 
-2D 平面热力图与 3D 体素热力图（体素高度按 $\frac{\text{level}}{6} \times H_{\text{max}}$ 动态拔高）全面同步对齐。
+2D 平面热力图与 3D 体素热力图（Lv0~Lv6 按高度线性拔高，Lv7 突破顶峰上限）全面对齐。
 
 ---
 
