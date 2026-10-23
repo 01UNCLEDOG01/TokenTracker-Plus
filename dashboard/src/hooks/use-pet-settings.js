@@ -41,6 +41,9 @@ export function usePetSettings() {
         // Same probe for the action picker: hosts predating the「动作」lock omit
         // the field, and the page hides the picker instead of a dead control.
         actionLock: typeof next.actionLock === "string" ? next.actionLock : undefined,
+        islandMode: typeof next.islandMode === "boolean" ? next.islandMode : undefined,
+        quota: typeof next.quota === "boolean" ? next.quota : undefined,
+        trayStyle: typeof next.trayStyle === "string" ? next.trayStyle : undefined,
       });
     });
     requestNativePetSettings();

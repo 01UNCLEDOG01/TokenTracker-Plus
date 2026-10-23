@@ -106,6 +106,22 @@ function formatCost(value, currency, rate) {
   return `${symbol}${converted.toFixed(2)}`;
 }
 
+function pickAvatarUrl(user) {
+  if (!user || typeof user !== "object") return null;
+  const meta = user.user_metadata && typeof user.user_metadata === "object" ? user.user_metadata : {};
+  const prof = user.profile && typeof user.profile === "object" ? user.profile : {};
+  const u = meta.avatar_url || meta.picture || prof.avatar_url || user.avatar_url;
+  return typeof u === "string" && u.trim() ? u.trim() : null;
+}
+
+function pickAvatarName(user) {
+  if (!user || typeof user !== "object") return null;
+  const meta = user.user_metadata && typeof user.user_metadata === "object" ? user.user_metadata : {};
+  const prof = user.profile && typeof user.profile === "object" ? user.profile : {};
+  const n = meta.display_name || meta.full_name || meta.name || prof.display_name || prof.full_name || user.display_name;
+  return typeof n === "string" && n.trim() ? n.trim() : null;
+}
+
 function formatLeaderboardUpdatedAt(value) {
   if (typeof value !== "string" || !value.trim()) return null;
   const date = new Date(value);
@@ -286,6 +302,8 @@ function MobileLeaderboardRow({
   entry,
   entryIdx,
   name,
+  avatarUrl,
+  badgeLabel,
   meLabel,
   currency,
   rate,
@@ -309,7 +327,7 @@ function MobileLeaderboardRow({
   const isAnon = !isMe && isAnonymousName(entry?.display_name);
   const profileUserId = typeof entry?.user_id === "string" ? entry.user_id : null;
   const rowClickable = Boolean(profileUserId);
-  const rowName = isMe ? meLabel : name;
+  const rowName = name;
   const handleRowKey = (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -349,7 +367,7 @@ function MobileLeaderboardRow({
           >
             <LeaderboardAvatar
               size="md"
-              avatarUrl={entry?.avatar_url}
+              avatarUrl={avatarUrl || entry?.avatar_url}
               displayName={rowName}
               seed={leaderboardAvatarSeed(entry, rowName)}
               proActive={entry?.pro_active === true}
@@ -365,6 +383,11 @@ function MobileLeaderboardRow({
             )}>
               {rowName}
             </span>
+            {badgeLabel && (
+              <span className="shrink-0 rounded bg-oai-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-oai-brand-600 dark:text-oai-brand-400">
+                {badgeLabel}
+              </span>
+            )}
             <LeaderboardProBadge proActive={entry?.pro_active === true} />
             <BadgeMini badges={entry?.badges} className="shrink-0 scale-95" />
           </div>
@@ -498,7 +521,7 @@ export function LeaderboardPage({
   const location = useLocation();
   const navigate = useNavigate();
   const { openLoginModal } = useLoginModal();
-  const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser, getAccessToken } = useInsforgeAuth();
+  const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser, displayName: cloudDisplayName, getAccessToken } = useInsforgeAuth();
   const { currency, rate } = useCurrency();
   const leaderboardBaseUrl = useMemo(() => getLeaderboardBaseUrl(), []);
   const localHistory = isLocalLeaderboardHost();
@@ -775,6 +798,19 @@ export function LeaderboardPage({
   const me = listData?.me || null;
   const meLabel = copy("leaderboard.me_label");
   const anonLabel = copy("leaderboard.anon_label");
+  const getEntryIdentity = useCallback((entry) => {
+    const isMe = Boolean(entry?.is_me);
+    const rawName = normalizeName(entry?.display_name);
+    const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
+    if (!isMe) {
+      return { name: entryName, avatarUrl: entry?.avatar_url, isMe: false, badgeLabel: null };
+    }
+    const customName = cloudDisplayName || pickAvatarName(cloudUser);
+    const name = customName || entryName || meLabel;
+    const avatarUrl = pickAvatarUrl(cloudUser) || entry?.avatar_url;
+    const badgeLabel = customName ? meLabel : null;
+    return { name, avatarUrl, isMe: true, badgeLabel };
+  }, [cloudDisplayName, cloudUser, meLabel, anonLabel]);
   const weekLabel = copy("leaderboard.period.week");
   const monthLabel = copy("leaderboard.period.month");
   const totalLabel = copy("leaderboard.period.total");
@@ -873,9 +909,10 @@ export function LeaderboardPage({
               }
               const isMe = Boolean(entry?.is_me);
               const profileUserId = typeof entry?.user_id === "string" ? entry.user_id : null;
-              const rawName = normalizeName(entry?.display_name);
-              const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
-              const name = isMe ? meLabel : entryName;
+              const identity = getEntryIdentity(entry);
+              const name = identity.name;
+              const avatarUrl = identity.avatarUrl;
+              const badgeLabel = identity.badgeLabel;
               const rowClickable = Boolean(profileUserId);
               const handleRowOpen = rowClickable ? () => openProfileModal(profileUserId) : undefined;
               const handleRowKey = rowClickable
@@ -934,7 +971,7 @@ export function LeaderboardPage({
                             )}
                           >
                             <LeaderboardAvatar
-                              avatarUrl={entry?.avatar_url}
+                              avatarUrl={avatarUrl}
                               displayName={name}
                               seed={leaderboardAvatarSeed(entry, name)}
                               proActive={entry?.pro_active === true}
@@ -943,6 +980,11 @@ export function LeaderboardPage({
                           {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
                         </span>
                         <span className="truncate font-semibold text-oai-black dark:text-oai-white">{name}</span>
+                        {badgeLabel && (
+                          <span className="shrink-0 rounded bg-oai-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-oai-brand-600 dark:text-oai-brand-400">
+                            {badgeLabel}
+                          </span>
+                        )}
                         <LeaderboardProBadge proActive={entry?.pro_active === true} />
                         <BadgeMini badges={entry?.badges} className="hidden sm:inline-flex" />
                       </div>
@@ -1015,12 +1057,15 @@ export function LeaderboardPage({
         {displayEntries.map((entry, entryIdx) => {
           const rawName = normalizeName(entry?.display_name);
           const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
+          const identity = getEntryIdentity(entry);
           return (
             <MobileLeaderboardRow
               key={`mobile-${entry?.rank ?? "ellipsis"}-${entryIdx}`}
               entry={entry}
               entryIdx={entryIdx}
-              name={entry?.is_me ? meLabel : entryName}
+              name={identity.name}
+              avatarUrl={identity.avatarUrl}
+              badgeLabel={identity.badgeLabel}
               meLabel={meLabel}
               currency={currency}
               rate={rate}

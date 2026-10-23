@@ -327,7 +327,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // only first launches fall back to the show-on-manual-run default.
         // Deferred onto the dispatcher so it shows once the message pump is running.
         _quotaWindow = new QuotaWidgetWindow(_server, OpenDashboard, _widgetWebViewEnvironment);
-        _quotaWindow.EnabledChanged += () => { _quotaItem.Checked = _quotaWindow.Enabled; UpdateLimitsPolling(); };
+        _quotaWindow.EnabledChanged += () => { _quotaItem.Checked = _quotaWindow.Enabled; UpdateLimitsPolling(); PushDashboardPetSettings(); };
         _quotaItem.Checked = _quotaWindow.Enabled;
         if (_quotaWindow.Enabled)
             _uiDispatcher.BeginInvoke(new Action(() => { _quotaWindow.SetEnabled(true); UpdateLimitsPolling(); _poller.RefreshNow(); }));
@@ -348,6 +348,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _monitorItem.Checked = _monitorWindow.Enabled;
         _monitorWindow.ApplyTheme(NativeTheme.ResolveIsLight(_themePreference));
         _monitorWindow.ApplyCharacter(PetWindow.CurrentCharacter);
+        _monitorWindow.ApplyStyle(_trayStyle, PetWindow.CurrentCharacter);
         if (_monitorWindow.Enabled)
             _uiDispatcher.BeginInvoke(new Action(() => { _monitorWindow.SetEnabled(true); _poller.RefreshNow(); }));
 
@@ -367,6 +368,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void UpdateLimitsPolling() => _poller.IncludeLimits = _petWindow?.IsVisible == true || _quotaWindow?.Enabled == true;
 
+    private void SetQuotaEnabled(bool enable)
+    {
+        _quotaWindow ??= new QuotaWidgetWindow(_server, OpenDashboard, _widgetWebViewEnvironment);
+        if (_quotaWindow.Enabled != enable)
+        {
+            _quotaWindow.SetEnabled(enable);
+            _quotaItem.Checked = _quotaWindow.Enabled;
+            if (_lastLimitsJson is not null && enable) _quotaWindow.ApplyLimits(_lastLimitsJson);
+            UpdateLimitsPolling();
+            if (enable) _poller.RefreshNow();
+            PushDashboardPetSettings();
+        }
+    }
+
     private void ToggleQuota()
     {
         _quotaWindow ??= new QuotaWidgetWindow(_server, OpenDashboard, _widgetWebViewEnvironment);
@@ -375,6 +390,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (_lastLimitsJson is not null) _quotaWindow.ApplyLimits(_lastLimitsJson);
         UpdateLimitsPolling();
         if (_quotaWindow.Enabled) _poller.RefreshNow();
+        PushDashboardPetSettings();
     }
 
     private void ToggleMonitor()
@@ -862,6 +878,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "actionLock":
                 SetPetActionLock(value);
                 break;
+            case "islandMode":
+                SetMonitorIslandMode(string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
+                break;
+            case "quota":
+                SetQuotaEnabled(string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
+                break;
+            case "trayStyle":
+                SetTrayStyle(value ?? "cat");
+                break;
         }
     }
 
@@ -887,7 +912,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             PetWindow.CurrentCharacter,
             PetWindow.CurrentBotColor,
             _monitorWindow?.Enabled == true,
-            PetWindow.CurrentActionLock);
+            PetWindow.CurrentActionLock,
+            _monitorWindow?.IslandMode == true,
+            _quotaWindow?.Enabled == true,
+            _trayStyle);
     }
 
     /// <summary>Send the Windows-native settings consumed by the dashboard.</summary>
@@ -1412,6 +1440,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         s.Save();
         UpdateTrayStyleChecks();
         SyncTaskbarIcon();
+        _monitorWindow?.ApplyStyle(style, PetWindow.CurrentCharacter);
+        PushDashboardPetSettings();
     }
 
     private void UpdateTrayStyleChecks()
@@ -1425,6 +1455,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _monitorWindow?.SetIslandMode(islandMode);
         UpdateMonitorMenuChecks();
+        PushDashboardPetSettings();
     }
 
     private void UpdateMonitorMenuChecks()

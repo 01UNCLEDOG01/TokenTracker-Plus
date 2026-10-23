@@ -439,6 +439,15 @@ export function PetPage() {
     { value: "medium", label: copy("pet.size.medium") },
     { value: "large", label: copy("pet.size.large") },
   ];
+  const trayStyleOptions = [
+    { value: "cat", label: copy("pet.controls.tray_cat") || "奔跑小猫" },
+    { value: "mascot", label: copy("pet.controls.tray_mascot") || "经典吉祥物" },
+    { value: "lightning", label: copy("pet.controls.tray_lightning") || "闪电图标" },
+  ];
+  const islandModeOptions = [
+    { value: "island", label: copy("pet.controls.island_mode") || "灵动岛" },
+    { value: "float", label: copy("pet.controls.float_mode") || "自由悬浮" },
+  ];
 
   // 「动作」picker: multi-select over the six preview states — ticked actions stay
   // in the pet's rotation, unticked ones are removed (Auto restores everything).
@@ -651,14 +660,55 @@ export function PetPage() {
                       />
                     </div>
                     {settings.monitor !== undefined ? (
+                      <>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="text-sm font-medium">{copy("pet.controls.monitor")}</div>
+                          <ToggleSwitch
+                            checked={settings.monitor}
+                            onChange={() => setSetting("monitor", !settings.monitor)}
+                            disabled={!available}
+                            ariaLabel={copy("pet.controls.monitor")}
+                          />
+                        </div>
+                        {settings.monitor && settings.islandMode !== undefined ? (
+                          <div className="flex items-center justify-between gap-4 pl-2">
+                            <div className="text-xs text-oai-gray-500 dark:text-oai-gray-400">
+                              {copy("pet.controls.island_style") || "悬浮模式"}
+                            </div>
+                            <div className="shrink-0">
+                              <SegmentedControl
+                                options={islandModeOptions}
+                                value={settings.islandMode ? "island" : "float"}
+                                onChange={(value) => setSetting("islandMode", value === "island")}
+                                disabled={!available}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {settings.quota !== undefined ? (
                       <div className="flex items-center justify-between gap-4">
-                        <div className="text-sm font-medium">{copy("pet.controls.monitor")}</div>
+                        <div className="text-sm font-medium">{copy("pet.controls.quota") || "桌面限额"}</div>
                         <ToggleSwitch
-                          checked={settings.monitor}
-                          onChange={() => setSetting("monitor", !settings.monitor)}
+                          checked={settings.quota}
+                          onChange={() => setSetting("quota", !settings.quota)}
                           disabled={!available}
-                          ariaLabel={copy("pet.controls.monitor")}
+                          ariaLabel={copy("pet.controls.quota") || "桌面限额"}
                         />
+                      </div>
+                    ) : null}
+                    {settings.trayStyle !== undefined ? (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-sm font-medium">{copy("pet.controls.tray_style") || "托盘图标风格"}</div>
+                        <div className="shrink-0">
+                          <SegmentedControl
+                            options={trayStyleOptions}
+                            value={settings.trayStyle}
+                            onChange={(value) => setSetting("trayStyle", value)}
+                            disabled={!available}
+                          />
+                        </div>
                       </div>
                     ) : null}
                     <div className="flex items-center justify-between gap-4">

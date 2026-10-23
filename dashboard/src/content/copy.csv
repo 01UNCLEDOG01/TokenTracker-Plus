@@ -1318,6 +1318,14 @@ pet.controls.monitor,dashboard,PetPage,PetPage,monitor,"Token Monitor pill",,act
 pet.controls.show_hint,dashboard,PetPage,PetPage,show_hint,"Keep your companion above other windows.",,active
 pet.controls.size,dashboard,PetPage,PetPage,size,"Pet size",,active
 pet.controls.native_only,dashboard,PetPage,PetPage,native_only,"Open this page in the TokenTracker desktop app to control the live pet.",,active
+pet.controls.island_mode,dashboard,PetPage,PetPage,island_mode,"Dynamic island (top)","顶部灵动岛",active
+pet.controls.float_mode,dashboard,PetPage,PetPage,float_mode,"Floating window","自由悬浮",active
+pet.controls.island_style,dashboard,PetPage,PetPage,island_style,"Island mode","悬浮形态",active
+pet.controls.quota,dashboard,PetPage,PetPage,quota,"Desktop quota","桌面限额",active
+pet.controls.tray_style,dashboard,PetPage,PetPage,tray_style,"Tray icon style","托盘图标风格",active
+pet.controls.tray_cat,dashboard,PetPage,PetPage,tray_cat,"Running cat","奔跑小猫",active
+pet.controls.tray_mascot,dashboard,PetPage,PetPage,tray_mascot,"Mascot","经典吉祥物",active
+pet.controls.tray_lightning,dashboard,PetPage,PetPage,tray_lightning,"Lightning","闪电图标",active
 pet.action.title,dashboard,PetPage,PetPage,action_title,"Action",,active
 pet.action.subtitle,dashboard,PetPage,PetPage,action_subtitle,"Choose which actions the pet may use (multi-select); Auto or all six returns to usage-driven switching.",,active
 pet.action.auto,dashboard,PetPage,PetPage,action_auto,"Auto",,active

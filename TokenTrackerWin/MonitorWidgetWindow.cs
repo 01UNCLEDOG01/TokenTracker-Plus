@@ -62,6 +62,8 @@ internal sealed class MonitorWidgetWindow : Window
     private nint _hwnd;
     private nint _foregroundHook;
     private nint _locationChangeHook;
+    private string _currentStyle = "cat";
+    private string _currentCharacter = PetWindow.CharacterClawd;
 
     /// <summary>Raised with the cursor's screen coordinates when the pill is right-clicked.</summary>
     public event Action<int, int>? MenuRequested;
@@ -113,14 +115,9 @@ internal sealed class MonitorWidgetWindow : Window
             },
         };
         LoadCatFrames();
-        if (_catDarkFrames[0] != null)
-        {
-            _accent.Visibility = Visibility.Collapsed;
-            _petImage.Visibility = Visibility.Visible;
-            _animTimer.Interval = TimeSpan.FromMilliseconds(400);
-            _animTimer.Tick += (_, _) => OnAnimTick();
-            _animTimer.Start();
-        }
+        _animTimer.Interval = TimeSpan.FromMilliseconds(400);
+        _animTimer.Tick += (_, _) => OnAnimTick();
+        ApplyStyle(_settings.TrayStyle ?? "cat", PetWindow.CurrentCharacter);
         SourceInitialized += (_, _) =>
         {
             _hwnd = new WindowInteropHelper(this).Handle;
@@ -199,8 +196,11 @@ internal sealed class MonitorWidgetWindow : Window
             border.BorderThickness = new Thickness(1);
             _text.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245));
         }
-        var frames = _light ? _catLightFrames : _catDarkFrames;
-        if (frames[_frameIndex] is { } src) _petImage.Source = src;
+        if (_currentStyle == "cat")
+        {
+            var frames = _light ? _catLightFrames : _catDarkFrames;
+            if (frames[_frameIndex] is { } src) _petImage.Source = src;
+        }
     }
 
     private void LoadCatFrames()
@@ -242,6 +242,7 @@ internal sealed class MonitorWidgetWindow : Window
     private void OnAnimTick()
     {
         if (_closed) return;
+        if (_currentStyle != "cat") { _animTimer.Stop(); return; }
         _frameIndex = (_frameIndex + 1) % 5;
         var frames = _light ? _catLightFrames : _catDarkFrames;
         if (frames[_frameIndex] is { } src) _petImage.Source = src;
@@ -267,18 +268,53 @@ internal sealed class MonitorWidgetWindow : Window
     /// floating surfaces read as one feature. The hues follow each character's
     /// own art; an unknown id keeps the neutral gray.
     /// </summary>
+    public void ApplyStyle(string style, string? character = null)
+    {
+        if (_closed) return;
+        _currentStyle = style;
+        if (!string.IsNullOrEmpty(character)) _currentCharacter = character;
+
+        if (style == "cat")
+        {
+            if (_catDarkFrames[0] == null) LoadCatFrames();
+            if (_catDarkFrames[0] != null)
+            {
+                _accent.Visibility = Visibility.Collapsed;
+                _petImage.Visibility = Visibility.Visible;
+                var frames = _light ? _catLightFrames : _catDarkFrames;
+                if (frames[_frameIndex] is { } src) _petImage.Source = src;
+                if (!_animTimer.IsEnabled) _animTimer.Start();
+                return;
+            }
+        }
+
+        _animTimer.Stop();
+        _petImage.Visibility = Visibility.Collapsed;
+        _accent.Visibility = Visibility.Visible;
+
+        if (style == "lightning")
+        {
+            _accent.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(234, 179, 8));
+        }
+        else
+        {
+            System.Windows.Media.Color color = System.Windows.Media.Color.FromRgb(156, 163, 175);
+            switch (_currentCharacter)
+            {
+                case PetWindow.CharacterClawd: color = System.Windows.Media.Color.FromRgb(217, 119, 87); break;
+                case PetWindow.CharacterBot: color = System.Windows.Media.Color.FromRgb(59, 130, 246); break;
+                case PetWindow.CharacterSprout: color = System.Windows.Media.Color.FromRgb(34, 197, 94); break;
+                case PetWindow.CharacterByte: color = System.Windows.Media.Color.FromRgb(168, 85, 247); break;
+                case PetWindow.CharacterEmber: color = System.Windows.Media.Color.FromRgb(239, 108, 77); break;
+            }
+            _accent.Fill = new SolidColorBrush(color);
+        }
+    }
+
     public void ApplyCharacter(string character)
     {
-        System.Windows.Media.Color color = System.Windows.Media.Color.FromRgb(156, 163, 175);
-        switch (character)
-        {
-            case PetWindow.CharacterClawd: color = System.Windows.Media.Color.FromRgb(217, 119, 87); break;   // terracotta
-            case PetWindow.CharacterBot: color = System.Windows.Media.Color.FromRgb(59, 130, 246); break;      // blue
-            case PetWindow.CharacterSprout: color = System.Windows.Media.Color.FromRgb(34, 197, 94); break;    // green
-            case PetWindow.CharacterByte: color = System.Windows.Media.Color.FromRgb(168, 85, 247); break;     // violet
-            case PetWindow.CharacterEmber: color = System.Windows.Media.Color.FromRgb(239, 108, 77); break;    // ember
-        }
-        _accent.Fill = new SolidColorBrush(color);
+        _currentCharacter = character;
+        ApplyStyle(_currentStyle, character);
     }
 
     // ── Click vs drag ──────────────────────────────────────────────────
