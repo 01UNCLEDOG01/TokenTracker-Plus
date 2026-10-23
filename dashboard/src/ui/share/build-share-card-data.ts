@@ -64,7 +64,7 @@ function normalizeHeatmap(raw: any): {
     return cells.slice(0, 7).map((cell: any) => {
       const future = Boolean(cell?.future);
       const level = Number.isFinite(cell?.level)
-        ? Math.max(0, Math.min(4, Math.round(cell.level)))
+        ? Math.max(0, Math.min(6, Math.round(cell.level)))
         : 0;
       if (cell?.day && !future) {
         totalDays += 1;

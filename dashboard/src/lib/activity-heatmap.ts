@@ -55,7 +55,7 @@ function quantile(sorted: number[], q: number) {
 
 function clampLevel(level: number) {
   if (level <= 0) return 0;
-  if (level >= 4) return 4;
+  if (level >= 6) return 6;
   return level;
 }
 
@@ -124,16 +124,20 @@ export function buildActivityHeatmap({
   }
   allValues.sort((a, b) => a - b);
 
-  const t1 = quantile(allValues, 0.5);
-  const t2 = quantile(allValues, 0.75);
-  const t3 = quantile(allValues, 0.9);
+  const t1 = quantile(allValues, 0.35);
+  const t2 = quantile(allValues, 0.60);
+  const t3 = quantile(allValues, 0.80);
+  const t4 = quantile(allValues, 0.92);
+  const t5 = quantile(allValues, 0.97);
 
   function levelFor(value: number) {
     if (!value || value <= 0) return 0;
     if (value <= t1) return 1;
     if (value <= t2) return 2;
     if (value <= t3) return 3;
-    return 4;
+    if (value <= t4) return 4;
+    if (value <= t5) return 5;
+    return 6;
   }
 
   const weeksOut = [];

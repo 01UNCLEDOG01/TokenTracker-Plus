@@ -84,6 +84,7 @@ Thumbs.db
 .eslintcache
 .parcel-cache
 .turbo
+test-results.tap
 
 # Private launch playbook & growth-strategy docs — never push to remote
 docs/launch/PLAYBOOK.md

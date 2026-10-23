@@ -15,7 +15,7 @@ internal static class Constants
     public const int HealthCheckIntervalSeconds = 30;
 
     /// <summary>How long to wait for the server to answer after launch.</summary>
-    public const int StartupTimeoutSeconds = 20;
+    public const int StartupTimeoutSeconds = 45;
 
     public const string AppDisplayName = "TokenTracker Plus";
     public const string GitHubUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus";

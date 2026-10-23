@@ -5,23 +5,23 @@ import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 
 export const PALETTES = {
   emerald: {
-    light: ["#ebedf0", "#a7f3d0", "#6ee7b7", "#34d399", "#10b981"],
-    dark: ["#2d333b", "#065f46", "#059669", "#10b981", "#34d399"],
+    light: ["#ebedf0", "#a7f3d0", "#6ee7b7", "#34d399", "#10b981", "#059669", "#047857"],
+    dark: ["#2d333b", "#064e3b", "#065f46", "#059669", "#10b981", "#34d399", "#6ee7b7"],
     gridColor: { light: "rgba(16, 185, 129, 0.12)", dark: "rgba(52, 211, 153, 0.08)" }
   },
   ocean: {
-    light: ["#f1f5f9", "#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8"],
-    dark: ["#1e293b", "#1e3a8a", "#2563eb", "#3b82f6", "#60a5fa"],
+    light: ["#f1f5f9", "#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8"],
+    dark: ["#1e293b", "#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa"],
     gridColor: { light: "rgba(59, 130, 246, 0.12)", dark: "rgba(96, 165, 250, 0.08)" }
   },
   neon: {
-    light: ["#faf5ff", "#ebd5ff", "#c084fc", "#a855f7", "#7e22ce"],
-    dark: ["#2e1065", "#581c87", "#8b5cf6", "#a855f7", "#c084fc"],
+    light: ["#faf5ff", "#f3e8ff", "#e9d5ff", "#d8b4fe", "#c084fc", "#a855f7", "#7e22ce"],
+    dark: ["#2e1065", "#3b0764", "#581c87", "#7e22ce", "#9333ea", "#a855f7", "#c084fc"],
     gridColor: { light: "rgba(168, 85, 247, 0.12)", dark: "rgba(192, 132, 252, 0.08)" }
   },
   amber: {
-    light: ["#fffbeb", "#fde68a", "#f59e0b", "#d97706", "#b45309"],
-    dark: ["#451a03", "#78350f", "#b45309", "#d97706", "#f59e0b"],
+    light: ["#fffbeb", "#fef3c7", "#fde68a", "#fcd34d", "#f59e0b", "#d97706", "#b45309"],
+    dark: ["#451a03", "#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24"],
     gridColor: { light: "rgba(245, 158, 11, 0.12)", dark: "rgba(245, 158, 11, 0.08)" }
   }
 };
@@ -64,9 +64,12 @@ function rotateVector(x, y, z, yaw, pitch) {
 // AI 趣味数据洞察文案
 export function getAITooltipMessage(level, value, formatter = (next) => Number(next).toLocaleString()) {
   const formatVal = formatter(value);
-  if (level >= 4) {
-    const index = Math.floor(Math.random() * 3) + 1;
-    return copy(`heatmap.3d.voxel.joke.${index}`, { value: formatVal });
+  if (level >= 6) {
+    return copy("heatmap.3d.voxel.joke.1", { value: formatVal });
+  } else if (level === 5) {
+    return copy("heatmap.3d.voxel.joke.2", { value: formatVal });
+  } else if (level === 4) {
+    return copy("heatmap.3d.voxel.joke.3", { value: formatVal });
   } else if (level === 3) {
     return copy("heatmap.3d.voxel.level3", { value: formatVal });
   } else if (level === 2) {
@@ -368,7 +371,7 @@ export function ActivityHeatmap3D({
 
   const levelToHeight = (level) => {
     // 0 级保留极薄的边缘厚度以供辨认
-    return Math.max(1.8, (Number(level) / 4) * HEIGHT_MAX);
+    return Math.max(1.8, (Number(level) / 6) * HEIGHT_MAX);
   };
 
   // 渲染正交投影后的 Voxel 几何面数据
@@ -419,7 +422,7 @@ export function ActivityHeatmap3D({
         { name: "back", indices: [2, 3, 7, 6], scale: 0.65, normal: [0, 1, 0] },
       ];
 
-      const baseColor = colors[Math.min(4, Math.max(0, Number(c.level) || 0))];
+      const baseColor = colors[Math.min(colors.length - 1, Math.max(0, Number(c.level) || 0))];
 
       // 6. 相机空间内的背向消隐 (Back-face Culling) 与光影 (Shading)
       const renderedFaces = [];

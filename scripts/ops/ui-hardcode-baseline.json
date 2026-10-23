@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-10-20T21:51:23.982Z",
+  "generatedAt": "2026-10-23T02:10:26.649Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 404,
-    "rawText": 161
+    "colors": 424,
+    "rawText": 158
   },
   "files": {
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
@@ -268,30 +268,15 @@
         "option.id === optionId); if (index"
       ]
     },
-    "dashboard/src/ui/components/Shell.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "Token Tracker"
-      ]
-    },
-    "dashboard/src/ui/components/Sidebar.jsx": {
-      "colors": 0,
-      "rawText": 2,
-      "rawTextTokens": [
-        "Token Tracker",
-        "getNavGroups(), [resolvedLocale]); return ("
-      ]
-    },
     "dashboard/src/ui/dashboard/components/ActivityHeatmap.jsx": {
-      "colors": 28,
+      "colors": 32,
       "rawText": 1,
       "rawTextTokens": [
         "0 ? ("
       ]
     },
     "dashboard/src/ui/dashboard/components/ActivityHeatmap3D.jsx": {
-      "colors": 53,
+      "colors": 69,
       "rawText": 2,
       "rawTextTokens": [
         "0 ? (",
@@ -560,7 +545,7 @@
       "colors": 5,
       "rawText": 1,
       "rawTextTokens": [
-        "= 7) return null; const level = normalizeLevel(cell); const x = wi * (cellSize + gap); const y = di * (cellSize + gap); const fill = level === null ? empty : innerPalette[level]; return ("
+        "= 7) return null; const level = normalizeLevel(cell); const x = wi * (cellSize + gap); const y = di * (cellSize + gap); const fill = level === null ? empty : (innerPalette[Math.min(level, innerPalette.length - 1)] || empty); return ("
       ]
     },
     "dashboard/src/ui/share/ShareModal.tsx": {

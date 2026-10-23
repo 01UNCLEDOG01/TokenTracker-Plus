@@ -82,6 +82,7 @@ scripts/self-host/internal-backup.sh
 ```
 
 - 這是**技術預覽**，不是「空 VPS 一鍵安裝器」；完整門檻見 [docs/self-hosting.md](./docs/self-hosting.md)。
+- 需自備運行 Docker 的 Linux 宿主機（部署腳本透過 SSH 執行；原內部測試用 Docker 宿主已於 2026-10-23 退役）。
 - 部署前必須先 `docker stop -t 30`，不要 `docker rm -f` 活容器。
 - 客戶端用 `VITE_INSFORGE_BASE_URL` / `VITE_INSFORGE_ANON_KEY`（或 CLI 的 `TOKENTRACKER_INSFORGE_BASE_URL`）指向自己的實例。
 - 自建後端只接收用量聚合數據，不接收提示詞或代碼。

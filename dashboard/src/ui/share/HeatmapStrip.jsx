@@ -9,7 +9,7 @@ function normalizeLevel(cell) {
   if (!cell || cell.future) return null;
   const raw = typeof cell.level === "number" ? cell.level : 0;
   if (raw < 0) return 0;
-  if (raw > 4) return 4;
+  if (raw > 6) return 6;
   return Math.round(raw);
 }
 
@@ -47,7 +47,7 @@ export function HeatmapStrip({
           const level = normalizeLevel(cell);
           const x = wi * (cellSize + gap);
           const y = di * (cellSize + gap);
-          const fill = level === null ? empty : innerPalette[level];
+          const fill = level === null ? empty : (innerPalette[Math.min(level, innerPalette.length - 1)] || empty);
           return (
             <rect
               key={`${wi}-${di}`}

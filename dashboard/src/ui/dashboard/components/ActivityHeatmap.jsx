@@ -20,14 +20,18 @@ const HEATMAP_COLORS_LIGHT = [
   "#6ee7b7", // level 2
   "#34d399", // level 3
   "#10b981", // level 4
+  "#059669", // level 5 - titan
+  "#047857", // level 6 - overdrive / peak
 ];
 
 const HEATMAP_COLORS_DARK = [
   "#121212", // level 0 - inactive, ultra-dark neutral for OLED-black integration
-  "#065f46", // level 1
-  "#059669", // level 2
-  "#10b981", // level 3
-  "#34d399", // level 4 - brightest
+  "#064e3b", // level 1
+  "#065f46", // level 2
+  "#059669", // level 3
+  "#10b981", // level 4
+  "#34d399", // level 5 - titan
+  "#6ee7b7", // level 6 - overdrive / luminous mint
 ];
 
 function parseUtcDate(value) {

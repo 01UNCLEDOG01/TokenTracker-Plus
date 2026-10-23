@@ -82,6 +82,7 @@ scripts/self-host/internal-backup.sh
 ```
 
 - This is a **technical preview**, not a one-click installer for an empty VPS; see [docs/self-hosting.md](./docs/self-hosting.md) for the full gates.
+- Requires a dedicated Linux host running Docker (the deployment script connects via SSH; internal test host Docker was decommissioned on 2026-10-23).
 - Always `docker stop -t 30` before removing a running container; never `docker rm -f` a live PGlite volume.
 - Point clients at your instance with `VITE_INSFORGE_BASE_URL` / `VITE_INSFORGE_ANON_KEY` (CLI: `TOKENTRACKER_INSFORGE_BASE_URL`).
 - The backend receives aggregate usage only, never prompts or code.
