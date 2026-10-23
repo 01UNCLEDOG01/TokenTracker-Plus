@@ -6,6 +6,7 @@
 
 | 顺序 | 文件 | 用途 |
 |---|---|---|
+| 0 | [HANDOFF.md](./HANDOFF.md) | **接手先读这页**：本轮交接状态、剩余任务与判据、门禁命令、判回归的方法 |
 | 1 | [README.md](./README.md) | 对外定位、安装/构建、隐私与许可 |
 | 2 | [FORK_STATUS.md](./FORK_STATUS.md) | 当前 HEAD、部署状态、门禁摘要 |
 | 3 | [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) | 未完成项、待拍板、已知限制 |
