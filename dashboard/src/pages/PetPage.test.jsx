@@ -260,4 +260,14 @@ describe("PetPage", () => {
     });
     expect(actionGroup.getByRole("button", { name: copy("pet.state.streak") })).toHaveAttribute("aria-pressed", "false");
   });
+  it("renders menu bar toggle on macOS native bridge and hides on Windows", async () => {
+    installNativeBridge();
+    const { unmount } = render(<PetPage />);
+    expect(screen.getByRole("switch", { name: copy("pet.menubar.title") })).toBeInTheDocument();
+    unmount();
+
+    installWindowsBridge();
+    render(<PetPage />);
+    expect(screen.queryByRole("switch", { name: copy("pet.menubar.title") })).not.toBeInTheDocument();
+  });
 });
