@@ -107,14 +107,29 @@ test("a revealed codename is judged by the vendor date, not by first local use",
   assert.equal(canonicalModelKey("ox-alpha"), "ox-alpha", "the raw key and the identity key are different things");
 });
 
-test("the debut window is inclusive at +windowDays and rejects a pre-debut first use", () => {
+test("the debut window covers beta access before the announcement, not years of it", () => {
   const { debut } = entry("GLM-5.3-Flash");
   const window = debutWindowDays();
   assert.equal(classifyDebut("GLM-5.3-Flash", debut).status, "early");
   assert.equal(classifyDebut("GLM-5.3-Flash", addDays(debut, window)).status, "early");
   assert.equal(classifyDebut("GLM-5.3-Flash", addDays(debut, window + 1)).status, "late");
   assert.equal(classifyDebut("gfmodel", addDays(debut, window + 1)).status, "late", "aliases inherit the verdict");
-  assert.equal(classifyDebut("GLM-5.3-Flash", addDays(debut, -1)).status, "late", "used before the vendor shipped it");
+  // Inside the window before the vendor's date is a beta, so it counts — and says so.
+  const beta = classifyDebut("GLM-5.3-Flash", addDays(debut, -2));
+  assert.equal(beta.status, "early");
+  assert.equal(beta.pre_beta, true, "a pre-announcement hit must be flagged, not merged into the normal count");
+  assert.equal(classifyDebut("GLM-5.3-Flash", addDays(debut, -window)).pre_beta, true);
+  assert.equal(classifyDebut("GLM-5.3-Flash", addDays(debut, -window - 1)).status, "late", "long before the date is a label, not early adoption");
+  assert.equal(classifyDebut("GLM-5.3-Flash", addDays(debut, 2)).pre_beta, false);
+});
+
+test("the beta case that started this: spark-x2.6 was called two days before 讯飞 spoke", () => {
+  const e = entry("spark-x2.6").entry;
+  assert.equal(e.debut, "2026-10-22", "the vendor announcement date is not moved to flatter the badge");
+  assert.equal(e.beta_observed, "2026-10-20");
+  const verdict = classifyDebut("spark-x2.6", e.beta_observed);
+  assert.equal(verdict.status, "early");
+  assert.equal(verdict.pre_beta, true);
 });
 
 test("the window is a parameter, so the catalog's windowDays is what judges", () => {
@@ -125,7 +140,8 @@ test("the window is a parameter, so the catalog's windowDays is what judges", ()
   assert.equal(withinWindow(addDays(debut, 7), debut, 7), true);
   assert.equal(withinWindow(addDays(debut, 7), debut, 6), false, "a narrower window must reject the same day");
   assert.equal(withinWindow(addDays(debut, 1), debut, 30), true, "a wider window must accept it");
-  assert.equal(withinWindow(addDays(debut, -1), debut, 30), false, "before the vendor shipped it is never early");
+  assert.equal(withinWindow(addDays(debut, -1), debut, 30), true, "beta access is inside a symmetric window");
+  assert.equal(withinWindow(addDays(debut, -31), debut, 30), false, "the early edge is still a boundary");
   assert.equal(withinWindow("not-a-day", debut, 7), null, "an unusable date yields no verdict");
 });
 

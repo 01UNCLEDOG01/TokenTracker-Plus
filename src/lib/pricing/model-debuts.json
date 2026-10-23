@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "note": "Curated model debut dates (YYYY-MM-DD = first public availability: API, product access, free tier or open weights, whichever came first). Source of truth for the offline trendsetter badge, which counts a model only when this machine first used it inside the debut window. Add a date only when it was read from a vendor announcement or first-party docs; cite it in `sources`. Models absent from this file get no verdict either way (they still count), so an unfinished catalog never costs an earned tier.",
+    "note": "Curated model debut dates (YYYY-MM-DD = first public availability: API, product access, free tier or open weights, whichever came first). Source of truth for the offline trendsetter badge, which counts a model only when this machine first used it inside the debut window. The window is symmetric around that date: beta or staged-rollout access taken up to windowDays BEFORE the announcement counts as early too (owner rule 2026-10-23: 内测优先算尝鲜), because a ledger row proves the model was reachable. Use far outside the window on either side is not credited. Add a date only when it was read from a vendor announcement or first-party docs; cite it in `sources`. Models absent from this file get no verdict either way (they still count), so an unfinished catalog never costs an earned tier.",
     "units": "iso_date",
     "codenamePolicy": "Internal codenames with no public announcement (dfmodel/gfmodel/mmodel, hy4-preview, space-bunny, ...) get their debut from first local use, per owner decision 2026-10-23. They live in `codenames` and always count. Once a vendor reveals what a codename was, move it into the matching `debuts` entry's `also` list so the real release date judges it — that is stricter and is the original badge semantics.",
     "keyNormalization": "Catalog keys and ledger model strings both go through src/lib/pricing/debut-catalog.js canonicalModelKey(): lower-case, provider namespace and （估算）/（积分） suffixes dropped, separators collapsed, a hyphen inserted between a letter and a digit. So the key for DeepSeek-V4.1-Flash is written as the readable name and still matches `deepseek-v4-1-flash`. Extra spellings that normalization cannot reach go in that entry's `also` list.",
@@ -407,10 +407,13 @@
       "kind": "product",
       "sources": [
         "https://finance.sina.com.cn/stock/t/2026-10-22/doc-iniwchpf5886048.shtml",
-        "https://m.ithome.com/html/1016403.htm"
+        "https://m.ithome.com/html/1016403.htm",
+        "https://finance.sina.cn/2026-10-14/detail-iniveqvi7782934.d.html",
+        "https://www.xfyun.cn/"
       ],
-      "note": "科大讯飞 announced the edge-cloud 星火 X2.6 on 2026-10-22 with website trial access and X2.6-4B open weights. WARNING: this machine's ledger shows spark-x2.6 on 2026-10-20, two days BEFORE the vendor announcement, so the badge judges it late. Either a pre-release leak reached the IDE or one of the two dates is off; left as-is rather than tuned to make the badge pass.",
-      "provenance_conflict": true
+      "note": "科大讯飞 announced the edge-cloud 星火 X2.6 on 2026-10-22 with website trial access and X2.6-4B open weights; xfyun.cn now greets visitors as 星火X2.6. This machine first called it on 2026-10-20 — inside a closed beta, which the owner confirms, and consistent with 10-14 press already naming X2.6 for the 10-20~10-22 Shanghai forum. The vendor date stays 10-22 because that is what the announcement says; the badge reaches the beta case through the debut window, not by rewriting the date.",
+      "announced": "2026-10-22",
+      "beta_observed": "2026-10-20"
     },
     "Doubao-Seed-2.1-Turbo": {
       "debut": "2026-06-23",

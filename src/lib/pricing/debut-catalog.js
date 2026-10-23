@@ -76,13 +76,19 @@ function identityKeyFor(model) {
   return match ? match.key : key;
 }
 
-/** Inclusive on both ends: the debut day itself and `windowDays` after it count. */
+/**
+ * Inside the debut window means within `windowDays` on EITHER side of the
+ * vendor's public date. The early half is not a loophole: a closed beta or a
+ * staged rollout makes a model reachable before the announcement, and the ledger
+ * proves this machine could call it. Use long before the window is a different
+ * story — that is a router label, not early adoption — so it stays out.
+ * Returns null when either date is unusable.
+ */
 function withinWindow(firstUseDay, debutDay, windowDays) {
   const usedMs = Date.parse(`${firstUseDay}T00:00:00Z`);
   const debutMs = Date.parse(`${debutDay}T00:00:00Z`);
   if (!Number.isFinite(usedMs) || !Number.isFinite(debutMs)) return null;
-  if (usedMs < debutMs) return false;
-  return usedMs - debutMs <= windowDays * 86400000;
+  return Math.abs(usedMs - debutMs) <= windowDays * 86400000;
 }
 
 function classifyKey(identityKey, firstUseDay) {
@@ -93,7 +99,9 @@ function classifyKey(identityKey, firstUseDay) {
   if (match) {
     const within = withinWindow(firstUseDay, match.debut, WINDOW_DAYS);
     if (within === null) return { identity: identityKey, status: "unverified", debut: match.debut };
-    return { identity: identityKey, status: within ? "early" : "late", debut: match.debut };
+    if (!within) return { identity: identityKey, status: "late", debut: match.debut };
+    const pre = firstUseDay < match.debut;
+    return { identity: identityKey, status: "early", debut: match.debut, pre_beta: pre };
   }
   if (CODENAMES.has(identityKey)) return { identity: identityKey, status: "codename" };
   return { identity: identityKey, status: "unverified" };

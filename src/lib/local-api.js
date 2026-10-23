@@ -809,21 +809,27 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       if (!prior || firstDay < prior) earliestUse.set(identity, firstDay);
     }
     let debutWeekModels = 0;
+    let betaModels = 0;
     let lateModels = 0;
     let codenameModels = 0;
     let unjudgedModels = 0;
     for (const [identity, firstDay] of earliestUse) {
-      const status = classifyKey(identity, firstDay).status;
-      if (status === "early") debutWeekModels += 1;
-      else if (status === "late") lateModels += 1;
-      else if (status === "codename") codenameModels += 1;
-      else if (status === "unverified") unjudgedModels += 1;
+      const verdict = classifyKey(identity, firstDay);
+      if (verdict.status === "early") {
+        debutWeekModels += 1;
+        // Used before the announcement, i.e. during a beta or staged rollout.
+        // Counted, but shown separately so the split is never hidden in the total.
+        if (verdict.pre_beta) betaModels += 1;
+      } else if (verdict.status === "late") lateModels += 1;
+      else if (verdict.status === "codename") codenameModels += 1;
+      else if (verdict.status === "unverified") unjudgedModels += 1;
     }
     const earlyModels = debutWeekModels + codenameModels + unjudgedModels;
     if (earlyModels > 0) {
       bump("trendsetter", earlyModels, `${dayKeys[dayKeys.length - 1]}T00:00:00.000Z`, {
         first_day: dayKeys[0],
         debut_week: debutWeekModels,
+        beta: betaModels,
         codename: codenameModels,
         unjudged: unjudgedModels,
         late: lateModels,

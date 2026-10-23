@@ -181,6 +181,19 @@ test("a catalogued model adopted after its debut week is the only thing dropped"
   assert.equal(trend.metric_value, 2, "metric = early + codename + unjudged, never the late model");
 });
 
+test("a beta hit before the announcement counts, and is reported as beta", () => {
+  const spark = entryFor("spark-x2.6").entry;
+  assert.ok(spark.beta_observed, "the fixture reads the beta date recorded in the catalog");
+  const rows = [
+    { source: "trae", model: "spark-x2.6", hour_start: `${spark.beta_observed}T10:00:00Z`, total_tokens: 10 },
+  ];
+  const trend = byId(computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }), "trendsetter");
+  assert.equal(trend.meta.debut_week, 1);
+  assert.equal(trend.meta.beta, 1, "the pre-announcement half of the window is called out separately");
+  assert.equal(trend.meta.late, 0);
+  assert.equal(trend.metric_value, 1);
+});
+
 test("grand_slam counts locally earned diamond badges and excludes itself", () => {
   const rows = [{
     source: "claude",

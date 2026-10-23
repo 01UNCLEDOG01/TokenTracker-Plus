@@ -447,7 +447,7 @@
   "achievements.badge.polyglot.name": "模型通",
   "achievements.badge.polyglot.desc": "驅使眾多不同的模型。",
   "achievements.badge.trendsetter.name": "嘗鮮先鋒",
-  "achievements.badge.trendsetter.desc": "越早越算數——模型公開發布一週內首次跑過，才記一次嚐鮮。",
+  "achievements.badge.trendsetter.desc": "越早越算數——模型公開發布前後一週內首次跑過都算嚐鮮，內測優先也算。",
   "achievements.badge.multitool.name": "多面手",
   "achievements.badge.multitool.desc": "在多款 AI 編碼工具中記錄用量。",
   "achievements.badge.podium.name": "頒獎台",
