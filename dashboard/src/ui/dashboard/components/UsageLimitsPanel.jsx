@@ -708,6 +708,89 @@ function TraeWalletExtra({ data }) {
   );
 }
 
+function CodeArtsWalletExtra({ data }) {
+  const available = Number(data.codearts_available_credits) || 0;
+  const pkg = data.codearts_package;
+  const total = Number(pkg?.total) || 0;
+  const used = Math.max(0, total - available);
+  const remainingPct = total ? Math.max(0, Math.min(100, (available / total) * 100)) : null;
+
+  return (
+    <>
+      <StatusLine>
+        {copy("limits.label.codearts_wallets", {
+          credits: formatCreditAmount(available, { maximumFractionDigits: 2 }),
+          date: typeof data.codearts_reset_date === "string" && data.codearts_reset_date ? data.codearts_reset_date : "—",
+        })}
+      </StatusLine>
+      {remainingPct != null ? (
+        <div
+          className="mt-1 h-1 overflow-hidden rounded-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
+          title={copy("limits.label.trae_usage", {
+            total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
+            used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
+          })}
+        >
+          <div
+            className="h-full rounded-full bg-green-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
+            style={{ width: `${remainingPct}%`, minWidth: remainingPct > 0 ? "3px" : 0 }}
+          />
+        </div>
+      ) : null}
+      {Boolean(total) ? (
+        <StatusLine className="text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
+          {copy("limits.label.trae_usage", {
+            total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
+            used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
+          })}
+        </StatusLine>
+      ) : null}
+    </>
+  );
+}
+
+function AgentRouterWalletExtra({ data }) {
+  const balance = Number(data.agentrouter_balance_usd) || 0;
+  const used = Number(data.agentrouter_used_usd) || 0;
+  const total = balance + used;
+  const remainingPct = total ? Math.max(0, Math.min(100, (balance / total) * 100)) : null;
+
+  return (
+    <>
+      <StatusLine>
+        {copy("limits.label.agentrouter_balance", {
+          balance: formatCreditAmount(balance, { maximumFractionDigits: 2 }),
+          used: Number.isFinite(Number(data.agentrouter_used_usd))
+            ? formatCreditAmount(used, { maximumFractionDigits: 2 })
+            : "—",
+        })}
+      </StatusLine>
+      {remainingPct != null ? (
+        <div
+          className="mt-1 h-1 overflow-hidden rounded-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
+          title={copy("limits.label.trae_usage", {
+            total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
+            used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
+          })}
+        >
+          <div
+            className="h-full rounded-full bg-sky-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
+            style={{ width: `${remainingPct}%`, minWidth: remainingPct > 0 ? "3px" : 0 }}
+          />
+        </div>
+      ) : null}
+      {Boolean(total && Number.isFinite(Number(data.agentrouter_used_usd))) ? (
+        <StatusLine className="text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
+          {copy("limits.label.trae_usage", {
+            total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
+            used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
+          })}
+        </StatusLine>
+      ) : null}
+    </>
+  );
+}
+
 function renderProviderExtra(kind, data) {
   if (kind === "zcode_reset_bank") {
     return data.reset_credits ? <ZcodeResetBankSection data={data.reset_credits} /> : null;
@@ -751,16 +834,7 @@ function renderProviderExtra(kind, data) {
     );
   }
   if (kind === "agentrouter_balance" && Number.isFinite(Number(data.agentrouter_balance_usd))) {
-    return (
-      <StatusLine>
-        {copy("limits.label.agentrouter_balance", {
-          balance: formatCreditAmount(Number(data.agentrouter_balance_usd), { maximumFractionDigits: 2 }),
-          used: Number.isFinite(Number(data.agentrouter_used_usd))
-            ? formatCreditAmount(Number(data.agentrouter_used_usd), { maximumFractionDigits: 2 })
-            : "—",
-        })}
-      </StatusLine>
-    );
+    return <AgentRouterWalletExtra data={data} />;
   }
   if (kind === "deepseek_balance" && Number.isFinite(Number(data.deepseek_total_balance))) {
     return (
@@ -780,14 +854,7 @@ function renderProviderExtra(kind, data) {
     return <TraeWalletExtra data={data} />;
   }
   if (kind === "codearts_wallets" && Number.isFinite(Number(data.codearts_available_credits))) {
-    return (
-      <StatusLine>
-        {copy("limits.label.codearts_wallets", {
-          credits: formatCreditAmount(Number(data.codearts_available_credits), { maximumFractionDigits: 2 }),
-          date: typeof data.codearts_reset_date === "string" && data.codearts_reset_date ? data.codearts_reset_date : "—",
-        })}
-      </StatusLine>
-    );
+    return <CodeArtsWalletExtra data={data} />;
   }
   if (kind === "cline_wallets" && Array.isArray(data.cline_wallets) && data.cline_wallets.length) {
     const summary = data.cline_wallets
