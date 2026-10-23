@@ -6,6 +6,7 @@ const {
   LOCAL_BADGE_THRESHOLDS,
   CLOUD_PARITY_BADGE_THRESHOLDS,
 } = require("../src/lib/local-api");
+const { entryFor } = require("../src/lib/pricing/debut-catalog");
 
 const TZ_SHANGHAI = { timeZone: "Asia/Shanghai", offsetMinutes: 480 };
 
@@ -19,6 +20,18 @@ function queueRow(hourStart, tokens) {
 
 function byId(result, id) {
   return result.find((badge) => badge.id === id);
+}
+
+// The fixture dates hang off the real catalog so a corrected vendor date moves
+// the test with it instead of breaking it.
+function debutOf(model) {
+  const found = entryFor(model);
+  assert.ok(found, `${model} must be catalogued for this fixture`);
+  return found.debut;
+}
+
+function shiftDays(iso, days) {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
 }
 
 test("empty inputs yield the full locked catalog", () => {
@@ -99,7 +112,7 @@ test("wave-2 cloud-parity badges replay with SQL semantics", () => {
   assert.equal(slam.tier, 0);
 });
 
-test("trendsetter counts every distinct local model; podium is local rank 1", () => {
+test("trendsetter gives no verdict to models with no cited debut; podium is local rank 1", () => {
   const rows = [
     { source: "claude", model: "a", hour_start: "2026-07-01T10:00:00Z", total_tokens: 10 },
     { source: "claude", model: "b", hour_start: "2026-07-03T10:00:00Z", total_tokens: 10 },
@@ -116,6 +129,56 @@ test("trendsetter counts every distinct local model; podium is local rank 1", ()
   assert.equal(podium.tier, 4);
   assert.equal(podium.lower_is_better, true);
   assert.equal(podium.next_threshold, null);
+});
+
+test("trendsetter credits a debut-week model once, however many routers name it", () => {
+  const flash = debutOf("GLM-5.3-Flash");
+  const rows = [
+    // Three ledger strings, one model: OpenRouter stealth ID, the vendor name,
+    // and the Qoder slug all fold onto GLM-5.3-Flash.
+    { source: "openrouter", model: "stealth/ox-alpha", hour_start: `${shiftDays(flash, 3)}T10:00:00Z`, total_tokens: 10 },
+    { source: "trae", model: "GLM-5.3-Flash", hour_start: `${shiftDays(flash, 4)}T10:00:00Z`, total_tokens: 10 },
+    { source: "qoder-cn", model: "gfmodel", hour_start: `${shiftDays(flash, 5)}T10:00:00Z`, total_tokens: 10 },
+  ];
+  const trend = byId(computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }), "trendsetter");
+  assert.equal(trend.metric_value, 1, "alias spellings must not buy extra trendsetter slots");
+  assert.equal(trend.meta.debut_week, 1);
+  assert.equal(trend.meta.late, 0);
+});
+
+test("trendsetter reads the earliest day across a model's aliases, not the newest", () => {
+  const flash = debutOf("GLM-5.3-Flash");
+  // The vendor name only shows up long after the debut, but the stealth alias
+  // was used on day 1 — the model was adopted early, so it counts.
+  const rows = [
+    { source: "trae", model: "GLM-5.3-Flash", hour_start: `${shiftDays(flash, 40)}T10:00:00Z`, total_tokens: 10 },
+    { source: "openrouter", model: "stealth/ox-alpha", hour_start: `${shiftDays(flash, 1)}T10:00:00Z`, total_tokens: 10 },
+  ];
+  const trend = byId(computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }), "trendsetter");
+  assert.equal(trend.meta.debut_week, 1);
+  assert.equal(trend.meta.late, 0);
+  assert.equal(trend.metric_value, 1);
+});
+
+test("a catalogued model adopted after its debut week is the only thing dropped", () => {
+  const flash = debutOf("GLM-5.3-Flash");
+  const rows = [
+    // late: verified release, adopted outside the window
+    { source: "trae", model: "GLM-5.3-Flash", hour_start: `${shiftDays(flash, 40)}T10:00:00Z`, total_tokens: 10 },
+    // codename: vendor never claimed the slug, so first local use is the debut
+    { source: "trae", model: "codely-air", hour_start: "2026-10-06T10:00:00Z", total_tokens: 10 },
+    // unjudged: publicly named but no cited date yet — no verdict either way
+    { source: "trae", model: "spark-x", hour_start: "2026-10-12T10:00:00Z", total_tokens: 10 },
+    // not a model at all: a router placeholder must never open a slot
+    { source: "trae", model: "auto", hour_start: "2026-09-01T10:00:00Z", total_tokens: 10 },
+    { source: "openrouter", model: "openrouter/free", hour_start: "2026-10-12T11:00:00Z", total_tokens: 10 },
+  ];
+  const trend = byId(computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }), "trendsetter");
+  assert.deepEqual(
+    { early: trend.meta.debut_week, codename: trend.meta.codename, unjudged: trend.meta.unjudged, late: trend.meta.late },
+    { early: 0, codename: 1, unjudged: 1, late: 1 },
+  );
+  assert.equal(trend.metric_value, 2, "metric = early + codename + unjudged, never the late model");
 });
 
 test("grand_slam counts locally earned diamond badges and excludes itself", () => {

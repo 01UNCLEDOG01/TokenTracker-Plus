@@ -210,6 +210,23 @@ function normalizeQueueRow(row) {
   return normalized;
 }
 
+// Antigravity (via tokscale) and Cursor append half-hour rows for one hour and
+// can finish with a row that carries no counts at all. Last-write-wins then keeps
+// the empty row: on this machine every one of the 21 Antigravity hour keys ended
+// on a 0, which made 425M used tokens invisible in totals, cost and badges.
+// Scoped to those two estimate sources on purpose — other readers may legitimately
+// supersede an hour with a zero, and the cloud upload cadence test proves it.
+const ESTIMATE_REPORTING_SOURCES = new Set(["cursor", "antigravity"]);
+
+function resolveQueueRow(existing, incoming) {
+  const source = String(incoming?.source || "").toLowerCase();
+  if (!ESTIMATE_REPORTING_SOURCES.has(source)) return incoming;
+  if (existing && (Number(existing.total_tokens) || 0) > 0 && (Number(incoming.total_tokens) || 0) === 0) {
+    return existing;
+  }
+  return incoming;
+}
+
 const readQueueData = createAsyncQueueReader({
   label: "readQueueData",
   parseRow(row) {
@@ -219,6 +236,11 @@ const readQueueData = createAsyncQueueReader({
       row: normalizeQueueRow(row),
     };
   },
+  // A later append can carry the same hour with no token data at all (the
+  // Antigravity estimate is the live case: every one of its hour keys ended on a
+  // 0 row, which made 425M used tokens invisible everywhere). Superseding still
+  // wins whenever the new row actually reports usage.
+  resolve: resolveQueueRow,
 });
 
 function rowDayKey(row, timeZoneContext) {
@@ -531,7 +553,7 @@ function isoWeekStartMs(dayMs) {
 
 const LOCAL_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
 
-const MODEL_DEBUTS = require("./pricing/model-debuts.json").debuts || {};
+const { identityKeyFor, classifyKey } = require("./pricing/debut-catalog");
 const LOWER_IS_BETTER_BADGES = new Set(["podium"]);
 
 function tierForValue(value, thresholds, lowerIsBetter = false) {
@@ -772,27 +794,39 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   }
   void longestRun;
 
-  // LOCAL trendsetter: models with a curated debut date use the original rule
-  // (first use within 7 days of that date); everything else falls back to the
-  // local floor (distinct models), so an incomplete catalog never downgrades
-  // an earned tier. The floor also IS the original semantics on a machine
-  // whose ledger predates every catalogued debut.
+  // LOCAL trendsetter, original semantics: a model counts when this machine used
+  // it inside the debut window of the vendor's public release. Ledger strings are
+  // aliases of one model, so they collapse to the earliest day seen before the
+  // catalog judges them. A model with no catalogued date gets no verdict either
+  // way — an unfinished catalog must not cost a tier — so it still counts, and
+  // the split ships in `meta` rather than hiding inside the total.
   if (dayKeys.length > 0) {
-    let debutWeekModels = 0;
-    for (const [model, day] of firstModelDay) {
-      const debut = MODEL_DEBUTS[model];
-      if (!debut) continue;
-      const firstUseMs = Date.parse(`${day}T00:00:00Z`);
-      const debutMs = Date.parse(`${debut}T00:00:00Z`);
-      if (Number.isFinite(firstUseMs) && Number.isFinite(debutMs)
-        && firstUseMs - debutMs <= 7 * DAY_MS && firstUseMs >= debutMs) {
-        debutWeekModels += 1;
-      }
+    const earliestUse = new Map();
+    for (const [model, firstDay] of firstModelDay) {
+      const identity = identityKeyFor(model);
+      if (!identity) continue;
+      const prior = earliestUse.get(identity);
+      if (!prior || firstDay < prior) earliestUse.set(identity, firstDay);
     }
-    const earlyModels = Math.max(firstModelDay.size, debutWeekModels);
+    let debutWeekModels = 0;
+    let lateModels = 0;
+    let codenameModels = 0;
+    let unjudgedModels = 0;
+    for (const [identity, firstDay] of earliestUse) {
+      const status = classifyKey(identity, firstDay).status;
+      if (status === "early") debutWeekModels += 1;
+      else if (status === "late") lateModels += 1;
+      else if (status === "codename") codenameModels += 1;
+      else if (status === "unverified") unjudgedModels += 1;
+    }
+    const earlyModels = debutWeekModels + codenameModels + unjudgedModels;
     if (earlyModels > 0) {
       bump("trendsetter", earlyModels, `${dayKeys[dayKeys.length - 1]}T00:00:00.000Z`, {
         first_day: dayKeys[0],
+        debut_week: debutWeekModels,
+        codename: codenameModels,
+        unjudged: unjudgedModels,
+        late: lateModels,
       });
     }
     // LOCAL podium: one machine has one profile, so its local rank is 1.
@@ -4262,6 +4296,7 @@ module.exports = {
   getSystemDeviceName,
   // Local achievement compute — exported for test/local-achievements.test.js.
   computeLocalAchievements,
+  resolveQueueRow,
   computeLocalLeaderboard,
   LOCAL_BADGE_THRESHOLDS,
   CLOUD_PARITY_BADGE_THRESHOLDS,

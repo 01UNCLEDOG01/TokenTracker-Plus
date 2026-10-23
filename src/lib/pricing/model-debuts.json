@@ -1,9 +1,578 @@
 {
   "_meta": {
-    "note": "Curated model debut dates (YYYY-MM-DD, first public availability). Source of truth for the offline trendsetter badge: a model counts as 'adopted in its debut week' when the ledger's first use falls within 7 days of this date. Only add dates verified against a vendor announcement; models absent from this file fall back to the local floor (distinct models), so tiers can never downgrade.",
+    "note": "Curated model debut dates (YYYY-MM-DD = first public availability: API, product access, free tier or open weights, whichever came first). Source of truth for the offline trendsetter badge, which counts a model only when this machine first used it inside the debut window. Add a date only when it was read from a vendor announcement or first-party docs; cite it in `sources`. Models absent from this file get no verdict either way (they still count), so an unfinished catalog never costs an earned tier.",
     "units": "iso_date",
-    "sources": [],
-    "codenamePolicy": "Internal codenames with no public announcement (dfmodel/gfmodel/mmodel, hy4-preview, space-bunny, ...) get their debut from first local use, per owner decision 2026-10-23 — they are already covered by the distinct-model floor."
+    "codenamePolicy": "Internal codenames with no public announcement (dfmodel/gfmodel/mmodel, hy4-preview, space-bunny, ...) get their debut from first local use, per owner decision 2026-10-23. They live in `codenames` and always count. Once a vendor reveals what a codename was, move it into the matching `debuts` entry's `also` list so the real release date judges it — that is stricter and is the original badge semantics.",
+    "keyNormalization": "Catalog keys and ledger model strings both go through src/lib/pricing/debut-catalog.js canonicalModelKey(): lower-case, provider namespace and （估算）/（积分） suffixes dropped, separators collapsed, a hyphen inserted between a letter and a digit. So the key for DeepSeek-V4.1-Flash is written as the readable name and still matches `deepseek-v4-1-flash`. Extra spellings that normalization cannot reach go in that entry's `also` list.",
+    "windowDays": 7
   },
-  "debuts": {}
+  "windowDays": 7,
+  "notModels": [
+    "auto",
+    "Auto（估算）",
+    "官方云端（积分）",
+    "openrouter/free",
+    "zai_auto",
+    "github-copilot-legacy",
+    "trae-cn-unknown",
+    "unknown",
+    "search_agent_model"
+  ],
+  "codenames": [
+    "hy4-preview-f",
+    "hy4-preview-x",
+    "codely-basic",
+    "codely-core",
+    "codely-air",
+    "luna-02",
+    "k2d6-agent",
+    "k2d8-preview",
+    "k3-agent",
+    "claude-antigravity"
+  ],
+  "debuts": {
+    "DeepSeek-V4-Flash": {
+      "debut": "2026-04-24",
+      "kind": "preview",
+      "sources": [
+        "https://api-docs.deepseek.com/news/news260424",
+        "https://api-docs.deepseek.com/zh-cn/news/news260424"
+      ],
+      "note": "V4 preview post lists DeepSeek-V4-Flash 284B/13B active and 'API is updated & available today'. 正式版 API 公测 2026-07-31 is the GA, not the debut (https://api-docs.deepseek.com/zh-cn/updates).",
+      "also": [
+        "dfmodel"
+      ]
+    },
+    "DeepSeek-V4-Pro": {
+      "debut": "2026-04-24",
+      "kind": "preview",
+      "sources": [
+        "https://api-docs.deepseek.com/news/news260424"
+      ],
+      "note": "Same preview post (1.6T total / 49B active). 正式版 2026-08-13; see the DeepSeek-V4-Pro-0813 entry for the dated snapshot."
+    },
+    "DeepSeek-V4-Pro-0813": {
+      "debut": "2026-08-13",
+      "kind": "ga",
+      "sources": [
+        "https://api-docs.deepseek.com/zh-cn/news/news260813",
+        "https://api-docs.deepseek.com/zh-cn/updates"
+      ],
+      "note": "First-party changelog logs '2026-08-13: DeepSeek-V4-Pro 更新'. IT之家 recorded the API-docs model list flipping to V4-Pro-0813 on 2026-08-12 late night — one day before the announcement; the earlier date is kept out because the docs edit was not the release.",
+      "alt_dates": [
+        "2026-08-12 (API doc flip, https://next.ithome.com/archiver/0/988/998.htm)"
+      ]
+    },
+    "DeepSeek-V4.1-Flash": {
+      "debut": "2026-09-10",
+      "kind": "ga",
+      "sources": [
+        "https://api-docs.deepseek.com/zh-cn/news/news260910",
+        "https://api-docs.deepseek.com/zh-cn/quick_start/pricing"
+      ],
+      "note": "The official API model name is `deepseek-flash`. A 2026-09-08 pre-release beta existed but only answered to deepseek-v4.1-flash-expires-on-0910 and was reachable via an internal group notice, so the public debut stays 09-10.",
+      "also": [
+        "deepseek-flash",
+        "sn-deepseek-v4-1-flash"
+      ],
+      "alt_dates": [
+        "2026-09-08 (internal beta ID, third-party how-tos only)"
+      ]
+    },
+    "DeepSeek-V4.1-Flash-1017": {
+      "debut": "2026-10-17",
+      "kind": "refresh",
+      "sources": [
+        "https://api-docs.deepseek.com/zh-cn/news/news261017"
+      ],
+      "note": "Weights published as deepseek-ai/DeepSeek-V4.1-Flash-1017; the pricing page maps `deepseek-flash` to this build today.",
+      "also": [
+        "sn-deepseek-v4-1-flash-1017"
+      ]
+    },
+    "GLM-5.3-Flash": {
+      "debut": "2026-08-20",
+      "kind": "anonymous-stealth",
+      "sources": [
+        "https://www.datalearner.com/ai-models/pretrained-models/ox-alpha",
+        "https://news.qiniu.com/archives/1787710013200"
+      ],
+      "note": "Appeared anonymously on OpenRouter as `stealth/ox-alpha` on 2026-08-20; 智谱 claimed it as GLM-5.3-Flash on 2026-08-26 and opened the weights that night. The OpenCode Zen free ID was `x-preview-f-free`. Owner policy dates a stealth model from first public availability, so 08-20. (The 2026-09-18 press wave is GLM-5.3-FlashX, a different, 5x faster entry.)",
+      "also": [
+        "ox-alpha",
+        "x-preview-f",
+        "gfmodel"
+      ]
+    },
+    "GLM-5.3-FlashX": {
+      "debut": "2026-09-18",
+      "kind": "api",
+      "sources": [
+        "https://view.inews.qq.com/k/20260918A05OXX00",
+        "https://www.w3h5.com/post/880.html"
+      ],
+      "note": "智谱 official: Model Key GLM-5.3-FlashX, API open the same day, up to 200 tokens/s at 2.5x the Flash price. Not in this machine's ledger yet."
+    },
+    "Qwen3.8-Max": {
+      "debut": "2026-07-19",
+      "kind": "preview",
+      "sources": [
+        "https://baike.baidu.com/item/Qwen3.8/68311983",
+        "https://www.yicai.com/brief/103302464.html"
+      ],
+      "note": "Qwen3.8-Max preview went live on Aliyun Token Plan, Qoder and QoderWork 2026-07-19; Alibaba formally released Qwen3.8-Max 2026-08-03. The Qoder slugs qmodel_preview / qmodel_38max resolve to this model per https://pi.dev/packages/@jischeng/pi-provider-qoder.",
+      "also": [
+        "qmodel_preview",
+        "qmodel_38max"
+      ],
+      "alt_dates": [
+        "2026-08-03 (formal release)"
+      ]
+    },
+    "MiniMax-M3": {
+      "debut": "2026-06-01",
+      "kind": "api",
+      "sources": [
+        "https://baike.baidu.com/item/MiniMax/63388942"
+      ],
+      "note": "Encyclopedia citation line 'MiniMax推出MiniMax M3模型 ．界面新闻 ．2026-06-01'; the vendor page itself was not read, so this is secondary evidence. The Qoder slug mmodel resolves to MiniMax M3 per https://pi.dev/packages/@jischeng/pi-provider-qoder.",
+      "also": [
+        "mmodel"
+      ],
+      "confidence": "medium"
+    },
+    "MiniMax-M3.1-Flash": {
+      "debut": "2026-09-23",
+      "kind": "anonymous-stealth",
+      "sources": [
+        "https://baike.baidu.com/item/%E5%A4%AA%E7%A9%BA%E5%85%94/69219522",
+        "https://www.toutiao.com/a7691234540072862242/"
+      ],
+      "note": "Anonymous 'Space Bunny Alpha' listed 2026-09-23 on OpenRouter as `stealth/space-bunny-alpha` and on OpenCode Zen as `space-bunny-free`. MiniMax's 'Welcome back, Space Bunny' reveal and the pay-per-token API both land 2026-10-19 (https://finance.sina.com.cn/jjxw/2026-10-19/doc-inivueui7732275.shtml). Dated from first public availability per owner policy.",
+      "also": [
+        "space-bunny",
+        "space-bunny-alpha"
+      ],
+      "alt_dates": [
+        "2026-09-22 (one CSDN outlier)",
+        "2026-10-19 (official reveal / GA)"
+      ]
+    },
+    "GLM-5.3": {
+      "debut": "2026-08-14",
+      "kind": "product",
+      "sources": [
+        "http://tech.china.com/article/20260814/202608141940762.html",
+        "https://docs.bigmodel.cn/cn/update/new-releases"
+      ],
+      "note": "智谱 announced GLM-5.3 on 2026-08-14, serving through Z.ai Coding Plan and ZCode that day; the MaaS API went live 2026-08-19 (first-party BigModel release log) and the weights landed 2026-08-28/29. Dated from the earliest date anyone outside the company could use it.",
+      "alt_dates": [
+        "2026-08-19 (API GA, docs.bigmodel.cn)",
+        "2026-08-28 (HuggingFace weights)"
+      ],
+      "also": [
+        "zaicoding_glm-5.3"
+      ]
+    },
+    "GLM-5.2": {
+      "debut": "2026-06-16",
+      "kind": "api",
+      "sources": [
+        "https://docs.bigmodel.cn/cn/update/new-releases"
+      ],
+      "note": "First-party BigModel release log entry 'GLM-5.2 / 2026-06-16 / 新一代旗舰模型上线'. The 港交所 announcement is 2026-06-15 and open weights follow on 2026-06-17; a 2026-06-13 note says Coding Plan users got access first, which is a paid-plan preview rather than a public debut.",
+      "alt_dates": [
+        "2026-06-13 (Coding Plan access)",
+        "2026-06-15 (exchange announcement)",
+        "2026-06-17 (weights)"
+      ]
+    },
+    "GLM-5.1": {
+      "debut": "2026-04-07",
+      "kind": "api",
+      "sources": [
+        "https://docs.bigmodel.cn/cn/update/new-releases"
+      ],
+      "note": "First-party log 'GLM-5.1 / 2026-04-07'. 百度百科 carries 04-08 (Beijing publish write-up) and Coding Plan access as early as 2026-03-27.",
+      "alt_dates": [
+        "2026-03-27 (Coding Plan)",
+        "2026-04-08 (press)"
+      ]
+    },
+    "GLM-5-Turbo": {
+      "debut": "2026-03-15",
+      "kind": "api",
+      "sources": [
+        "https://docs.bigmodel.cn/cn/update/new-releases"
+      ],
+      "note": "First-party log dates GLM-5-Turbo 2026-03-15; 百度百科 logs the price-and-launch news on 03-16.",
+      "alt_dates": [
+        "2026-03-16 (press)"
+      ]
+    },
+    "GLM-5V-Turbo": {
+      "debut": "2026-04-02",
+      "kind": "api",
+      "sources": [
+        "https://docs.bigmodel.cn/cn/update/new-releases",
+        "http://c.m.163.com/news/a/KPGFA48R053469RG.html"
+      ],
+      "note": "人民财讯 2026-04-02: 智谱's first native-multimodal coding base model, opened on the MaaS platform the same day. First-party log agrees."
+    },
+    "GLM-4.7": {
+      "debut": "2025-12-23",
+      "kind": "weights",
+      "sources": [
+        "https://baike.baidu.com/item/%E6%99%BA%E8%B0%B1GLM-4.7/67116254"
+      ],
+      "note": "Year is 2025, not 2026. One entry also logs 2025-12-22; secondary source, so the exact day is soft.",
+      "confidence": "medium"
+    },
+    "GLM-4.5-AIR": {
+      "debut": "2025-07-28",
+      "kind": "weights",
+      "sources": [
+        "https://m.36kr.com/p/3412485973154180"
+      ],
+      "note": "36氪: the GLM-4.5 family (GLM-4.5 355B and GLM-4.5-Air 106B) shipped 2025-07-28. Year is 2025."
+    },
+    "Gemini-3.8-Flash": {
+      "debut": "2026-09-02",
+      "kind": "ga",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/changelog",
+        "https://ai.google.dev/gemini-api/docs/deprecations"
+      ],
+      "note": "Google's own Gemini API changelog: 'September 2, 2026 — Gemini 3.8 Flash generally available (GA), released gemini-3.8-flash'. An August preview ran only on Google's internal Jetski platform, and the 08-28 press leak is not availability, so GA is the debut. The ledger's -n / -tiered strings are router tier labels for this same model.",
+      "also": [
+        "gemini-3.8-flash-n",
+        "gemini-3.8-flash-tiered"
+      ]
+    },
+    "GPT-5.6": {
+      "debut": "2026-07-09",
+      "kind": "ga",
+      "sources": [
+        "https://geotoolbox.ai/blog/gpt-5-6",
+        "https://swiftwand.com/en/ai-model-releases-july-2026-timeline-en/"
+      ],
+      "note": "Announced 2026-06-26 as three tiers (Sol / Terra / Luna), generally available across ChatGPT, ChatGPT Work, Codex and the API on 2026-07-09. OpenAI's own pages return 403 to a plain fetch, so this rests on two independent secondary sources. Sol and Luna debut with the family, not separately.",
+      "alt_dates": [
+        "2026-06-26 (announcement / preview post)",
+        "2026-06-27 and 2026-07-10 (Beijing-offset restatements)"
+      ],
+      "also": [
+        "gpt-5.6-sol",
+        "gpt-5.6-luna"
+      ],
+      "confidence": "medium"
+    },
+    "GPT-6 Luna": {
+      "debut": "2026-09-22",
+      "kind": "api",
+      "sources": [
+        "https://openai.com/zh-Hans-CN/research/index/",
+        "https://felloai.com/gpt-6-sol-luna/"
+      ],
+      "note": "GPT-6 Sol and Luna shipped 2026-09-22 in ChatGPT Work and Codex for paid plans; the free/everyone ChatGPT rollout is dated 2026-10-07. This machine first used gpt-6-luna on 2026-10-01 — nine days after the Work/Codex debut, so it is judged late; if the owner prefers the chat-product date the verdict flips.",
+      "alt_dates": [
+        "2026-10-07 (all of ChatGPT, free and paid)"
+      ]
+    },
+    "GPT-4.1": {
+      "debut": "2025-04-14",
+      "kind": "api",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Products_and_applications_of_OpenAI"
+      ],
+      "note": "Year is 2025. Chinese sources log 2025-04-15 (Beijing offset); ChatGPT got it on 2025-05-15."
+    },
+    "Claude Opus 5": {
+      "debut": "2026-07-24",
+      "kind": "ga",
+      "sources": [
+        "https://www.anthropic.com/news/claude-opus-5"
+      ],
+      "note": "Anthropic newsroom: 'Claude Opus 5 is available today on all platforms', published Jul 24, 2026. It surfaced earlier as a Cursor codename and as a Vertex AI model-library entry on 2026-07-14.",
+      "alt_dates": [
+        "2026-07-14 (Vertex AI model listing)"
+      ]
+    },
+    "Claude Sonnet 4.6": {
+      "debut": "2026-02-17",
+      "kind": "product",
+      "sources": [
+        "https://www.anthropic.com/news/claude-sonnet-4-6"
+      ],
+      "note": "Published Feb 17, 2026 and made the default model for Free/Pro on claude.ai the same day."
+    },
+    "Claude Opus 4.6": {
+      "debut": "2026-02-05",
+      "kind": "ga",
+      "sources": [
+        "https://www.anthropic.com/news/claude-opus-4-6"
+      ],
+      "note": "Published Feb 5, 2026: claude.ai, API and all major cloud platforms."
+    },
+    "Grok 4.6": {
+      "debut": "2026-08-12",
+      "kind": "api",
+      "sources": [
+        "https://x.ai/news/grok-4-6"
+      ],
+      "note": "xAI newsroom: available in Cursor and Grok Build on Aug 12, 2026, plus the API and OpenRouter/Vercel/Cloudflare. apxml logs 2026-08-01, which is contradicted by the vendor page. The Cursor -medium alias is a routing tier, not a release.",
+      "also": [
+        "cursor-grok-4.6-medium"
+      ]
+    },
+    "MiniMax-M3.1-Flash-Preview": {
+      "debut": "2026-09-27",
+      "kind": "preview",
+      "sources": [
+        "https://www.orcarouter.ai/zh-CN/blog/minimax-m3-1-flash-vs-minimax-m3-1-flash-preview"
+      ],
+      "note": "Logged separately from the GA build because the ledger carries both IDs: the preview went live in MiniMax Code and Token Plan on 2026-09-27 (subscription keys only), 百度百科 says 09-28. GA is the MiniMax-M3.1-Flash entry (stealth 2026-09-23, announced 2026-10-19).",
+      "alt_dates": [
+        "2026-09-28 (百度百科)"
+      ],
+      "confidence": "medium"
+    },
+    "MiMo-V2.5": {
+      "debut": "2026-04-23",
+      "kind": "product",
+      "sources": [
+        "https://m.baike.com/wiki/MiMo-V2.5/7631953898055417894"
+      ],
+      "note": "小米 opened the MiMo-V2.5 series public beta on 2026-04-23; MIT weights followed on 2026-04-28.",
+      "also": [
+        "mimo-v2.5-free"
+      ]
+    },
+    "MiMo-V2.6-Flash": {
+      "debut": "2026-09-22",
+      "kind": "weights",
+      "sources": [
+        "http://finance.sina.cn/2026-09-22/detail-inissiti8902248.d.html"
+      ],
+      "note": "Xiaomi released and open-sourced the MiMo-V2.6 series (Pro + Flash) on 2026-09-22; one aggregator logs 09-21 for the Pro sibling.",
+      "also": [
+        "mimo-v2.6-flash-free"
+      ]
+    },
+    "Step-5-Preview": {
+      "debut": "2026-09-20",
+      "kind": "api",
+      "sources": [
+        "https://www.stcn.com/article/detail/4191896.html",
+        "http://www.laoyaoba.com/n/1110477"
+      ],
+      "note": "阶跃星辰 released the Step 5 Preview base model on 2026-09-20 with API and Studio access; weights followed on 2026-10-15 and free third-party windows ran 10-04 to 10-08. No non-preview Step 5 exists yet.",
+      "alt_dates": [
+        "2026-10-15 (weights)"
+      ]
+    },
+    "SenseNova-6.8-Flash-Lite": {
+      "debut": "2026-08-11",
+      "kind": "preview",
+      "sources": [
+        "https://m.163.com/dy/article/L4362HB20519DFFO.html"
+      ],
+      "note": "商汤 opened the SenseNova 6.8 Flash Lite preview on the Token Plan on 2026-08-11; 商汤's own FAQ shows the bare ID live on the site by 2026-08-27. No dated GA rename was found.",
+      "alt_dates": [
+        "2026-08-27 (bare ID documented on sensetime.com)"
+      ]
+    },
+    "LongCat-2.0": {
+      "debut": "2026-04-24",
+      "kind": "product",
+      "sources": [
+        "http://baike.baidu.hk/item/LongCat-2.0-Preview/67676996"
+      ],
+      "note": "美团 opened LongCat-2.0-Preview to public testing on 2026-04-24; the GA model was announced 2026-06-30 and the weights (plus domestic-GPU inference code) released 2026-07-12 per Meituan's own tech blog history.",
+      "alt_dates": [
+        "2026-06-30 (GA)",
+        "2026-07-12 (weights)"
+      ]
+    },
+    "LongCat-2.5-Preview": {
+      "debut": "2026-09-25",
+      "kind": "api",
+      "sources": [
+        "https://www.toutiao.com/a7690387290920649235"
+      ],
+      "note": "LongCat API platform went live with LongCat-2.5-Preview on 2026-09-25; it was time-limited free on OpenCode as longcat-2.5-preview-free from 09-26. Preview-only, no weights."
+    },
+    "Spark-X2.6": {
+      "debut": "2026-10-22",
+      "kind": "product",
+      "sources": [
+        "https://finance.sina.com.cn/stock/t/2026-10-22/doc-iniwchpf5886048.shtml",
+        "https://m.ithome.com/html/1016403.htm"
+      ],
+      "note": "科大讯飞 announced the edge-cloud 星火 X2.6 on 2026-10-22 with website trial access and X2.6-4B open weights. WARNING: this machine's ledger shows spark-x2.6 on 2026-10-20, two days BEFORE the vendor announcement, so the badge judges it late. Either a pre-release leak reached the IDE or one of the two dates is off; left as-is rather than tuned to make the badge pass.",
+      "provenance_conflict": true
+    },
+    "Doubao-Seed-2.1-Turbo": {
+      "debut": "2026-06-23",
+      "kind": "api",
+      "sources": [
+        "https://baike.baidu.com/item/%E8%B1%86%E5%8C%85%20Seed%202.1%E7%B3%BB%E5%88%97/68084170",
+        "https://m.weibo.cn/detail/5312912294154021"
+      ],
+      "note": "字节/火山引擎 put the Seed 2.1 series (Pro + Turbo) on the 火山引擎 console on 2026-06-23, announced at the FORCE conference the same day."
+    },
+    "openPangu-2.0-Pro": {
+      "debut": "2026-07-31",
+      "kind": "weights",
+      "sources": [
+        "https://www.huaweicloud.com/news.58.html",
+        "https://m.sohu.com/a/1057211855_121124300/"
+      ],
+      "note": "华为 open-sourced the 505B openPangu-2.0-Pro weights, inference code and tech report on 2026-07-31 (Huawei Cloud newsroom, Shenzhen dateline). HDC 2026 on 06-12 announced the series but nothing shows the Pro being callable then.",
+      "alt_dates": [
+        "2026-06-12 (HDC announcement only)"
+      ]
+    },
+    "North-Mini-Code": {
+      "debut": "2026-06-09",
+      "kind": "weights",
+      "sources": [
+        "https://baike.baidu.com/item/North%20Mini%20Code/67944783",
+        "https://ai.gitcode.com/hf_mirrors/CohereLabs/North-Mini-Code-1.0"
+      ],
+      "note": "Cohere/Cohere Labs model, Apache-2.0 weights on Hugging Face plus Cohere Chat V2 / OpenRouter access. The encyclopedia logs 2026-06-09 against the HF blog; a second source dates the HF integration post at 06-22, so the day is soft even though the vendor attribution is solid.",
+      "also": [
+        "north-mini-code-free"
+      ],
+      "alt_dates": [
+        "2026-06-22 (Hugging Face blog integration)"
+      ],
+      "confidence": "medium"
+    },
+    "Kimi-K2.6": {
+      "debut": "2026-04-14",
+      "kind": "preview",
+      "sources": [
+        "https://baike.baidu.com/item/Kimi%20K2.6-code-preview/67752962",
+        "https://www.kimi.com/blog/kimi-k2-6"
+      ],
+      "note": "Moonshot opened the K2.6-code-preview on Kimi Code on 2026-04-14; the full K2.6 release and open weights are logged 2026-04-20 (kimi.com blog asset dates agree), with some press writing 04-21.",
+      "alt_dates": [
+        "2026-04-20 (GA + weights)",
+        "2026-04-21 (press)"
+      ]
+    },
+    "Kimi-K2.7-Code": {
+      "debut": "2026-06-12",
+      "kind": "weights",
+      "sources": [
+        "https://platform.kimi.com/docs/changelog",
+        "https://www.digitalapplied.com/blog/kimi-k2-7-code-release-open-source-coding-model"
+      ],
+      "note": "Moonshot released and open-sourced Kimi-K2.7-Code on 2026-06-12, callable through the Kimi API and Kimi Code from that day; the HighSpeed tier came 06-15. Plain `kimi-k2.7` in the ledger is folded in here because platform docs list only K3 / K2.7 Code / K2.6 — there is no separate K2.7 model.",
+      "also": [
+        "kimi-k2.7"
+      ]
+    },
+    "Qwen3.7-Plus": {
+      "debut": "2026-05-19",
+      "kind": "preview",
+      "sources": [
+        "http://c.m.163.com/news/a/KTAVSN90051180F7.html",
+        "https://help.aliyun.com/zh/model-studio/newly-released-models"
+      ],
+      "note": "The Qwen3.7 preview pair (Max + Plus) went live on Qwen Chat/Arena 2026-05-19; Aliyun Model Studio listed qwen3.7-plus on 2026-06-01 and 正式版 on 06-02. The ID `qwen3.7-plus-2026-05-26` is a snapshot label, not a debut: 阿里云 states 该版本为2026年5月26日快照.",
+      "also": [
+        "qwen3.7-plus-2026-05-26"
+      ],
+      "alt_dates": [
+        "2026-06-01 (API listing)",
+        "2026-06-02 (formal release)"
+      ]
+    },
+    "Qwen3.7-Max": {
+      "debut": "2026-05-19",
+      "kind": "preview",
+      "sources": [
+        "http://c.m.163.com/news/a/KTAVSN90051180F7.html",
+        "https://help.aliyun.com/zh/model-studio/newly-released-models"
+      ],
+      "note": "Previewed 2026-05-19 alongside Plus; Aliyun's newly-released table logs qwen3.7-max + the 2026-05-20 snapshot on 2026-05-21 and qwen3.7-max-preview (snapshot 05-17) on 05-20; the app/PC/web rollout news is 05-22. All three ledger IDs are the same model at different snapshots, so they fold into one slot.",
+      "also": [
+        "qwen3.7-max-preview",
+        "qwen3.7-max-2026-05-20"
+      ]
+    },
+    "Qwen3.7-Flash": {
+      "debut": "2026-07-21",
+      "kind": "api",
+      "sources": [
+        "https://help.aliyun.com/zh/model-studio/newly-released-models"
+      ],
+      "note": "Aliyun lists qwen3.7-flash (snapshot 2026-07-15) under 2026-07-21. Alibaba's two changelog pages render the date headings inconsistently for this row (07-15, 07-16, 07-25 all appear), so the day is soft; the 07-15 snapshot date is not treated as availability.",
+      "confidence": "medium"
+    },
+    "Qwen3.8-Flash": {
+      "debut": "2026-08-26",
+      "kind": "api",
+      "sources": [
+        "https://help.aliyun.com/zh/model-studio/newly-released-models",
+        "https://baike.baidu.com/item/Qwen3.8-Flash-Next/68707034"
+      ],
+      "note": "Aliyun logs qwen3.8-flash on 2026-08-26; the open Qwen3.8-Flash-Next weights plus FP8 landed at 23:00 Beijing the same day."
+    },
+    "Qwen3.8-2.4T-A95B": {
+      "debut": "2026-08-12",
+      "kind": "weights",
+      "sources": [
+        "https://help.aliyun.com/zh/model-studio/newly-released-models",
+        "https://www.orcarouter.ai/zh-TW/blog/qwen-3-7-vs-qwen-3-8"
+      ],
+      "note": "The open-weights release of the 2.4T-parameter Qwen3.8 Max core, listed by Aliyun on 2026-08-12 and on Hugging Face / ModelScope the same day. Kept as its own identity rather than folded into Qwen3.8-Max because the vendor publishes it as a separate model ID."
+    },
+    "Gemma-4-26B-A4B-it": {
+      "debut": "2026-04-02",
+      "kind": "weights",
+      "sources": [
+        "https://www.datalearner.com/ai-models/pretrained-models/google-gemma-4-26b-a4b",
+        "https://rits.shanghai.nyu.edu/ai/gemma-4-gets-multi-token-prediction-drafters-3x-faster-inference-same-outputs/"
+      ],
+      "note": "Google DeepMind released the Gemma 4 family (E2B, E4B, 26B-A4B MoE, 31B dense) on 2026-04-02 local time. AWS's Bedrock model card carries 2026-03-31 as its own field, unexplained, so it is listed rather than chosen.",
+      "alt_dates": [
+        "2026-03-31 (Bedrock model card)",
+        "2026-04-03 (Beijing reporting)"
+      ]
+    },
+    "Hy3": {
+      "debut": "2026-04-23",
+      "kind": "preview",
+      "sources": [
+        "https://baike.baidu.com/item/%E8%85%BE%E8%AE%AF%E6%B7%B7%E5%85%83/67262333"
+      ],
+      "note": "Hy3 preview released and open-sourced 2026-04-23 with a free tier in WorkBuddy/CodeBuddy; GA announcement 2026-07-06. Secondary source (encyclopedia citing 界面新闻), dated 2026-10-16. Keyed by the ledger slug Hy3 (Tencent announces it as 混元 Hy3).",
+      "alt_dates": [
+        "2026-07-06 (Hy3 正式发布)"
+      ]
+    },
+    "Hy4-Preview": {
+      "debut": "2026-08-27",
+      "kind": "weights",
+      "sources": [
+        "https://github.com/Tencent-Hunyuan/Hy4-preview/blob/main/README_CN.md",
+        "https://m.weibo.cn/detail/5336919315841621"
+      ],
+      "note": "Repo says Hy4 preview + Hy4 preview-FP8 weights are open; the official Weibo announcement is dated 2026-08-28 (770B total / 49B active, 1M context) and WorkBuddy ran a limited free window from the same day. Kept the weights date because it is the earlier evidence. Keyed by the ledger slug Hy4-Preview.",
+      "alt_dates": [
+        "2026-08-28 (official announcement)"
+      ]
+    }
+  },
+  "undated": {
+    "_note": "Publicly named models this machine uses that deliberately have NO debut date, so the trendsetter badge gives them no verdict either way. Each was searched; re-check before adding a date.",
+    "kimi-k3-1": "Moonshot has not released K3.1 as of 2026-10-22: no model card, weights, API price or date (https://baijiahao.baidu.com/s?id=1879658483915100913, https://www.orcarouter.ai/zh-CN/blog/kimi-k3-1-leak). The ledger's 2026-07-31 first use predates even the 2026-09-28 registry appearance of the kimi-k3-1 slug, so that row is a routing label, not a K3.1 release.",
+    "glm-5-2-x": "No source describes a separately announced GLM-5.2-X; only GLM-5.2 base/FP8/高速版 exist.",
+    "glm-5-2-a": "No source describes a separately announced GLM-5.2-A.",
+    "glm-5-base": "BigModel's own release log has no GLM-5-Base entry; the nearest dated event is the GLM-5 weight dump on 2026-02-11/12, which is a different ID.",
+    "spark-x": "科大讯飞 ships Spark X2 / X2-Flash / Ultra / Pro / Lite; no dated announcement for a bare `Spark X` was found, so it is not dated by guessing from the X2.6 sibling."
+  }
 }

@@ -1406,7 +1406,7 @@ achievements.badge.momentum.desc,dashboard,*,BadgeDetailModal,momentum_desc,"Mul
 achievements.badge.polyglot.name,dashboard,*,AchievementsSection,polyglot_name,"Model Polyglot",,active
 achievements.badge.polyglot.desc,dashboard,*,BadgeDetailModal,polyglot_desc,"Put many different models to work.",,active
 achievements.badge.trendsetter.name,dashboard,*,AchievementsSection,trendsetter_name,"Trendsetter",,active
-achievements.badge.trendsetter.desc,dashboard,*,BadgeDetailModal,trendsetter_desc,"Be early: a model counts on the day you first run it.",,active
+achievements.badge.trendsetter.desc,dashboard,*,BadgeDetailModal,trendsetter_desc,"Be early: a model counts when you first run it within a week of its public debut.",,active
 achievements.badge.multitool.name,dashboard,*,AchievementsSection,multitool_name,"Multitool",,active
 achievements.badge.multitool.desc,dashboard,*,BadgeDetailModal,multitool_desc,"Track usage across many AI coding tools.",,active
 achievements.badge.podium.name,dashboard,*,AchievementsSection,podium_name,"Podium",,active

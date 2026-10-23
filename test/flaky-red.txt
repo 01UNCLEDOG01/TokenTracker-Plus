@@ -5,4 +5,5 @@ notify sync waits for the active owner and acquires the released lock
 status --json emits a JSON object with required summary fields
 status --light renders an ASCII table with key columns
 status default (no flag) still prints the human-readable list
+status --json --no-spinner is accepted (no-spinner is a no-op for status)
 parseKiroIncremental tracks JSONL fallback with a separate cursor

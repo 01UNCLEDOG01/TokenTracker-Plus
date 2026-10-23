@@ -13,7 +13,12 @@ function signature(stat) {
 // yields between bounded chunks so a cold/replaced queue cannot monopolize the
 // HTTP event loop. Keep committed newline-terminated rows separate from a tail
 // that a concurrent writer may still be completing.
-function createAsyncQueueReader({ parseRow, label, maxEntries = 4 }) {
+//
+// The queue is an append log, so a later row for the same key normally supersedes
+// an earlier one. `resolve(existing, incoming)` lets a reader narrow that rule
+// when a later append can legitimately carry no data for the key.
+function createAsyncQueueReader({ parseRow, resolve, label, maxEntries = 4 }) {
+  const keep = typeof resolve === "function" ? resolve : (existing, incoming) => incoming;
   const cache = new Map();
   const pending = new Map();
 
@@ -69,7 +74,7 @@ function createAsyncQueueReader({ parseRow, label, maxEntries = 4 }) {
         if (!line.trim()) return;
         try {
           const entry = parseRow(JSON.parse(line));
-          if (entry) target.set(entry.key, entry.row);
+          if (entry) target.set(entry.key, keep(target.get(entry.key), entry.row));
         } catch { malformed++; }
       }
 
@@ -101,12 +106,22 @@ function createAsyncQueueReader({ parseRow, label, maxEntries = 4 }) {
         await yieldToRequests();
       }
       remainder += decoder.end();
-      for (const [key, row] of changes) seen.set(key, row);
+      // Both merges re-apply the hook: within a single map parse() already did
+      // the comparing, but folding a chunk map into the committed map (or the
+      // provisional tail into either) crosses maps.
+      for (const [key, row] of changes) seen.set(key, keep(seen.get(key), row));
       const tail = new Map();
       parse(remainder, tail);
       // Legacy files without a final newline are readable, but their provisional
       // key never enters the committed map (completion may change that key).
-      const rows = tail.size ? Array.from(new Map([...seen, ...tail]).values()) : Array.from(seen.values());
+      let rows;
+      if (tail.size) {
+        const merged = new Map(seen);
+        for (const [key, row] of tail) merged.set(key, keep(merged.get(key), row));
+        rows = Array.from(merged.values());
+      } else {
+        rows = Array.from(seen.values());
+      }
       cache.delete(queuePath);
       cache.set(queuePath, {
         signature: nextSignature, identity, size, consumedBytes,
