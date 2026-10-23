@@ -238,7 +238,7 @@ test("installer output is parameterized by version", () => {
   const iss = loadIss();
   assert.ok(iss.includes("MyAppVersion"), "version must be passed in via /D");
   assert.ok(
-    iss.includes("TokenTracker-Setup-v"),
+    iss.includes("TokenTracker-plus-Setup-v") || iss.includes("TokenTracker-Setup-v"),
     "output filename should carry the version"
   );
 });

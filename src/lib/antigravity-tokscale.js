@@ -100,6 +100,21 @@ function readTokenMonitorAntigravitySessions(dbPath) {
             usage_events: num(p.messageCount) || 1,
           });
         }
+        const timedOutput = num(p.timedOutputTokens);
+        const timedDuration = num(p.timedDurationMs);
+        const requestCount = num(p.messageCount) || 1;
+        let performance = null;
+        if (timedOutput > 0 && timedDuration > 0) {
+          performance = {
+            estimated_output_tokens: timedOutput,
+            estimated_duration_ms: timedDuration,
+            estimated_request_count: requestCount,
+            estimated_tokens_per_second: timedOutput * 1000 / timedDuration,
+            first_response_total_ms: 0,
+            first_response_sample_count: 0,
+            first_response_ms: null,
+          };
+        }
         sessions.set(sessionId, {
           sessionId,
           usage: {
@@ -114,7 +129,8 @@ function readTokenMonitorAntigravitySessions(dbPath) {
           models,
           startedAt: Number.isFinite(startedAt) ? startedAt : null,
           endedAt: Number.isFinite(endedAt) ? endedAt : null,
-          requests: num(p.messageCount),
+          requests: requestCount,
+          performance,
           provenance: "token-monitor-archive",
         });
       } catch { /* skip malformed */ }
@@ -331,8 +347,13 @@ function readAntigravityTokscaleUsage({ home = os.homedir(), env = process.env, 
           }
         }
       }
-    } else if (existing && tmSession.costUsd !== null && existing.costUsd === undefined) {
-      existing.costUsd = tmSession.costUsd;
+    } else if (existing) {
+      if (tmSession.costUsd !== null && existing.costUsd === undefined) {
+        existing.costUsd = tmSession.costUsd;
+      }
+      if (tmSession.performance && !existing.performance) {
+        existing.performance = tmSession.performance;
+      }
     }
   }
 

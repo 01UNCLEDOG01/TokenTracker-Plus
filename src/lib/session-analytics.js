@@ -57,6 +57,7 @@ const { parseCodexRolloutFile } = require("./codex-rollout-parser");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
 const { readAntigravityTokscaleUsageCached } = require("./antigravity-tokscale");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector, createZcodePerformanceCollector } = require("./session-performance");
+const { lookupTokenMonitorPerformance } = require("./token-monitor-speed");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
 const { resolveZcodeNativeDbPath, resolveInstallPaths } = require("./install-resolver");
 const { readCursorStateSummary } = require("./cursor-store");
@@ -115,7 +116,7 @@ const {
 // v25 adds Kimi wire sessions, including official/legacy migration dedup.
 // v26 retains Codex Ultrafast (service_tier ultrafast) subset columns so
 // date-filtered session views and cached sidecars keep the 6x premium.
-const SIDECAR_VERSION = 27;
+const SIDECAR_VERSION = 28;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -1131,6 +1132,9 @@ function createDshParseState() {
     subagentCalls: 0,
     currentTurnHadEdit: false,
     lastPromptFingerprint: null,
+    timedOutputTokens: 0,
+    timedDurationMs: 0,
+    timedRequestCount: 0,
   };
 }
 
@@ -1172,6 +1176,20 @@ function consumeDshRecord(state, record) {
     addTotals(entry, usage);
     entry.usage_events += 1;
     state.modelUsageByModel.set(key, entry);
+    if (Array.isArray(data?.stream) && data.stream.length >= 2 && usage.output_tokens > 0) {
+      const firstChunk = data.stream[0];
+      const lastChunk = data.stream[data.stream.length - 1];
+      const startMs = Number(firstChunk?.time);
+      const endMs = Number(lastChunk?.time);
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+        const reqDuration = endMs - startMs;
+        if (reqDuration >= 50 && reqDuration <= 60 * 60 * 1000) {
+          state.timedOutputTokens += usage.output_tokens;
+          state.timedDurationMs += reqDuration;
+          state.timedRequestCount += 1;
+        }
+      }
+    }
   } else if (type === "tool/call") {
     const name = dshToolName(data);
     if (!name) return;
@@ -1207,6 +1225,21 @@ function finalizeDshState(state, filePath) {
   // An open turn has not seen its turn/start close yet; count it once here
   // without mutating state, so an incremental batch cannot close it twice.
   const editTurns = state.editTurns + (state.currentTurnHadEdit ? 1 : 0);
+  let dshPerf = null;
+  if (state.timedOutputTokens > 0 && state.timedDurationMs > 0) {
+    dshPerf = {
+      estimated_output_tokens: state.timedOutputTokens,
+      estimated_duration_ms: state.timedDurationMs,
+      estimated_request_count: Math.max(1, state.timedRequestCount || 1),
+      estimated_tokens_per_second: state.timedOutputTokens * 1000 / state.timedDurationMs,
+      first_response_total_ms: 0,
+      first_response_sample_count: 0,
+      first_response_ms: null,
+    };
+  }
+  if (!dshPerf) {
+    dshPerf = lookupTokenMonitorPerformance(DSH_SOURCE, state.sessionId);
+  }
   const row = {
     version: SIDECAR_VERSION,
     session_hash: sessionHash(DSH_SOURCE, state.sessionId),
@@ -1221,8 +1254,9 @@ function finalizeDshState(state, filePath) {
       : (state.modelUsageByModel.size > 1 ? "mixed" : (state.currentModel || "unknown")),
     model_usage: [...state.modelUsageByModel.values()].map((usage) => ({
       ...usage,
-      performance: normalizePerformance(),
+      performance: dshPerf || normalizePerformance(),
     })),
+    performance: dshPerf || normalizePerformance(),
     ...state.bounds,
     started_at: startedAt,
     ended_at: endedAt,
@@ -2226,7 +2260,10 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
       if (!sessionId) continue;
       let group = groups.get(sessionId);
       if (!group) {
-        group = { bounds: emptyBounds(), tokens: emptyTotals(), models: new Map(), buckets: new Map(), spans: [], turns: 0, calls: 0, cwd: null };
+        group = {
+          bounds: emptyBounds(), tokens: emptyTotals(), models: new Map(), buckets: new Map(), spans: [],
+          turns: 0, calls: 0, cwd: null, timedOutputTokens: 0, timedDurationMs: 0, timedRequests: 0,
+        };
         groups.set(sessionId, group);
       }
       if (delta && delta.total_tokens > 0) {
@@ -2257,6 +2294,14 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
       // execution time. Incomplete requests contribute their start point alone.
       const completed = row.role === "assistant" ? coerceEpochMs(data.time?.completed) : 0;
       const end = completed >= start ? completed : start;
+      if (row.role === "assistant" && completed > start && delta && delta.output_tokens > 0) {
+        const reqDuration = completed - start;
+        if (reqDuration >= 50 && reqDuration <= 60 * 60 * 1000) {
+          group.timedOutputTokens += delta.output_tokens;
+          group.timedDurationMs += reqDuration;
+          group.timedRequests += 1;
+        }
+      }
       if (start) updateBounds(group.bounds, new Date(start).toISOString());
       if (end) updateBounds(group.bounds, new Date(end).toISOString());
       if (start && end >= start) group.spans.push([start, end]);
@@ -2285,6 +2330,21 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
         else { activeMs += interval[1] - interval[0]; interval = [...span]; }
       }
       if (interval) activeMs += interval[1] - interval[0];
+      let opencodePerf = null;
+      if (group.timedOutputTokens > 0 && group.timedDurationMs > 0) {
+        opencodePerf = {
+          estimated_output_tokens: group.timedOutputTokens,
+          estimated_duration_ms: group.timedDurationMs,
+          estimated_request_count: Math.max(1, group.timedRequests || 1),
+          estimated_tokens_per_second: group.timedOutputTokens * 1000 / group.timedDurationMs,
+          first_response_total_ms: 0,
+          first_response_sample_count: 0,
+          first_response_ms: null,
+        };
+      }
+      if (!opencodePerf) {
+        opencodePerf = lookupTokenMonitorPerformance(familySource, sessionId);
+      }
       records.push(finalizeRecord({
         version: SIDECAR_VERSION,
         session_hash: sessionHash(familySource, sessionId), session_id: sessionId,
@@ -2292,7 +2352,9 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
         title: cleanSessionTitle(row.title), source: familySource,
         project_key: projectKey(cwd && cwd.replace(/\\/g, "/"), paths[0]), project_ref: cwd || null,
         model: modelUsage.length > 1 ? "mixed" : (modelUsage[0]?.model || "unknown"),
-        model_usage: modelUsage, usage_buckets: [...group.buckets.values()],
+        model_usage: modelUsage.map((m) => ({ ...m, performance: opencodePerf || normalizePerformance() })),
+        performance: opencodePerf || normalizePerformance(),
+        usage_buckets: [...group.buckets.values()],
         ...group.bounds, active_ms: activeMs, tokens: group.tokens,
         turns: group.turns,
         edit_turns: toolSignals.editTurns,
@@ -2684,9 +2746,14 @@ function buildZcodeSessionRecords(inputs, displayPath) {
     if (unionStart !== null) unionActiveMs += unionEnd - unionStart;
     bounds.active_ms = unionActiveMs;
     const finished = signals ? signals.collector.finish() : { performance: normalizePerformance(), byModel: new Map() };
+    let zcodePerf = finished.performance;
+    if (zcodePerf.estimated_tokens_per_second == null) {
+      const tmPerf = lookupTokenMonitorPerformance("zcode", sessionId);
+      if (tmPerf) zcodePerf = tmPerf;
+    }
     const modelUsage = [...modelUsageByModel.values()].map((usage) => ({
       ...usage,
-      performance: finished.byModel.get(usage.model) || normalizePerformance(),
+      performance: finished.byModel.get(usage.model) || zcodePerf || normalizePerformance(),
     }));
     const cwd = typeof row?.directory === "string" && row.directory.trim() ? row.directory.trim() : messageCwd;
     records.push(finalizeRecord({
@@ -2721,7 +2788,7 @@ function buildZcodeSessionRecords(inputs, displayPath) {
       api_duration_ms: signals ? signals.apiDurationMs : 0,
       error_count: signals ? signals.errorCount : 0,
       compaction_count: signals ? signals.compactionCount : 0,
-      performance: finished.performance,
+      performance: zcodePerf,
       provenance: {
         source: "local-session-log",
         confidence: "observed",
@@ -2914,10 +2981,17 @@ function groupCodexFiles(filePaths) {
 
 async function scanKimiSessions(filePaths) {
   const rows = await readKimiSessions(Array.isArray(filePaths) ? filePaths : [filePaths]);
-  return rows.map(({ identity, files, ...row }) => finalizeRecord({
-    ...row, version: SIDECAR_VERSION, source: "kimi", session_hash: sessionHash("kimi", identity),
-    project_key: projectKey(row.project_ref, files[0]), ...sessionStorageUsage(files),
-  }));
+  return rows.map(({ identity, files, ...row }) => {
+    let perf = row.performance;
+    if (!perf || perf.estimated_tokens_per_second == null) {
+      const tmPerf = lookupTokenMonitorPerformance("kimi", row.session_id || identity);
+      if (tmPerf) perf = tmPerf;
+    }
+    return finalizeRecord({
+      ...row, performance: perf, version: SIDECAR_VERSION, source: "kimi", session_hash: sessionHash("kimi", identity),
+      project_key: projectKey(row.project_ref, files[0]), ...sessionStorageUsage(files),
+    });
+  });
 }
 
 async function discoverSessionFiles(home, env = process.env, deps = {}) {
@@ -3517,9 +3591,10 @@ async function scanAntigravitySession(dbPath) {
       const session = snapshot.bySession.get(uuid);
       if (session && session.models.size > 0) {
         cachedUsage = session;
+        const agPerf = session.performance || lookupTokenMonitorPerformance("antigravity", uuid) || normalizePerformance();
         modelUsage = [...session.models.values()].map((usage) => ({
           ...usage,
-          performance: normalizePerformance(),
+          performance: agPerf,
         }));
         totals = { ...session.usage };
         usageEvents = [...session.models.values()].reduce((sum, usage) => sum + finite(usage.usage_events), 0);
@@ -3548,7 +3623,7 @@ async function scanAntigravitySession(dbPath) {
     project_ref: projectRef,
     model: modelUsage[0]?.model ?? null,
     model_usage: modelUsage,
-    performance: {},
+    performance: cachedUsage?.performance || lookupTokenMonitorPerformance("antigravity", uuid) || {},
     started_at: startedMs ? new Date(startedMs).toISOString() : null,
     ended_at: endedMs ? new Date(endedMs).toISOString() : null,
     active_ms: startedMs !== null && endedMs !== null ? Math.max(0, endedMs - startedMs) : 0,
