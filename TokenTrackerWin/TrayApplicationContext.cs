@@ -40,9 +40,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private string _trayStyle = "cat";
     private readonly Icon?[] _catDarkIcons = new Icon?[5];
     private readonly Icon?[] _catLightIcons = new Icon?[5];
-    private Icon? _mascotDarkIcon;
-    private Icon? _mascotLightIcon;
-    private Icon? _lightningIcon;
+    private Icon? _appIcon;
+    private Icon? _classicLightningDark;
+    private Icon? _classicLightningLight;
     private readonly System.Windows.Forms.Timer _trayAnimTimer = new() { Interval = 400 };
     private int _catFrameIndex;
     private DateTime _sprintUntil = DateTime.MinValue;
@@ -1322,9 +1322,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _catDarkIcons[i] = LoadIconFile($"tray-cat-{i}-onDark.ico");
                 _catLightIcons[i] = LoadIconFile($"tray-cat-{i}-onLight.ico");
             }
-            _mascotDarkIcon = LoadIconFile("tray-mascot-onDark.ico");
-            _mascotLightIcon = LoadIconFile("tray-mascot-onLight.ico");
-            _lightningIcon = LoadIconFile("trayicon.ico");
+            _appIcon = LoadIconFile("trayicon.ico");
+            _classicLightningDark = LoadIconFile("tray-mascot-onDark.ico");
+            _classicLightningLight = LoadIconFile("tray-mascot-onLight.ico");
         }
         catch (Exception ex)
         {
@@ -1351,13 +1351,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _trayAnimTimer.Interval = (DateTime.UtcNow < _sprintUntil) ? 80 : 400;
             _trayAnimTimer.Start();
             var icon = (_lastIconLight.Value ? _catLightIcons : _catDarkIcons)[0];
-            return icon ?? _mascotDarkIcon ?? SystemIcons.Application;
+            return icon ?? _classicLightningDark ?? _appIcon ?? SystemIcons.Application;
         }
         if (_trayStyle == "lightning")
         {
-            return _lightningIcon ?? SystemIcons.Application;
+            return (_lastIconLight.Value ? _classicLightningLight : _classicLightningDark) ?? _appIcon ?? SystemIcons.Application;
         }
-        return (_lastIconLight.Value ? _mascotLightIcon : _mascotDarkIcon) ?? _lightningIcon ?? SystemIcons.Application;
+        return _appIcon ?? (_lastIconLight.Value ? _classicLightningLight : _classicLightningDark) ?? SystemIcons.Application;
     }
 
     private void SyncTaskbarIcon()
@@ -1371,19 +1371,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _trayAnimTimer.Interval = (DateTime.UtcNow < _sprintUntil) ? 80 : 400;
                 _trayAnimTimer.Start();
             }
-            var icon = (light ? _catLightIcons : _catDarkIcons)[_catFrameIndex] ?? _mascotDarkIcon ?? _lightningIcon;
+            var icon = (light ? _catLightIcons : _catDarkIcons)[_catFrameIndex] ?? _classicLightningDark ?? _appIcon;
             if (icon != null) _trayIcon.Icon = icon;
             return;
         }
         _trayAnimTimer.Stop();
         if (_trayStyle == "lightning")
         {
-            var icon = _lightningIcon ?? (light ? _mascotLightIcon : _mascotDarkIcon);
+            var icon = (light ? _classicLightningLight : _classicLightningDark) ?? _appIcon;
             if (icon != null) _trayIcon.Icon = icon;
         }
         else
         {
-            var icon = (light ? _mascotLightIcon : _mascotDarkIcon) ?? _lightningIcon;
+            var icon = _appIcon ?? (light ? _classicLightningLight : _classicLightningDark);
             if (icon != null) _trayIcon.Icon = icon;
         }
     }
@@ -1397,7 +1397,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         bool light = IsTaskbarLight();
         _catFrameIndex = (_catFrameIndex + 1) % 5;
-        var icon = (light ? _catLightIcons : _catDarkIcons)[_catFrameIndex] ?? _mascotDarkIcon ?? _lightningIcon;
+        var icon = (light ? _catLightIcons : _catDarkIcons)[_catFrameIndex] ?? _classicLightningDark ?? _appIcon;
         if (icon != null) _trayIcon.Icon = icon;
         int targetInterval = (DateTime.UtcNow < _sprintUntil) ? 80 : 400;
         if (_trayAnimTimer.Interval != targetInterval) _trayAnimTimer.Interval = targetInterval;
@@ -1509,9 +1509,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _catDarkIcons[i]?.Dispose();
                 _catLightIcons[i]?.Dispose();
             }
-            _mascotDarkIcon?.Dispose();
-            _mascotLightIcon?.Dispose();
-            _lightningIcon?.Dispose();
+            _appIcon?.Dispose();
+            _classicLightningDark?.Dispose();
+            _classicLightningLight?.Dispose();
             _refreshTimer.Dispose();
             _syncTimer.Dispose();
             _updateCheckTimer.Dispose();
