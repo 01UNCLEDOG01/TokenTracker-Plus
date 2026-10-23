@@ -13,7 +13,7 @@ This repository currently supports **52 AI coding tools** (upstream base plus fo
 
 - **Local collection**: reads token counts, timestamps, model names and costs from local JSONL / SQLite / logs and writes them to `~/.tokentracker/queue.jsonl`.
 - **Local dashboard**: the CLI serves a local dashboard with total cost, daily trends, model breakdown, project attribution, sessions, limits and achievements.
-- **Self-hosted cloud features (optional)**: the leaderboard, achievements and cross-device account view can point at your own Node + PGlite backend (`scripts/self-host/`). There is no membership/payment UI.
+- **Self-hosted cloud features (optional)**: cross-device account views and a shared leaderboard can point at your own Node + PGlite backend (`scripts/self-host/`). Achievements do not need it — all 31 are judged from this machine's queue. There is no membership/payment UI.
 - **Desktop**: a Windows tray app embeds the dashboard and adds a pet, a desktop quota widget and an always-on-top usage pill.
 - **Auditable cost model**: each token component is recorded separately; cost is `Σ(tokens × price)`. Prices come from LiteLLM plus local curated overrides.
 
@@ -37,12 +37,13 @@ Directory overrides: `TOKENTRACKER_ACODE_HOME` (AStudio), `TOKENTRACKER_DUMATE_H
 | Limit cards | Upstream provider set | Adds Agent2API, APIGOTO, AgentRouter, DeepSeek, Trae sub-account, CodeArts, Cline Pass and SenseNova |
 | Windows | Tray + dashboard | Adds pet action rotation, desktop quota widget and usage pill |
 | Pricing | Upstream `-free` zero-price rule | **Rejects `-free` zero-price**: free routes are still valued at list price |
+| Achievements | Hosted leaderboard required | **All 31 judged from the local queue**, offline-unlockable; trendsetter compares your first use against a curated, source-cited model debut catalog |
 | Distribution | npm / official installers | No npm release; desktop apps built from source |
 
 ## What it is not
 
 - **Not an official distribution**: no npm package, no official release, no upstream support promise.
-- **No membership/payment UI**: the leaderboard and achievements run on your own backend.
+- **No membership/payment UI**: the shared leaderboard and cross-device sync run on your own backend; achievements never do.
 - **No guarantee of upstream parity**: merging upstream involves trade-offs; fork-specific behavior (especially billing semantics) does not follow upstream automatically.
 - **No prompt/code collection**: only token counts, timestamps, model names and costs.
 
@@ -99,6 +100,7 @@ scripts/self-host/internal-backup.sh
 - **Free routes are valued at list price**: the upstream `-free` zero-price rule is permanently rejected in this fork.
 - **AgentRouter face value is not added to total spend**: codex traffic is already accounted by tokens; the relay face value is carried only by the AgentRouter card.
 - Estimates (antigravity, Qoder CN, etc.) are labeled explicitly.
+- **Model debut dates** for the trendsetter badge come from `src/lib/pricing/model-debuts.json`: one entry per model, each carrying the vendor source it was read from. A model counts when this machine first ran it within a week either side of that date, so beta access before an announcement is credited and shown separately in the badge metadata. Models with no verifiable date get no verdict either way.
 
 ### Activity heatmap levels
 
@@ -182,7 +184,7 @@ On this machine the full Node suite has about 50 environment/baseline reds plus 
 
 ## Two modes, one repository
 
-- **Local (default)** — the desktop app + CLI run fully offline. The runtime descriptor serves `localOnly: true`: cloud navigation and settings are hidden, the leaderboard reads this machine's queue history ("本机历史"), and all 31 achievements unlock locally.
+- **Local (default)** — the desktop app + CLI run fully offline. The runtime descriptor serves `localOnly: true`: cloud navigation and settings are hidden, the leaderboard reads this machine's queue history ("本机历史"), and all 31 achievements unlock locally — including trendsetter and podium, which upstream gates behind the shared leaderboard.
 - **Self-hosted (optional)** — deploy `scripts/self-host/` to your own server for cross-device account views and a shared leaderboard. Everything cloud-gated lives behind that deployment; nothing in the local build calls it.
 
 Both modes ship from this single codebase; pick per install by pointing the CLI at (or away from) a backend.

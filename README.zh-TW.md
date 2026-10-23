@@ -13,7 +13,7 @@
 
 - **本地採集**：讀取本機 JSONL / SQLite / 日誌中的 token 計數、時間、模型名與成本，寫入 `~/.tokentracker/queue.jsonl`。
 - **本地看板**：CLI 啟動本地面板，展示總花費、每日趨勢、模型拆分、項目歸屬、會話列表、限額與成就。
-- **自建雲功能（可選）**：排行榜、成就、跨設備帳號視圖可以指向自己的 Node + PGlite 後端（`scripts/self-host/`），沒有會員/付費界面。
+- **自建雲功能（可選）**：跨設備帳號視圖與共享排行榜可以指向自己的 Node + PGlite 後端（`scripts/self-host/`）；成就無需後端，31 枚全部按本機佇列判定。沒有會員/付費介面。
 - **桌面端**：Windows 托盤應用內嵌 Dashboard，附帶桌寵、桌面額度小組件和置頂用量藥丸。
 - **可審計的費用口徑**：每個 token 分量分開記，成本按 `Σ(tokens × 單價)` 計算；價格來自 LiteLLM + 本地 curated overrides。
 
@@ -37,12 +37,13 @@ Claude Code、AutoClaw、Cola、Tuanjie Cowork、Agent2API、Codex CLI、AStudio
 | 限額卡 | 上游 provider 集合 | 另加 Agent2API（小浣熊）、APIGOTO、AgentRouter、DeepSeek、Trae 小號、CodeArts、Cline Pass、SenseNova |
 | Windows | 托盤 + Dashboard | 另加桌寵動作輪換、桌面額度小組件、置頂用量藥丸 |
 | 定價 | 上游 `-free` 歸零規則 | **拒絕 `-free` 歸零**：免費路由仍按刊例價計值 |
+| 成就 | 需要掛排行榜的後端 | **31 枚全部按本機佇列判定**，離線可解鎖；trendsetter 拿本機首用日去比一份帶廠商來源的模型首發日目錄 |
 | 發布 | npm / 官方安裝包 | 不發布 npm；桌面端從源碼構建 |
 
 ## 不包含什麼
 
 - **不是官方發行版**：沒有 npm 包、沒有官方 release、沒有上游支援承諾。
-- **沒有會員/付費界面**：排行榜和成就是自建後端上的功能。
+- **沒有會員/付費介面**：共享排行榜與跨設備同步走自建後端；成就從不依賴它。
 - **不保證與上游同步**：合併上游時會有取捨；fork 特有行為（尤其是計費語義）不會自動跟隨上游。
 - **不收集提示詞/代碼**：只記 token 計數、時間、模型名和成本。
 
@@ -99,6 +100,7 @@ scripts/self-host/internal-backup.sh
 - **免費路由按刊例價計值**：上游 `-free` 歸零規則在本 fork 被永久拒絕。
 - **AgentRouter 中轉面值不併入總花費**：codex 流量已按 token 記入總帳；站方面值只由 AgentRouter 卡承載。
 - 估算值會顯式標註（如 antigravity、Qoder CN）。
+- **模型首發日**來自 `src/lib/pricing/model-debuts.json`：一個模型一條，每條都帶它讀自哪個廠商來源。判定是「本機首次跑該模型的日期，落在首發日**前後各一週**之內」，所以公告前的內測／灰度也算嚐鮮，並在徽章元資料里單列；查不到可靠日期的模型不給任何方向結論。
 
 ### 熱力圖等級
 
@@ -179,3 +181,10 @@ TOKENTRACKER_BUILD_PET=1 npm --prefix dashboard run build
 - **上游項目**：[xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)。
 - **第三方組件**：見 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。Clawd 角色設計歸 Anthropic，本項目與 Anthropic 無官方關聯。
 - 上游問題請提到 [上游 issue](https://github.com/xiufengsun/TokenTracker/issues)。
+
+## 一個倉庫，兩種模式
+
+- **單機版（預設）**：桌面端 + CLI 完全離線運行。執行期描述帶 `localOnly: true`：隱藏雲端服務導覽與設定，排行榜讀本機佇列歷史（本機歷史），31 枚成就全部本機解鎖——包括上游需要共享排行榜的 trendsetter 與 podium。
+- **自部署連線版（選填）**：把 `scripts/self-host/` 部署到自己的伺服器，取得跨設備帳號視圖與共享排行榜。所有雲端能力都掛在這個部署後面，單機建置不會呼叫它。
+
+兩種模式出自同一份程式碼；安裝時依是否指向後端自動區分。

@@ -13,7 +13,7 @@
 
 - **本地采集**：读取本机 JSONL / SQLite / 日志中的 token 计数、时间、模型名与成本，写入 `~/.tokentracker/queue.jsonl`。
 - **本地看板**：CLI 启动本地面板，展示总花费、每日趋势、模型拆分、项目归属、会话列表、限额与成就。
-- **自建云功能（可选）**：排行榜、成就、跨设备账号视图可以指向自己的 Node + PGlite 后端（`scripts/self-host/`），没有会员/付费界面。
+- **自建云功能（可选）**：跨设备账号视图与共享排行榜可以指向自己的 Node + PGlite 后端（`scripts/self-host/`）；成就无需后端，31 枚全部按本机队列判定。没有会员/付费界面。
 - **桌面端**：Windows 托盘应用内嵌 Dashboard，附带桌宠、桌面额度小组件和置顶用量药丸。
 - **可审计的费用口径**：每个 token 分量分开记，成本按 `Σ(tokens × 单价)` 计算；价格来自 LiteLLM + 本地 curated overrides。
 
@@ -37,12 +37,13 @@ Claude Code、AutoClaw、Cola、Tuanjie Cowork、Agent2API、Codex CLI、AStudio
 | 限额卡 | 上游 provider 集合 | 另加 Agent2API（小浣熊）、APIGOTO、AgentRouter、DeepSeek、Trae 小号、CodeArts、Cline Pass、SenseNova |
 | Windows | 托盘 + Dashboard | 另加桌宠动作轮换、桌面额度小组件、置顶用量药丸 |
 | 定价 | 上游 `-free` 归零规则 | **拒绝 `-free` 归零**：免费路由仍按刊例价计值 |
+| 成就 | 需要挂排行榜的后端 | **31 枚全部按本机队列判定**，离线可解锁；trendsetter 拿本机首用日去比一份带厂商来源的模型首发日目录 |
 | 发布 | npm / 官方安装包 | 不发布 npm；桌面端从源码构建 |
 
 ## 不包含什么
 
 - **不是官方发行版**：没有 npm 包、没有官方 release、没有上游支持承诺。
-- **没有会员/付费界面**：排行榜和成就是自建后端上的功能。
+- **没有会员/付费界面**：共享排行榜与跨设备同步走自建后端；成就从不依赖它。
 - **不保证与上游同步**：合并上游时会有取舍；fork 特有行为（尤其是计费语义）不会自动跟随上游。
 - **不收集提示词/代码**：只记 token 计数、时间、模型名和成本。
 
@@ -99,6 +100,7 @@ scripts/self-host/internal-backup.sh
 - **免费路由按刊例价计值**：上游 `-free` 归零规则在本 fork 被永久拒绝。
 - **AgentRouter 中转面值不并入总花费**：codex 流量已按 token 记入总账；站方面值只由 AgentRouter 卡承载。
 - 估算值会显式标注（如 antigravity、Qoder CN）。
+- **模型首发日**来自 `src/lib/pricing/model-debuts.json`：一个模型一条，每条都带它读自哪个厂商来源。判定是「本机首次跑该模型的日期，落在首发日**前后各一周**之内」，所以公告前的内测/灰度也算尝鲜，并在徽章元数据里单列；查不到可靠日期的模型不给任何方向结论。
 
 ### 热力图等级
 
@@ -182,7 +184,7 @@ TOKENTRACKER_BUILD_PET=1 npm --prefix dashboard run build
 
 ## 一个仓库，两种模式
 
-- **单机版（默认）**：桌面端 + CLI 完全离线运行。运行时描述符带 `localOnly: true`：隐藏云服务导航与设置，排行榜读本机队列历史（本机历史），31 枚成就全部本机解锁。
+- **单机版（默认）**：桌面端 + CLI 完全离线运行。运行时描述符带 `localOnly: true`：隐藏云服务导航与设置，排行榜读本机队列历史（本机历史），31 枚成就全部本机解锁——包括上游需要共享排行榜的 trendsetter 与 podium。
 - **自部署联机版（可选）**：把 `scripts/self-host/` 部署到自己的服务器，获得跨设备账号视图与共享排行榜。所有云端能力都挂在这个部署后面，单机构建不会调用它。
 
 两种模式出自同一份代码；安装时按是否指向后端自动区分。
