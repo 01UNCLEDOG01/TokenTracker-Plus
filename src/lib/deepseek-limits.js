@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 // DeepSeek open-platform (api.deepseek.com) balance, fed by the user's own API
 // key — the "商汤模式" plan from the 10-16 recon, minus the part that turned
@@ -23,11 +24,11 @@ const DEEPSEEK_BALANCE_URL = "https://api.deepseek.com/user/balance";
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 function credentialsPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "deepseek-credentials.json");
+  return path.join(getTrackerRootDir({ home }), "deepseek-credentials.json");
 }
 
 function lastGoodPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "deepseek-last-good.json");
+  return path.join(getTrackerRootDir({ home }), "deepseek-last-good.json");
 }
 
 function readLastGood(home) {

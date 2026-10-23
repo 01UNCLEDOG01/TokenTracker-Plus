@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 // SenseNova (platform.sensenova.cn, 商汤日日新) token-plan credit pools.
 //
@@ -39,11 +40,11 @@ const WEEKLY_WINDOW_SEC = 7 * 86400;
 const GRANT_BALANCE_UNIT_SCALE = 1000;
 
 function credentialsPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "sensenova-credentials.json");
+  return path.join(getTrackerRootDir({ home }), "sensenova-credentials.json");
 }
 
 function lastGoodPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "sensenova-last-good.json");
+  return path.join(getTrackerRootDir({ home }), "sensenova-last-good.json");
 }
 
 // The last successful snapshot, so a provider blip serves a stale bar instead

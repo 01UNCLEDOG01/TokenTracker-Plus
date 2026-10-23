@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 
@@ -40,7 +41,7 @@ function gatewayDbPath(home) {
 }
 
 function lastGoodPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "raccoon-last-good.json");
+  return path.join(getTrackerRootDir({ home }), "raccoon-last-good.json");
 }
 
 // The last successful snapshot, so a gateway blip (write lock, migration,

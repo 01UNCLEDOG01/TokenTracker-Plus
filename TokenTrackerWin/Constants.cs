@@ -21,5 +21,5 @@ internal static class Constants
     public const string GitHubUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus";
 
     /// <summary>HKCU Run-key value name used for launch-at-startup.</summary>
-    public const string StartupRegistryValueName = "TokenTracker";
+    public const string StartupRegistryValueName = "TokenTracker Plus";
 }

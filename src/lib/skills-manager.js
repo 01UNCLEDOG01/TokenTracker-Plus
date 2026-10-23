@@ -4,6 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { resolveGrokHome } = require("./grok-hook");
 const { resolveAntigravitySkillDirs } = require("./antigravity-paths");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 const DEFAULT_REPOS = [
   { owner: "anthropics", name: "skills", branch: "main", enabled: true },
@@ -108,7 +109,7 @@ async function mapWithConcurrency(items, limit, worker) {
 }
 
 function dataDir() {
-  return path.join(os.homedir(), ".tokentracker", "skills");
+  return path.join(getTrackerRootDir(), "skills");
 }
 
 function registryPath() {

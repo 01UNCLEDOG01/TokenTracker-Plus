@@ -3,6 +3,7 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const yauzl = require("yauzl");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 const PET_MANIFEST = "pet.json";
 const PET_SPRITESHEET = "spritesheet.webp";
@@ -31,7 +32,7 @@ const MIGRATION_MARKER = ".migrated-v1";
 
 function resolvePetsDir() {
   return path.resolve(
-    process.env.TOKENTRACKER_PETS_DIR || path.join(os.homedir(), ".tokentracker", "pets"),
+    process.env.TOKENTRACKER_PETS_DIR || path.join(getTrackerRootDir(), "pets"),
   );
 }
 

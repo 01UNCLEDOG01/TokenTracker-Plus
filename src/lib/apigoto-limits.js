@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 // APIGOTO (apigoto.com) subscription quota.
 //
@@ -28,11 +29,11 @@ const WEEKLY_WINDOW_SEC = 604_800;
 const ACCESS_TOKEN_RENEW_MARGIN_MS = 10 * 60_000;
 
 function credentialsPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "apigoto-credentials.json");
+  return path.join(getTrackerRootDir({ home }), "apigoto-credentials.json");
 }
 
 function lastGoodPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "apigoto-last-good.json");
+  return path.join(getTrackerRootDir({ home }), "apigoto-last-good.json");
 }
 
 // The last successful weekly window, so a blip on apigoto.com serves a stale

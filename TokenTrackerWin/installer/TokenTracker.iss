@@ -20,9 +20,9 @@
   #define MyAppVersion "0.0.0"
 #endif
 
-#define MyAppName "TokenTracker"
-#define MyAppPublisher "TokenTracker"
-#define MyAppURL "https://(removed)"
+#define MyAppName "TokenTracker Plus"
+#define MyAppPublisher "TokenTracker Plus"
+#define MyAppURL "https://github.com/01UNCLEDOG01/TokenTracker-plus"
 #define MyAppExeName "TokenTracker.exe"
 
 [Setup]
@@ -42,7 +42,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
 SetupIconFile=..\assets\trayicon.ico
 OutputDir=Output
-OutputBaseFilename=TokenTracker-Setup-v{#MyAppVersion}
+OutputBaseFilename=TokenTracker-plus-Setup-v{#MyAppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

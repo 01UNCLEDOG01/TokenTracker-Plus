@@ -25,7 +25,7 @@ internal static class LaunchAtStartup
         get
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
-            var value = key?.GetValue(Constants.StartupRegistryValueName) as string;
+            var value = (key?.GetValue(Constants.StartupRegistryValueName) as string) ?? (key?.GetValue("TokenTracker") as string);
             if (string.IsNullOrEmpty(value)) return false;
             // Only "on" if the registered command's executable is exactly this exe. Extract
             // the path (the value also carries StartupArgument) and compare it precisely —
@@ -69,6 +69,8 @@ internal static class LaunchAtStartup
         using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
         if (key?.GetValue(Constants.StartupRegistryValueName) is not null)
             key.DeleteValue(Constants.StartupRegistryValueName, throwOnMissingValue: false);
+        if (key?.GetValue("TokenTracker") is not null)
+            key.DeleteValue("TokenTracker", throwOnMissingValue: false);
     }
 
     public static void Toggle()

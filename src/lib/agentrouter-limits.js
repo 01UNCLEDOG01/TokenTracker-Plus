@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
 
 // AgentRouter.org (a New API deployment) panel balance, read with the user's
 // own access token. Recon verified live 2026-10-22:
@@ -31,11 +32,11 @@ const NEW_API_QUOTA_PER_UNIT = 500_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 function credentialsPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "agentrouter-credentials.json");
+  return path.join(getTrackerRootDir({ home }), "agentrouter-credentials.json");
 }
 
 function lastGoodPath(home) {
-  return path.join(home || os.homedir(), ".tokentracker", "agentrouter-last-good.json");
+  return path.join(getTrackerRootDir({ home }), "agentrouter-last-good.json");
 }
 
 function readLastGood(home) {
