@@ -16,8 +16,8 @@
 
 ## Fork-specific working rules
 
-- **Development happens only in `D:\tt-rebase` on branch `usage-desk-135`.**
-- `D:\tt-fork` is a detached mirror of the main object store. Never commit or create branches there; sync it with `git checkout --detach usage-desk-135` after new commits.
+- **Development happens only in the main repository tree on branch `usage-desk-135`.**
+- The detached mirror of the main object store is read-only. Never commit or create branches there; sync it with `git checkout --detach usage-desk-135` after new commits.
 - After a work batch: update `FORK_STATUS.md` (current state), append to `CHANGELOG.md` (what happened and how it was verified), and add/remove `KNOWN_ISSUES.md` entries.
 - Never commit secrets. Put local overrides in `.env.local` (gitignored); `.env.example` is the template. Do **not** create `.dev.vars` (Cloudflare Workers convention, not used here).
 - Merging upstream: any commit that changes pricing/billing semantics must be reconciled against local totals before and after. The upstream `-free` → zero-price rule is permanently rejected in this fork.

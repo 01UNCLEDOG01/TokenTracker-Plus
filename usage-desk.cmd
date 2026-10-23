@@ -1,7 +1,7 @@
 @echo off
 rem ============================================================
 rem  Usage Desk - launcher for the station owner's TokenTracker fork
-rem  Fork branch: usage-desk   Built from: D:\tt-fork
+rem  Fork branch: usage-desk   Built from: TokenTracker-plus
 rem  Installed in place at: D:\TokenTracker\TokenTracker.exe
 rem  Local panel: http://127.0.0.1:17680/?app=1
 rem

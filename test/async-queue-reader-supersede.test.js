@@ -35,6 +35,7 @@ test("an estimate source never loses its counts to a later empty row, other sour
   assert.equal(resolveQueueRow(row("cursor", 425), row("cursor", 0)).total_tokens, 425, "cursor is the other estimate source");
   // The narrowness is the point: a provider that reports zero on purpose wins.
   assert.equal(resolveQueueRow(row("claude", 425), row("claude", 0)).total_tokens, 0);
+  assert.equal(resolveQueueRow(row("qoder", 425), row("qoder", 0)).total_tokens, 0, "qoder zeroing out generic model placeholders on refinement must not be suppressed");
 });
 
 test("rows sharing one key inside a single fresh parse obey the hook too", async (t) => {

@@ -4,9 +4,13 @@
 # beside the outputs. Rerun to tweak; outputs land in dashboard/public.
 from PIL import Image, ImageDraw, ImageOps, ImageChops, ImageFilter
 import math
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 S = 512
-OUT = "D:/tt-rebase/dashboard/public/achievements"
+OUT = os.path.join(ROOT, "dashboard", "public", "achievements")
 
 STEEL = 235    # height for raised steel parts
 ACCENT_H = 205 # slightly lower relief for accent parts
@@ -463,8 +467,8 @@ def claude_survivor():
     for ex, ey in ((150, 356), (342, 408), (342, 356), (150, 408)):
         dh.ellipse((ex - 15, ey - 15, ex + 15, ey + 15), fill=STEEL)
     # official Claude starburst, cast in accent metal, front and center
-    star = Image.open("D:/tt-rebase/scripts/art/brand-cache/claude-code.png")
-    hh = logo_height("D:/tt-rebase/scripts/art/brand-cache/claude-code.png", ACCENT_H).resize((356, 356), Image.LANCZOS)
+    star = Image.open(os.path.join(HERE, "brand-cache", "claude-code.png"))
+    hh = logo_height(os.path.join(HERE, "brand-cache", "claude-code.png"), ACCENT_H).resize((356, 356), Image.LANCZOS)
     h.paste(hh, (78, 62), hh)
     m = star.convert("L").point(lambda v: 255 if v <= 200 else 0).resize((356, 356), Image.LANCZOS)
     acc.paste(ACC, (78, 62), m)
@@ -479,8 +483,8 @@ def wishing_well():
     dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
     GOLD = (238, 196, 90, 245)
     # official DeepSeek whale, cast in accent metal
-    whale = Image.open("D:/tt-rebase/scripts/art/brand-cache/deepseek.png")
-    hh = logo_height("D:/tt-rebase/scripts/art/brand-cache/deepseek.png", ACCENT_H).resize((360, 360), Image.LANCZOS)
+    whale = Image.open(os.path.join(HERE, "brand-cache", "deepseek.png"))
+    hh = logo_height(os.path.join(HERE, "brand-cache", "deepseek.png"), ACCENT_H).resize((360, 360), Image.LANCZOS)
     h.paste(hh, (76, 86), hh)
     m = whale.convert("L").point(lambda v: 255 if v <= 200 else 0).resize((360, 360), Image.LANCZOS)
     acc.paste((90, 126, 240, 235), (76, 86), m)

@@ -18,7 +18,7 @@ const win = sep === "\\";
 
 describe("antigravityWorkspaceFromBlobText", () => {
   it("returns the workspace root when the blob also quotes files below it", () => {
-    const root = win ? "f:\\Users\\Administrator\\dev\\shop" : "/Users/dev/shop";
+    const root = win ? "C:\\Users\\dev\\shop" : "/Users/dev/shop";
     const text = `\x02>${URL(root)}\x03>${URL(path.join(root, "src", "index.ts"))}\x01`;
     assert.equal(antigravityWorkspaceFromBlobText(text), root);
   });
@@ -31,7 +31,7 @@ describe("antigravityWorkspaceFromBlobText", () => {
   it("stops at the framing byte that follows the URL", () => {
     // The real blob writes a record-length byte after the URL; a byte above
     // 0x7e must not become part of the project name.
-    const root = win ? "f:\\Users\\Administrator\\dev\\shop" : "/Users/dev/shop";
+    const root = win ? "C:\\Users\\dev\\shop" : "/Users/dev/shop";
     assert.equal(antigravityWorkspaceFromBlobText(`${URL(root)}\xc4\x93\x01`), root);
   });
 
@@ -65,7 +65,7 @@ describe("antigravityWorkspaceFromBlobText", () => {
   it("ignores the percent-encoded drive form the blob also carries", () => {
     // The blob repeats each workspace as `f%3A/...`; only the plain form is
     // read, so an encoded-only text yields no project rather than a wrong one.
-    const root = win ? "f:\\Users\\Administrator\\dev\\shop" : "/Users/dev/shop";
+    const root = win ? "C:\\Users\\dev\\shop" : "/Users/dev/shop";
     assert.equal(antigravityWorkspaceFromBlobText(`${URL(root).replace(":", "%3A")}\x01`), null);
   });
 

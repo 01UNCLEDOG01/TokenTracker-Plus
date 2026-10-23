@@ -216,6 +216,8 @@ function normalizeQueueRow(row) {
 // on a 0, which made 425M used tokens invisible in totals, cost and badges.
 // Scoped to those two estimate sources on purpose — other readers may legitimately
 // supersede an hour with a zero, and the cloud upload cadence test proves it.
+// (e.g. Qoder intentionally zeroes out generic models like "官方云端（积分）" when
+// refining into concrete models like "Qwen3.8-Flash（积分）" to prevent 110.6M double counting).
 const ESTIMATE_REPORTING_SOURCES = new Set(["cursor", "antigravity"]);
 
 function resolveQueueRow(existing, incoming) {
