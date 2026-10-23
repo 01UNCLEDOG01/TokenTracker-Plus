@@ -9,6 +9,8 @@ internal sealed class MonitorWidgetSettings
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TokenTracker", "monitor-widget.json");
     public bool Enabled { get; set; }
+    public bool IslandMode { get; set; } = true;
+    public string TrayStyle { get; set; } = "cat";
     public int? X { get; set; }
     public int? Y { get; set; }
 

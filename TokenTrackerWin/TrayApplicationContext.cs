@@ -30,7 +30,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ContextMenuStrip _monitorMenu;
     private readonly ToolStripMenuItem _monitorOpenItem;
     private readonly ToolStripMenuItem _monitorSyncItem;
+    private readonly ToolStripMenuItem _monitorIslandModeItem;
+    private readonly ToolStripMenuItem _monitorFloatModeItem;
     private readonly ToolStripMenuItem _monitorHideItem;
+    private readonly ToolStripMenuItem _trayStyleItem;
+    private readonly ToolStripMenuItem _trayStyleCat;
+    private readonly ToolStripMenuItem _trayStyleMascot;
+    private readonly ToolStripMenuItem _trayStyleLightning;
+    private string _trayStyle = "cat";
+    private readonly Icon?[] _catDarkIcons = new Icon?[5];
+    private readonly Icon?[] _catLightIcons = new Icon?[5];
+    private Icon? _mascotDarkIcon;
+    private Icon? _mascotLightIcon;
+    private Icon? _lightningIcon;
+    private readonly System.Windows.Forms.Timer _trayAnimTimer = new() { Interval = 400 };
+    private int _catFrameIndex;
+    private DateTime _sprintUntil = DateTime.MinValue;
+    private FileSystemWatcher? _queueWatcher;
 
     private readonly ContextMenuStrip _menu;
     private readonly TrayMenuRenderer _menuRenderer;
@@ -179,6 +195,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // (an item can't live in two menus at once).
         _monitorOpenItem = CreateMenuItem("", (_, _) => OpenDashboard());
         _monitorSyncItem = CreateMenuItem("", (_, _) => _server.TriggerSync());
+        _monitorIslandModeItem = CreateMenuItem("", (_, _) => SetMonitorIslandMode(true));
+        _monitorFloatModeItem = CreateMenuItem("", (_, _) => SetMonitorIslandMode(false));
         _monitorHideItem = CreateMenuItem("", (_, _) => ToggleMonitor());
         _monitorMenu = new ContextMenuStrip
         {
@@ -194,7 +212,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _monitorMenu.Items.Add(_monitorOpenItem);
         _monitorMenu.Items.Add(_monitorSyncItem);
         _monitorMenu.Items.Add(CreateSeparator());
+        _monitorMenu.Items.Add(_monitorIslandModeItem);
+        _monitorMenu.Items.Add(_monitorFloatModeItem);
+        _monitorMenu.Items.Add(CreateSeparator());
         _monitorMenu.Items.Add(_monitorHideItem);
+
+        _trayStyleCat = CreateMenuItem("", (_, _) => SetTrayStyle("cat"));
+        _trayStyleMascot = CreateMenuItem("", (_, _) => SetTrayStyle("mascot"));
+        _trayStyleLightning = CreateMenuItem("", (_, _) => SetTrayStyle("lightning"));
+        _trayStyleItem = CreateMenuItem("", (_, _) => { });
+        _trayStyleItem.DropDownItems.AddRange([_trayStyleCat, _trayStyleMascot, _trayStyleLightning]);
+        StyleSubmenu(_trayStyleItem.DropDown);
+        _trayStyle = MonitorWidgetSettings.Load().TrayStyle ?? "cat";
+        LoadAllTrayIcons();
+        _trayAnimTimer.Tick += OnTrayAnimTick;
+        StartQueueWatcher();
         _monitorMenu.Opened += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(_monitorMenu);
         _monitorMenu.SizeChanged += (_, _) => TrayMenuRenderer.ApplyRoundedRegion(_monitorMenu);
 
@@ -225,6 +257,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.Add(_petItem);
         _menu.Items.Add(_petSizeItem);
         _menu.Items.Add(_petCharacterItem);
+        _menu.Items.Add(_trayStyleItem);
         _menu.Items.Add(CreateSeparator());
         _menu.Items.Add(_startupItem);
         _menu.Items.Add(_checkUpdatesItem);
@@ -311,6 +344,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             // Keep the pet page's toggle in step when the tray toggles the pill.
             PushDashboardPetSettings();
         };
+        _monitorWindow.IslandModeChanged += () => UpdateMonitorMenuChecks();
         _monitorItem.Checked = _monitorWindow.Enabled;
         _monitorWindow.ApplyTheme(NativeTheme.ResolveIsLight(_themePreference));
         _monitorWindow.ApplyCharacter(PetWindow.CurrentCharacter);
@@ -429,7 +463,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _monitorMenu.Font = _menuFont;
         _monitorOpenItem.Text = _strings.OpenDashboard;
         _monitorSyncItem.Text = _strings.SyncNow;
+        _monitorIslandModeItem.Text = _strings.IslandModeTop;
+        _monitorFloatModeItem.Text = _strings.IslandModeFloat;
         _monitorHideItem.Text = _strings.HideMonitor;
+        _trayStyleItem.Text = _strings.TrayIconStyle;
+        _trayStyleCat.Text = _strings.TrayStyleRunningCat;
+        _trayStyleMascot.Text = _strings.TrayStyleMascot;
+        _trayStyleLightning.Text = _strings.TrayStyleLightning;
+        UpdateTrayStyleChecks();
+        UpdateMonitorMenuChecks();
         UpdatePetMenuText();
         _petSizeItem.Text = _strings.PetSize;
         _petSizeSmall.Text = _strings.SizeSmall;
@@ -1112,6 +1154,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void OnStatsUpdated(UsagePoller.UsageStats stats)
     {
+        if (_lastStats != null && stats.TodayTokens > _lastStats.Value.TodayTokens)
+        {
+            NoteActivity();
+        }
         _lastStats = stats;
         PostToUi(RefreshSummary);
     }
@@ -1239,36 +1285,159 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private bool? _lastIconLight;
 
-    private Icon LoadTrayIcon()
+    private void LoadAllTrayIcons()
     {
-        _lastIconLight = IsTaskbarLight();
-        return LoadMascotIcon(_lastIconLight.Value) ?? SystemIcons.Application;
-    }
-
-    /// <summary>Swap the mascot glyph if the taskbar light/dark theme changed.</summary>
-    private void RefreshTrayIconForTheme()
-    {
-        bool light = IsTaskbarLight();
-        if (_lastIconLight == light) return;
-        var icon = LoadMascotIcon(light);
-        if (icon is null) return;
-        _lastIconLight = light;
-        var old = _trayIcon.Icon;
-        _trayIcon.Icon = icon;
-        old?.Dispose();
-    }
-
-    private static Icon? LoadMascotIcon(bool taskbarLight)
-    {
-        // Light taskbar → dark glyph; dark taskbar → white glyph.
-        var file = taskbarLight ? "tray-mascot-onLight.ico" : "tray-mascot-onDark.ico";
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "assets", file);
+            for (int i = 0; i < 5; i++)
+            {
+                _catDarkIcons[i] = LoadIconFile($"tray-cat-{i}-onDark.ico");
+                _catLightIcons[i] = LoadIconFile($"tray-cat-{i}-onLight.ico");
+            }
+            _mascotDarkIcon = LoadIconFile("tray-mascot-onDark.ico");
+            _mascotLightIcon = LoadIconFile("tray-mascot-onLight.ico");
+            _lightningIcon = LoadIconFile("trayicon.ico");
+        }
+        catch (Exception ex)
+        {
+            Diag.Log("tray", $"LoadAllTrayIcons error: {ex.Message}");
+        }
+    }
+
+    private static Icon? LoadIconFile(string name)
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "assets", name);
             if (File.Exists(path)) return new Icon(path);
         }
         catch { /* fall through */ }
         return null;
+    }
+
+    private Icon LoadTrayIcon()
+    {
+        _lastIconLight = IsTaskbarLight();
+        if (_trayStyle == "cat")
+        {
+            _trayAnimTimer.Interval = (DateTime.UtcNow < _sprintUntil) ? 80 : 400;
+            _trayAnimTimer.Start();
+            var icon = (_lastIconLight.Value ? _catLightIcons : _catDarkIcons)[0];
+            return icon ?? _mascotDarkIcon ?? SystemIcons.Application;
+        }
+        if (_trayStyle == "lightning")
+        {
+            return _lightningIcon ?? SystemIcons.Application;
+        }
+        return (_lastIconLight.Value ? _mascotLightIcon : _mascotDarkIcon) ?? _lightningIcon ?? SystemIcons.Application;
+    }
+
+    private void SyncTaskbarIcon()
+    {
+        bool light = IsTaskbarLight();
+        _lastIconLight = light;
+        if (_trayStyle == "cat")
+        {
+            if (!_trayAnimTimer.Enabled)
+            {
+                _trayAnimTimer.Interval = (DateTime.UtcNow < _sprintUntil) ? 80 : 400;
+                _trayAnimTimer.Start();
+            }
+            var icon = (light ? _catLightIcons : _catDarkIcons)[_catFrameIndex] ?? _mascotDarkIcon ?? _lightningIcon;
+            if (icon != null) _trayIcon.Icon = icon;
+            return;
+        }
+        _trayAnimTimer.Stop();
+        if (_trayStyle == "lightning")
+        {
+            var icon = _lightningIcon ?? (light ? _mascotLightIcon : _mascotDarkIcon);
+            if (icon != null) _trayIcon.Icon = icon;
+        }
+        else
+        {
+            var icon = (light ? _mascotLightIcon : _mascotDarkIcon) ?? _lightningIcon;
+            if (icon != null) _trayIcon.Icon = icon;
+        }
+    }
+
+    private void OnTrayAnimTick(object? sender, EventArgs e)
+    {
+        if (_trayStyle != "cat")
+        {
+            _trayAnimTimer.Stop();
+            return;
+        }
+        bool light = IsTaskbarLight();
+        _catFrameIndex = (_catFrameIndex + 1) % 5;
+        var icon = (light ? _catLightIcons : _catDarkIcons)[_catFrameIndex] ?? _mascotDarkIcon ?? _lightningIcon;
+        if (icon != null) _trayIcon.Icon = icon;
+        int targetInterval = (DateTime.UtcNow < _sprintUntil) ? 80 : 400;
+        if (_trayAnimTimer.Interval != targetInterval) _trayAnimTimer.Interval = targetInterval;
+    }
+
+    private void NoteActivity()
+    {
+        _sprintUntil = DateTime.UtcNow.AddSeconds(30);
+        _trayAnimTimer.Interval = 80;
+        _uiDispatcher.BeginInvoke(new Action(() => _monitorWindow?.NoteActivity()));
+    }
+
+    private void StartQueueWatcher()
+    {
+        try
+        {
+            var trackerDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".tokentracker", "tracker");
+            if (Directory.Exists(trackerDir))
+            {
+                _queueWatcher = new FileSystemWatcher(trackerDir, "queue.jsonl")
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                    EnableRaisingEvents = true,
+                };
+                _queueWatcher.Changed += (_, _) => NoteActivity();
+                _queueWatcher.Created += (_, _) => NoteActivity();
+            }
+        }
+        catch (Exception ex)
+        {
+            Diag.Log("tray", $"Queue watcher error: {ex.Message}");
+        }
+    }
+
+    private void SetTrayStyle(string style)
+    {
+        _trayStyle = style;
+        var s = MonitorWidgetSettings.Load();
+        s.TrayStyle = style;
+        s.Save();
+        UpdateTrayStyleChecks();
+        SyncTaskbarIcon();
+    }
+
+    private void UpdateTrayStyleChecks()
+    {
+        _trayStyleCat.Checked = _trayStyle == "cat";
+        _trayStyleMascot.Checked = _trayStyle == "mascot";
+        _trayStyleLightning.Checked = _trayStyle == "lightning";
+    }
+
+    private void SetMonitorIslandMode(bool islandMode)
+    {
+        _monitorWindow?.SetIslandMode(islandMode);
+        UpdateMonitorMenuChecks();
+    }
+
+    private void UpdateMonitorMenuChecks()
+    {
+        _monitorIslandModeItem.Checked = _monitorWindow?.IslandMode == true;
+        _monitorFloatModeItem.Checked = _monitorWindow?.IslandMode == false;
+    }
+
+    private void RefreshTrayIconForTheme()
+    {
+        bool light = IsTaskbarLight();
+        if (_lastIconLight == light && _trayStyle != "cat") return;
+        SyncTaskbarIcon();
     }
 
     private static bool IsTaskbarLight()
@@ -1302,6 +1471,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (disposing)
         {
+            _trayAnimTimer.Dispose();
+            _queueWatcher?.Dispose();
+            for (int i = 0; i < 5; i++)
+            {
+                _catDarkIcons[i]?.Dispose();
+                _catLightIcons[i]?.Dispose();
+            }
+            _mascotDarkIcon?.Dispose();
+            _mascotLightIcon?.Dispose();
+            _lightningIcon?.Dispose();
             _refreshTimer.Dispose();
             _syncTimer.Dispose();
             _updateCheckTimer.Dispose();

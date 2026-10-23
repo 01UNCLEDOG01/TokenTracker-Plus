@@ -40,6 +40,20 @@ internal sealed class MonitorWidgetWindow : Window
         FontWeight = FontWeights.SemiBold,
         Margin = new Thickness(0),
     };
+    private readonly System.Windows.Controls.Image _petImage = new()
+    {
+        Width = 22,
+        Height = 14,
+        Margin = new Thickness(0, 0, 7, 0),
+        VerticalAlignment = VerticalAlignment.Center,
+        Stretch = Stretch.Uniform,
+        Visibility = Visibility.Collapsed,
+    };
+    private readonly System.Windows.Media.Imaging.BitmapImage?[] _catDarkFrames = new System.Windows.Media.Imaging.BitmapImage?[5];
+    private readonly System.Windows.Media.Imaging.BitmapImage?[] _catLightFrames = new System.Windows.Media.Imaging.BitmapImage?[5];
+    private readonly DispatcherTimer _animTimer = new();
+    private int _frameIndex;
+    private DateTime _sprintUntil = DateTime.MinValue;
     private bool _light;
     private bool _closed;
     private bool _placed;
@@ -54,6 +68,16 @@ internal sealed class MonitorWidgetWindow : Window
 
     public bool Enabled => _settings.Enabled;
     public event Action? EnabledChanged;
+    public bool IslandMode => _settings.IslandMode;
+    public event Action? IslandModeChanged;
+    public void SetIslandMode(bool islandMode)
+    {
+        if (_closed) return;
+        _settings.IslandMode = islandMode;
+        _settings.Save();
+        Place(restore: !islandMode);
+        IslandModeChanged?.Invoke();
+    }
 
     public MonitorWidgetWindow(Action openDashboard)
     {
@@ -73,14 +97,30 @@ internal sealed class MonitorWidgetWindow : Window
         ShowActivated = false;
         Content = new Border
         {
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(12, 6, 12, 7),
+            CornerRadius = new CornerRadius(15),
+            Padding = new Thickness(10, 5, 12, 6),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 12,
+                ShadowDepth = 2,
+                Opacity = 0.25,
+                Direction = 270,
+            },
             Child = new StackPanel
             {
                 Orientation = System.Windows.Controls.Orientation.Horizontal,
-                Children = { _accent, _text },
+                Children = { _accent, _petImage, _text },
             },
         };
+        LoadCatFrames();
+        if (_catDarkFrames[0] != null)
+        {
+            _accent.Visibility = Visibility.Collapsed;
+            _petImage.Visibility = Visibility.Visible;
+            _animTimer.Interval = TimeSpan.FromMilliseconds(400);
+            _animTimer.Tick += (_, _) => OnAnimTick();
+            _animTimer.Start();
+        }
         SourceInitialized += (_, _) =>
         {
             _hwnd = new WindowInteropHelper(this).Handle;
@@ -147,14 +187,73 @@ internal sealed class MonitorWidgetWindow : Window
         var border = (Border)Content;
         if (light)
         {
-            border.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(238, 245, 245, 247));
+            border.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(235, 245, 245, 247));
+            border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(40, 0, 0, 0));
+            border.BorderThickness = new Thickness(1);
             _text.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(26, 26, 26));
         }
         else
         {
-            border.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(238, 24, 24, 27));
+            border.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(230, 24, 24, 27));
+            border.BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 255, 255));
+            border.BorderThickness = new Thickness(1);
             _text.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245));
         }
+        var frames = _light ? _catLightFrames : _catDarkFrames;
+        if (frames[_frameIndex] is { } src) _petImage.Source = src;
+    }
+
+    private void LoadCatFrames()
+    {
+        try
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                var whitePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", $"cat-{i}-white.png");
+                var darkPath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", $"cat-{i}-dark.png");
+                if (System.IO.File.Exists(whitePath))
+                {
+                    var bi = new System.Windows.Media.Imaging.BitmapImage();
+                    bi.BeginInit();
+                    bi.UriSource = new Uri(whitePath, UriKind.Absolute);
+                    bi.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bi.EndInit();
+                    bi.Freeze();
+                    _catDarkFrames[i] = bi;
+                }
+                if (System.IO.File.Exists(darkPath))
+                {
+                    var bi = new System.Windows.Media.Imaging.BitmapImage();
+                    bi.BeginInit();
+                    bi.UriSource = new Uri(darkPath, UriKind.Absolute);
+                    bi.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bi.EndInit();
+                    bi.Freeze();
+                    _catLightFrames[i] = bi;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Diag.Log("monitor", $"LoadCatFrames error: {ex.Message}");
+        }
+    }
+
+    private void OnAnimTick()
+    {
+        if (_closed) return;
+        _frameIndex = (_frameIndex + 1) % 5;
+        var frames = _light ? _catLightFrames : _catDarkFrames;
+        if (frames[_frameIndex] is { } src) _petImage.Source = src;
+        var targetInterval = DateTime.UtcNow < _sprintUntil ? TimeSpan.FromMilliseconds(80) : TimeSpan.FromMilliseconds(400);
+        if (_animTimer.Interval != targetInterval) _animTimer.Interval = targetInterval;
+    }
+
+    public void NoteActivity()
+    {
+        if (_closed) return;
+        _sprintUntil = DateTime.UtcNow.AddSeconds(30);
+        _animTimer.Interval = TimeSpan.FromMilliseconds(80);
     }
 
     public void ApplyFont(string family)
@@ -224,7 +323,9 @@ internal sealed class MonitorWidgetWindow : Window
         {
             _settings.X = rect.Left;
             _settings.Y = rect.Top;
+            _settings.IslandMode = false;
             _settings.Save();
+            IslandModeChanged?.Invoke();
         }
         e.Handled = true;
     }
@@ -244,28 +345,32 @@ internal sealed class MonitorWidgetWindow : Window
     {
         if (_hwnd == 0) return;
         GetWindowRect(_hwnd, out var rect);
+        var width = rect.Right - rect.Left;
+        var height = rect.Bottom - rect.Top;
+        if (_settings.IslandMode)
+        {
+            var screen = System.Windows.Forms.Screen.PrimaryScreen!;
+            var work = screen.WorkingArea;
+            var left = work.Left + Math.Max(0, (work.Width - width) / 2);
+            var top = work.Top + 6;
+            SetWindowPos(_hwnd, 0, left, top, 0, 0, 0x15); // NOSIZE | NOZORDER | NOACTIVATE
+            return;
+        }
         if (restore && _settings.X.HasValue && _settings.Y.HasValue)
         {
-            // A dragged position was on-screen when it was saved, so apply it
-            // as-is. Clamping here against the not-yet-measured window size
-            // (SizeToContent finishes after Show) collapsed every restart
-            // restore to the top-left corner. Only the default placement needs
-            // the work-area clamp.
-            SetWindowPos(_hwnd, 0, _settings.X.Value, _settings.Y.Value, 0, 0, 0x15); // NOSIZE | NOZORDER | NOACTIVATE
+            SetWindowPos(_hwnd, 0, _settings.X.Value, _settings.Y.Value, 0, 0, 0x15);
             return;
         }
         var x = restore ? _settings.X : rect.Left;
         var y = restore ? _settings.Y : rect.Top;
-        var screen = x.HasValue && y.HasValue
+        var screenFromPoint = x.HasValue && y.HasValue
             ? System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(x.Value, y.Value))
             : System.Windows.Forms.Screen.PrimaryScreen!;
-        var work = screen.WorkingArea;
-        var width = rect.Right - rect.Left;
-        var height = rect.Bottom - rect.Top;
-        var left = Math.Clamp(x ?? work.Right - width - 16, work.Left, Math.Max(work.Left, work.Right - width));
-        var top = Math.Clamp(y ?? work.Top + work.Height / 3, work.Top, Math.Max(work.Top, work.Bottom - height));
-        if (rect.Left != left || rect.Top != top)
-            SetWindowPos(_hwnd, 0, left, top, 0, 0, 0x15); // NOSIZE | NOZORDER | NOACTIVATE
+        var workArea = screenFromPoint.WorkingArea;
+        var l = Math.Clamp(x ?? workArea.Right - width - 16, workArea.Left, Math.Max(workArea.Left, workArea.Right - width));
+        var t = Math.Clamp(y ?? workArea.Top + workArea.Height / 3, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - height));
+        if (rect.Left != l || rect.Top != t)
+            SetWindowPos(_hwnd, 0, l, t, 0, 0, 0x15);
     }
 
     private void StartFullscreenMonitoring()
@@ -347,6 +452,7 @@ internal sealed class MonitorWidgetWindow : Window
     {
         if (_closed) return;
         _closed = true;
+        _animTimer.Stop();
         StopFullscreenMonitoring();
         Close();
     }
