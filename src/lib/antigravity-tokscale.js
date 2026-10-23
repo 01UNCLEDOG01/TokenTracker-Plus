@@ -21,6 +21,114 @@ const path = require("node:path");
 
 const ANTIGRAVITY_SOURCE = "antigravity";
 
+function resolveTokenMonitorDbPath({ home = os.homedir(), env = process.env, platform = process.platform } = {}) {
+  const override = typeof env.TOKENTRACKER_TOKEN_MONITOR_DB === "string"
+    ? env.TOKENTRACKER_TOKEN_MONITOR_DB.trim()
+    : "";
+  if (override) return path.resolve(override);
+  if (typeof env.TOKENTRACKER_TOKSCALE_ANTIGRAVITY_DIR === "string" && env.TOKENTRACKER_TOKSCALE_ANTIGRAVITY_DIR.trim()) {
+    return null;
+  }
+  const isCustomHome = Boolean(home && home !== os.homedir());
+  if (platform === "win32") {
+    const appData = isCustomHome ? path.join(home, "AppData", "Roaming") : (env.APPDATA || path.join(home, "AppData", "Roaming"));
+    return path.join(appData, "Token Monitor", "session-usage-archive.sqlite");
+  }
+  if (platform === "darwin") {
+    return path.join(home, "Library", "Application Support", "Token Monitor", "session-usage-archive.sqlite");
+  }
+  const configHome = isCustomHome ? path.join(home, ".config") : (env.XDG_CONFIG_HOME || path.join(home, ".config"));
+  return path.join(configHome, "Token Monitor", "session-usage-archive.sqlite");
+}
+
+function readTokenMonitorAntigravitySessions(dbPath) {
+  const sessions = new Map();
+  if (!dbPath || !fs.existsSync(dbPath)) return sessions;
+  let DatabaseSync;
+  try {
+    DatabaseSync = require("node:sqlite").DatabaseSync;
+  } catch {
+    return sessions;
+  }
+  let db;
+  try {
+    db = new DatabaseSync(dbPath, { open: true, readOnly: true });
+    const rows = db.prepare("SELECT session_key, entry_json FROM sessions WHERE session_key LIKE 'antigravity:%'").all();
+    for (const row of rows) {
+      try {
+        const data = JSON.parse(row.entry_json);
+        const p = data?.periods?.allTime || data?.periods?.month;
+        if (!p) continue;
+        const sessionId = String(data.sessionId || row.session_key.replace(/^antigravity:/, "")).trim();
+        if (!sessionId) continue;
+        const input = num(p.inputTokens);
+        const cached = num(p.cacheReadTokens);
+        const cacheWrite = num(p.cacheWriteTokens);
+        const output = num(p.outputTokens);
+        const reasoning = num(p.reasoningTokens);
+        const total = num(p.totalTokens) || (input + cached + cacheWrite + output + reasoning);
+        if (total <= 0) continue;
+        const startedAt = p.startedAt ? Date.parse(p.startedAt) : null;
+        const endedAt = p.lastUsedAt ? Date.parse(p.lastUsedAt) : null;
+        const models = new Map();
+        if (p.models && typeof p.models === "object") {
+          for (const [mName, mTokens] of Object.entries(p.models)) {
+            const mTot = num(mTokens);
+            const mRatio = total > 0 ? (mTot / total) : 1;
+            models.set(mName, {
+              model: mName,
+              input_tokens: Math.round(input * mRatio),
+              cached_input_tokens: Math.round(cached * mRatio),
+              cache_creation_input_tokens: Math.round(cacheWrite * mRatio),
+              output_tokens: Math.round(output * mRatio),
+              reasoning_output_tokens: Math.round(reasoning * mRatio),
+              total_tokens: mTot,
+              usage_events: num(p.messageCount) || 1,
+            });
+          }
+        }
+        if (models.size === 0) {
+          const defaultModel = "gemini-3.8-flash-n";
+          models.set(defaultModel, {
+            model: defaultModel,
+            input_tokens: input,
+            cached_input_tokens: cached,
+            cache_creation_input_tokens: cacheWrite,
+            output_tokens: output,
+            reasoning_output_tokens: reasoning,
+            total_tokens: total,
+            usage_events: num(p.messageCount) || 1,
+          });
+        }
+        sessions.set(sessionId, {
+          sessionId,
+          usage: {
+            input_tokens: input,
+            cached_input_tokens: cached,
+            cache_creation_input_tokens: cacheWrite,
+            output_tokens: output,
+            reasoning_output_tokens: reasoning,
+            total_tokens: total,
+          },
+          costUsd: typeof p.costUsd === "number" && p.costUsd >= 0 ? p.costUsd : null,
+          models,
+          startedAt: Number.isFinite(startedAt) ? startedAt : null,
+          endedAt: Number.isFinite(endedAt) ? endedAt : null,
+          requests: num(p.messageCount),
+          provenance: "token-monitor-archive",
+        });
+      } catch { /* skip malformed */ }
+    }
+  } catch {
+    /* open or query failure */
+  } finally {
+    if (db) {
+      try { db.close(); } catch { /* ignore */ }
+    }
+  }
+  return sessions;
+}
+
 function resolveAntigravityTokscaleDir({ home = os.homedir(), env = process.env, platform = process.platform } = {}) {
   const override = typeof env.TOKENTRACKER_TOKSCALE_ANTIGRAVITY_DIR === "string"
     ? env.TOKENTRACKER_TOKSCALE_ANTIGRAVITY_DIR.trim()
@@ -105,7 +213,7 @@ function dayOfHourStart(hour) {
 
 let lastSnapshot = { key: "", value: null };
 
-function snapshotSignature(cacheDir, files) {
+function snapshotSignature(cacheDir, files, tmDbPath = null) {
   const parts = files.map((file) => {
     try {
       const stat = fs.statSync(file);
@@ -114,23 +222,38 @@ function snapshotSignature(cacheDir, files) {
       return `${file}:missing`;
     }
   });
+  if (tmDbPath) {
+    try {
+      const stat = fs.statSync(tmDbPath);
+      parts.push(`${tmDbPath}:${stat.size}:${stat.mtimeMs}`);
+    } catch {
+      parts.push(`${tmDbPath}:missing`);
+    }
+  }
   return `${cacheDir}|${parts.join("|")}`;
 }
 
 function readAntigravityTokscaleUsageCached(options = {}) {
   const cacheDir = options.dir || resolveAntigravityTokscaleDir(options);
+  const tmDbPath = options.tokenMonitorDbPath !== undefined
+    ? options.tokenMonitorDbPath
+    : (options.dir ? null : resolveTokenMonitorDbPath(options));
   const files = listCacheFiles(cacheDir);
-  const key = snapshotSignature(cacheDir, files);
+  const key = snapshotSignature(cacheDir, files, tmDbPath);
   if (lastSnapshot.key === key && lastSnapshot.value) return lastSnapshot.value;
-  const value = readAntigravityTokscaleUsage({ ...options, dir: cacheDir });
+  const value = readAntigravityTokscaleUsage({ ...options, dir: cacheDir, tokenMonitorDbPath: tmDbPath });
   lastSnapshot = { key, value };
   return value;
 }
 
-function readAntigravityTokscaleUsage({ home = os.homedir(), env = process.env, platform = process.platform, dir = null } = {}) {
+function readAntigravityTokscaleUsage({ home = os.homedir(), env = process.env, platform = process.platform, dir = null, tokenMonitorDbPath = undefined } = {}) {
   const cacheDir = dir || resolveAntigravityTokscaleDir({ home, env, platform });
+  const tmDbPath = tokenMonitorDbPath !== undefined
+    ? tokenMonitorDbPath
+    : (dir ? null : resolveTokenMonitorDbPath({ home, env, platform }));
   const files = listCacheFiles(cacheDir);
-  if (files.length === 0) return { rows: [], coveredDays: new Set(), bySession: new Map(), files: 0 };
+  const tmSessions = readTokenMonitorAntigravitySessions(tmDbPath);
+  if (files.length === 0 && tmSessions.size === 0) return { rows: [], coveredDays: new Set(), bySession: new Map(), files: 0, cacheDir, tokenMonitorDbPath: tmDbPath };
 
   const byHourModel = new Map();
   const bySession = new Map();
@@ -184,6 +307,35 @@ function readAntigravityTokscaleUsage({ home = os.homedir(), env = process.env, 
     }
   }
 
+  for (const [sessionId, tmSession] of tmSessions.entries()) {
+    const existing = bySession.get(sessionId);
+    if (!existing || tmSession.usage.total_tokens > existing.usage.total_tokens) {
+      bySession.set(sessionId, tmSession);
+      const ts = tmSession.endedAt || tmSession.startedAt;
+      const hour = hourStart(ts);
+      if (hour) {
+        for (const [mName, mUsage] of tmSession.models.entries()) {
+          const key = `${hour}\0${mName}`;
+          if (!byHourModel.has(key)) {
+            byHourModel.set(key, {
+              hour_start: hour,
+              model: mName,
+              input_tokens: mUsage.input_tokens,
+              cached_input_tokens: mUsage.cached_input_tokens,
+              cache_creation_input_tokens: mUsage.cache_creation_input_tokens,
+              output_tokens: mUsage.output_tokens,
+              reasoning_output_tokens: mUsage.reasoning_output_tokens,
+              total_tokens: mUsage.total_tokens,
+              usage_events: mUsage.usage_events || 1,
+            });
+          }
+        }
+      }
+    } else if (existing && tmSession.costUsd !== null && existing.costUsd === undefined) {
+      existing.costUsd = tmSession.costUsd;
+    }
+  }
+
   const rows = [...byHourModel.values()]
     .sort((a, b) => a.hour_start.localeCompare(b.hour_start) || a.model.localeCompare(b.model))
     .map((row) => ({
@@ -232,6 +384,8 @@ function mergeAntigravityTokscaleRows(allRows, snapshot) {
 module.exports = {
   ANTIGRAVITY_SOURCE,
   resolveAntigravityTokscaleDir,
+  resolveTokenMonitorDbPath,
+  readTokenMonitorAntigravitySessions,
   readAntigravityTokscaleUsage,
   readAntigravityTokscaleUsageCached,
   mergeAntigravityTokscaleRows,

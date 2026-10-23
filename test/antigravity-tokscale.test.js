@@ -81,3 +81,44 @@ test("an absent cache yields no rows and changes nothing", () => {
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("merges Token Monitor SQLite sessions", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-tm-test-"));
+  const dbPath = path.join(home, "session-usage-archive.sqlite");
+  try {
+    const { DatabaseSync } = require("node:sqlite");
+    const db = new DatabaseSync(dbPath);
+    db.exec("CREATE TABLE sessions (session_key TEXT PRIMARY KEY, entry_json TEXT, revision INTEGER);");
+    const tmData = {
+      sessionId: "test-sess-1",
+      periods: {
+        allTime: {
+          totalTokens: 5000000,
+          inputTokens: 100000,
+          cacheReadTokens: 4800000,
+          outputTokens: 100000,
+          reasoningTokens: 0,
+          costUsd: 1.25,
+          messageCount: 20,
+          startedAt: "2026-10-23T01:00:00.000Z",
+          lastUsedAt: "2026-10-23T02:00:00.000Z",
+          models: { "gemini-3.8-flash-n": 5000000 },
+        },
+      },
+    };
+    db.prepare("INSERT INTO sessions VALUES (?, ?, ?)").run("antigravity:test-sess-1", JSON.stringify(tmData), 1);
+    db.close();
+
+    const snapshot = readAntigravityTokscaleUsage({ dir: path.join(home, "empty-sessions"), tokenMonitorDbPath: dbPath });
+    assert.equal(snapshot.bySession.size, 1);
+    const s = snapshot.bySession.get("test-sess-1");
+    assert.equal(s.usage.total_tokens, 5000000);
+    assert.equal(s.usage.cached_input_tokens, 4800000);
+    assert.equal(s.costUsd, 1.25);
+    assert.equal(s.requests, 20);
+    assert.equal(snapshot.rows.length, 1);
+    assert.equal(snapshot.rows[0].total_tokens, 5000000);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});

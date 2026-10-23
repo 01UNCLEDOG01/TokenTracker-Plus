@@ -115,7 +115,7 @@ const {
 // v25 adds Kimi wire sessions, including official/legacy migration dedup.
 // v26 retains Codex Ultrafast (service_tier ultrafast) subset columns so
 // date-filtered session views and cached sidecars keep the 6x premium.
-const SIDECAR_VERSION = 26;
+const SIDECAR_VERSION = 27;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -3510,6 +3510,7 @@ async function scanAntigravitySession(dbPath) {
   let cachedUsage = null;
   let usageEvents = finite(result.eventsAggregated);
   let usagePrecision = result.usageSource === "sqlite" ? "exact" : "estimated";
+  let costUsd = undefined;
   if (isRealAntigravityDbPath(dbPath)) {
     try {
       const snapshot = readAntigravityTokscaleUsageCached({ home: os.homedir(), env: process.env });
@@ -3523,6 +3524,9 @@ async function scanAntigravitySession(dbPath) {
         totals = { ...session.usage };
         usageEvents = [...session.models.values()].reduce((sum, usage) => sum + finite(usage.usage_events), 0);
         usagePrecision = "exact";
+        if (typeof session.costUsd === "number" && session.costUsd >= 0) {
+          costUsd = session.costUsd;
+        }
       }
     } catch {
       // A missing or unreadable tokscale cache keeps the transcript estimate.
@@ -3553,8 +3557,11 @@ async function scanAntigravitySession(dbPath) {
     retry_turns: 0,
     subagent_calls: 0,
     ...totals,
+    tokens: { ...totals },
+    provider_cost_usd: costUsd,
+    cost_source: costUsd !== undefined ? "provider_reported" : undefined,
     provenance: "measured",
-    usage_source: cachedUsage ? "tokscale-antigravity-cache" : undefined,
+    usage_source: cachedUsage ? (cachedUsage.source || "tokscale-antigravity-cache") : undefined,
     usage_precision: usagePrecision,
     usage_is_incomplete: cachedUsage ? false : !result.dbReadOk,
     usage_events: usageEvents,
