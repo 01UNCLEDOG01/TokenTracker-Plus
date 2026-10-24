@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-10-23T15:20:50.030Z",
+  "generatedAt": "2026-10-24T00:04:40.147Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 474,
-    "rawText": 175
+    "colors": 499,
+    "rawText": 178
   },
   "files": {
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
@@ -200,14 +200,16 @@
       "rawTextTokens": []
     },
     "dashboard/src/ui/achievements/AchievementShareModal.jsx": {
-      "colors": 22,
-      "rawText": 7,
+      "colors": 47,
+      "rawText": 9,
       "rawTextTokens": [
-        "TokenTracker Plus Milestone",
-        "下载高清海报 (PNG)",
+        "Lv7 奇点",
+        "TOKEN TRACKER PLUS · HALL OF FAME",
         "导出成就战报与勋章卡片",
-        "已解锁",
-        "生成你的个人成就战报，一键下载海报或复制格式化文案分享至社交圈。",
+        "巅峰热力",
+        "成就解锁率",
+        "殿堂级核心勋章展台 (Top Medallions)",
+        "生成殿堂级个人极客战报，携带真实高精 3D 浮雕勋章与完整工程战绩，一键保存分享。",
         "钻石勋章",
         "黄金勋章"
       ]
@@ -251,15 +253,16 @@
     },
     "dashboard/src/ui/achievements/BadgeSynergyBanner.jsx": {
       "colors": 0,
-      "rawText": 7,
+      "rawText": 8,
       "rawTextTokens": [
         ") : isUnlocked ? (",
+        "ACTIVE TITLE · 当前佩戴",
         "t.id === activeTitleId) || unlockedTitles[0] || null; return (",
-        "专属称号与成就羁绊",
-        "当前佩戴",
-        "当特定徽章达到指定品阶时触发羁绊共鸣，解锁并佩戴你的极客专属称号。",
-        "未达成",
-        "点击佩戴"
+        "佩戴",
+        "已佩戴",
+        "当核心勋章达到指定品阶时触发羁绊共鸣，融合多维算力与工程习惯，加冕你的极客专属荣耀称号。",
+        "未解锁",
+        "极客称号殿堂 · 羁绊共鸣"
       ]
     },
     "dashboard/src/ui/achievements/SteamAchievementToast.jsx": {

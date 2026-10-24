@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Trophy, ChevronUp, X, Sparkles, Award, Gem, TrendingUp } from "lucide-react";
+import { Trophy, X, Sparkles, Award, Gem, TrendingUp, Layers } from "lucide-react";
 import { playUnlockSound, playTierUpSound } from "../../lib/achievement-audio";
 
 const TIER_META = {
@@ -9,60 +9,125 @@ const TIER_META = {
   4: { en: "Diamond", zh: "钻石阶", border: "border-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.5)]", bg: "from-cyan-950/60 to-[#171a21]", tagBg: "bg-cyan-500/20 text-cyan-300 border-cyan-400/50" },
 };
 
-// Global notification bus
+// Global notification bus with Steam pacing queue
 const listeners = new Set();
 const queue = [];
 let isProcessing = false;
+let burstTotal = 0;
+let burstIndex = 0;
+let lastAudioTime = 0;
 
 export function triggerAchievementNotification(item) {
   queue.push(item);
+  if (!isProcessing) {
+    burstTotal = queue.length;
+    burstIndex = 0;
+  } else {
+    burstTotal++;
+  }
   notifyNext();
 }
 
 function notifyNext() {
   if (isProcessing || queue.length === 0) return;
   const current = queue.shift();
+  burstIndex++;
   isProcessing = true;
-  listeners.forEach((fn) => fn(current));
+
+  const payload = {
+    ...current,
+    queueIndex: burstIndex,
+    queueTotal: Math.max(burstTotal, burstIndex + queue.length),
+    remainingCount: queue.length,
+  };
+
+  listeners.forEach((fn) => fn(payload));
 }
 
 function finishCurrent() {
   isProcessing = false;
+  if (queue.length === 0) {
+    burstTotal = 0;
+    burstIndex = 0;
+  }
+  // Steam uses a 280ms transition gap between queued toasts
   setTimeout(() => {
     notifyNext();
-  }, 400);
+  }, 280);
 }
 
 export function SteamAchievementContainer() {
   const [current, setCurrent] = useState(null);
   const [visible, setVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef(null);
+  const remainingTimeRef = useRef(0);
+  const startTimeRef = useRef(0);
+
+  const startDismissTimer = (duration) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    remainingTimeRef.current = duration;
+    startTimeRef.current = Date.now();
+    timerRef.current = setTimeout(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setCurrent(null);
+        finishCurrent();
+      }, 350);
+    }, duration);
+  };
 
   useEffect(() => {
     const handleNotification = (item) => {
       setCurrent(item);
       setVisible(true);
+      setIsPaused(false);
 
-      // Play audio
-      if (item.isTierUp) {
-        playTierUpSound();
-      } else {
-        playUnlockSound();
+      // Steam Audio Pacing: throttle sound in tight bursts (prevent cacophony)
+      const now = Date.now();
+      const shouldPlaySound = now - lastAudioTime > 1200 || item.queueIndex === 1;
+      if (shouldPlaySound) {
+        lastAudioTime = now;
+        if (item.isTierUp) {
+          playTierUpSound();
+        } else {
+          playUnlockSound();
+        }
       }
 
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        setVisible(false);
-        setTimeout(() => {
-          setCurrent(null);
-          finishCurrent();
-        }, 350);
-      }, 5200);
+      // Steam Burst Pacing:
+      // Single unlock: 4500ms
+      // 1-2 queued: 3200ms
+      // >2 queued: 2200ms (fast-forward mode so multi-unlocks do not backlog forever)
+      let duration = 4500;
+      if (item.remainingCount > 2) {
+        duration = 2200;
+      } else if (item.remainingCount > 0) {
+        duration = 3200;
+      }
+
+      startDismissTimer(duration);
     };
 
     listeners.add(handleNotification);
     return () => listeners.delete(handleNotification);
   }, []);
+
+  const handleMouseEnter = () => {
+    if (!visible || !current) return;
+    setIsPaused(true);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      const elapsed = Date.now() - startTimeRef.current;
+      remainingTimeRef.current = Math.max(1000, remainingTimeRef.current - elapsed);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!visible || !current) return;
+    setIsPaused(false);
+    startDismissTimer(remainingTimeRef.current || 2000);
+  };
 
   const handleDismiss = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -70,7 +135,7 @@ export function SteamAchievementContainer() {
     setTimeout(() => {
       setCurrent(null);
       finishCurrent();
-    }, 350);
+    }, 250);
   };
 
   if (!current) return null;
@@ -78,30 +143,33 @@ export function SteamAchievementContainer() {
   const tier = Number(current.tier) || 1;
   const tierMeta = TIER_META[tier] || TIER_META[1];
   const isTierUp = Boolean(current.isTierUp);
+  const hasQueue = Boolean(current.queueTotal && current.queueTotal !== 1);
 
   return (
     <div
       role="alert"
-      className={`fixed bottom-6 right-6 z-[9999] pointer-events-auto transition-all duration-350 ease-out transform ${
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`fixed bottom-6 right-6 z-[9999] pointer-events-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
         visible ? "translate-y-0 opacity-100 scale-100" : "translate-y-8 opacity-0 scale-95"
       }`}
     >
       {/* 
-        DISTINCT VISUAL 1: PROMOTION / TIER UP (RADIANCY & CELEBRATION)
+        DISTINCT VISUAL 1: PROMOTION / TIER UP (PRISMATIC CELEBRATION FLARE)
       */}
       {isTierUp ? (
-        <div className="relative flex w-[380px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-br from-[#131b2e] via-[#10141f] to-[#0d1017] p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,0.8),0_0_25px_rgba(34,211,238,0.25)] backdrop-blur-xl">
+        <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-br from-[#131b2e] via-[#10141f] to-[#0d1017] p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(34,211,238,0.3)] backdrop-blur-xl">
           {/* Animated radiant top beam */}
           <div className="absolute inset-x-0 top-0 h-[3px] rounded-t-2xl bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-300 animate-pulse" />
 
           {/* Left emblem with glowing promotion ring */}
           <div className="relative shrink-0">
-            <div className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 ${tierMeta.border} bg-gradient-to-b ${tierMeta.bg} p-1 shadow-[0_0_20px_rgba(34,211,238,0.3)] overflow-hidden`}>
+            <div className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 ${tierMeta.border} bg-gradient-to-b ${tierMeta.bg} p-1 shadow-[0_0_20px_rgba(34,211,238,0.35)] overflow-hidden`}>
               {current.badge?.art ? (
                 <img
                   src={current.badge.art}
                   alt={current.name || "Badge"}
-                  className="h-full w-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+                  className="h-full w-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
@@ -110,7 +178,7 @@ export function SteamAchievementContainer() {
                 <Gem className="h-8 w-8 text-cyan-300" />
               )}
             </div>
-            {/* Promotion arrow badge */}
+            {/* Promotion trending arrow badge */}
             <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-black border-2 border-[#10141f] shadow-lg">
               <TrendingUp className="h-3.5 w-3.5 stroke-[3]" />
             </span>
@@ -118,11 +186,21 @@ export function SteamAchievementContainer() {
 
           {/* Middle text content */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-cyan-400">
-                ACHIEVEMENT PROMOTED · 勋章晋阶
-              </span>
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="text-[11px] font-black uppercase tracking-wider text-cyan-400">
+                  ACHIEVEMENT PROMOTED · 勋章晋阶
+                </span>
+              </div>
+
+              {/* Steam queue badge */}
+              {hasQueue && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-cyan-950/80 px-2 py-0.5 text-[10px] font-mono font-bold text-cyan-300 border border-cyan-500/40">
+                  <Layers className="h-2.5 w-2.5" />
+                  <span>{current.queueIndex}/{current.queueTotal}</span>
+                </span>
+              )}
             </div>
 
             <h4 className="mt-1 truncate text-base font-bold tracking-tight text-white">
@@ -154,7 +232,7 @@ export function SteamAchievementContainer() {
         /* 
           DISTINCT VISUAL 2: UNLOCK (CLASSIC STEAM OBSIDIAN & AMBER GLOW)
         */
-        <div className="relative flex w-[360px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-xl border border-[#384b60] bg-[#171a21]/95 p-3.5 text-white shadow-[0_12px_36px_rgba(0,0,0,0.7)] backdrop-blur-md">
+        <div className="relative flex w-[370px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-xl border border-[#384b60] bg-[#171a21]/95 p-3.5 text-white shadow-[0_12px_36px_rgba(0,0,0,0.8)] backdrop-blur-md">
           {/* Steam-style top ambient glow line */}
           <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600" />
 
@@ -182,11 +260,21 @@ export function SteamAchievementContainer() {
 
           {/* Middle text content */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                ACHIEVEMENT UNLOCKED · 成就解锁
-              </span>
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                  ACHIEVEMENT UNLOCKED · 成就解锁
+                </span>
+              </div>
+
+              {/* Steam queue badge */}
+              {hasQueue && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-mono font-medium text-gray-300 border border-white/10">
+                  <Layers className="h-2.5 w-2.5 text-amber-400" />
+                  <span>{current.queueIndex}/{current.queueTotal}</span>
+                </span>
+              )}
             </div>
 
             <h4 className="mt-0.5 truncate text-sm font-semibold tracking-tight text-white">
@@ -212,3 +300,5 @@ export function SteamAchievementContainer() {
     </div>
   );
 }
+
+export default SteamAchievementContainer;
