@@ -296,7 +296,11 @@ def multitool_day():
 
 
 def claude_survivor():
-    """Only the official Claude starburst — the brand mark is the badge."""
+    """3D sculpted Claude starburst medallion on house coin rim."""
+    src_jpg = SRC_BADGES / "claude-survivor.jpg"
+    if src_jpg.exists():
+        save(compose(extract_face(str(src_jpg), radius=200, feather=2, zoom=1.05), shadow=False), "claude-survivor.png")
+        return
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     star = fit(key_white(f"{BRAND}/claude-code.png"), 380, 380)
     star_mask = star.getchannel("A")
@@ -305,13 +309,17 @@ def claude_survivor():
         (232, 132, 98),
         (196, 92, 66),
         outline=(118, 52, 34),
-            )
+    )
     paste_center(layer, star, 256, 256)
     save(compose(layer), "claude-survivor.png")
 
 
 def wishing_well():
-    """The official DeepSeek whale in blue enamel, over wish-coins."""
+    """3D celestial DeepSeek whale breaching above wishing well on house coin rim."""
+    src_jpg = SRC_BADGES / "wishing-well.jpg"
+    if src_jpg.exists():
+        save(compose(extract_face(str(src_jpg), radius=200, feather=2, zoom=1.05), shadow=False), "wishing-well.png")
+        return
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     whale = fit(key_white(f"{BRAND}/deepseek.png"), 336, 300)
     solid, holes = fill_holes(whale.getchannel("A"))
@@ -332,6 +340,13 @@ def wishing_well():
     for cx, cy, r in ((292, 352, 40), (348, 382, 34), (238, 386, 30)):
         coin(layer, cx, cy, r)
     save(compose(layer), "wishing-well.png")
+
+
+def deep_thinker():
+    """3D sculpted cybernetic brain die on house coin rim."""
+    src_jpg = SRC_BADGES / "deep-thinker.jpg"
+    if src_jpg.exists():
+        save(compose(extract_face(str(src_jpg), radius=200, feather=2, zoom=1.05), shadow=False), "deep-thinker.png")
 
 
 AI_FACES = (
@@ -355,3 +370,4 @@ if __name__ == "__main__":
     multitool_day()
     claude_survivor()
     wishing_well()
+    deep_thinker()

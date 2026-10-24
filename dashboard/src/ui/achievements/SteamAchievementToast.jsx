@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Trophy, X, Sparkles, Award, Gem, TrendingUp, Layers } from "lucide-react";
 import { playUnlockSound, playTierUpSound } from "../../lib/achievement-audio";
 
@@ -9,154 +9,108 @@ const TIER_META = {
   4: { en: "Diamond", zh: "钻石阶", border: "border-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.5)]", bg: "from-cyan-950/60 to-[#171a21]", tagBg: "bg-cyan-500/20 text-cyan-300 border-cyan-400/50" },
 };
 
-// Global notification bus with Steam pacing queue
+// Global notification bus
 const listeners = new Set();
-const queue = [];
-let isProcessing = false;
-let burstTotal = 0;
-let burstIndex = 0;
+let toastUidCounter = 0;
 let lastAudioTime = 0;
 
+/** Trigger an achievement unlock or tier-up notification */
 export function triggerAchievementNotification(item) {
-  queue.push(item);
-  if (!isProcessing) {
-    burstTotal = queue.length;
-    burstIndex = 0;
-  } else {
-    burstTotal++;
-  }
-  notifyNext();
-}
-
-function notifyNext() {
-  if (isProcessing || queue.length === 0) return;
-  const current = queue.shift();
-  burstIndex++;
-  isProcessing = true;
-
+  const uid = ++toastUidCounter;
   const payload = {
-    ...current,
-    queueIndex: burstIndex,
-    queueTotal: Math.max(burstTotal, burstIndex + queue.length),
-    remainingCount: queue.length,
+    ...item,
+    uid,
+    timestamp: Date.now(),
   };
 
   listeners.forEach((fn) => fn(payload));
 }
 
-function finishCurrent() {
-  isProcessing = false;
-  if (queue.length === 0) {
-    burstTotal = 0;
-    burstIndex = 0;
-  }
-  // Steam uses a 280ms transition gap between queued toasts
-  setTimeout(() => {
-    notifyNext();
-  }, 280);
-}
+const MAX_CONCURRENT_TOASTS = 3;
 
-export function SteamAchievementContainer() {
-  const [current, setCurrent] = useState(null);
+/**
+ * Individual Steam Toast Card with independent lifecycle, hover-pause, and animations
+ */
+function SteamToastCard({ toast, onDismiss, totalQueued }) {
   const [visible, setVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef(null);
   const remainingTimeRef = useRef(0);
   const startTimeRef = useRef(0);
 
-  const startDismissTimer = (duration) => {
+  const startDismissTimer = useCallback((duration) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     remainingTimeRef.current = duration;
     startTimeRef.current = Date.now();
     timerRef.current = setTimeout(() => {
       setVisible(false);
       setTimeout(() => {
-        setCurrent(null);
-        finishCurrent();
-      }, 350);
+        onDismiss(toast.uid);
+      }, 280);
     }, duration);
-  };
+  }, [onDismiss, toast.uid]);
 
   useEffect(() => {
-    const handleNotification = (item) => {
-      setCurrent(item);
+    // Mount animation trigger
+    const raf = requestAnimationFrame(() => {
       setVisible(true);
-      setIsPaused(false);
+    });
 
-      // Steam Audio Pacing: throttle sound in tight bursts (prevent cacophony)
-      const now = Date.now();
-      const shouldPlaySound = now - lastAudioTime > 1200 || item.queueIndex === 1;
-      if (shouldPlaySound) {
-        lastAudioTime = now;
-        if (item.isTierUp) {
-          playTierUpSound();
-        } else {
-          playUnlockSound();
-        }
-      }
+    // Pacing duration based on queued backlog
+    let duration = 4500;
+    if (totalQueued > 2) {
+      duration = 2600;
+    } else if (totalQueued > 0) {
+      duration = 3400;
+    }
 
-      // Steam Burst Pacing:
-      // Single unlock: 4500ms
-      // 1-2 queued: 3200ms
-      // >2 queued: 2200ms (fast-forward mode so multi-unlocks do not backlog forever)
-      let duration = 4500;
-      if (item.remainingCount > 2) {
-        duration = 2200;
-      } else if (item.remainingCount > 0) {
-        duration = 3200;
-      }
+    startDismissTimer(duration);
 
-      startDismissTimer(duration);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-
-    listeners.add(handleNotification);
-    return () => listeners.delete(handleNotification);
-  }, []);
+  }, [startDismissTimer, totalQueued]);
 
   const handleMouseEnter = () => {
-    if (!visible || !current) return;
     setIsPaused(true);
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       const elapsed = Date.now() - startTimeRef.current;
-      remainingTimeRef.current = Math.max(1000, remainingTimeRef.current - elapsed);
+      remainingTimeRef.current = Math.max(1200, remainingTimeRef.current - elapsed);
     }
   };
 
   const handleMouseLeave = () => {
-    if (!visible || !current) return;
     setIsPaused(false);
     startDismissTimer(remainingTimeRef.current || 2000);
   };
 
-  const handleDismiss = () => {
+  const handleManualDismiss = (e) => {
+    e.stopPropagation();
     if (timerRef.current) clearTimeout(timerRef.current);
     setVisible(false);
     setTimeout(() => {
-      setCurrent(null);
-      finishCurrent();
-    }, 250);
+      onDismiss(toast.uid);
+    }, 220);
   };
 
-  if (!current) return null;
-
-  const tier = Number(current.tier) || 1;
+  const tier = Number(toast.tier) || 1;
   const tierMeta = TIER_META[tier] || TIER_META[1];
-  const isTierUp = Boolean(current.isTierUp);
-  const hasQueue = Boolean(current.queueTotal && current.queueTotal !== 1);
+  const isTierUp = Boolean(toast.isTierUp);
 
   return (
     <div
       role="alert"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`fixed bottom-6 right-6 z-[9999] pointer-events-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
-        visible ? "translate-y-0 opacity-100 scale-100" : "translate-y-8 opacity-0 scale-95"
+      className={`pointer-events-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+        visible
+          ? "translate-y-0 opacity-100 scale-100"
+          : "translate-y-6 opacity-0 scale-95"
       }`}
     >
-      {/* 
-        DISTINCT VISUAL 1: PROMOTION / TIER UP (PRISMATIC CELEBRATION FLARE)
-      */}
+      {/* DISTINCT VISUAL 1: PROMOTION / TIER UP (CYAN/PRISMATIC CELEBRATION FLARE) */}
       {isTierUp ? (
         <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-br from-[#131b2e] via-[#10141f] to-[#0d1017] p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(34,211,238,0.3)] backdrop-blur-xl">
           {/* Animated radiant top beam */}
@@ -165,10 +119,10 @@ export function SteamAchievementContainer() {
           {/* Left emblem with glowing promotion ring */}
           <div className="relative shrink-0">
             <div className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 ${tierMeta.border} bg-gradient-to-b ${tierMeta.bg} p-1 shadow-[0_0_20px_rgba(34,211,238,0.35)] overflow-hidden`}>
-              {current.badge?.art ? (
+              {toast.badge?.art ? (
                 <img
-                  src={current.badge.art}
-                  alt={current.name || "Badge"}
+                  src={toast.badge.art}
+                  alt={toast.name || "Badge"}
                   className="h-full w-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
@@ -178,7 +132,7 @@ export function SteamAchievementContainer() {
                 <Gem className="h-8 w-8 text-cyan-300" />
               )}
             </div>
-            {/* Promotion trending arrow badge */}
+            {/* Promotion trending arrow marker */}
             <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 text-black border-2 border-[#10141f] shadow-lg">
               <TrendingUp className="h-3.5 w-3.5 stroke-[3]" />
             </span>
@@ -193,18 +147,10 @@ export function SteamAchievementContainer() {
                   ACHIEVEMENT PROMOTED · 勋章晋阶
                 </span>
               </div>
-
-              {/* Steam queue badge */}
-              {hasQueue && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-cyan-950/80 px-2 py-0.5 text-[10px] font-mono font-bold text-cyan-300 border border-cyan-500/40">
-                  <Layers className="h-2.5 w-2.5" />
-                  <span>{current.queueIndex}/{current.queueTotal}</span>
-                </span>
-              )}
             </div>
 
             <h4 className="mt-1 truncate text-base font-bold tracking-tight text-white">
-              {current.name || current.badge?.id || "成就升阶"}
+              {toast.name || toast.badge?.id || "成就升阶"}
             </h4>
 
             <div className="mt-1.5 flex items-center gap-2">
@@ -213,7 +159,7 @@ export function SteamAchievementContainer() {
                 <span>晋阶至 {tierMeta.zh}</span>
               </span>
               <p className="truncate text-xs text-gray-300">
-                {current.desc || "战绩辉煌，荣耀升级！"}
+                {toast.desc || "战绩辉煌，荣耀升级！"}
               </p>
             </div>
           </div>
@@ -221,17 +167,15 @@ export function SteamAchievementContainer() {
           {/* Dismiss button */}
           <button
             type="button"
-            onClick={handleDismiss}
-            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-white/10 hover:text-white"
+            onClick={handleManualDismiss}
+            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-white/10 hover:text-white cursor-pointer"
             aria-label="关闭"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
       ) : (
-        /* 
-          DISTINCT VISUAL 2: UNLOCK (CLASSIC STEAM OBSIDIAN & AMBER GLOW)
-        */
+        /* DISTINCT VISUAL 2: UNLOCK (CLASSIC STEAM OBSIDIAN & AMBER GLOW) */
         <div className="relative flex w-[370px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-xl border border-[#384b60] bg-[#171a21]/95 p-3.5 text-white shadow-[0_12px_36px_rgba(0,0,0,0.8)] backdrop-blur-md">
           {/* Steam-style top ambient glow line */}
           <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600" />
@@ -239,10 +183,10 @@ export function SteamAchievementContainer() {
           {/* Left emblem avatar */}
           <div className="relative shrink-0">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-white/20 bg-[#1b2838] p-1 shadow-inner overflow-hidden">
-              {current.badge?.art ? (
+              {toast.badge?.art ? (
                 <img
-                  src={current.badge.art}
-                  alt={current.name || "Badge"}
+                  src={toast.badge.art}
+                  alt={toast.name || "Badge"}
                   className="h-full w-full object-contain filter drop-shadow"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
@@ -267,36 +211,98 @@ export function SteamAchievementContainer() {
                   ACHIEVEMENT UNLOCKED · 成就解锁
                 </span>
               </div>
-
-              {/* Steam queue badge */}
-              {hasQueue && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-mono font-medium text-gray-300 border border-white/10">
-                  <Layers className="h-2.5 w-2.5 text-amber-400" />
-                  <span>{current.queueIndex}/{current.queueTotal}</span>
-                </span>
-              )}
             </div>
 
             <h4 className="mt-0.5 truncate text-sm font-semibold tracking-tight text-white">
-              {current.name || current.badge?.id || "新成就达成"}
+              {toast.name || toast.badge?.id || "新成就达成"}
             </h4>
 
             <p className="mt-0.5 line-clamp-1 text-xs text-gray-300">
-              {current.desc || `已达成 ${tierMeta.zh}！`}
+              {toast.desc || `已达成 ${tierMeta.zh}！`}
             </p>
           </div>
 
           {/* Dismiss button */}
           <button
             type="button"
-            onClick={handleDismiss}
-            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-white/10 hover:text-white"
+            onClick={handleManualDismiss}
+            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-white/10 hover:text-white cursor-pointer"
             aria-label="关闭"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Steam Achievement Toast Notification Container:
+ * Accurately implements Steam's concurrent stacking system.
+ * Up to 3 active toasts stack vertically in the bottom-right corner.
+ * Subsequent toasts queue and smoothly slide into place as previous toasts dismiss.
+ */
+export function SteamAchievementContainer() {
+  const [activeToasts, setActiveToasts] = useState([]);
+  const queueRef = useRef([]);
+
+  const dismissToast = useCallback((uid) => {
+    setActiveToasts((prev) => {
+      const nextActive = prev.filter((t) => t.uid !== uid);
+      // If we have room and there are queued items, pop the next item into active
+      if (MAX_CONCURRENT_TOASTS > nextActive.length && queueRef.current.length > 0) {
+        const nextItem = queueRef.current.shift();
+        return [...nextActive, nextItem];
+      }
+      return nextActive;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleNotification = (item) => {
+      // Audio pacing: Throttle sounds so rapid bursts do not clash/clip
+      const now = Date.now();
+      if (now - lastAudioTime > 1000) {
+        lastAudioTime = now;
+        if (item.isTierUp) {
+          playTierUpSound();
+        } else {
+          playUnlockSound();
+        }
+      }
+
+      setActiveToasts((prev) => {
+        if (MAX_CONCURRENT_TOASTS > prev.length) {
+          return [...prev, item];
+        } else {
+          // Exceeds max concurrent: push to backlog queue
+          queueRef.current.push(item);
+          return prev;
+        }
+      });
+    };
+
+    listeners.add(handleNotification);
+    return () => listeners.delete(handleNotification);
+  }, []);
+
+  if (activeToasts.length === 0) return null;
+
+  return (
+    <div
+      role="region"
+      aria-label="Steam Achievement Notifications"
+      className="fixed bottom-6 right-6 z-[9999] pointer-events-none flex flex-col-reverse gap-3 items-end"
+    >
+      {activeToasts.map((toast) => (
+        <SteamToastCard
+          key={toast.uid}
+          toast={toast}
+          onDismiss={dismissToast}
+          totalQueued={queueRef.current.length}
+        />
+      ))}
     </div>
   );
 }

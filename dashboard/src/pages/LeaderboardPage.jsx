@@ -55,6 +55,8 @@ import { LeaderboardAvatar } from "../components/LeaderboardAvatar.jsx";
 import { LeaderboardProBadge } from "../components/LeaderboardProBadge.jsx";
 import { LeaderboardProviderColumnHeader } from "../components/LeaderboardProviderColumnHeader.jsx";
 import { BadgeMini } from "../ui/achievements/BadgeMini.jsx";
+import { useEquippedTitle } from "../ui/achievements/title-registry.js";
+import { EquippedTitleBadge } from "../ui/achievements/EquippedTitleBadge.jsx";
 
 const LeaderboardProfileModal = lazy(() =>
   import("../components/leaderboard/LeaderboardProfileModal.jsx").then((m) => ({
@@ -311,6 +313,7 @@ function MobileLeaderboardRow({
   orderedColumns,
   placeholder,
   onOpenProfile,
+  equippedTitle,
 }) {
   if (entry?.is_ellipsis) {
     return (
@@ -384,6 +387,9 @@ function MobileLeaderboardRow({
             )}>
               {rowName}
             </span>
+            {isMe && equippedTitle && (
+              <EquippedTitleBadge title={equippedTitle} size="xs" className="shrink-0" />
+            )}
             {badgeLabel && (
               <span className="shrink-0 rounded bg-oai-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-oai-brand-600 dark:text-oai-brand-400">
                 {badgeLabel}
@@ -524,6 +530,7 @@ export function LeaderboardPage({
   const { openLoginModal } = useLoginModal();
   const { signedIn: cloudSignedIn, loading: authLoading, user: cloudUser, displayName: cloudDisplayName, getAccessToken } = useInsforgeAuth();
   const localProfile = useLocalProfile();
+  const equippedTitle = useEquippedTitle();
   const { currency, rate } = useCurrency();
   const leaderboardBaseUrl = useMemo(() => getLeaderboardBaseUrl(), []);
   const localHistory = isLocalLeaderboardHost();
@@ -987,6 +994,9 @@ export function LeaderboardPage({
                           {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
                         </span>
                         <span className="truncate font-semibold text-oai-black dark:text-oai-white">{name}</span>
+                        {isMe && equippedTitle && (
+                          <EquippedTitleBadge title={equippedTitle} size="xs" className="shrink-0" />
+                        )}
                         {badgeLabel && (
                           <span className="shrink-0 rounded bg-oai-brand-500/10 px-1.5 py-0.5 text-[10px] font-medium text-oai-brand-600 dark:text-oai-brand-400">
                             {badgeLabel}
@@ -1079,6 +1089,7 @@ export function LeaderboardPage({
               orderedColumns={orderedColumns}
               placeholder={placeholder}
               onOpenProfile={openProfileModal}
+              equippedTitle={equippedTitle}
             />
           );
         })}

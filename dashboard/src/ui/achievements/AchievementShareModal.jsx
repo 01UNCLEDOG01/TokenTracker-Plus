@@ -8,6 +8,15 @@ export function AchievementShareModal({ isOpen, onClose, badges = [], userTitle 
   const [isExporting, setIsExporting] = useState(false);
   const cardRef = useRef(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && onClose) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const earned = badges.filter((b) => (b.tier || 0) >= 1);
@@ -257,7 +266,12 @@ export function AchievementShareModal({ isOpen, onClose, badges = [], userTitle 
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose();
+      }}
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200"
+    >
       <div className="relative w-full max-w-2xl rounded-3xl border border-amber-500/40 bg-[#0f1422] p-6 text-white shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden">
         {/* Ambient background glow */}
         <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
@@ -265,8 +279,12 @@ export function AchievementShareModal({ isOpen, onClose, badges = [], userTitle 
 
         <button
           type="button"
-          onClick={onClose}
-          className="absolute right-5 top-5 rounded-xl p-2 text-gray-400 hover:bg-white/10 hover:text-white transition"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onClose) onClose();
+          }}
+          aria-label="关闭"
+          className="absolute right-5 top-5 z-30 rounded-xl p-2 text-gray-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
         >
           <X className="h-5 w-5" />
         </button>

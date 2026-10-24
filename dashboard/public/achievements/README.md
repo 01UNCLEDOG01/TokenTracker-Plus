@@ -62,37 +62,25 @@ earned — even on their owner's own wall.
 
 ### Face art provenance
 
-The 12 upstream faces, plus `deep_thinker` / `heart_model` (copies of the
-unused `galaxy-brain` / `heart-on-your-sleeve` faces), are unchanged.
+The 12 upstream faces, plus heart_model (copy of the unused heart-on-your-sleeve face), are unchanged.
 
-The other 14 faces (6 habit badges + 8 wave-2 cloud badges) are AI-painted
-medallions finished with the house rim. The first pass baked its own rim,
-which left a beaded checker fringe and a hard dark groove between face and
-frame at display size. The second pass keeps only the painted face and casts
-the rim programmatically:
+The minted house coins are AI-painted 3D relief medallions cast programmatically onto the champagne silver house rim (house_coin()) with strict binary alpha (zero semi-transparent fringe pixels):
 
-- `scripts/art/source-badges/` — the painted 256px faces.
-- `scripts/art/source-emblem/` — the one-man-band emblem.
-- `scripts/art/brand-cache/deepseek.png` / `claude-code.png` — the official
-  DeepSeek whale and Claude starburst used for `wishing_well` and
-  `claude_survivor`. The whale's white belly is filled as light enamel
-  rather than left as a hole onto the coin face; the Claude badge is the
-  starburst alone, with no skull.
-- Rebuild with `python scripts/art/rebuild-badge-rims.py`. The geometry is
-  measured from the original medallions at 256px: face to 100–102, bevel
-  102–106, silver frame 106–116, bright edge 116–118. The old generator
-  started the bevel at 94, which made the frame read wide; the new one starts
-  where the originals do. The saved PNG has binary alpha (opaque coin, fully
-  transparent outside), so a scaled edge cannot show a checkerboard or a dot
-  fringe.
-- Brand marks are un-blended from their white matte and resized with
-  premultiplied alpha, so no white fringe survives on the dark coin. The
-  enamel layers carry only a gradient and a dark outline — no broad glow or
-  bevel highlight, which used to read as haze at 176px.
-- The older self-drawn generator `scripts/art/gen-achievement-medallions.py`
-  is kept for provenance and for the `deep_thinker` / `heart_model` copies;
-  its draw calls for these 14 faces are commented out so a rerun cannot
-  overwrite the painted art.
+- **Wave 2 & Habit Coins (14 coins)**: round-the-clock, cache-alchemist, deep-diver, arly-bird, ull-blast, grand-slam, iron-month, multitool-day, 
+ight-owl, phoenix, 
+eal-money, session-marathon, sprinter, wordsmith. Built via scripts/art/rebuild-badge-rims.py.
+- **Wave 3 Coins (11 coins)**: closed-source-loyalist, rugal-architect, offgrid-sovereign, megacontext-voyager, cache-miser, code-cannon, uzzer-beater, zen-balancer, swarm-commander, 	erminal-purist, 
+efactor-titan. Source originals are stored in scripts/art/source-badges/ and compiled via scripts/art/build-wave3-house-coins.py.
+- **Remodeled 3D Relief Coins (3 coins)**: deep-thinker, claude-survivor, wishing-well were remodeled from flat 2D silhouettes into authentic 3D sculpted metallic relief coins (scripts/art/source-badges/deep-thinker.jpg, claude-survivor.jpg, wishing-well.jpg) via scripts/art/rebuild-badge-rims.py.
+- **Synergy Title Crests (8 crests)**: dashboard/public/achievements/titles/title-*.png (for the 8 geek title resonances). Source originals are stored in scripts/art/source-titles/ and compiled via scripts/art/build-title-crests.py with tailored zooms and strict binary alpha.
+
+Rebuild scripts & assets:
+- scripts/art/source-badges/ — original 1024px / 256px source paintings for all wave-2, wave-3, and remodeled badges.
+- scripts/art/source-titles/ — original 1024px source paintings for the 8 synergy title crests.
+- scripts/art/rebuild-badge-rims.py — core rim generator and face extraction pipeline.
+- scripts/art/build-wave3-house-coins.py — Wave-3 coin builder.
+- scripts/art/build-title-crests.py — Title crest medallion builder.
+- All minted outputs enforce strict 256×256 dimensions, bounding box [9, 245] (237px), and binary alpha {0, 255}.
 
 The remaining unused faces (`pull-shark`, `starstruck`, `pair-extraordinaire`,
 `open-sourcerer`, `heart-on-your-sleeve`,

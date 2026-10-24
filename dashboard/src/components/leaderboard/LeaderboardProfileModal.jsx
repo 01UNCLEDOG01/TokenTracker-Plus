@@ -27,6 +27,8 @@ import { AvatarWithBadge } from "../../ui/achievements/AvatarWithBadge.jsx";
 import { BadgeStrip } from "../../ui/achievements/BadgeStrip.jsx";
 import { highestBadge } from "../../ui/achievements/badge-catalog";
 import { TokenFormatModeOverride } from "../../ui/foundation/TokenFormatProvider.jsx";
+import { useEquippedTitle, getTitleById } from "../../ui/achievements/title-registry.js";
+import { EquippedTitleBadge } from "../../ui/achievements/EquippedTitleBadge.jsx";
 
 // Lazy: the 3D coin + dialog code ships only when a badge is clicked.
 const BadgeDetailModal = React.lazy(() => import("../../ui/achievements/BadgeDetailModal.jsx"));
@@ -239,6 +241,10 @@ function FactRow({ label, children }) {
 }
 
 function Header({ user, onClose }) {
+  const localEquipped = useEquippedTitle();
+  const { user: cloudUser } = useInsforgeAuth();
+  const isMe = user?.is_me || (cloudUser?.id && user?.user_id === cloudUser.id);
+  const title = (isMe && localEquipped) || getTitleById(user?.active_title) || null;
   const handle = extractGithubHandle(user?.github_url);
   return (
     <div className="flex items-center gap-4 px-6 pt-6 pb-5 border-b border-oai-gray-200/80 dark:border-oai-gray-800/60">
@@ -251,10 +257,13 @@ function Header({ user, onClose }) {
         className="shrink-0 ring-1 ring-oai-gray-200 dark:ring-oai-gray-800"
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h2 className="truncate text-base font-semibold text-oai-black dark:text-white">
             {user?.display_name || "—"}
           </h2>
+          {title && (
+            <EquippedTitleBadge title={title} size="sm" className="shrink-0" />
+          )}
           <LeaderboardProBadge proActive={user?.pro_active === true} />
           {user?.rank ? (
             <span className={cn(

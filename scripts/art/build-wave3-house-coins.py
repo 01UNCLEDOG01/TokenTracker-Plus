@@ -8,21 +8,21 @@ spec = importlib.util.spec_from_file_location("rims", str(ROOT / "scripts" / "ar
 rims = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rims)
 
-ART_DIR = Path(r"C:\Users\Administrator\.gemini\antigravity\brain\9bfda5ee-7664-4add-a6ba-63d9fe49c8ad")
+SRC_DIR = ROOT / "scripts" / "art" / "source-badges"
 OUT_DIR = ROOT / "dashboard" / "public" / "achievements"
 
 MAPPING = {
-    "closed-source-loyalist": ART_DIR / "openai_medallion_badge_v2_1792768304089.jpg",
-    "frugal-architect": ART_DIR / "achievement_token_medallion_1792768404493.jpg",
-    "offgrid-sovereign": ART_DIR / "dark_metallic_achievement_badge_1792768412260.jpg",
-    "megacontext-voyager": ART_DIR / "cosmic_whale_medallion_badge_1792768413988.jpg",
-    "cache-miser": ART_DIR / "achievement_badge_cyber_processor_1792768421971.jpg",
-    "code-cannon": ART_DIR / "naval_cannon_achievement_badge_1792768426416.jpg",
-    "buzzer-beater": ART_DIR / "chronometer_achievement_medallion_1792768432579.jpg",
-    "zen-balancer": ART_DIR / "zen_achievement_badge_1792768437291.jpg",
-    "swarm-commander": ART_DIR / "sci_fi_fleet_achievement_badge_1792768441938.jpg",
-    "terminal-purist": ART_DIR / "retro_crt_achievement_badge_1792768445111.jpg",
-    "refactor-titan": ART_DIR / "blacksmith_achievement_badge_1792768450910.jpg",
+    "closed-source-loyalist": SRC_DIR / "closed-source-loyalist.jpg",
+    "frugal-architect": SRC_DIR / "frugal-architect.jpg",
+    "offgrid-sovereign": SRC_DIR / "offgrid-sovereign.jpg",
+    "megacontext-voyager": SRC_DIR / "megacontext-voyager.jpg",
+    "cache-miser": SRC_DIR / "cache-miser.jpg",
+    "code-cannon": SRC_DIR / "code-cannon.jpg",
+    "buzzer-beater": SRC_DIR / "buzzer-beater.jpg",
+    "zen-balancer": SRC_DIR / "zen-balancer.jpg",
+    "swarm-commander": SRC_DIR / "swarm-commander.jpg",
+    "terminal-purist": SRC_DIR / "terminal-purist.jpg",
+    "refactor-titan": SRC_DIR / "refactor-titan.jpg",
 }
 
 def main():
