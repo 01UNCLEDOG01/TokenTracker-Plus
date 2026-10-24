@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { getTitleBondName } from "./title-registry";
 
@@ -14,24 +15,29 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
     const onKey = (e) => {
       if (e.key === "Escape") onClose?.();
     };
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
 
   if (!title) return null;
   const { theme } = title;
   const bondName = title.bondName || getTitleBondName(title);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={title.name}
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-xl overflow-hidden rounded-3xl border-2 ${theme.border} bg-gradient-to-br ${theme.bgGradient} p-6 text-white shadow-2xl`}
+        className={`my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border-2 ${theme.border} bg-gradient-to-br ${theme.bgGradient} p-6 text-white shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -104,7 +110,8 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
           <div className="mt-3 border-t border-white/10 pt-2 text-[10px] text-white/50">{title.reqText}</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

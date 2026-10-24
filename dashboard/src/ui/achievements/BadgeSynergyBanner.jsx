@@ -361,7 +361,8 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
           badgeMap={badgeMap}
           onClose={() => setDetailTitle(null)}
           onSelectBadge={(id) => {
-            setDetailTitle(null);
+            // Keep the title sheet mounted underneath: closing the achievement
+            // modal should return here, not to the wall.
             onSelectBadge?.(id);
           }}
         />

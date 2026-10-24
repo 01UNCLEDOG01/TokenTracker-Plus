@@ -1459,7 +1459,7 @@ achievements.badge.deep_thinker.name,dashboard,*,AchievementsSection,deep_thinke
 achievements.badge.deep_thinker.desc,dashboard,*,BadgeDetailModal,deep_thinker_desc,"Accumulate lifetime reasoning output tokens.",,active
 achievements.badge.real_money.name,dashboard,*,AchievementsSection,real_money_name,"Real Money",,active
 achievements.badge.real_money.desc,dashboard,*,BadgeDetailModal,real_money_desc,"Accumulate lifetime tracked AI spend.",,active
-achievements.badge.session_marathon.name,dashboard,*,AchievementsSection,session_marathon_name,"Hourglass Keeper",,active
+achievements.badge.session_marathon.name,dashboard,*,AchievementsSection,session_marathon_name,"Sands of Time",,active
 achievements.badge.session_marathon.desc,dashboard,*,BadgeDetailModal,session_marathon_desc,"Log the longest active time in a single session.",,active
 achievements.badge.frugal_architect.name,dashboard,*,AchievementsSection,frugal_architect_name,"Frugal Architect",,active
 achievements.badge.frugal_architect.desc,dashboard,*,BadgeDetailModal,frugal_architect_desc,"Accumulate lifetime tokens with zero monetary cost.",,active

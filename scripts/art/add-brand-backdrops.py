@@ -93,12 +93,64 @@ def light_streaks(d, color):
         d.line([(-20 + i * 60, 0), (S + 20 + i * 60, S)], fill=color, width=1)
 
 
+
+def nebula(d, color):
+    for _ in range(90):
+        a = RNG.random() * math.tau
+        r = math.sqrt(RNG.random()) * 96
+        x = C + math.cos(a) * r
+        y = C + math.sin(a) * r
+        s = 0.6 + RNG.random() * 2.2
+        d.ellipse([x - s, y - s, x + s, y + s], fill=color)
+    for cx, cy, rr in [(95, 100, 34), (160, 165, 44)]:
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=color, width=3)
+
+
+def speed_lines(d, color):
+    for i in range(14):
+        y = 20 + i * 16
+        x0 = RNG.random() * 90
+        d.line([(x0, y), (x0 + 90, y - 6)], fill=color, width=2)
+
+
+def electric_arcs(d, color):
+    for k in range(9):
+        a = (k / 9.0) * math.tau
+        pts = [(C, C)]
+        for step in range(1, 5):
+            r = step * 22
+            jitter = (RNG.random() - 0.5) * 14
+            pts.append((C + math.cos(a) * r + jitter, C + math.sin(a) * r + jitter))
+        d.line(pts, fill=color, width=2)
+
+
+def ledger_grid(d, color):
+    for x in range(10, S, 22):
+        d.line([(x, 0), (x, S)], fill=color, width=1)
+    for y in range(10, S, 22):
+        d.line([(0, y), (S, y)], fill=color, width=1)
+    for cx, cy in [(70, 80), (185, 95), (120, 185)]:
+        d.ellipse([cx - 14, cy - 14, cx + 14, cy + 14], outline=color, width=2)
+
+
+def rays(d, color):
+    for k in range(18):
+        a = (k / 18.0) * math.tau
+        x0, y0 = C + math.cos(a) * 34, C + math.sin(a) * 34
+        x1, y1 = C + math.cos(a) * 96, C + math.sin(a) * 96
+        d.line([(x0, y0), (x1, y1)], fill=color, width=2)
+
 BRANDS = {
-    "zhipu-sage": (tech_grid, (150, 190, 255, 255), 0.35, 0.14),
-    "minimax-abyss": (sonar, (120, 235, 255, 255), 0.30, 0.16),
-    "moonshot-voyager": (starfield, (210, 195, 255, 255), 0.40, 0.18),
-    "qwen-dynasty": (cloud_bands, (205, 175, 255, 255), 0.28, 0.24),
-    "seedance-master": (light_streaks, (150, 245, 230, 255), 0.26, 0.18),
+    "zhipu-sage": (tech_grid, (150, 190, 255, 255), 0.35, 0.34),
+    "minimax-abyss": (sonar, (120, 235, 255, 255), 0.30, 0.36),
+    "moonshot-voyager": (starfield, (210, 195, 255, 255), 0.40, 0.40),
+    "qwen-dynasty": (cloud_bands, (205, 175, 255, 255), 0.28, 0.38),
+    "seedance-master": (light_streaks, (150, 245, 230, 255), 0.26, 0.34),
+    "north-america-doubao": (nebula, (170, 205, 255, 255), 0.35, 0.34),
+    "hyperspeed-grok": (speed_lines, (175, 220, 255, 255), 0.30, 0.32),
+    "flash-immortal": (electric_arcs, (255, 225, 150, 255), 0.30, 0.30),
+    "token-arbitrageur": (ledger_grid, (245, 215, 150, 255), 0.35, 0.30),
+    "claude-survivor": (rays, (255, 190, 160, 255), 0.35, 0.30),
 }
 
 
@@ -119,6 +171,17 @@ def apply(name, draw_fn, color, blur, opacity):
     weight = weight * (alpha >= 250)
     for c in range(3):
         base[..., c] = base[..., c] * (1 - weight) + tex_rgb[..., c] * weight
+
+    # A gentle upper-left key + rim falloff gives the flat emblem a face plane
+    # instead of a printed sticker.
+    yy, xx = np.mgrid[0:S, 0:S].astype(float)
+    r = np.hypot(xx - C, yy - C)
+    theta = np.degrees(np.arctan2(yy - C, xx - C))
+    key = np.cos(np.radians(theta + 135.0))
+    shade = (0.88 + 0.12 * key) * np.clip(1.06 - (r / 118.0) ** 3, 0.72, 1.0)
+    shade = np.where(alpha >= 250, shade, 1.0)
+    for c in range(3):
+        base[..., c] = np.clip(base[..., c] * shade, 0, 255)
 
     out = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8), "RGBA")
     # Same save contract as the house saver (RGB palette + one transparent

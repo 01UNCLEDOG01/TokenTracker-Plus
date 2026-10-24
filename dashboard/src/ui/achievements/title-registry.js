@@ -39,7 +39,7 @@ export const TITLES_REGISTRY = [
     tag: "质朴古铜",
     art: "/achievements/titles/title-frugal-archmage.png?v=5",
     requiredBadges: [
-      { id: "token_arbitrageur", name: "羊毛宗师", tier: 1, art: "/achievements/token-arbitrageur.png?v=5" },
+      { id: "token_arbitrageur", name: "羊毛宗师", tier: 1, art: "/achievements/token-arbitrageur.png?v=6" },
       { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=6" },
     ],
     check: (badgeMap) => (badgeMap.get("token_arbitrageur")?.tier || 0) >= 1 && (badgeMap.get("frugal_architect")?.tier || 0) >= 2,
@@ -65,8 +65,8 @@ export const TITLES_REGISTRY = [
     dimension: 2,
     art: "/achievements/titles/title-cyber-speedster.png?v=5",
     requiredBadges: [
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=5" },
-      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=5" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=6" },
+      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=6" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
@@ -117,7 +117,7 @@ export const TITLES_REGISTRY = [
     dimension: 5,
     art: "/achievements/titles/title-one-person-company.png?v=1",
     requiredBadges: [
-      { id: "swarm_commander", name: "管理者", tier: 1, art: "/achievements/swarm-commander.png?v=6" },
+      { id: "swarm_commander", name: "管理者", tier: 1, art: "/achievements/swarm-commander.png?v=7" },
       { id: "multitool", name: "多面手", tier: 1, art: "/achievements/multitool.png?v=7" },
       { id: "polyglot", name: "模型通", tier: 1, art: "/achievements/polyglot.png?v=7" },
       { id: "multitool_day", name: "分身有术", tier: 1, art: "/achievements/multitool-day.png?v=11" },
@@ -206,10 +206,10 @@ export const TITLES_REGISTRY = [
     art: "/achievements/titles/title-cyber-immortal.png?v=5",
     requiredBadges: [
       { id: "night_owl", name: "夜猫子", tier: 2, art: "/achievements/night-owl.png?v=7" },
-      { id: "session_marathon", name: "沙漏长明", tier: 2, art: "/achievements/session-marathon.png?v=11" },
+      { id: "session_marathon", name: "时之沙", tier: 2, art: "/achievements/session-marathon.png?v=11" },
     ],
     check: (badgeMap) => (badgeMap.get("night_owl")?.tier || 0) >= 2 && (badgeMap.get("session_marathon")?.tier || 0) >= 2,
-    reqText: "夜猫子(白银) + 沙漏长明(白银)",
+    reqText: "夜猫子(白银) + 时之沙(白银)",
     theme: {
       text: "text-purple-300",
       bgGradient: "from-purple-950/80 via-slate-900 to-black",
@@ -312,8 +312,8 @@ export const TITLES_REGISTRY = [
     art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
       { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=6" },
-      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=5" },
+      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=12" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=6" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
@@ -342,9 +342,9 @@ export const TITLES_REGISTRY = [
     art: "/achievements/titles/title-cn-quad-masters.png?v=5",
     requiredBadges: [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=6" },
-      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=6" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=6" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=7" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=7" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=7" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
