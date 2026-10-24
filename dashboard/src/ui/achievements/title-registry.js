@@ -9,8 +9,8 @@ export const TITLES_REGISTRY = [
     tag: "纯金算盘",
     art: "/achievements/titles/title-frugal-archmage.png?v=1",
     requiredBadges: [
-      { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=2" },
-      { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=2" },
+      { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=3" },
+      { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=3" },
     ],
     check: (badgeMap) => (badgeMap.get("frugal_architect")?.tier || 0) >= 2 && (badgeMap.get("cache_miser")?.tier || 0) >= 1,
     reqText: "白嫖之光(白银) + 缓存精算师(青铜)",
@@ -31,10 +31,10 @@ export const TITLES_REGISTRY = [
     desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，光速推流，指尖破空。",
     tag: "曲率引擎",
     dimension: 2,
-    art: "/achievements/titles/title-cyber-speedster.png?v=2",
+    art: "/achievements/titles/title-cyber-speedster.png?v=3",
     requiredBadges: [
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=2" },
-      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=2" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=3" },
+      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=3" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
@@ -58,7 +58,7 @@ export const TITLES_REGISTRY = [
     tag: "碧玉禅心",
     art: "/achievements/titles/title-zen-master.png?v=1",
     requiredBadges: [
-      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=2" },
+      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=3" },
       { id: "marathoner", name: "马拉松", tier: 2, art: "/achievements/marathoner.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("zen_balancer")?.tier || 0) >= 1 && (badgeMap.get("marathoner")?.tier || 0) >= 2,
@@ -81,7 +81,7 @@ export const TITLES_REGISTRY = [
     tag: "星际舰队",
     art: "/achievements/titles/title-fleet-admiral.png?v=1",
     requiredBadges: [
-      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=2" },
+      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=3" },
       { id: "multitool", name: "多面手", tier: 2, art: "/achievements/multitool.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("swarm_commander")?.tier || 0) >= 1 && (badgeMap.get("multitool")?.tier || 0) >= 2,
@@ -104,7 +104,7 @@ export const TITLES_REGISTRY = [
     tag: "AGI圣殿",
     art: "/achievements/titles/title-openai-paladin.png?v=1",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=2" },
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=3" },
       { id: "deep_thinker", name: "深度思考", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 2 && (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
@@ -127,7 +127,7 @@ export const TITLES_REGISTRY = [
     tag: "烈焰重炮",
     art: "/achievements/titles/title-code-cannon.png?v=1",
     requiredBadges: [
-      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=2" },
+      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=3" },
       { id: "wordsmith", name: "文字工匠", tier: 2, art: "/achievements/wordsmith.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("code_cannon")?.tier || 0) >= 2 && (badgeMap.get("wordsmith")?.tier || 0) >= 2,
@@ -195,11 +195,11 @@ export const TITLES_REGISTRY = [
     desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三冠王者。",
     tag: "三神交泰",
     dimension: 3,
-    art: "/achievements/titles/title-silicon-trinity.png?v=2",
+    art: "/achievements/titles/title-silicon-trinity.png?v=3",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=2" },
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=3" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=2" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=3" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
@@ -223,12 +223,12 @@ export const TITLES_REGISTRY = [
     desc: "融汇中华 AI 最前沿四大家族算力，四象归一，开辟东方极客新天地。",
     tag: "四象混元",
     dimension: 4,
-    art: "/achievements/titles/title-cn-quad-masters.png?v=2",
+    art: "/achievements/titles/title-cn-quad-masters.png?v=3",
     requiredBadges: [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=2" },
-      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=2" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=2" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=3" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=3" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=3" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&

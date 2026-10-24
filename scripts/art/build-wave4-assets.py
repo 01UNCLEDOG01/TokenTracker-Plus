@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import math
 from pathlib import Path
 import numpy as np
@@ -30,34 +31,52 @@ SRC_TITLES.mkdir(parents=True, exist_ok=True)
 CACHE.mkdir(parents=True, exist_ok=True)
 
 def rasterize_svg_mask(svg_path, size=512, padding=128):
-    drawing = svg2rlg(str(svg_path))
     target_dim = size - padding * 2
-    factor = target_dim / max(drawing.width, drawing.height)
-    drawing.width = drawing.width * factor
-    drawing.height = drawing.height * factor
-    drawing.scale(factor, factor)
+    if svg_path.stem == "gemini":
+        text = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 65" width="512" height="512">
+<path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="#000000"/>
+</svg>'''
+    else:
+        text = svg_path.read_text(encoding="utf-8")
+        text = re.sub(r'width="[^"]+"', 'width="512"', text)
+        text = re.sub(r'height="[^"]+"', 'height="512"', text)
+        text = text.replace("currentColor", "#000000")
+        text = re.sub(r'<path(?![^>]*fill=)', '<path fill="#000000"', text)
+        text = re.sub(r'fill-opacity="[^"]+"', '', text)
     
+    tmp_svg = CACHE / f"_tmp_{svg_path.stem}.svg"
+    tmp_svg.write_text(text, encoding="utf-8")
+    drawing = svg2rlg(str(tmp_svg))
     tmp_png = CACHE / f"_tmp_{svg_path.stem}.png"
     renderPM.drawToFile(drawing, str(tmp_png), fmt="PNG")
-    
-    raw = Image.open(tmp_png).convert("RGBA")
+    try:
+        tmp_svg.unlink()
+    except Exception:
+        pass
+        
+    raw = Image.open(tmp_png)
+    logo_mask = raw.convert("L").point(lambda v: 255 if v < 128 else 0)
     try:
         tmp_png.unlink()
     except Exception:
         pass
+        
+    bbox = logo_mask.getbbox()
+    if not bbox:
+        raise ValueError(f"Logo mask empty for {svg_path}")
+        
+    cropped = logo_mask.crop(bbox)
+    bw, bh = cropped.size
+    scale = target_dim / max(bw, bh)
+    nw, nh = max(1, int(round(bw * scale))), max(1, int(round(bh * scale)))
+    scaled = cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+    scaled_bin = scaled.point(lambda v: 255 if v > 100 else 0)
     
-    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ox = (size - raw.width) // 2
-    oy = (size - raw.height) // 2
-    out.paste(raw, (ox, oy))
-    
-    if raw.mode == "RGBA":
-        a = out.split()[3]
-        if a.getbbox() and a.getextrema()[1] > 20:
-            return a.point(lambda v: 255 if v > 40 else 0)
-    
-    lum = ImageOps.invert(out.convert("L"))
-    return lum.point(lambda v: 255 if v > 40 else 0)
+    canvas = Image.new("L", (size, size), 0)
+    ox = (size - nw) // 2
+    oy = (size - nh) // 2
+    canvas.paste(scaled_bin, (ox, oy))
+    return canvas
 
 def sculpt_medallion(mask_img, base_coin, gradient_stops, rim_color=(235, 240, 248), accent_layer=None):
     m_raw = np.array(mask_img).astype(float) / 255.0
