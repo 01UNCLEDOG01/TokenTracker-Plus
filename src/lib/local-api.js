@@ -1847,6 +1847,8 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
   const qp = queuePath || resolveQueuePath();
   let _achievementsCache = null;
   const ACHIEVEMENTS_CACHE_TTL_MS = 15000;
+  let _sessionsCache = null;
+  const SESSIONS_CACHE_TTL_MS = 30000;
   const normalizedServerVersion = typeof serverVersion === "string" ? serverVersion.trim() : "";
 
   // Server-side cookie relay: captures auth cookies from InsForge cloud responses
@@ -3423,10 +3425,29 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
       try {
+        const tzCtx = getTimeZoneContext(url);
+        const cacheKey = `${from}|${to}|${limit}|${tzCtx.timeZone || ""}|${tzCtx.offsetMinutes || 0}`;
+        const now = Date.now();
+        if (
+          !refresh &&
+          _sessionsCache &&
+          now - _sessionsCache.timestamp < SESSIONS_CACHE_TTL_MS &&
+          _sessionsCache.key === cacheKey
+        ) {
+          json(res, _sessionsCache.payload);
+          return true;
+        }
+
         const { buildSessionAnalytics, listSessionsForBrowser } = require("./session-analytics");
         const sessions = await buildSessionAnalytics({ force: refresh });
-        const result = listSessionsForBrowser(sessions, { from, to, limit, ...getTimeZoneContext(url) });
-        json(res, { from, to, ...result });
+        const result = listSessionsForBrowser(sessions, { from, to, limit, ...tzCtx });
+        const payload = { from, to, ...result };
+        _sessionsCache = {
+          key: cacheKey,
+          timestamp: now,
+          payload,
+        };
+        json(res, payload);
       } catch (error) {
         // Node fs errors embed the absolute path ("EACCES ... open '/Users/…'").
         // Keep that out of the HTTP body and log it locally instead.

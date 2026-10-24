@@ -10,6 +10,7 @@ import { getBackendBaseUrl, getLeaderboardBaseUrl } from "./lib/config";
 import { isMockEnabled } from "./lib/mock-mode";
 import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
 import { useCloudUsageSync } from "./hooks/use-cloud-usage-sync";
+import { useAchievementWatcher } from "./hooks/use-achievements.js";
 import { CloudContextualPrompt } from "./components/cloud/CloudContextualPrompt.jsx";
 import { clearCloudPromptIntent } from "./lib/cloud-prompt-policy.js";
 import { setCloudSyncEnabled } from "./lib/cloud-sync-prefs";
@@ -158,6 +159,7 @@ export default function App() {
   const isLocalMode =
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  useAchievementWatcher({ enabled: isLocalMode });
 
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
   useEffect(() => {

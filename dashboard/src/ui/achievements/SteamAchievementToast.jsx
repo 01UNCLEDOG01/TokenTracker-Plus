@@ -25,44 +25,7 @@ export function triggerAchievementNotification(item) {
 
   listeners.forEach((fn) => fn(payload));
 
-  // Native Windows Desktop Notification (右下角系统级通知弹窗)
-  if (typeof window !== "undefined" && "Notification" in window) {
-    try {
-      const showDesktop = () => {
-        const tier = Number(item.tier) || 1;
-        const tierNames = ["", "青铜阶", "白银阶", "黄金阶", "钻石阶"];
-        const tierText = tierNames[tier] || "青铜阶";
-        const titleText = item.isTierUp
-          ? `成就晋级 · ${tierText}！`
-          : `解锁成就 · ${item.name || "TokenTracker"}`;
-        const bodyText = `${item.name || ""} - ${item.desc || ""}`;
-        const iconUrl = item.badge?.art || "/icon-192.png";
 
-        const n = new Notification(titleText, {
-          body: bodyText,
-          icon: iconUrl,
-          silent: false,
-          tag: `achievement-${item.badge?.id || uid}`,
-        });
-        n.onclick = () => {
-          window.focus();
-          n.close();
-        };
-      };
-
-      if (Notification.permission === "granted") {
-        showDesktop();
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then((permission) => {
-          if (permission === "granted") {
-            showDesktop();
-          }
-        });
-      }
-    } catch {
-      // Safe fallback if notifications are blocked or restricted
-    }
-  }
 }
 
 const MAX_CONCURRENT_TOASTS = 3;

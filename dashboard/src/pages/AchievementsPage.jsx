@@ -5,7 +5,7 @@ import { AchievementsSection } from "../ui/achievements/AchievementsSection.jsx"
 import { BADGE_CATALOG, badgeCopyKey } from "../ui/achievements/badge-catalog.js";
 import { BadgeSynergyBanner } from "../ui/achievements/BadgeSynergyBanner.jsx";
 import { AchievementShareModal } from "../ui/achievements/AchievementShareModal.jsx";
-import { SteamAchievementContainer, triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
+import { triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
 import { Share2, Volume2, Sparkles } from "lucide-react";
 
 // Lazy: 3D coin + dialog ship only when a badge is clicked.
@@ -167,7 +167,6 @@ export default function AchievementsPage() {
       </main>
 
       {/* Steam achievement toast notifications container */}
-      <SteamAchievementContainer />
 
       {/* Share report card modal */}
       <AchievementShareModal

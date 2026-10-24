@@ -52,10 +52,11 @@ async function serveStaticFile(baseDir, pathname, res, { localRuntimeConfig = fa
       return true;
     }
 
+    const isAchievement = pathname.startsWith("/achievements/");
     res.writeHead(200, {
       "Content-Type": contentType,
       "Content-Length": stat.size,
-      "Cache-Control": isHtml ? "no-cache" : "public, max-age=31536000, immutable",
+      "Cache-Control": (isHtml || isAchievement) ? "no-cache" : "public, max-age=31536000, immutable",
     });
 
     const stream = handle.createReadStream();

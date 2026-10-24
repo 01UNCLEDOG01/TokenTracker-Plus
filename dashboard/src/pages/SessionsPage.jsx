@@ -23,6 +23,7 @@ import { SessionPerformance } from "../ui/dashboard/components/SessionPerformanc
 import "./sessions-layout.css";
 
 const IS_LOCAL_HOST = isLocalDashboardHost();
+const SESSIONS_CACHE_KEY = "tokentracker:sessions_cache";
 
 // Stable empty array so the memos below don't recompute on every render while
 // there is no data yet.
@@ -380,9 +381,24 @@ function ThreadModelUsage({ sessions, selectedModel, onSelect }) {
 export function SessionsPage() {
   const { formatTokens } = useTokenFormat();
   const [initialFilters] = useState(() => parseSessionFilters(window.location.search));
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const cached = sessionStorage.getItem(SESSIONS_CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (_) {}
+    return null;
+  });
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      if (typeof window !== "undefined") {
+        return !sessionStorage.getItem(SESSIONS_CACHE_KEY);
+      }
+    } catch (_) {}
+    return true;
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState(initialFilters.source);
   const [modelFilter, setModelFilter] = useState(initialFilters.model);
@@ -409,13 +425,20 @@ export function SessionsPage() {
   const load = useCallback(async (refresh = false) => {
     const requestId = ++requestIdRef.current;
     if (refresh) setRefreshing(true);
-    else setIsLoading(true);
+    else if (!data) setIsLoading(true);
     setError(null);
     try {
       const result = await getSessions({ refresh });
       // A cold scan can take several seconds; never let an older response
       // overwrite a newer one.
-      if (requestId === requestIdRef.current) setData(result);
+      if (requestId === requestIdRef.current) {
+        setData(result);
+        try {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem(SESSIONS_CACHE_KEY, JSON.stringify(result));
+          }
+        } catch (_) {}
+      }
     } catch (err) {
       if (requestId === requestIdRef.current) setError(err?.message || String(err));
     } finally {
@@ -424,7 +447,7 @@ export function SessionsPage() {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [data]);
 
   useEffect(() => {
     if (IS_LOCAL_HOST || isMockEnabled()) void load(false);

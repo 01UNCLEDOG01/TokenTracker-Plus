@@ -36,6 +36,29 @@ const HEATMAP_COLORS_DARK = [
   "#a7f3d0", // level 7 - singularity / 宇宙奇点
 ];
 
+const LV7_PALETTE_STYLES = {
+  emerald: {
+    container: "bg-gradient-to-r from-emerald-500/25 via-teal-400/30 to-emerald-500/25 text-emerald-300 dark:text-emerald-200 border-emerald-400/80 shadow-emerald-500/50",
+    flame: "text-emerald-400",
+    tag: "bg-emerald-400/30 text-emerald-100 border-emerald-400/50",
+  },
+  ocean: {
+    container: "bg-gradient-to-r from-blue-500/25 via-cyan-400/30 to-blue-500/25 text-cyan-300 dark:text-cyan-200 border-cyan-400/80 shadow-cyan-500/50",
+    flame: "text-cyan-400",
+    tag: "bg-cyan-400/30 text-cyan-100 border-cyan-400/50",
+  },
+  neon: {
+    container: "bg-gradient-to-r from-purple-500/25 via-fuchsia-400/30 to-purple-500/25 text-fuchsia-300 dark:text-fuchsia-200 border-fuchsia-400/80 shadow-fuchsia-500/50",
+    flame: "text-fuchsia-400",
+    tag: "bg-fuchsia-400/30 text-fuchsia-100 border-fuchsia-400/50",
+  },
+  amber: {
+    container: "bg-gradient-to-r from-amber-500/25 via-yellow-400/30 to-amber-500/25 text-amber-300 dark:text-yellow-300 border-amber-400/80 shadow-amber-500/50",
+    flame: "text-amber-400",
+    tag: "bg-amber-400/30 text-amber-200 border-amber-400/50",
+  },
+};
+
 function parseUtcDate(value) {
   if (typeof value !== "string") return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
@@ -897,13 +920,15 @@ export function ActivityHeatmap({
               </span>
               {(() => {
                 if (hoveredCell.level >= 7) {
+                  const currentPaletteKey = activePalette in LV7_PALETTE_STYLES ? activePalette : "emerald";
+                  const lv7Style = LV7_PALETTE_STYLES[currentPaletteKey];
                   return (
                     <span 
-                      className="relative inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-gradient-to-r from-amber-500/25 via-yellow-400/30 to-amber-500/25 text-amber-300 dark:text-yellow-300 border border-amber-400/80 shadow-md shadow-amber-500/50 backdrop-blur-sm animate-pulse"
+                      className={`relative inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold ${lv7Style.container} border shadow-md backdrop-blur-sm animate-pulse`}
                     >
-                      <Flame className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                      <Flame className={`w-2.5 h-2.5 ${lv7Style.flame} shrink-0`} />
                       <span>{copy("heatmap.tooltip.level", { level: hoveredCell.level })}</span>
-                      <span className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-400/30 text-amber-200 border border-amber-400/50 tracking-wider">{"MAX"}</span>
+                      <span className={`text-[8px] font-black px-1 py-0.2 rounded ${lv7Style.tag} border tracking-wider`}>{"MAX"}</span>
                     </span>
                   );
                 }

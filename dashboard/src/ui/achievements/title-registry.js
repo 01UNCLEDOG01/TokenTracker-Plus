@@ -31,10 +31,10 @@ export const TITLES_REGISTRY = [
     desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，光速推流，指尖破空。",
     tag: "曲率引擎",
     dimension: 2,
-    art: "/achievements/titles/title-cyber-speedster.png?v=1",
+    art: "/achievements/titles/title-cyber-speedster.png?v=2",
     requiredBadges: [
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=1" },
-      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=1" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=2" },
+      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=2" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
@@ -195,11 +195,11 @@ export const TITLES_REGISTRY = [
     desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三冠王者。",
     tag: "三神交泰",
     dimension: 3,
-    art: "/achievements/titles/title-silicon-trinity.png?v=1",
+    art: "/achievements/titles/title-silicon-trinity.png?v=2",
     requiredBadges: [
       { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=2" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=1" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=2" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
@@ -223,12 +223,12 @@ export const TITLES_REGISTRY = [
     desc: "融汇中华 AI 最前沿四大家族算力，四象归一，开辟东方极客新天地。",
     tag: "四象混元",
     dimension: 4,
-    art: "/achievements/titles/title-cn-quad-masters.png?v=1",
+    art: "/achievements/titles/title-cn-quad-masters.png?v=2",
     requiredBadges: [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=1" },
-      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=1" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=1" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=2" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=2" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=2" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
