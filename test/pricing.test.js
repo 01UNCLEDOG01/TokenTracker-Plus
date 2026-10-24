@@ -387,15 +387,71 @@ test("matcher: Antigravity model aliases only apply to Antigravity source", () =
   assert.equal(antigravity.value.input, 2.5);
 });
 
-test("matcher: Antigravity model normalization covers families without gpt-4o fallback", () => {
-  assert.equal(matcher.normalizeAntigravityModel("Gemini 3.5 Pro"), "gemini-2.5-pro");
-  assert.equal(matcher.normalizeAntigravityModel("Gemini 3.5 Flash"), "gemini-2.5-flash");
+test("matcher: Antigravity model normalization keeps the generation-specific id", () => {
+  // The fork used to remap every Gemini 3.x to its 2.5 sibling because LiteLLM
+  // had no 3.x entry. Upstream now prices 3.5–3.8, so only the router tier
+  // labels are stripped and the real SKU survives.
+  assert.equal(matcher.normalizeAntigravityModel("Gemini 3.5 Pro"), "gemini-3.5-pro");
+  assert.equal(matcher.normalizeAntigravityModel("Gemini 3.5 Flash"), "gemini-3.5-flash");
+  assert.equal(matcher.normalizeAntigravityModel("Gemini 3.8 Flash (N)"), "gemini-3.8-flash");
+  assert.equal(
+    matcher.normalizeAntigravityModel("gemini-3.8-flash-tiered"),
+    "gemini-3.8-flash",
+  );
+  assert.equal(
+    matcher.normalizeAntigravityModel("gemini-3.8-flash-cyber"),
+    "gemini-3.8-flash-cyber",
+  );
   assert.equal(matcher.normalizeAntigravityModel("Claude Haiku 4.6"), "claude-haiku-4-6");
   assert.equal(
     matcher.normalizeAntigravityModel("gpt-oss-120b"),
     "antigravity-gpt-oss-120b",
   );
   assert.notEqual(matcher.normalizeAntigravityModel("gpt-oss-20b"), "gpt-4o");
+});
+
+test("matcher: Antigravity prices 3.8 Flash at its own SKU, not the 2.5 shim", () => {
+  const litellm = {
+    "gemini-3.8-flash": { input: 0.75, output: 3.75, cache_read: 0.075 },
+    "gemini-2.5-flash": { input: 0.3, output: 2.5, cache_read: 0.03 },
+    "gemini-2.5-flash-lite": { input: 0.1, output: 0.4, cache_read: 0.01 },
+  };
+  const curated = { exact: {}, alias: {}, fuzzy: [] };
+
+  const priced = matcher.lookupPricing("gemini-3.8-flash-n", {
+    curated,
+    litellm,
+    source: "antigravity",
+  });
+  assert.equal(priced.source, "litellm:exact");
+  assert.equal(priced.value.input, 0.75);
+  assert.equal(priced.value.cache_read, 0.075);
+
+  // A generation upstream has not priced yet still gets the 2.5 sibling
+  // rather than falling to an unpriced zero.
+  const legacy = matcher.lookupPricing("gemini-3.9-flash", {
+    curated,
+    litellm,
+    source: "antigravity",
+  });
+  assert.equal(legacy.source, "litellm:antigravity-legacy-alias");
+  assert.equal(legacy.value.input, 0.3);
+
+  // …including lite, which must not inherit the full Flash price.
+  const lite = matcher.lookupPricing("gemini-3.9-flash-lite", {
+    curated,
+    litellm,
+    source: "antigravity",
+  });
+  assert.equal(lite.value.input, 0.1);
+
+  // The shim is Antigravity-only.
+  const other = matcher.lookupPricing("gemini-3.9-flash", {
+    curated,
+    litellm,
+    source: "cursor",
+  });
+  assert.equal(other.hit, false);
 });
 
 test("matcher: Zed model normalization maps display names + ids to pricing keys", () => {

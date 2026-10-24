@@ -42,13 +42,15 @@ function normalizeAntigravityModel(model) {
     .replace(/-{2,}/g, "-");
   lower = stripReasoningSuffix(lower);
 
+  // Antigravity tags the same Gemini SKU with router tier labels; upstream
+  // prices the plain id. Drop only those two, so -lite/-image/-live/-cyber
+  // stay distinct SKUs.
+  lower = lower.replace(/^(gemini-3\.\d+-flash)-(?:n|tiered)$/, "$1");
+
   if (lower.startsWith("gemini-claude-") || lower.startsWith("gemini-gpt-")) {
     lower = lower.substring(7);
   }
 
-  if (/^gemini-3\.\d+-flash-lite/.test(lower)) return "gemini-2.5-flash-lite";
-  if (/^gemini-3\.\d+-flash/.test(lower)) return "gemini-2.5-flash";
-  if (/^gemini-3\.\d+-pro/.test(lower)) return "gemini-2.5-pro";
   if (/^claude-(sonnet|opus|haiku)-4\.\d+/.test(lower)) {
     return lower.replace(/^claude-(sonnet|opus|haiku)-4\.(\d+)/, "claude-$1-4-$2");
   }
@@ -424,7 +426,24 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
     if (best) return { hit: true, source: "litellm:prefix-strip", value: litellm[best] };
   }
 
-  // 6. LiteLLM reverse substring (longest-key first)
+  // 6. Antigravity legacy sibling. Exact 3.x pricing wins above; only a miss
+  // falls back to the 2.5-generation SKU the fork used before LiteLLM carried
+  // generation-specific rates. This runs before the reverse-substring scan so
+  // an unknown -lite variant cannot inherit the full Flash price.
+  if (sourceKey === "antigravity" && litellm) {
+    const legacyKey = /^gemini-3\.\d+-flash-lite/.test(lower)
+      ? "gemini-2.5-flash-lite"
+      : /^gemini-3\.\d+-flash/.test(lower)
+        ? "gemini-2.5-flash"
+        : /^gemini-3\.\d+-pro/.test(lower)
+          ? "gemini-2.5-pro"
+          : null;
+    if (legacyKey && litellm[legacyKey]) {
+      return { hit: true, source: "litellm:antigravity-legacy-alias", value: litellm[legacyKey] };
+    }
+  }
+
+  // 7. LiteLLM reverse substring (longest-key first)
   if (litellm) {
     const sorted = getSortedKeys(litellm);
     for (const key of sorted) {
