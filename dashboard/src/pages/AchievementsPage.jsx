@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useAchievements } from "../hooks/use-achievements.js";
 import { copy } from "../lib/copy";
 import { AchievementsSection } from "../ui/achievements/AchievementsSection.jsx";
-import { BADGE_CATALOG, badgeCopyKey } from "../ui/achievements/badge-catalog.js";
+import { BADGE_CATALOG, BADGE_CATEGORIES, BADGE_CATEGORY_MAP, badgeCopyKey } from "../ui/achievements/badge-catalog.js";
 import { BadgeSynergyBanner } from "../ui/achievements/BadgeSynergyBanner.jsx";
 import { AchievementShareModal } from "../ui/achievements/AchievementShareModal.jsx";
 import { triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
@@ -41,6 +41,8 @@ export default function AchievementsPage() {
   const [tierTestIndex, setTierTestIndex] = useState(1);
   const [tierTestBadgeIndex, setTierTestBadgeIndex] = useState(0);
   const [resonanceTestMode, setResonanceTestMode] = useState(0);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeSortBy, setActiveSortBy] = useState("earned");
   const loading = local.status === "loading";
   // One merged wall: the local endpoint is now the only source, but keeping
   // the `merged` name also keeps the UI-hardcode scanner's existing token.
@@ -194,6 +196,44 @@ export default function AchievementsPage() {
             <GridSkeleton />
           ) : (
             <>
+              {/* Category filter & Sorting controls */}
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-oai-gray-200/70 pb-4 dark:border-oai-gray-800/60">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {BADGE_CATEGORIES.map((cat) => {
+                    const count = cat.key === "all" ? BADGE_CATALOG.length : (BADGE_CATEGORY_MAP[cat.key]?.size || 0);
+                    const isActive = activeCategory === cat.key;
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setActiveCategory(cat.key)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                          isActive
+                            ? "bg-oai-gray-900 text-white dark:bg-white dark:text-oai-gray-950 shadow-sm"
+                            : "text-oai-gray-600 hover:bg-oai-gray-100 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800/60"
+                        }`}
+                      >
+                        <span>{copy(`achievements.filter.${cat.key}`)}</span>
+                        <span className={`text-[10px] tabular-nums ${isActive ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <span className="text-xs text-oai-gray-400 dark:text-oai-gray-500">{copy("achievements.sort.label")}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSortBy(activeSortBy === "earned" ? "difficulty" : "earned")}
+                    className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-oai-gray-700 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
+                    title={activeSortBy === "earned" ? copy("achievements.sort.to_difficulty") : copy("achievements.sort.to_tier")}
+                  >
+                    {activeSortBy === "earned" ? copy("achievements.sort.tier") : copy("achievements.sort.difficulty")}
+                  </button>
+                </div>
+              </div>
+
               <AchievementsSection
                 achievements={merged}
                 isOwn
@@ -201,6 +241,8 @@ export default function AchievementsPage() {
                 size="lg"
                 animateIn
                 onSelect={setSelectedBadge}
+                category={activeCategory}
+                sortBy={activeSortBy}
               />
               <p className="mt-10 text-center text-xs text-oai-gray-400 dark:text-oai-gray-500">
                 {copy("achievements.page.suggest")}{" "}

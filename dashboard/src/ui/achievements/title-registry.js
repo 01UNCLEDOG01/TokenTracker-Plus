@@ -56,22 +56,25 @@ const TITLES_UNSORTED = [
   // 极速先锋 · 赛博狂飙者 (Rank 2: 晴空天蓝 · 晨曦微风)
   {
     id: "cyber_speedster",
-    difficulty: 2.0,
+    difficulty: 3.0,
     name: "极速先锋 · 赛博狂飙者",
     shortName: "赛博狂飙者",
     en: "Hyperspeed Pioneer",
-    desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，光速推流，指尖破空。",
+    desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，闪电仙人全力推流，指尖破空。",
     tag: "曲率引擎",
-    dimension: 2,
+    dimension: 3,
+    bondName: "曲率先锋",
     art: "/achievements/titles/title-cyber-speedster.png?v=5",
     requiredBadges: [
       { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=6" },
       { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=6" },
+      { id: "flash_immortal", name: "闪电仙人", tier: 1, art: "/achievements/flash-immortal.png?v=6" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
-      (badgeMap.get("hyperspeed_grok")?.tier || 0) >= 1,
-    reqText: "北美豆包 + 极速狂飙 (全解锁)",
+      (badgeMap.get("hyperspeed_grok")?.tier || 0) >= 1 &&
+      (badgeMap.get("flash_immortal")?.tier || 0) >= 1,
+    reqText: "北美豆包 + 极速狂飙 + 闪电仙人 (全解锁)",
     theme: {
       text: "text-sky-300",
       bgGradient: "from-sky-950/80 via-blue-950/70 to-black",
@@ -203,18 +206,26 @@ const TITLES_UNSORTED = [
   // 赛博修仙者 (Rank 7: 幽夜紫电 · 夜战定道)
   {
     id: "cyber_immortal",
-    difficulty: 4.1,
+    difficulty: 6.0,
     name: "赛博修仙者",
     en: "Cyber Immortal",
-    desc: "在万籁俱寂的深夜，与 AI 一同入定悟道。",
+    desc: "深夜入定，晨曦吐纳，昼夜通脉，与 AI 一同修成赛博大圆满。",
     tag: "紫电青雷",
+    dimension: 4,
+    bondName: "大道圆满",
     art: "/achievements/titles/title-cyber-immortal.png?v=5",
     requiredBadges: [
       { id: "night_owl", name: "夜猫子", tier: 2, art: "/achievements/night-owl.png?v=7" },
       { id: "session_marathon", name: "时之沙", tier: 2, art: "/achievements/session-marathon.png?v=11" },
+      { id: "early_bird", name: "早鸟", tier: 1, art: "/achievements/early-bird.png?v=11" },
+      { id: "around_the_clock", name: "昼夜不息", tier: 1, art: "/achievements/around-the-clock.png?v=11" },
     ],
-    check: (badgeMap) => (badgeMap.get("night_owl")?.tier || 0) >= 2 && (badgeMap.get("session_marathon")?.tier || 0) >= 2,
-    reqText: "夜猫子(白银) + 时之沙(白银)",
+    check: (badgeMap) =>
+      (badgeMap.get("night_owl")?.tier || 0) >= 2 &&
+      (badgeMap.get("session_marathon")?.tier || 0) >= 2 &&
+      (badgeMap.get("early_bird")?.tier || 0) >= 1 &&
+      (badgeMap.get("around_the_clock")?.tier || 0) >= 1,
+    reqText: "夜猫子(白银) + 时之沙(白银) + 早鸟(青铜) + 昼夜不息(青铜)",
     theme: {
       text: "text-purple-300",
       bgGradient: "from-purple-950/80 via-slate-900 to-black",
@@ -288,6 +299,7 @@ const TITLES_UNSORTED = [
     id: "omniscient_architect",
     difficulty: 8.0,
     name: "全知全能架构师",
+    shortName: "全域架构师",
     en: "Omniscient Architect",
     desc: "通晓各大模型脾气与数十种开发工具的奇门遁甲。",
     tag: "全息星图",
@@ -398,6 +410,76 @@ const TITLES_UNSORTED = [
       pillClass: "bg-gradient-to-r from-cyan-950/80 via-purple-950/80 to-amber-950/80 text-cyan-200 border-cyan-400/70 shadow-cyan-500/30",
       ring: "ring-cyan-300/70",
       accentDot: "bg-cyan-300",
+    },
+  },
+  // 四方饕餮 · 老吃家 (四星连珠 · 电商外卖四大巨头调侃)
+  {
+    id: "connoisseur_eater",
+    difficulty: 4.8,
+    name: "四方饕餮 · 老吃家",
+    shortName: "老吃家",
+    en: "Cyber Gourmet Connoisseur",
+    desc: "通义千问电商、视听宗师本地生活、言犀仓储物流与美团外卖四大巨头自研模型汇聚，调侃与实用兼备的赛博老吃家。",
+    tag: "四方食神",
+    dimension: 4,
+    bondName: "四方饕餮",
+    art: "/achievements/titles/title-connoisseur-eater.png?v=1",
+    requiredBadges: [
+      { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
+      { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=1" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=1" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
+      (badgeMap.get("seedance_master")?.tier || 0) >= 1 &&
+      (badgeMap.get("jd_joy_brother")?.tier || 0) >= 1 &&
+      (badgeMap.get("meituan_longcat")?.tier || 0) >= 1,
+    reqText: "通义千问 + 视听宗师 + 你是我兄弟 + 小馋猫 (全解锁)",
+    theme: {
+      text: "text-amber-300",
+      bgGradient: "from-amber-950/85 via-orange-950/75 to-black",
+      border: "border-amber-500/60",
+      glow: "shadow-lg shadow-amber-500/30",
+      pillClass: "bg-amber-900/80 text-amber-200 border-amber-500/50 shadow-amber-500/20",
+      ring: "ring-amber-400/60",
+      accentDot: "bg-amber-400",
+    },
+  },
+  // 九鼎经纬 · 产业巨擘 (五星连珠 · 国内五大工业级自研基座)
+  {
+    id: "industrial_giant",
+    difficulty: 6.2,
+    name: "九鼎经纬 · 产业巨擘",
+    shortName: "产业巨擘",
+    en: "Industrial Titan of Nine Cauldrons",
+    desc: "通义、豆包、混元、言犀、LongCat 国内五大工业级自研基座五星连珠，掌控横跨数字与实体产业的核心算力命脉。",
+    tag: "五岳擎天",
+    dimension: 5,
+    bondName: "五岳擎天",
+    art: "/achievements/titles/title-industrial-giant.png?v=1",
+    requiredBadges: [
+      { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
+      { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
+      { id: "hunyuan_master", name: "混元归一", tier: 1, art: "/achievements/hunyuan-master.png?v=1" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=1" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=1" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
+      (badgeMap.get("seedance_master")?.tier || 0) >= 1 &&
+      (badgeMap.get("hunyuan_master")?.tier || 0) >= 1 &&
+      (badgeMap.get("jd_joy_brother")?.tier || 0) >= 1 &&
+      (badgeMap.get("meituan_longcat")?.tier || 0) >= 1,
+    reqText: "通义千问 + 视听宗师 + 混元归一 + 你是我兄弟 + 小馋猫 (五大厂全解锁)",
+    theme: {
+      text: "text-emerald-300",
+      bgGradient: "from-emerald-950/85 via-teal-950/75 to-black",
+      border: "border-emerald-500/60",
+      glow: "shadow-lg shadow-emerald-500/30",
+      pillClass: "bg-emerald-900/80 text-emerald-200 border-emerald-500/50 shadow-emerald-500/20",
+      ring: "ring-emerald-400/60",
+      accentDot: "bg-emerald-400",
     },
   },
 ];

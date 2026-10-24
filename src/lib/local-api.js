@@ -496,6 +496,10 @@ const LOCAL_BADGE_THRESHOLDS = {
   flash_immortal: [50000000, 500000000, 2000000000, 10000000000], // lifetime flash model tokens
   seedance_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime bytedance/seed/seedance/doubao tokens
   token_arbitrageur: [5, 10, 18, 26], // distinct arbitrage & free/check-in platforms used
+  meituan_longcat: [10000000, 100000000, 1000000000, 10000000000], // lifetime meituan longcat tokens
+  jd_joy_brother: [10000000, 100000000, 1000000000, 10000000000], // lifetime jd yanxi/joycoder tokens
+  hunyuan_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime tencent hunyuan tokens
+  stepfun_voyager: [10000000, 100000000, 1000000000, 10000000000], // lifetime stepfun tokens
 };
 
 // The cloud nine (see scripts/ops/user-badges.sql) are normally computed
@@ -687,6 +691,10 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   let qwenTokens = 0;
   let flashTokens = 0;
   let seedanceTokens = 0;
+  let meituanTokens = 0;
+  let jdTokens = 0;
+  let hunyuanTokens = 0;
+  let stepfunTokens = 0;
   const arbitragePlatforms = new Set();
   const modelTokens = new Map();
   const bigModels = new Set();
@@ -874,6 +882,51 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       ) {
         seedanceTokens += tokens;
         bump("seedance_master", seedanceTokens, row.hour_start);
+      }
+      if (
+        lowerModel.includes("longcat") ||
+        lowerModel.includes("meituan") ||
+        sourceKey.includes("meituan") ||
+        sourceKey.includes("longcat")
+      ) {
+        meituanTokens += tokens;
+        bump("meituan_longcat", meituanTokens, row.hour_start);
+      }
+      if (
+        lowerModel.includes("chatrhino") ||
+        lowerModel.includes("joycoder") ||
+        lowerModel.includes("yanxi") ||
+        lowerModel.includes("言犀") ||
+        lowerModel.startsWith("jd-") ||
+        lowerModel.includes("jd_") ||
+        lowerModel.includes("jingdong") ||
+        sourceKey.includes("jd") ||
+        sourceKey.includes("joycoder") ||
+        sourceKey.includes("yanxi")
+      ) {
+        jdTokens += tokens;
+        bump("jd_joy_brother", jdTokens, row.hour_start);
+      }
+      if (
+        lowerModel.includes("hunyuan") ||
+        lowerModel.includes("tencent") ||
+        lowerModel.includes("混元") ||
+        sourceKey.includes("hunyuan") ||
+        sourceKey.includes("tencent")
+      ) {
+        hunyuanTokens += tokens;
+        bump("hunyuan_master", hunyuanTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("step-") ||
+        lowerModel.includes("stepfun") ||
+        lowerModel.includes("跃问") ||
+        lowerModel.includes("阶跃") ||
+        sourceKey.includes("stepfun") ||
+        sourceKey.includes("step")
+      ) {
+        stepfunTokens += tokens;
+        bump("stepfun_voyager", stepfunTokens, row.hour_start);
       }
       const ARBITRAGE_PATTERNS = [
         "apigoto", "agentrouter", "opencode", "openrouter", "codearts",

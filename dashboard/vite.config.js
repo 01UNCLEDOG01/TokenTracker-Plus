@@ -1311,6 +1311,16 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         input: rollupInput,
+        output: {
+          entryFileNames: "assets/[name]-[hash].js",
+          chunkFileNames: "assets/[name]-[hash].js",
+          assetFileNames: "assets/[name]-[hash].[ext]",
+          manualChunks(id) {
+            if (id.includes("__vite-browser-external")) {
+              return "browser-external";
+            }
+          },
+        },
       },
     },
     server: {

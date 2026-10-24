@@ -4,7 +4,7 @@ import React from "react";
 import { copy } from "../../lib/copy";
 import { AchievementBadge } from "./AchievementBadge";
 import { badgeProgress } from "./achievement-format";
-import { BADGE_CATALOG, badgeCopyKey, sortBadges } from "./badge-catalog";
+import { BADGE_CATALOG, BADGE_CATEGORY_MAP, BADGE_DIFFICULTY, badgeCopyKey, sortBadges } from "./badge-catalog";
 import { tierName, TIER_PALETTE } from "./tier-palette";
 
 /**
@@ -31,6 +31,8 @@ export function AchievementsSection({
   columns = "default",
   animateIn = false,
   className = "",
+  category = "all",
+  sortBy = "earned",
 }) {
   const reducedMotion = useReducedMotion();
   const animated = animateIn && !reducedMotion;
@@ -39,28 +41,46 @@ export function AchievementsSection({
     if (a && a.id) byId.set(a.id, a);
   }
 
-  const catalog = scope ? BADGE_CATALOG.filter((b) => b.scope === scope) : BADGE_CATALOG;
+  let catalog = scope ? BADGE_CATALOG.filter((b) => b.scope === scope) : BADGE_CATALOG;
+  if (category && category !== "all" && BADGE_CATEGORY_MAP[category]) {
+    const filterSet = BADGE_CATEGORY_MAP[category];
+    catalog = catalog.filter((b) => filterSet.has(b.id));
+  }
 
   let cells;
   if (isOwn) {
-    // Earned first (tier desc, catalog order), locked tail after — the
-    // colorful cluster leads, the grey "still to collect" set follows.
     const all = catalog.map((entry) => ({
       entry,
       record: byId.get(entry.id) || { id: entry.id, tier: 0 },
     }));
-    const earnedCells = sortBadges(
-      all.filter((c) => (c.record.tier || 0) >= 1).map((c) => ({ ...c, id: c.entry.id, tier: c.record.tier })),
-    );
-    const lockedCells = all.filter((c) => (c.record.tier || 0) < 1);
-    cells = [...earnedCells, ...lockedCells];
+    if (sortBy === "difficulty") {
+      cells = [...all].sort((a, b) => {
+        const diffA = BADGE_DIFFICULTY[a.entry.id] ?? 5;
+        const diffB = BADGE_DIFFICULTY[b.entry.id] ?? 5;
+        return diffA - diffB;
+      });
+    } else {
+      const earnedCells = sortBadges(
+        all.filter((c) => (c.record.tier || 0) >= 1).map((c) => ({ ...c, id: c.entry.id, tier: c.record.tier })),
+      );
+      const lockedCells = all.filter((c) => (c.record.tier || 0) < 1);
+      cells = [...earnedCells, ...lockedCells];
+    }
   } else {
-    cells = sortBadges(
-      catalog
-        .map((entry) => ({ entry, record: byId.get(entry.id) }))
-        .filter((c) => c.record && (c.record.tier || 0) >= 1)
-        .map((c) => ({ ...c, id: c.entry.id, tier: c.record.tier })),
-    ).map(({ entry, record }) => ({ entry, record }));
+    const list = catalog
+      .map((entry) => ({ entry, record: byId.get(entry.id) }))
+      .filter((c) => c.record && (c.record.tier || 0) >= 1);
+    if (sortBy === "difficulty") {
+      cells = list.sort((a, b) => {
+        const diffA = BADGE_DIFFICULTY[a.entry.id] ?? 5;
+        const diffB = BADGE_DIFFICULTY[b.entry.id] ?? 5;
+        return diffA - diffB;
+      });
+    } else {
+      cells = sortBadges(
+        list.map((c) => ({ ...c, id: c.entry.id, tier: c.record.tier })),
+      ).map(({ entry, record }) => ({ entry, record }));
+    }
   }
 
   if (cells.length === 0) return null;

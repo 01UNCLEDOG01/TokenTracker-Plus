@@ -72,7 +72,9 @@ eal-money, session-marathon, sprinter, wordsmith. Built via scripts/art/rebuild-
 - **Wave 3 Coins (11 coins)**: closed-source-loyalist, rugal-architect, offgrid-sovereign, megacontext-voyager, cache-miser, code-cannon, uzzer-beater, zen-balancer, swarm-commander, 	erminal-purist, 
 efactor-titan. Source originals are stored in scripts/art/source-badges/ and compiled via scripts/art/build-wave3-house-coins.py.
 - **Remodeled 3D Relief Coins (3 coins)**: deep-thinker, claude-survivor, wishing-well were remodeled from flat 2D silhouettes into authentic 3D sculpted metallic relief coins (scripts/art/source-badges/deep-thinker.jpg, claude-survivor.jpg, wishing-well.jpg) via scripts/art/rebuild-badge-rims.py.
-- **Synergy Title Crests (8 crests)**: dashboard/public/achievements/titles/title-*.png (for the 8 geek title resonances). Source originals are stored in scripts/art/source-titles/ and compiled via scripts/art/build-title-crests.py with tailored zooms and strict binary alpha.
+- **Wave 4 Coins (9 coins)**: zhipu-sage, moonshot-voyager, minimax-abyss, north-america-doubao, hyperspeed-grok, qwen-dynasty, flash-immortal, seedance-master, token-arbitrageur. Compiled via scripts/art/build-wave4-assets.py.
+- **Wave 5 Coins (4 coins)**: meituan-longcat, jd-joy-brother, hunyuan-master, stepfun-voyager. Compiled via scripts/art/mint-wave4-batch2.py.
+- **Synergy Title Crests (15 crests)**: dashboard/public/achievements/titles/title-*.png (for the 15 geek title resonances). Source originals are stored in scripts/art/source-titles/ and compiled with strict binary alpha.
 
 Rebuild scripts & assets:
 - scripts/art/source-badges/ — original 1024px / 256px source paintings for all wave-2, wave-3, and remodeled badges.

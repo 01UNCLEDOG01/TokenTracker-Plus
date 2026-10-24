@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { getTitleBondName } from "./title-registry";
+import { isNativeWindowsApp } from "../../lib/native-bridge.js";
 
 const TIER_NAMES = ["未激活", "青铜", "白银", "黄金", "钻石"];
 
@@ -15,11 +16,21 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
     const onKey = (e) => {
       if (e.key === "Escape") onClose?.();
     };
-    const previous = document.body.style.overflow;
+    const mainEl = document.getElementById("app-main-content");
+    const previousBody = document.body.style.overflow;
+    const previousMain = mainEl ? mainEl.style.overflow : "";
+
     document.body.style.overflow = "hidden";
+    if (mainEl) {
+      mainEl.style.overflow = "hidden";
+    }
+
     window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = previous;
+      document.body.style.overflow = previousBody;
+      if (mainEl) {
+        mainEl.style.overflow = previousMain;
+      }
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
@@ -28,16 +39,23 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
   const { theme } = title;
   const bondName = title.bondName || getTitleBondName(title);
 
-  return createPortal(
+  const inline = isNativeWindowsApp();
+
+  const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={title.name}
       onClick={onClose}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
     >
       <div
-        className={`my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border-2 ${theme.border} bg-gradient-to-br ${theme.bgGradient} p-6 text-white shadow-2xl`}
+        className={`my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-3xl border-2 ${theme.border} bg-gradient-to-br ${theme.bgGradient} p-6 text-white shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -110,9 +128,14 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
           <div className="mt-3 border-t border-white/10 pt-2 text-[10px] text-white/50">{title.reqText}</div>
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
+
+  if (inline) {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 }
 
 export default TitleDetailModal;
