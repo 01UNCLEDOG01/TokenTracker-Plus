@@ -24,6 +24,7 @@ CONFIG = {
     "title-grand-slam": {"file": SRC_DIR / "title-grand-slam.jpg", "zoom": 1.06},
     "title-chosen-drudge": {"file": SRC_DIR / "title-chosen-drudge.jpg", "zoom": 1.05},
     "title-von-neumann": {"file": SRC_DIR / "title-von-neumann.jpg", "zoom": 1.05},
+    "title-one-person-company": {"file": SRC_DIR / "title-one-person-company.jpg", "zoom": 1.05},
 }
 
 def main(only=None):

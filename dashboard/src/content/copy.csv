@@ -1423,7 +1423,7 @@ achievements.badge.veteran.name,dashboard,*,AchievementsSection,veteran_name,"Ve
 achievements.badge.veteran.desc,dashboard,*,BadgeDetailModal,veteran_desc,"Stick around — counted from your first tracked day.",,active
 achievements.badge.phoenix.name,dashboard,*,AchievementsSection,phoenix_name,"Phoenix Rising",,active
 achievements.badge.phoenix.desc,dashboard,*,BadgeDetailModal,phoenix_desc,"Come back from your longest break — the gap between two active days measured in days.",,active
-achievements.badge.iron_month.name,dashboard,*,AchievementsSection,iron_month_name,"Iron Month",,active
+achievements.badge.iron_month.name,dashboard,*,AchievementsSection,iron_month_name,"Iron Will",,active
 achievements.badge.iron_month.desc,dashboard,*,BadgeDetailModal,iron_month_desc,"Your most active calendar month — days spent shipping rather than skipping.",,active
 achievements.badge.full_blast.name,dashboard,*,AchievementsSection,full_blast_name,"Full Blast",,active
 achievements.badge.full_blast.desc,dashboard,*,BadgeDetailModal,full_blast_desc,"Burn through your heaviest single ISO week of tokens.",,active
@@ -1459,11 +1459,11 @@ achievements.badge.deep_thinker.name,dashboard,*,AchievementsSection,deep_thinke
 achievements.badge.deep_thinker.desc,dashboard,*,BadgeDetailModal,deep_thinker_desc,"Accumulate lifetime reasoning output tokens.",,active
 achievements.badge.real_money.name,dashboard,*,AchievementsSection,real_money_name,"Real Money",,active
 achievements.badge.real_money.desc,dashboard,*,BadgeDetailModal,real_money_desc,"Accumulate lifetime tracked AI spend.",,active
-achievements.badge.session_marathon.name,dashboard,*,AchievementsSection,session_marathon_name,"Session Marathon",,active
+achievements.badge.session_marathon.name,dashboard,*,AchievementsSection,session_marathon_name,"Hourglass Keeper",,active
 achievements.badge.session_marathon.desc,dashboard,*,BadgeDetailModal,session_marathon_desc,"Log the longest active time in a single session.",,active
 achievements.badge.frugal_architect.name,dashboard,*,AchievementsSection,frugal_architect_name,"Frugal Architect",,active
 achievements.badge.frugal_architect.desc,dashboard,*,BadgeDetailModal,frugal_architect_desc,"Accumulate lifetime tokens with zero monetary cost.",,active
-achievements.badge.closed_source_loyalist.name,dashboard,*,AchievementsSection,closed_source_loyalist_name,"OpenAI Loyalist",,active
+achievements.badge.closed_source_loyalist.name,dashboard,*,AchievementsSection,closed_source_loyalist_name,"Let There Be Light",,active
 achievements.badge.closed_source_loyalist.desc,dashboard,*,BadgeDetailModal,closed_source_loyalist_desc,"Lifetime tokens through OpenAI-family models — steadfast in the proprietary beacon.",,active
 achievements.badge.offgrid_sovereign.name,dashboard,*,AchievementsSection,offgrid_sovereign_name,"Off-Grid Sovereign",,active
 achievements.badge.offgrid_sovereign.desc,dashboard,*,BadgeDetailModal,offgrid_sovereign_desc,"Lifetime tokens processed entirely offline or through local inference runtimes.",,active
@@ -1471,17 +1471,17 @@ achievements.badge.megacontext_voyager.name,dashboard,*,AchievementsSection,mega
 achievements.badge.megacontext_voyager.desc,dashboard,*,BadgeDetailModal,megacontext_voyager_desc,"Feed a massive context window in a single hour or turn without flinching.",,active
 achievements.badge.cache_miser.name,dashboard,*,AchievementsSection,cache_miser_name,"Cache Miser",,active
 achievements.badge.cache_miser.desc,dashboard,*,BadgeDetailModal,cache_miser_desc,"Maintain an ultra-high prompt cache hit ratio across your sessions.",,active
-achievements.badge.code_cannon.name,dashboard,*,AchievementsSection,code_cannon_name,"Code Cannon",,active
+achievements.badge.code_cannon.name,dashboard,*,AchievementsSection,code_cannon_name,"Fire Coverage",,active
 achievements.badge.code_cannon.desc,dashboard,*,BadgeDetailModal,code_cannon_desc,"Unleash a torrent of generated code output tokens in a single hour.",,active
-achievements.badge.buzzer_beater.name,dashboard,*,AchievementsSection,buzzer_beater_name,"Buzzer Beater",,active
+achievements.badge.buzzer_beater.name,dashboard,*,AchievementsSection,buzzer_beater_name,"Race the Clock",,active
 achievements.badge.buzzer_beater.desc,dashboard,*,BadgeDetailModal,buzzer_beater_desc,"Ship code right at the hour's edge or before midnight resets.",,active
 achievements.badge.zen_balancer.name,dashboard,*,AchievementsSection,zen_balancer_name,"Small Joys",,active
 achievements.badge.zen_balancer.desc,dashboard,*,BadgeDetailModal,zen_balancer_desc,"Code full blast on weekdays, and disconnect completely on weekends.",,active
-achievements.badge.swarm_commander.name,dashboard,*,AchievementsSection,swarm_commander_name,"One Person Company",,active
-achievements.badge.swarm_commander.desc,dashboard,*,BadgeDetailModal,swarm_commander_desc,"One Person Company (OPC): run a whole business solo with AI, commanding several tools inside a single hour.",,active
+achievements.badge.swarm_commander.name,dashboard,*,AchievementsSection,swarm_commander_name,"Manager",,active
+achievements.badge.swarm_commander.desc,dashboard,*,BadgeDetailModal,swarm_commander_desc,"Manage several AI coding tools and agents at once — a team run by one person.",,active
 achievements.badge.terminal_purist.name,dashboard,*,AchievementsSection,terminal_purist_name,"Terminal Purist",,active
 achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Spend your active days almost entirely inside terminal-based CLI tools.",,active
-achievements.badge.refactor_titan.name,dashboard,*,AchievementsSection,refactor_titan_name,"Refactor Titan",,active
+achievements.badge.refactor_titan.name,dashboard,*,AchievementsSection,refactor_titan_name,"Refactor Master",,active
 achievements.badge.refactor_titan.desc,dashboard,*,BadgeDetailModal,refactor_titan_desc,"Persist through multiple active weeks deeply evolving a single repository.",,active
 achievements.badge.zhipu_sage.name,dashboard,*,AchievementsSection,zhipu_sage_name,"Zhipu Sage",,active
 achievements.badge.zhipu_sage.desc,dashboard,*,BadgeDetailModal,zhipu_sage_desc,"Channel the dual cosmic flow of Zhipu GLM and CodeGeeX models.",,active
@@ -1497,7 +1497,7 @@ achievements.badge.qwen_dynasty.name,dashboard,*,AchievementsSection,qwen_dynast
 achievements.badge.qwen_dynasty.desc,dashboard,*,BadgeDetailModal,qwen_dynasty_desc,"Master the open-source coding realm powered by Alibaba Qwen models.",,active
 achievements.badge.flash_immortal.name,dashboard,*,AchievementsSection,flash_immortal_name,"Flash Immortal",,active
 achievements.badge.flash_immortal.desc,dashboard,*,BadgeDetailModal,flash_immortal_desc,"Harness the lightning speed of Flash-tier models across every provider.",,active
-achievements.badge.seedance_master.name,dashboard,*,AchievementsSection,seedance_master_name,"Seedance Master",,active
+achievements.badge.seedance_master.name,dashboard,*,AchievementsSection,seedance_master_name,"Kinetic Note",,active
 achievements.badge.seedance_master.desc,dashboard,*,BadgeDetailModal,seedance_master_desc,"Spark creative cinematic flows with ByteDance Seed and Doubao models.",,active
 achievements.badge.token_arbitrageur.name,dashboard,*,AchievementsSection,token_arbitrageur_name,"Token Arbitrageur",,active
 achievements.badge.token_arbitrageur.desc,dashboard,*,BadgeDetailModal,token_arbitrageur_desc,"Master the art of compute arbitrage across diverse aggregation platforms.",,active

@@ -115,9 +115,9 @@ export const TITLES_REGISTRY = [
     tag: "OPC",
     bondName: "一人军团",
     dimension: 5,
-    art: "/achievements/titles/title-fleet-admiral.png?v=5",
+    art: "/achievements/titles/title-one-person-company.png?v=1",
     requiredBadges: [
-      { id: "swarm_commander", name: "一人公司", tier: 1, art: "/achievements/swarm-commander.png?v=6" },
+      { id: "swarm_commander", name: "管理者", tier: 1, art: "/achievements/swarm-commander.png?v=6" },
       { id: "multitool", name: "多面手", tier: 1, art: "/achievements/multitool.png?v=7" },
       { id: "polyglot", name: "模型通", tier: 1, art: "/achievements/polyglot.png?v=7" },
       { id: "multitool_day", name: "分身有术", tier: 1, art: "/achievements/multitool-day.png?v=11" },
@@ -129,7 +129,7 @@ export const TITLES_REGISTRY = [
       (badgeMap.get("polyglot")?.tier || 0) >= 1 &&
       (badgeMap.get("multitool_day")?.tier || 0) >= 1 &&
       (badgeMap.get("around_the_clock")?.tier || 0) >= 1,
-    reqText: "一人公司 + 多面手 + 模型通 + 分身有术 + 昼夜不息 (全解锁)",
+    reqText: "管理者 + 多面手 + 模型通 + 分身有术 + 昼夜不息 (全解锁)",
     theme: {
       text: "text-teal-300",
       bgGradient: "from-teal-950/80 via-slate-900 to-black",
@@ -149,11 +149,11 @@ export const TITLES_REGISTRY = [
     tag: "烈焰重炮",
     art: "/achievements/titles/title-code-cannon.png?v=5",
     requiredBadges: [
-      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=6" },
+      { id: "code_cannon", name: "火力覆盖", tier: 2, art: "/achievements/code-cannon.png?v=6" },
       { id: "wordsmith", name: "文字工匠", tier: 2, art: "/achievements/wordsmith.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("code_cannon")?.tier || 0) >= 2 && (badgeMap.get("wordsmith")?.tier || 0) >= 2,
-    reqText: "代码巨炮(白银) + 文字工匠(白银)",
+    reqText: "火力覆盖(白银) + 文字工匠(白银)",
     theme: {
       text: "text-rose-300",
       bgGradient: "from-rose-950/80 via-zinc-950 to-black",
@@ -206,10 +206,10 @@ export const TITLES_REGISTRY = [
     art: "/achievements/titles/title-cyber-immortal.png?v=5",
     requiredBadges: [
       { id: "night_owl", name: "夜猫子", tier: 2, art: "/achievements/night-owl.png?v=7" },
-      { id: "session_marathon", name: "连续会长会话", tier: 2, art: "/achievements/session-marathon.png?v=11" },
+      { id: "session_marathon", name: "沙漏长明", tier: 2, art: "/achievements/session-marathon.png?v=11" },
     ],
     check: (badgeMap) => (badgeMap.get("night_owl")?.tier || 0) >= 2 && (badgeMap.get("session_marathon")?.tier || 0) >= 2,
-    reqText: "夜猫子(白银) + 连续会长会话(白银)",
+    reqText: "夜猫子(白银) + 沙漏长明(白银)",
     theme: {
       text: "text-purple-300",
       bgGradient: "from-purple-950/80 via-slate-900 to-black",
@@ -229,11 +229,11 @@ export const TITLES_REGISTRY = [
     tag: "AGI圣殿",
     art: "/achievements/titles/title-openai-paladin.png?v=5",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=6" },
+      { id: "closed_source_loyalist", name: "神说要有光", tier: 2, art: "/achievements/closed-source-loyalist.png?v=6" },
       { id: "deep_thinker", name: "深度思考", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 2 && (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
-    reqText: "奥特曼信徒(白银) + 深度思考(青铜)",
+    reqText: "神说要有光(白银) + 深度思考(青铜)",
     theme: {
       text: "text-indigo-300",
       bgGradient: "from-indigo-950/80 via-blue-950/70 to-black",
@@ -257,7 +257,7 @@ export const TITLES_REGISTRY = [
     requiredBadges: [
       { id: "terminal_purist", name: "终端原教旨主义", tier: 1, art: "/achievements/terminal-purist.png?v=6" },
       { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=6" },
-      { id: "refactor_titan", name: "重构狂徒", tier: 1, art: "/achievements/refactor-titan.png?v=6" },
+      { id: "refactor_titan", name: "重构巨匠", tier: 1, art: "/achievements/refactor-titan.png?v=6" },
       { id: "deep_thinker", name: "深思者", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
     ],
     check: (badgeMap) =>
@@ -265,7 +265,7 @@ export const TITLES_REGISTRY = [
       (badgeMap.get("cache_miser")?.tier || 0) >= 1 &&
       (badgeMap.get("refactor_titan")?.tier || 0) >= 1 &&
       (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
-    reqText: "终端原教旨主义 + 缓存精算师 + 重构狂徒 + 深思者 (全解锁)",
+    reqText: "终端原教旨主义 + 缓存精算师 + 重构巨匠 + 深思者 (全解锁)",
     theme: {
       text: "text-cyan-200",
       bgGradient: "from-slate-900/90 via-cyan-950/60 to-black",
@@ -311,7 +311,7 @@ export const TITLES_REGISTRY = [
     dimension: 3,
     art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=6" },
+      { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=6" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
       { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=5" },
     ],
@@ -319,7 +319,7 @@ export const TITLES_REGISTRY = [
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
       (badgeMap.get("claude_survivor")?.tier || 0) >= 1 &&
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1,
-    reqText: "奥特曼信徒 + 封号幸存者 + 北美豆包 (全解锁)",
+    reqText: "神说要有光 + 封号幸存者 + 北美豆包 (全解锁)",
     theme: {
       text: "text-fuchsia-300",
       bgGradient: "from-fuchsia-950/80 via-purple-950/70 to-black",
@@ -342,9 +342,9 @@ export const TITLES_REGISTRY = [
     art: "/achievements/titles/title-cn-quad-masters.png?v=5",
     requiredBadges: [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=5" },
-      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=5" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=5" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=6" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=6" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=6" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
