@@ -811,18 +811,19 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         bump("offgrid_sovereign", offgridTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("glm") ||
+        lowerModel.includes("glm") ||
+        lowerModel.includes("chatglm") ||
+        lowerModel.includes("codegeex") ||
         lowerModel.includes("zhipu") ||
-        lowerModel.startsWith("codegeex") ||
-        sourceKey.includes("zhipu")
+        sourceKey.includes("zhipu") ||
+        sourceKey.includes("glm")
       ) {
         zhipuTokens += tokens;
         bump("zhipu_sage", zhipuTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("moonshot") ||
-        lowerModel.startsWith("kimi") ||
         lowerModel.includes("moonshot") ||
+        lowerModel.includes("kimi") ||
         sourceKey.includes("kimi") ||
         sourceKey.includes("moonshot")
       ) {
@@ -830,17 +831,20 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         bump("moonshot_voyager", moonshotTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("abab") ||
         lowerModel.includes("minimax") ||
-        lowerModel.startsWith("m3.1") ||
-        lowerModel.startsWith("m3-") ||
-        sourceKey.includes("minimax")
+        lowerModel.includes("abab") ||
+        lowerModel.includes("hailuo") ||
+        lowerModel.includes("m3.") ||
+        lowerModel.includes("m3-") ||
+        sourceKey.includes("minimax") ||
+        sourceKey.includes("hailuo")
       ) {
         minimaxTokens += tokens;
         bump("minimax_abyss", minimaxTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("gemini") ||
+        lowerModel.includes("gemini") ||
+        lowerModel.includes("gemma") ||
         lowerModel.includes("google") ||
         sourceKey.includes("gemini") ||
         sourceKey.includes("google")
@@ -849,20 +853,23 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         bump("north_america_doubao", geminiTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("grok") ||
+        lowerModel.includes("grok") ||
         lowerModel.includes("xai") ||
         sourceKey.includes("grok") ||
-        sourceKey.includes("xai")
+        sourceKey.includes("xai") ||
+        (sourceKey === "cursor" && (lowerModel.includes("grok") || lowerModel === "auto"))
       ) {
         grokTokens += tokens;
         bump("hyperspeed_grok", grokTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("qwen") ||
+        lowerModel.includes("qwen") ||
         lowerModel.includes("tongyi") ||
         lowerModel.includes("qianwen") ||
         sourceKey.includes("qwen") ||
-        sourceKey.includes("bailian")
+        sourceKey.includes("bailian") ||
+        sourceKey.includes("aliyun") ||
+        sourceKey.includes("dashscope")
       ) {
         qwenTokens += tokens;
         bump("qwen_dynasty", qwenTokens, row.hour_start);
@@ -872,9 +879,9 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         bump("flash_immortal", flashTokens, row.hour_start);
       }
       if (
-        lowerModel.startsWith("seed") ||
-        lowerModel.startsWith("seedance") ||
-        lowerModel.startsWith("doubao") ||
+        lowerModel.includes("seed") ||
+        lowerModel.includes("doubao") ||
+        lowerModel.includes("skylark") ||
         lowerModel.startsWith("ep-") ||
         sourceKey.includes("doubao") ||
         sourceKey.includes("volcengine") ||
@@ -1838,6 +1845,8 @@ function buildProxyHeaders(headers) {
 
 function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir: isolatedTrackerDataDir = null, syncContext = null }) {
   const qp = queuePath || resolveQueuePath();
+  let _achievementsCache = null;
+  const ACHIEVEMENTS_CACHE_TTL_MS = 15000;
   const normalizedServerVersion = typeof serverVersion === "string" ? serverVersion.trim() : "";
 
   // Server-side cookie relay: captures auth cookies from InsForge cloud responses
@@ -4458,9 +4467,23 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
-    // --- achievements (local badges) ---
+// --- achievements (local badges) ---
     if (p === "/functions/tokentracker-achievements") {
       const timeZoneContext = getTimeZoneContext(url);
+      const tzKey = `${timeZoneContext?.timeZone || ""}:${timeZoneContext?.tzOffsetMinutes || 0}`;
+      const now = Date.now();
+      const forceRefresh = url.searchParams?.get("force") === "1" || url.searchParams?.get("refresh") === "1";
+
+      if (
+        !forceRefresh &&
+        _achievementsCache &&
+        now - _achievementsCache.timestamp < ACHIEVEMENTS_CACHE_TTL_MS &&
+        _achievementsCache.tzKey === tzKey
+      ) {
+        json(res, _achievementsCache.payload);
+        return true;
+      }
+
       const queueRows = await readQueueData(qp);
       const { projectRows } = await readProjectUsageContext(qp, url);
       // session_marathon needs the device's session rows. buildSessionAnalytics
@@ -4472,10 +4495,19 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       } catch (error) {
         console.warn("[local-api] achievements session scan failed:", error?.message || error);
       }
-      json(res, {
+      const achievements = computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions });
+      const payload = {
         generated_at: new Date().toISOString(),
-        achievements: computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions }),
-      });
+        achievements,
+      };
+
+      _achievementsCache = {
+        timestamp: now,
+        tzKey,
+        payload,
+      };
+
+      json(res, payload);
       return true;
     }
 

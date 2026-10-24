@@ -1,3 +1,4 @@
+import { Flame } from "lucide-react";
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { copy } from "../../../lib/copy";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
@@ -718,7 +719,17 @@ export function ActivityHeatmap3D({
                 {hoveredCell.day}
               </span>
               {(() => {
-                // 解决暗色模式下 Level 0 徽章使用极暗灰色导致文字完全不可见的问题
+                if (hoveredCell.level >= 7) {
+                  return (
+                    <span 
+                      className="relative inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-gradient-to-r from-amber-500/25 via-yellow-400/30 to-amber-500/25 text-amber-300 dark:text-yellow-300 border border-amber-400/80 shadow-md shadow-amber-500/50 backdrop-blur-sm animate-pulse"
+                    >
+                      <Flame className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                      <span>{copy("heatmap.tooltip.level", { level: hoveredCell.level })}</span>
+                      <span className="text-[8px] font-black px-1 py-0.2 rounded bg-amber-400/30 text-amber-200 border border-amber-400/50 tracking-wider">{"MAX"}</span>
+                    </span>
+                  );
+                }
                 const badgeColor = hoveredCell.level === 0 
                   ? (isDark ? "#9ca3af" : "#6b7280") 
                   : colors[hoveredCell.level];

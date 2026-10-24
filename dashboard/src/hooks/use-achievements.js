@@ -5,13 +5,34 @@ import { triggerAchievementNotification } from "../ui/achievements/SteamAchievem
 import { copy } from "../lib/copy";
 
 const TIERS_STORAGE_KEY = "tokentracker:achievement_tiers";
+const ACHIEVEMENTS_CACHE_KEY = "tokentracker:cached_achievements";
+
+function getCachedAchievements() {
+  try {
+    const raw = localStorage.getItem(ACHIEVEMENTS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 /**
  * Local achievements with real-time unlock detection and Steam audio-visual alerts.
  * Status machine, never throws — the achievements page renders the locked catalog on error.
  */
 export function useAchievements({ enabled = true } = {}) {
-  const [state, setState] = useState({ status: "loading", achievements: [], error: null });
+  const [state, setState] = useState(() => {
+    const cached = typeof window !== "undefined" ? getCachedAchievements() : null;
+    if (cached) {
+      return { status: "ready", achievements: cached, error: null };
+    }
+    return { status: "loading", achievements: [], error: null };
+  });
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
 
   useEffect(() => {
@@ -60,6 +81,7 @@ export function useAchievements({ enabled = true } = {}) {
             }
           }
           localStorage.setItem(TIERS_STORAGE_KEY, JSON.stringify(currentTiers));
+          localStorage.setItem(ACHIEVEMENTS_CACHE_KEY, JSON.stringify(achievements));
         } catch {
           // Safe handling for storage restrictions
         }

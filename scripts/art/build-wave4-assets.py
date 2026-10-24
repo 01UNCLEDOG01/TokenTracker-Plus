@@ -4,6 +4,8 @@ import math
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageChops, ImageOps
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "art"))
@@ -19,482 +21,413 @@ OUT_BADGES = ROOT / "dashboard" / "public" / "achievements"
 OUT_TITLES = ROOT / "dashboard" / "public" / "achievements" / "titles"
 SRC_BADGES = ROOT / "scripts" / "art" / "source-badges"
 SRC_TITLES = ROOT / "scripts" / "art" / "source-titles"
+CACHE = ROOT / "scripts" / "art" / "brand-cache"
 
 OUT_BADGES.mkdir(parents=True, exist_ok=True)
 OUT_TITLES.mkdir(parents=True, exist_ok=True)
 SRC_BADGES.mkdir(parents=True, exist_ok=True)
 SRC_TITLES.mkdir(parents=True, exist_ok=True)
+CACHE.mkdir(parents=True, exist_ok=True)
 
-STEEL = 235
-ACCENT_H = 205
-EMBLEM_TARGET = 0.74 * S
+def rasterize_svg_mask(svg_path, size=512, padding=128):
+    drawing = svg2rlg(str(svg_path))
+    target_dim = size - padding * 2
+    factor = target_dim / max(drawing.width, drawing.height)
+    drawing.width = drawing.width * factor
+    drawing.height = drawing.height * factor
+    drawing.scale(factor, factor)
+    
+    tmp_png = CACHE / f"_tmp_{svg_path.stem}.png"
+    renderPM.drawToFile(drawing, str(tmp_png), fmt="PNG")
+    
+    raw = Image.open(tmp_png).convert("RGBA")
+    try:
+        tmp_png.unlink()
+    except Exception:
+        pass
+    
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ox = (size - raw.width) // 2
+    oy = (size - raw.height) // 2
+    out.paste(raw, (ox, oy))
+    
+    if raw.mode == "RGBA":
+        a = out.split()[3]
+        if a.getbbox() and a.getextrema()[1] > 20:
+            return a.point(lambda v: 255 if v > 40 else 0)
+    
+    lum = ImageOps.invert(out.convert("L"))
+    return lum.point(lambda v: 255 if v > 40 else 0)
 
-def new_layer():
-    return Image.new("L", (S, S), 0), Image.new("RGBA", (S, S), (0, 0, 0, 0))
-
-def emboss(height_map):
-    shifted = ImageChops.offset(height_map, 3, 3)
-    relief = ImageChops.subtract(height_map, shifted, 1.6, 112)
-    return ImageOps.colorize(
-        relief, black=(14, 16, 19), white=(240, 244, 249), mid=(120, 130, 141)
-    )
-
-def scale_emblem(height_map, accent_layer, target=EMBLEM_TARGET):
-    boxes = [l.getbbox() for l in (height_map, accent_layer)]
-    boxes = [b for b in boxes if b]
-    if not boxes:
-        return height_map, accent_layer
-    x0 = min(b[0] for b in boxes)
-    y0 = min(b[1] for b in boxes)
-    x1 = max(b[2] for b in boxes)
-    y1 = max(b[3] for b in boxes)
-    factor = target / float(max(x1 - x0, y1 - y0))
-    w = max(1, int((x1 - x0) * factor))
-    hgt = max(1, int((y1 - y0) * factor))
-    limit = 196.0
-    far = max(
-        math.hypot(px - S / 2.0, py - S / 2.0)
-        for px, py in (
-            ((S - w) / 2.0, (S - hgt) / 2.0),
-            ((S + w) / 2.0, (S - hgt) / 2.0),
-            ((S - w) / 2.0, (S + hgt) / 2.0),
-            ((S + w) / 2.0, (S + hgt) / 2.0),
-        )
-    )
-    if far > limit:
-        shrink = limit / far
-        w = max(1, int(w * shrink))
-        hgt = max(1, int(hgt * shrink))
-    out_h = Image.new("L", (S, S), 0)
-    out_a = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ox, oy = (S - w) // 2, (S - hgt) // 2
-    out_h.paste(height_map.crop((x0, y0, x1, y1)).resize((w, hgt), Image.LANCZOS), (ox, oy))
-    out_a.paste(accent_layer.crop((x0, y0, x1, y1)).resize((w, hgt), Image.LANCZOS), (ox, oy))
-    return out_h, out_a
-
-def compose_emblem(coin, height_map, accent_layer):
-    metal = emboss(height_map).convert("RGBA")
-    mask = height_map.point(lambda v: 255 if v > 6 else 0)
-    mask = mask.filter(ImageFilter.GaussianBlur(1.4))
+def sculpt_medallion(mask_img, base_coin, gradient_stops, rim_color=(235, 240, 248), accent_layer=None):
+    m_raw = np.array(mask_img).astype(float) / 255.0
+    
+    # Smooth multi-scale bevel
+    b1 = np.array(mask_img.filter(ImageFilter.GaussianBlur(1.5))).astype(float) / 255.0
+    b3 = np.array(mask_img.filter(ImageFilter.GaussianBlur(4.0))).astype(float) / 255.0
+    b8 = np.array(mask_img.filter(ImageFilter.GaussianBlur(10.0))).astype(float) / 255.0
+    h = (0.5 * b1 + 0.35 * b3 + 0.15 * b8) * m_raw
+    if np.max(h) > 0:
+        h = h / np.max(h)
+    
+    # Surface gradients for lighting
+    dy, dx = np.gradient(h)
+    scale = 16.0
+    nx = -dx * scale
+    ny = -dy * scale
+    nz = np.ones_like(nx)
+    norm = np.sqrt(nx*nx + ny*ny + nz*nz)
+    nx /= norm
+    ny /= norm
+    nz /= norm
+    
+    # Key light: upper-left (-0.6, -0.6, 0.53)
+    lx, ly, lz = -0.6, -0.6, 0.53
+    l_norm = math.sqrt(lx*lx + ly*ly + lz*lz)
+    lx /= l_norm; ly /= l_norm; lz /= l_norm
+    
+    diff = np.clip(nx * lx + ny * ly + nz * lz, 0.15, 1.0)
+    
+    # Blinn-Phong specular
+    vx, vy, vz = 0.0, 0.0, 1.0
+    hx = lx + vx; hy = ly + vy; hz = lz + vz
+    hn = math.sqrt(hx*hx + hy*hy + hz*hz)
+    hx /= hn; hy /= hn; hz /= hn
+    spec = np.clip(nx * hx + ny * hy + nz * hz, 0.0, 1.0) ** 20
+    
+    # Diagonal color gradient across canvas
+    yy, xx = np.mgrid[0:S, 0:S].astype(float)
+    t = np.clip(((xx - 100) + (yy - 100)) / (512.0 * 1.1), 0.0, 1.0)
+    
+    rgb_grad = np.zeros((S, S, 3), dtype=float)
+    for i in range(len(gradient_stops) - 1):
+        c1, p1 = gradient_stops[i]
+        c2, p2 = gradient_stops[i+1]
+        mask_segment = (t >= p1) & (t <= p2)
+        local_t = (t - p1) / max(0.001, (p2 - p1))
+        for ch in range(3):
+            rgb_grad[..., ch] += np.where(mask_segment, c1[ch] + (c2[ch] - c1[ch]) * local_t, 0.0)
+            
+    # Apply shading to enamel
+    enamel_rgb = np.zeros((S, S, 3), dtype=np.uint8)
+    for ch in range(3):
+        shaded = rgb_grad[..., ch] * (diff * 0.85 + 0.20) + spec * 175.0
+        enamel_rgb[..., ch] = np.clip(shaded, 0, 255).astype(np.uint8)
+    
+    enamel_im = Image.fromarray(enamel_rgb, "RGB").convert("RGBA")
+    enamel_im.putalpha(mask_img.filter(ImageFilter.GaussianBlur(0.8)))
+    
+    # Metal bezel rim (dilated 3px)
+    dilated_mask = mask_img.filter(ImageFilter.MaxFilter(5))
+    bezel_h = np.array(dilated_mask.filter(ImageFilter.GaussianBlur(2.0))).astype(float) / 255.0
+    bdy, bdx = np.gradient(bezel_h)
+    bnx = -bdx * 20.0
+    bny = -bdy * 20.0
+    bnz = np.ones_like(bnx)
+    bnorm = np.sqrt(bnx*bnx + bny*bny + bnz*bnz)
+    bnx /= bnorm; bny /= bnorm; bnz /= bnorm
+    bdiff = np.clip(bnx * lx + bny * ly + bnz * lz, 0.2, 1.0)
+    bspec = np.clip(bnx * hx + bny * hy + bnz * hz, 0.0, 1.0) ** 28
+    
+    bezel_rgb = np.zeros((S, S, 3), dtype=np.uint8)
+    for ch in range(3):
+        v = rim_color[ch] * (bdiff * 0.75 + 0.25) + bspec * 200.0
+        bezel_rgb[..., ch] = np.clip(v, 0, 255).astype(np.uint8)
+    
+    bezel_im = Image.fromarray(bezel_rgb, "RGB").convert("RGBA")
+    bezel_im.putalpha(dilated_mask.filter(ImageFilter.GaussianBlur(0.8)))
+    
+    # Drop shadow
+    shadow_mask = dilated_mask.filter(ImageFilter.GaussianBlur(6))
     shadow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    shadow.putalpha(mask.filter(ImageFilter.GaussianBlur(6)).point(lambda v: int(v * 0.55)))
-    out = coin.convert("RGBA")
+    shadow.putalpha(shadow_mask.point(lambda v: int(v * 0.65)))
+    
+    # Composite onto base coin
+    out = base_coin.convert("RGBA")
     out.alpha_composite(shadow, (4, 5))
-    metal.putalpha(mask)
-    out.alpha_composite(metal)
+    out.alpha_composite(bezel_im)
+    out.alpha_composite(enamel_im)
     if accent_layer is not None:
         out.alpha_composite(accent_layer)
+        
     return out.convert("RGB")
 
-def build_asset(name, h, acc, is_title=False):
+def build_brand_asset(name, svg_file, gradient_stops, rim_color=(235, 240, 248), is_title=False, padding=128):
     coin = rims.house_coin()
-    h_scaled, acc_scaled = scale_emblem(h, acc)
-    composed = compose_emblem(coin, h_scaled, acc_scaled)
+    mask = rasterize_svg_mask(CACHE / svg_file, size=512, padding=padding)
+    composed = sculpt_medallion(mask, coin, gradient_stops, rim_color=rim_color)
     
-    # Save master JPG to source directory
     src_dir = SRC_TITLES if is_title else SRC_BADGES
     master_path = src_dir / f"{name}.jpg"
     composed.save(master_path, quality=95)
     
-    # Save minted PNG with binary alpha
     out_dir = OUT_TITLES if is_title else OUT_BADGES
     rims.save(composed, f"{name}.png", out_dir=str(out_dir))
-    print(f"Minted: {name}.png -> {out_dir}")
+    print(f"Minted brand medallion: {name}.png -> {out_dir}")
 
 # ── 1. Zhipu Sage (智谱乾坤) ────────────────────────────────────────────────
 def gen_zhipu_sage():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    CYAN = (56, 189, 248, 240)
-    cx, cy = 256, 256
-    
-    # Hexagon vertices
-    def hex_pts(r):
-        return [(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a))) for a in range(30, 390, 60)]
-    
-    dh.polygon(hex_pts(150), outline=STEEL, width=10)
-    dh.polygon(hex_pts(110), outline=ACCENT_H, width=6)
-    da.polygon(hex_pts(110), outline=CYAN, width=6)
-    
-    # Radial traces & nodes
-    for p in hex_pts(150):
-        dh.line((cx, cy, p[0], p[1]), fill=STEEL, width=5)
-        dh.ellipse((p[0]-14, p[1]-14, p[0]+14, p[1]+14), fill=ACCENT_H)
-        da.ellipse((p[0]-14, p[1]-14, p[0]+14, p[1]+14), fill=CYAN)
-    
-    # Central cubic core
-    dh.ellipse((cx-40, cy-40, cx+40, cy+40), fill=STEEL)
-    dh.polygon(hex_pts(30), fill=ACCENT_H)
-    da.polygon(hex_pts(30), fill=CYAN)
-    
-    build_asset("zhipu-sage", h, acc)
+    # Official Zhipu brand logo with celestial sapphire gradient
+    stops = [
+        ((29, 78, 216), 0.0),   # #1d4ed8
+        ((59, 130, 246), 0.45), # #3b82f6
+        ((96, 165, 250), 0.85), # #60a5fa
+        ((191, 219, 254), 1.0), # #bfdbfe
+    ]
+    build_brand_asset("zhipu-sage", "zhipu.svg", stops, rim_color=(235, 242, 250), padding=120)
 
 # ── 2. Moonshot Voyager (暗面行者) ──────────────────────────────────────────
 def gen_moonshot_voyager():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    VIOLET = (192, 132, 252, 240)
-    
-    # Crescent moon
-    m1 = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(m1).ellipse((200, 100, 360, 260), fill=255)
-    m2 = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(m2).ellipse((235, 90, 395, 250), fill=255)
-    cres = ImageChops.subtract(m1, m2)
-    h.paste(Image.new("L", (S, S), ACCENT_H), mask=cres)
-    acc.paste(Image.new("RGBA", (S, S), VIOLET), mask=cres)
-    
-    # Lunar terrain curve
-    dh.arc((80, 260, 432, 540), 180, 360, fill=STEEL, width=12)
-    # Craters on terrain
-    dh.ellipse((140, 340, 180, 360), outline=STEEL, width=4)
-    dh.ellipse((320, 330, 370, 355), outline=STEEL, width=4)
-    
-    # Rover Chassis
-    dh.rectangle((210, 280, 302, 310), fill=STEEL)
-    # 4 Wheels
-    for wx in (215, 240, 272, 297):
-        dh.ellipse((wx-12, 305, wx+12, 329), fill=STEEL, outline=ACCENT_H, width=3)
-        da.ellipse((wx-6, 311, wx+6, 323), fill=VIOLET)
-    # Rover Antenna mast
-    dh.line((235, 280, 235, 240), fill=STEEL, width=4)
-    dh.arc((220, 225, 250, 255), 210, 330, fill=STEEL, width=5)
-    dh.line((245, 280, 280, 255), fill=STEEL, width=3)
-    
-    # Stars
-    for sx, sy in ((140, 160), (380, 140), (120, 220), (390, 230), (280, 80)):
-        dh.ellipse((sx-4, sy-4, sx+4, sy+4), fill=STEEL)
-        da.ellipse((sx-3, sy-3, sx+3, sy+3), fill=VIOLET)
-        
-    build_asset("moonshot-voyager", h, acc)
+    # Official Kimi brand logo with obsidian indigo & lunar silver
+    stops = [
+        ((30, 27, 75), 0.0),    # #1e1b4b
+        ((55, 48, 163), 0.4),   # #3730a3
+        ((99, 102, 241), 0.8),  # #6366f1
+        ((224, 231, 255), 1.0), # #e0e7ff
+    ]
+    build_brand_asset("moonshot-voyager", "kimi.svg", stops, rim_color=(220, 228, 242), padding=128)
 
 # ── 3. MiniMax Abyss (海螺巨兽) ─────────────────────────────────────────────
 def gen_minimax_abyss():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    AQUA = (45, 212, 191, 240)
-    cx, cy = 256, 256
-    
-    # Expanding Nautilus Shell segments
-    radii = [150, 125, 100, 78, 58, 40, 25]
-    for i, r in enumerate(radii):
-        ox = cx - int(r * 0.22 * math.cos(i * 0.7))
-        oy = cy + int(r * 0.15 * math.sin(i * 0.7))
-        fill_val = STEEL if i % 2 == 0 else ACCENT_H
-        dh.ellipse((ox - r, oy - r, ox + r, oy + r), outline=STEEL, width=6)
-        if i % 2 == 1:
-            da.arc((ox - r, oy - r, ox + r, oy + r), 40 * i, 40 * i + 120, fill=AQUA, width=6)
-            
-    # Spiral ridges
-    for deg in range(0, 360, 45):
-        rad = math.radians(deg)
-        x1 = cx + 50 * math.cos(rad)
-        y1 = cy + 50 * math.sin(rad)
-        x2 = cx + 145 * math.cos(rad)
-        y2 = cy + 145 * math.sin(rad)
-        dh.line((x1, y1, x2, y2), fill=STEEL, width=4)
-        
-    # Tentacles extending below
-    for tx in (-60, -20, 20, 60):
-        dh.arc((cx + tx - 25, cy + 90, cx + tx + 25, cy + 165), 0, 180, fill=STEEL, width=7)
-        da.arc((cx + tx - 25, cy + 90, cx + tx + 25, cy + 165), 30, 150, fill=AQUA, width=5)
-        
-    build_asset("minimax-abyss", h, acc)
-
-# ── 4. North America Doubao / Google Gemini (北美豆包) ──────────────────────
-def gen_north_america_doubao():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    BLUE = (96, 165, 250, 240)
-    cx, cy = 256, 256
-    
-    # Gemini 4-pointed diamond star
-    pts = []
-    # 4 tips at 145px, 4 valleys at 32px
-    for i in range(8):
-        ang = math.radians(i * 45)
-        r = 148 if i % 2 == 0 else 36
-        pts.append((cx + r * math.cos(ang), cy + r * math.sin(ang)))
-    
-    dh.polygon(pts, fill=STEEL, outline=ACCENT_H)
-    da.polygon(pts, fill=BLUE)
-    
-    # Inner facets
-    for i in range(4):
-        ang = math.radians(i * 90)
-        p_tip = (cx + 148 * math.cos(ang), cy + 148 * math.sin(ang))
-        dh.line((cx, cy, p_tip[0], p_tip[1]), fill=STEEL, width=5)
-        
-    # Orbiting planetary ring
-    dh.arc((cx - 155, cy - 70, cx + 155, cy + 70), 0, 360, fill=STEEL, width=6)
-    da.arc((cx - 155, cy - 70, cx + 155, cy + 70), 30, 210, fill=BLUE, width=5)
-    
-    # Diamond spark satellites
-    for sx, sy in ((cx-110, cy-110), (cx+110, cy-110), (cx-110, cy+110), (cx+110, cy+110)):
-        dh.ellipse((sx-8, sy-8, sx+8, sy+8), fill=STEEL)
-        da.ellipse((sx-6, sy-6, sx+6, sy+6), fill=BLUE)
-        
-    build_asset("north-america-doubao", h, acc)
-
-# ── 5. Hyperspeed Grok (极速狂飙) ───────────────────────────────────────────
-def gen_hyperspeed_grok():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    CRIMSON = (244, 63, 94, 240)
-    AMBER = (251, 191, 36, 240)
-    cx, cy = 256, 256
-    
-    # Mach rings expanding backwards
-    for r in (155, 125, 95):
-        dh.arc((cx - r - 40, cy - r + 40, cx + r - 40, cy + r + 40), 70, 220, fill=STEEL, width=6)
-        da.arc((cx - r - 40, cy - r + 40, cx + r - 40, cy + r + 40), 90, 200, fill=CRIMSON, width=5)
-        
-    # Relativistic Rocket body pointing to (cx+90, cy-90)
-    # Fuselage polygon
-    body = [
-        (cx + 115, cy - 115), # nose
-        (cx + 40, cy - 80),   # right shoulder
-        (cx - 30, cy + 10),   # right fin tip
-        (cx - 45, cy - 0),    # right nozzle
-        (cx - 0, cy + 45),    # left nozzle
-        (cx + 10, cy + 30),   # left fin tip
-        (cx - 80, cy + 40),   # left shoulder
+    # Official Hailuo AI chambered nautilus conch shell with abyssal oceanic teal
+    stops = [
+        ((4, 47, 46), 0.0),     # #042f2e
+        ((15, 118, 110), 0.35), # #0f766e
+        ((20, 184, 166), 0.75), # #14b8a6
+        ((94, 234, 212), 1.0),  # #5eead4
     ]
-    dh.polygon(body, fill=STEEL, outline=ACCENT_H)
-    da.polygon(body, outline=AMBER)
-    
-    # Twin plasma thruster flames
-    plume = [(cx - 20, cy + 20), (cx - 100, cy + 100), (cx + 20, cy - 20)]
-    dh.polygon(plume, fill=ACCENT_H)
-    da.polygon(plume, fill=CRIMSON)
-    
-    build_asset("hyperspeed-grok", h, acc)
+    build_brand_asset("minimax-abyss", "hailuo.svg", stops, rim_color=(240, 230, 210), padding=120)
+
+# ── 4. North America Doubao (北美豆包 / Google Gemini) ─────────────────────
+def gen_north_america_doubao():
+    # Official Google Gemini 4-pointed sparkle star with iconic 4-stop celestial gradient
+    stops = [
+        ((59, 130, 246), 0.0),  # #3b82f6 (Google blue)
+        ((139, 92, 246), 0.38), # #8b5cf6 (violet)
+        ((236, 72, 153), 0.72), # #ec4899 (magenta pink)
+        ((245, 158, 11), 1.0),  # #f59e0b (golden flare)
+    ]
+    build_brand_asset("north-america-doubao", "gemini.svg", stops, rim_color=(245, 248, 255), padding=120)
+
+# ── 5. Hyperspeed Grok (极速狂飙) ──────────────────────────────────────────
+def gen_hyperspeed_grok():
+    # Official xAI Grok mark with titanium chrome & electric crimson accent
+    stops = [
+        ((30, 41, 59), 0.0),    # #1e293b
+        ((71, 85, 105), 0.35),  # #475569
+        ((148, 163, 184), 0.7), # #94a3b8
+        ((241, 245, 249), 1.0), # #f1f5f9
+    ]
+    build_brand_asset("hyperspeed-grok", "grok.svg", stops, rim_color=(250, 252, 255), padding=124)
 
 # ── 6. Qwen Dynasty (通义宗师) ──────────────────────────────────────────────
 def gen_qwen_dynasty():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    GOLD = (251, 191, 36, 240)
-    cx, cy = 256, 256
-    
-    # 3D Isometric Quantum Cube
-    top = [(cx, cy - 115), (cx + 95, cy - 60), (cx, cy - 5), (cx - 95, cy - 60)]
-    left = [(cx - 95, cy - 60), (cx, cy - 5), (cx, cy + 105), (cx - 95, cy + 50)]
-    right = [(cx, cy - 5), (cx + 95, cy - 60), (cx + 95, cy + 50), (cx, cy + 105)]
-    
-    dh.polygon(top, fill=STEEL, outline=ACCENT_H)
-    dh.polygon(left, fill=ACCENT_H, outline=STEEL)
-    dh.polygon(right, fill=STEEL, outline=ACCENT_H)
-    
-    da.polygon(top, outline=GOLD)
-    da.polygon(left, outline=GOLD)
-    da.polygon(right, outline=GOLD)
-    
-    # Circuit etchings on faces
-    for face in (left, right):
-        mid_x = (face[0][0] + face[2][0]) // 2
-        mid_y = (face[0][1] + face[2][1]) // 2
-        dh.ellipse((mid_x-10, mid_y-10, mid_x+10, mid_y+10), fill=ACCENT_H)
-        da.ellipse((mid_x-8, mid_y-8, mid_x+8, mid_y+8), fill=GOLD)
-        
-    # Central glyph in top face
-    dh.ellipse((cx-18, cy-60-18, cx+18, cy-60+18), fill=STEEL)
-    da.ellipse((cx-14, cy-60-14, cx+14, cy-60+14), fill=GOLD)
-    
-    build_asset("qwen-dynasty", h, acc)
-
-# ── 7. Flash Immortal (Flash 仙人) ──────────────────────────────────────────
-def gen_flash_immortal():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    YELLOW = (250, 204, 21, 240)
-    cx, cy = 256, 256
-    
-    # Cloud Pedestal Base
-    dh.arc((cx - 130, cy + 80, cx - 20, cy + 160), 180, 360, fill=STEEL, width=8)
-    dh.arc((cx - 60, cy + 55, cx + 60, cy + 155), 180, 360, fill=STEEL, width=10)
-    dh.arc((cx + 20, cy + 80, cx + 130, cy + 160), 180, 360, fill=STEEL, width=8)
-    dh.rectangle((cx - 120, cy + 120, cx + 120, cy + 136), fill=STEEL)
-    
-    # High-Voltage Lightning Bolt
-    bolt = [
-        (cx + 25, cy - 145),
-        (cx - 35, cy - 25),
-        (cx + 15, cy - 25),
-        (cx - 45, cy + 115),
-        (cx + 40, cy - 5),
-        (cx - 10, cy - 5),
-        (cx + 45, cy - 145),
+    # Official Alibaba Qwen logo with royal amethyst & violet enamel
+    stops = [
+        ((88, 28, 135), 0.0),   # #581c87
+        ((124, 58, 237), 0.4),  # #7c3aed
+        ((168, 85, 247), 0.75), # #a855f7
+        ((216, 180, 254), 1.0), # #d8b4fe
     ]
-    dh.polygon(bolt, fill=STEEL, outline=ACCENT_H)
-    da.polygon(bolt, fill=YELLOW)
-    
-    # Radiating electrical sparks
-    for sx, sy in ((cx - 85, cy - 90), (cx + 85, cy - 90), (cx - 95, cy + 20), (cx + 95, cy + 20)):
-        dh.ellipse((sx-6, sy-6, sx+6, sy+6), fill=STEEL)
-        da.ellipse((sx-5, sy-5, sx+5, sy+5), fill=YELLOW)
-        
-    build_asset("flash-immortal", h, acc)
+    build_brand_asset("qwen-dynasty", "qwen.svg", stops, rim_color=(242, 242, 250), padding=120)
 
-# ── 8. Seedance Master (灵动之种) ───────────────────────────────────────────
+# ── 7. Seedance Master (灵动之种 / 字节豆包) ───────────────────────────────
 def gen_seedance_master():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    LIME = (74, 222, 128, 240)
+    # Official ByteDance Doubao mark with vibrant cyan-orange dual enamel
+    stops = [
+        ((2, 132, 199), 0.0),   # #0284c7
+        ((56, 189, 248), 0.5),  # #38bdf8
+        ((249, 115, 22), 0.85), # #f97316
+        ((251, 146, 60), 1.0),  # #fb923c
+    ]
+    build_brand_asset("seedance-master", "doubao.svg", stops, rim_color=(245, 235, 230), padding=124)
+
+# ── 8. Flash Immortal (Flash 仙人) ──────────────────────────────────────────
+def gen_flash_immortal():
+    # Thunderbolt crossing quantum energy rings
+    mask = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(mask)
     cx, cy = 256, 256
     
-    # Sound frequency rhythm waves (lateral arcs)
-    for r in (110, 135, 160):
-        dh.arc((cx - r, cy - r, cx + r, cy + r), 140, 220, fill=STEEL, width=5)
-        dh.arc((cx - r, cy - r, cx + r, cy + r), 320, 400, fill=STEEL, width=5)
-        da.arc((cx - r, cy - r, cx + r, cy + r), 150, 210, fill=LIME, width=4)
-        da.arc((cx - r, cy - r, cx + r, cy + r), 330, 390, fill=LIME, width=4)
-        
-    # Sprouting Seed Pod
-    dh.ellipse((cx - 30, cy + 60, cx + 30, cy + 120), fill=STEEL, outline=ACCENT_H, width=4)
-    da.ellipse((cx - 24, cy + 66, cx + 24, cy + 114), fill=LIME)
+    # Concentric orbit rings
+    d.ellipse((cx - 140, cy - 140, cx + 140, cy + 140), outline=255, width=12)
+    d.ellipse((cx - 100, cy - 100, cx + 100, cy + 100), outline=255, width=6)
     
-    # Sprout Stem
-    dh.line((cx, cy + 70, cx, cy - 30), fill=STEEL, width=8)
+    # Dynamic thunderbolt
+    bolt = [
+        (cx + 40, cy - 150),
+        (cx - 70, cy - 10),
+        (cx - 10, cy - 10),
+        (cx - 50, cy + 150),
+        (cx + 80, cy + 10),
+        (cx + 15, cy + 10),
+    ]
+    d.polygon(bolt, fill=255)
     
-    # Twin Dynamic Leaves
-    left_leaf = [(cx, cy - 30), (cx - 75, cy - 70), (cx - 50, cy - 130), (cx, cy - 60)]
-    right_leaf = [(cx, cy - 30), (cx + 75, cy - 70), (cx + 50, cy - 130), (cx, cy - 60)]
-    
-    dh.polygon(left_leaf, fill=STEEL, outline=ACCENT_H)
-    dh.polygon(right_leaf, fill=STEEL, outline=ACCENT_H)
-    da.polygon(left_leaf, fill=LIME)
-    da.polygon(right_leaf, fill=LIME)
-    
-    build_asset("seedance-master", h, acc)
+    stops = [
+        ((202, 138, 4), 0.0),   # #ca8a04
+        ((234, 179, 8), 0.4),   # #eab308
+        ((250, 204, 21), 0.7),  # #facc15
+        ((56, 189, 248), 1.0),  # #38bdf8 (electric flash)
+    ]
+    coin = rims.house_coin()
+    composed = sculpt_medallion(mask, coin, stops, rim_color=(250, 240, 200))
+    master_path = SRC_BADGES / "flash-immortal.jpg"
+    composed.save(master_path, quality=95)
+    rims.save(composed, "flash-immortal.png", out_dir=str(OUT_BADGES))
+    print(f"Minted flash-immortal.png -> {OUT_BADGES}")
 
 # ── 9. Token Arbitrageur (算力套利 · 羊毛宗师) ──────────────────────────────
 def gen_token_arbitrageur():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    EMERALD = (52, 211, 153, 240)
-    GOLD = (251, 191, 36, 240)
+    # Golden scales of justice balancing multi-cloud token coins
+    mask = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(mask)
     cx, cy = 256, 256
     
-    # Scale Central Pillar & Base
-    dh.rectangle((cx - 70, cy + 125, cx + 70, cy + 145), fill=STEEL)
-    dh.line((cx, cy - 90, cx, cy + 130), fill=STEEL, width=10)
-    dh.ellipse((cx - 18, cy - 105, cx + 18, cy - 70), fill=STEEL)
-    da.ellipse((cx - 12, cy - 100, cx + 12, cy - 75), fill=GOLD)
+    # Scale pillar & base
+    d.rectangle((cx - 8, cy - 120, cx + 8, cy + 110), fill=255)
+    d.polygon([(cx - 70, cy + 130), (cx + 70, cy + 130), (cx + 35, cy + 110), (cx - 35, cy + 110)], fill=255)
     
-    # Beam (tilted slightly)
-    dh.line((cx - 125, cy - 45, cx + 125, cy - 75), fill=STEEL, width=8)
+    # Balance beam (slanted slightly for dynamic arbitrage)
+    d.polygon([(cx - 130, cy - 90), (cx + 130, cy - 70), (cx + 130, cy - 58), (cx - 130, cy - 78)], fill=255)
+    d.ellipse((cx - 20, cy - 135, cx + 20, cy - 95), fill=255)
     
-    # Left Pan (Compute Chips)
-    lx, ly = cx - 125, cy - 45
-    dh.line((lx, ly, lx - 30, ly + 90), fill=STEEL, width=3)
-    dh.line((lx, ly, lx + 30, ly + 90), fill=STEEL, width=3)
-    dh.arc((lx - 40, ly + 75, lx + 40, ly + 105), 0, 180, fill=STEEL, width=6)
-    dh.rectangle((lx - 18, ly + 65, lx + 18, ly + 85), fill=ACCENT_H)
-    da.rectangle((lx - 14, ly + 68, lx + 14, ly + 82), fill=EMERALD)
+    # Left pan & chains (lower - arbitrage surplus)
+    d.line((cx - 120, cy - 80, cx - 145, cy + 15), fill=255, width=4)
+    d.line((cx - 120, cy - 80, cx - 95, cy + 15), fill=255, width=4)
+    d.arc((cx - 150, cy + 5, cx - 90, cy + 45), 0, 180, fill=255, width=8)
+    d.ellipse((cx - 130, cy + 10, cx - 110, cy + 25), fill=255)
     
-    # Right Pan (Shears / Wool)
-    rx, ry = cx + 125, cy - 75
-    dh.line((rx, ry, rx - 30, ry + 90), fill=STEEL, width=3)
-    dh.line((rx, ry, rx + 30, ry + 90), fill=STEEL, width=3)
-    dh.arc((rx - 40, ry + 75, rx + 40, ry + 105), 0, 180, fill=STEEL, width=6)
-    dh.ellipse((rx - 16, ry + 70, rx + 16, ry + 88), fill=ACCENT_H)
-    da.ellipse((rx - 12, ry + 72, rx + 12, ry + 86), fill=GOLD)
+    # Right pan & chains
+    d.line((cx + 120, cy - 65, cx + 95, cy + 30), fill=255, width=4)
+    d.line((cx + 120, cy - 65, cx + 145, cy + 30), fill=255, width=4)
+    d.arc((cx + 90, cy + 20, cx + 150, cy + 60), 0, 180, fill=255, width=8)
+    d.ellipse((cx + 110, cy + 25, cx + 130, cy + 40), fill=255)
     
-    build_asset("token-arbitrageur", h, acc)
+    stops = [
+        ((5, 150, 105), 0.0),   # #059669
+        ((16, 185, 129), 0.4),  # #10b981
+        ((245, 158, 11), 0.8),  # #f59e0b
+        ((251, 191, 36), 1.0),  # #fbbf24
+    ]
+    coin = rims.house_coin()
+    composed = sculpt_medallion(mask, coin, stops, rim_color=(245, 225, 170))
+    master_path = SRC_BADGES / "token-arbitrageur.jpg"
+    composed.save(master_path, quality=95)
+    rims.save(composed, "token-arbitrageur.png", out_dir=str(OUT_BADGES))
+    print(f"Minted token-arbitrageur.png -> {OUT_BADGES}")
 
 # ── 10. Title Crest: CN Quad Masters (九州极客 · 四象掌门) ──────────────────
 def gen_title_cn_quad_masters():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    AMBER = (245, 158, 11, 240)
-    JADE = (16, 185, 129, 240)
+    mask = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(mask)
     cx, cy = 256, 256
     
-    # Outer mystic compass ring
-    dh.arc((cx - 150, cy - 150, cx + 150, cy + 150), 0, 360, fill=STEEL, width=10)
-    da.arc((cx - 150, cy - 150, cx + 150, cy + 150), 0, 360, fill=AMBER, width=4)
+    # Four-pointed celestial diamond crest
+    diamond = [
+        (cx, cy - 145),
+        (cx + 145, cy),
+        (cx, cy + 145),
+        (cx - 145, cy),
+    ]
+    d.polygon(diamond, outline=255, width=14)
     
-    # 4 Cardinal Beast Orbs (North, East, South, West)
-    cards = [(cx, cy - 150), (cx + 150, cy), (cx, cy + 150), (cx - 150, cy)]
-    for px, py in cards:
-        dh.ellipse((px - 22, py - 22, px + 22, py + 22), fill=STEEL)
-        da.ellipse((px - 16, py - 16, px + 16, py + 16), fill=AMBER)
-        
-    # Central Taiji Core
-    dh.ellipse((cx - 60, cy - 60, cx + 60, cy + 60), fill=STEEL)
-    da.arc((cx - 60, cy - 60, cx + 60, cy + 60), 0, 180, fill=AMBER, width=8)
-    da.arc((cx - 60, cy - 60, cx + 60, cy + 60), 180, 360, fill=JADE, width=8)
+    # 4 quadrant orbs representing four Chinese AI titans
+    d.ellipse((cx - 20, cy - 120, cx + 20, cy - 80), fill=255) # Top (DeepSeek)
+    d.ellipse((cx + 80, cy - 20, cx + 120, cy + 20), fill=255) # Right (Zhipu)
+    d.ellipse((cx - 20, cy + 80, cx + 20, cy + 120), fill=255) # Bottom (MiniMax)
+    d.ellipse((cx - 120, cy - 20, cx - 80, cy + 20), fill=255) # Left (Moonshot)
     
-    # Connecting quad conduits
-    for px, py in cards:
-        dh.line((cx, cy, px, py), fill=STEEL, width=6)
-        
-    build_asset("title-cn-quad-masters", h, acc, is_title=True)
+    # Central Tai-chi core nexus
+    d.ellipse((cx - 45, cy - 45, cx + 45, cy + 45), fill=255)
+    
+    stops = [
+        ((180, 83, 9), 0.0),    # #b45309 (gold amber)
+        ((16, 185, 129), 0.45), # #10b981 (emerald jade)
+        ((245, 158, 11), 0.8),  # #f59e0b
+        ((254, 240, 138), 1.0), # #fef08a
+    ]
+    coin = rims.house_coin()
+    composed = sculpt_medallion(mask, coin, stops, rim_color=(250, 235, 180))
+    master_path = SRC_TITLES / "title-cn-quad-masters.jpg"
+    composed.save(master_path, quality=95)
+    rims.save(composed, "title-cn-quad-masters.png", out_dir=str(OUT_TITLES))
+    print(f"Minted title-cn-quad-masters.png -> {OUT_TITLES}")
 
 # ── 11. Title Crest: Silicon Trinity (诸神信使 · 硅谷三冠王) ────────────────
 def gen_title_silicon_trinity():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    CYAN = (6, 182, 212, 240)
+    mask = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(mask)
     cx, cy = 256, 256
     
-    # Sacred Equilateral Triangle
-    r = 155
+    # Tri-force sacred delta
+    r = 145
     pts = [
-        (cx + r * math.cos(math.radians(-90)), cy + r * math.sin(math.radians(-90))),
+        (cx, cy - r),
         (cx + r * math.cos(math.radians(30)), cy + r * math.sin(math.radians(30))),
-        (cx + r * math.cos(math.radians(150)), cy + r * math.sin(math.radians(150))),
+        (cx - r * math.cos(math.radians(30)), cy + r * math.sin(math.radians(30))),
     ]
-    dh.polygon(pts, outline=STEEL, width=12)
-    da.polygon(pts, outline=CYAN, width=6)
+    d.polygon(pts, outline=255, width=14)
     
-    # Vertex Orbs (OpenAI, Claude, Google)
-    for px, py in pts:
-        dh.ellipse((px - 24, py - 24, px + 24, py + 24), fill=STEEL)
-        da.ellipse((px - 16, py - 16, px + 16, py + 16), fill=CYAN)
-        dh.line((cx, cy, px, py), fill=STEEL, width=6)
-        
-    # Radiant Eye Singularity at center
-    dh.ellipse((cx - 42, cy - 42, cx + 42, cy + 42), fill=STEEL)
-    da.ellipse((cx - 30, cy - 30, cx + 30, cy + 30), fill=CYAN)
+    # Internal delta triad
+    inner_r = 75
+    in_pts = [
+        (cx, cy + inner_r),
+        (cx + inner_r * math.cos(math.radians(30)), cy - inner_r * math.sin(math.radians(30))),
+        (cx - inner_r * math.cos(math.radians(30)), cy - inner_r * math.sin(math.radians(30))),
+    ]
+    d.polygon(in_pts, outline=255, width=8)
+    d.ellipse((cx - 28, cy - 28, cx + 28, cy + 28), fill=255)
     
-    build_asset("title-silicon-trinity", h, acc, is_title=True)
+    stops = [
+        ((13, 148, 136), 0.0),  # #0d9488 (OpenAI teal)
+        ((79, 70, 229), 0.45),  # #4f46e5 (Anthropic violet)
+        ((6, 182, 212), 0.8),   # #06b6d4 (Google celestial)
+        ((165, 243, 252), 1.0), # #a5f3fc
+    ]
+    coin = rims.house_coin()
+    composed = sculpt_medallion(mask, coin, stops, rim_color=(230, 245, 255))
+    master_path = SRC_TITLES / "title-silicon-trinity.jpg"
+    composed.save(master_path, quality=95)
+    rims.save(composed, "title-silicon-trinity.png", out_dir=str(OUT_TITLES))
+    print(f"Minted title-silicon-trinity.png -> {OUT_TITLES}")
 
 # ── 12. Title Crest: Cyber Speedster (极速先锋 · 赛博狂飙者) ────────────────
 def gen_title_cyber_speedster():
-    h, acc = new_layer()
-    dh, da = ImageDraw.Draw(h), ImageDraw.Draw(acc)
-    SKY = (56, 189, 248, 240)
+    mask = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(mask)
     cx, cy = 256, 256
     
-    # Hypersonic Delta Wings
+    # Curvature sonic rings
+    d.ellipse((cx - 140, cy - 80, cx + 140, cy + 80), outline=255, width=12)
+    
+    # Falcon hyper-speed sweep wings
     wings = [
-        (cx, cy - 140),     # apex nose
-        (cx + 155, cy + 70), # right wingtip
-        (cx + 90, cy + 85),  # right inner notch
-        (cx + 40, cy + 140), # right thruster
-        (cx, cy + 105),      # center keel
-        (cx - 40, cy + 140), # left thruster
-        (cx - 90, cy + 85),  # left inner notch
-        (cx - 155, cy + 70), # left wingtip
+        (cx, cy - 145),
+        (cx + 155, cy + 65),
+        (cx + 90, cy + 65),
+        (cx, cy - 35),
+        (cx - 90, cy + 65),
+        (cx - 155, cy + 65),
     ]
-    dh.polygon(wings, fill=STEEL, outline=ACCENT_H)
-    da.polygon(wings, outline=SKY)
+    d.polygon(wings, fill=255)
+    d.ellipse((cx - 24, cy - 24, cx + 24, cy + 24), fill=255)
     
-    # Tachyon speed streams
-    for y in (cy - 40, cy, cy + 40):
-        dh.line((cx - 160, y, cx + 160, y), fill=STEEL, width=4)
-        da.line((cx - 130, y, cx + 130, y), fill=SKY, width=3)
-        
-    # Warp core center
-    dh.ellipse((cx - 28, cy - 10, cx + 28, cy + 46), fill=STEEL)
-    da.ellipse((cx - 20, cy - 2, cx + 20, cy + 38), fill=SKY)
-    
-    build_asset("title-cyber-speedster", h, acc, is_title=True)
+    stops = [
+        ((2, 132, 199), 0.0),   # #0284c7
+        ((14, 165, 233), 0.4),  # #0ea5e9 (sky cyan)
+        ((168, 85, 247), 0.8),  # #a855f7 (warp violet)
+        ((236, 72, 153), 1.0),  # #ec4899 (hyperspeed flare)
+    ]
+    coin = rims.house_coin()
+    composed = sculpt_medallion(mask, coin, stops, rim_color=(240, 248, 255))
+    master_path = SRC_TITLES / "title-cyber-speedster.jpg"
+    composed.save(master_path, quality=95)
+    rims.save(composed, "title-cyber-speedster.png", out_dir=str(OUT_TITLES))
+    print(f"Minted title-cyber-speedster.png -> {OUT_TITLES}")
 
 def main():
-    print("=== Generating 9 Wave-4 Achievement Medallions ===")
+    print("=== Minting Official Brand 3D Medallions (Wave 4) ===")
     gen_zhipu_sage()
     gen_moonshot_voyager()
     gen_minimax_abyss()
@@ -505,11 +438,11 @@ def main():
     gen_seedance_master()
     gen_token_arbitrageur()
     
-    print("\n=== Generating 3 Wave-4 Title Crest Medallions ===")
+    print("\n=== Minting Synergy Title Crests (Wave 4) ===")
     gen_title_cn_quad_masters()
     gen_title_silicon_trinity()
     gen_title_cyber_speedster()
-    print("\nAll assets successfully generated!")
+    print("\nAll 12 assets successfully sculpted and minted!")
 
 if __name__ == "__main__":
     main()
