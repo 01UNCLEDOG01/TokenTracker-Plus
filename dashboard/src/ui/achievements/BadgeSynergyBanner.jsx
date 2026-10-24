@@ -99,7 +99,10 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
   const activeResonance = activeTitle ? getEffectiveTitleResonance(activeTitle, badgeMap, resonanceTestMode, 0) : null;
 
   return (
-    <div className="mb-10 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-slate-950 via-gray-900 to-black p-6 text-white shadow-2xl shadow-black/60 backdrop-blur-xl relative overflow-hidden antialiased">
+    <div
+      className="mb-10 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-slate-950 via-gray-900 to-black p-6 text-white shadow-2xl shadow-black/60 backdrop-blur-xl relative overflow-hidden antialiased"
+      data-build={buildId || undefined}
+    >
       {/* Ambient background glow accents */}
       <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
       <div className="absolute -right-20 -bottom-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
@@ -126,9 +129,6 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
               {gridOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {gridOpen ? "收起称号" : "展开称号"}
             </button>
-            <span className="text-[10px] font-mono text-white/30" title="当前加载的前端构建">
-              build {buildId || "?"}
-            </span>
           </div>
           <p className="mt-1.5 text-xs text-gray-300 max-w-xl">
             当核心勋章达到指定品阶时触发羁绊共鸣，融合多维算力与工程习惯，加冕你的极客专属荣耀称号。
