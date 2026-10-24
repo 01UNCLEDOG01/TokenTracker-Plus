@@ -80,8 +80,13 @@ test("every achievement uses an original badge-id artwork file", () => {
 test("every synergy title uses an original 3D crest artwork file with binary alpha", () => {
   const registry = fs.readFileSync(TITLE_REGISTRY_PATH, "utf8");
   const matches = [...registry.matchAll(/art:\s*"\/achievements\/titles\/([^"?]+)/g)];
+  // One `en:` line per title, and only per title: badge entries carry no
+  // English name. Deriving the expected count from the registry keeps this
+  // gate from needing an edit every time a title is added.
+  const titleCount = [...registry.matchAll(/^\s+en:\s*"/gm)].length;
 
-  assert.equal(matches.length, 11, "expected all 11 synergy titles");
+  assert.ok(titleCount >= 11, `the registry must parse as a title list, saw ${titleCount}`);
+  assert.equal(matches.length, titleCount, "every title needs its own crest");
 
   for (const [, filename] of matches) {
     const artworkPath = path.join(ROOT, "dashboard", "public", "achievements", "titles", filename);
