@@ -41,7 +41,7 @@
     "test": "node --test test/*.test.js",
     "test:fast": "node scripts/run-fast-tests.cjs",
     "test:baseline:write": "node scripts/check-test-baseline.cjs --write",
-    "validate:fast": "npm run validate:copy && npm run validate:locale && npm run validate:ui-hardcode && npm run validate:guardrails && npm run validate:versions && npm run validate:retros",
+    "validate:fast": "npm run validate:copy && npm run validate:locale && npm run validate:ui-hardcode && npm run validate:guardrails && npm run validate:versions && npm run validate:retros && npm run validate:art",
     "gen:bot-frames": "node scripts/gen-bot-frames.cjs",
     "validate:bot-frames": "node scripts/gen-bot-frames.cjs --check",
     "validate:copy": "node scripts/validate-copy-registry.cjs",
@@ -51,7 +51,9 @@
     "validate:ui-hardcode": "node scripts/ops/validate-ui-hardcode.cjs",
     "sync-versions": "node scripts/sync-versions.cjs",
     "validate:versions": "node scripts/validate-versions.cjs",
-    "version": "node scripts/sync-versions.cjs && git add TokenTrackerBar/project.yml TokenTrackerWin/TokenTrackerWin.csproj TokenTrackerLinux/package.json TokenTrackerLinux/package-lock.json TokenTrackerLinux/src-tauri/Cargo.toml TokenTrackerLinux/src-tauri/Cargo.lock TokenTrackerLinux/src-tauri/tauri.conf.json TokenTrackerLinux/packaging/arch/tokentracker-linux/PKGBUILD"
+    "version": "node scripts/sync-versions.cjs && git add TokenTrackerBar/project.yml TokenTrackerWin/TokenTrackerWin.csproj TokenTrackerLinux/package.json TokenTrackerLinux/package-lock.json TokenTrackerLinux/src-tauri/Cargo.toml TokenTrackerLinux/src-tauri/Cargo.lock TokenTrackerLinux/src-tauri/tauri.conf.json TokenTrackerLinux/packaging/arch/tokentracker-linux/PKGBUILD",
+    "validate:art": "node scripts/validate-art-versions.cjs",
+    "validate:dist": "node scripts/validate-dist-assets.cjs dashboard/dist"
   },
   "dependencies": {
     "@journeyapps/wa-sqlite": "2.0.7",

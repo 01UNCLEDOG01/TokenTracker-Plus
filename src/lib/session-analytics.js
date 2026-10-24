@@ -56,6 +56,7 @@ const {
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
 const { readAntigravityTokscaleUsageCached } = require("./antigravity-tokscale");
+const { lookupTokenMonitorSessionTotals } = require("./token-monitor-speed");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector, createZcodePerformanceCollector } = require("./session-performance");
 const { lookupTokenMonitorPerformance } = require("./token-monitor-speed");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
@@ -116,7 +117,7 @@ const {
 // v25 adds Kimi wire sessions, including official/legacy migration dedup.
 // v26 retains Codex Ultrafast (service_tier ultrafast) subset columns so
 // date-filtered session views and cached sidecars keep the 6x premium.
-const SIDECAR_VERSION = 30;
+const SIDECAR_VERSION = 31;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -524,7 +525,32 @@ function extractCodexSignalTools(payload) {
   return names;
 }
 
+// TM's archive carries measured session totals for eleven clients. Use it to
+// replace an undercount from our own transcript walk; never to overwrite a
+// larger, already-exact number.
+function applyTokenMonitorSessionTotals(record) {
+  if (!record || !record.session_id) return;
+  const totals = lookupTokenMonitorSessionTotals(record.source, record.session_id);
+  if (!totals || !(totals.total_tokens > 0)) return;
+  const current = finite(record.total_tokens || record.tokens?.total_tokens);
+  if (totals.total_tokens <= current) return;
+  record.input_tokens = totals.input_tokens;
+  record.cached_input_tokens = totals.cached_input_tokens;
+  record.cache_creation_input_tokens = totals.cache_creation_input_tokens;
+  record.output_tokens = totals.output_tokens;
+  record.reasoning_output_tokens = totals.reasoning_output_tokens;
+  record.total_tokens = totals.total_tokens;
+  record.tokens = { ...(record.tokens || {}), ...totals };
+  if (Array.isArray(record.model_usage) && record.model_usage.length === 1) {
+    Object.assign(record.model_usage[0], totals);
+  }
+  record.usage_source = "token-monitor-archive";
+  record.usage_precision = "exact";
+  record.usage_is_incomplete = false;
+}
+
 function finalizeRecord(record) {
+  applyTokenMonitorSessionTotals(record);
   delete record._last_ts_ms;
   record.active_ms = Math.max(0, finite(record.active_ms));
   record.duration_ms = record.active_ms;

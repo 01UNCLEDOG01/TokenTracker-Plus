@@ -11,6 +11,7 @@ const {
   normalizeSpeedPerformance,
   loadTokenMonitorSpeedMap,
   lookupTokenMonitorPerformance,
+  lookupTokenMonitorSessionTotals,
   resetTokenMonitorSpeedCacheForTests,
 } = require("../src/lib/token-monitor-speed");
 
@@ -57,7 +58,7 @@ test("loadTokenMonitorSpeedMap and lookup with mock SQLite db", (t) => {
     CREATE TABLE sessions (session_key TEXT PRIMARY KEY, entry_json TEXT);
     INSERT INTO sessions VALUES (
       'dsh:session-test-123',
-      '{"sessionId":"session-test-123","periods":{"allTime":{"timedOutputTokens":600,"timedDurationMs":10000,"messageCount":2}}}'
+      '{"sessionId":"session-test-123","periods":{"allTime":{"timedOutputTokens":600,"timedDurationMs":10000,"messageCount":2,"inputTokens":300,"cacheReadTokens":500,"outputTokens":150,"reasoningTokens":50}}}'
     );
     INSERT INTO sessions VALUES (
       'antigravity:ag-test-456',
@@ -83,6 +84,14 @@ test("loadTokenMonitorSpeedMap and lookup with mock SQLite db", (t) => {
   const agPerf = lookupTokenMonitorPerformance("antigravity", "ag-test-456", options);
   assert.ok(agPerf);
   assert.equal(agPerf.estimated_tokens_per_second, 80);
+
+  const dshTotals = lookupTokenMonitorSessionTotals("dsh", "session-test-123", options);
+  assert.ok(dshTotals);
+  assert.equal(dshTotals.input_tokens, 300);
+  assert.equal(dshTotals.cached_input_tokens, 500);
+  assert.equal(dshTotals.output_tokens, 150);
+  assert.equal(dshTotals.reasoning_output_tokens, 50);
+  assert.equal(dshTotals.total_tokens, 1000);
 
   // Scoped isolation: lookup with source="kimi" must not match "opencode:shared-id"
   assert.equal(lookupTokenMonitorPerformance("kimi", "shared-id", options), null);

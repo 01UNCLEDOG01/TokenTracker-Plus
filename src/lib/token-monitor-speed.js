@@ -94,6 +94,7 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
   const bySessionId = new Map();
   let db;
   let readSuccess = false;
+  const byKeyTotals = new Map();
   try {
     db = new DatabaseSync(dbPath, { open: true, readOnly: true });
     const rows = db.prepare("SELECT session_key, entry_json FROM sessions").all();
@@ -104,6 +105,21 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
         const data = JSON.parse(row.entry_json);
         const p = data?.periods?.allTime || data?.periods?.month || data?.periods?.today;
         if (!p) continue;
+        const totals = {
+          input_tokens: num(p.inputTokens),
+          cached_input_tokens: num(p.cacheReadTokens),
+          cache_creation_input_tokens: num(p.cacheWriteTokens),
+          output_tokens: num(p.outputTokens),
+          reasoning_output_tokens: num(p.reasoningTokens),
+          total_tokens: num(p.totalTokens)
+            || num(p.inputTokens) + num(p.cacheReadTokens) + num(p.cacheWriteTokens)
+              + num(p.outputTokens) + num(p.reasoningTokens),
+        };
+        if (totals.total_tokens > 0) {
+          byKeyTotals.set(key, totals);
+          const bare = key.includes(":") ? key.slice(key.indexOf(":") + 1) : key;
+          if (bare) byKeyTotals.set(`*:${bare}`, totals);
+        }
         const timedTokens = num(p.timedOutputTokens);
         const timedMs = num(p.timedDurationMs);
         if (timedTokens <= 0 || timedMs <= 0) continue;
@@ -132,11 +148,25 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
     cachedSize = stat.size;
     cachedWalMtimeMs = walMtimeMs;
     cachedWalSize = walSize;
-    cachedSpeedIndex = { byKey, bySessionId };
+    cachedSpeedIndex = { byKey, bySessionId, byKeyTotals };
     return cachedSpeedIndex;
   }
 
-  return { byKey, bySessionId };
+  return { byKey, bySessionId, byKeyTotals };
+}
+
+// TM's session archive is the measured source for these clients; return its
+// all-time totals so a transcript estimate can be replaced by the real number.
+const TM_SOURCE_PREFIX = { "qoder-cn": "qodercn", minimax: "mcode" };
+
+function lookupTokenMonitorSessionTotals(source, sessionId, options = {}) {
+  if (!sessionId) return null;
+  const index = loadTokenMonitorSpeedMap(options);
+  const totals = index?.byKeyTotals;
+  if (!totals) return null;
+  const key = String(source || "").toLowerCase();
+  const prefix = TM_SOURCE_PREFIX[key] || key;
+  return totals.get(`${prefix}:${sessionId}`) || totals.get(`*:${sessionId}`) || null;
 }
 
 function lookupTokenMonitorPerformance(source, sessionId, options = {}) {
@@ -163,5 +193,6 @@ module.exports = {
   normalizeSpeedPerformance,
   loadTokenMonitorSpeedMap,
   lookupTokenMonitorPerformance,
+  lookupTokenMonitorSessionTotals,
   resetTokenMonitorSpeedCacheForTests,
 };
