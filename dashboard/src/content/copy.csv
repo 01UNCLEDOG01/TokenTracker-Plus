@@ -1550,6 +1550,7 @@ sessions.col.cost,ui,SessionsPage,SessionsPage,col_cost,"Cost",,active
 sessions.col.edits,ui,SessionsPage,SessionsPage,col_edits,"Edits",,active
 sessions.badge.first_pass,ui,SessionsPage,SessionsPage,badge_first_pass,"First-pass",,active
 sessions.badge.reported_cost,ui,SessionsPage,SessionsPage,badge_reported_cost,"Reported cost",,active
+sessions.badge.archived,ui,SessionsPage,SessionsPage,badge_archived,"Metadata snapshot · source removed",,active
 sessions.badge.credits,ui,SessionsPage,SessionsPage,badge_credits,{{credits}} credits,,active
 sessions.detail.credits,ui,SessionsPage,SessionDetailModal,detail_credits,Credits used,,active
 sessions.notice.credits_coverage,ui,SessionsPage,SessionsPage,notice_credits_coverage,"Credits come from WorkBuddy's own per-request log, so they cover only the conversations whose transcript is still on this machine. The full credit ledger is on the Usage page.",,active

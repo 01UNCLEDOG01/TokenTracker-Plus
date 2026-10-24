@@ -55,8 +55,8 @@ const {
 } = require("./rollout");
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
-const { readAntigravityTokscaleUsageCached, preferMeasuredAntigravitySession } = require("./antigravity-tokscale");
 const { lookupTokenMonitorSessionTotals } = require("./token-monitor-speed");
+const { sessionArchivePath, readSessionArchive, reconcileSessionArchive, serializeSessionArchive } = require("./session-archive");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector, createZcodePerformanceCollector } = require("./session-performance");
 const { lookupTokenMonitorPerformance } = require("./token-monitor-speed");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
@@ -122,7 +122,7 @@ const {
 // the queueing/reasoning that produced it, inflating dsh's tokens/s ~29%.
 // v33 keeps antigravity's own per-generation counts when they are exact
 // instead of replacing them with Token Monitor's archive.
-const SIDECAR_VERSION = 33;
+const SIDECAR_VERSION = 35;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -343,11 +343,11 @@ function repriceSessionRecord(record) {
     // zero, and explicitly mark the session estimate as a known lower bound.
   } else {
     const providerCost = Number(record.provider_cost_usd);
-    record.cost_usd = record.cost_source === "provider_reported"
-      && Number.isFinite(providerCost)
-      && providerCost >= 0
-      ? providerCost
-      : computeRowCost({ source: record.source, model: record.model, ...record.tokens });
+    record.cost_usd = record.archived && record.cost_source === "archive_saved" && Number.isFinite(record.cost_usd)
+      ? record.cost_usd
+      : record.cost_source === "provider_reported" && Number.isFinite(providerCost) && providerCost >= 0
+        ? providerCost
+        : computeRowCost({ source: record.source, model: record.model, ...record.tokens });
     if (record.cost_source !== "provider_reported" && finite(record.total_tokens || record.tokens?.total_tokens) > 0
       && getModelPricingInfo(record.model, { source: record.source }).status === "unpriced") record.cost_is_partial = true;
   }
@@ -534,7 +534,7 @@ function extractCodexSignalTools(payload) {
 // replace an undercount from our own transcript walk; never to overwrite a
 // larger, already-exact number.
 function applyTokenMonitorSessionTotals(record) {
-  if (!record || !record.session_id) return;
+  if (!record || !record.session_id || record.source === "antigravity") return;
   const totals = lookupTokenMonitorSessionTotals(record.source, record.session_id);
   if (!totals || !(totals.total_tokens > 0)) return;
   const current = finite(record.total_tokens || record.tokens?.total_tokens);
@@ -617,7 +617,8 @@ async function scanClaudeSession(filePath, options = {}) {
   // One logical cross-root group is cached and scanned as a unit, so widening
   // this set across that group stays deterministic. Unrelated files (including
   // same-UUID siblings inside one root) are never grouped here.
-  const seenMessages = new Set();
+  const seenMessages = options.seenMessages || new Set();
+  const archiveUsageEvents = [];
   const performanceCollector = createClaudePerformanceCollector();
   const modelUsageByModel = new Map();
   const editTurnsByModel = new Map();
@@ -654,7 +655,7 @@ async function scanClaudeSession(filePath, options = {}) {
   // shared prefix and different tails. Scan every tail, but suppress records
   // already present in an earlier root. Hashes stay in-memory only, preserving
   // the metadata-only persistence contract.
-  const priorRecordHashes = new Set();
+  const priorRecordHashes = options.seenRecordHashes || new Set();
   let scannedFiles = 0;
   for (const currentFilePath of filePaths) {
     const currentRecordHashes = new Set();
@@ -662,7 +663,7 @@ async function scanClaudeSession(filePath, options = {}) {
       const input = fs.createReadStream(currentFilePath, { encoding: "utf8" });
       const lines = readline.createInterface({ input, crlfDelay: Infinity });
       for await (const line of lines) {
-        if (filePaths.length > 1) {
+        if (filePaths.length > 1 || options.seenRecordHashes) {
           const recordHash = crypto.createHash("sha256").update(line).digest("base64url");
           if (priorRecordHashes.has(recordHash)) continue;
           currentRecordHashes.add(recordHash);
@@ -673,7 +674,8 @@ async function scanClaudeSession(filePath, options = {}) {
         // return null to drop records that carry no signal this loop understands.
         const obj = adaptRecord ? adaptRecord(parsed, currentFilePath) : parsed;
         if (!obj) continue;
-        const timingKey = claudeMessageDedupKey(obj);
+        const rawTimingKey = claudeMessageDedupKey(obj);
+        const timingKey = rawTimingKey ? crypto.createHash("sha256").update(rawTimingKey).digest("hex") : null;
         const countedUsage = obj.type === "assistant" && obj.message && (!timingKey || !seenMessages.has(timingKey))
           ? normalizeClaudeUsage(obj.message.usage) : null;
         performanceCollector.consume(obj, timingKey, countedUsage, normalizeSessionModel(obj.message?.model) || model);
@@ -701,7 +703,7 @@ async function scanClaudeSession(filePath, options = {}) {
           continue;
         }
         if (obj.type !== "assistant" || !obj.message) continue;
-        const dedupKey = claudeMessageDedupKey(obj);
+        const dedupKey = timingKey;
         if (dedupKey && seenMessages.has(dedupKey)) continue;
         if (dedupKey) seenMessages.add(dedupKey);
         // Claude writes internal summary/observer messages with model
@@ -717,6 +719,7 @@ async function scanClaudeSession(filePath, options = {}) {
         if (onUsage) onUsage(obj, usage);
         addTotals(tokens, usage);
         if (usage.total_tokens > 0) {
+          archiveUsageEvents.push({ hash: dedupKey || crypto.createHash("sha256").update(line).digest("hex"), model, timestamp: obj.timestamp || obj.message?.timestamp, ...usage });
           const modelUsage = modelUsageByModel.get(model) || { model, ...emptyTotals(), usage_events: 0 };
           addTotals(modelUsage, usage);
           modelUsage.usage_events += 1;
@@ -774,6 +777,7 @@ async function scanClaudeSession(filePath, options = {}) {
     subagent_calls: subagentCalls,
     subagent_types: Object.fromEntries([...subagentTypes.entries()].sort()),
     tokens,
+    _archive_usage_events: archiveUsageEvents,
     ...(recordExtras || {}),
     provenance: { source: "local-session-log", confidence: "observed", retry_confidence: "inferred", content_retained: false },
   });
@@ -3091,15 +3095,15 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   // Antigravity keeps one SQLite database per conversation under
   // <home>/.gemini/antigravity/conversations; each pairs with a transcript
   // directory of the same uuid.
-  const antigravityDbs = (() => {
+  const antigravityDbs = ["antigravity", "antigravity-ide", "antigravity-cli"].flatMap((variant) => {
     try {
-      const dir = path.join(home, ".gemini", "antigravity", "conversations");
+      const dir = path.join(home, ".gemini", variant, "conversations");
       return fs.readdirSync(dir)
         .filter((f) => f.endsWith(".db"))
         .sort()
         .map((f) => path.join(dir, f));
     } catch (_e) { return []; }
-  })();
+  });
   const workbuddyFiles = (deps.workbuddyProjectFiles
     || resolveWorkbuddyProjectFilesAll(workbuddyEnv)).filter((entry) => typeof entry === "string");
   const codexRoots = providerRoots(home, ".codex", env, { ...deps, extraRoots: extraRootsFor("codex") });
@@ -3374,11 +3378,6 @@ function antigravityRequestText(content) {
   return body.length > ANTIGRAVITY_TITLE_MAX ? `${body.slice(0, ANTIGRAVITY_TITLE_MAX)}…` : body;
 }
 
-function isRealAntigravityDbPath(dbPath) {
-  const root = path.join(os.homedir(), ".gemini", "antigravity");
-  return path.resolve(dbPath).startsWith(`${path.resolve(root)}${path.sep}`);
-}
-
 // ── Qoder / Qoder CN transcripts ────────────────────────────────────────────
 // Both editions write Claude-Code-shaped JSONL under
 // <home>/.qoder[-cn]/projects/<workdir>/<uuid>.jsonl. Qoder bills in credits
@@ -3560,14 +3559,16 @@ async function scanAntigravitySession(dbPath) {
   try {
     chunkFiles = fs.readdirSync(transcriptDir).filter((f) => f.endsWith(".jsonl")).sort();
   } catch (_e) { chunkFiles = []; }
-  if (!chunkFiles.length) throw new Error("antigravity transcript chunks are missing");
-  const chunkPaths = chunkFiles.map((f) => path.join(transcriptDir, f));
-  const raw = readAntigravityTranscriptChunks(chunkPaths);
+  const logsDir = path.join(antigravityRoot, "brain", uuid, ".system_generated", "logs");
+  const chunkPaths = chunkFiles.length
+    ? chunkFiles.map((f) => path.join(transcriptDir, f))
+    : ["transcript.jsonl", "transcript_full.jsonl"].map((name) => path.join(logsDir, name)).filter((file) => fs.existsSync(file)).slice(0, 1);
+  const raw = chunkPaths.length ? readAntigravityTranscriptChunks(chunkPaths) : "";
 
   // Lazy require: rollout.js requires this module for the Claude scanner.
   const { parseAntigravityFile, readAntigravityWorkspace } = require("./rollout");
   const result = await parseAntigravityFile({
-    filePath: chunkPaths[0],
+    filePath: chunkPaths[0] || path.join(logsDir, "transcript.jsonl"),
     rawBuffer: Buffer.from(raw),
     hourlyState: { buckets: {} },
     touchedBuckets: new Set(),
@@ -3615,6 +3616,9 @@ async function scanAntigravitySession(dbPath) {
   }
 
   const contributions = Object.values(result.contributions || {});
+  const usageTimes = (result.usageBuckets || []).map((bucket) => Date.parse(bucket.timestamp)).filter(Number.isFinite);
+  if (startedMs === null && usageTimes.length) startedMs = Math.min(...usageTimes);
+  if (endedMs === null && usageTimes.length) endedMs = Math.max(...usageTimes);
   const byModel = new Map();
   for (const contribution of contributions) {
     const model = contribution?.model || result.currentModel || "antigravity-unknown";
@@ -3652,41 +3656,8 @@ async function scanAntigravitySession(dbPath) {
     reasoning_output_tokens: acc.reasoning_output_tokens + m.reasoning_output_tokens,
     total_tokens: acc.total_tokens + m.total_tokens,
   }), { input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0 });
-  let cachedUsage = null;
-  let usageEvents = finite(result.eventsAggregated);
-  let usagePrecision = result.usageSource === "sqlite" ? "exact" : "estimated";
-  let costUsd = undefined;
-  if (isRealAntigravityDbPath(dbPath)) {
-    try {
-      const snapshot = readAntigravityTokscaleUsageCached({ home: os.homedir(), env: process.env });
-      const session = snapshot.bySession.get(uuid);
-      const measured = preferMeasuredAntigravitySession({ ownPrecision: usagePrecision, snapshotSession: session });
-      if (measured) {
-        cachedUsage = measured;
-        const agPerf = measured.performance || lookupTokenMonitorPerformance("antigravity", uuid) || normalizePerformance();
-        modelUsage = [...measured.models.values()].map((usage) => ({
-          ...usage,
-          performance: agPerf,
-        }));
-        totals = { ...measured.usage };
-        usageEvents = [...measured.models.values()].reduce((sum, usage) => sum + finite(usage.usage_events), 0);
-        usagePrecision = "exact";
-        if (typeof measured.costUsd === "number" && measured.costUsd >= 0) {
-          costUsd = measured.costUsd;
-        }
-      } else if (session) {
-        // Our own per-generation counts already matched the database, so the
-        // totals stay ours; borrow only a rate the transcript path did not
-        // produce.
-        const agPerf = session.performance || lookupTokenMonitorPerformance("antigravity", uuid);
-        if (agPerf) {
-          modelUsage = modelUsage.map((usage) => ({ ...usage, performance: agPerf }));
-        }
-      }
-    } catch {
-      // A missing or unreadable tokscale cache keeps the transcript numbers.
-    }
-  }
+  const usageEvents = finite(result.eventsAggregated);
+  const usagePrecision = result.usagePrecision || "estimated";
   const project = contributions.find((c) => c?.projectKey) || {};
   const workspace = readAntigravityWorkspace(dbPath);
   const projectRef = workspace || project.projectRef || null;
@@ -3703,7 +3674,8 @@ async function scanAntigravitySession(dbPath) {
     project_ref: projectRef,
     model: modelUsage[0]?.model ?? null,
     model_usage: modelUsage,
-    performance: cachedUsage?.performance || lookupTokenMonitorPerformance("antigravity", uuid) || {},
+    usage_buckets: result.usageBuckets || [],
+    performance: lookupTokenMonitorPerformance("antigravity", uuid) || {},
     started_at: startedMs ? new Date(startedMs).toISOString() : null,
     ended_at: endedMs ? new Date(endedMs).toISOString() : null,
     active_ms: startedMs !== null && endedMs !== null ? Math.max(0, endedMs - startedMs) : 0,
@@ -3713,12 +3685,11 @@ async function scanAntigravitySession(dbPath) {
     subagent_calls: 0,
     ...totals,
     tokens: { ...totals },
-    provider_cost_usd: costUsd,
-    cost_source: costUsd !== undefined ? "provider_reported" : undefined,
-    provenance: "measured",
-    usage_source: cachedUsage ? (cachedUsage.source || "tokscale-antigravity-cache") : undefined,
+    provenance: "local-session-log",
+    usage_source: "antigravity-conversation-db",
+    native_model_enum: result.nonTokenModelEnum,
     usage_precision: usagePrecision,
-    usage_is_incomplete: cachedUsage ? false : !result.dbReadOk,
+    usage_is_incomplete: Boolean(result.usageIsIncomplete) || !result.dbReadOk,
     usage_events: usageEvents,
     model_calls: usageEvents,
     tool_calls: toolCalls,
@@ -3840,6 +3811,12 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   const previousFiles = previousMeta?.version === SIDECAR_VERSION && previousMeta.files
     ? previousMeta.files
     : {};
+  const archive = readSessionArchive(home);
+  const archiveSeed = archive.length ? archive : readSidecar(sidecarPath).map((row, index) => ({
+    ...row, _cache_key: row._cache_key || `legacy:${row.session_hash}:${index}`,
+  }));
+  const seenClaudeMessages = new Set();
+  const seenClaudeRecords = new Set();
   const nextFiles = {};
   const sessions = [];
   const entries = [
@@ -3896,7 +3873,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
 
         // One db scans to many cached rows; recover them all from the previous
         // pass. An empty recovery means the sidecar lost its rows — rescan.
-        const cached = previousRows.filter((row) => row?.source === entry.source);
+        const cached = previousRows.filter((row) => row?.source === entry.source && !row.archived);
         rows = cached.length ? cached : null;
       } else {
         const row = previousRowsByFile.get(cacheKey) || null;
@@ -3905,7 +3882,9 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     }
     if (!rows) {
       try {
-        const scanned = await entry.scan(entry.filePath);
+        const scanned = entry.source === "claude"
+          ? await scanClaudeSession(entry.filePath, { seenMessages: seenClaudeMessages, seenRecordHashes: seenClaudeRecords })
+          : await entry.scan(entry.filePath);
         rows = Array.isArray(scanned) ? scanned.filter(Boolean) : (scanned ? [scanned] : []);
       } catch (error) {
         // One active/partial session must not poison the sidecar, but do not
@@ -3922,6 +3901,10 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       }
     }
     for (const row of rows) {
+      if (!row.session_id && !row.total_tokens && !row.turns && !row.credits) continue;
+      if (entry.source === "claude") {
+        for (const event of row._archive_usage_events || []) seenClaudeMessages.add(event.hash);
+      }
       repriceSessionRecord(row);
       // A one-way file hash enables incremental reuse without persisting or
       // exposing the user's local session path. ZCode's rows all share one db,
@@ -3973,10 +3956,17 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     await writeAtomic(incompleteKimiPath, "1\n");
     sessions.push(...readSidecar(sidecarPath).filter((row) => row.source === "kimi" && row.version === SIDECAR_VERSION));
   }
+  const archived = reconcileSessionArchive(sessions, archiveSeed);
+  for (const row of archived.retained) {
+    if (!row.model_usage?.length && Number.isFinite(row.cost_usd)) row.cost_source = "archive_saved";
+    repriceSessionRecord(row);
+  }
+  sessions.push(...archived.retained);
   sessions.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
   // A failed database scan is an incomplete inventory. Keep the last complete
   // snapshot and signature so an unchanged database is retried next build.
-  if (incompleteDirs.length === 0 && !incompleteZcodeScan && !incompleteOpencodeScan && !incompleteKimiScan) {
+  if (incompleteDirs.length === 0 && !skippedFiles && !incompleteZcodeScan && !incompleteOpencodeScan && !incompleteKimiScan) {
+    await writeAtomic(sessionArchivePath(home), serializeSessionArchive(archived.snapshots));
     const content = sessions.map(serializeSessionRecord).join("\n") + (sessions.length ? "\n" : "");
     await writeAtomic(sidecarPath, content);
     const generatedAt = new Date().toISOString();
@@ -4283,6 +4273,7 @@ function toSessionBrowserRow(row) {
   const tokens = row.tokens && typeof row.tokens === "object" ? row.tokens : {};
   return {
     session_hash: row.session_hash,
+    archived: Boolean(row.archived),
     session_id: row.session_id || null,
     parent_session_id: row.parent_session_id || null,
     parent_session_hash: row.parent_session_hash || null,
@@ -4350,7 +4341,7 @@ function toSessionBrowserRow(row) {
     compaction_count: finite(row.compaction_count),
     productive: Boolean(row.productive),
     first_pass: Boolean(row.first_pass ?? row.one_shot),
-    resume_command: resumeCommandFor(row.source, row.session_id),
+    resume_command: row.archived ? null : resumeCommandFor(row.source, row.session_id),
   };
 }
 

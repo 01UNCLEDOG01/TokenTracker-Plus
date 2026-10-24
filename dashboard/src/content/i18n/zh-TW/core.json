@@ -619,6 +619,7 @@
   "sessions.col.edits": "編輯",
   "sessions.badge.first_pass": "一次完成",
   "sessions.badge.reported_cost": "官方費用",
+  "sessions.badge.archived": "中繼資料快照 · 原會話已移除",
   "sessions.badge.credits": "{{credits}} 積分",
   "sessions.detail.credits": "消耗積分",
   "sessions.notice.credits_coverage": "積分取自 WorkBuddy 自己每次請求的記帳，只覆蓋本機仍保留對話記錄的那些會話；完整積分帳本在「用量」頁。",

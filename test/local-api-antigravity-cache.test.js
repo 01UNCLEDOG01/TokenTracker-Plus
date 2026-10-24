@@ -65,7 +65,7 @@ async function request(handler, url) {
   return JSON.parse(chunks.join(""));
 }
 
-test("the local API prefers measured antigravity days and keeps other estimates", async () => {
+test("the local API never replaces native antigravity buckets with an external day cache", async () => {
   fs.writeFileSync(queuePath, [
     row({ model: "gemini-3.8-flash-n", hour: "2026-10-04T06:00:00.000Z", tokens: 1000 }),
     row({ model: "gemini-3.8-flash-n", hour: "2026-10-12T06:00:00.000Z", tokens: 2000 }),
@@ -85,8 +85,8 @@ test("the local API prefers measured antigravity days and keeps other estimates"
   const body = await request(handler, "/functions/tokentracker-usage-model-breakdown?from=2026-10-04&to=2026-10-12&tz=Asia/Shanghai");
   const antigravity = body.sources.find((source) => source.source === "antigravity");
   assert.ok(antigravity, "antigravity source is present");
-  assert.equal(antigravity.totals.total_tokens, 3060, "1060 measured + 2000 uncovered estimate");
+  assert.equal(antigravity.totals.total_tokens, 3000, "native 1000 + 2000, unaffected by the cache");
   assert.equal(antigravity.models.length, 1);
   assert.equal(antigravity.models[0].model, "gemini-3.8-flash-n");
-  assert.equal(antigravity.models[0].totals.total_tokens, 3060);
+  assert.equal(antigravity.models[0].totals.total_tokens, 3000);
 });

@@ -687,6 +687,7 @@
   "sessions.col.edits": "编辑",
   "sessions.badge.first_pass": "一次完成",
   "sessions.badge.reported_cost": "官方费用",
+  "sessions.badge.archived": "元数据快照 · 原会话已移除",
   "sessions.badge.credits": "{{credits}} 积分",
   "sessions.detail.credits": "消耗积分",
   "sessions.notice.credits_coverage": "积分取自 WorkBuddy 自己每次请求的记账，只覆盖本机仍保留对话记录的那些会话；完整积分账本在「用量」页。",

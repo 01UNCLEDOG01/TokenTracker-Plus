@@ -5383,7 +5383,7 @@ test("parseAntigravityFile keeps a non-Gemini Model Selection sticky over the db
     const transcriptLines = [];
     const modelGemini = "gemini-3.8-flash-n";
     // normalizeAntigravityTranscriptModel 保留点号：claude-opus-4.6
-    const modelClaude = "claude-opus-4.6";
+    const modelClaude = "claude-opus-4-6";
     // 步骤 0：Gemini（选择前）
         transcriptLines.push(JSON.stringify({ type: "PLANNER_RESPONSE", step_index: 0, created_at: ts("21", "40", "00"), content: "gemini planner output for the pre-selection step with enough text to estimate tokens" }));
     // 21:47:07 选择 Claude Opus 4.6；步骤 1 的 db 名仍是规划器的 Gemini id
@@ -13102,7 +13102,7 @@ test("parseAntigravityIncremental normalizes non-Flash model settings without de
 
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.length, 1);
-    assert.equal(queued[0].model, "claude-haiku-4.6");
+    assert.equal(queued[0].model, "claude-haiku-4-6");
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
@@ -13195,7 +13195,7 @@ for (const eventType of ["USER_INPUT", "USER_SETTINGS_CHANGE"]) {
 
       const queued = await readJsonLines(queuePath);
       assert.equal(queued.length, 1);
-      assert.equal(queued[0].model, "claude-haiku-4.6");
+      assert.equal(queued[0].model, "claude-haiku-4-6");
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
@@ -13227,9 +13227,10 @@ function buildAntigravityTestProto({
   model,
   contextTokens,
   lastStepIndex,
-  systemTokens,
+  modelEnum,
   uncachedInput,
   cachedInput,
+  cacheCreationInput,
   outputTokens,
   textOutput,
   reasoningOutput,
@@ -13243,20 +13244,22 @@ function buildAntigravityTestProto({
     parts.push(f9);
   }
   if (
-    Number.isFinite(systemTokens) ||
+    Number.isFinite(modelEnum) ||
     Number.isFinite(uncachedInput) ||
     Number.isFinite(cachedInput) ||
+    Number.isFinite(cacheCreationInput) ||
     Number.isFinite(outputTokens) ||
     Number.isFinite(textOutput) ||
     Number.isFinite(reasoningOutput)
   ) {
     const f4Parts = [];
-    if (Number.isFinite(systemTokens)) f4Parts.push(encodeAntigravityTestVi(1, systemTokens));
+    if (Number.isFinite(modelEnum)) f4Parts.push(encodeAntigravityTestVi(1, modelEnum));
     if (Number.isFinite(uncachedInput)) f4Parts.push(encodeAntigravityTestVi(2, uncachedInput));
     if (Number.isFinite(outputTokens)) f4Parts.push(encodeAntigravityTestVi(3, outputTokens));
+    if (Number.isFinite(cacheCreationInput)) f4Parts.push(encodeAntigravityTestVi(4, cacheCreationInput));
     if (Number.isFinite(cachedInput)) f4Parts.push(encodeAntigravityTestVi(5, cachedInput));
-    if (Number.isFinite(textOutput)) f4Parts.push(encodeAntigravityTestVi(9, textOutput));
-    if (Number.isFinite(reasoningOutput)) f4Parts.push(encodeAntigravityTestVi(10, reasoningOutput));
+    if (Number.isFinite(textOutput)) f4Parts.push(encodeAntigravityTestVi(10, textOutput));
+    if (Number.isFinite(reasoningOutput)) f4Parts.push(encodeAntigravityTestVi(9, reasoningOutput));
     parts.push(encodeAntigravityTestLd(4, Buffer.concat(f4Parts)));
   }
   if (lastStepIndex != null) {
@@ -13368,7 +13371,40 @@ test("extractAntigravityGenInfo extracts usage metadata from protobuf payload", 
   assert.equal(info.reasoningOutput, 69);
 });
 
-test("extractAntigravityGenInfo handles absent textOutput and defaults to zero", () => {
+test("Antigravity vendor fields count cache writes and split thinking without model enums", () => {
+  const info = extractAntigravityGenInfo(buildAntigravityTestProto({
+    model: "gemini-3.8-flash", modelEnum: 1322, uncachedInput: 3375,
+    cacheCreationInput: 11, outputTokens: 796, textOutput: 245, reasoningOutput: 551,
+    lastStepIndex: 0,
+  }));
+  assert.equal(info.uncachedInput, 3375);
+  assert.equal(info.cacheCreationInput, 11);
+  assert.equal(info.textOutput, 245);
+  assert.equal(info.reasoningOutput, 551);
+  assert.equal(info.outputTokens, 796);
+  assert.equal(info.usageIsIncomplete, false);
+});
+
+test("Antigravity recovers a measured generation absent from the transcript using its step timestamp", async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-ag-recovered-generation-"));
+  try {
+    const first = buildAntigravityTestProto({ model: "gemini-3.8-flash", lastStepIndex: 0, uncachedInput: 100, outputTokens: 20, textOutput: 10, reasoningOutput: 10 });
+    const second = buildAntigravityTestProto({ model: "gemini-3.8-flash", lastStepIndex: 2, uncachedInput: 200, outputTokens: 30, textOutput: 20, reasoningOutput: 10 });
+    const fixture = await setupAntigravitySqliteSession(tmp, { protos: [first, second], lines: antigravityPlannerLines([
+      { userStep: 0, plannerStep: 1, userAt: "2026-04-05T14:00:00Z", plannerAt: "2026-04-05T14:01:00Z", userContent: "fixture", plannerContent: "reply" },
+    ]) });
+    const stamp = encodeAntigravityTestLd(1, encodeAntigravityTestVi(1, Date.parse("2026-04-05T14:31:00Z") / 1000));
+    sqliteCli.execFileSync("sqlite3", [fixture.dbPath, `CREATE TABLE steps (idx INTEGER PRIMARY KEY, metadata BLOB); INSERT INTO steps VALUES (3, X'${stamp.toString("hex")}');`]);
+    const result = await parseAntigravityFile({ filePath: fixture.transcriptPath, source: "antigravity", applyBuckets: false });
+    assert.equal(result.eventsAggregated, 2);
+    assert.equal(result.usagePrecision, "exact");
+    assert.equal(result.usageBuckets.length, 2);
+    assert.equal(result.usageBuckets.reduce((sum, bucket) => sum + bucket.total_tokens, 0), 350);
+    assert.ok(result.usageBuckets.some((bucket) => bucket.timestamp.startsWith("2026-04-05T14:30")));
+  } finally { await fs.rm(tmp, { recursive: true, force: true }); }
+});
+
+test("extractAntigravityGenInfo derives absent response output from combined output", () => {
   const proto = buildAntigravityTestProto({
     model: "gemini-3.8-flash",
     lastStepIndex: 0,
@@ -13380,7 +13416,7 @@ test("extractAntigravityGenInfo handles absent textOutput and defaults to zero",
   const info = extractAntigravityGenInfo(proto);
   assert.equal(info.outputTokens, 300);
   assert.equal(info.reasoningOutput, 100);
-  assert.equal(info.textOutput, 0);
+  assert.equal(info.textOutput, 200);
 });
 
 test("extractAntigravityGenInfo rejects malformed protobuf varints", () => {
@@ -13445,7 +13481,7 @@ test("extractAntigravityGenInfo keeps a record whose ignored field holds a 64-bi
   );
   const f4 = encodeAntigravityTestLd(
     4,
-    Buffer.concat([encodeAntigravityTestVi(2, 4583), encodeAntigravityTestVi(5, 16319)]),
+    Buffer.concat([encodeAntigravityTestVi(2, 4583), encodeAntigravityTestVi(5, 16319), encodeAntigravityTestVi(3, 0)]),
   );
   const proto = encodeAntigravityTestLd(
     1,
@@ -13489,8 +13525,8 @@ test("extractAntigravityGenInfo does not bill a 64-bit value that lands in a tok
   const info = extractAntigravityGenInfo(proto);
 
   assert.ok(info, "the readable sibling fields must survive");
-  assert.equal(info.uncachedInput, 100);
-  assert.equal(info.cachedInput, 16319);
+  assert.equal(info.hasUsageMetadata, undefined);
+  assert.equal(info.usageIsIncomplete, true);
 });
 
 test("extractAntigravityGenInfo rejects a varint wider than 64 bits", () => {
@@ -13505,17 +13541,17 @@ test("extractAntigravityGenInfo rejects a varint wider than 64 bits", () => {
   assert.equal(extractAntigravityGenInfo(proto), null);
 });
 
-test("extractAntigravityGenInfo includes f4.1 system prompt prefix in uncachedInput", () => {
+test("extractAntigravityGenInfo never counts the field1 model enum as input tokens", () => {
   const proto = buildAntigravityTestProto({
     model: "gemini-3.8-flash",
     lastStepIndex: 0,
-    systemTokens: 1016,
+    modelEnum: 1318,
     uncachedInput: 2000,
     cachedInput: 5000,
     outputTokens: 200,
   });
   const info = extractAntigravityGenInfo(proto);
-  assert.equal(info.uncachedInput, 3016); // 1016 system + 2000 prompt
+  assert.equal(info.uncachedInput, 2000);
   assert.equal(info.cachedInput, 5000);
   assert.equal(info.outputTokens, 200);
 });
@@ -13765,10 +13801,11 @@ test("parseAntigravityIncremental falls back to outputTokens minus reasoning whe
     // Turn 1: output = 300 - 100 = 200, reasoning = 100
     // Turn 2: output = max(0, 50 - 80) = 0, reasoning = 80
     assert.equal(queued[0].output_tokens, 200);
-    assert.equal(queued[0].reasoning_output_tokens, 180);
+    assert.equal(queued[0].reasoning_output_tokens, 150);
+    assert.equal(queued[0].usage_is_incomplete, true);
     assert.equal(queued[0].input_tokens, 1500);
     assert.equal(queued[0].cached_input_tokens, 4500);
-    assert.equal(queued[0].total_tokens, 1500 + 4500 + 200 + 180);
+    assert.equal(queued[0].total_tokens, 1500 + 4500 + 300 + 50);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
@@ -13831,7 +13868,8 @@ test("parseAntigravityIncremental uses SQLite context size without inferring cac
       queued[0].total_tokens,
       queued[0].input_tokens + queued[0].output_tokens + queued[0].reasoning_output_tokens,
     );
-    assert.equal(cursors.files[transcriptPath].usageSource, "sqlite");
+    assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
+    assert.equal(queued[0].usage_is_incomplete, true);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
@@ -14113,7 +14151,7 @@ test("parseAntigravityIncremental reconciles a legacy cursor with SQLite context
     assert.equal(sqliteRow.input_tokens, 30000);
     assert.equal(sqliteRow.cached_input_tokens, 0);
     assert.equal(sqliteRow.conversation_count, 2);
-    assert.equal(cursors.files[transcriptPath].usageSource, "sqlite");
+    assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
@@ -14169,7 +14207,7 @@ test("parseAntigravityIncremental resumes a sqlite cursor without re-walking est
       cursors,
       queuePath,
     });
-    assert.equal(cursors.files[transcriptPath].usageSource, "sqlite");
+    assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
     assert.equal(cursors.files[transcriptPath].previousContextTokens, 25000);
 
     sqliteCli.execFileSync("sqlite3", [dbPath, "DELETE FROM gen_metadata;"]);
@@ -14194,7 +14232,7 @@ test("parseAntigravityIncremental resumes a sqlite cursor without re-walking est
     const latest = queued.filter((row) => row.model === "gemini-3.8-flash").at(-1);
     assert.equal(latest.input_tokens, 30000);
     assert.equal(latest.cached_input_tokens, 0);
-    assert.equal(cursors.files[transcriptPath].usageSource, "sqlite");
+    assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

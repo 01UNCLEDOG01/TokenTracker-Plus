@@ -255,6 +255,7 @@ const SessionRow = React.memo(function SessionRow({
                 }) })}
               </span>
             ) : null}
+            {session.archived ? <span className="sessions-meta-item">{copy("sessions.badge.archived")}</span> : null}
             {isSubagent ? <span className="sessions-meta-item">{copy("sessions.badge.subagent")}{session.agent_role ? ` · ${session.agent_role}` : ""}</span> : null}
             {session.first_pass ? <span className="sessions-meta-item text-emerald-700 dark:text-emerald-300">{copy("sessions.badge.first_pass")}</span> : null}
             {costBadge ? <span className="sessions-meta-item text-amber-700 dark:text-amber-300">{costBadge}</span> : null}

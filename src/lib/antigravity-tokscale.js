@@ -433,18 +433,6 @@ function mergeAntigravityTokscaleRows(allRows, snapshot) {
     .concat(snapshot.rows);
 }
 
-// Antigravity's own conversation database carries per-generation counts, and
-// the transcript scan already resolves them, so a session can be exact without
-// Token Monitor. Those numbers must win: the archive sums input without the
-// per-generation system prefix and adds reasoning on top of an output total
-// that already contains it, so letting it overwrite an exact session made the
-// same conversation read differently depending on whether TM was installed.
-// The archive is still the right answer for a session we could only estimate.
-function preferMeasuredAntigravitySession({ ownPrecision, snapshotSession }) {
-  if (!snapshotSession || !(snapshotSession.models && snapshotSession.models.size > 0)) return null;
-  return ownPrecision === "exact" ? null : snapshotSession;
-}
-
 module.exports = {
   ANTIGRAVITY_SOURCE,
   resolveAntigravityTokscaleDir,
@@ -453,6 +441,5 @@ module.exports = {
   readAntigravityTokscaleUsage,
   readAntigravityTokscaleUsageCached,
   mergeAntigravityTokscaleRows,
-  preferMeasuredAntigravitySession,
   dayKeyOfRow,
 };

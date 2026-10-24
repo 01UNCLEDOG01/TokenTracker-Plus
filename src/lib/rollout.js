@@ -3687,7 +3687,9 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
           addTotals(totals, unknownBucket.totals);
         }
         const usagePrecision = bucket.usage_precision || null;
-        const key = usagePrecision ? `${totalsKey(totals)}|${usagePrecision}` : totalsKey(totals);
+        const metadata = antigravityQueueMetadata(group.source, bucket);
+        const precisionKey = usagePrecision ? `${totalsKey(totals)}|${usagePrecision}` : totalsKey(totals);
+        const key = metadata.usage_retracted ? `${precisionKey}|retracted` : precisionKey;
         if (bucket.queuedKey === key) continue;
         toAppend.push(
           JSON.stringify({
@@ -3703,6 +3705,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
             billable_total_tokens: totals.billable_total_tokens ?? totals.total_tokens,
             total_cost_usd: totals.total_cost_usd || 0,
             usage_precision: usagePrecision || undefined,
+            ...metadata,
             ...prioritySubsetOf(totals),
             conversation_count: totals.conversation_count,
           }),
@@ -3765,9 +3768,11 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
     }
     if (unknownBucket) unknownBucket.alignedModel = nextAligned;
     const usagePrecision = unknownBucket.usage_precision || null;
-    const key = usagePrecision
+    const metadata = antigravityQueueMetadata(group.source, unknownBucket);
+    const precisionKey = usagePrecision
       ? `${totalsKey(unknownBucket.totals)}|${usagePrecision}`
       : totalsKey(unknownBucket.totals);
+    const key = metadata.usage_retracted ? `${precisionKey}|retracted` : precisionKey;
     const outputKey = outputModel === DEFAULT_MODEL ? key : `${key}|${outputModel}`;
     if (unknownBucket.queuedKey === outputKey) continue;
     toAppend.push(
@@ -3784,6 +3789,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
         billable_total_tokens: unknownBucket.totals.billable_total_tokens ?? unknownBucket.totals.total_tokens,
         total_cost_usd: unknownBucket.totals.total_cost_usd || 0,
         usage_precision: usagePrecision || undefined,
+        ...metadata,
         ...prioritySubsetOf(unknownBucket.totals),
         conversation_count: unknownBucket.totals.conversation_count,
       }),
@@ -22377,8 +22383,41 @@ const ANTIGRAVITY_CURSOR_VERSION = 2;
 // the planner's Gemini id even while the work runs on the selected Claude
 // model, so during a non-Gemini selection window the db name no longer
 // overrides the user's explicit choice.
-const ANTIGRAVITY_EXTRACTOR_REVISION = 5;
+// r6: validate native usage coverage, retain ambiguous generations, canonicalize
+// Claude ids, and emit ledger precision plus explicit retraction tombstones.
+const ANTIGRAVITY_EXTRACTOR_REVISION = 6;
 const ANTIGRAVITY_MAX_CONTRIBUTIONS = 4096;
+
+function antigravityCoverage() {
+  return { plannerResponses: 0, measuredResponses: 0, estimatedResponses: 0,
+    incompleteResponses: 0, ambiguousResponses: 0, unmatchedGenerations: 0 };
+}
+
+function addAntigravityCoverage(target, delta) {
+  for (const field of Object.keys(antigravityCoverage())) target[field] += delta?.[field] || 0;
+}
+
+function antigravityPrecision(coverage) {
+  if (!coverage.plannerResponses) return "unavailable";
+  if (coverage.estimatedResponses) return coverage.measuredResponses ? "mixed" : "estimated";
+  return coverage.incompleteResponses || coverage.unmatchedGenerations
+    ? "reported_incomplete" : "exact";
+}
+
+function tagAntigravityBucket(bucket, coverage) {
+  bucket.usage_precision = antigravityPrecision(coverage);
+  bucket.usage_is_incomplete = bucket.usage_precision !== "exact";
+  bucket.usage_retracted = false;
+}
+
+function antigravityQueueMetadata(source, bucket) {
+  if (source !== "antigravity") return {};
+  return {
+    usage_is_incomplete: bucket.usage_is_incomplete === true,
+    ...(bucket.usage_retracted && bucket.totals.total_tokens === 0
+      ? { usage_retracted: true } : {}),
+  };
+}
 
 function hashAntigravityTranscript(buffer) {
   if (!Buffer.isBuffer(buffer)) return null;
@@ -22993,7 +23032,8 @@ async function parseAntigravityIncremental({
       );
     }
 
-    const protectExactState = needsReconcile && prev?.usageSource === "sqlite";
+    const protectExactState = needsReconcile &&
+      (prev?.usageSource === "sqlite" || prev?.coverage?.measuredResponses > 0);
     const hourlyStateBeforeReconcile = protectExactState ? structuredClone(hourlyState) : null;
     const projectStateBeforeReconcile =
       protectExactState && projectState ? structuredClone(projectState) : null;
@@ -23038,7 +23078,7 @@ async function parseAntigravityIncremental({
         lastLine: 0,
         baselineLine: needsFullRebuild ? 0 : baselineLine,
         watermarkLine: Number(prev?.lastLine || 0),
-        initialUsageSource: prev?.usageSource,
+        initialUsageSource: protectExactState ? "sqlite" : prev?.usageSource,
         hourlyState,
         touchedBuckets,
         source: fileSource,
@@ -23083,9 +23123,14 @@ async function parseAntigravityIncremental({
       const mergedContributions = { ...(prev?.contributions || {}) };
       for (const [cKey, cVal] of Object.entries(result.contributions || {})) {
         if (!mergedContributions[cKey]) {
-          mergedContributions[cKey] = { ...cVal, totals: { ...cVal.totals } };
+          mergedContributions[cKey] = structuredClone(cVal);
         } else {
-          addTotals(mergedContributions[cKey].totals, cVal.totals);
+          const merged = mergedContributions[cKey];
+          addTotals(merged.totals, cVal.totals);
+          merged.coverage ||= antigravityCoverage();
+          addAntigravityCoverage(merged.coverage, cVal.coverage);
+          merged.usagePrecision = antigravityPrecision(merged.coverage);
+          merged.usageIsIncomplete = merged.usagePrecision !== "exact";
         }
       }
       result.contributions = mergedContributions;
@@ -23162,6 +23207,9 @@ async function parseAntigravityIncremental({
       currentModel: result.currentModel,
       lastPlannerModel: result.lastPlannerModel,
       usageSource: result.usageSource,
+      usagePrecision: result.usagePrecision,
+      usageIsIncomplete: result.usageIsIncomplete,
+      coverage: result.coverage,
       dbReadOk: result.dbReadOk !== false,
       contributions: contributionState.contributions,
       contributionsComplete: contributionState.complete,
@@ -23183,6 +23231,37 @@ async function parseAntigravityIncremental({
     }
   }
 
+  // Recompute precision from the retained per-file ledger, not the last file
+  // visited. Retraction of an estimated contribution can make a mixed bucket
+  // exact again; missing/capped legacy coverage must never certify exactness.
+  const bucketCoverage = new Map();
+  for (const cursor of Object.values(fileCursors)) {
+    for (const c of Object.values(cursor?.contributions || {})) {
+      if (!c?.totals) continue;
+      const key = bucketKey(c.source, c.model, c.bucketStart);
+      if (!touchedBuckets.has(key)) continue;
+      const acc = bucketCoverage.get(key) || { coverage: antigravityCoverage(), tokens: 0, unknown: false };
+      addAntigravityCoverage(acc.coverage, c.coverage);
+      acc.tokens += c.totals.total_tokens || 0;
+      acc.unknown ||= !c.coverage;
+      bucketCoverage.set(key, acc);
+    }
+  }
+  for (const key of touchedBuckets) {
+    const bucket = hourlyState.buckets[key];
+    if (!bucket) continue;
+    const acc = bucketCoverage.get(key);
+    const counts = acc?.coverage || antigravityCoverage();
+    if (acc?.unknown || (acc?.tokens || 0) !== bucket.totals.total_tokens) {
+      counts.plannerResponses += 1;
+      counts.estimatedResponses += 1;
+      counts.incompleteResponses += 1;
+    }
+    bucket.antigravityCoverage = counts;
+    tagAntigravityBucket(bucket, counts);
+    const previousTokens = cursors.hourly?.buckets?.[key]?.totals?.total_tokens || 0;
+    bucket.usage_retracted = bucket.totals.total_tokens === 0 && previousTokens > 0;
+  }
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
   const projectBucketsQueued = projectEnabled
     ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
@@ -23283,12 +23362,17 @@ function extractAntigravityGenInfo(buf) {
     }
 
     let lastStepIndex = null;
+    let responseId = null;
     for (const f of inner) {
       if (f.num !== 20 || !f.val) continue;
       const kv = findAntigravityProtoFields(f.val);
       const k = kv.find((x) => x.num === 1)?.val;
       const v = kv.find((x) => x.num === 2)?.val;
-      if (k && Buffer.from(k).toString("utf8") === "last_step_index" && v) {
+      const key = k && Buffer.from(k).toString("utf8");
+      if (["responseId", "response_id", "request_id"].includes(key) && v) {
+        responseId = Buffer.from(v).toString("utf8");
+      }
+      if (key === "last_step_index" && v) {
         const rawStepIndex = Buffer.from(v).toString("utf8").trim();
         if (/^\d+$/.test(rawStepIndex)) {
           const parsed = Number(rawStepIndex);
@@ -23299,43 +23383,48 @@ function extractAntigravityGenInfo(buf) {
 
     let uncachedInput;
     let cachedInput;
+    let cacheCreationInput;
     let outputTokens;
     let textOutput;
     let reasoningOutput;
     let hasUsageMetadata = false;
+    let usageIsIncomplete = true;
+    let modelEnum = null;
 
     const f4 = inner.find((f) => f.num === 4)?.val;
     if (f4) {
-      // Antigravity internal usage message layout (Field 4):
-      // - f4.1: system / tool instruction prefix tokens (per-model fixed prefix)
-      // - f4.2: user / prompt tokens for this turn
-      // - f4.3: total output tokens checksum (f4.9 text + f4.10 reasoning)
-      // - f4.5: cached prompt tokens (cache read)
-      // - f4.9: text output tokens
-      // - f4.10: reasoning / thought tokens
+      // ModelUsageStats field 1 is a model enum, not a token counter.
       const f4fields = findAntigravityProtoFields(f4);
-      const sTok = f4fields.find((f) => f.num === 1)?.val;
+      modelEnum = f4fields.find((f) => f.num === 1)?.val;
       const pTok = f4fields.find((f) => f.num === 2)?.val;
+      const wTok = f4fields.find((f) => f.num === 4)?.val;
       const cTok = f4fields.find((f) => f.num === 5)?.val;
       const oTok = f4fields.find((f) => f.num === 3)?.val;
-      const tTok = f4fields.find((f) => f.num === 9)?.val;
-      const rTok = f4fields.find((f) => f.num === 10)?.val;
-      if (
-        Number.isSafeInteger(sTok) ||
-        Number.isSafeInteger(pTok) ||
-        Number.isSafeInteger(cTok) ||
-        Number.isSafeInteger(oTok) ||
-        Number.isSafeInteger(tTok) ||
-        Number.isSafeInteger(rTok)
-      ) {
-        hasUsageMetadata = true;
-        const sysTokens = Number.isSafeInteger(sTok) ? sTok : 0;
-        const promptTokens = Number.isSafeInteger(pTok) ? pTok : 0;
-        uncachedInput = sysTokens + promptTokens;
-        cachedInput = Number.isSafeInteger(cTok) ? cTok : 0;
-        outputTokens = Number.isSafeInteger(oTok) ? oTok : 0;
-        textOutput = Number.isSafeInteger(tTok) ? tTok : 0;
-        reasoningOutput = Number.isSafeInteger(rTok) ? rTok : 0;
+      const tTok = f4fields.find((f) => f.num === 10)?.val;
+      const rTok = f4fields.find((f) => f.num === 9)?.val;
+      const usageResponseId = f4fields.find((f) => f.num === 11)?.val;
+      if (Buffer.isBuffer(usageResponseId)) responseId = usageResponseId.toString("utf8").trim() || responseId;
+      // Proto3 omits default-zero counters. Require input AND output evidence,
+      // not every optional field, and never treat a context/prefix-only row as
+      // complete usage. Unsafe or repeated counters are not trustworthy.
+      const counters = [pTok, wTok, cTok, oTok, tTok, rTok];
+      const valid = counters.every((n) => n === undefined || (Number.isSafeInteger(n) && n >= 0)) &&
+        [2, 3, 4, 5, 9, 10].every((n) => f4fields.filter((f) => f.num === n).length <= 1);
+      const inputPresent = pTok !== undefined || wTok !== undefined || cTok !== undefined;
+      const outputPresent = oTok !== undefined || tTok !== undefined || rTok !== undefined;
+      if (valid && inputPresent && outputPresent) {
+        uncachedInput = pTok || 0;
+        cachedInput = cTok || 0;
+        cacheCreationInput = wTok || 0;
+        reasoningOutput = rTok || 0;
+        outputTokens = oTok === undefined ? (tTok || 0) + reasoningOutput : oTok;
+        textOutput = tTok === undefined ? Math.max(0, outputTokens - reasoningOutput) : tTok;
+        hasUsageMetadata = [uncachedInput, outputTokens,
+          uncachedInput + cachedInput + cacheCreationInput + textOutput + reasoningOutput].every(Number.isSafeInteger);
+        // Missing text is a supported combined-output layout; recover its
+        // remainder. Explicit text must agree with the combined checksum.
+        usageIsIncomplete = !hasUsageMetadata || reasoningOutput > outputTokens ||
+          (tTok !== undefined && oTok !== undefined && tTok + reasoningOutput !== oTok);
       }
     }
 
@@ -23350,10 +23439,14 @@ function extractAntigravityGenInfo(buf) {
       contextTokens,
       usedNonGemini,
       lastStepIndex,
+      responseId,
+      modelEnum: Number.isSafeInteger(modelEnum) ? modelEnum : null,
+      usageIsIncomplete,
       ...(hasUsageMetadata
         ? {
             uncachedInput,
             cachedInput,
+            cacheCreationInput,
             outputTokens,
             textOutput,
             reasoningOutput,
@@ -23410,27 +23503,106 @@ function readAntigravityConversationDb(dbPath) {
     if (!Array.isArray(rows)) return null;
 
     const stepMap = new Map();
+    stepMap.generations = new Map();
+    stepMap.unmappedGenerations = 0;
     for (const r of rows) {
-      if (!r || typeof r.hex !== "string" || !r.hex.startsWith("X'")) continue;
+      if (!r || typeof r.hex !== "string" || !/^X'(?:[0-9a-f]{2})*'$/i.test(r.hex)) {
+        stepMap.unmappedGenerations += 1;
+        continue;
+      }
       const buf = Buffer.from(r.hex.slice(2, -1), "hex");
       const info = extractAntigravityGenInfo(buf);
-      if (
-        info &&
-        info.lastStepIndex != null &&
-        (info.hasUsageMetadata || info.contextTokens > 0)
-      ) {
-        stepMap.set(info.lastStepIndex + 1, info);
+      if (!info || info.lastStepIndex == null) {
+        stepMap.unmappedGenerations += 1;
+        continue;
       }
+      const step = info.lastStepIndex + 1;
+      const generations = stepMap.generations.get(step) || [];
+      const fingerprint = hashAntigravityTranscript(buf);
+      // Only byte-identical metadata is a duplicate. Distinct responses/retries
+      // at one step have no proven transcript join: retain them and report
+      // ambiguity instead of silently keeping the last row or inventing sums.
+      const sameResponse = info.responseId ? generations.findIndex((g) => g.responseId === info.responseId) : -1;
+      if (sameResponse >= 0) generations[sameResponse] = { ...info, fingerprint };
+      else if (!generations.some((g) => g.fingerprint === fingerprint)) generations.push({ ...info, fingerprint });
+      stepMap.generations.set(step, generations);
+      stepMap.set(step, generations.length === 1 ? info : {
+        lastStepIndex: info.lastStepIndex, ambiguous: true, usageIsIncomplete: true,
+      });
     }
-    // An empty map means the database was read successfully but has no usable
-    // metadata yet. Keep it distinct from null, which signals a transient read
-    // failure and must be retried on the next sync.
+    try {
+      const stepRows = readSqliteJsonRows(effectiveDbPath, "SELECT idx, quote(metadata) AS hex FROM steps", {
+        readOnly: true, throwOnReadFailure: true, maxBuffer: 64 * 1024 * 1024, timeout: 15_000,
+      });
+      for (const row of stepRows || []) {
+        if (!/^X'(?:[0-9a-f]{2})*'$/i.test(row.hex || "")) continue;
+        const metadata = findAntigravityProtoFields(Buffer.from(row.hex.slice(2, -1), "hex"));
+        const stamp = metadata.find((field) => field.num === 1)?.val;
+        if (!Buffer.isBuffer(stamp)) continue;
+        const parts = findAntigravityProtoFields(stamp);
+        const seconds = parts.find((field) => field.num === 1)?.val;
+        const nanos = parts.find((field) => field.num === 2)?.val || 0;
+        if (!Number.isSafeInteger(seconds) || !Number.isSafeInteger(nanos) || nanos < 0 || nanos >= 1e9) continue;
+        const ms = seconds * 1000 + Math.floor(nanos / 1e6);
+        if (!Number.isSafeInteger(ms) || ms <= 0 || ms > 8640000000000000) continue;
+        const info = stepMap.get(row.idx);
+        if (info) info.generatedAtMs = ms;
+      }
+    } catch { /* Older databases can omit step timestamps. */ }
     return stepMap;
   } catch (_) {
     return null;
   } finally {
     if (snapshot) snapshot.cleanup();
   }
+}
+
+function includeAntigravityGenerations(lines, stepMap) {
+  const entries = lines.map((line) => {
+    try { return { line, event: JSON.parse(line) }; } catch { return { line, event: null }; }
+  });
+  const observed = new Set(entries.filter(({ event }) => event?.type === "PLANNER_RESPONSE").map(({ event }) => event.step_index));
+  for (const [step, info] of stepMap || []) {
+    if (observed.has(step) || !info.hasUsageMetadata || info.ambiguous || !Number.isFinite(info.generatedAtMs)) continue;
+    const event = { type: "PLANNER_RESPONSE", step_index: step, created_at: new Date(info.generatedAtMs).toISOString(), content: "" };
+    const index = entries.findIndex(({ event }) => Number.isFinite(event?.step_index) && event.step_index > step);
+    entries.splice(index < 0 ? entries.length : index, 0, { line: JSON.stringify(event), event });
+    observed.add(step);
+  }
+  return entries.map(({ line }) => line);
+}
+
+function antigravityObservedCoverage(lines, stepMap) {
+  const coverage = antigravityCoverage();
+  const perLine = new Map();
+  const stepCounts = new Map();
+  const planners = [];
+  for (let i = 0; i < lines.length; i++) {
+    let event;
+    try { event = JSON.parse(lines[i]); } catch { coverage.unmatchedGenerations += 1; break; }
+    if (event?.type !== "PLANNER_RESPONSE") continue;
+    planners.push([i, event]);
+    stepCounts.set(event.step_index, (stepCounts.get(event.step_index) || 0) + 1);
+  }
+  for (const [i, event] of planners) {
+    const turn = stepMap?.get(event.step_index);
+    const ambiguous = turn?.ambiguous || (turn && stepCounts.get(event.step_index) > 1);
+    const measured = Boolean(turn?.hasUsageMetadata && !ambiguous);
+    const incomplete = !measured || turn.usageIsIncomplete || !toUtcHalfHourStart(event.created_at);
+    const counts = antigravityCoverage();
+    counts.plannerResponses = 1;
+    counts.measuredResponses = measured ? 1 : 0;
+    counts.estimatedResponses = measured ? 0 : 1;
+    counts.incompleteResponses = incomplete ? 1 : 0;
+    counts.ambiguousResponses = ambiguous ? 1 : 0;
+    perLine.set(i, counts);
+    addAntigravityCoverage(coverage, counts);
+  }
+  coverage.unmatchedGenerations += stepMap?.unmappedGenerations || 0;
+  for (const [step, generations] of stepMap?.generations || []) {
+    if (!stepCounts.has(step)) coverage.unmatchedGenerations += generations.length;
+  }
+  return { coverage, perLine };
 }
 
 async function parseAntigravityFile({
@@ -23460,20 +23632,6 @@ async function parseAntigravityFile({
   if (raw === null) {
     throw new Error(`Antigravity transcript could not be read: ${filePath}`);
   }
-  if (!raw.trim()) {
-    return {
-      lastLine: 0,
-      eventsAggregated: 0,
-      contextTokens: 0,
-      previousContextTokens: 0,
-      currentModel: null,
-      lastPlannerModel: null,
-      usageSource: "estimated",
-      dbReadOk: true,
-      contributions: {},
-    };
-  }
-
   const allLines = raw
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -23482,11 +23640,14 @@ async function parseAntigravityFile({
     Number.isFinite(maxLine) && maxLine >= 0
       ? Math.min(allLines.length, maxLine)
       : allLines.length;
-  const lines = allLines.slice(0, endLimit);
+  let lines = allLines.slice(0, endLimit);
   let eventsAggregated = 0;
   const contributions = {};
   const dbPath = resolveAntigravityDbPath(filePath);
   const stepMap = dbPath ? readAntigravityConversationDb(dbPath) : null;
+  if (!Number.isFinite(maxLine)) lines = includeAntigravityGenerations(lines, stepMap);
+  const { coverage, perLine } = antigravityObservedCoverage(lines, stepMap);
+  const usagePrecision = antigravityPrecision(coverage);
   // Resume cached context-token total + model so historical lines (i < lastLine)
   // don't need to be re-tokenized on every sync. Falls back to a full re-walk
   // when the cached state is missing (legacy cursor) or the file rotated.
@@ -23506,6 +23667,10 @@ async function parseAntigravityFile({
       lastPlannerModel:
         typeof initialLastPlannerModel === "string" ? initialLastPlannerModel : cachedModel,
       usageSource: "sqlite",
+      usagePrecision: "unavailable",
+      usageIsIncomplete: true,
+      coverage,
+      usageBuckets: [],
       dbReadOk: false,
       deferred: true,
       contributions: {},
@@ -23563,14 +23728,12 @@ async function parseAntigravityFile({
     }
 
     const eventContextTokens = antigravityContextTokens(parsed);
-    const dbTurn =
-      parsed.type === "PLANNER_RESPONSE" && stepMap && Number.isFinite(parsed.step_index)
-        ? stepMap.get(parsed.step_index)
-        : null;
+    const observed = perLine.get(i);
+    const dbTurn = parsed.type === "PLANNER_RESPONSE" && !observed?.ambiguousResponses
+      ? stepMap?.get(parsed.step_index) : null;
     const dbContextTokens = dbTurn && dbTurn.contextTokens > 0 ? dbTurn.contextTokens : 0;
     if (dbTurn && dbTurn.model) {
       const norm = normalizeAntigravityTranscriptModel(dbTurn.model);
-      if (process.env.TT_DBG) console.error("[dbg]", JSON.stringify({ line: i, step: parsed.step_index, db: dbTurn.model, norm, sticky: selectionNonGemini, prev: currentModel }));
       if (norm && !selectionNonGemini) currentModel = norm;
     }
     // The shared-channel flag (used_non_gemini_model / used_claude) is NOT
@@ -23623,19 +23786,15 @@ async function parseAntigravityFile({
       if (dbTurn?.hasUsageMetadata) {
         const uncached = dbTurn.uncachedInput || 0;
         const cached = dbTurn.cachedInput || 0;
-        const reasoning = dbTurn.reasoningOutput || 0;
-        let output = 0;
-        if (Number.isFinite(dbTurn.textOutput) && dbTurn.textOutput > 0) {
-          output = dbTurn.textOutput;
-        } else if (Number.isFinite(dbTurn.outputTokens)) {
-          output = Math.max(0, dbTurn.outputTokens - reasoning);
-        }
+        const reasoning = Math.min(dbTurn.reasoningOutput || 0, dbTurn.outputTokens);
+        const output = Math.max(0, dbTurn.outputTokens - reasoning);
 
         delta.input_tokens = uncached;
         delta.cached_input_tokens = cached;
+        delta.cache_creation_input_tokens = dbTurn.cacheCreationInput || 0;
         delta.output_tokens = output;
         delta.reasoning_output_tokens = reasoning;
-        delta.total_tokens = uncached + cached + output + reasoning;
+        delta.total_tokens = uncached + cached + delta.cache_creation_input_tokens + output + reasoning;
         delta.billable_total_tokens = delta.total_tokens;
         delta.conversation_count = 1;
         billedPlanner = delta.total_tokens > 0;
@@ -23667,7 +23826,7 @@ async function parseAntigravityFile({
       }
     }
 
-    if (!billedPlanner || i < baselineLine) {
+    if (parsed.type !== "PLANNER_RESPONSE" || i < baselineLine) {
       if (billedPlanner) {
         previousContextTokens = contextTokens;
         lastPlannerModel = model;
@@ -23686,13 +23845,21 @@ async function parseAntigravityFile({
         projectKey: projectKey || null,
         projectRef: projectRef || null,
         totals: initTotals(),
+        coverage: antigravityCoverage(),
       };
     }
-    addTotals(contributions[cKey].totals, delta);
+    const contribution = contributions[cKey];
+    addTotals(contribution.totals, delta);
+    addAntigravityCoverage(contribution.coverage, observed);
+    contribution.usagePrecision = antigravityPrecision(contribution.coverage);
+    contribution.usageIsIncomplete = contribution.usagePrecision !== "exact";
 
     if (applyBuckets !== false && hourlyState && touchedBuckets) {
       const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
       addTotals(bucket.totals, delta);
+      bucket.antigravityCoverage ||= antigravityCoverage();
+      addAntigravityCoverage(bucket.antigravityCoverage, observed);
+      tagAntigravityBucket(bucket, bucket.antigravityCoverage);
       touchedBuckets.add(bucketKey(source, model, bucketStart));
 
       if (projectKey && projectState && projectTouchedBuckets) {
@@ -23708,7 +23875,7 @@ async function parseAntigravityFile({
       }
     }
     const isNewForCounter = watermarkLine > 0 ? i >= watermarkLine : true;
-    if (isNewForCounter) {
+    if (isNewForCounter && billedPlanner) {
       eventsAggregated += 1;
     }
     // Snapshot the pre-planner context first. The planner's own content+tool_calls
@@ -23728,7 +23895,16 @@ async function parseAntigravityFile({
     previousContextTokens,
     currentModel,
     lastPlannerModel,
-    usageSource: hasSqliteMetadata ? "sqlite" : "estimated",
+    usageSource: usagePrecision === "exact" ? "sqlite" : "estimated",
+    usagePrecision,
+    usageIsIncomplete: usagePrecision !== "exact",
+    nonTokenModelEnum: stepMap?.size === 1 ? [...stepMap.values()][0].modelEnum : null,
+    coverage,
+    usageBuckets: Object.values(contributions).map((c) => ({
+      timestamp: c.bucketStart, bucketStart: c.bucketStart, source: c.source,
+      model: c.model, ...c.totals, usage_precision: c.usagePrecision,
+      usage_is_incomplete: c.usageIsIncomplete,
+    })),
     dbReadOk: !dbPath || stepMap !== null,
     contributions,
   };
@@ -23778,6 +23954,9 @@ function normalizeAntigravityTranscriptModel(modelName) {
       break;
     }
   }
+  // Claude dot versions and thinking variants share the same billing SKU.
+  // Do not rewrite Gemini/GPT version dots or the selection channel flag.
+  if (/^claude-/.test(slug)) slug = slug.replace(/\./g, "-");
   if (/^(gemini|claude|gpt)-/.test(slug)) return slug;
   return `antigravity-${slug}`;
 }

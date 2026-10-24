@@ -569,6 +569,7 @@
   "sessions.col.edits": "編集",
   "sessions.badge.first_pass": "一発完了",
   "sessions.badge.reported_cost": "報告済みコスト",
+  "sessions.badge.archived": "メタデータ保存済み · 元のセッションは削除済み",
   "sessions.badge.credits": "{{credits}} クレジット",
   "sessions.detail.credits": "使用クレジット",
   "sessions.notice.credits_coverage": "クレジットは WorkBuddy のリクエスト単位の記録から取得しているため、このマシンにログが残っている会話のみ対象です。完全なクレジット台帳は「使用量」ページにあります。",

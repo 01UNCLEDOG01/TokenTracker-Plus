@@ -566,6 +566,7 @@
   "sessions.col.edits": "Bearbeitungen",
   "sessions.badge.first_pass": "Erster Versuch",
   "sessions.badge.reported_cost": "Gemeldete Kosten",
+  "sessions.badge.archived": "Metadaten-Snapshot · Quelle entfernt",
   "sessions.badge.credits": "{{credits}} Credits",
   "sessions.detail.credits": "Verbrauchte Credits",
   "sessions.notice.credits_coverage": "Credits stammen aus der anfragebasierten Protokollierung von WorkBuddy und decken nur Gespräche ab, deren Protokoll noch auf diesem Rechner liegt. Die vollständige Credit-Abrechnung steht auf der Nutzungsseite.",

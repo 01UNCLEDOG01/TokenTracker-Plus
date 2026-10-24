@@ -74,7 +74,6 @@ const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
 const { qoderIntlCreditRows, qoderIntlDisplayModel } = require("./qoder-intl-credits");
-const { readAntigravityTokscaleUsageCached, mergeAntigravityTokscaleRows } = require("./antigravity-tokscale");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
 const { repriceAccountModelCosts } = require("./reprice-account-costs");
@@ -210,20 +209,18 @@ function normalizeQueueRow(row) {
   return normalized;
 }
 
-// Antigravity (via tokscale) and Cursor append half-hour rows for one hour and
-// can finish with a row that carries no counts at all. Last-write-wins then keeps
-// the empty row: on this machine every one of the 21 Antigravity hour keys ended
-// on a 0, which made 425M used tokens invisible in totals, cost and badges.
-// Scoped to those two estimate sources on purpose — other readers may legitimately
-// supersede an hour with a zero, and the cloud upload cadence test proves it.
-// (e.g. Qoder intentionally zeroes out generic models like "官方云端（积分）" when
-// refining into concrete models like "Qwen3.8-Flash（积分）" to prevent 110.6M double counting).
+// Ignore empty telemetry from estimate sources, but accept explicit native
+// ledger retractions. Qoder's deliberate placeholder zeroes remain untouched.
 const ESTIMATE_REPORTING_SOURCES = new Set(["cursor", "antigravity"]);
 
 function resolveQueueRow(existing, incoming) {
   const source = String(incoming?.source || "").toLowerCase();
   if (!ESTIMATE_REPORTING_SOURCES.has(source)) return incoming;
-  if (existing && (Number(existing.total_tokens) || 0) > 0 && (Number(incoming.total_tokens) || 0) === 0) {
+  const retracted = source === "antigravity" && incoming.usage_retracted === true &&
+    ["total_tokens", "input_tokens", "cached_input_tokens", "cache_creation_input_tokens",
+      "output_tokens", "reasoning_output_tokens", "billable_total_tokens", "total_cost_usd"]
+      .every((field) => (Number(incoming[field]) || 0) === 0);
+  if (!retracted && existing && (Number(existing.total_tokens) || 0) > 0 && (Number(incoming.total_tokens) || 0) === 0) {
     return existing;
   }
   return incoming;
@@ -449,23 +446,11 @@ async function scopedQueueRows(queuePath, url) {
   const intlCreditRows = qoderIntlCreditRows(allRows, {
     projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
   });
-  // Antigravity's transcripts carry no token counters. Token Monitor's
-  // tokscale cache does; replace estimates only on the days that cache covers
-  // and keep the estimate for every other day.
-  const realQueuePath = path.join(os.homedir(), ".tokentracker", "tracker", "queue.jsonl");
-  const allowAntigravityCache = path.resolve(queuePath) === path.resolve(realQueuePath)
-    || Boolean(process.env.TOKENTRACKER_TOKSCALE_ANTIGRAVITY_DIR);
-  const antigravityCache = allowAntigravityCache
-    ? readAntigravityTokscaleUsageCached({
-      home: os.homedir(),
-      env: process.env,
-      platform: process.platform,
-    })
-    : { rows: [], coveredDays: new Set() };
-  const rowsWithAntigravity = mergeAntigravityTokscaleRows(allRows, antigravityCache);
-  const mergedRows = estimatedRows.length || intlCreditRows.length || antigravityCache.rows.length
-    ? rowsWithAntigravity.concat(estimatedRows, intlCreditRows)
-    : rowsWithAntigravity;
+  // Antigravity's native generation ledger is authoritative at every time
+  // granularity. External daily caches must not replace its measured buckets.
+  const mergedRows = estimatedRows.length || intlCreditRows.length
+    ? allRows.concat(estimatedRows, intlCreditRows)
+    : allRows;
   return {
     scope,
     allRows: mergedRows,

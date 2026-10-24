@@ -69,6 +69,7 @@ export interface SessionModelUsage {
 
 export interface SessionRow {
   session_hash: string;
+  archived?: boolean;
   session_id: string | null;
   parent_session_id: string | null;
   parent_session_hash: string | null;

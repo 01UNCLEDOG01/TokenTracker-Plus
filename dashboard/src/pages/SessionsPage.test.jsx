@@ -255,6 +255,18 @@ describe("SessionsPage", () => {
     window.history.replaceState(null, "", "/sessions");
   });
 
+  it("shows a metadata snapshot without a resume command after the source was removed", async () => {
+    getSessions.mockResolvedValue({
+      ...response, session_count: 1, returned_count: 1,
+      sessions: [{ ...response.sessions[0], archived: true, resume_command: null }],
+    });
+    render(<SessionsPage />);
+    expect(await screen.findByText("Metadata snapshot · source removed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: copy("sessions.resume.unavailable") })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "View statistics for Fix authentication flow" }));
+    expect(screen.getByRole("dialog", { name: "Session statistics" })).toBeInTheDocument();
+  });
+
   it("loads local sessions and filters them by source and search", async () => {
     getSessions.mockResolvedValue({
       ...response,
