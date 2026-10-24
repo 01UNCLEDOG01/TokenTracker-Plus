@@ -140,9 +140,25 @@ def rays(d, color):
         x1, y1 = C + math.cos(a) * 96, C + math.sin(a) * 96
         d.line([(x0, y0), (x1, y1)], fill=color, width=2)
 
+
+def ocean(d, color):
+    # Light shafts through water, then swell lines and bubbles.
+    for i in range(7):
+        x0 = 6 + i * 38
+        d.line([(x0, S), (x0 + 70, 0)], fill=color, width=9)
+    for i in range(6):
+        y0 = 42 + i * 30
+        pts = [(x, y0 + math.sin(x / 26.0 + i) * 7) for x in range(0, S + 6, 6)]
+        d.line(pts, fill=color, width=2)
+    for _ in range(26):
+        x = RNG.random() * S
+        y = RNG.random() * S
+        r = 1 + RNG.random() * 4
+        d.ellipse([x - r, y - r, x + r, y + r], outline=color)
+
 BRANDS = {
     "zhipu-sage": (tech_grid, (150, 190, 255, 255), 0.35, 0.34),
-    "minimax-abyss": (sonar, (120, 235, 255, 255), 0.30, 0.36),
+    "minimax-abyss": (ocean, (120, 235, 255, 255), 0.45, 0.34),
     "moonshot-voyager": (starfield, (210, 195, 255, 255), 0.40, 0.40),
     "qwen-dynasty": (cloud_bands, (205, 175, 255, 255), 0.28, 0.38),
     "seedance-master": (light_streaks, (150, 245, 230, 255), 0.26, 0.34),
@@ -202,10 +218,13 @@ def apply(name, draw_fn, color, blur, opacity):
     print("backdrop", name)
 
 
-def main():
+def main(only=None):
     for name, (fn, color, blur, opacity) in BRANDS.items():
+        if only and name not in only:
+            continue
         apply(name, fn, color, blur, opacity)
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(sys.argv[1:] or None)

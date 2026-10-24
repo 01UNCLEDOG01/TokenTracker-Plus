@@ -78,7 +78,7 @@ export const BADGE_CATALOG = [
   { id: "deep_diver", scope: "cloud", icon: Anchor, format: "count", art: "/achievements/deep-diver.png?v=11" },
   { id: "multitool_day", scope: "cloud", icon: Layers, format: "count", art: "/achievements/multitool-day.png?v=11" },
   { id: "heart_model", scope: "cloud", icon: HeartPulse, format: "percent", art: "/achievements/heart-model.png?v=8" },
-  { id: "claude_survivor", scope: "cloud", hidden: true, icon: Skull, format: "tokens", art: "/achievements/claude-survivor.png?v=12" },
+  { id: "claude_survivor", scope: "cloud", hidden: true, icon: Skull, format: "tokens", art: "/achievements/claude-survivor.png?v=13" },
   { id: "wishing_well", scope: "cloud", icon: Coins, format: "tokens", art: "/achievements/wishing-well.png?v=11" },
   { id: "grand_slam", scope: "cloud", icon: Trophy, format: "count", art: "/achievements/grand-slam.png?v=11" },
   { id: "project_hopper", scope: "local", icon: FolderGit2, format: "count", art: "/achievements/project-hopper.png?v=7" },
@@ -110,7 +110,7 @@ export const BADGE_CATALOG = [
   // Wave-4 badges (2026-10-24)
   { id: "zhipu_sage", scope: "local", icon: Sparkles, format: "tokens", art: "/achievements/zhipu-sage.png?v=7" },
   { id: "moonshot_voyager", scope: "local", icon: MoonStar, format: "tokens", art: "/achievements/moonshot-voyager.png?v=7" },
-  { id: "minimax_abyss", scope: "local", icon: Anchor, format: "tokens", art: "/achievements/minimax-abyss.png?v=7" },
+  { id: "minimax_abyss", scope: "local", icon: Anchor, format: "tokens", art: "/achievements/minimax-abyss.png?v=8" },
   { id: "north_america_doubao", scope: "local", icon: Bot, format: "tokens", art: "/achievements/north-america-doubao.png?v=6" },
   { id: "hyperspeed_grok", scope: "local", icon: Rocket, format: "tokens", art: "/achievements/hyperspeed-grok.png?v=6" },
   { id: "qwen_dynasty", scope: "local", icon: Crown, format: "tokens", art: "/achievements/qwen-dynasty.png?v=7" },

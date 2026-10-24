@@ -48,6 +48,17 @@ export function getEffectiveTitleResonance(title, badgeMap, testMode, index) {
 export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelectBadge }) {
   const [activeTitleId, setActiveIdState] = useState(getActiveTitleId);
   const [gridOpen, setGridOpen] = useState(true);
+  const [buildId] = useState(() => {
+    try {
+      const sources = [...document.querySelectorAll('script[type="module"]')]
+        .map((el) => el.getAttribute("src") || "");
+      const src = sources.find((value) => value.includes("/assets/main-"))
+        || sources.find((value) => value.includes("/assets/"));
+      return src ? src.split("/assets/")[1].slice(0, 8) : "";
+    } catch {
+      return "";
+    }
+  });
   const [detailTitle, setDetailTitle] = useState(null);
 
   const badgeMap = new Map((badges || []).map(function (b) { return [b.id, b]; }));
@@ -115,6 +126,9 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
               {gridOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {gridOpen ? "收起称号" : "展开称号"}
             </button>
+            <span className="text-[10px] font-mono text-white/30" title="当前加载的前端构建">
+              build {buildId || "?"}
+            </span>
           </div>
           <p className="mt-1.5 text-xs text-gray-300 max-w-xl">
             当核心勋章达到指定品阶时触发羁绊共鸣，融合多维算力与工程习惯，加冕你的极客专属荣耀称号。
@@ -124,7 +138,16 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
         {/* Active Title Showcase Card */}
         {activeTitle && (
           <div
-            className={`flex items-center gap-4 rounded-2xl border-2 px-5 py-3 shadow-2xl backdrop-blur-xl transition-all duration-300 ${
+            role="button"
+            tabIndex={0}
+            onClick={() => setDetailTitle({ title: activeTitle, resonance: activeResonance })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setDetailTitle({ title: activeTitle, resonance: activeResonance });
+              }
+            }}
+            className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 px-5 py-3 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:brightness-110 ${
               activeTitle.theme.border
             } bg-gradient-to-r ${activeTitle.theme.bgGradient} ${activeTitle.theme.glow}`}
           >

@@ -4,14 +4,12 @@ import { useState, useEffect } from "react";
  * =========================================================================
  * 极客称号殿堂 · 羁绊共鸣开放设计架构 (Open Architecture Design)
  * =========================================================================
- * 1. 难度与色彩递进 (Ascending Difficulty & Color Progression):
- *    - 称号按获取难度从易到难严格排序（1 到 13 阶）；
- *    - 色彩从质朴内敛逐渐演进到炫酷璀璨：
- *      Rank 1~3  (初入门径): 质朴古铜、晨曦天青、雅致竹青
- *      Rank 4~6  (登堂入室): 深洋碧青、炽烈熔火、铁灰牛马
- *      Rank 7~9  (炉火纯青): 幽夜紫电、圣堂深蓝、冷银电路
- *      Rank 10~12(登峰造极): 璀璨琉璃金、霓虹极光紫、华夏赤金
- *      Rank 13   (至高): 全光谱星冕（炫彩）
+ * 1. 难度排序 (Difficulty order):
+ *    - 称号按 `difficulty` 从易到难排序；分值 = 成员徽章所需品阶权重
+ *      （青铜1/白银2/黄金4/钻石7）× 成员数，大满贯×10、领奖台×3；
+ *      同分时成员多的排后。排序结果就是殿堂里的展示顺序。
+ *    - 颜色是称号自己的身份色（identity），不随排序或共鸣改变；越难解锁的
+ *      称号在设计时本就配了更炫的身份色，但不要用颜色反推难度。
  *
  * 2. 称号定死颜色，共鸣改变特效 (Fixed Title Identity, Dynamic Resonance VFX):
  *    - 每个称号拥有固定且专属的色彩基调与阵营身份（Brand/Title Identity Hue）；
@@ -29,10 +27,11 @@ import { useState, useEffect } from "react";
  * =========================================================================
  */
 
-export const TITLES_REGISTRY = [
-  // 1. 零元购 (Rank 1: 质朴古铜 · 初入门径)
+const TITLES_UNSORTED = [
+  // 零元购 (Rank 1: 质朴古铜 · 初入门径)
   {
     id: "frugal_archmage",
+    difficulty: 3.2,
     name: "零元购",
     en: "Zero-Cost Cart",
     desc: "羊毛宗师与白嫖之光双修，把每一次调用都过成零元购。",
@@ -54,9 +53,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-amber-400",
     },
   },
-  // 2. 极速先锋 · 赛博狂飙者 (Rank 2: 晴空天蓝 · 晨曦微风)
+  // 极速先锋 · 赛博狂飙者 (Rank 2: 晴空天蓝 · 晨曦微风)
   {
     id: "cyber_speedster",
+    difficulty: 2.0,
     name: "极速先锋 · 赛博狂飙者",
     shortName: "赛博狂飙者",
     en: "Hyperspeed Pioneer",
@@ -82,9 +82,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-sky-400",
     },
   },
-  // 3. 生活禅者 (Rank 3: 雅致竹青翡翠 · 碧玉禅心)
+  // 生活禅者 (Rank 3: 雅致竹青翡翠 · 碧玉禅心)
   {
     id: "zen_master",
+    difficulty: 3.1,
     name: "生活禅师",
     en: "Zen Master",
     desc: "周内高效输出，周末彻底拔电，AI 时代清醒的生活家。",
@@ -106,9 +107,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-emerald-400",
     },
   },
-  // 4. 一人公司 OPC (Rank 4: 深洋碧青 · 一人军团)
+  // 一人公司 OPC (Rank 4: 深洋碧青 · 一人军团)
   {
     id: "fleet_admiral",
+    difficulty: 7.3,
     name: "一人公司",
     en: "One Person Company",
     desc: "个人 + AI 驱动完整业务：工具、模型、分身与全天候节奏全部由一个人调度。",
@@ -140,9 +142,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-teal-400",
     },
   },
-  // 5. 极客代码巨炮 (Rank 5: 炽烈熔火 · 算力炽焰)
+  // 极客代码巨炮 (Rank 5: 炽烈熔火 · 算力炽焰)
   {
     id: "code_cannon_overlord",
+    difficulty: 4.0,
     name: "极客代码巨炮",
     en: "Code Overlord",
     desc: "极简提示词输入，排山倒海的代码万行奔涌落地。",
@@ -164,9 +167,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-rose-400",
     },
   },
-  // 6. 天选牛马 (Rank 6: 铁灰牛马 · 四件套全开)
+  // 天选牛马 (Rank 6: 铁灰牛马 · 四件套全开)
   {
     id: "chosen_drudge",
+    difficulty: 5.1,
     name: "天选牛马",
     en: "Chosen Drudge",
     desc: "分身、早鸟、周末与连胜四件套全开——天选的牛马，AI 时代的劳模。",
@@ -196,9 +200,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-zinc-300",
     },
   },
-  // 7. 赛博修仙者 (Rank 7: 幽夜紫电 · 夜战定道)
+  // 赛博修仙者 (Rank 7: 幽夜紫电 · 夜战定道)
   {
     id: "cyber_immortal",
+    difficulty: 4.1,
     name: "赛博修仙者",
     en: "Cyber Immortal",
     desc: "在万籁俱寂的深夜，与 AI 一同入定悟道。",
@@ -220,9 +225,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-purple-400",
     },
   },
-  // 8. 神之信徒 (Rank 8: 圣堂深蓝 · 纯血庄严)
+  // 神之信徒 (Rank 8: 圣堂深蓝 · 纯血庄严)
   {
     id: "openai_paladin",
+    difficulty: 3.0,
     name: "神之信徒",
     en: "Divine Devotee",
     desc: "执着于前沿 AGI 探索，笃信奥特曼灯塔的终极力量。",
@@ -244,9 +250,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-indigo-400",
     },
   },
-  // 9. 冯诺依曼派 (Rank 9: 冷银电路 · 体系结构)
+  // 冯诺依曼派 (Rank 9: 冷银电路 · 体系结构)
   {
     id: "von_neumann",
+    difficulty: 5.2,
     name: "冯诺依曼派",
     en: "Von Neumann School",
     desc: "终端、缓存、重构、深思四线贯通，用体系结构的方法调度一切算力。",
@@ -276,9 +283,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-cyan-300",
     },
   },
-  // 10. 全知全能架构师 (Rank 10: 璀璨琉璃金 · 睿智博学)
+  // 全知全能架构师 (Rank 10: 璀璨琉璃金 · 睿智博学)
   {
     id: "omniscient_architect",
+    difficulty: 8.0,
     name: "全知全能架构师",
     en: "Omniscient Architect",
     desc: "通晓各大模型脾气与数十种开发工具的奇门遁甲。",
@@ -300,9 +308,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-yellow-400",
     },
   },
-  // 11. 诸神信使 · 硅谷三巨头 (Rank 11: 霓虹极光紫 · 闭源巅峰)
+  // 诸神信使 · 硅谷三巨头 (Rank 11: 霓虹极光紫 · 闭源巅峰)
   {
     id: "silicon_trinity",
+    difficulty: 3.5,
     name: "诸神信使 · 硅谷三巨头",
     shortName: "诸神信使",
     en: "Silicon Valley Trinity",
@@ -312,7 +321,7 @@ export const TITLES_REGISTRY = [
     art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
       { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=6" },
-      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=12" },
+      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=13" },
       { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=6" },
     ],
     check: (badgeMap) =>
@@ -330,9 +339,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-fuchsia-400",
     },
   },
-  // 12. 九州极客 · 四象掌门 (Rank 12: 华夏赤金 · 四象归一)
+  // 九州极客 · 四象掌门 (Rank 12: 华夏赤金 · 四象归一)
   {
     id: "cn_quad_masters",
+    difficulty: 5.3,
     name: "九州极客 · 四象掌门",
     shortName: "四象掌门",
     en: "Domestic Quad Titans",
@@ -344,7 +354,7 @@ export const TITLES_REGISTRY = [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
       { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=7" },
       { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=7" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=7" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=8" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
@@ -362,9 +372,10 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-orange-400",
     },
   },
-  // 13. 机械降神 (Rank 13: 全光谱神机 · 至高王座)
+  // 机械降神 (Rank 13: 全光谱神机 · 至高王座)
   {
     id: "grand_slam_legend",
+    difficulty: 13.0,
     name: "机械降神",
     en: "Deus Ex Machina",
     desc: "勋章架上钻石熠熠生辉，且站在本机排行榜顶端——神机天降，登峰造极。",
@@ -390,6 +401,11 @@ export const TITLES_REGISTRY = [
     },
   },
 ];
+// Ranked by required-tier weight (bronze 1 / silver 2 / gold 4 / diamond 7),
+// multiplied by member count, with grand_slam ×10 and podium ×3 for the meta
+// badges. Ties break toward the title with more members. Colours are each
+// title's own identity and deliberately do not move with the rank.
+export const TITLES_REGISTRY = [...TITLES_UNSORTED].sort((a, b) => a.difficulty - b.difficulty);
 
 export const STORAGE_ACTIVE_TITLE = "tokentracker:active_title";
 export const EVENT_TITLE_CHANGED = "tokentracker:title_changed";
