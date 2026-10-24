@@ -3480,6 +3480,13 @@ async function scanQoderSession(filePath, source = "qoder") {
   });
 }
 
+// Chunks are byte slices of one JSONL stream: a record can straddle a
+// boundary. Joining them as text with separators splits that record into two
+// unparseable halves, and the transcript parser stops at the first bad line.
+function readAntigravityTranscriptChunks(chunkPaths) {
+  return Buffer.concat(chunkPaths.map((f) => fs.readFileSync(f))).toString("utf8");
+}
+
 async function scanAntigravitySession(dbPath) {
   const uuid = path.basename(dbPath).replace(/\.db$/i, "");
   const antigravityRoot = path.dirname(path.dirname(dbPath));
@@ -3492,7 +3499,7 @@ async function scanAntigravitySession(dbPath) {
   } catch (_e) { chunkFiles = []; }
   if (!chunkFiles.length) throw new Error("antigravity transcript chunks are missing");
   const chunkPaths = chunkFiles.map((f) => path.join(transcriptDir, f));
-  const raw = chunkPaths.map((f) => fs.readFileSync(f, "utf8")).join("\n");
+  const raw = readAntigravityTranscriptChunks(chunkPaths);
 
   // Lazy require: rollout.js requires this module for the Claude scanner.
   const { parseAntigravityFile, readAntigravityWorkspace } = require("./rollout");
@@ -4567,4 +4574,5 @@ module.exports = {
   getOpencodeInputCacheStatsForTests,
   resetDshIncrementalCacheForTests,
   getDshIncrementalStatsForTests,
+  readAntigravityTranscriptChunks,
 };

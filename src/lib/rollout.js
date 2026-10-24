@@ -23368,7 +23368,12 @@ function extractAntigravityGenInfo(buf) {
 
 function resolveAntigravityDbPath(transcriptPath) {
   if (!transcriptPath || typeof transcriptPath !== "string") return null;
-  const m = transcriptPath.match(/^(.*)[/\\]brain[/\\]([^/\\]+)[/\\]\.system_generated[/\\]logs[/\\]transcript.*\.jsonl$/);
+  // Two layouts exist: the whole-stream logs/transcript*.jsonl and the chunked
+  // logs/chunks/transcript/00000000.jsonl. The session scanner reads the chunk
+  // directory, so both shapes must resolve to the conversation database.
+  const m = transcriptPath.match(
+    /^(.*)[/\\]brain[/\\]([^/\\]+)[/\\]\.system_generated[/\\]logs[/\\](?:chunks[/\\])?transcript[^/\\]*(?:[/\\][^/\\]+)?\.jsonl$/,
+  );
   if (!m) return null;
   return path.join(m[1], "conversations", `${m[2]}.db`);
 }
