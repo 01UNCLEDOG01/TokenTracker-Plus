@@ -726,6 +726,7 @@
   "achievements.badge.refactor_titan.desc": "Persist through multiple active weeks deeply evolving a single repository.",
   "achievements.action.test_unlock": "잠금 해제 테스트",
   "achievements.action.test_tier_up": "승급 테스트",
+  "achievements.action.test_resonance": "공명 테스트",
   "achievements.action.export_card": "카드 내보내기",
   "heatmap.tooltip.level7": "Lv7 (우주 특이점 · 일일 30억+ 토큰)",
   "heatmap.3d.voxel.level7": "일일 사용량이 {{value}} 토큰에 도달했습니다! 중력 특이점이 촉발되었습니다!",

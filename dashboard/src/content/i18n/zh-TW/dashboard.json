@@ -1183,6 +1183,7 @@
   "achievements.badge.refactor_titan.desc": "跨越數週持續重構深耕同一代碼庫——刪了又寫，寫了又改，但它越來越優雅。",
   "achievements.action.test_unlock": "測試解鎖",
   "achievements.action.test_tier_up": "測試晉級",
+  "achievements.action.test_resonance": "測試共鳴",
   "achievements.action.export_card": "匯出戰報",
   "heatmap.tooltip.level7": "Lv7 宇宙奇點 · 單日 30 億+ 極限爆發",
   "heatmap.3d.voxel.level7": "單日用量已達 {{value}} tokens！已引爆宇宙奇點，算力視界在此坍縮！",

@@ -11,11 +11,39 @@ import {
 
 export { TITLES_REGISTRY, getTitleResonance };
 
-export function BadgeSynergyBanner({ badges = [] }) {
+const STAGGERED_TIERS = [1, 2, 3, 4, 1, 2, 3, 4, 3, 4, 4];
+
+export function getEffectiveTitleResonance(title, badgeMap, testMode, index) {
+  if (!title) return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim: 2, dimName: "双星交汇" };
+  if (testMode === 1 || testMode === 2 || testMode === 3 || testMode === 4) {
+    const tier = testMode;
+    const tierNames = ["未激活", "青铜", "白银", "黄金", "钻石"];
+    const tierName = tierNames[tier] || "青铜";
+    const dim = title.dimension || (title.requiredBadges?.length || 2);
+    const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇";
+    const label = tier === 4 ? `${tierName}共鸣 · MAX` : `${tierName}共鸣 · Lv.${tier}`;
+    return { unlocked: true, tier, dim, dimName, tierName, label };
+  }
+  if (testMode === 5) {
+    const tierIdx = typeof index === "number" ? index : 0;
+    const tier = STAGGERED_TIERS[tierIdx % STAGGERED_TIERS.length];
+    const tierNames = ["未激活", "青铜", "白银", "黄金", "钻石"];
+    const tierName = tierNames[tier] || "青铜";
+    const dim = title.dimension || (title.requiredBadges?.length || 2);
+    const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇";
+    const label = tier === 4 ? `${tierName}共鸣 · MAX` : `${tierName}共鸣 · Lv.${tier}`;
+    return { unlocked: true, tier, dim, dimName, tierName, label };
+  }
+  return getTitleResonance(title, badgeMap);
+}
+
+export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0 }) {
   const [activeTitleId, setActiveIdState] = useState(getActiveTitleId);
 
-  const badgeMap = new Map((badges || []).map((b) => [b.id, b]));
-  const unlockedTitles = TITLES_REGISTRY.filter((t) => t.check(badgeMap));
+  const badgeMap = new Map((badges || []).map(function (b) { return [b.id, b]; }));
+  const unlockedTitles = resonanceTestMode !== 0
+    ? TITLES_REGISTRY
+    : TITLES_REGISTRY.filter(function (t) { return t.check(badgeMap); });
 
   useEffect(() => {
     if (!activeTitleId && unlockedTitles.length > 0) {
@@ -47,7 +75,7 @@ export function BadgeSynergyBanner({ badges = [] }) {
   };
 
   const activeTitle = TITLES_REGISTRY.find(function (t) { return t.id === activeTitleId; }) || unlockedTitles[0] || null;
-  const activeResonance = activeTitle ? getTitleResonance(activeTitle, badgeMap) : null;
+  const activeResonance = activeTitle ? getEffectiveTitleResonance(activeTitle, badgeMap, resonanceTestMode, 0) : null;
 
   return (
     <div className="mb-10 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-slate-950 via-gray-900 to-black p-6 text-white shadow-2xl shadow-black/60 backdrop-blur-xl relative overflow-hidden antialiased">
@@ -85,7 +113,15 @@ export function BadgeSynergyBanner({ badges = [] }) {
               <img
                 src={activeTitle.art}
                 alt={activeTitle.name}
-                className="h-14 w-14 rounded-full object-contain filter drop-shadow-lg"
+                className={`h-14 w-14 rounded-full object-contain filter drop-shadow-lg ${
+                  activeResonance?.tier === 4
+                    ? "ring-2 ring-cyan-400 shadow-lg shadow-cyan-400/50"
+                    : activeResonance?.tier === 3
+                    ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/50"
+                    : activeResonance?.tier === 2
+                    ? "ring-2 ring-slate-300 shadow-sm shadow-slate-300/40"
+                    : "ring-1 ring-amber-600/70"
+                }`}
               />
               <span
                 className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${activeTitle.theme.accentDot} animate-ping`}
@@ -129,11 +165,11 @@ export function BadgeSynergyBanner({ badges = [] }) {
 
       {/* Titles Grid with 3D Crest Medallions - Spacious 3-column responsive grid */}
       <div className="relative z-10 mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {TITLES_REGISTRY.map((title) => {
-          const isUnlocked = title.check(badgeMap);
+        {TITLES_REGISTRY.map(function (title, index) {
+          const resonance = getEffectiveTitleResonance(title, badgeMap, resonanceTestMode, index);
+          const isUnlocked = resonanceTestMode !== 0 ? true : title.check(badgeMap);
           const isEquipped = isUnlocked && activeTitleId === title.id;
           const { theme } = title;
-          const resonance = getTitleResonance(title, badgeMap);
 
           return (
             <button
@@ -143,7 +179,15 @@ export function BadgeSynergyBanner({ badges = [] }) {
               onClick={() => handleSelectTitle(title.id)}
               className={`group relative flex flex-col justify-between rounded-2xl border p-4.5 text-left transition-all duration-200 antialiased ${
                 isEquipped
-                  ? `${theme.border} bg-gradient-to-br ${theme.bgGradient} shadow-xl ${theme.glow} ring-1 ${theme.ring}`
+                  ? `${theme.border} bg-gradient-to-br ${theme.bgGradient} shadow-xl ${
+                      resonance.tier === 4
+                        ? "shadow-cyan-500/30 ring-2 ring-cyan-400"
+                        : resonance.tier === 3
+                        ? "shadow-amber-500/30 ring-2 ring-amber-400"
+                        : resonance.tier === 2
+                        ? "shadow-slate-400/20 ring-2 ring-slate-300"
+                        : `${theme.glow} ring-1 ${theme.ring}`
+                    }`
                   : isUnlocked
                   ? resonance.tier === 4
                     ? "border-cyan-400/60 bg-white/[0.05] shadow-lg shadow-cyan-500/20 hover:border-cyan-300 hover:bg-white/[0.08] cursor-pointer"
@@ -165,7 +209,15 @@ export function BadgeSynergyBanner({ badges = [] }) {
                         src={title.art}
                         alt={title.name}
                         className={`h-11 w-11 rounded-full object-contain filter transition-transform group-hover:scale-105 ${
-                          !isUnlocked ? "grayscale opacity-40" : theme.glow
+                          !isUnlocked
+                            ? "grayscale opacity-40"
+                            : resonance.tier === 4
+                            ? "ring-2 ring-cyan-400 shadow-md shadow-cyan-400/50"
+                            : resonance.tier === 3
+                            ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/50"
+                            : resonance.tier === 2
+                            ? "ring-2 ring-slate-300 shadow-sm shadow-slate-300/40"
+                            : "ring-1 ring-amber-600/70"
                         }`}
                       />
                     </div>
@@ -240,9 +292,10 @@ export function BadgeSynergyBanner({ badges = [] }) {
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {title.requiredBadges.map((req, rIdx) => {
+                      {title.requiredBadges.map(function (req, rIdx) {
                         const userBadge = badgeMap.get(req.id);
-                        const currentTier = userBadge?.tier || 0;
+                        const userTier = userBadge ? (userBadge.tier || 0) : 0;
+                        const currentTier = resonanceTestMode !== 0 ? resonance.tier : userTier;
                         const isMet = Boolean(req.tier <= currentTier);
                         const tierColor =
                           currentTier === 4
