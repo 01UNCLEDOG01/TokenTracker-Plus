@@ -56,7 +56,9 @@ test("Kimi official wire counts each step once, includes subagents and excludes 
   assert.equal(rows[0].turns, 1);
   assert.equal(rows[0].edit_turns, 1);
   assert.equal(rows[0].usage_events, 2);
-  assert.equal(rows[0].performance.estimated_tokens_per_second, 150);
+  // 2000ms of streaming plus the 400ms wait for the first token: the tokens
+  // generated before the first chunk belong to the same window.
+  assert.equal(rows[0].performance.estimated_tokens_per_second, 125);
   assert.equal(rows[0].performance.first_response_ms, 400);
   assert.equal(rows[0].model, "kimi-k2.6");
   assert.equal(JSON.stringify(rows).includes(SECRET), false);

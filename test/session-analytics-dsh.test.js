@@ -292,3 +292,84 @@ test("the per-file row cache serves unchanged transcripts and still sees appends
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
+
+// The rate is only defensible if its denominator covers the generation that
+// produced the numerator: a reasoning step queues and thinks before the first
+// visible chunk, and its tool-call tail is not generation time at all.
+test("dsh generation time spans step start to the last streamed chunk", async () => {
+  const { home, dir } = sandbox();
+  try {
+    const base = 1791590000000;
+    const msg = (turn, step, at, usages, stream) => record("assistant/message", 50 + at, at, {
+      turn, step, message: { role: "assistant", content: [] }, usage: usages, stream,
+    });
+    const lines = [
+      sessionHeader("abc-123", { cwd: "C:\work\proj", createdAt: base }),
+      record("turn/start", 1, base + 20, { turn: 1 }),
+      record("request/context", 2, base + 25, { provider: "apigoto", model: "deepseek-flash", contextWindow: 1000000 }),
+      // step 1 queues and reasons for 4s, then streams for 2s.
+      record("step/start", 3, base + 1000, { turn: 1, step: 1 }),
+      msg(1, 1, base + 5000, usage(100, 400, 500, 0), [
+        { type: "chunk", time: base + 5000, chunk: { type: "text-delta" } },
+        { type: "chunk", time: base + 7000, chunk: { type: "finish" } },
+      ]),
+      record("step/end", 5, base + 20000, { turn: 1, step: 1 }),
+      // step 2 emits two messages: one lead-in, counted once, ending at the
+      // later of the two chunks.
+      record("step/start", 6, base + 21000, { turn: 1, step: 2 }),
+      msg(1, 2, base + 23000, usage(10, 50, 60, 0), [
+        { type: "chunk", time: base + 23000, chunk: { type: "text-delta" } },
+        { type: "chunk", time: base + 24000, chunk: { type: "text-delta" } },
+      ]),
+      msg(1, 2, base + 25000, usage(10, 50, 60, 0), [
+        { type: "chunk", time: base + 25000, chunk: { type: "text-delta" } },
+      ]),
+      record("step/end", 9, base + 40000, { turn: 1, step: 2 }),
+      // step 3 waits on a tool after its only chunk: the tail is not generation.
+      record("step/start", 10, base + 41000, { turn: 1, step: 3 }),
+      msg(1, 3, base + 42000, usage(10, 100, 110, 0), [
+        { type: "chunk", time: base + 42000, chunk: { type: "text-delta" } },
+        { type: "chunk", time: base + 43000, chunk: { type: "finish" } },
+      ]),
+      record("step/end", 12, base + 120000, { turn: 1, step: 3 }),
+      record("turn/end", 13, base + 121000, { turn: 1, reason: { kind: "completed" } }),
+    ];
+    fs.writeFileSync(path.join(dir, "session.v4.jsonl"), lines.join("\n") + "\n");
+    const rows = await rowsFrom(home);
+    assert.equal(rows.length, 1);
+    const perf = rows[0].performance;
+    // step1 6000ms/400 + step2 4000ms/100 + step3 2000ms/100
+    assert.equal(perf.estimated_output_tokens, 600);
+    assert.equal(perf.estimated_duration_ms, 12000);
+    assert.equal(perf.estimated_request_count, 3);
+    assert.equal(perf.estimated_tokens_per_second, 50);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("dsh falls back to the chunk span when a step carries no start event", async () => {
+  const { home, dir } = sandbox();
+  try {
+    const base = 1791590000000;
+    const lines = [
+      sessionHeader("abc-123", { cwd: "C:\work\proj", createdAt: base }),
+      record("turn/start", 1, base + 20, { turn: 1 }),
+      record("assistant/message", 2, base + 9000, {
+        turn: 1, step: 7, message: { role: "assistant", content: [] }, usage: usage(100, 200, 300, 0),
+        stream: [
+          { type: "chunk", time: base + 5000, chunk: { type: "text-delta" } },
+          { type: "chunk", time: base + 7000, chunk: { type: "finish" } },
+        ],
+      }),
+      record("turn/end", 3, base + 91000, { turn: 1, reason: { kind: "completed" } }),
+    ];
+    fs.writeFileSync(path.join(dir, "session.v4.jsonl"), lines.join("\n") + "\n");
+    const perf = (await rowsFrom(home))[0].performance;
+    assert.equal(perf.estimated_output_tokens, 200);
+    assert.equal(perf.estimated_duration_ms, 2000, "first chunk to last chunk");
+    assert.equal(perf.estimated_tokens_per_second, 100);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});

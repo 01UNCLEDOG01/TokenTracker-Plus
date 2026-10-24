@@ -156,9 +156,14 @@ async function readKimiSessions(files) {
             modelRow.usage_events++; bucket.usage_events++;
             const streamMs = count(event.llmStreamDurationMs);
             const firstMs = Number(event.llmFirstTokenLatencyMs);
+            // The step's output was produced during the wait for the first
+            // token as well as while it streamed, so the window is both. A
+            // 200-token floor used to skip short replies entirely, which left
+            // only the fastest samples and lost most of the session's requests.
+            const windowMs = Number.isFinite(firstMs) && firstMs >= 0 ? streamMs + firstMs : streamMs;
             const performance = {
-              ...(delta.output_tokens >= 200 && streamMs >= 1000 && streamMs <= 3600000
-                ? { estimated_output_tokens: delta.output_tokens, estimated_duration_ms: streamMs, estimated_request_count: 1 } : {}),
+              ...(delta.output_tokens > 0 && windowMs >= 1000 && windowMs <= 3600000
+                ? { estimated_output_tokens: delta.output_tokens, estimated_duration_ms: windowMs, estimated_request_count: 1 } : {}),
               ...(event.llmFirstTokenLatencyMs != null && Number.isFinite(firstMs) && firstMs >= 0
                 ? { first_response_total_ms: firstMs, first_response_sample_count: 1 } : {}),
             };

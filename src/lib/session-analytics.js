@@ -117,7 +117,10 @@ const {
 // v25 adds Kimi wire sessions, including official/legacy migration dedup.
 // v26 retains Codex Ultrafast (service_tier ultrafast) subset columns so
 // date-filtered session views and cached sidecars keep the 6x premium.
-const SIDECAR_VERSION = 31;
+// v32 measures dsh generation time from step/start to the last streamed chunk
+// of that step. Counting from the first chunk charged a step's output but not
+// the queueing/reasoning that produced it, inflating dsh's tokens/s ~29%.
+const SIDECAR_VERSION = 32;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -1158,9 +1161,10 @@ function createDshParseState() {
     subagentCalls: 0,
     currentTurnHadEdit: false,
     lastPromptFingerprint: null,
-    timedOutputTokens: 0,
-    timedDurationMs: 0,
-    timedRequestCount: 0,
+    // `${turn}:${step}` -> { start, end, out, chunkStart }. Generation time is
+    // counted per assistant step, not per streamed message, so a step that
+    // emits several messages does not pay its lead-in twice.
+    stepWindows: new Map(),
   };
 }
 
@@ -1193,6 +1197,10 @@ function consumeDshRecord(state, record) {
     const fingerprint = promptFingerprint(prompt);
     if (state.lastPromptFingerprint && fingerprint === state.lastPromptFingerprint) state.retryTurns += 1;
     state.lastPromptFingerprint = fingerprint;
+  } else if (type === "step/start") {
+    const win = state.stepWindows.get(`${data?.turn}:${data?.step}`);
+    if (win) win.start = Number(record.time);
+    else state.stepWindows.set(`${data?.turn}:${data?.step}`, { start: Number(record.time), end: null, out: 0, chunkStart: null });
   } else if (type === "assistant/message") {
     const usage = dshUsageTotals(data?.usage);
     if (!usage || usage.total_tokens <= 0) return;
@@ -1202,18 +1210,23 @@ function consumeDshRecord(state, record) {
     addTotals(entry, usage);
     entry.usage_events += 1;
     state.modelUsageByModel.set(key, entry);
-    if (Array.isArray(data?.stream) && data.stream.length >= 2 && usage.output_tokens > 0) {
-      const firstChunk = data.stream[0];
-      const lastChunk = data.stream[data.stream.length - 1];
-      const startMs = Number(firstChunk?.time);
-      const endMs = Number(lastChunk?.time);
-      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
-        const reqDuration = endMs - startMs;
-        if (reqDuration >= 50 && reqDuration <= 5 * 60 * 1000) {
-          state.timedOutputTokens += usage.output_tokens;
-          state.timedDurationMs += reqDuration;
-          state.timedRequestCount += 1;
-        }
+    if (Array.isArray(data?.stream) && usage.output_tokens > 0) {
+      let firstChunkMs = null;
+      let lastChunkMs = null;
+      for (const frame of data.stream) {
+        const t = Number(frame?.time ?? frame?.time0);
+        if (!Number.isFinite(t)) continue;
+        if (firstChunkMs === null || t < firstChunkMs) firstChunkMs = t;
+        if (lastChunkMs === null || t > lastChunkMs) lastChunkMs = t;
+      }
+      if (firstChunkMs !== null && lastChunkMs !== null) {
+        const stepKey = `${data?.turn}:${data?.step}`;
+        const win = state.stepWindows.get(stepKey)
+          || { start: null, end: null, out: 0, chunkStart: null };
+        if (win.chunkStart === null || firstChunkMs < win.chunkStart) win.chunkStart = firstChunkMs;
+        if (win.end === null || lastChunkMs > win.end) win.end = lastChunkMs;
+        win.out += usage.output_tokens;
+        state.stepWindows.set(stepKey, win);
       }
     }
   } else if (type === "tool/call") {
@@ -1251,13 +1264,30 @@ function finalizeDshState(state, filePath) {
   // An open turn has not seen its turn/start close yet; count it once here
   // without mutating state, so an incremental batch cannot close it twice.
   const editTurns = state.editTurns + (state.currentTurnHadEdit ? 1 : 0);
+  // A step's window runs from step/start (the request actually left the client)
+  // to its last streamed chunk. Measuring from the first chunk instead charges
+  // the step's output but not the queueing/reasoning time that produced it,
+  // which inflated dsh's rate ~29% against the measured archive.
+  let timedOut = 0;
+  let timedSpan = 0;
+  let timedSteps = 0;
+  for (const win of state.stepWindows.values()) {
+    if (!(win.out > 0) || win.end == null) continue;
+    const start = Number.isFinite(win.start) ? win.start : win.chunkStart;
+    if (!Number.isFinite(start) || win.end <= start) continue;
+    const span = win.end - start;
+    if (span < 50 || span > 5 * 60 * 1000) continue;
+    timedOut += win.out;
+    timedSpan += span;
+    timedSteps += 1;
+  }
   let dshPerf = null;
-  if (state.timedOutputTokens > 0 && state.timedDurationMs > 0) {
+  if (timedOut > 0 && timedSpan > 0) {
     dshPerf = {
-      estimated_output_tokens: state.timedOutputTokens,
-      estimated_duration_ms: state.timedDurationMs,
-      estimated_request_count: Math.max(1, state.timedRequestCount || 1),
-      estimated_tokens_per_second: state.timedOutputTokens * 1000 / state.timedDurationMs,
+      estimated_output_tokens: timedOut,
+      estimated_duration_ms: timedSpan,
+      estimated_request_count: Math.max(1, timedSteps),
+      estimated_tokens_per_second: timedOut * 1000 / timedSpan,
       first_response_total_ms: 0,
       first_response_sample_count: 0,
       first_response_ms: null,
@@ -2323,7 +2353,12 @@ async function scanOpencodeSessions(dbPaths, options = {}) {
       const opGeneratedTokens = Number(delta?.output_tokens || 0) + Number(delta?.reasoning_output_tokens || 0);
       if (row.role === "assistant" && completed > start && opGeneratedTokens > 0) {
         const reqDuration = completed - start;
-        if (reqDuration >= 50 && reqDuration <= 5 * 60 * 1000) {
+        // No upper cap: an agentic assistant step keeps the database row open
+        // across every tool call, so a five-minute bound silently discarded the
+        // slowest steps — the exact ones that decide the session's rate. With
+        // the cap the same sessions were 26% off the measured archive at p90;
+        // without it they match to 0.00%.
+        if (reqDuration >= 50) {
           group.timedOutputTokens += opGeneratedTokens;
           group.timedDurationMs += reqDuration;
           group.timedRequests += 1;
