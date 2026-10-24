@@ -10,6 +10,7 @@ const {
   readAntigravityTokscaleUsage,
   readAntigravityTokscaleUsageCached,
   mergeAntigravityTokscaleRows,
+  preferMeasuredAntigravitySession,
 } = require("../src/lib/antigravity-tokscale");
 
 function usage(sessionId, modelId, timestamp, input, cacheRead, output, reasoning = 0) {
@@ -148,4 +149,18 @@ test("TOKENTRACKER_DISABLE_TOKEN_MONITOR skips the tokscale cache too", () => {
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("an exact antigravity session is not overwritten by the measured archive", () => {
+  const measured = { usage: { total_tokens: 4722 }, models: new Map([["gemini-3.8-flash-tiered", { total_tokens: 4722 }]]) };
+  // Our own per-generation numbers come from the same database and follow this
+  // fork's accounting, so they win whenever we could read them.
+  assert.equal(preferMeasuredAntigravitySession({ ownPrecision: "exact", snapshotSession: measured }), null);
+  // A session we could only estimate still takes the archive's numbers.
+  assert.equal(preferMeasuredAntigravitySession({ ownPrecision: "estimated", snapshotSession: measured }), measured);
+  assert.equal(preferMeasuredAntigravitySession({ ownPrecision: "estimated", snapshotSession: null }), null);
+  assert.equal(
+    preferMeasuredAntigravitySession({ ownPrecision: "estimated", snapshotSession: { models: new Map() } }),
+    null,
+  );
 });

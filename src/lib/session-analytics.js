@@ -55,7 +55,7 @@ const {
 } = require("./rollout");
 const { parseCodexRolloutFile } = require("./codex-rollout-parser");
 const { computeRowCost, getModelPricingInfo } = require("./pricing");
-const { readAntigravityTokscaleUsageCached } = require("./antigravity-tokscale");
+const { readAntigravityTokscaleUsageCached, preferMeasuredAntigravitySession } = require("./antigravity-tokscale");
 const { lookupTokenMonitorSessionTotals } = require("./token-monitor-speed");
 const { normalizePerformance, mergePerformance, createClaudePerformanceCollector, createCodexPerformanceCollector, createZcodePerformanceCollector } = require("./session-performance");
 const { lookupTokenMonitorPerformance } = require("./token-monitor-speed");
@@ -120,7 +120,9 @@ const {
 // v32 measures dsh generation time from step/start to the last streamed chunk
 // of that step. Counting from the first chunk charged a step's output but not
 // the queueing/reasoning that produced it, inflating dsh's tokens/s ~29%.
-const SIDECAR_VERSION = 32;
+// v33 keeps antigravity's own per-generation counts when they are exact
+// instead of replacing them with Token Monitor's archive.
+const SIDECAR_VERSION = 33;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -3658,22 +3660,31 @@ async function scanAntigravitySession(dbPath) {
     try {
       const snapshot = readAntigravityTokscaleUsageCached({ home: os.homedir(), env: process.env });
       const session = snapshot.bySession.get(uuid);
-      if (session && session.models.size > 0) {
-        cachedUsage = session;
-        const agPerf = session.performance || lookupTokenMonitorPerformance("antigravity", uuid) || normalizePerformance();
-        modelUsage = [...session.models.values()].map((usage) => ({
+      const measured = preferMeasuredAntigravitySession({ ownPrecision: usagePrecision, snapshotSession: session });
+      if (measured) {
+        cachedUsage = measured;
+        const agPerf = measured.performance || lookupTokenMonitorPerformance("antigravity", uuid) || normalizePerformance();
+        modelUsage = [...measured.models.values()].map((usage) => ({
           ...usage,
           performance: agPerf,
         }));
-        totals = { ...session.usage };
-        usageEvents = [...session.models.values()].reduce((sum, usage) => sum + finite(usage.usage_events), 0);
+        totals = { ...measured.usage };
+        usageEvents = [...measured.models.values()].reduce((sum, usage) => sum + finite(usage.usage_events), 0);
         usagePrecision = "exact";
-        if (typeof session.costUsd === "number" && session.costUsd >= 0) {
-          costUsd = session.costUsd;
+        if (typeof measured.costUsd === "number" && measured.costUsd >= 0) {
+          costUsd = measured.costUsd;
+        }
+      } else if (session) {
+        // Our own per-generation counts already matched the database, so the
+        // totals stay ours; borrow only a rate the transcript path did not
+        // produce.
+        const agPerf = session.performance || lookupTokenMonitorPerformance("antigravity", uuid);
+        if (agPerf) {
+          modelUsage = modelUsage.map((usage) => ({ ...usage, performance: agPerf }));
         }
       }
     } catch {
-      // A missing or unreadable tokscale cache keeps the transcript estimate.
+      // A missing or unreadable tokscale cache keeps the transcript numbers.
     }
   }
   const project = contributions.find((c) => c?.projectKey) || {};
