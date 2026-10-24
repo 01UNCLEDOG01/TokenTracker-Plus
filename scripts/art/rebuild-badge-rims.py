@@ -297,10 +297,6 @@ def multitool_day():
 
 def claude_survivor():
     """3D sculpted Claude starburst medallion on house coin rim."""
-    src_jpg = SRC_BADGES / "claude-survivor.jpg"
-    if src_jpg.exists():
-        save(compose(extract_face(str(src_jpg), radius=200, feather=2, zoom=1.05), shadow=False), "claude-survivor.png")
-        return
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     star = fit(key_white(f"{BRAND}/claude-code.png"), 380, 380)
     star_mask = star.getchannel("A")

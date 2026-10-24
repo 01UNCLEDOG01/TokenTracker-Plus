@@ -166,7 +166,6 @@ BRANDS = {
     "hyperspeed-grok": (speed_lines, (175, 220, 255, 255), 0.30, 0.32),
     "flash-immortal": (electric_arcs, (255, 225, 150, 255), 0.30, 0.30),
     "token-arbitrageur": (ledger_grid, (245, 215, 150, 255), 0.35, 0.30),
-    "claude-survivor": (rays, (255, 190, 160, 255), 0.35, 0.30),
 }
 
 
