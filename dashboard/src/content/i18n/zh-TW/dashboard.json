@@ -1205,5 +1205,21 @@
   "achievements.badge.seedance_master.name": "靈動音符",
   "achievements.badge.seedance_master.desc": "豆包菜，關我 seedance 什麼事？字節跳動頂尖光影神經網絡，舞力全開！",
   "achievements.badge.token_arbitrageur.name": "羊毛宗師",
-  "achievements.badge.token_arbitrageur.desc": "橫跨全網數十家中轉站與簽到白嫖平台——天平微傾，算力自由！"
+  "achievements.badge.token_arbitrageur.desc": "橫跨全網數十家中轉站與簽到白嫖平台——天平微傾，算力自由！",
+  "settings.section.localData": "本機資料",
+  "settings.section.localData.description": "匯出或匯入本機的用量快照。",
+  "settings.local_data.title": "本機資料備份",
+  "settings.local_data.scope": "匯出本機按小時彙總的用量，或在另一台機器上匯入；匯入只追加缺少的小時桶，絕不覆蓋既有列。",
+  "settings.local_data.stats": "{{rows}} 個小時桶 · {{size}}",
+  "settings.local_data.export": "匯出快照",
+  "settings.local_data.import": "匯入快照",
+  "settings.local_data.choose": "選擇檔案",
+  "settings.local_data.preview": "匯入預覽",
+  "settings.local_data.preview_line": "新增 {{fresh}} 列 / 重複 {{dup}} 列",
+  "settings.local_data.confirm": "確認匯入",
+  "settings.local_data.cancel": "取消",
+  "settings.local_data.exported": "快照已匯出",
+  "settings.local_data.done": "已匯入 {{imported}} 列",
+  "settings.local_data.error": "操作失敗",
+  "settings.local_data.self": "這是本機匯出的快照，無需匯入。"
 }

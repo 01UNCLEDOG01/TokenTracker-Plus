@@ -748,5 +748,21 @@
   "achievements.badge.seedance_master.name": "Seedance Master",
   "achievements.badge.seedance_master.desc": "Spark creative cinematic flows with ByteDance Seed and Doubao models.",
   "achievements.badge.token_arbitrageur.name": "Token Arbitrageur",
-  "achievements.badge.token_arbitrageur.desc": "Master the art of compute arbitrage across diverse aggregation platforms."
+  "achievements.badge.token_arbitrageur.desc": "Master the art of compute arbitrage across diverse aggregation platforms.",
+  "settings.section.localData": "로컬 데이터",
+  "settings.section.localData.description": "이 컴퓨터의 사용량 스냅샷을 내보내거나 가져옵니다.",
+  "settings.local_data.title": "로컬 데이터 백업",
+  "settings.local_data.scope": "이 컴퓨터의 시간별 사용량을 내보내거나 다른 컴퓨터에서 가져옵니다. 가져오기는 누락된 시간 버킷만 추가하며 기존 행은 덮어쓰지 않습니다.",
+  "settings.local_data.stats": "{{rows}}개 시간 버킷 · {{size}}",
+  "settings.local_data.export": "스냅샷 내보내기",
+  "settings.local_data.import": "스냅샷 가져오기",
+  "settings.local_data.choose": "파일 선택",
+  "settings.local_data.preview": "가져오기 미리보기",
+  "settings.local_data.preview_line": "새 행 {{fresh}}개 / 기존 {{dup}}개",
+  "settings.local_data.confirm": "가져오기",
+  "settings.local_data.cancel": "취소",
+  "settings.local_data.exported": "스냅샷을 내보냈습니다",
+  "settings.local_data.done": "{{imported}}개 행을 가져왔습니다",
+  "settings.local_data.error": "전송에 실패했습니다.",
+  "settings.local_data.self": "이 스냅샷은 이 컴퓨터에서 내보낸 것입니다."
 }

@@ -1,9 +1,10 @@
 import React from "react";
-import { Cloud, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
+import { Cloud, Database, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LimitsSettingsPanel } from "../components/LimitsSettingsPanel.jsx";
 import { AccountSection } from "../components/settings/AccountSection.jsx";
 import { LocalProfileSection } from "../components/settings/LocalProfileSection.jsx";
+import { LocalDataSection } from "../components/settings/LocalDataSection.jsx";
 import { isLocalOnlyDeployment } from "../lib/insforge-config";
 import { CloudSection } from "../components/settings/CloudSection.jsx";
 import { useAccountProfileSettings } from "../components/settings/useAccountProfileSettings.js";
@@ -30,6 +31,7 @@ const SETTINGS_SECTION_IDS = {
   NATIVE_APP: "native-app",
   NETWORK: "network",
   ACCOUNT: "account",
+  LOCAL_DATA: "local-data",
   CLOUD: "cloud",
   LIMITS: "limits",
   LABS: "labs",
@@ -131,6 +133,14 @@ export function SettingsPage() {
         ? <LocalProfileSection />
         : <AccountSection settings={accountSettings} />,
     },
+    ...(localOnly ? [{
+      id: SETTINGS_SECTION_IDS.LOCAL_DATA,
+      label: copy("settings.section.localData"),
+      description: copy("settings.section.localData.description"),
+      group: SETTINGS_GROUP_IDS.PERSONAL,
+      Icon: Database,
+      content: <LocalDataSection />,
+    }] : []),
     ...(localOnly ? [] : [{
       id: SETTINGS_SECTION_IDS.CLOUD,
       label: copy("settings.section.cloud"),

@@ -759,5 +759,21 @@
   "achievements.badge.seedance_master.name": "Seedance Master",
   "achievements.badge.seedance_master.desc": "Spark creative cinematic flows with ByteDance Seed and Doubao models.",
   "achievements.badge.token_arbitrageur.name": "Token Arbitrageur",
-  "achievements.badge.token_arbitrageur.desc": "Master the art of compute arbitrage across diverse aggregation platforms."
+  "achievements.badge.token_arbitrageur.desc": "Master the art of compute arbitrage across diverse aggregation platforms.",
+  "settings.section.localData": "Lokale Daten",
+  "settings.section.localData.description": "Exportiere oder importiere den Nutzungs-Snapshot dieses Rechners.",
+  "settings.local_data.title": "Lokale Datensicherung",
+  "settings.local_data.scope": "Exportiere die stündliche Nutzung dieses Rechners oder importiere sie auf einem anderen Rechner. Der Import fügt nur fehlende Stunden hinzu und überschreibt nichts.",
+  "settings.local_data.stats": "{{rows}} Stunden-Buckets · {{size}}",
+  "settings.local_data.export": "Snapshot exportieren",
+  "settings.local_data.import": "Snapshot importieren",
+  "settings.local_data.choose": "Datei wählen",
+  "settings.local_data.preview": "Importvorschau",
+  "settings.local_data.preview_line": "{{fresh}} neue Zeilen / {{dup}} bereits vorhanden",
+  "settings.local_data.confirm": "Importieren",
+  "settings.local_data.cancel": "Abbrechen",
+  "settings.local_data.exported": "Snapshot exportiert",
+  "settings.local_data.done": "{{imported}} Zeilen importiert",
+  "settings.local_data.error": "Der Transfer ist fehlgeschlagen.",
+  "settings.local_data.self": "Dieser Snapshot stammt von diesem Rechner."
 }

@@ -2259,3 +2259,19 @@ settings.account.removeAvatar,ui,SettingsPage,SettingsPage,remove_avatar,"Remove
 settings.account.localNameHint,ui,SettingsPage,SettingsPage,local_name_hint,"Shown in the sidebar; leave empty to use the device name.",,active
 settings.account.localId,ui,SettingsPage,SettingsPage,local_id,"Local ID",,active
 settings.account.saved,ui,SettingsPage,SettingsPage,saved,"Saved",,active
+settings.section.localData,dashboard,*,SettingsPage,settings_section_localData,"Local Data",,active
+settings.section.localData.description,dashboard,*,SettingsPage,settings_section_localData_description,"Export or import this machine's usage snapshot.",,active
+settings.local_data.title,dashboard,*,SettingsPage,settings_local_data_title,"Local data backup",,active
+settings.local_data.scope,dashboard,*,SettingsPage,settings_local_data_scope,"Export this machine's hourly usage, or import it on another machine. Import only appends missing hours; existing rows are never overwritten.",,active
+settings.local_data.stats,dashboard,*,SettingsPage,settings_local_data_stats,"{{rows}} hourly buckets · {{size}}",,active
+settings.local_data.export,dashboard,*,SettingsPage,settings_local_data_export,"Export snapshot",,active
+settings.local_data.import,dashboard,*,SettingsPage,settings_local_data_import,"Import snapshot",,active
+settings.local_data.choose,dashboard,*,SettingsPage,settings_local_data_choose,"Choose file",,active
+settings.local_data.preview,dashboard,*,SettingsPage,settings_local_data_preview,"Import preview",,active
+settings.local_data.preview_line,dashboard,*,SettingsPage,settings_local_data_preview_line,"{{fresh}} new rows / {{dup}} already present",,active
+settings.local_data.confirm,dashboard,*,SettingsPage,settings_local_data_confirm,"Import",,active
+settings.local_data.cancel,dashboard,*,SettingsPage,settings_local_data_cancel,"Cancel",,active
+settings.local_data.exported,dashboard,*,SettingsPage,settings_local_data_exported,"Snapshot exported",,active
+settings.local_data.done,dashboard,*,SettingsPage,settings_local_data_done,"Imported {{imported}} rows",,active
+settings.local_data.error,dashboard,*,SettingsPage,settings_local_data_error,"The transfer failed.",,active
+settings.local_data.self,dashboard,*,SettingsPage,settings_local_data_self,"This snapshot came from this machine.",,active

@@ -3457,6 +3457,47 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- local usage snapshot transfer (single-machine export/import) ---
+    if (p === "/functions/tokentracker-local-usage") {
+      const transfer = require("./local-usage-transfer");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        if (req.method === "GET") {
+          json(res, transfer.describeLocalUsage());
+          return true;
+        }
+        if (req.method !== "POST") {
+          json(res, { code: "method_not_allowed", error: "POST required" }, 405);
+          return true;
+        }
+        const raw = await readBodyLimited(req, 6 * 1024 * 1024);
+        let body = {};
+        try {
+          body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
+        } catch {
+          json(res, { code: "invalid_snapshot", error: "Malformed JSON body" }, 400);
+          return true;
+        }
+        const action = body?.action;
+        if (action === "export") {
+          json(res, transfer.buildSnapshot());
+          return true;
+        }
+        if (action === "preview") {
+          json(res, transfer.previewSnapshot(body.snapshot));
+          return true;
+        }
+        if (action === "import") {
+          json(res, transfer.importSnapshot(body.snapshot, body.token));
+          return true;
+        }
+        json(res, { code: "unknown_action", error: "Unknown action" }, 400);
+      } catch (error) {
+        json(res, { code: error?.code || "transfer_failed", error: error?.message || "transfer failed" }, 400);
+      }
+      return true;
+    }
+
     // --- fixed context overhead audit (counts and estimates only) ---
     if (p === "/functions/tokentracker-context-health") {
       const { computeContextHealth } = require("./context-health");
