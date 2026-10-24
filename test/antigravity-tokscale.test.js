@@ -8,6 +8,7 @@ const path = require("node:path");
 
 const {
   readAntigravityTokscaleUsage,
+  readAntigravityTokscaleUsageCached,
   mergeAntigravityTokscaleRows,
 } = require("../src/lib/antigravity-tokscale");
 
@@ -118,6 +119,32 @@ test("merges Token Monitor SQLite sessions", () => {
     assert.equal(s.requests, 20);
     assert.equal(snapshot.rows.length, 1);
     assert.equal(snapshot.rows[0].total_tokens, 5000000);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("TOKENTRACKER_DISABLE_TOKEN_MONITOR skips the tokscale cache too", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-ag-off-"));
+  const dir = path.join(home, "sessions");
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    fs.writeFileSync(path.join(dir, "a.jsonl"), [
+      usage("s1", "gemini-3.8-flash-n", Date.UTC(2026, 9, 4, 5, 10), 100, 900, 50, 10),
+    ].join("\n") + "\n");
+
+    const off = { dir, env: { TOKENTRACKER_DISABLE_TOKEN_MONITOR: "1" } };
+    for (const snapshot of [readAntigravityTokscaleUsage(off), readAntigravityTokscaleUsageCached(off)]) {
+      assert.equal(snapshot.rows.length, 0);
+      assert.equal(snapshot.files, 0);
+      assert.equal(snapshot.coveredDays.size, 0);
+      assert.equal(snapshot.bySession.size, 0);
+      assert.equal(snapshot.tokenMonitorDbPath, null);
+    }
+
+    const on = { dir, env: {} };
+    assert.equal(readAntigravityTokscaleUsage(on).rows.length, 1);
+    assert.equal(readAntigravityTokscaleUsageCached(on).rows.length, 1);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

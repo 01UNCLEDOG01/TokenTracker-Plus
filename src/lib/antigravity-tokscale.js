@@ -19,6 +19,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { tokenMonitorDisabled } = require("./token-monitor-speed");
+
 const ANTIGRAVITY_SOURCE = "antigravity";
 
 // Antigravity reports one Claude SKU as `-thinking`, dotted and hyphenated
@@ -270,7 +272,14 @@ function snapshotSignature(cacheDir, files, tmDbPath = null) {
   return `${cacheDir}|${parts.join("|")}`;
 }
 
+function emptyTokscaleResult({ cacheDir = null, tokenMonitorDbPath = null } = {}) {
+  return { rows: [], coveredDays: new Set(), bySession: new Map(), files: 0, cacheDir, tokenMonitorDbPath };
+}
+
 function readAntigravityTokscaleUsageCached(options = {}) {
+  if (tokenMonitorDisabled(options.env || process.env)) {
+    return emptyTokscaleResult({ tokenMonitorDbPath: null });
+  }
   const cacheDir = options.dir || resolveAntigravityTokscaleDir(options);
   const tmDbPath = options.tokenMonitorDbPath !== undefined
     ? options.tokenMonitorDbPath
@@ -288,9 +297,10 @@ function readAntigravityTokscaleUsage({ home = os.homedir(), env = process.env, 
   const tmDbPath = tokenMonitorDbPath !== undefined
     ? tokenMonitorDbPath
     : (dir ? null : resolveTokenMonitorDbPath({ home, env, platform }));
+  if (tokenMonitorDisabled(env)) return emptyTokscaleResult({ cacheDir });
   const files = listCacheFiles(cacheDir);
   const tmSessions = readTokenMonitorAntigravitySessions(tmDbPath);
-  if (files.length === 0 && tmSessions.size === 0) return { rows: [], coveredDays: new Set(), bySession: new Map(), files: 0, cacheDir, tokenMonitorDbPath: tmDbPath };
+  if (files.length === 0 && tmSessions.size === 0) return emptyTokscaleResult({ cacheDir, tokenMonitorDbPath: tmDbPath });
 
   const byHourModel = new Map();
   const bySession = new Map();

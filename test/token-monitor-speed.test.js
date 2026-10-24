@@ -7,6 +7,7 @@ const path = require("node:path");
 const os = require("node:os");
 
 const {
+  tokenMonitorDisabled,
   resolveTokenMonitorDbPath,
   normalizeSpeedPerformance,
   loadTokenMonitorSpeedMap,
@@ -102,4 +103,54 @@ test("loadTokenMonitorSpeedMap and lookup with mock SQLite db", (t) => {
   fs.writeFileSync(walPath, "dummy-wal-update");
   const reloaded = loadTokenMonitorSpeedMap(options);
   assert.equal(reloaded.byKey.size, 3);
+});
+
+test("TOKENTRACKER_DISABLE_TOKEN_MONITOR turns every archive reader off", (t) => {
+  let DatabaseSync;
+  try {
+    DatabaseSync = require("node:sqlite").DatabaseSync;
+  } catch {
+    t.skip("node:sqlite not available");
+    return;
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tt-tm-off-"));
+  t.after(() => {
+    resetTokenMonitorSpeedCacheForTests();
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  });
+
+  const dbPath = path.join(tmpDir, "session-usage-archive.sqlite");
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
+    CREATE TABLE sessions (session_key TEXT PRIMARY KEY, entry_json TEXT);
+    INSERT INTO sessions VALUES (
+      'dsh:session-off-1',
+      '{"periods":{"allTime":{"timedOutputTokens":600,"timedDurationMs":10000,"messageCount":2,"inputTokens":300,"outputTokens":150}}}'
+    );
+  `);
+  db.close();
+
+  assert.equal(tokenMonitorDisabled({}), false);
+  assert.equal(tokenMonitorDisabled({ TOKENTRACKER_DISABLE_TOKEN_MONITOR: "" }), false);
+  assert.equal(tokenMonitorDisabled({ TOKENTRACKER_DISABLE_TOKEN_MONITOR: "0" }), false);
+  assert.equal(tokenMonitorDisabled({ TOKENTRACKER_DISABLE_TOKEN_MONITOR: "false" }), false);
+  assert.equal(tokenMonitorDisabled({ TOKENTRACKER_DISABLE_TOKEN_MONITOR: "1" }), true);
+  assert.equal(tokenMonitorDisabled({ TOKENTRACKER_DISABLE_TOKEN_MONITOR: "TRUE" }), true);
+
+  // The archive exists and is still pointed at explicitly: the flag must win.
+  const off = { env: { TOKENTRACKER_TOKEN_MONITOR_DB: dbPath, TOKENTRACKER_DISABLE_TOKEN_MONITOR: "1" } };
+  assert.equal(resolveTokenMonitorDbPath({ env: off.env }), null);
+  const index = loadTokenMonitorSpeedMap({ home: tmpDir, env: off.env });
+  assert.equal(index.byKey.size, 0);
+  assert.equal(index.bySessionId.size, 0);
+  assert.equal(index.byKeyTotals.size, 0);
+  assert.equal(lookupTokenMonitorPerformance("dsh", "session-off-1", { home: tmpDir, env: off.env }), null);
+  assert.equal(lookupTokenMonitorSessionTotals("dsh", "session-off-1", { home: tmpDir, env: off.env }), null);
+
+  // and the same machine without the flag still reads it
+  resetTokenMonitorSpeedCacheForTests();
+  const on = { home: tmpDir, env: { TOKENTRACKER_TOKEN_MONITOR_DB: dbPath } };
+  assert.equal(loadTokenMonitorSpeedMap(on).byKey.size, 1);
+  assert.ok(lookupTokenMonitorSessionTotals("dsh", "session-off-1", on));
 });

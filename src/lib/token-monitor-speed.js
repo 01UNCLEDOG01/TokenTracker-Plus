@@ -11,7 +11,20 @@ let cachedWalMtimeMs = 0;
 let cachedWalSize = 0;
 let cachedSpeedIndex = null;
 
+// Fork users who never install Token Monitor must get exactly the shape the
+// code returns when the archive is absent, so that mode is testable rather
+// than an implicit "the file happened not to exist".
+function tokenMonitorDisabled(env = process.env) {
+  const raw = String(env?.TOKENTRACKER_DISABLE_TOKEN_MONITOR ?? "").trim().toLowerCase();
+  return raw !== "" && raw !== "0" && raw !== "false";
+}
+
+function emptySpeedIndex() {
+  return { byKey: new Map(), bySessionId: new Map(), byKeyTotals: new Map() };
+}
+
 function resolveTokenMonitorDbPath({ home = os.homedir(), env = process.env, platform = process.platform } = {}) {
+  if (tokenMonitorDisabled(env)) return null;
   const override = typeof env.TOKENTRACKER_TOKEN_MONITOR_DB === "string"
     ? env.TOKENTRACKER_TOKEN_MONITOR_DB.trim()
     : "";
@@ -53,15 +66,16 @@ function normalizeSpeedPerformance(outputTokens, durationMs, requestCount) {
 }
 
 function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, platform = process.platform } = {}) {
+  if (tokenMonitorDisabled(env)) return emptySpeedIndex();
   const dbPath = resolveTokenMonitorDbPath({ home, env, platform });
   if (!dbPath || !fs.existsSync(dbPath)) {
-    return { byKey: new Map(), bySessionId: new Map() };
+    return emptySpeedIndex();
   }
   let stat;
   try {
     stat = fs.statSync(dbPath);
   } catch {
-    return { byKey: new Map(), bySessionId: new Map() };
+    return emptySpeedIndex();
   }
 
   let walMtimeMs = 0;
@@ -87,7 +101,7 @@ function loadTokenMonitorSpeedMap({ home = os.homedir(), env = process.env, plat
   try {
     DatabaseSync = require("node:sqlite").DatabaseSync;
   } catch {
-    return { byKey: new Map(), bySessionId: new Map() };
+    return emptySpeedIndex();
   }
 
   const byKey = new Map();
@@ -189,6 +203,7 @@ function resetTokenMonitorSpeedCacheForTests() {
 }
 
 module.exports = {
+  tokenMonitorDisabled,
   resolveTokenMonitorDbPath,
   normalizeSpeedPerformance,
   loadTokenMonitorSpeedMap,
