@@ -4,6 +4,7 @@ import { copy } from "../lib/copy";
 import { AchievementsSection } from "../ui/achievements/AchievementsSection.jsx";
 import { BADGE_CATALOG, BADGE_CATEGORIES, BADGE_CATEGORY_MAP, badgeCopyKey } from "../ui/achievements/badge-catalog.js";
 import { BadgeSynergyBanner } from "../ui/achievements/BadgeSynergyBanner.jsx";
+import { TitleDetailModal } from "../ui/achievements/TitleDetailModal.jsx";
 import { AchievementShareModal } from "../ui/achievements/AchievementShareModal.jsx";
 import { triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
 import { Share2, Volume2, Sparkles, Layers, RotateCcw } from "lucide-react";
@@ -37,6 +38,7 @@ export default function AchievementsPage() {
   // badges (trendsetter / podium) stay locked offline and say so in the note.
   const local = useAchievements();
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [selectedTitleInfo, setSelectedTitleInfo] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [tierTestIndex, setTierTestIndex] = useState(1);
   const [tierTestBadgeIndex, setTierTestBadgeIndex] = useState(0);
@@ -189,6 +191,9 @@ export default function AchievementsPage() {
                 const badge = merged.find((b) => b.id === id);
                 if (badge) setSelectedBadge(badge);
               }}
+              onOpenTitleDetail={(title, resonance) => {
+                setSelectedTitleInfo({ title, resonance });
+              }}
             />
           )}
 
@@ -273,6 +278,19 @@ export default function AchievementsPage() {
         <React.Suspense fallback={null}>
           <BadgeDetailModal badge={selectedBadge} onClose={() => setSelectedBadge(null)} />
         </React.Suspense>
+      )}
+
+      {selectedTitleInfo && (
+        <TitleDetailModal
+          title={selectedTitleInfo.title}
+          resonance={selectedTitleInfo.resonance}
+          badgeMap={new Map(merged.map((b) => [b.id, b]))}
+          onClose={() => setSelectedTitleInfo(null)}
+          onSelectBadge={(id) => {
+            const badge = merged.find((b) => b.id === id);
+            if (badge) setSelectedBadge(badge);
+          }}
+        />
       )}
     </div>
   );

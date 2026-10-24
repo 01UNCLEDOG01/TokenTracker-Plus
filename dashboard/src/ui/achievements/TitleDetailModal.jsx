@@ -1,7 +1,12 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { getTitleBondName } from "./title-registry";
+import {
+  getTitleBondName,
+  getResonancePillStyle,
+  getResonanceTextColor,
+  spectrumTier,
+} from "./title-registry";
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
 
 const TIER_NAMES = ["未激活", "青铜", "白银", "黄金", "钻石"];
@@ -43,7 +48,7 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={title.name}
@@ -55,14 +60,14 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
       }}
     >
       <div
-        className={`my-auto max-h-[90vh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-3xl border-2 ${theme.border} bg-gradient-to-br ${theme.bgGradient} p-6 text-white shadow-2xl`}
+        className={`relative max-h-[90vh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-3xl border-2 ${theme.border} bg-gradient-to-br ${theme.bgGradient} p-6 text-white shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider">
               <span className={`rounded-md border px-2 py-0.5 ${theme.pillClass}`}>{title.tag}</span>
-              <span className="rounded-md border border-white/20 bg-black/40 px-2 py-0.5 text-white/90">
+              <span className={`rounded-md border px-2 py-0.5 ${getResonancePillStyle(resonance?.tier)}`}>
                 {bondName} · {resonance?.label || "未激活"}
               </span>
             </div>
@@ -85,10 +90,18 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
           <img
             src={title.art}
             alt={title.name}
-            className={`h-28 w-28 shrink-0 rounded-full object-contain drop-shadow-xl ring-2 ${theme.ring} ${
+            className={`h-28 w-28 shrink-0 rounded-full object-contain drop-shadow-xl ring-2 ${
+              resonance?.tier >= 4
+                ? "ring-cyan-300 shadow-xl shadow-cyan-400/50"
+                : resonance?.tier === 3
+                ? "ring-amber-400 shadow-lg shadow-amber-400/40"
+                : resonance?.tier === 2
+                ? "ring-slate-300 shadow-md shadow-slate-300/30"
+                : theme.ring
+            } ${
               title.rainbow ? "title-rainbow" : ""
             }`}
-            data-spectrum={title.rainbow ? resonance?.spectrumTier : undefined}
+            data-spectrum={title.rainbow ? (resonance?.spectrumTier || spectrumTier(resonance?.tier)) : undefined}
           />
           <p className="text-sm leading-relaxed text-white/85">{title.desc}</p>
         </div>
@@ -96,7 +109,7 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
         <div className="mt-5 rounded-2xl border border-white/10 bg-black/40 p-4">
           <div className="flex items-center justify-between text-[11px] font-mono text-white/70">
             <span className="font-bold text-white/90">{bondName}</span>
-            <span>{resonance?.label || "未激活"}</span>
+            <span className={getResonanceTextColor(resonance?.tier)}>{resonance?.label || "未激活"}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-3">
             {title.requiredBadges.map((req) => {

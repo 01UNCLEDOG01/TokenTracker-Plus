@@ -427,8 +427,8 @@ const TITLES_UNSORTED = [
     requiredBadges: [
       { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
       { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
-      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=1" },
-      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=1" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=2" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=2" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
@@ -462,8 +462,8 @@ const TITLES_UNSORTED = [
       { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
       { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
       { id: "hunyuan_master", name: "混元归一", tier: 1, art: "/achievements/hunyuan-master.png?v=1" },
-      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=1" },
-      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=1" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=2" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=2" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
@@ -588,3 +588,41 @@ export function getTitleResonance(title, badgeMap) {
     label,
   };
 }
+
+export function spectrumTier(tier) {
+  if (tier >= 4) return "diamond";
+  if (tier === 3) return "gold";
+  if (tier === 2) return "silver";
+  return "bronze";
+}
+
+export function getResonancePillStyle(tier) {
+  switch (tier) {
+    case 4:
+      return "border-cyan-300 bg-cyan-950/80 text-cyan-200 shadow-sm shadow-cyan-400/40 ring-1 ring-cyan-300/40";
+    case 3:
+      return "border-amber-400 bg-amber-950/80 text-amber-200 shadow-sm shadow-amber-400/30";
+    case 2:
+      return "border-slate-300/70 bg-slate-800/80 text-slate-100 shadow-sm shadow-slate-300/20";
+    case 1:
+      return "border-amber-700/60 bg-amber-950/60 text-amber-300 shadow-sm shadow-amber-900/30";
+    default:
+      return "border-white/20 bg-black/40 text-white/70";
+  }
+}
+
+export function getResonanceTextColor(tier) {
+  switch (tier) {
+    case 4:
+      return "text-cyan-300 font-bold";
+    case 3:
+      return "text-amber-300 font-bold";
+    case 2:
+      return "text-slate-200 font-medium";
+    case 1:
+      return "text-amber-400";
+    default:
+      return "text-white/40";
+  }
+}
+

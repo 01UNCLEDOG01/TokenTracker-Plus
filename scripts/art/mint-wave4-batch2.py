@@ -26,73 +26,86 @@ S = 512
 cx, cy = 256, 256
 
 def gen_meituan_longcat():
+    # Load user official Meituan LongCat reference
+    src_file = SRC_BADGES / "meituan-longcat-source.png"
+    im_src = Image.open(src_file).convert("RGB")
+    w, h = im_src.size
+
+    # Floodfill background
+    im_work = im_src.copy()
+    ImageDraw.floodfill(im_work, (0, 0), (255, 0, 255), thresh=30)
+    ImageDraw.floodfill(im_work, (w - 1, 0), (255, 0, 255), thresh=30)
+    ImageDraw.floodfill(im_work, (0, h - 1), (255, 0, 255), thresh=30)
+    ImageDraw.floodfill(im_work, (w - 1, h - 1), (255, 0, 255), thresh=30)
+
+    arr = np.array(im_work)
+    cat_body = ~((arr[:, :, 0] == 255) & (arr[:, :, 1] == 0) & (arr[:, :, 2] == 255))
+    is_eyes = cat_body & (arr[:, :, 0] < 60) & (arr[:, :, 1] < 60) & (arr[:, :, 2] < 60)
+
+    cat_mask_np = np.zeros((h, w), dtype=np.uint8)
+    cat_mask_np[cat_body] = 255
+    cat_mask_np[is_eyes] = 0
+
+    y_idx, x_idx = np.where(cat_body)
+    bbox = (int(np.min(x_idx)), int(np.min(y_idx)), int(np.max(x_idx)), int(np.max(y_idx)))
+    cat_cropped = Image.fromarray(cat_mask_np).crop(bbox)
+
+    cw, ch = cat_cropped.size
+    scale = min(320.0 / cw, 320.0 / ch)
+    nw, nh = int(cw * scale), int(ch * scale)
+    cat_resized = cat_cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+
     mask = Image.new("L", (S, S), 0)
-    d = ImageDraw.Draw(mask)
-    # Cat face outline
-    d.ellipse((cx - 110, cy - 70, cx + 110, cy + 120), fill=255)
-    # Left Ear
-    d.polygon([(cx - 105, cy - 30), (cx - 85, cy - 135), (cx - 25, cy - 65)], fill=255)
-    # Right Ear
-    d.polygon([(cx + 105, cy - 30), (cx + 85, cy - 135), (cx + 25, cy - 65)], fill=255)
-    # Inner ear cuts
-    d.polygon([(cx - 95, cy - 30), (cx - 80, cy - 115), (cx - 35, cy - 60)], fill=0)
-    d.polygon([(cx + 95, cy - 30), (cx + 80, cy - 115), (cx + 35, cy - 60)], fill=0)
-    # Eyes
-    d.ellipse((cx - 65, cy - 15, cx - 35, cy + 20), fill=0)
-    d.ellipse((cx + 35, cy - 15, cx + 65, cy + 20), fill=0)
-    # Nose & mouth
-    d.polygon([(cx - 12, cy + 28), (cx + 12, cy + 28), (cx, cy + 42)], fill=0)
-    d.arc((cx - 30, cy + 35, cx, cy + 65), 0, 180, fill=0, width=5)
-    d.arc((cx, cy + 35, cx + 30, cy + 65), 0, 180, fill=0, width=5)
-    # Whiskers
-    d.line((cx - 70, cy + 30, cx - 135, cy + 15), fill=255, width=6)
-    d.line((cx - 70, cy + 45, cx - 140, cy + 45), fill=255, width=6)
-    d.line((cx + 70, cy + 30, cx + 135, cy + 15), fill=255, width=6)
-    d.line((cx + 70, cy + 45, cx + 140, cy + 45), fill=255, width=6)
+    mask.paste(cat_resized, ((S - nw) // 2, (S - nh) // 2))
 
     stops = [
-        ((217, 119, 6), 0.0),   # #d97706
-        ((245, 158, 11), 0.35), # #f59e0b
-        ((251, 191, 36), 0.75), # #fbbf24
-        ((254, 240, 138), 1.0), # #fef08a
+        ((6, 78, 59), 0.0),      # #064e3b deep emerald
+        ((16, 185, 129), 0.35),  # #10b981 Meituan Longcat vibrant green
+        ((52, 211, 153), 0.75),  # #34d399 soft mint sheen
+        ((209, 250, 229), 1.0),  # #d1fae5 highlights
     ]
     coin = rims.house_coin()
-    composed = wave4.sculpt_medallion(mask, coin, stops, rim_color=(255, 235, 170))
+    composed = wave4.sculpt_medallion(mask, coin, stops, rim_color=(220, 255, 240))
     master_path = SRC_BADGES / "meituan-longcat.jpg"
     composed.save(master_path, quality=95)
     rims.save(composed, "meituan-longcat.png", out_dir=str(OUT_BADGES))
     print(f"Minted meituan-longcat.png -> {OUT_BADGES}")
 
 def gen_jd_joy_brother():
+    # Load user official JD Joy reference
+    src_file = SRC_BADGES / "jd-joy-source.png"
+    im_src = Image.open(src_file).convert("RGB")
+    w, h = im_src.size
+    arr_jd = np.array(im_src)
+
+    is_red_bg = (arr_jd[:, :, 0] > 180) & (arr_jd[:, :, 1] < 80) & (arr_jd[:, :, 2] < 80)
+    dog_body = ~is_red_bg
+    is_features = dog_body & (arr_jd[:, :, 0] < 120) & (arr_jd[:, :, 1] < 120) & (arr_jd[:, :, 2] < 120)
+
+    dog_mask_np = np.zeros((h, w), dtype=np.uint8)
+    dog_mask_np[dog_body] = 255
+    dog_mask_np[is_features] = 0
+
+    y_idx, x_idx = np.where(dog_body)
+    bbox_jd = (int(np.min(x_idx)), int(np.min(y_idx)), int(np.max(x_idx)), int(np.max(y_idx)))
+    dog_cropped = Image.fromarray(dog_mask_np).crop(bbox_jd)
+
+    cw, ch = dog_cropped.size
+    scale = min(330.0 / cw, 330.0 / ch)
+    nw, nh = int(cw * scale), int(ch * scale)
+    dog_resized = dog_cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+
     mask = Image.new("L", (S, S), 0)
-    d = ImageDraw.Draw(mask)
-    # Joy dog head & body silhouette
-    d.ellipse((cx - 85, cy - 90, cx + 85, cy + 60), fill=255) # Head
-    # Floppy ears
-    d.ellipse((cx - 135, cy - 70, cx - 75, cy + 25), fill=255)
-    d.ellipse((cx + 75, cy - 70, cx + 135, cy + 25), fill=255)
-    # Snout
-    d.ellipse((cx - 50, cy - 20, cx + 50, cy + 45), fill=0)
-    d.ellipse((cx - 45, cy - 15, cx + 45, cy + 40), fill=255)
-    # Nose & eyes
-    d.ellipse((cx - 16, cy - 12, cx + 16, cy + 12), fill=0)
-    d.ellipse((cx - 45, cy - 50, cx - 25, cy - 25), fill=0)
-    d.ellipse((cx + 25, cy - 50, cx + 45, cy - 25), fill=0)
-    # Joyous Smile
-    d.arc((cx - 28, cy + 5, cx + 28, cy + 35), 0, 180, fill=0, width=5)
-    # Tech collar badge below
-    d.rectangle((cx - 65, cy + 70, cx + 65, cy + 92), fill=255)
-    d.ellipse((cx - 20, cy + 85, cx + 20, cy + 125), fill=255)
-    d.ellipse((cx - 10, cy + 95, cx + 10, cy + 115), fill=0)
+    mask.paste(dog_resized, ((S - nw) // 2, (S - nh) // 2))
 
     stops = [
-        ((153, 27, 27), 0.0),   # #991b1b (JD red)
-        ((220, 38, 38), 0.4),   # #dc2626
-        ((248, 113, 113), 0.75),# #f87171
-        ((254, 226, 226), 1.0), # #fee2e2
+        ((153, 27, 27), 0.0),    # #991b1b JD heritage dark red
+        ((220, 38, 38), 0.4),    # #dc2626 classic JD crimson
+        ((248, 113, 113), 0.75), # #f87171 coral highlight
+        ((254, 226, 226), 1.0),  # #fee2e2 porcelain rim light
     ]
     coin = rims.house_coin()
-    composed = wave4.sculpt_medallion(mask, coin, stops, rim_color=(255, 220, 220))
+    composed = wave4.sculpt_medallion(mask, coin, stops, rim_color=(255, 230, 230))
     master_path = SRC_BADGES / "jd-joy-brother.jpg"
     composed.save(master_path, quality=95)
     rims.save(composed, "jd-joy-brother.png", out_dir=str(OUT_BADGES))
