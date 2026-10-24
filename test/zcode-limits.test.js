@@ -1853,6 +1853,66 @@ describe("ZCode 3.14 credential-only layout", () => {
       ]);
     });
   });
+
+  it("falls back to the current login's Start Plan when a stale config disables every plan", async () => {
+    await withZcode314Home({
+      "oauth:active_provider": "bigmodel",
+      zcodejwttoken: "jwt-token",
+      "account-provider:coding-plan:account:bigmodel-individual-coding-plan:account:acct-1:api-key": "coding-key",
+    }, async (home, v2) => {
+      // A migrated install: config.json predates the current plan and marks
+      // everything disabled, while the fresh login lives in credentials.json.
+      fs.writeFileSync(path.join(v2, "config.json"), JSON.stringify({
+        provider: {
+          "builtin:bigmodel-coding-plan": { enabled: false },
+          "builtin:bigmodel-start-plan": { enabled: false },
+        },
+      }));
+      fs.writeFileSync(path.join(v2, "coding-plan-cache.json"), JSON.stringify({
+        entryStatus: {
+          updatedAt: Date.now() - 32 * 24 * 60 * 60 * 1000,
+          items: {
+            "builtin:bigmodel-coding-plan": { status: "unavailable", reason: "coding_plan_not_entitled" },
+            "builtin:bigmodel-start-plan": { status: "unavailable", reason: "coding_plan_not_entitled" },
+          },
+        },
+      }));
+
+      const auths = loadZcodeAuthCandidates({ home, env: {} });
+      assert.deepEqual(auths.map((auth) => [auth.providerKey, auth.auth_source]), [
+        ["builtin:bigmodel-coding-plan", "credential:account-provider"],
+        ["builtin:bigmodel-start-plan", "credential:zcodejwttoken"],
+      ]);
+
+      const requests = [];
+      const result = await fetchZcodeLimits({
+        home,
+        env: { TOKENTRACKER_ZCODE_APP_VERSION: "3.16.3" },
+        fetchImpl: async (url, options) => {
+          requests.push(url);
+          if (url.includes("/api/monitor/usage/quota/limit")) {
+            assert.equal(options.headers.authorization, "coding-key");
+            return { ok: true, status: 200, async json() {
+              return { code: 500, success: false, msg: "当前用户不存在coding plan" };
+            } };
+          }
+          assert.equal(options.headers.Authorization, "Bearer jwt-token");
+          return { ok: true, status: 200, async json() { return balanceBody(); } };
+        },
+      });
+      assert.equal(result.configured, true);
+      assert.equal(result.error, null);
+      assert.equal(result.provider_key, "builtin:bigmodel-start-plan");
+      assert.equal(result.plan_kind, "start-plan");
+      assert.equal(result.plan_label, "Start");
+      assert.equal(result.buckets.length, 2);
+      assert.equal(requests.length, 2);
+    }, { setting: {
+      providerFamilyDomain: "bigmodel",
+      providerFamilyConnectionSelections: { bigmodel: { kind: "individual-coding-plan" } },
+      modelProviderFamilySelectedKeys: { bigmodel: "coding-plan:builtin:bigmodel-coding-plan" },
+    } });
+  });
 });
 
 describe("ZCode start-plan promotional grants", () => {

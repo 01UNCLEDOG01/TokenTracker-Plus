@@ -10,7 +10,6 @@ public sealed class UpdateReleaseClientTests
 {
     private const string ApiUrl = "https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest";
     private const string TagUrl = "https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9";
-    private const string AssetBase = "https://github.com/xiufengsun/TokenTracker/releases/download/v1.3.9/";
     private static readonly DateTimeOffset Now = new(2026, 10, 12, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -23,16 +22,13 @@ public sealed class UpdateReleaseClientTests
         var release = await resolver.FetchLatestAsync();
 
         Assert.Equal("1.3.9", release.Version);
-        Assert.Equal(900, release.SetupSize);
-        Assert.Equal(AssetBase + "TokenTracker-Setup.exe", release.SetupUrl);
-        Assert.Equal(AssetBase + "SHA256SUMS", release.ChecksumsUrl);
         Assert.Equal([ApiUrl], calls);
         Assert.False(resolver.UsedFallback);
         Assert.Null(resolver.ApiRetryAt);
     }
 
     [Fact]
-    public async Task PrimaryLimitFallsBackAndPinsInstallerAndChecksumToOneTag()
+    public async Task PrimaryLimitFallsBackToReleasePage()
     {
         var calls = new List<(HttpMethod Method, string Url)>();
         using var http = Http(request =>
@@ -46,14 +42,10 @@ public sealed class UpdateReleaseClientTests
 
         Assert.True(resolver.UsedFallback);
         Assert.Equal(Now.AddHours(1), resolver.ApiRetryAt);
-        Assert.Equal(900, release.SetupSize);
-        Assert.Equal(AssetBase + "TokenTracker-Setup.exe", release.SetupUrl);
-        Assert.Equal(AssetBase + "SHA256SUMS", release.ChecksumsUrl);
+        Assert.Equal("1.3.9", release.Version);
         Assert.Equal(new[] {
             (HttpMethod.Get, ApiUrl),
             (HttpMethod.Head, UpdateReleaseClient.ReleasePageUrl),
-            (HttpMethod.Head, release.SetupUrl),
-            (HttpMethod.Get, release.ChecksumsUrl!),
         }, calls);
     }
 
@@ -194,34 +186,6 @@ public sealed class UpdateReleaseClientTests
         Assert.Equal(2, calls);
     }
 
-    [Theory]
-    [InlineData("installer-missing")]
-    [InlineData("size-missing")]
-    [InlineData("checksums-missing")]
-    [InlineData("checksum-entry-missing")]
-    public async Task FallbackFailsWhenInstallerCannotBeDownloadedAndVerified(string failure)
-    {
-        using var http = Http(request =>
-        {
-            if (IsApi(request)) return RateLimited();
-            if (request.RequestUri!.AbsoluteUri.EndsWith("TokenTracker-Setup.exe"))
-            {
-                if (failure == "installer-missing") return new HttpResponseMessage(HttpStatusCode.NotFound);
-                if (failure == "size-missing") return new HttpResponseMessage(HttpStatusCode.OK);
-            }
-            if (request.RequestUri.AbsoluteUri.EndsWith("SHA256SUMS"))
-            {
-                if (failure == "checksums-missing") return new HttpResponseMessage(HttpStatusCode.NotFound);
-                if (failure == "checksum-entry-missing") return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('a', 64) + "  other.exe") };
-            }
-            return ReleasePageResponse(request);
-        });
-        var resolver = new UpdateReleaseClient(http);
-        var error = await Record.ExceptionAsync(() => resolver.FetchLatestAsync());
-        Assert.True(error is HttpRequestException or InvalidDataException);
-        Assert.True(resolver.UsedFallback);
-    }
-
     [Fact]
     public async Task FallbackFailureKeepsApiCooldownForNextCheck()
     {
@@ -240,11 +204,23 @@ public sealed class UpdateReleaseClientTests
     }
 
     [Fact]
-    public async Task MissingApiInstallerIsFailedRatherThanUpToDate()
+    public async Task ApiTagOnlyIsSufficientForUpdateCheck()
     {
-        using var http = Http(_ => ApiRelease(includeInstaller: false));
+        using var http = Http(_ => ApiRelease());
         var checker = new UpdateChecker(http);
-        Assert.Equal(UpdateChecker.CheckOutcome.Failed, await checker.CheckAsync(silent: false));
+        Assert.Equal(UpdateChecker.CheckOutcome.UpdateAvailable, await checker.CheckAsync(silent: false));
+        Assert.Equal(UpdateChecker.UpdateState.UpdateAvailable, checker.State);
+        Assert.Equal("1.3.9", checker.LatestVersion);
+    }
+
+    [Fact]
+    public async Task BackgroundCheckIsSkippedWithoutNetwork()
+    {
+        var calls = 0;
+        using var http = Http(_ => { calls++; return ApiRelease(); });
+        var checker = new UpdateChecker(http);
+        Assert.Equal(UpdateChecker.CheckOutcome.Skipped, await checker.CheckAsync(silent: true));
+        Assert.Equal(0, calls);
         Assert.Equal(UpdateChecker.UpdateState.Idle, checker.State);
     }
 
@@ -255,23 +231,17 @@ public sealed class UpdateReleaseClientTests
         using var http = Http(request => IsApi(request) ? RateLimited(resetAt)
             : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         var checker = new UpdateChecker(http);
-        var quitRequested = false;
-        checker.QuitRequested += () => quitRequested = true;
 
         Assert.Equal(UpdateChecker.CheckOutcome.Failed, await checker.CheckAsync(silent: false));
         Assert.Equal(UpdateChecker.UpdateState.Idle, checker.State);
         Assert.Null(checker.LatestVersion);
         Assert.Equal(resetAt.ToUnixTimeSeconds(), checker.ApiRetryAt!.Value.ToUnixTimeSeconds());
-        Assert.False(quitRequested);
     }
 
     [Fact]
     public async Task ExistingVersionStillReportsUpToDate()
     {
-        using var http = Http(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new {
-            tag_name = "v0.0.0",
-            assets = new[] { new { name = "TokenTracker-Setup.exe", browser_download_url = "https://github.com/xiufengsun/TokenTracker/releases/download/v0.0.0/TokenTracker-Setup.exe", size = 900 } },
-        })) });
+        using var http = Http(_ => ApiRelease("v0.0.0"));
         var checker = new UpdateChecker(http);
         Assert.Equal(UpdateChecker.CheckOutcome.UpToDate, await checker.CheckAsync(silent: false));
         Assert.Equal(UpdateChecker.UpdateState.Idle, checker.State);
@@ -287,13 +257,10 @@ public sealed class UpdateReleaseClientTests
             return IsApi(request) ? RateLimited() : ReleasePageResponse(request);
         });
         var checker = new UpdateChecker(http);
-        var quitRequested = false;
-        checker.QuitRequested += () => quitRequested = true;
         Assert.Equal(UpdateChecker.CheckOutcome.UpdateAvailable, await checker.CheckAsync(silent: false));
         Assert.Equal(UpdateChecker.UpdateState.UpdateAvailable, checker.State);
         Assert.Equal("1.3.9", checker.LatestVersion);
-        Assert.Equal(new[] { HttpMethod.Get, HttpMethod.Head, HttpMethod.Head, HttpMethod.Get }, calls);
-        Assert.False(quitRequested);
+        Assert.Equal(new[] { HttpMethod.Get, HttpMethod.Head }, calls);
     }
 
     [Fact]
@@ -320,14 +287,8 @@ public sealed class UpdateReleaseClientTests
 
     private static bool IsApi(HttpRequestMessage request) => request.RequestUri!.Host == "api.github.com";
 
-    private static HttpResponseMessage ApiRelease(bool includeInstaller = true)
-        => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new {
-            tag_name = "v1.3.9",
-            assets = includeInstaller ? new[] {
-                new { name = "TokenTracker-Setup.exe", browser_download_url = AssetBase + "TokenTracker-Setup.exe", size = 900 },
-                new { name = "SHA256SUMS", browser_download_url = AssetBase + "SHA256SUMS", size = 90 },
-            } : [],
-        })) };
+    private static HttpResponseMessage ApiRelease(string tag = "v1.3.9")
+        => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { tag_name = tag })) };
 
     private static HttpResponseMessage RateLimited(DateTimeOffset? reset = null)
     {
@@ -339,17 +300,9 @@ public sealed class UpdateReleaseClientTests
 
     private static HttpResponseMessage ReleasePageResponse(HttpRequestMessage request, string redirect = TagUrl)
     {
-        if (request.RequestUri!.AbsoluteUri == UpdateReleaseClient.ReleasePageUrl)
-            return new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = new HttpRequestMessage(HttpMethod.Head, redirect) };
-        if (request.RequestUri.AbsoluteUri == AssetBase + "TokenTracker-Setup.exe")
-        {
-            var response = new HttpResponseMessage(HttpStatusCode.OK);
-            response.Content.Headers.ContentLength = 900;
-            return response;
-        }
-        if (request.RequestUri.AbsoluteUri == AssetBase + "SHA256SUMS")
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('a', 64) + "  TokenTracker-Setup.exe\n") };
-        throw new InvalidOperationException("Unexpected test request: " + request.RequestUri.AbsolutePath);
+        if (request.RequestUri!.AbsoluteUri != UpdateReleaseClient.ReleasePageUrl)
+            throw new InvalidOperationException("Unexpected test request: " + request.RequestUri.AbsolutePath);
+        return new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = new HttpRequestMessage(HttpMethod.Head, redirect) };
     }
 
     private static HttpClient Http(Func<HttpRequestMessage, HttpResponseMessage> respond)

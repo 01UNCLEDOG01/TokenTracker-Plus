@@ -36,10 +36,10 @@ function shiftDays(iso, days) {
 
 test("empty inputs yield the full locked catalog", () => {
   const result = computeLocalAchievements([], [], { timeZoneContext: TZ_SHANGHAI });
-  // Ten local badges (three originals plus the seven habit badges) plus the
-  // twenty-one parity badges, now including local trendsetter/podium proxies.
+  // Local badges plus the cloud-parity set, now including local
+  // trendsetter/podium proxies and the four wave-4 model badges.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 51);
+  assert.equal(result.length, 55);
   for (const id of ["trendsetter", "podium"]) {
     const badge = result.find((entry) => entry.id === id);
     assert.ok(badge, `${id} must exist in the local catalog`);

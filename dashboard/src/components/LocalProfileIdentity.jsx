@@ -92,7 +92,7 @@ export function LocalProfileIdentity({ collapsed = false }) {
           </span>
           {equippedTitle ? (
             <div className="mt-0.5">
-              <EquippedTitleBadge title={equippedTitle} size="xs" />
+              <EquippedTitleBadge title={equippedTitle} size="xs" showIcon={false} />
             </div>
           ) : (
             <span className="block truncate font-mono text-[10px] text-oai-gray-400 dark:text-oai-gray-500">

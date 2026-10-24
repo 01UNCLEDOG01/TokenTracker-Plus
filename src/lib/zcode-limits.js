@@ -10,6 +10,10 @@ const DEFAULT_BIGMODEL_MONITOR_BASE_URL = "https://bigmodel.cn";
 const ZCODE_MONITOR_QUOTA_PATH = "/api/monitor/usage/quota/limit";
 const DEFAULT_ZCODE_APP_VERSION = "3.2.5";
 const DEFAULT_ZCODE_LOG_FALLBACK_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+// ZCode's plan cache is a hint, not authority: a stale file can keep saying
+// "not entitled" long after a new Start Plan grant was issued. Ignore it once
+// it is older than a day so live credentials still get a chance.
+const DEFAULT_ZCODE_AVAILABILITY_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function resolveZcodeHome({ home, env = process.env } = {}) {
   if (typeof env.TOKENTRACKER_ZCODE_HOME === "string" && env.TOKENTRACKER_ZCODE_HOME.trim()) {
@@ -86,17 +90,25 @@ function isZcodeInstalled({ home, env } = {}) {
   return fs.existsSync(dbPath);
 }
 
-function loadZcodeProviderAvailability({ home, env } = {}) {
+function loadZcodeProviderAvailabilityState({ home, env, nowMs = Date.now() } = {}) {
   const zcodeHome = resolveZcodeHome({ home, env });
   const cachePath = path.join(zcodeHome, "v2", "coding-plan-cache.json");
-  if (!fs.existsSync(cachePath)) return {};
+  if (!fs.existsSync(cachePath)) return { items: {}, hasItems: false, fresh: false };
   try {
     const cache = JSON.parse(fs.readFileSync(cachePath, "utf8"));
     const items = cache?.entryStatus?.items;
-    return items && typeof items === "object" ? items : {};
+    if (!items || typeof items !== "object") return { items: {}, hasItems: false, fresh: false };
+    const updatedAt = Number(cache?.entryStatus?.updatedAt);
+    const hasTimestamp = Number.isFinite(updatedAt) && updatedAt > 0;
+    const fresh = !hasTimestamp || nowMs - updatedAt <= DEFAULT_ZCODE_AVAILABILITY_MAX_AGE_MS;
+    return { items, hasItems: true, fresh };
   } catch (_error) {
-    return {};
+    return { items: {}, hasItems: false, fresh: false };
   }
+}
+
+function loadZcodeProviderAvailability({ home, env, nowMs } = {}) {
+  return loadZcodeProviderAvailabilityState({ home, env, nowMs }).items;
 }
 
 /**
@@ -395,7 +407,7 @@ function resolveZcodeProviderQuotaUrl(providerKey, provider, env = process.env) 
  * dropped v2/config.json: there, candidates come from credentials.json
  * alone (the active family's zcodejwttoken for start plans, per-account coding-plan keys).
  */
-function loadZcodeAuthCandidates({ home, env } = {}) {
+function loadZcodeAuthCandidates({ home, env, nowMs = Date.now() } = {}) {
   const zcodeHome = resolveZcodeHome({ home, env });
   const configPath = path.join(zcodeHome, "v2", "config.json");
   const hasConfig = fs.existsSync(configPath);
@@ -403,19 +415,28 @@ function loadZcodeAuthCandidates({ home, env } = {}) {
     const config = hasConfig ? JSON.parse(fs.readFileSync(configPath, "utf8")) : {};
     if (!config || typeof config !== "object") return [];
     const providers = config.provider || {};
-    // Per-account keys are a 3.14+ concept; a legacy config.json stays the only
-    // quota-key source there. The account keys are still read in mixed layouts
-    // (config.json + newer credentials.json) purely to prove key ownership.
+    // A migrated install can keep a months-old config.json in which every
+    // built-in plan is marked disabled, while credentials.json holds a live
+    // login. With no enabled plan provider left, treat credentials as a real
+    // key source instead of only using them to prove ownership.
+    const hasEnabledPlanProvider = Object.entries(providers).some(([key, provider]) =>
+      isZcodeBuiltinPlanProvider(key) && provider && typeof provider === "object" && provider.enabled !== false);
+    const useCredentialFallback = !hasConfig || !hasEnabledPlanProvider;
+    // Per-account keys are a 3.14+ concept; a legacy config.json with a live
+    // plan stays the only quota-key source there. The account keys are still
+    // read in mixed layouts (config.json + newer credentials.json) purely to
+    // prove key ownership unless the fallback above is active.
     const accountAuths = loadZcodeAccountProviderAuths({ home, env });
-    const accountAuthsAsKeys = hasConfig ? {} : accountAuths;
+    const accountAuthsAsKeys = useCredentialFallback ? accountAuths : {};
     const defaultCandidates = [
       "builtin:bigmodel-start-plan",
       "builtin:zai-start-plan",
       "builtin:bigmodel-coding-plan",
       "builtin:zai-coding-plan",
     ];
-    const availability = loadZcodeProviderAvailability({ home, env });
-    const hasAvailability = Object.keys(availability).length > 0;
+    const availabilityState = loadZcodeProviderAvailabilityState({ home, env, nowMs });
+    const availability = availabilityState.items;
+    const hasAvailability = availabilityState.fresh && Object.keys(availability).length > 0;
     const selectedPlans = loadZcodeSelectedPlans({ home, env });
     const selectedCandidates = selectedPlans.map((plan) => plan.providerKey)
       .filter((key) => defaultCandidates.includes(key));
@@ -434,14 +455,14 @@ function loadZcodeAuthCandidates({ home, env } = {}) {
     for (const key of candidates) {
       const configured = providers[key];
       const provider = configured && typeof configured === "object" ? configured : null;
-      if (provider?.enabled === false) continue;
-      if (hasAvailability && availability?.[key]?.status && availability[key].status !== "available") continue;
+      if (!useCredentialFallback && provider?.enabled === false) continue;
+      if (!useCredentialFallback && hasAvailability && availability?.[key]?.status && availability[key].status !== "available") continue;
       const apiKey = typeof provider?.options?.apiKey === "string" ? provider.options.apiKey.trim() : "";
       const billingBaseUrl = resolveZcodeProviderBillingBaseUrl(key, provider, env);
       const quotaUrl = resolveZcodeProviderQuotaUrl(key, provider, env);
       const teamContext = selectedPlans.find((plan) => plan.providerKey === key)?.teamContext;
       // Legacy layouts only trust the shared JWT for providers config.json still lists.
-      const credentialApiKey = provider || !hasConfig ? resolveZcodeCredentialAuth(key, { home, env }) : "";
+      const credentialApiKey = provider || useCredentialFallback ? resolveZcodeCredentialAuth(key, { home, env }) : "";
       // A config.json key that byte-equals a per-account credential inherits
       // that credential's account identity, so ownership stays provable for
       // keys the ZCode app wrote into config.json for the current login.
