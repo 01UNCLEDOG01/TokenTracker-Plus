@@ -422,10 +422,15 @@ export function SessionsPage() {
   // range anyway, so a server-side window would cost a round trip without
   // saving any work — and it would make the source/project/search filters mean
   // "within the fetched page" instead of "within your sessions".
+  //
+  // `showSpinner` reads a ref, never `data`: depending on state here rebuilt
+  // `load`, whose effect then fired a second identical request after the first
+  // response landed.
+  const hasLoadedRef = useRef(Boolean(data));
   const load = useCallback(async (refresh = false) => {
     const requestId = ++requestIdRef.current;
     if (refresh) setRefreshing(true);
-    else if (!data) setIsLoading(true);
+    else if (!hasLoadedRef.current) setIsLoading(true);
     setError(null);
     try {
       const result = await getSessions({ refresh });
@@ -433,6 +438,7 @@ export function SessionsPage() {
       // overwrite a newer one.
       if (requestId === requestIdRef.current) {
         setData(result);
+        hasLoadedRef.current = true;
         try {
           if (typeof window !== "undefined") {
             sessionStorage.setItem(SESSIONS_CACHE_KEY, JSON.stringify(result));
@@ -447,7 +453,7 @@ export function SessionsPage() {
         setRefreshing(false);
       }
     }
-  }, [data]);
+  }, []);
 
   useEffect(() => {
     if (IS_LOCAL_HOST || isMockEnabled()) void load(false);

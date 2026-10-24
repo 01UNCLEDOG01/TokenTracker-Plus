@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { copy } from "../lib/copy";
+import { BADGE_CATALOG } from "../ui/achievements/badge-catalog.js";
 
 vi.mock("../hooks/use-achievements.js", () => ({
   useAchievements: () => ({
@@ -25,7 +26,7 @@ describe("AchievementsPage local-only wall", () => {
     expect(screen.getByTestId("local-wall")).toHaveAttribute("data-count", "1");
     expect(screen.getByText(copy("achievements.page.local_note"))).toBeInTheDocument();
     expect(screen.queryByText(copy("achievements.signin.prompt"))).toBeNull();
-    // 1 earned out of the 42-badge catalog, all counted from local data.
-    expect(screen.getByText("/42")).toBeInTheDocument();
+    // 1 earned out of the whole catalog, all counted from local data.
+    expect(screen.getByText(`/${BADGE_CATALOG.length}`)).toBeInTheDocument();
   });
 });

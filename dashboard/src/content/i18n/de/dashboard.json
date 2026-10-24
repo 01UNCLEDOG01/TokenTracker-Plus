@@ -738,6 +738,7 @@
   "achievements.action.test_unlock": "Freischaltung testen",
   "achievements.action.test_tier_up": "Beförderung testen",
   "achievements.action.test_resonance": "Resonanz testen",
+  "achievements.action.reset_real": "Echtdaten wiederherstellen",
   "achievements.action.export_card": "Karte exportieren",
   "heatmap.tooltip.level7": "Stufe 7 (Singularität · 3 Mrd.+ Tokens)",
   "heatmap.3d.voxel.level7": "Tagesverbrauch hat {{value}} Tokens erreicht! Gravitationssingularität ausgelöst!",

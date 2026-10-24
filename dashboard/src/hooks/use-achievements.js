@@ -86,7 +86,7 @@ export function useAchievementWatcher({ intervalMs = 60000, enabled = true } = {
       }
     };
 
-    // Stagger initial check by 2.5s to ensure clean app startup
+    // Fast initial check on app startup (400ms delay)
     const initialTimer = setTimeout(() => {
       if (cancelled) return;
       void runCheck();
@@ -94,12 +94,27 @@ export function useAchievementWatcher({ intervalMs = 60000, enabled = true } = {
         if (cancelled) return;
         void runCheck();
       }, intervalMs);
-    }, 2500);
+    }, 400);
+
+    // Instant check when user opens the panel or brings window into focus
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void runCheck();
+      }
+    };
+    const onFocus = () => {
+      void runCheck();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
 
     return () => {
       cancelled = true;
       clearTimeout(initialTimer);
       if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
     };
   }, [enabled, intervalMs]);
 }

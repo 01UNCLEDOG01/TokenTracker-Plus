@@ -31,7 +31,7 @@ def main():
         if not src.exists():
             print(f"ERROR: missing {src}")
             sys.exit(1)
-        face = rims.extract_face(str(src), radius=200, feather=2, zoom=1.0)
+        face = rims.extract_face(str(src), radius=200, feather=2, zoom=1.05)
         coin = rims.compose(face, shadow=False)
         rims.save(coin, f"{stem}.png", out_dir=str(OUT_DIR))
         print(f"Successfully generated {stem}.png")

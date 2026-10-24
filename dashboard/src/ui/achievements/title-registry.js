@@ -1,29 +1,53 @@
 import { useState, useEffect } from "react";
 
+/**
+ * =========================================================================
+ * 极客称号殿堂 · 羁绊共鸣开放设计架构 (Open Architecture Design)
+ * =========================================================================
+ * 1. 难度与色彩递进 (Ascending Difficulty & Color Progression):
+ *    - 称号按获取难度从易到难严格排序（1 到 11 阶）；
+ *    - 色彩从质朴内敛逐渐演进到炫酷璀璨：
+ *      Rank 1~3  (初入门径): 质朴古铜、晨曦天青、雅致竹青
+ *      Rank 4~6  (登堂入室): 深洋碧青、炽烈熔火、幽夜紫电
+ *      Rank 7~9  (炉火纯青): 圣堂深蓝、璀璨琉璃金、霓虹极光紫
+ *      Rank 10~11(登峰造极): 华夏赤金、宇宙至尊全光谱星冕
+ *
+ * 2. 称号定死颜色，共鸣改变特效 (Fixed Title Identity, Dynamic Resonance VFX):
+ *    - 每个称号拥有固定且专属的色彩基调与阵营身份（Brand/Title Identity Hue）；
+ *    - 羁绊共鸣（Resonance）决定的是光效的层级与能量形态：
+ *      - 青铜共鸣 (Lv.1): 基础常态微芒，古铜内敛边线
+ *      - 白银共鸣 (Lv.2): 银霜流光脉冲，双层反光高亮
+ *      - 黄金共鸣 (Lv.3): 灿金能量光晕，外框呼吸脉动，星芒微溢
+ *      - 钻石共鸣 (MAX) : 巅峰星冕全开，极光粒子爆发，双环流光超载！
+ * =========================================================================
+ */
+
 export const TITLES_REGISTRY = [
+  // 1. 零元精算巨匠 (Rank 1: 质朴古铜 · 初入门径)
   {
     id: "frugal_archmage",
     name: "零元精算巨匠",
     en: "Frugal Archmage",
     desc: "将上下文结构压缩至极致，白嫖每一分可用算力。",
-    tag: "纯金算盘",
-    art: "/achievements/titles/title-frugal-archmage.png?v=1",
+    tag: "质朴古铜",
+    art: "/achievements/titles/title-frugal-archmage.png?v=5",
     requiredBadges: [
-      { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=4" },
-      { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=4" },
+      { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=5" },
+      { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=5" },
     ],
     check: (badgeMap) => (badgeMap.get("frugal_architect")?.tier || 0) >= 2 && (badgeMap.get("cache_miser")?.tier || 0) >= 1,
     reqText: "白嫖之光(白银) + 缓存精算师(青铜)",
     theme: {
-      text: "text-amber-300",
-      bgGradient: "from-amber-950/80 via-slate-900 to-yellow-950/60",
-      border: "border-amber-400/60",
-      glow: "shadow-lg shadow-amber-500/40",
-      pillClass: "bg-amber-950/70 text-amber-200 border-amber-400/50 shadow-amber-500/20",
-      ring: "ring-amber-400/50",
+      text: "text-amber-200",
+      bgGradient: "from-stone-900/90 via-zinc-950 to-black",
+      border: "border-stone-500/60",
+      glow: "shadow-lg shadow-stone-600/30",
+      pillClass: "bg-stone-900/80 text-amber-200 border-stone-500/50 shadow-stone-600/20",
+      ring: "ring-stone-400/50",
       accentDot: "bg-amber-400",
     },
   },
+  // 2. 极速先锋 · 赛博狂飙者 (Rank 2: 晴空天蓝 · 晨曦微风)
   {
     id: "cyber_speedster",
     name: "极速先锋 · 赛博狂飙者",
@@ -31,10 +55,10 @@ export const TITLES_REGISTRY = [
     desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，光速推流，指尖破空。",
     tag: "曲率引擎",
     dimension: 2,
-    art: "/achievements/titles/title-cyber-speedster.png?v=4",
+    art: "/achievements/titles/title-cyber-speedster.png?v=5",
     requiredBadges: [
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=4" },
-      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=4" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=5" },
+      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=5" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
@@ -42,113 +66,94 @@ export const TITLES_REGISTRY = [
     reqText: "北美豆包 + 极速狂飙 (全解锁)",
     theme: {
       text: "text-sky-300",
-      bgGradient: "from-sky-950/80 via-blue-950/70 to-slate-950",
-      border: "border-sky-400/60",
+      bgGradient: "from-sky-950/80 via-blue-950/70 to-black",
+      border: "border-sky-500/60",
       glow: "shadow-lg shadow-sky-500/35",
-      pillClass: "bg-sky-950/70 text-sky-200 border-sky-400/50 shadow-sky-500/20",
+      pillClass: "bg-sky-950/80 text-sky-200 border-sky-400/50 shadow-sky-500/20",
       ring: "ring-sky-400/50",
       accentDot: "bg-sky-400",
     },
   },
+  // 3. 生活工作禅师 (Rank 3: 雅致竹青翡翠 · 碧玉禅心)
   {
     id: "zen_master",
     name: "生活工作禅师",
     en: "Zen Master",
     desc: "周内高效输出，周末彻底拔电，AI 时代清醒的生活家。",
     tag: "碧玉禅心",
-    art: "/achievements/titles/title-zen-master.png?v=1",
+    art: "/achievements/titles/title-zen-master.png?v=5",
     requiredBadges: [
-      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=4" },
+      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=5" },
       { id: "marathoner", name: "马拉松", tier: 2, art: "/achievements/marathoner.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("zen_balancer")?.tier || 0) >= 1 && (badgeMap.get("marathoner")?.tier || 0) >= 2,
     reqText: "工作生活禅(青铜) + 马拉松(白银)",
     theme: {
       text: "text-emerald-300",
-      bgGradient: "from-emerald-950/80 via-slate-900 to-green-950/60",
-      border: "border-emerald-400/50",
+      bgGradient: "from-emerald-950/80 via-slate-900 to-black",
+      border: "border-emerald-500/60",
       glow: "shadow-lg shadow-emerald-500/35",
-      pillClass: "bg-emerald-950/70 text-emerald-200 border-emerald-400/40 shadow-emerald-500/20",
+      pillClass: "bg-emerald-950/80 text-emerald-200 border-emerald-400/40 shadow-emerald-500/20",
       ring: "ring-emerald-400/40",
       accentDot: "bg-emerald-400",
     },
   },
+  // 4. 特遣舰队司令 (Rank 4: 深洋碧青 · 舰队幽蓝)
   {
     id: "fleet_admiral",
     name: "特遣舰队司令",
     en: "Fleet Admiral",
     desc: "多工具多智能体并发调度，一人即是一支特遣舰队。",
     tag: "星际舰队",
-    art: "/achievements/titles/title-fleet-admiral.png?v=1",
+    art: "/achievements/titles/title-fleet-admiral.png?v=5",
     requiredBadges: [
-      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=4" },
+      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=5" },
       { id: "multitool", name: "多面手", tier: 2, art: "/achievements/multitool.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("swarm_commander")?.tier || 0) >= 1 && (badgeMap.get("multitool")?.tier || 0) >= 2,
     reqText: "特遣舰队司令(青铜) + 多面手(白银)",
     theme: {
-      text: "text-emerald-300",
-      bgGradient: "from-emerald-950/80 via-slate-900 to-teal-950/60",
-      border: "border-emerald-500/50",
-      glow: "shadow-lg shadow-emerald-500/35",
-      pillClass: "bg-emerald-950/70 text-emerald-200 border-emerald-500/40 shadow-emerald-500/20",
-      ring: "ring-emerald-500/40",
-      accentDot: "bg-emerald-400",
-    },
-  },
-  {
-    id: "openai_paladin",
-    name: "奥特曼信徒",
-    en: "OpenAI Paladin",
-    desc: "执着于前沿 AGI 探索，笃信奥特曼灯塔的终极力量。",
-    tag: "AGI圣殿",
-    art: "/achievements/titles/title-openai-paladin.png?v=1",
-    requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=4" },
-      { id: "deep_thinker", name: "深度思考", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
-    ],
-    check: (badgeMap) => (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 2 && (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
-    reqText: "奥特曼信徒(白银) + 深度思考(青铜)",
-    theme: {
       text: "text-teal-300",
-      bgGradient: "from-teal-950/80 via-slate-900 to-emerald-950/60",
-      border: "border-teal-400/50",
+      bgGradient: "from-teal-950/80 via-slate-900 to-black",
+      border: "border-teal-500/60",
       glow: "shadow-lg shadow-teal-500/35",
-      pillClass: "bg-teal-950/70 text-teal-200 border-teal-400/40 shadow-teal-500/20",
+      pillClass: "bg-teal-950/80 text-teal-200 border-teal-400/40 shadow-teal-500/20",
       ring: "ring-teal-400/40",
       accentDot: "bg-teal-400",
     },
   },
+  // 5. 极客代码巨炮 (Rank 5: 炽烈熔火 · 算力炽焰)
   {
     id: "code_cannon_overlord",
     name: "极客代码巨炮",
     en: "Code Overlord",
     desc: "极简提示词输入，排山倒海的代码万行奔涌落地。",
     tag: "烈焰重炮",
-    art: "/achievements/titles/title-code-cannon.png?v=1",
+    art: "/achievements/titles/title-code-cannon.png?v=5",
     requiredBadges: [
-      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=4" },
+      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=5" },
       { id: "wordsmith", name: "文字工匠", tier: 2, art: "/achievements/wordsmith.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("code_cannon")?.tier || 0) >= 2 && (badgeMap.get("wordsmith")?.tier || 0) >= 2,
     reqText: "代码巨炮(白银) + 文字工匠(白银)",
     theme: {
-      text: "text-orange-300",
-      bgGradient: "from-orange-950/80 via-slate-900 to-red-950/60",
-      border: "border-orange-500/60",
-      glow: "shadow-lg shadow-orange-500/45",
-      pillClass: "bg-orange-950/70 text-orange-200 border-orange-500/50 shadow-orange-500/20",
-      ring: "ring-orange-500/50",
-      accentDot: "bg-orange-400",
+      text: "text-rose-300",
+      bgGradient: "from-rose-950/80 via-zinc-950 to-black",
+      border: "border-rose-500/60",
+      glow: "shadow-lg shadow-rose-500/40",
+      pillClass: "bg-rose-950/80 text-rose-200 border-rose-500/50 shadow-rose-500/20",
+      ring: "ring-rose-500/50",
+      accentDot: "bg-rose-400",
     },
   },
+  // 6. 赛博修仙者 (Rank 6: 幽夜紫电 · 夜战定道)
   {
     id: "cyber_immortal",
     name: "赛博修仙者",
     en: "Cyber Immortal",
     desc: "在万籁俱寂的深夜，与 AI 一同入定悟道。",
     tag: "紫电青雷",
-    art: "/achievements/titles/title-cyber-immortal.png?v=1",
+    art: "/achievements/titles/title-cyber-immortal.png?v=5",
     requiredBadges: [
       { id: "night_owl", name: "夜猫子", tier: 2, art: "/achievements/night-owl.png?v=7" },
       { id: "session_marathon", name: "连续会长会话", tier: 2, art: "/achievements/session-marathon.png?v=11" },
@@ -157,21 +162,46 @@ export const TITLES_REGISTRY = [
     reqText: "夜猫子(白银) + 连续会长会话(白银)",
     theme: {
       text: "text-purple-300",
-      bgGradient: "from-purple-950/80 via-slate-900 to-violet-950/60",
-      border: "border-purple-500/50",
-      glow: "shadow-lg shadow-purple-500/35",
-      pillClass: "bg-purple-950/70 text-purple-200 border-purple-500/40 shadow-purple-500/20",
-      ring: "ring-purple-500/40",
+      bgGradient: "from-purple-950/80 via-slate-900 to-black",
+      border: "border-purple-500/60",
+      glow: "shadow-lg shadow-purple-500/40",
+      pillClass: "bg-purple-950/80 text-purple-200 border-purple-500/40 shadow-purple-500/20",
+      ring: "ring-purple-400/50",
       accentDot: "bg-purple-400",
     },
   },
+  // 7. 奥特曼信徒 (Rank 7: 圣堂深蓝 · 纯血庄严)
+  {
+    id: "openai_paladin",
+    name: "奥特曼信徒",
+    en: "OpenAI Paladin",
+    desc: "执着于前沿 AGI 探索，笃信奥特曼灯塔的终极力量。",
+    tag: "AGI圣殿",
+    art: "/achievements/titles/title-openai-paladin.png?v=5",
+    requiredBadges: [
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=5" },
+      { id: "deep_thinker", name: "深度思考", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
+    ],
+    check: (badgeMap) => (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 2 && (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
+    reqText: "奥特曼信徒(白银) + 深度思考(青铜)",
+    theme: {
+      text: "text-indigo-300",
+      bgGradient: "from-indigo-950/80 via-blue-950/70 to-black",
+      border: "border-indigo-500/60",
+      glow: "shadow-lg shadow-indigo-500/40",
+      pillClass: "bg-indigo-950/80 text-indigo-200 border-indigo-400/50 shadow-indigo-500/20",
+      ring: "ring-indigo-400/50",
+      accentDot: "bg-indigo-400",
+    },
+  },
+  // 8. 全知全能架构师 (Rank 8: 璀璨琉璃金 · 睿智博学)
   {
     id: "omniscient_architect",
     name: "全知全能架构师",
     en: "Omniscient Architect",
     desc: "通晓各大模型脾气与数十种开发工具的奇门遁甲。",
     tag: "全息星图",
-    art: "/achievements/titles/title-omniscient-architect.png?v=1",
+    art: "/achievements/titles/title-omniscient-architect.png?v=5",
     requiredBadges: [
       { id: "polyglot", name: "模型博学者", tier: 3, art: "/achievements/polyglot.png?v=7" },
       { id: "multitool", name: "多面手", tier: 3, art: "/achievements/multitool.png?v=7" },
@@ -179,15 +209,16 @@ export const TITLES_REGISTRY = [
     check: (badgeMap) => (badgeMap.get("polyglot")?.tier || 0) >= 3 && (badgeMap.get("multitool")?.tier || 0) >= 3,
     reqText: "模型博学者(黄金) + 多面手(黄金)",
     theme: {
-      text: "text-blue-300",
-      bgGradient: "from-blue-950/80 via-slate-900 to-indigo-950/60",
-      border: "border-blue-400/50",
-      glow: "shadow-lg shadow-blue-500/40",
-      pillClass: "bg-blue-950/70 text-blue-200 border-blue-400/40 shadow-blue-500/20",
-      ring: "ring-blue-400/40",
-      accentDot: "bg-blue-400",
+      text: "text-yellow-300",
+      bgGradient: "from-yellow-950/80 via-amber-950/70 to-black",
+      border: "border-yellow-500/60",
+      glow: "shadow-lg shadow-yellow-500/40",
+      pillClass: "bg-yellow-950/80 text-yellow-200 border-yellow-400/50 shadow-yellow-500/20",
+      ring: "ring-yellow-400/50",
+      accentDot: "bg-yellow-400",
     },
   },
+  // 9. 诸神信使 · 硅谷三冠王 (Rank 9: 霓虹极光紫 · 闭源巅峰)
   {
     id: "silicon_trinity",
     name: "诸神信使 · 硅谷三冠王",
@@ -195,11 +226,11 @@ export const TITLES_REGISTRY = [
     desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三冠王者。",
     tag: "三神交泰",
     dimension: 3,
-    art: "/achievements/titles/title-silicon-trinity.png?v=4",
+    art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=4" },
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=5" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
-      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=4" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=5" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
@@ -207,15 +238,16 @@ export const TITLES_REGISTRY = [
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1,
     reqText: "奥特曼信徒 + 封号幸存者 + 北美豆包 (全解锁)",
     theme: {
-      text: "text-cyan-200",
-      bgGradient: "from-teal-950/80 via-indigo-950/70 to-slate-950",
-      border: "border-cyan-400/70",
-      glow: "shadow-lg shadow-cyan-500/40",
-      pillClass: "bg-gradient-to-r from-teal-950/80 to-cyan-950/80 text-cyan-200 border-cyan-400/60 shadow-cyan-500/30",
-      ring: "ring-cyan-400/60",
-      accentDot: "bg-cyan-400",
+      text: "text-fuchsia-300",
+      bgGradient: "from-fuchsia-950/80 via-purple-950/70 to-black",
+      border: "border-fuchsia-500/60",
+      glow: "shadow-lg shadow-fuchsia-500/45",
+      pillClass: "bg-gradient-to-r from-fuchsia-950/80 to-purple-950/80 text-fuchsia-200 border-fuchsia-400/60 shadow-fuchsia-500/30",
+      ring: "ring-fuchsia-400/60",
+      accentDot: "bg-fuchsia-400",
     },
   },
+  // 10. 九州极客 · 四象掌门 (Rank 10: 华夏赤金 · 四象归一)
   {
     id: "cn_quad_masters",
     name: "九州极客 · 四象掌门",
@@ -223,12 +255,12 @@ export const TITLES_REGISTRY = [
     desc: "融汇中华 AI 最前沿四大家族算力，四象归一，开辟东方极客新天地。",
     tag: "四象混元",
     dimension: 4,
-    art: "/achievements/titles/title-cn-quad-masters.png?v=4",
+    art: "/achievements/titles/title-cn-quad-masters.png?v=5",
     requiredBadges: [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=4" },
-      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=4" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=4" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=5" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=5" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=5" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
@@ -237,35 +269,36 @@ export const TITLES_REGISTRY = [
       (badgeMap.get("minimax_abyss")?.tier || 0) >= 1,
     reqText: "许愿池 + 智谱乾坤 + 暗面行者 + 海螺巨兽 (全解锁)",
     theme: {
-      text: "text-amber-200",
-      bgGradient: "from-amber-950/80 via-emerald-950/70 to-slate-950",
-      border: "border-amber-400/70",
-      glow: "shadow-lg shadow-amber-500/45",
-      pillClass: "bg-gradient-to-r from-amber-950/80 to-emerald-950/80 text-amber-200 border-amber-400/60 shadow-amber-500/30",
-      ring: "ring-amber-400/60",
-      accentDot: "bg-amber-400",
+      text: "text-orange-300",
+      bgGradient: "from-orange-950/80 via-red-950/70 to-black",
+      border: "border-orange-500/70",
+      glow: "shadow-lg shadow-orange-500/45",
+      pillClass: "bg-gradient-to-r from-orange-950/80 to-red-950/80 text-orange-200 border-orange-500/60 shadow-orange-500/30",
+      ring: "ring-orange-400/60",
+      accentDot: "bg-orange-400",
     },
   },
+  // 11. 大满贯传奇 (Rank 11: 宇宙至尊全光谱星冕 · 至高王座)
   {
     id: "grand_slam_legend",
     name: "大满贯传奇",
     en: "Grand Slam Legend",
     desc: "勋章架上钻石熠熠生辉，登峰造极的开发大师。",
     tag: "至尊星冠",
-    art: "/achievements/titles/title-grand-slam.png?v=1",
+    art: "/achievements/titles/title-grand-slam.png?v=5",
     requiredBadges: [
       { id: "grand_slam", name: "大满贯", tier: 1, art: "/achievements/grand-slam.png?v=11" },
     ],
     check: (badgeMap) => (badgeMap.get("grand_slam")?.tier || 0) >= 1,
     reqText: "大满贯徽章(解锁至少 5 枚钻石勋章)",
     theme: {
-      text: "text-pink-300",
-      bgGradient: "from-fuchsia-950/80 via-indigo-950/70 to-amber-950/60",
-      border: "border-fuchsia-400/70",
-      glow: "shadow-lg shadow-pink-500/40",
-      pillClass: "bg-gradient-to-r from-fuchsia-950/80 to-amber-950/80 text-amber-200 border-fuchsia-400/60 shadow-fuchsia-500/30",
-      ring: "ring-fuchsia-400/60",
-      accentDot: "bg-fuchsia-400",
+      text: "text-cyan-200",
+      bgGradient: "from-cyan-950/90 via-purple-950/80 to-amber-950/70",
+      border: "border-cyan-400/80",
+      glow: "shadow-xl shadow-cyan-400/50",
+      pillClass: "bg-gradient-to-r from-cyan-950/80 via-purple-950/80 to-amber-950/80 text-cyan-200 border-cyan-400/70 shadow-cyan-500/30",
+      ring: "ring-cyan-300/70",
+      accentDot: "bg-cyan-300",
     },
   },
 ];
@@ -327,7 +360,7 @@ export function getTitleResonance(title, badgeMap) {
   const isUnlocked = title.check(badgeMap);
   if (!isUnlocked) {
     const dim = title.dimension || (title.requiredBadges?.length || 2);
-    const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "独步星河" : "双星交汇";
+    const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇";
     return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim, dimName };
   }
 
@@ -356,4 +389,3 @@ export function getTitleResonance(title, badgeMap) {
     label,
   };
 }
-

@@ -1184,6 +1184,7 @@
   "achievements.action.test_unlock": "測試解鎖",
   "achievements.action.test_tier_up": "測試晉級",
   "achievements.action.test_resonance": "測試共鳴",
+  "achievements.action.reset_real": "恢復真實數據",
   "achievements.action.export_card": "匯出戰報",
   "heatmap.tooltip.level7": "Lv7 宇宙奇點 · 單日 30 億+ 極限爆發",
   "heatmap.3d.voxel.level7": "單日用量已達 {{value}} tokens！已引爆宇宙奇點，算力視界在此坍縮！",

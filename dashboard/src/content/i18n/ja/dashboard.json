@@ -727,6 +727,7 @@
   "achievements.action.test_unlock": "アンロックテスト",
   "achievements.action.test_tier_up": "昇格テスト",
   "achievements.action.test_resonance": "共鳴テスト",
+  "achievements.action.reset_real": "実データを復元",
   "achievements.action.export_card": "カードを出力",
   "heatmap.tooltip.level7": "Lv7（宇宙特異点・1日30億+トークン）",
   "heatmap.3d.voxel.level7": "1日の使用量が {{value}} トークンに達しました！宇宙特異点が引き起こされました！",

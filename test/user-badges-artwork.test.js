@@ -34,6 +34,7 @@ const MINTED_HOUSE_COINS = new Set([
   "terminal-purist.png",
   "refactor-titan.png",
   "deep-thinker.png",
+  "heart-model.png",
   "claude-survivor.png",
   "wishing-well.png",
   "zhipu-sage.png",

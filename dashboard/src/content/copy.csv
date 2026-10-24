@@ -1504,6 +1504,7 @@ achievements.badge.token_arbitrageur.desc,dashboard,*,BadgeDetailModal,token_arb
 achievements.action.test_unlock,dashboard,AchievementsPage,AchievementsPage,action_test_unlock,"Test Unlock",,active
 achievements.action.test_tier_up,dashboard,AchievementsPage,AchievementsPage,action_test_tier_up,"Test Promotion",,active
 achievements.action.test_resonance,dashboard,AchievementsPage,AchievementsPage,action_test_resonance,"Test Synergy",,active
+achievements.action.reset_real,dashboard,AchievementsPage,AchievementsPage,action_reset_real,"Reset Real Data",,active
 achievements.action.export_card,dashboard,AchievementsPage,AchievementsPage,action_export_card,"Export Card",,active
 heatmap.tooltip.level7,dashboard,*,ActivityHeatmap,tooltip_level7,"Lv7 (Singularity · 3B+ Tokens)",,active
 heatmap.3d.voxel.level7,dashboard,*,ActivityHeatmap3D,voxel_level7,"Daily usage reached {{value}} tokens! Gravitational singularity triggered!",,active

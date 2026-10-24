@@ -251,6 +251,7 @@ describe("SessionsPage", () => {
     getSessions.mockReset();
     getSessions.mockResolvedValue(response);
     window.localStorage.clear();
+    window.sessionStorage.clear();
     window.history.replaceState(null, "", "/sessions");
   });
 
