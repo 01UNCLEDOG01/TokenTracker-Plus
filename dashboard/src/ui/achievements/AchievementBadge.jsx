@@ -45,21 +45,18 @@ export function AchievementBadge({
       role={label ? "img" : undefined}
       aria-label={label || undefined}
       aria-hidden={label ? undefined : true}
-      className={`inline-flex shrink-0 overflow-hidden rounded-full ${className}`}
+      className={`inline-flex shrink-0 rounded-full ${className}`}
       style={{
         width: px,
         height: px,
-        // The artwork already carries its own engraved rim. Adding a tier
-        // gradient behind it created a second metal band (and showed through
-        // the transparent margin as an uneven ring), so earned badges show the
-        // coin itself; the tier stays on the pill/label and the 3D coin edge.
-        padding: showArt ? 0 : ring,
-        background: showArt
-          ? "transparent"
-          : `linear-gradient(135deg, ${palette.rim[0]} 0%, ${palette.ring} 42%, ${palette.rim[1]} 100%)`,
-        boxShadow: !showArt && (fill || size === "md" || size === "xl" || size === "lg")
-          ? "0 0 0 1px rgba(10, 15, 12, 0.06), 0 1px 2px rgba(10, 15, 12, 0.08)"
-          : undefined,
+        padding: ring,
+        background: `linear-gradient(135deg, ${palette.rim[0]} 0%, ${palette.ring} 42%, ${palette.rim[1]} 100%)`,
+        // Hairline edge instead of a grey drop shadow — coins read crisp on
+        // both surfaces without the muddy halo.
+        boxShadow:
+          fill || size === "md" || size === "xl" || size === "lg"
+            ? "0 0 0 1px rgba(10, 15, 12, 0.06), 0 1px 2px rgba(10, 15, 12, 0.08)"
+            : undefined,
       }}
     >
       {showArt ? (
@@ -70,10 +67,7 @@ export function AchievementBadge({
           loading="lazy"
           onError={() => setArtFailed(true)}
           className="h-full w-full rounded-full object-cover"
-          style={{
-            transform: "scale(1.12)",
-            ...(isLocked ? { filter: "grayscale(1)", opacity: 0.55 } : null),
-          }}
+          style={isLocked ? { filter: "grayscale(1)", opacity: 0.55 } : undefined}
         />
       ) : (
         <span

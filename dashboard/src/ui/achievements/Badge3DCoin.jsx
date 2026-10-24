@@ -25,7 +25,10 @@ export function Badge3DCoin({ badgeId, tier, locked = false, hidden = false, siz
   const animRef = useRef(null);
   const interactedRef = useRef(false);
   const palette = paletteForTier(tier, locked);
-  const BackGlyph = hidden ? CircleHelp : BADGE_BY_ID.get(badgeId)?.icon || null;
+  const BackGlyph = hidden ? CircleHelp : BADGE_BY_ID.get(badgeId)?.backIcon || BADGE_BY_ID.get(badgeId)?.icon || null;
+  const isZenBalancer = badgeId === "zen_balancer";
+  const backGlyphOpacity = isZenBalancer ? 0.32 : 0.13;
+  const backGlyphScale = isZenBalancer ? 0.76 : 0.62;
 
   // Sheen tracks rotation so light appears to travel across the metal. The
   // back face is pre-rotated 180°, so its sheen sweeps the opposite way — the
@@ -162,22 +165,14 @@ export function Badge3DCoin({ badgeId, tier, locked = false, hidden = false, siz
             <div
               key={z}
               aria-hidden
-              // Neutral dark metal edge; the tier color lives in the pill and
-              // back face. A gold edge around the silver-rimmed artwork read as
-              // a second, pasted-on ring.
-              className="absolute inset-0 rounded-full bg-oai-gray-800"
-              style={{ transform: `translateZ(${z}px)` }}
+              className="absolute inset-0 rounded-full"
+              style={{ transform: `translateZ(${z}px)`, background: palette.rim[1] }}
             />
           ))}
           {/* front face */}
           <div
-            // Opaque dark backing: hides the stack behind the artwork's
-            // transparent margin so the rim sits on the coin, not on a band.
-            className="absolute inset-0 overflow-hidden rounded-full bg-oai-gray-950"
-            style={{
-              ...faceStyle,
-              transform: `translateZ(${COIN_THICKNESS / 2}px)`,
-            }}
+            className="absolute inset-0 overflow-hidden rounded-full"
+            style={{ ...faceStyle, transform: `translateZ(${COIN_THICKNESS / 2}px)` }}
           >
             <AchievementBadge
               badgeId={badgeId}
@@ -239,11 +234,12 @@ export function Badge3DCoin({ badgeId, tier, locked = false, hidden = false, siz
             {BackGlyph ? (
               <BackGlyph
                 aria-hidden
-                size={Math.round(size * 0.62)}
+                size={Math.round(size * backGlyphScale)}
                 strokeWidth={1.1}
                 color={palette.glyph}
-                className="pointer-events-none absolute opacity-[0.13]"
+                className="pointer-events-none absolute"
                 style={{
+                  opacity: backGlyphOpacity,
                   filter:
                     "drop-shadow(0 1px 0 rgba(255,255,255,0.3)) drop-shadow(0 -1px 0 rgba(0,0,0,0.35))",
                 }}

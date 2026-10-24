@@ -77,6 +77,39 @@ test("every achievement uses an original badge-id artwork file", () => {
   }
 });
 
+// Upstream's hand-painted medallions keep their soft edges; every coin minted
+// in this fork must fill the same disc so the UI tier ring renders evenly.
+const UPSTREAM_PAINTED = new Set([
+  "token-titan.png", "big-day.png", "wordsmith.png", "marathoner.png", "streak.png",
+  "weekend-warrior.png", "momentum.png", "polyglot.png", "trendsetter.png", "multitool.png",
+  "podium.png", "veteran.png", "project-hopper.png", "project-devotion.png", "night-owl.png",
+]);
+
+test("minted coins fill the standard 237px disc with binary alpha", () => {
+  const { PNG } = require("pngjs");
+  const catalog = fs.readFileSync(CATALOG_PATH, "utf8");
+  const files = [...catalog.matchAll(/art: "\/achievements\/([^"?]+)/g)].map((m) => m[1]);
+
+  for (const filename of files) {
+    if (UPSTREAM_PAINTED.has(filename)) continue;
+    const png = PNG.sync.read(fs.readFileSync(path.join(ROOT, "dashboard", "public", "achievements", filename)));
+    let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1, semi = 0;
+    for (let y = 0; y < png.height; y++) {
+      for (let x = 0; x < png.width; x++) {
+        const a = png.data[(y * png.width + x) * 4 + 3];
+        if (a > 0 && a < 255) semi++;
+        if (a === 0) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    assert.equal(semi, 0, `${filename} must have binary alpha`);
+    assert.deepEqual([x0, y0, x1, y1], [9, 9, 245, 245], `${filename} coin must span pixels 9..245 on both axes`);
+  }
+});
+
 test("every synergy title uses an original 3D crest artwork file with binary alpha", () => {
   const registry = fs.readFileSync(TITLE_REGISTRY_PATH, "utf8");
   const matches = [...registry.matchAll(/art:\s*"\/achievements\/titles\/([^"?]+)/g)];

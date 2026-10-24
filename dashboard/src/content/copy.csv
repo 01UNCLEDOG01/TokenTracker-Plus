@@ -1509,6 +1509,10 @@ achievements.badge.hunyuan_master.name,dashboard,*,AchievementsSection,hunyuan_m
 achievements.badge.hunyuan_master.desc,dashboard,*,BadgeDetailModal,hunyuan_master_desc,"Accumulate lifetime tokens with Tencent Hunyuan models.",,active
 achievements.badge.stepfun_voyager.name,dashboard,*,AchievementsSection,stepfun_voyager_name,"StepFun Voyager",,active
 achievements.badge.stepfun_voyager.desc,dashboard,*,BadgeDetailModal,stepfun_voyager_desc,"Accumulate lifetime tokens with StepFun models.",,active
+achievements.badge.dragon_heir.name,dashboard,*,AchievementsSection,dragon_heir_name,"Dragon Heir",,active
+achievements.badge.dragon_heir.desc,dashboard,*,BadgeDetailModal,dragon_heir_desc,"Use domestic model families across DeepSeek, Qwen, Zhipu, Kimi, Hunyuan and more.",,active
+achievements.badge.kill_line.name,dashboard,*,AchievementsSection,kill_line_name,"Kill Line",,active
+achievements.badge.kill_line.desc,dashboard,*,BadgeDetailModal,kill_line_desc,"The DeepSeek share of your lifetime tokens crosses the kill line.",,active
 achievements.action.test_unlock,dashboard,AchievementsPage,AchievementsPage,action_test_unlock,"Test Unlock",,active
 achievements.action.test_tier_up,dashboard,AchievementsPage,AchievementsPage,action_test_tier_up,"Test Promotion",,active
 achievements.action.test_resonance,dashboard,AchievementsPage,AchievementsPage,action_test_resonance,"Test Synergy",,active

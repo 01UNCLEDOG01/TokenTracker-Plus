@@ -74,15 +74,16 @@ efactor-titan. Source originals are stored in scripts/art/source-badges/ and com
 - **Remodeled 3D Relief Coins (3 coins)**: deep-thinker, claude-survivor, wishing-well were remodeled from flat 2D silhouettes into authentic 3D sculpted metallic relief coins (scripts/art/source-badges/deep-thinker.jpg, claude-survivor.jpg, wishing-well.jpg) via scripts/art/rebuild-badge-rims.py.
 - **Wave 4 Coins (9 coins)**: zhipu-sage, moonshot-voyager, minimax-abyss, north-america-doubao, hyperspeed-grok, qwen-dynasty, flash-immortal, seedance-master, token-arbitrageur. Compiled via scripts/art/build-wave4-assets.py.
 - **Wave 5 Coins (4 coins)**: meituan-longcat, jd-joy-brother, hunyuan-master, stepfun-voyager. Compiled via scripts/art/mint-wave4-batch2.py.
-- **Synergy Title Crests (15 crests)**: dashboard/public/achievements/titles/title-*.png (for the 15 geek title resonances). Source originals are stored in scripts/art/source-titles/ and compiled with strict binary alpha.
+- **Wave 6 Coins (2 new + 2 custom)**: dragon-heir, kill-line (new); sprinter and wishing-well keep the owner-approved custom faces. Their coin edge now matches the standard disc; subject fit inside the coin face is still being adjusted.
+- **Synergy Title Crests (16 crests)**: dashboard/public/achievements/titles/title-*.png (for the 16 geek title resonances). Source originals are stored in scripts/art/source-titles/ and compiled with strict binary alpha.
 
 Rebuild scripts & assets:
 - scripts/art/source-badges/ — original 1024px / 256px source paintings for all wave-2, wave-3, and remodeled badges.
-- scripts/art/source-titles/ — original 1024px source paintings for the 8 synergy title crests.
+- scripts/art/source-titles/ — original source paintings for the title crests (17 files; the registry currently references 16 crests).
 - scripts/art/rebuild-badge-rims.py — core rim generator and face extraction pipeline.
 - scripts/art/build-wave3-house-coins.py — Wave-3 coin builder.
 - scripts/art/build-title-crests.py — Title crest medallion builder.
-- All minted outputs enforce strict 256×256 dimensions, bounding box [9, 245] (237px), and binary alpha {0, 255}.
+- All minted outputs enforce strict 256×256 dimensions, bounding box [9, 245] (237px), and binary alpha {0, 255}; `test/user-badges-artwork.test.js` checks this for every catalog coin except the 15 upstream hand-painted medallions.
 
 The remaining unused faces (`pull-shark`, `starstruck`, `pair-extraordinaire`,
 `open-sourcerer`, `heart-on-your-sleeve`,

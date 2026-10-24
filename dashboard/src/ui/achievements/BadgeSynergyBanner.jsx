@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { paletteForTier } from "./tier-palette";
 import { Sparkles, Check, Lock, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import {
   TITLES_REGISTRY,
@@ -15,6 +16,15 @@ import { TitleDetailModal } from "./TitleDetailModal.jsx";
 export { TITLES_REGISTRY, getTitleResonance };
 
 const STAGGERED_TIERS = [1, 2, 3, 4, 1, 2, 3, 4, 3, 4, 4];
+const STORAGE_TITLES_GRID_OPEN = "tt-plus:titles-grid-open";
+
+function readTitlesGridOpen() {
+  try {
+    return localStorage.getItem(STORAGE_TITLES_GRID_OPEN) === "1";
+  } catch {
+    return false;
+  }
+}
 
 // The top title's identity is a spectrum; resonance decides how many hues it
 // carries (bronze 3 → diamond 6). The palettes live in title-effects.css so
@@ -49,7 +59,9 @@ export function getEffectiveTitleResonance(title, badgeMap, testMode, index) {
 
 export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelectBadge, onOpenTitleDetail }) {
   const [activeTitleId, setActiveIdState] = useState(getActiveTitleId);
-  const [gridOpen, setGridOpen] = useState(true);
+  // Collapsed on first visit; remember the user's last choice. Expanding the
+  // hall is a deliberate action and should survive the next visit.
+  const [gridOpen, setGridOpen] = useState(readTitlesGridOpen);
   const [buildId] = useState(() => {
     try {
       const sources = [...document.querySelectorAll('script[type="module"]')]
@@ -131,7 +143,11 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
             </h3>
             <button
               type="button"
-              onClick={() => setGridOpen((v) => !v)}
+              onClick={() => setGridOpen((v) => {
+                const next = !v;
+                try { localStorage.setItem(STORAGE_TITLES_GRID_OPEN, next ? "1" : "0"); } catch { /* private mode */ }
+                return next;
+              })}
               className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
               aria-expanded={gridOpen}
             >
@@ -352,8 +368,14 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                         const userTier = userBadge ? (userBadge.tier || 0) : 0;
                         const currentTier = resonanceTestMode !== 0 ? resonance.tier : userTier;
                         const isMet = Boolean(req.tier <= currentTier);
+                        // The halo carries the achievement's own tier colour
+                        // (bronze/silver/gold/diamond); the green check alone
+                        // signals "earned". Green rings made diamond and silver
+                        // look identical.
+                        const tierPalette = paletteForTier(isMet ? currentTier : 0);
+                        const tierRing = isMet ? tierPalette.rim[0] : undefined;
                         const tierColor = isMet
-                          ? "border-emerald-400/70"
+                          ? ""
                           : "border-white/20 grayscale opacity-40";
 
                         return (
@@ -369,6 +391,10 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                                 src={req.art}
                                 alt={req.name}
                                 className={`h-8 w-8 rounded-full border-2 object-contain bg-black/60 ${tierColor} transition-transform group-hover/mini:scale-110`}
+                                style={isMet ? {
+                                  borderColor: tierRing,
+                                  boxShadow: `0 0 8px ${tierRing}`,
+                                } : undefined}
                                 onError={(e) => {
                                   e.currentTarget.style.display = "none";
                                 }}

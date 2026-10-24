@@ -554,6 +554,130 @@ function applyTokenMonitorSessionTotals(record) {
   record.usage_is_incomplete = false;
 }
 
+// These four sources have no per-request timing in their local stores (and TM's
+// timed counters are zero for them), but they do have output tokens and a
+// measured wall-clock session span. Report that as an explicitly estimated
+// speed instead of a blank column; precise collectors always win.
+const WALL_CLOCK_SPEED_SOURCES = new Set(["workbuddy", "workbuddy-ai", "qoder", "qoder-cn", "antigravity"]);
+
+function applyWallClockSpeed(record) {
+  if (!record || !WALL_CLOCK_SPEED_SOURCES.has(String(record.source || "").toLowerCase())) return record;
+  if (Number(record.performance?.estimated_tokens_per_second) > 0) return record;
+  const output = finite(record.output_tokens) + finite(record.reasoning_output_tokens)
+    || finite(record.tokens?.output_tokens) + finite(record.tokens?.reasoning_output_tokens);
+  const duration = finite(record.speed_active_ms) || finite(record.active_ms) || finite(record.duration_ms);
+  if (output <= 0 || duration <= 0) return record;
+  record.performance = normalizePerformance({
+    estimated_output_tokens: output,
+    estimated_duration_ms: duration,
+    estimated_request_count: Math.max(1, Math.floor(finite(record.turns))),
+  });
+  record.performance_source = "wall-clock";
+  return record;
+}
+
+// Qoder's local transcripts carry no usage at all (every assistant row is
+// zero), while the queue carries the official daily credit estimate. The
+// sessions page has to show something: split the source's estimated queue
+// total across its zero-usage sessions by turns, mark it estimated, and let
+// the wall-clock fallback compute a speed. Sessions already carrying real
+// tokens are left alone and subtracted from the pool.
+function applyQoderSessionUsageEstimates(sessions, queueRows) {
+  const sources = new Set(["qoder", "qoder-cn"]);
+  const totals = new Map();
+  for (const row of Array.isArray(queueRows) ? queueRows : []) {
+    const source = String(row?.source || "").toLowerCase();
+    if (!sources.has(source)) continue;
+    const total = finite(row.total_tokens);
+    if (total <= 0) continue;
+    let acc = totals.get(source);
+    if (!acc) {
+      acc = { total: 0, input: 0, cached: 0, cacheWrite: 0, output: 0, reasoning: 0 };
+      totals.set(source, acc);
+    }
+    acc.total += total;
+    acc.input += finite(row.input_tokens);
+    acc.cached += finite(row.cached_input_tokens);
+    acc.cacheWrite += finite(row.cache_creation_input_tokens);
+    acc.output += finite(row.output_tokens);
+    acc.reasoning += finite(row.reasoning_output_tokens);
+  }
+  for (const [source, pool] of totals) {
+    const group = (sessions || []).filter((session) => String(session?.source || "").toLowerCase() === source);
+    if (!group.length) continue;
+    const existing = group.reduce((sum, session) => sum + finite(session.total_tokens), 0);
+    const remaining = Math.max(0, pool.total - existing);
+    // Only sessions with assistant turns are real Qoder work. Empty or
+    // user-only transcripts must not absorb the pool just because their
+    // wall-clock span is long (that produced 236M-token empty sessions).
+    let candidates = group.filter((session) => finite(session.total_tokens) <= 0 && finite(session.turns) > 0);
+    if (!candidates.length) {
+      candidates = group.filter((session) => finite(session.total_tokens) <= 0);
+    }
+    if (remaining <= 0 || !candidates.length) continue;
+    const weights = candidates.map((session) => Math.max(1, finite(session.turns)));
+    const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+    let left = remaining;
+    let inputLeft = pool.input;
+    let cachedLeft = pool.cached;
+    let cacheWriteLeft = pool.cacheWrite;
+    let outputLeft = pool.output;
+    let reasoningLeft = pool.reasoning;
+    candidates.forEach((session, index) => {
+      const last = index === candidates.length - 1;
+      const share = last ? left : Math.max(0, Math.round((remaining * weights[index]) / weightTotal));
+      const total = last ? left : Math.min(share, left);
+      const take = (value) => {
+        if (last) return value;
+        return Math.max(0, Math.min(value, Math.round((value * weights[index]) / weightTotal)));
+      };
+      const input = last ? inputLeft : take(inputLeft);
+      const cached = last ? cachedLeft : take(cachedLeft);
+      const cacheWrite = last ? cacheWriteLeft : take(cacheWriteLeft);
+      const output = last ? outputLeft : take(outputLeft);
+      const reasoning = last ? reasoningLeft : take(reasoningLeft);
+      left -= total;
+      inputLeft -= input;
+      cachedLeft -= cached;
+      cacheWriteLeft -= cacheWrite;
+      outputLeft -= output;
+      reasoningLeft -= reasoning;
+      session.input_tokens = input;
+      session.cached_input_tokens = cached;
+      session.cache_creation_input_tokens = cacheWrite;
+      session.output_tokens = output;
+      session.reasoning_output_tokens = reasoning;
+      session.total_tokens = total;
+      session.tokens = {
+        ...(session.tokens || {}),
+        input_tokens: input,
+        cached_input_tokens: cached,
+        cache_creation_input_tokens: cacheWrite,
+        output_tokens: output,
+        reasoning_output_tokens: reasoning,
+        total_tokens: total,
+      };
+      session.usage_precision = "estimated";
+      session.usage_is_incomplete = true;
+      session.usage_source = "qoder-credit-estimate";
+      session.model_usage = [{
+        model: session.model || (source === "qoder-cn" ? "qoder-cn-estimated" : "qoder-estimated"),
+        input_tokens: input,
+        cached_input_tokens: cached,
+        cache_creation_input_tokens: cacheWrite,
+        output_tokens: output,
+        reasoning_output_tokens: reasoning,
+        total_tokens: total,
+        usage_events: finite(session.turns),
+        cost_usd: 0,
+        performance: normalizePerformance(),
+      }];
+      applyWallClockSpeed(session);
+    });
+  }
+  return sessions;
+}
+
 function finalizeRecord(record) {
   applyTokenMonitorSessionTotals(record);
   delete record._last_ts_ms;
@@ -561,6 +685,7 @@ function finalizeRecord(record) {
   record.duration_ms = record.active_ms;
   record.total_tokens = finite(record.total_tokens || record.tokens?.total_tokens);
   record.performance = normalizePerformance(record.performance);
+  applyWallClockSpeed(record);
   repriceSessionRecord(record);
   record.productive = record.edit_turns > 0;
   // A first-pass delivery has exactly one user turn containing an observed
@@ -3431,6 +3556,8 @@ async function scanQoderSession(filePath, source = "qoder") {
   let usageEvents = 0;
   let title = null;
   let sawAnyToken = false;
+  let speedActiveMs = 0;
+  let lastAssistantMs = null;
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -3451,6 +3578,14 @@ async function scanQoderSession(filePath, source = "qoder") {
     }
     if (row.type !== "assistant" || !row.message || !row.message.usage) continue;
     turns += 1;
+    // Qoder rows are sparse and a session can span days. Count only the gaps
+    // between consecutive assistant rows, capped at five minutes, as active
+    // time; the full started/ended span is useless for a token/second number.
+    if (Number.isFinite(tsMs)) {
+      if (lastAssistantMs === null) speedActiveMs += 1000;
+      else speedActiveMs += Math.min(300000, Math.max(0, tsMs - lastAssistantMs));
+      lastAssistantMs = tsMs;
+    }
     const usage = row.message.usage;
     const model = typeof row.message.model === "string" && row.message.model
       ? row.message.model
@@ -3519,6 +3654,7 @@ async function scanQoderSession(filePath, source = "qoder") {
     started_at: startedMs !== null ? new Date(startedMs).toISOString() : null,
     ended_at: endedMs !== null ? new Date(endedMs).toISOString() : null,
     active_ms: startedMs !== null && endedMs !== null ? Math.max(0, endedMs - startedMs) : 0,
+    speed_active_ms: speedActiveMs,
     turns,
     edit_turns: 0,
     retry_turns: 0,
@@ -4638,4 +4774,6 @@ module.exports = {
   resetDshIncrementalCacheForTests,
   getDshIncrementalStatsForTests,
   readAntigravityTranscriptChunks,
+  applyWallClockSpeed,
+  applyQoderSessionUsageEstimates,
 };

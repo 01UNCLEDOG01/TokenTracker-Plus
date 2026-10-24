@@ -73,6 +73,7 @@ const {
 const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
+const { joycodeTaskRows } = require("./joycode-usage");
 const { qoderIntlCreditRows, qoderIntlDisplayModel } = require("./qoder-intl-credits");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
@@ -432,7 +433,7 @@ function getRequestedUsageScope(url) {
   return normalizeUsageScope(url.searchParams.get("scope"));
 }
 
-async function scopedQueueRows(queuePath, url) {
+async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
   const scope = getRequestedUsageScope(url);
   const allRows = await readQueueData(queuePath);
   // Qoder CN stopped storing token counts locally in 2026-07; its estimated
@@ -448,8 +449,11 @@ async function scopedQueueRows(queuePath, url) {
   });
   // Antigravity's native generation ledger is authoritative at every time
   // granularity. External daily caches must not replace its measured buckets.
-  const mergedRows = estimatedRows.length || intlCreditRows.length
-    ? allRows.concat(estimatedRows, intlCreditRows)
+  // JoyCode keeps provider-reported task totals outside the queue; derive them
+  // at read time so usage, sessions and the 京东 badge share one source.
+  const joycodeRows = includeJoycode ? joycodeTaskRows() : [];
+  const mergedRows = estimatedRows.length || intlCreditRows.length || joycodeRows.length
+    ? allRows.concat(estimatedRows, intlCreditRows, joycodeRows)
     : allRows;
   return {
     scope,
@@ -497,9 +501,11 @@ const LOCAL_BADGE_THRESHOLDS = {
   seedance_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime bytedance/seed/seedance/doubao tokens
   token_arbitrageur: [5, 10, 18, 26], // distinct arbitrage & free/check-in platforms used
   meituan_longcat: [10000000, 100000000, 1000000000, 10000000000], // lifetime meituan longcat tokens
-  jd_joy_brother: [10000000, 100000000, 1000000000, 10000000000], // lifetime jd yanxi/joycoder tokens
-  hunyuan_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime tencent hunyuan tokens
+  jd_joy_brother: [500000, 5000000, 50000000, 500000000], // lifetime jd yanxi/joycode/joycoder tokens (JoyCode tasks are small)
+  hunyuan_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime tencent hunyuan tokens (incl. HY series)
   stepfun_voyager: [10000000, 100000000, 1000000000, 10000000000], // lifetime stepfun tokens
+  dragon_heir: [1, 3, 5, 7], // distinct domestic model families used
+  kill_line: [50, 60, 70, 80], // DeepSeek share of lifetime tokens, %
 };
 
 // The cloud nine (see scripts/ops/user-badges.sql) are normally computed
@@ -574,6 +580,42 @@ function tierForValue(value, thresholds, lowerIsBetter = false) {
     if (met) tier = i + 1;
   }
   return tier;
+}
+
+// One vote per Chinese model family, not per alias. A provider can expose ten
+// spellings of the same model; "龙的传人" rewards breadth across families.
+const DOMESTIC_FAMILY_MATCHERS = [
+  ["deepseek", (m, s) => m.includes("deepseek") || s.includes("deepseek")],
+  ["qwen", (m, s) => m.includes("qwen") || m.includes("tongyi") || m.includes("qianwen")
+    || s.includes("qwen") || s.includes("bailian") || s.includes("dashscope") || s.includes("aliyun")],
+  ["zhipu", (m, s) => m.includes("glm") || m.includes("chatglm") || m.includes("codegeex") || m.includes("zhipu")
+    || s.includes("zhipu") || s.includes("glm")],
+  ["moonshot", (m, s) => m.includes("kimi") || m.includes("moonshot") || s.includes("kimi") || s.includes("moonshot")],
+  ["minimax", (m, s) => m.includes("minimax") || m.includes("abab") || m.includes("hailuo")
+    || m.includes("m3.") || m.includes("m3-") || s.includes("minimax") || s.includes("hailuo")],
+  ["hunyuan", (m, s) => m.includes("hunyuan") || m.includes("tencent") || m.includes("混元")
+    || /(^|[-_/])hy\d/.test(m) || s.includes("hunyuan") || s.includes("tencent")],
+  ["stepfun", (m, s) => m.startsWith("step-") || m.includes("stepfun") || m.includes("跃问")
+    || m.includes("阶跃") || s.includes("stepfun") || s.includes("阶跃")],
+  ["meituan", (m, s) => m.includes("longcat") || m.includes("meituan") || s.includes("meituan") || s.includes("longcat")],
+  ["jd", (m, s) => m.includes("joycode") || m.includes("joycoder") || m.includes("chatrhino")
+    || m.includes("yanxi") || m.includes("言犀") || m.startsWith("jd-") || m.includes("jd_")
+    || m.includes("jingdong") || s.includes("jd") || s.includes("joycoder") || s.includes("joycode") || s.includes("yanxi")],
+  ["bytedance", (m, s) => m.includes("doubao") || m.includes("seedance") || m.includes("seed-")
+    || m.includes("skylark") || m.includes("volcengine") || s.includes("doubao") || s.includes("volcengine") || s.includes("bytedance")],
+  ["baidu", (m) => m.includes("ernie") || m.includes("wenxin") || m.includes("文心")],
+  ["iflytek", (m) => m.includes("spark") || m.includes("讯飞") || m.includes("星火")],
+  ["sensetime", (m) => m.includes("sensenova") || m.includes("商量")],
+  ["01ai", (m) => m.startsWith("yi-") || m.includes("零一")],
+  ["internlm", (m) => m.includes("internlm") || m.includes("书生")],
+  ["xiaomi", (m) => m.includes("mimo")],
+];
+
+function domesticFamilyFor(modelLower, sourceKey) {
+  for (const [family, match] of DOMESTIC_FAMILY_MATCHERS) {
+    if (match(modelLower, sourceKey)) return family;
+  }
+  return null;
 }
 
 /**
@@ -683,6 +725,9 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   // `model LIKE 'claude%'` / `'deepseek%'` semantics.
   let claudeTokens = 0;
   let deepseekTokens = 0;
+  let localTotalTokens = 0;
+  let lastLocalHour = null;
+  const domesticFamilies = new Set();
   let zhipuTokens = 0;
   let moonshotTokens = 0;
   let minimaxTokens = 0;
@@ -701,6 +746,8 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   for (const row of sortByHour(queueRows || [])) {
     const tokens = Number(row.total_tokens || 0);
     if (tokens <= 0) continue;
+    localTotalTokens += tokens;
+    lastLocalHour = row.hour_start;
     // Token-category sums accrue across every active row regardless of hour.
     cachedTotal += Number(row.cached_input_tokens || 0) + Number(row.cache_creation_input_tokens || 0);
     reasoningTotal += Number(row.reasoning_output_tokens || 0);
@@ -763,21 +810,27 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     }
     if (row.model) {
       const modelKey = String(row.model);
+      const lowerModel = modelKey.toLowerCase();
+      const sourceKey = String(row.source || "").toLowerCase();
       const modelRunning = (modelTokens.get(modelKey) || 0) + tokens;
       modelTokens.set(modelKey, modelRunning);
       if (modelRunning >= DEEP_DIVER_MODEL_FLOOR && !bigModels.has(modelKey)) {
         bigModels.add(modelKey);
         bump("deep_diver", bigModels.size, row.hour_start, { models: [...bigModels] });
       }
-      if (modelKey.startsWith("claude")) {
+      if (lowerModel.startsWith("claude")) {
         claudeTokens += tokens;
         bump("claude_survivor", claudeTokens, row.hour_start);
       }
-      if (modelKey.startsWith("deepseek")) {
+      if (lowerModel.includes("deepseek") || sourceKey.includes("deepseek")) {
         deepseekTokens += tokens;
         bump("wishing_well", deepseekTokens, row.hour_start);
       }
-      const lowerModel = modelKey.toLowerCase();
+      const domesticFamily = domesticFamilyFor(lowerModel, sourceKey);
+      if (domesticFamily && !domesticFamilies.has(domesticFamily)) {
+        domesticFamilies.add(domesticFamily);
+        bump("dragon_heir", domesticFamilies.size, row.hour_start, { families: [...domesticFamilies] });
+      }
       if (
         lowerModel.startsWith("gpt") ||
         lowerModel.startsWith("o1") ||
@@ -790,7 +843,6 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         openaiTokens += tokens;
         bump("closed_source_loyalist", openaiTokens, row.hour_start);
       }
-      const sourceKey = String(row.source || "").toLowerCase();
       if (
         sourceKey === "ollama" ||
         sourceKey === "lmstudio" ||
@@ -895,6 +947,9 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       if (
         lowerModel.includes("chatrhino") ||
         lowerModel.includes("joycoder") ||
+        lowerModel.includes("joycode") ||
+        lowerModel.includes("joy-code") ||
+        lowerModel.includes("joy_code") ||
         lowerModel.includes("yanxi") ||
         lowerModel.includes("言犀") ||
         lowerModel.startsWith("jd-") ||
@@ -902,6 +957,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         lowerModel.includes("jingdong") ||
         sourceKey.includes("jd") ||
         sourceKey.includes("joycoder") ||
+        sourceKey.includes("joycode") ||
         sourceKey.includes("yanxi")
       ) {
         jdTokens += tokens;
@@ -911,6 +967,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         lowerModel.includes("hunyuan") ||
         lowerModel.includes("tencent") ||
         lowerModel.includes("混元") ||
+        /(^|[-_/])hy\d/.test(lowerModel) ||
         sourceKey.includes("hunyuan") ||
         sourceKey.includes("tencent")
       ) {
@@ -967,6 +1024,13 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       earlyHours.add(row.hour_start);
       bump("early_bird", earlyHours.size, row.hour_start);
     }
+  }
+
+  // 斩杀线 is a whole-history ratio, not a per-hour peak: replay the final
+  // DeepSeek share after the queue is consumed. The engine is monotonic, so
+  // crossing the line once keeps the tier if later usage dilutes the share.
+  if (localTotalTokens > 0) {
+    bump("kill_line", (deepseekTokens * 100) / localTotalTokens, lastLocalHour);
   }
 
   // ── Cloud-parity replay, straight from the local queue ─────────────────────
@@ -1882,7 +1946,25 @@ function buildProxyHeaders(headers) {
 // ---------------------------------------------------------------------------
 
 function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir: isolatedTrackerDataDir = null, syncContext = null }) {
-  const qp = queuePath || resolveQueuePath();
+  const defaultQueuePath = resolveQueuePath();
+  const qp = queuePath || defaultQueuePath;
+  // Isolated tests and custom queue paths must not pick up the real JoyCode
+  // workspace (that turned a 120-token fixture into 681,980 tokens).
+  const includeJoycodeRows = !isolatedTrackerDataDir && qp === defaultQueuePath;
+  const scopedRowsForUrl = (url) => scopedQueueRows(qp, url, { includeJoycode: includeJoycodeRows });
+
+  // Session views need the same Qoder credit estimates the usage cards use.
+  // The session scanner itself only sees zero-usage transcripts; allocate the
+  // queue's Qoder pool at render time so both views tell one story.
+  async function loadSessionQueueRows() {
+    try {
+      const { allRows } = await scopedRowsForUrl(new URL("http://127.0.0.1/"));
+      return allRows;
+    } catch {
+      return [];
+    }
+  }
+
   let _achievementsCache = null;
   const ACHIEVEMENTS_CACHE_TTL_MS = 15000;
   let _sessionsCache = null;
@@ -3284,7 +3366,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     if (p === "/functions/tokentracker-wrapped") {
       const yearParam = url.searchParams.get("year");
       const year = yearParam ? Number(yearParam) : null;
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const { aggregateWrapped } = require("./wrapped-aggregator");
       const summary = aggregateWrapped(rows, year ? { year } : {});
       json(res, { scope, excluded_sources: excludedSources, ...summary });
@@ -3313,7 +3395,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const from = url.searchParams.get("from") || "";
       const to = url.searchParams.get("to") || "";
       const timeZoneContext = getTimeZoneContext(url);
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const allDaily = await aggregateByDay(rows, timeZoneContext);
       const daily = allDaily.filter((d) => d.day >= from && d.day <= to);
       const totals = daily.reduce(
@@ -3380,7 +3462,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const from = url.searchParams.get("from") || "";
       const to = url.searchParams.get("to") || "";
       const timeZoneContext = getTimeZoneContext(url);
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const daily = (await aggregateByDay(rows, timeZoneContext)).filter((d) => d.day >= from && d.day <= to);
       json(res, { from, to, scope, excluded_sources: excludedSources, data: daily });
       return true;
@@ -3414,7 +3496,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         json(res, { available: false, from, to, by_model: [], by_tool: [], totals: null });
         return true;
       }
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const result = computeQualityPerDollar(rows, outcomes, { from, to });
       json(res, { from, to, scope, excluded_sources: excludedSources, ...result });
       return true;
@@ -3426,8 +3508,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const to = url.searchParams.get("to") || "";
       const refresh = ["1", "true"].includes(url.searchParams.get("refresh"));
       try {
-        const { buildSessionAnalytics, summarizeSessions, sessionsToCsv } = require("./session-analytics");
+        const { buildSessionAnalytics, summarizeSessions, sessionsToCsv, applyQoderSessionUsageEstimates, applyWallClockSpeed } = require("./session-analytics");
         const sessions = await buildSessionAnalytics({ force: refresh });
+        applyQoderSessionUsageEstimates(sessions, await loadSessionQueueRows());
+        for (const session of sessions) applyWallClockSpeed(session);
         const wantsCsv = url.searchParams.get("format") === "csv";
         const includeSessions = wantsCsv || ["1", "true"].includes(url.searchParams.get("include_sessions"));
         const result = summarizeSessions(sessions, { from, to, includeSessions, ...getTimeZoneContext(url) });
@@ -3476,8 +3560,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           return true;
         }
 
-        const { buildSessionAnalytics, listSessionsForBrowser } = require("./session-analytics");
+        const { buildSessionAnalytics, listSessionsForBrowser, applyQoderSessionUsageEstimates, applyWallClockSpeed } = require("./session-analytics");
         const sessions = await buildSessionAnalytics({ force: refresh });
+        applyQoderSessionUsageEstimates(sessions, await loadSessionQueueRows());
+        for (const session of sessions) applyWallClockSpeed(session);
         const result = listSessionsForBrowser(sessions, { from, to, limit, ...tzCtx });
         const payload = { from, to, ...result };
         _sessionsCache = {
@@ -3547,7 +3633,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     if (p === "/functions/tokentracker-usage-heatmap") {
       const weeks = parseInt(url.searchParams.get("weeks") || "52", 10);
       const timeZoneContext = getTimeZoneContext(url);
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const daily = await aggregateByDay(rows, timeZoneContext);
       const todayParts = getZonedParts(new Date(), timeZoneContext);
       const todayStr = formatPartsDayKey(todayParts) || new Date().toISOString().slice(0, 10);
@@ -3615,7 +3701,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const from = url.searchParams.get("from") || "";
       const to = url.searchParams.get("to") || "";
       const timeZoneContext = getTimeZoneContext(url);
-      const { rows: scopedRows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows: scopedRows, scope, excludedSources } = await scopedRowsForUrl(url);
       const pricingRevision = getPricingRevision();
       const bySource = new Map();
       let processed = 0;
@@ -4247,7 +4333,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     if (p === "/functions/tokentracker-usage-hourly") {
       const day = url.searchParams.get("day") || new Date().toISOString().slice(0, 10);
       const timeZoneContext = getTimeZoneContext(url);
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const data = await aggregateHourlyByDay(rows, day, timeZoneContext);
       json(res, { day, scope, excluded_sources: excludedSources, data });
       return true;
@@ -4258,7 +4344,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const from = url.searchParams.get("from") || "";
       const to = url.searchParams.get("to") || "";
       const timeZoneContext = getTimeZoneContext(url);
-      const { rows, scope, excludedSources } = await scopedQueueRows(qp, url);
+      const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const byMonth = new Map();
       let processed = 0;
       for (const row of rows) {
@@ -4584,7 +4670,8 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         return true;
       }
 
-      const queueRows = await readQueueData(qp);
+      const { allRows } = await scopedRowsForUrl(url);
+      const queueRows = allRows;
       const { projectRows } = await readProjectUsageContext(qp, url);
       // session_marathon needs the device's session rows. buildSessionAnalytics
       // serves from its sidecar cache (5-min TTL), so repeated polls stay cheap.
@@ -4614,7 +4701,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     // --- leaderboard (local history) ---
     if (p === "/functions/tokentracker-leaderboard") {
       await ensurePricingLoaded();
-      const { rows } = await scopedQueueRows(qp, url);
+      const { rows } = await scopedRowsForUrl(url);
       const { projectRows } = await readProjectUsageContext(qp, url);
       json(res, computeLocalLeaderboard(rows, projectRows, {
         period: url.searchParams.get("period") || "week",

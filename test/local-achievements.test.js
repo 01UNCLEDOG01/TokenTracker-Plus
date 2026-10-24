@@ -39,7 +39,7 @@ test("empty inputs yield the full locked catalog", () => {
   // Local badges plus the cloud-parity set, now including local
   // trendsetter/podium proxies and the four wave-4 model badges.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 55);
+  assert.equal(result.length, 57);
   for (const id of ["trendsetter", "podium"]) {
     const badge = result.find((entry) => entry.id === id);
     assert.ok(badge, `${id} must exist in the local catalog`);
@@ -540,4 +540,37 @@ test("wave-4 local badges replay with expected semantics", () => {
   assert.equal(byId(result, "flash_immortal").tier, 1);
   assert.equal(byId(result, "seedance_master").tier, 1);
   assert.equal(byId(result, "token_arbitrageur").tier, 1); // 5 platforms out of [5, 10, 18, 26]
+});
+
+test("wave-6 badges count domestic families and the DeepSeek kill line", () => {
+  const families = computeLocalAchievements([
+    { source: "workbuddy", model: "deepseek-v4.1-flash", hour_start: "2026-07-01T10:00:00Z", total_tokens: 1000000 },
+    { source: "workbuddy", model: "hy4-preview", hour_start: "2026-07-01T10:01:00Z", total_tokens: 1000000 },
+    { source: "workbuddy", model: "glm-5.3-flash", hour_start: "2026-07-01T10:02:00Z", total_tokens: 1000000 },
+    { source: "trae-cn", model: "qwen3.8-flash", hour_start: "2026-07-01T10:03:00Z", total_tokens: 1000000 },
+  ], [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(families, "dragon_heir").metric_value, 4);
+  assert.equal(byId(families, "dragon_heir").tier, 2); // thresholds [1, 3, 5, 7]
+
+  const share = computeLocalAchievements([
+    { source: "workbuddy", model: "DeepSeek-V4-Flash", hour_start: "2026-07-01T11:00:00Z", total_tokens: 30 },
+    { source: "sensenova", model: "sn-deepseek-v4-1-flash", hour_start: "2026-07-01T11:01:00Z", total_tokens: 30 },
+    { source: "workbuddy", model: "gpt-6-luna", hour_start: "2026-07-01T11:02:00Z", total_tokens: 40 },
+  ], [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(share, "kill_line").metric_value, 60);
+  assert.equal(byId(share, "kill_line").tier, 2); // 50% bronze, 60% silver
+
+  const aliases = computeLocalAchievements([
+    { source: "workbuddy", model: "hy3", hour_start: "2026-07-01T12:00:00Z", total_tokens: 1000000000 },
+    { source: "workbuddy-ai", model: "hy4-preview-x", hour_start: "2026-07-01T12:01:00Z", total_tokens: 1000000000 },
+    { source: "joycode", model: "joycode-pro", hour_start: "2026-07-01T12:02:00Z", total_tokens: 1000000000 },
+  ], [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(aliases, "hunyuan_master").tier, 3); // 2B lifetime -> gold floor 1B
+  assert.equal(byId(aliases, "jd_joy_brother").tier, 4); // 1B lifetime -> diamond floor 500M
+
+  const joycode = computeLocalAchievements([
+    { source: "joycode", model: "JoyAI-Code-1.5", hour_start: "2026-10-06T10:00:00Z", total_tokens: 682000 },
+  ], [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(joycode, "jd_joy_brother").metric_value, 682000);
+  assert.equal(byId(joycode, "jd_joy_brother").tier, 1);
 });
