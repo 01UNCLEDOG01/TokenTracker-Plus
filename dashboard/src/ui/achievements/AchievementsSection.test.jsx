@@ -65,11 +65,14 @@ describe("AchievementBadge", () => {
     expect(img?.style.filter).toContain("grayscale");
   });
 
-  it("gives page-scale artwork more room than the tier ring", () => {
+  it("lets the artwork's own rim define the badge edge", () => {
     const { container } = render(<AchievementBadge badgeId="token_titan" tier={3} size="lg" />);
     const badge = container.firstElementChild;
+    const img = container.querySelector("img");
     expect(badge?.style.width).toBe("108px");
-    expect(badge?.style.padding).toBe("2px");
+    expect(badge?.style.padding).toBe("0px");
+    expect(badge?.style.background).toBe("transparent");
+    expect(img?.style.transform).toBe("scale(1.12)");
   });
 });
 

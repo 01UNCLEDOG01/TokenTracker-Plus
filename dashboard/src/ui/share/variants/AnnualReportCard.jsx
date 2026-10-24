@@ -163,7 +163,7 @@ export function AnnualReportCard({ data }) {
         {/* ── HEADER — brand left, avatar right ── */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:GAP*3}}>
           <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <img src="/app-icon.png" alt="" width={64} height={64} style={{width:64,height:64,borderRadius:16,display:"block"}}/>
+            <img src="/app-icon.png?v=2" alt="" width={64} height={64} style={{width:64,height:64,borderRadius:16,display:"block"}}/>
             <div>
               <div style={{fontSize:20,fontWeight:500,color:DIM,lineHeight:1.2}}>Token Tracker</div>
               <div style={{fontSize:36,fontWeight:700,lineHeight:1.15,color:WHITE}}>{copy("share.card.annual.report_title")}</div>
@@ -228,7 +228,7 @@ export function AnnualReportCard({ data }) {
         {/* ── FOOTER ── */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"auto"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <img src="/app-icon.png" alt="" width={44} height={44} style={{width:44,height:44,borderRadius:8,display:"block"}}/>
+            <img src="/app-icon.png?v=2" alt="" width={44} height={44} style={{width:44,height:44,borderRadius:8,display:"block"}}/>
             <span style={{fontSize:22,fontWeight:600,color:WHITE}}>Token Tracker</span>
           </div>
           <span style={{fontSize:22,fontWeight:600,color:ACCENT}}>(removed)</span>

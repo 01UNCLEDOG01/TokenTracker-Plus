@@ -9,7 +9,7 @@ function BrandLogo() {
   return (
     <Link to="/landing" className="flex items-center gap-2.5 no-underline hover:opacity-80 transition-opacity">
       <img
-        src="/app-icon.png"
+        src="/app-icon.png?v=2"
         alt={copy("shared.app_name")}
         width={28}
         height={28}

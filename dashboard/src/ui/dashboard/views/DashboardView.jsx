@@ -51,7 +51,7 @@ function FullPageGateLayout({ title, subtitle, desc, loginCard, copy }) {
           {/* Logo 区域：使用精致的圆角矩形，还原精致的 Mac 圆角方形外观，移除多余剪裁 */}
           <div className="flex items-center gap-2.5">
             <img
-              src="/app-icon.png"
+              src="/app-icon.png?v=2"
               alt=""
               width={32}
               height={32}

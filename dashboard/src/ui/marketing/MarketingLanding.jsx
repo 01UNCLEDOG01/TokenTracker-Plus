@@ -77,7 +77,7 @@ export function MarketingLanding({
               to={signUpUrl || "/"}
               className="flex items-center gap-3 no-underline outline-none rounded focus-visible:ring-2 focus-visible:ring-oai-brand-500 focus-visible:ring-offset-2 dark:ring-offset-oai-gray-950 transition-opacity hover:opacity-80"
             >
-              <img src="/app-icon.png" alt="" width={24} height={24} className="rounded-md" />
+              <img src="/app-icon.png?v=2" alt="" width={24} height={24} className="rounded-md" />
               <span className="whitespace-nowrap text-sm font-semibold uppercase tracking-wide text-white">
                 Token Tracker
               </span>

@@ -2,7 +2,7 @@
 rem ============================================================
 rem  Usage Desk - launcher for the station owner's TokenTracker fork
 rem  Fork branch: usage-desk   Built from: TokenTracker-plus
-rem  Installed in place at: D:\TokenTracker\TokenTracker.exe
+rem  Installed in place at: D:\TokenTrackerPlus\app\TokenTracker.exe
 rem  Local panel: http://127.0.0.1:17680/?app=1
 rem
 rem  This is a desktop app, not a web page. The launcher always aims at the
@@ -14,7 +14,7 @@ rem  The desktop pet and the quota widget share the same local server, so this
 rem  is also the way to bring them back after a reboot.
 rem ============================================================
 setlocal EnableExtensions
-set "APP=D:\TokenTracker\TokenTracker.exe"
+set "APP=D:\TokenTrackerPlus\app\TokenTracker.exe"
 set "URL=http://127.0.0.1:17680/?app=1"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $p = Get-Process -Name 'TokenTracker' | Select-Object -First 1; if (-not $p) { 'NOTRUNNING'; exit }; if ($p.MainWindowHandle -ne 0) { $ok = (New-Object -ComObject WScript.Shell).AppActivate($p.Id); if ($ok) { 'FOCUSED' } else { 'NOWINDOW' } } else { 'NOWINDOW' }" | findstr /C:"NOTRUNNING" >nul
@@ -47,7 +47,7 @@ goto end
 
 :slow
 echo Usage Desk: the app window opened but the local server did not answer within 40 seconds.
-echo Try again, or start D:\TokenTracker\TokenTracker.exe manually.
+echo Try again, or start D:\TokenTrackerPlus\app\TokenTracker.exe manually.
 ping -n 8 127.0.0.1 >nul
 goto end
 

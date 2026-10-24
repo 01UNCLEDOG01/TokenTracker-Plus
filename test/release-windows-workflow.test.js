@@ -220,9 +220,16 @@ test("installer is per-user (no admin / UAC)", () => {
     /PrivilegesRequired\s*=\s*lowest/.test(iss),
     "must install per-user so it never elevates"
   );
+  // The fork owns a fixed D:\TokenTrackerPlus root instead of the upstream
+  // %LOCALAPPDATA%\Programs default; this is still a per-user install and must
+  // never adopt the legacy D:\TokenTracker path.
   assert.ok(
-    iss.includes("{localappdata}"),
-    "should install under %LOCALAPPDATA%"
+    /DefaultDirName\s*=\s*D:\\TokenTrackerPlus\\app/.test(iss),
+    "should install into the fork's fixed D:\\TokenTrackerPlus\\app root"
+  );
+  assert.ok(
+    /UsePreviousAppDir\s*=\s*no/.test(iss),
+    "must not reuse the legacy install directory"
   );
 });
 

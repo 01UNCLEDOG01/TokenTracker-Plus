@@ -34,9 +34,12 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
-; Per-user install: no admin rights, lands in %LOCALAPPDATA%\Programs.
+; The fork owns D:\TokenTrackerPlus; keep the app under app\ next to repo\,
+; archive\ and cloud\. UsePreviousAppDir=no prevents Inno from reusing the
+; legacy D:\TokenTracker install path.
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#MyAppName}
+DefaultDirName=D:\TokenTrackerPlus\app
+UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}

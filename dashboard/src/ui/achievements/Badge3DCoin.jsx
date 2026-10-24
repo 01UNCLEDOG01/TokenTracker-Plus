@@ -162,14 +162,22 @@ export function Badge3DCoin({ badgeId, tier, locked = false, hidden = false, siz
             <div
               key={z}
               aria-hidden
-              className="absolute inset-0 rounded-full"
-              style={{ transform: `translateZ(${z}px)`, background: palette.rim[1] }}
+              // Neutral dark metal edge; the tier color lives in the pill and
+              // back face. A gold edge around the silver-rimmed artwork read as
+              // a second, pasted-on ring.
+              className="absolute inset-0 rounded-full bg-oai-gray-800"
+              style={{ transform: `translateZ(${z}px)` }}
             />
           ))}
           {/* front face */}
           <div
-            className="absolute inset-0 overflow-hidden rounded-full"
-            style={{ ...faceStyle, transform: `translateZ(${COIN_THICKNESS / 2}px)` }}
+            // Opaque dark backing: hides the stack behind the artwork's
+            // transparent margin so the rim sits on the coin, not on a band.
+            className="absolute inset-0 overflow-hidden rounded-full bg-oai-gray-950"
+            style={{
+              ...faceStyle,
+              transform: `translateZ(${COIN_THICKNESS / 2}px)`,
+            }}
           >
             <AchievementBadge
               badgeId={badgeId}

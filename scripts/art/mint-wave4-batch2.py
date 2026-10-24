@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-ROOT = Path("D:/tt-rebase")
+ROOT = Path("D:/TokenTrackerPlus/repo")
 sys.path.insert(0, str(ROOT / "scripts" / "art"))
 
 import importlib.util

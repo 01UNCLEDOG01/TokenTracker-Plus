@@ -1,48 +1,7 @@
-CLI apply checkpoints before preparing and respects its one-day bound
-CLI cleanup previews and removes only one expired superseded metadata generation
-CLI defaults to a bounded dry-run with no checkpoint or database write
-CLI erasure requires exact confirmation and scopes its SQL operation to one user
-CLI restore uses the real SQL RPC and retains a newer hot zero value
-Codex reset bank scope guard freezes widget menu bar and native bridge surfaces
-QA restore and exact erasure preserve the real ledger and another user's usage
-RPC client does not follow redirects carrying its service credential
-SQL shape drift aborts the whole migration before any archive schema is retained
-a restore failure after hot insertion rolls back rows, manifest and operation together
-a stale source snapshot refuses replay without changing original or QA rows
-actual cloned aggregation retains cold truth and decreasing hot corrections
-all QA tables, sequences and functions reject anonymous and authenticated SQL roles
-archive operation replay reuses its preparation and cannot change scope
-archive wiring retains canonical pricing and denies direct client access
-billing, machine admission, real ingest RPC and archive run together in the same database
-bounded cleanup deletes only old superseded empty metadata and leaves another user intact
-checkpoint creation failure happens before any prepare or commit RPC
-complete truth keeps device, cluster, Cursor, TRAE and timezone parity after compaction
-empty QA tables and scope guards isolate real paid and free users without copying payments
-failed checksum or stale generation cannot delete hot truth or switch the manifest
-five hundred buckets invalidate cache at statement scope and the user expression uses an index
-hosted apply and invalid dates/scopes are rejected before making a request
 importScip writes sqlite with documents, symbols, and occurrences
-installer replay preserves QA rows and original RPCs and rejects another scope
-legacy identity convergence transfers cold ownership before revocation and permits later zero correction
-lost commit response resumes an already committed operation and preserves later hot data
-lost preparation response resumes the same server generation instead of creating another
-maintenance-lock composition preserves exact-identity conflict handling in the installed issuer
 malformed local configuration never falls back into an official authentication request
-maps cover actual handler calls without custom schemas or identifier truncation
 ownership probes escape quote characters in ids
-pack storage measurement reports actual PostgreSQL datum bytes and row counts
 parseCopilotAppDbIncremental reprocesses when only SQLite sidecars change
-prepare, correction, commit preserves overlay and a repeat compaction retains every field
-public lifetime triggers and dirty-day repairs use cold truth for downward corrections
-real QA issuance and ingest never register a token in the original table
 repairWorkbuddyContextUsage retracts context-only SQLite history and rebuilds JSONL usage
-restore keeps newer hot zero overlays and then closes the cold manifest without changing lifetime
-restore replaces a lower legacy hot row with its complete canonical cold winner
-retention activation is explicit and a day in the ninety-day hot window is rejected
-row count, revision ranges and deletion coverage are verified before activation
-server revisions replace decreasing and zero values and invalidate private cache
-session model and day moves dirty both placements without duplicating lifetime totals
 status JSON reports Copilot canonical store diagnostics
 status JSON reports JSONL-only Qoder install with projects-dir detail
-unreviewed public objects, locks, malformed identities and source drift fail before SQL
-user usage erasure is atomic, scoped and idempotent while auth and financial records survive

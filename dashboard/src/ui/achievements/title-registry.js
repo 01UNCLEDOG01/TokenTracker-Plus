@@ -38,7 +38,7 @@ const TITLES_UNSORTED = [
     tag: "质朴古铜",
     art: "/achievements/titles/title-frugal-archmage.png?v=5",
     requiredBadges: [
-      { id: "token_arbitrageur", name: "羊毛宗师", tier: 1, art: "/achievements/token-arbitrageur.png?v=6" },
+      { id: "token_arbitrageur", name: "羊毛宗师", tier: 1, art: "/achievements/token-arbitrageur.png?v=7" },
       { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=6" },
     ],
     check: (badgeMap) => (badgeMap.get("token_arbitrageur")?.tier || 0) >= 1 && (badgeMap.get("frugal_architect")?.tier || 0) >= 2,
@@ -67,8 +67,8 @@ const TITLES_UNSORTED = [
     art: "/achievements/titles/title-cyber-speedster.png?v=5",
     requiredBadges: [
       { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=6" },
-      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=6" },
-      { id: "flash_immortal", name: "闪电仙人", tier: 1, art: "/achievements/flash-immortal.png?v=6" },
+      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=7" },
+      { id: "flash_immortal", name: "闪电仙人", tier: 1, art: "/achievements/flash-immortal.png?v=7" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
@@ -333,7 +333,7 @@ const TITLES_UNSORTED = [
     art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
       { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=6" },
-      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=14" },
+      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=15" },
       { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=6" },
     ],
     check: (badgeMap) =>
@@ -363,10 +363,10 @@ const TITLES_UNSORTED = [
     dimension: 4,
     art: "/achievements/titles/title-cn-quad-masters.png?v=5",
     requiredBadges: [
-      { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=7" },
-      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=7" },
-      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=8" },
+      { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=13" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=8" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=8" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=9" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
@@ -425,10 +425,10 @@ const TITLES_UNSORTED = [
     bondName: "四方饕餮",
     art: "/achievements/titles/title-connoisseur-eater.png?v=1",
     requiredBadges: [
-      { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
-      { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
-      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=3" },
-      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=3" },
+      { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=8" },
+      { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=8" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=4" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=4" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
@@ -459,11 +459,11 @@ const TITLES_UNSORTED = [
     bondName: "五岳擎天",
     art: "/achievements/titles/title-industrial-giant.png?v=1",
     requiredBadges: [
-      { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
-      { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
-      { id: "hunyuan_master", name: "混元归一", tier: 1, art: "/achievements/hunyuan-master.png?v=2" },
-      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=3" },
-      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=3" },
+      { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=8" },
+      { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=8" },
+      { id: "hunyuan_master", name: "混元归一", tier: 1, art: "/achievements/hunyuan-master.png?v=3" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=4" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=4" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&

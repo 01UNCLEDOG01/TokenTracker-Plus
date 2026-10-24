@@ -96,7 +96,7 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
         >
           <span className="flex h-5 w-5 shrink-0 items-center justify-center">
             <img
-              src="/app-icon.png"
+              src="/app-icon.png?v=2"
               alt=""
               width={18}
               height={18}

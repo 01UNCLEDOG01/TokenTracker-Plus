@@ -83,4 +83,24 @@ if (failures.length) {
   process.exit(1);
 }
 
+// Title member icons reuse the badge artwork URL. A badge art bump must reach
+// every title that lists that badge, or the title keeps rendering the old PNG.
+const catalogText = fs.readFileSync(path.join(ROOT, REFERENCES[0]), "utf8");
+const catalogArt = new Map();
+for (const match of catalogText.matchAll(/\{ id: "([^"]+)"[^\n]*?art: "([^"]+)"/g)) {
+  catalogArt.set(match[1], match[2]);
+}
+const titleText = fs.readFileSync(path.join(ROOT, REFERENCES[1]), "utf8");
+const staleTitleArt = [];
+for (const match of titleText.matchAll(/\{ id: "([^"]+)", name: "([^"]+)", tier: \d+, art: "([^"]+)" \}/g)) {
+  const [, id, name, art] = match;
+  const expected = catalogArt.get(id);
+  if (expected && expected !== art) staleTitleArt.push(`${id} (${name}): ${art} -> ${expected}`);
+}
+if (staleTitleArt.length) {
+  console.error("art gate: title member art is stale against badge-catalog.js:");
+  for (const line of staleTitleArt) console.error(`  - ${line}`);
+  process.exit(1);
+}
+
 console.log("art versions ok");
