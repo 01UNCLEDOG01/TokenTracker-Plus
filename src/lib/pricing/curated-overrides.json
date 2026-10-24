@@ -264,10 +264,11 @@
       "cache_write": 0
     },
     "deepseek-v4-flash": {
-      "input": 0.44,
-      "output": 1.32,
-      "cache_read": 0.014,
-      "cache_write": 0.44
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_write": 0.3,
+      "note": "Legacy id retired by DeepSeek; requests are served by DeepSeek-V4.1-Flash and billed at the Flash price (peak $0.30/$1.20/$0.006 per MTok, halved off-peak). https://api-docs.deepseek.com/quick_start/pricing/"
     },
     "deepseek-v4-pro": {
       "input": 1.32,
@@ -276,10 +277,11 @@
       "cache_write": 1.32
     },
     "deepseek-v4-flash-vision-exp": {
-      "input": 0.44,
-      "output": 1.32,
-      "cache_read": 0.014,
-      "cache_write": 0.44
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_write": 0.3,
+      "note": "Legacy experimental id; same retirement rule as deepseek-v4-flash, billed at the Flash price. https://api-docs.deepseek.com/quick_start/pricing/"
     },
     "deepseek-v4.1-flash": {
       "input": 0.3,

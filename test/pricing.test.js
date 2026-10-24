@@ -917,7 +917,13 @@ test("index: DeepSeek V4 pricing follows official UTC peak and off-peak windows 
 
   assert.deepEqual(
     pricing.getModelPricing("deepseek-v4-flash"),
-    { input: 0.44, output: 1.32, cache_read: 0.014, cache_write: 0.44 },
+    {
+      input: 0.3,
+      output: 1.2,
+      cache_read: 0.006,
+      cache_write: 0.3,
+      note: "Legacy id retired by DeepSeek; requests are served by DeepSeek-V4.1-Flash and billed at the Flash price (peak $0.30/$1.20/$0.006 per MTok, halved off-peak). https://api-docs.deepseek.com/quick_start/pricing/",
+    },
   );
   assert.deepEqual(
     pricing.getModelPricing("deepseek-v4-pro"),
@@ -925,12 +931,18 @@ test("index: DeepSeek V4 pricing follows official UTC peak and off-peak windows 
   );
   assert.deepEqual(
     pricing.getModelPricing("deepseek-v4-flash-vision-exp"),
-    { input: 0.44, output: 1.32, cache_read: 0.014, cache_write: 0.44 },
+    {
+      input: 0.3,
+      output: 1.2,
+      cache_read: 0.006,
+      cache_write: 0.3,
+      note: "Legacy experimental id; same retirement rule as deepseek-v4-flash, billed at the Flash price. https://api-docs.deepseek.com/quick_start/pricing/",
+    },
   );
 
-  assert.equal(pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-21T01:00:00Z")), 2.214);
-  assert.equal(pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-21T03:30:00Z")), 2.214);
-  assert.equal(pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-21T04:00:00Z")), 1.107);
+  assert.equal(pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-21T01:00:00Z")), 1.806);
+  assert.equal(pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-21T03:30:00Z")), 1.806);
+  assert.equal(pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-21T04:00:00Z")), 0.903);
   assert.equal(pricing.computeRowCost(row("deepseek-v4-pro", "2026-08-21T06:00:00Z")), 6.644);
   assert.equal(pricing.computeRowCost(row("deepseek-v4-pro", "2026-08-21T10:00:00Z")), 3.322);
 
@@ -962,7 +974,7 @@ test("index: DeepSeek V4 pricing follows official UTC peak and off-peak windows 
   );
   assert.equal(
     pricing.computeRowCost(row("deepseek-v4-flash", "2026-08-23T09:59:00Z")),
-    1.107,
+    0.903,
     "Beijing Sunday 17:59 is still inside the weekend",
   );
   assert.equal(
@@ -1442,7 +1454,9 @@ test("index: DeepSeek V4.1 Flash (deepseek-v4.1-flash / deepseek-flash) prices a
     );
   }
   // V4 Flash must not be captured by the new needles (no substring relation).
-  assert.equal(matcher.lookupPricing("deepseek-v4-flash", { curated, litellm }).value.input, 0.44);
+  // It now shares the Flash rates with v4.1, so the retirement note — not the
+  // price — proves it resolved to its own entry.
+  assert.match(matcher.lookupPricing("deepseek-v4-flash", { curated, litellm }).value.note || "", /Legacy id retired/u);
 
   const row = (model, hour_start) => ({
     source: "command-code",

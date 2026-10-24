@@ -427,6 +427,7 @@ function computeRowCost(row) {
 const MODEL_PRICING = curatedOverrides.exact;
 
 module.exports = {
+  DEEPSEEK_TIME_PRICED_MODELS,
   QODER_INTL_CREDIT_REFERENCE_MODEL,
   QODER_INTL_CREDIT_LABEL_MARKER,
   ensurePricingLoaded,

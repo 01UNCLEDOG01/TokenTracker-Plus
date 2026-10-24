@@ -10,7 +10,9 @@
 // gaps. A row the cloud DID price is left exactly as it came back: the cloud
 // priced the underlying rows at upload time, so it saw each row's own hour_start
 // and applied DeepSeek's time-of-day rates (off-peak is half price; whole Beijing
-// weekends and public holidays are off-peak). This aggregate carries no
+// weekends are off-peak). Chinese public holidays are a known gap: neither the
+// local table nor the cloud edge consults a holiday calendar (see the deliberate
+// gap documented in src/lib/pricing/index.js). This aggregate carries no
 // hour_start, so recomputing a positive row here would bill every off-peak token
 // at the peak rate - measured on real data that inflated codex/deepseek-v4-flash
 // from 163.51 to 263.24. Only a zero (the model was missing from the cloud's

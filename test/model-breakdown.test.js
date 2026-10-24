@@ -449,7 +449,7 @@ test("pricing covers production MiniMax and DeepSeek model ids used by leaderboa
   const cases = [
     ["MiniMax-M2.7", { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0.375 }],
     ["MiniMax-M2.7-highspeed", { input: 0.6, output: 2.4, cache_read: 0.06, cache_write: 0.375 }],
-    ["deepseek-v4-flash", { input: 0.44, output: 1.32, cache_read: 0.014, cache_write: 0.44 }],
+    ["deepseek-v4-flash", { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3, note: "Legacy id retired by DeepSeek; requests are served by DeepSeek-V4.1-Flash and billed at the Flash price (peak $0.30/$1.20/$0.006 per MTok, halved off-peak). https://api-docs.deepseek.com/quick_start/pricing/" }],
     ["deepseek-v4-pro", { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 }],
   ];
 
@@ -467,7 +467,7 @@ test("leaderboard-refresh edge pricing covers MiniMax and DeepSeek model ids", (
   for (const snippet of [
     '"MiniMax-M2.7": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0.375 },',
     '"MiniMax-M2.7-highspeed": { input: 0.6, output: 2.4, cache_read: 0.06, cache_write: 0.375 },',
-    '"deepseek-v4-flash": { input: 0.44, output: 1.32, cache_read: 0.014, cache_write: 0.44 },',
+    '"deepseek-v4-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },',
     '"deepseek-v4-pro": { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 },',
     'lower.includes("minimax-m2.7")',
     'lower.includes("deepseek-v4-flash")',

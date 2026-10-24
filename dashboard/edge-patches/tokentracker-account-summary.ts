@@ -263,9 +263,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "MiniMax-M2.7": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0.375 },
   "MiniMax-M2.7-highspeed": { input: 0.6, output: 2.4, cache_read: 0.06, cache_write: 0.375 },
   "minimax-m3": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0 },
-  "deepseek-v4-flash": { input: 0.44, output: 1.32, cache_read: 0.014, cache_write: 0.44 },
+  "deepseek-v4-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   "deepseek-v4-pro": { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 },
-  "deepseek-v4-flash-vision-exp": { input: 0.44, output: 1.32, cache_read: 0.014, cache_write: 0.44 },
+  "deepseek-v4-flash-vision-exp": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   // DeepSeek V4.1 Flash (official id deepseek-flash, released 2026-09-10):
   // $0.30 / $1.20 / $0.006 cache read per MTok peak; getRowPricing halves it
   // off-peak. deepseek-v4.1-flash is the OpenRouter / Command Code / WorkBuddy id.

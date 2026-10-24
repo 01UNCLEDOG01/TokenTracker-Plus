@@ -251,8 +251,13 @@ AS $func$
       hourly.source, hourly.model,
       CASE
         WHEN lower(hourly.model) LIKE '%deepseek-v4-flash%'
+          OR lower(hourly.model) LIKE '%deepseek-v4.1-flash%'
+          OR lower(hourly.model) LIKE '%deepseek-flash%'
           OR lower(hourly.model) LIKE '%deepseek-v4-pro%'
         THEN CASE
+          WHEN hourly.hour_start >= timestamptz '2026-08-22T16:00:00Z'
+            AND extract(dow FROM ((hourly.hour_start AT TIME ZONE 'UTC') + interval '8 hours')) IN (0, 6)
+          THEN 'off_peak'
           WHEN extract(hour FROM hourly.hour_start AT TIME ZONE 'UTC') >= 1
                AND extract(hour FROM hourly.hour_start AT TIME ZONE 'UTC') < 4
             OR extract(hour FROM hourly.hour_start AT TIME ZONE 'UTC') >= 6
