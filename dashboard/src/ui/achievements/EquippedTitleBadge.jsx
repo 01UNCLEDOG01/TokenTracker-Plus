@@ -1,7 +1,7 @@
 import React from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "../../lib/cn";
-import { getTitleById, titleDisplayName } from "./title-registry";
+import { getTitleById, titleDisplayName, getEquippedBadgeStyle } from "./title-registry";
 
 /**
  * EquippedTitleBadge: Renders the bespoke 3D crest emblem and stylized theme pill
@@ -20,6 +20,8 @@ export function EquippedTitleBadge({
   if (!title) return null;
 
   const { theme } = title;
+  const resonanceTier = titleProp?.resonanceTier || titleProp?.resonance?.tier || title?.resonanceTier || 1;
+  const badgeStyle = getEquippedBadgeStyle(resonanceTier, theme);
 
   const iconSizes = {
     xs: "h-4 w-4",
@@ -53,7 +55,11 @@ export function EquippedTitleBadge({
             className={cn(
               "rounded-full object-contain filter transition-transform hover:scale-110",
               iconSizes[size] || iconSizes.sm,
-              theme.glow
+              resonanceTier >= 4
+                ? "ring-2 ring-cyan-300 shadow-md shadow-cyan-400/50"
+                : resonanceTier === 3
+                ? "ring-1 ring-amber-400 shadow-sm shadow-amber-400/40"
+                : theme.glow
             )}
             onError={(e) => {
               e.currentTarget.style.display = "none";
@@ -62,7 +68,7 @@ export function EquippedTitleBadge({
           <span
             className={cn(
               "absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full animate-pulse",
-              theme.accentDot
+              resonanceTier >= 4 ? "bg-cyan-300 shadow-sm shadow-cyan-300" : theme.accentDot
             )}
           />
         </div>
@@ -73,11 +79,14 @@ export function EquippedTitleBadge({
         <span
           className={cn(
             "inline-flex items-center gap-1 rounded-full border font-semibold tracking-wide backdrop-blur-md shadow-sm transition-all",
-            theme.pillClass,
+            badgeStyle,
             textSizes[size] || textSizes.sm
           )}
         >
-          <Sparkles className="h-2.5 w-2.5 shrink-0 opacity-80" />
+          <Sparkles className={cn(
+            "h-2.5 w-2.5 shrink-0 opacity-80",
+            resonanceTier >= 4 ? "text-cyan-300" : resonanceTier === 3 ? "text-amber-300" : resonanceTier === 2 ? "text-slate-200" : "text-amber-400"
+          )} />
           <span className="truncate max-w-[120px] sm:max-w-none">{titleDisplayName(title)}</span>
         </span>
       )}

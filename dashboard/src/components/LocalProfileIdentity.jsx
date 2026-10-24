@@ -8,14 +8,15 @@ import {
   useLocalMachineIdentity,
   useLocalProfile,
 } from "../lib/local-profile";
-import { useEquippedTitle, titleDisplayName } from "../ui/achievements/title-registry";
+import { useEquippedTitle, titleDisplayName, getAvatarResonanceFrame } from "../ui/achievements/title-registry";
 import { EquippedTitleBadge } from "../ui/achievements/EquippedTitleBadge";
 
 function LocalAvatar({ name, avatarDataUrl, size = 28, equippedTitle }) {
   const initial = String(name || "?").trim().charAt(0).toUpperCase() || "?";
   const style = { width: size, height: size };
+  const resonanceTier = equippedTitle?.resonanceTier || equippedTitle?.resonance?.tier || 0;
   const ringClass = equippedTitle
-    ? `ring-2 ${equippedTitle.theme.ring} ${equippedTitle.theme.glow}`
+    ? getAvatarResonanceFrame(resonanceTier, equippedTitle.theme)
     : "ring-1 ring-oai-gray-200 dark:ring-oai-gray-700";
 
   if (avatarDataUrl) {

@@ -427,8 +427,8 @@ const TITLES_UNSORTED = [
     requiredBadges: [
       { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
       { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
-      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=2" },
-      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=2" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=3" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=3" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
@@ -461,9 +461,9 @@ const TITLES_UNSORTED = [
     requiredBadges: [
       { id: "qwen_dynasty", name: "通义千问", tier: 1, art: "/achievements/qwen-dynasty.png?v=7" },
       { id: "seedance_master", name: "视听宗师", tier: 1, art: "/achievements/seedance-master.png?v=7" },
-      { id: "hunyuan_master", name: "混元归一", tier: 1, art: "/achievements/hunyuan-master.png?v=1" },
-      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=2" },
-      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=2" },
+      { id: "hunyuan_master", name: "混元归一", tier: 1, art: "/achievements/hunyuan-master.png?v=2" },
+      { id: "jd_joy_brother", name: "你是我兄弟", tier: 1, art: "/achievements/jd-joy-brother.png?v=3" },
+      { id: "meituan_longcat", name: "小馋猫", tier: 1, art: "/achievements/meituan-longcat.png?v=3" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 1 &&
@@ -525,6 +525,14 @@ export function getTitleById(id) {
 /** React hook for subscribing to active equipped title changes across components */
 export function useEquippedTitle() {
   const [activeId, setActiveId] = useState(getActiveTitleId);
+  const [badgeTiers, setBadgeTiers] = useState(() => {
+    try {
+      const raw = localStorage.getItem("tokentracker:achievement_tiers");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     const handleUpdate = (e) => {
@@ -532,6 +540,11 @@ export function useEquippedTitle() {
     };
     const handleStorage = (e) => {
       if (e.key === STORAGE_ACTIVE_TITLE) setActiveId(e.newValue || "");
+      if (e.key === "tokentracker:achievement_tiers") {
+        try {
+          setBadgeTiers(e.newValue ? JSON.parse(e.newValue) : {});
+        } catch {}
+      }
     };
     window.addEventListener(EVENT_TITLE_CHANGED, handleUpdate);
     window.addEventListener("storage", handleStorage);
@@ -541,7 +554,12 @@ export function useEquippedTitle() {
     };
   }, []);
 
-  return getTitleById(activeId);
+  const title = getTitleById(activeId);
+  if (!title) return null;
+
+  const badgeMap = new Map(Object.entries(badgeTiers).map(([id, tier]) => [id, { id, tier }]));
+  const resonance = getTitleResonance(title, badgeMap);
+  return { ...title, resonance, resonanceTier: resonance?.tier || 1 };
 }
 
 /** Bond name shown in the resonance ribbon; per-title override wins. */
@@ -623,6 +641,36 @@ export function getResonanceTextColor(tier) {
       return "text-amber-400";
     default:
       return "text-white/40";
+  }
+}
+
+export function getAvatarResonanceFrame(resonanceTier, theme) {
+  switch (resonanceTier) {
+    case 4:
+      return "ring-2 ring-cyan-300 shadow-xl shadow-cyan-400/50 ring-offset-2 ring-offset-black/40 animate-pulse";
+    case 3:
+      return "ring-2 ring-amber-400 shadow-lg shadow-amber-400/40 ring-offset-1 ring-offset-black/20";
+    case 2:
+      return "ring-2 ring-slate-300 shadow-md shadow-slate-300/30";
+    case 1:
+      return "ring-2 ring-amber-600/70 shadow-sm shadow-amber-900/30";
+    default:
+      return theme?.ring ? `ring-2 ${theme.ring} ${theme.glow || ""}` : "ring-1 ring-oai-gray-200 dark:ring-oai-gray-700";
+  }
+}
+
+export function getEquippedBadgeStyle(resonanceTier, theme) {
+  switch (resonanceTier) {
+    case 4:
+      return "border-cyan-300 bg-cyan-950/90 text-cyan-200 shadow-md shadow-cyan-400/40 ring-1 ring-cyan-300/50";
+    case 3:
+      return "border-amber-400 bg-amber-950/80 text-amber-200 shadow-sm shadow-amber-400/30 ring-1 ring-amber-400/30";
+    case 2:
+      return "border-slate-300/70 bg-slate-800/80 text-slate-100 shadow-sm shadow-slate-300/20";
+    case 1:
+      return "border-amber-700/60 bg-amber-950/60 text-amber-300 shadow-sm shadow-amber-900/30";
+    default:
+      return theme?.pillClass || "border-white/20 bg-black/40 text-white/80";
   }
 }
 

@@ -91,33 +91,22 @@ def draw_plus_tag(plate: Image.Image, enabled: bool = True) -> Image.Image:
 
 def rounded_plate(
     image: Image.Image,
-    with_tag: bool = True,
+    with_tag: bool = False,
 ) -> Image.Image:
-    box = plate_bbox(trim_source_margin(image))
-    if box is None:
-        raise SystemExit("source image has no visible plate")
-    left, top, right, bottom = box
-    side0 = min(right - left, bottom - top)
-    inset = int(side0 * PLATE_INSET_RATIO)
-    left += inset
-    top += inset
-    right -= inset
-    bottom -= inset
-    side = min(right - left, bottom - top)
-    # Center the square crop so the plate is not stretched.
-    center_x = (left + right) // 2
-    center_y = (top + bottom) // 2
-    left = center_x - side // 2
-    top = center_y - side // 2
-    cropped = image.crop((left, top, left + side, top + side)).convert("RGBA")
-    radius = int(side * CORNER_RADIUS_RATIO)
-    mask = Image.new("L", (side, side), 0)
+    # Scheme A: Crop outer light grey-white border [68, 68, 956, 956]
+    crop_box = (68, 68, 956, 956)
+    cropped = image.crop(crop_box).convert("RGBA")
+    cs = cropped.width
+    radius = int(cs * 0.225)
+    mask = Image.new("L", (cs, cs), 0)
     draw = ImageDraw.Draw(mask)
     draw.rounded_rectangle(
-        (0, 0, side - 1, side - 1),
+        (0, 0, cs - 1, cs - 1),
         radius=radius,
         fill=255,
     )
+    from PIL import ImageFilter
+    mask = mask.filter(ImageFilter.GaussianBlur(1.0))
     cropped.putalpha(mask)
     return draw_plus_tag(cropped, enabled=with_tag)
 

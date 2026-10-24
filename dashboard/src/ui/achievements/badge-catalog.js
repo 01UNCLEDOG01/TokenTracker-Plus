@@ -133,9 +133,9 @@ export const BADGE_CATALOG = [
   { id: "seedance_master", scope: "local", icon: Music4, format: "tokens", art: "/achievements/seedance-master.png?v=7" },
   { id: "token_arbitrageur", scope: "local", icon: CircleDollarSign, format: "count", art: "/achievements/token-arbitrageur.png?v=6" },
   // Wave-5 badges (2026-10-25)
-  { id: "meituan_longcat", scope: "local", icon: Cat, format: "tokens", art: "/achievements/meituan-longcat.png?v=2" },
-  { id: "jd_joy_brother", scope: "local", icon: Dog, format: "tokens", art: "/achievements/jd-joy-brother.png?v=2" },
-  { id: "hunyuan_master", scope: "local", icon: Orbit, format: "tokens", art: "/achievements/hunyuan-master.png?v=1" },
+  { id: "meituan_longcat", scope: "local", icon: Cat, format: "tokens", art: "/achievements/meituan-longcat.png?v=3" },
+  { id: "jd_joy_brother", scope: "local", icon: Dog, format: "tokens", art: "/achievements/jd-joy-brother.png?v=3" },
+  { id: "hunyuan_master", scope: "local", icon: Orbit, format: "tokens", art: "/achievements/hunyuan-master.png?v=2" },
   { id: "stepfun_voyager", scope: "local", icon: Milestone, format: "tokens", art: "/achievements/stepfun-voyager.png?v=1" },
 ];
 
