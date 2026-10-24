@@ -107,6 +107,16 @@ export const BADGE_CATALOG = [
   { id: "swarm_commander", scope: "local", icon: Compass, format: "count", art: "/achievements/swarm-commander.png?v=2" },
   { id: "terminal_purist", scope: "local", icon: Terminal, format: "days", art: "/achievements/terminal-purist.png?v=2" },
   { id: "refactor_titan", scope: "local", icon: Hammer, format: "count", art: "/achievements/refactor-titan.png?v=2" },
+  // Wave-4 badges (2026-10-24)
+  { id: "zhipu_sage", scope: "local", icon: Sparkles, format: "tokens", art: "/achievements/zhipu-sage.png?v=1" },
+  { id: "moonshot_voyager", scope: "local", icon: MoonStar, format: "tokens", art: "/achievements/moonshot-voyager.png?v=1" },
+  { id: "minimax_abyss", scope: "local", icon: Anchor, format: "tokens", art: "/achievements/minimax-abyss.png?v=1" },
+  { id: "north_america_doubao", scope: "local", icon: Bot, format: "tokens", art: "/achievements/north-america-doubao.png?v=1" },
+  { id: "hyperspeed_grok", scope: "local", icon: Rocket, format: "tokens", art: "/achievements/hyperspeed-grok.png?v=1" },
+  { id: "qwen_dynasty", scope: "local", icon: Crown, format: "tokens", art: "/achievements/qwen-dynasty.png?v=1" },
+  { id: "flash_immortal", scope: "local", icon: Zap, format: "tokens", art: "/achievements/flash-immortal.png?v=1" },
+  { id: "seedance_master", scope: "local", icon: Flame, format: "tokens", art: "/achievements/seedance-master.png?v=1" },
+  { id: "token_arbitrageur", scope: "local", icon: Scale, format: "count", art: "/achievements/token-arbitrageur.png?v=1" },
 ];
 
 export const BADGE_BY_ID = new Map(BADGE_CATALOG.map((b) => [b.id, b]));

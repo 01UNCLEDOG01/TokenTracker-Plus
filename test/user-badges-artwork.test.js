@@ -36,6 +36,15 @@ const MINTED_HOUSE_COINS = new Set([
   "deep-thinker.png",
   "claude-survivor.png",
   "wishing-well.png",
+  "zhipu-sage.png",
+  "moonshot-voyager.png",
+  "minimax-abyss.png",
+  "north-america-doubao.png",
+  "hyperspeed-grok.png",
+  "qwen-dynasty.png",
+  "flash-immortal.png",
+  "seedance-master.png",
+  "token-arbitrageur.png",
 ]);
 
 test("every achievement uses an original badge-id artwork file", () => {
@@ -71,7 +80,7 @@ test("every synergy title uses an original 3D crest artwork file with binary alp
   const registry = fs.readFileSync(TITLE_REGISTRY_PATH, "utf8");
   const matches = [...registry.matchAll(/art:\s*"\/achievements\/titles\/([^"?]+)/g)];
 
-  assert.equal(matches.length, 8, "expected all 8 synergy titles");
+  assert.equal(matches.length, 11, "expected all 11 synergy titles");
 
   for (const [, filename] of matches) {
     const artworkPath = path.join(ROOT, "dashboard", "public", "achievements", "titles", filename);

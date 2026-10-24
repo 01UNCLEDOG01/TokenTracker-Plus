@@ -502,6 +502,15 @@ const LOCAL_BADGE_THRESHOLDS = {
   swarm_commander: [5, 20, 60, 150], // active hours with >= 2 distinct sources
   terminal_purist: [7, 30, 90, 180], // active days with >= 90% CLI tokens
   refactor_titan: [2, 6, 15, 30], // most active weeks invested in a single project
+  zhipu_sage: [10000000, 100000000, 1000000000, 10000000000], // lifetime glm/zhipu/codegeex tokens
+  moonshot_voyager: [10000000, 100000000, 1000000000, 10000000000], // lifetime kimi/moonshot tokens
+  minimax_abyss: [10000000, 100000000, 1000000000, 10000000000], // lifetime minimax/abab/m3.1 tokens
+  north_america_doubao: [10000000, 100000000, 1000000000, 10000000000], // lifetime google gemini tokens
+  hyperspeed_grok: [10000000, 100000000, 1000000000, 10000000000], // lifetime xai grok tokens
+  qwen_dynasty: [10000000, 100000000, 1000000000, 10000000000], // lifetime qwen/tongyi tokens
+  flash_immortal: [50000000, 500000000, 2000000000, 10000000000], // lifetime flash model tokens
+  seedance_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime bytedance/seed/seedance/doubao tokens
+  token_arbitrageur: [5, 10, 18, 26], // distinct arbitrage & free/check-in platforms used
 };
 
 // The cloud nine (see scripts/ops/user-badges.sql) are normally computed
@@ -523,20 +532,20 @@ const CLOUD_PARITY_BADGE_THRESHOLDS = {
   streak: [3, 7, 30, 100], // longest consecutive-day run
   weekend_warrior: [5, 20, 50, 100], // Sat/Sun active days (UTC)
   momentum: [2, 6, 15, 40], // best adjacent-week growth (prev week >= 10M floor)
-  polyglot: [5, 15, 30, 60], // distinct models
-  multitool: [2, 4, 6, 10], // distinct sources
+  polyglot: [6, 18, 40, 80], // distinct models
+  multitool: [3, 6, 12, 20], // distinct sources
   veteran: [30, 90, 180, 365], // days since the first recorded day
   phoenix: [7, 14, 30, 90], // longest return gap between two active days
   iron_month: [10, 20, 26, 29], // most active UTC days in one calendar month
   full_blast: [50000000, 500000000, 2500000000, 15000000000], // heaviest ISO week
   deep_diver: [1, 2, 3, 5], // distinct models with lifetime >= 1B tokens
-  multitool_day: [2, 3, 4, 6], // most distinct sources in one active UTC day
+  multitool_day: [2, 4, 6, 8], // most distinct sources in one active UTC day
   heart_model: [50, 70, 85, 95], // favorite model's share of lifetime tokens, % (needs >= 5 models)
   claude_survivor: [1000000, 10000000, 100000000, 1000000000], // lifetime claude-family tokens (hidden badge)
   wishing_well: [10000000, 100000000, 1000000000, 10000000000], // lifetime deepseek-family tokens (hidden badge)
   trendsetter: [2, 5, 10, 20], // models first used within 7 days of the first local record
   podium: [100, 30, 10, 3], // best local rank; lower is better
-  grand_slam: [3, 6, 9, 20], // diamond-tier badges, grand_slam itself excluded
+  grand_slam: [5, 12, 25, 40], // diamond-tier badges, grand_slam itself excluded
 };
 
 // deep_diver's per-model lifetime floor — same constant as the SQL CTE and
@@ -685,6 +694,15 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   // `model LIKE 'claude%'` / `'deepseek%'` semantics.
   let claudeTokens = 0;
   let deepseekTokens = 0;
+  let zhipuTokens = 0;
+  let moonshotTokens = 0;
+  let minimaxTokens = 0;
+  let geminiTokens = 0;
+  let grokTokens = 0;
+  let qwenTokens = 0;
+  let flashTokens = 0;
+  let seedanceTokens = 0;
+  const arbitragePlatforms = new Set();
   const modelTokens = new Map();
   const bigModels = new Set();
   for (const row of sortByHour(queueRows || [])) {
@@ -792,6 +810,93 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         offgridTokens += tokens;
         bump("offgrid_sovereign", offgridTokens, row.hour_start);
       }
+      if (
+        lowerModel.startsWith("glm") ||
+        lowerModel.includes("zhipu") ||
+        lowerModel.startsWith("codegeex") ||
+        sourceKey.includes("zhipu")
+      ) {
+        zhipuTokens += tokens;
+        bump("zhipu_sage", zhipuTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("moonshot") ||
+        lowerModel.startsWith("kimi") ||
+        lowerModel.includes("moonshot") ||
+        sourceKey.includes("kimi") ||
+        sourceKey.includes("moonshot")
+      ) {
+        moonshotTokens += tokens;
+        bump("moonshot_voyager", moonshotTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("abab") ||
+        lowerModel.includes("minimax") ||
+        lowerModel.startsWith("m3.1") ||
+        lowerModel.startsWith("m3-") ||
+        sourceKey.includes("minimax")
+      ) {
+        minimaxTokens += tokens;
+        bump("minimax_abyss", minimaxTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("gemini") ||
+        lowerModel.includes("google") ||
+        sourceKey.includes("gemini") ||
+        sourceKey.includes("google")
+      ) {
+        geminiTokens += tokens;
+        bump("north_america_doubao", geminiTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("grok") ||
+        lowerModel.includes("xai") ||
+        sourceKey.includes("grok") ||
+        sourceKey.includes("xai")
+      ) {
+        grokTokens += tokens;
+        bump("hyperspeed_grok", grokTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("qwen") ||
+        lowerModel.includes("tongyi") ||
+        lowerModel.includes("qianwen") ||
+        sourceKey.includes("qwen") ||
+        sourceKey.includes("bailian")
+      ) {
+        qwenTokens += tokens;
+        bump("qwen_dynasty", qwenTokens, row.hour_start);
+      }
+      if (lowerModel.includes("flash")) {
+        flashTokens += tokens;
+        bump("flash_immortal", flashTokens, row.hour_start);
+      }
+      if (
+        lowerModel.startsWith("seed") ||
+        lowerModel.startsWith("seedance") ||
+        lowerModel.startsWith("doubao") ||
+        lowerModel.startsWith("ep-") ||
+        sourceKey.includes("doubao") ||
+        sourceKey.includes("volcengine") ||
+        sourceKey.includes("bytedance")
+      ) {
+        seedanceTokens += tokens;
+        bump("seedance_master", seedanceTokens, row.hour_start);
+      }
+      const ARBITRAGE_PATTERNS = [
+        "apigoto", "agentrouter", "opencode", "openrouter", "codearts",
+        "copilot", "cloudflare", "nvidia", "kilo", "mistral",
+        "groq", "sensenova", "siliconflow", "volcengine", "supercomputing",
+        "bailian", "trae", "workbuddy", "qoder", "minimax",
+        "tuanjie", "loomy", "agent2api", "autoclaw", "cline",
+        "deepseek", "ark", "zcode", "cola", "kimi"
+      ];
+      for (const pattern of ARBITRAGE_PATTERNS) {
+        if (sourceKey.includes(pattern) || lowerModel.includes(pattern)) {
+          arbitragePlatforms.add(pattern);
+        }
+      }
+      bump("token_arbitrageur", arbitragePlatforms.size, row.hour_start, { platforms: [...arbitragePlatforms] });
     }
     const d = new Date(row.hour_start);
     const mins = d.getUTCMinutes();

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useAchievements } from "../hooks/use-achievements.js";
 import { copy } from "../lib/copy";
 import { AchievementsSection } from "../ui/achievements/AchievementsSection.jsx";
-import { BADGE_CATALOG } from "../ui/achievements/badge-catalog.js";
+import { BADGE_CATALOG, badgeCopyKey } from "../ui/achievements/badge-catalog.js";
 import { BadgeSynergyBanner } from "../ui/achievements/BadgeSynergyBanner.jsx";
 import { AchievementShareModal } from "../ui/achievements/AchievementShareModal.jsx";
 import { SteamAchievementContainer, triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
@@ -37,6 +37,8 @@ export default function AchievementsPage() {
   const local = useAchievements();
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [tierTestIndex, setTierTestIndex] = useState(1);
+  const [tierTestBadgeIndex, setTierTestBadgeIndex] = useState(0);
   const loading = local.status === "loading";
   // One merged wall: the local endpoint is now the only source, but keeping
   // the `merged` name also keeps the UI-hardcode scanner's existing token.
@@ -50,7 +52,7 @@ export default function AchievementsPage() {
   return (
     <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
       <main className="flex-1 pb-12 pt-8 sm:pb-16 sm:pt-10">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
           {/* Header section with title and stats */}
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-baseline sm:justify-between">
             <div className="min-w-0">
@@ -77,12 +79,16 @@ export default function AchievementsPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      const allBadges = BADGE_CATALOG;
+                      const randomBadge = allBadges[Math.floor(Math.random() * allBadges.length)];
+                      const bName = copy(badgeCopyKey(randomBadge.id, "name"));
+                      const bDesc = copy(badgeCopyKey(randomBadge.id, "desc"));
                       triggerAchievementNotification({
-                        badge: BADGE_CATALOG.find((b) => b.id === "frugal_architect") || BADGE_CATALOG[0],
+                        badge: randomBadge,
                         tier: 1,
                         isTierUp: false,
-                        name: "白嫖之光",
-                        desc: "达成成就！天下真有免费的午餐。",
+                        name: bName,
+                        desc: bDesc,
                       });
                     }}
                     className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
@@ -94,12 +100,20 @@ export default function AchievementsPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      const nextTier = (tierTestIndex % 4) + 1;
+                      setTierTestIndex(nextTier);
+                      const testBadge = BADGE_CATALOG[tierTestBadgeIndex % BADGE_CATALOG.length];
+                      if (nextTier === 4) {
+                        setTierTestBadgeIndex((prev) => prev + 1);
+                      }
+                      const bName = copy(badgeCopyKey(testBadge.id, "name"));
+                      const bDesc = copy(badgeCopyKey(testBadge.id, "desc"));
                       triggerAchievementNotification({
-                        badge: BADGE_CATALOG.find((b) => b.id === "code_cannon") || BADGE_CATALOG[0],
-                        tier: 3,
-                        isTierUp: true,
-                        name: "代码巨炮",
-                        desc: "晋阶至黄金阶！",
+                        badge: testBadge,
+                        tier: nextTier,
+                        isTierUp: nextTier > 1,
+                        name: bName,
+                        desc: bDesc,
                       });
                     }}
                     className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"

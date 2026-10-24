@@ -96,7 +96,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 </td>
 <td width="50%">
 
-**Offline Achievements** — 42 offline achievements, synergy titles & Steam popups
+**Offline Achievements** — 51 offline achievements, 11 synergy titles & Steam popups
 
 <img src="./docs/screenshots/achievements.png" alt="Achievements" />
 
@@ -121,7 +121,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 | **Agent Topologies** | **✅ Deep Topology** (Primary/subagent drill-down, tool calls) | ⚠️ Basic flat session listing | ❌ Flat request stream only; no hierarchy |
 | **Activity Heatmap** | **✅ 8 Tiers (Lv0~Lv7)** (Features Lv7 Singularity for 3B+ single-day bursts) | ⚠️ Traditional 4 tiers (Lv0~Lv4, saturated early) | ❌ No heatmap feature |
 | **Cost Valuation Truth** | **✅ Strict List Pricing** (Rejects `-free` zeroing; WorkBuddy points) | ⚠️ Forces `-free` routes to $0; points unrefined | ⚠️ Basic pricing config with limited scope |
-| **Achievements** | **✅ 42 Offline Achievements** (Local queue & debut catalog) | ⚠️ Depends on official cloud server & leaderboard | ❌ No achievement system |
+| **Achievements** | **✅ 51 Offline Achievements** (Local queue & debut catalog, 11 synergy titles) | ⚠️ Depends on official cloud server & leaderboard | ❌ No achievement system |
 | **Desktop Companion** | **✅ Desktop Pet + Quota Pill + Floating Cards** | ✅ macOS menu bar mascot / Basic widgets | ⚠️ Basic floating window |
 | **Open Source & Transparency** | **✅ 100% Open Source** (Fully auditable, MIT) | ✅ Open Source (MIT) | ⚠️ Packaged Electron asar binary |
 

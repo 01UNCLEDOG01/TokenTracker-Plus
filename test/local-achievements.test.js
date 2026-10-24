@@ -39,7 +39,7 @@ test("empty inputs yield the full locked catalog", () => {
   // Ten local badges (three originals plus the seven habit badges) plus the
   // twenty-one parity badges, now including local trendsetter/podium proxies.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 42);
+  assert.equal(result.length, 51);
   for (const id of ["trendsetter", "podium"]) {
     const badge = result.find((entry) => entry.id === id);
     assert.ok(badge, `${id} must exist in the local catalog`);
@@ -500,4 +500,42 @@ test("wave-3 local badges replay with expected semantics", () => {
   assert.ok(byId(result, "buzzer_beater").metric_value >= 1);
   assert.ok(byId(result, "refactor_titan").metric_value >= 2);
   assert.ok(byId(result, "zen_balancer").metric_value >= 1);
+});
+
+test("wave-4 local badges replay with expected semantics", () => {
+  const rows = [
+    // Zhipu: glm-5.3-flash
+    { source: "codex", model: "glm-5.3-flash", hour_start: "2026-07-01T10:00:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000 },
+    // Moonshot: kimi-k3
+    { source: "codex", model: "kimi-k3-preview", hour_start: "2026-07-01T10:15:00Z", total_tokens: 12000000, output_tokens: 200000, input_tokens: 50000 },
+    // MiniMax: minimax-m3.1-flash
+    { source: "codex", model: "minimax-m3.1-flash", hour_start: "2026-07-01T10:30:00Z", total_tokens: 18000000, output_tokens: 200000, input_tokens: 50000 },
+    // Google: gemini-4-pro
+    { source: "google", model: "gemini-4-flash", hour_start: "2026-07-01T11:00:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000 },
+    // Grok: grok-3-beta
+    { source: "xai", model: "grok-3-mini", hour_start: "2026-07-01T11:15:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000 },
+    // Qwen: qwen-3.8-flash
+    { source: "qoder", model: "qwen-3.8-flash", hour_start: "2026-07-01T11:30:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000 },
+    // Flash models accumulator (glm-5.3-flash + gemini-4-flash + minimax-m3.1-flash + qwen-3.8-flash = 63M tokens)
+    // Seedance / ByteDance: seedance-v1
+    { source: "volcengine", model: "seedance-video-pro", hour_start: "2026-07-01T12:00:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000 },
+    // Arbitrage platforms: openrouter, apigoto, trae, qoder, cloudflare (5 platforms)
+    { source: "openrouter", model: "deepseek-chat", hour_start: "2026-07-01T13:00:00Z", total_tokens: 1000 },
+    { source: "apigoto", model: "gpt-4o", hour_start: "2026-07-01T13:05:00Z", total_tokens: 1000 },
+    { source: "trae", model: "claude-3-5-sonnet", hour_start: "2026-07-01T13:10:00Z", total_tokens: 1000 },
+    { source: "cloudflare", model: "llama-3", hour_start: "2026-07-01T13:20:00Z", total_tokens: 1000 },
+  ];
+
+  const result = computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI });
+
+  // 9 new badges should have tiered up to at least Tier 1
+  assert.equal(byId(result, "zhipu_sage").tier, 1);
+  assert.equal(byId(result, "moonshot_voyager").tier, 1);
+  assert.equal(byId(result, "minimax_abyss").tier, 1);
+  assert.equal(byId(result, "north_america_doubao").tier, 1);
+  assert.equal(byId(result, "hyperspeed_grok").tier, 1);
+  assert.equal(byId(result, "qwen_dynasty").tier, 1);
+  assert.equal(byId(result, "flash_immortal").tier, 1);
+  assert.equal(byId(result, "seedance_master").tier, 1);
+  assert.equal(byId(result, "token_arbitrageur").tier, 1); // 5 platforms out of [5, 10, 18, 26]
 });

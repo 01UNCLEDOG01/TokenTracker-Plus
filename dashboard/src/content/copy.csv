@@ -1483,6 +1483,24 @@ achievements.badge.terminal_purist.name,dashboard,*,AchievementsSection,terminal
 achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Spend your active days almost entirely inside terminal-based CLI tools.",,active
 achievements.badge.refactor_titan.name,dashboard,*,AchievementsSection,refactor_titan_name,"Refactor Titan",,active
 achievements.badge.refactor_titan.desc,dashboard,*,BadgeDetailModal,refactor_titan_desc,"Persist through multiple active weeks deeply evolving a single repository.",,active
+achievements.badge.zhipu_sage.name,dashboard,*,AchievementsSection,zhipu_sage_name,"Zhipu Sage",,active
+achievements.badge.zhipu_sage.desc,dashboard,*,BadgeDetailModal,zhipu_sage_desc,"Channel the dual cosmic flow of Zhipu GLM and CodeGeeX models.",,active
+achievements.badge.moonshot_voyager.name,dashboard,*,AchievementsSection,moonshot_voyager_name,"Moonshot Voyager",,active
+achievements.badge.moonshot_voyager.desc,dashboard,*,BadgeDetailModal,moonshot_voyager_desc,"Journey into the deep lunar craters of Kimi massive context windows.",,active
+achievements.badge.minimax_abyss.name,dashboard,*,AchievementsSection,minimax_abyss_name,"MiniMax Leviathan",,active
+achievements.badge.minimax_abyss.desc,dashboard,*,BadgeDetailModal,minimax_abyss_desc,"Summon colossal compute power from MiniMax deep ocean neural architectures.",,active
+achievements.badge.north_america_doubao.name,dashboard,*,AchievementsSection,north_america_doubao_name,"North America Doubao",,active
+achievements.badge.north_america_doubao.desc,dashboard,*,BadgeDetailModal,north_america_doubao_desc,"Leverage the blazing speed and high concurrency of Google Gemini models.",,active
+achievements.badge.hyperspeed_grok.name,dashboard,*,AchievementsSection,hyperspeed_grok_name,"Hyperspeed Grok",,active
+achievements.badge.hyperspeed_grok.desc,dashboard,*,BadgeDetailModal,hyperspeed_grok_desc,"Break through the sound barrier with xAI Grok rocket-speed inference.",,active
+achievements.badge.qwen_dynasty.name,dashboard,*,AchievementsSection,qwen_dynasty_name,"Qwen Dynasty",,active
+achievements.badge.qwen_dynasty.desc,dashboard,*,BadgeDetailModal,qwen_dynasty_desc,"Master the open-source coding realm powered by Alibaba Qwen models.",,active
+achievements.badge.flash_immortal.name,dashboard,*,AchievementsSection,flash_immortal_name,"Flash Immortal",,active
+achievements.badge.flash_immortal.desc,dashboard,*,BadgeDetailModal,flash_immortal_desc,"Harness the lightning speed of Flash-tier models across every provider.",,active
+achievements.badge.seedance_master.name,dashboard,*,AchievementsSection,seedance_master_name,"Seedance Master",,active
+achievements.badge.seedance_master.desc,dashboard,*,BadgeDetailModal,seedance_master_desc,"Spark creative cinematic flows with ByteDance Seed and Doubao models.",,active
+achievements.badge.token_arbitrageur.name,dashboard,*,AchievementsSection,token_arbitrageur_name,"Token Arbitrageur",,active
+achievements.badge.token_arbitrageur.desc,dashboard,*,BadgeDetailModal,token_arbitrageur_desc,"Master the art of compute arbitrage across diverse aggregation platforms.",,active
 achievements.action.test_unlock,dashboard,AchievementsPage,AchievementsPage,action_test_unlock,"Test Unlock",,active
 achievements.action.test_tier_up,dashboard,AchievementsPage,AchievementsPage,action_test_tier_up,"Test Promotion",,active
 achievements.action.export_card,dashboard,AchievementsPage,AchievementsPage,action_export_card,"Export Card",,active

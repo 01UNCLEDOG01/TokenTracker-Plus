@@ -173,7 +173,7 @@ export const TITLES_REGISTRY = [
       { id: "grand_slam", name: "大满贯", tier: 1, art: "/achievements/grand-slam.png?v=11" },
     ],
     check: (badgeMap) => (badgeMap.get("grand_slam")?.tier || 0) >= 1,
-    reqText: "大满贯徽章(解锁至少 3 枚钻石勋章)",
+    reqText: "大满贯徽章(解锁至少 5 枚钻石勋章)",
     theme: {
       text: "text-pink-300",
       bgGradient: "from-fuchsia-950/80 via-indigo-950/70 to-amber-950/60",
@@ -182,6 +182,90 @@ export const TITLES_REGISTRY = [
       pillClass: "bg-gradient-to-r from-fuchsia-950/80 to-amber-950/80 text-amber-200 border-fuchsia-400/60 shadow-fuchsia-500/30",
       ring: "ring-fuchsia-400/60",
       accentDot: "bg-fuchsia-400",
+    },
+  },
+  {
+    id: "cn_quad_masters",
+    name: "九州极客 · 四象掌门",
+    en: "Domestic Quad Titans",
+    desc: "融汇中华 AI 最前沿四大家族算力，四象归一，开辟东方极客新天地。",
+    tag: "四象混元",
+    dimension: 4,
+    art: "/achievements/titles/title-cn-quad-masters.png?v=1",
+    requiredBadges: [
+      { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=11" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=1" },
+      { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=1" },
+      { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=1" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("wishing_well")?.tier || 0) >= 1 &&
+      (badgeMap.get("zhipu_sage")?.tier || 0) >= 1 &&
+      (badgeMap.get("moonshot_voyager")?.tier || 0) >= 1 &&
+      (badgeMap.get("minimax_abyss")?.tier || 0) >= 1,
+    reqText: "许愿池 + 智谱乾坤 + 暗面行者 + 海螺巨兽 (全解锁)",
+    theme: {
+      text: "text-amber-200",
+      bgGradient: "from-amber-950/80 via-emerald-950/70 to-slate-950",
+      border: "border-amber-400/70",
+      glow: "shadow-lg shadow-amber-500/45",
+      pillClass: "bg-gradient-to-r from-amber-950/80 to-emerald-950/80 text-amber-200 border-amber-400/60 shadow-amber-500/30",
+      ring: "ring-amber-400/60",
+      accentDot: "bg-amber-400",
+    },
+  },
+  {
+    id: "silicon_trinity",
+    name: "诸神信使 · 硅谷三冠王",
+    en: "Silicon Valley Trinity",
+    desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三冠王者。",
+    tag: "三神交泰",
+    dimension: 3,
+    art: "/achievements/titles/title-silicon-trinity.png?v=1",
+    requiredBadges: [
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=2" },
+      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=1" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
+      (badgeMap.get("claude_survivor")?.tier || 0) >= 1 &&
+      (badgeMap.get("north_america_doubao")?.tier || 0) >= 1,
+    reqText: "奥特曼信徒 + 封号幸存者 + 北美豆包 (全解锁)",
+    theme: {
+      text: "text-cyan-200",
+      bgGradient: "from-teal-950/80 via-indigo-950/70 to-slate-950",
+      border: "border-cyan-400/70",
+      glow: "shadow-lg shadow-cyan-500/40",
+      pillClass: "bg-gradient-to-r from-teal-950/80 to-cyan-950/80 text-cyan-200 border-cyan-400/60 shadow-cyan-500/30",
+      ring: "ring-cyan-400/60",
+      accentDot: "bg-cyan-400",
+    },
+  },
+  {
+    id: "cyber_speedster",
+    name: "极速先锋 · 赛博狂飙者",
+    en: "Hyperspeed Pioneer",
+    desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，光速推流，指尖破空。",
+    tag: "曲率引擎",
+    dimension: 2,
+    art: "/achievements/titles/title-cyber-speedster.png?v=1",
+    requiredBadges: [
+      { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=1" },
+      { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=1" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
+      (badgeMap.get("hyperspeed_grok")?.tier || 0) >= 1,
+    reqText: "北美豆包 + 极速狂飙 (全解锁)",
+    theme: {
+      text: "text-sky-300",
+      bgGradient: "from-sky-950/80 via-blue-950/70 to-slate-950",
+      border: "border-sky-400/60",
+      glow: "shadow-lg shadow-sky-500/35",
+      pillClass: "bg-sky-950/70 text-sky-200 border-sky-400/50 shadow-sky-500/20",
+      ring: "ring-sky-400/50",
+      accentDot: "bg-sky-400",
     },
   },
 ];
@@ -236,3 +320,40 @@ export function useEquippedTitle() {
 
   return getTitleById(activeId);
 }
+
+/** Computes dynamic resonance tier (1 to 4) based on member badge tier levels */
+export function getTitleResonance(title, badgeMap) {
+  if (!title) return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim: 2, dimName: "双星交汇" };
+  const isUnlocked = title.check(badgeMap);
+  if (!isUnlocked) {
+    const dim = title.dimension || (title.requiredBadges?.length || 2);
+    const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "独步星河" : "双星交汇";
+    return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim, dimName };
+  }
+
+  let resonanceTier = 1;
+  if (title.id === "grand_slam_legend") {
+    resonanceTier = badgeMap.get("grand_slam")?.tier || 1;
+  } else {
+    const tiers = (title.requiredBadges || []).map((req) => badgeMap.get(req.id)?.tier || 0);
+    const minTier = Math.min(...tiers);
+    resonanceTier = Math.max(1, Math.min(4, minTier));
+  }
+
+  const dim = title.dimension || (title.requiredBadges?.length || 2);
+  const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇";
+
+  const tierNames = ["未激活", "青铜", "白银", "黄金", "钻石"];
+  const tierName = tierNames[resonanceTier] || "青铜";
+  const label = resonanceTier === 4 ? `${tierName}共鸣 · MAX` : `${tierName}共鸣 · Lv.${resonanceTier}`;
+
+  return {
+    unlocked: true,
+    tier: resonanceTier,
+    dim,
+    dimName,
+    tierName,
+    label,
+  };
+}
+
