@@ -475,6 +475,8 @@ test("wave-3 local badges replay with expected semantics", () => {
     { source: "codex", model: "gpt-5-turbo", hour_start: "2026-07-01T10:00:00Z", total_tokens: 15000000, output_tokens: 200000, input_tokens: 50000, cached_input_tokens: 450000 },
     // Free cost row -> frugal_architect
     { source: "lmstudio", model: "qwen-coder", hour_start: "2026-07-01T10:15:00Z", total_tokens: 60000000, output_tokens: 500000, input_tokens: 100000 },
+    // Free model name with catalog price -> frugal_architect
+    { source: "openrouter", model: "deepseek-v4-flash-free", hour_start: "2026-07-01T10:20:00Z", total_tokens: 500000000, output_tokens: 10000000, input_tokens: 40000000 },
     // Local source row -> offgrid_sovereign
     { source: "ollama", model: "llama3:local", hour_start: "2026-07-01T23:55:00Z", total_tokens: 2000000, output_tokens: 100000 },
     // Day 2 (weekday)
@@ -488,8 +490,8 @@ test("wave-3 local badges replay with expected semantics", () => {
   const result = computeLocalAchievements(rows, projects, { timeZoneContext: TZ_SHANGHAI });
   assert.ok(byId(result, "closed_source_loyalist").metric_value >= 15000000);
   assert.equal(byId(result, "closed_source_loyalist").tier, 1);
-  assert.ok(byId(result, "frugal_architect").metric_value >= 60000000);
-  assert.equal(byId(result, "frugal_architect").tier, 1);
+  assert.ok(byId(result, "frugal_architect").metric_value >= 560000000);
+  assert.equal(byId(result, "frugal_architect").tier, 2);
   assert.ok(byId(result, "offgrid_sovereign").metric_value >= 2000000);
   assert.equal(byId(result, "offgrid_sovereign").tier, 3);
   assert.ok(byId(result, "megacontext_voyager").metric_value >= 500000);

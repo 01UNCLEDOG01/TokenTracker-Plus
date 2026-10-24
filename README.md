@@ -58,10 +58,10 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🔌 **Built for Multi-Platform Power Users (52 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
 - 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
 - ⚡ **Nanosecond Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
-- 🏠 **100% Local-First & Private** — Runs locally. Parses on-device logs and databases; code snippets and prompts never leave your computer.
+- 🏠 **100% Local-First & Zero Privacy Risk** — Runs strictly locally. Parses on-device logs and databases; code snippets, prompts, and personal account credentials never leave your computer.
 - 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights.
-- 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations.
-- 🏆 **42 Offline Achievements & Synergy Titles** — 100% local offline unlocking; authentic Steam unlock audio & toast popups, promotion fanfares, 8 developer synergy titles, and Canvas battle report export.
+- 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations; Trae CN merges both legacy Trae Work and modern Trae CN session databases.
+- 🏆 **42 Offline Achievements & 8 3D Synergy Title Crests (Steam Stacked Toasts)** — 100% local offline unlocking; authentic Steam unlock audio, concurrent multi-toast vertical stacking (up to 3 toasts with hover-pause), 8 bespoke 3D relief crest medallions with real-time UI/Leaderboard equip display, and Canvas battle report export.
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
 
@@ -172,7 +172,7 @@ Canonical list of the **52 supported AI coding tools** (from `SUPPORTED_PROVIDER
 | **AnythingLLM Desktop** | ✅ Auto | Passive local SQLite reader | Desktop workspace usage aggregation |
 | **Claude Science** | ✅ Auto | Passive SQLite reader (`operon-cli.db`) | Frame token extraction |
 | **DeepSeek Harness** | ✅ Auto | Passive session logs (`.jsonl[.zstd]`) + probe | **Multi-frame zstd decompression & live tok/s** |
-| **TRAE CN** | ✅ Auto | Passive local database & workspace parser | **Supports local database mode & session drill-down** |
+| **TRAE CN** | ✅ Auto | Unified merger of legacy Trae Work CN and modern Trae CN databases | **Supports unified merged architecture & session drill-down** |
 | **TRAE** (Intl) | ✅ Auto | Reads local SQLCipher with shared key | Secure local parsing without vendor API calls |
 | **LM Studio** | ✅ Auto | Passive logs & activity state | Supported via `TOKENTRACKER_LMSTUDIO_HOME` |
 | **Unsloth Studio** | ✅ Auto | Passive SQLite reader (`unsloth.db`) | Supported via `TOKENTRACKER_UNSLOTH_DB` |

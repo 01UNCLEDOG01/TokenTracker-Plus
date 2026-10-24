@@ -89,7 +89,7 @@ export function BadgeSynergyBanner({ badges = [] }) {
                 className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ${activeTitle.theme.accentDot} animate-ping`}
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
                   ACTIVE TITLE · 当前佩戴
@@ -98,9 +98,9 @@ export function BadgeSynergyBanner({ badges = [] }) {
                   {activeTitle.tag}
                 </span>
               </div>
-              <div className="text-lg font-black text-white tracking-wide flex items-center gap-2">
-                <span>{activeTitle.name}</span>
-                <span className="text-xs font-mono font-medium text-amber-200/80 uppercase">
+              <div className="mt-0.5 text-xl font-black text-white tracking-tight drop-shadow-lg truncate">
+                {activeTitle.name}
+                <span className="ml-2 text-xs font-mono font-medium text-amber-200/80 uppercase">
                   {activeTitle.en}
                 </span>
               </div>
@@ -130,7 +130,7 @@ export function BadgeSynergyBanner({ badges = [] }) {
                   ? `${theme.border} bg-gradient-to-br ${theme.bgGradient} shadow-xl ${theme.glow} ring-1 ${theme.ring}`
                   : isUnlocked
                   ? "border-white/15 bg-white/[0.04] hover:border-amber-400/60 hover:bg-white/[0.08] hover:shadow-xl hover:shadow-black/50 cursor-pointer"
-                  : "border-white/5 bg-white/[0.02] opacity-45 cursor-not-allowed"
+                  : "border-white/5 bg-white/[0.02] opacity-65 cursor-not-allowed"
               }`}
             >
               <div>
@@ -157,12 +157,13 @@ export function BadgeSynergyBanner({ badges = [] }) {
                   </div>
 
                   {isEquipped ? (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 rounded-full shadow-sm">
-                      <Check className="h-3 w-3 stroke-[3]" />
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wide bg-gradient-to-r from-amber-400 to-amber-600 text-black shadow-md shadow-amber-500/30 border border-amber-300">
+                      <Check className="h-3.5 w-3.5 stroke-[3.5]" />
                       <span>已佩戴</span>
                     </span>
                   ) : isUnlocked ? (
-                    <span className="text-[11px] font-bold text-amber-400 group-hover:underline flex items-center">
+                    <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-amber-500/15 group-hover:bg-amber-400 group-hover:text-black text-amber-300 border border-amber-500/40 group-hover:border-amber-300 shadow-sm transition-all duration-200">
+                      <Sparkles className="h-3 w-3 opacity-80" />
                       <span>佩戴</span>
                       <ChevronRight className="h-3 w-3 ml-0.5" />
                     </span>
@@ -174,10 +175,12 @@ export function BadgeSynergyBanner({ badges = [] }) {
                   )}
                 </div>
 
-                <div className={`mt-3 font-bold text-base transition-colors ${
-                  isEquipped ? "text-white font-extrabold" : "text-white group-hover:text-amber-200"
-                }`}>
-                  {title.name}
+                <div className="mt-3.5 flex items-baseline justify-between gap-2">
+                  <span className={`text-lg font-black tracking-tight drop-shadow-md transition-colors ${
+                    isEquipped ? "text-white font-extrabold" : isUnlocked ? "text-white group-hover:text-amber-200" : "text-gray-300"
+                  }`}>
+                    {title.name}
+                  </span>
                 </div>
                 <p className="mt-1 line-clamp-1 text-xs text-gray-400">
                   {title.desc}

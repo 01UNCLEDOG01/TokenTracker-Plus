@@ -698,7 +698,15 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     // the model tables at read time. Rows rarely carry a stored cost.
     const rowCost = computeRowCost(row);
     costTotal += rowCost;
-    if (rowCost === 0) {
+    const modelLower = String(row.model || "").toLowerCase();
+    const sourceLower = String(row.source || "").toLowerCase();
+    const isFree =
+      rowCost === 0 ||
+      modelLower.includes("free") ||
+      sourceLower.includes("free") ||
+      Boolean(row.is_free) ||
+      Boolean(row.is_zero_cost);
+    if (isFree) {
       frugalTokens += tokens;
       bump("frugal_architect", frugalTokens, row.hour_start);
     }
