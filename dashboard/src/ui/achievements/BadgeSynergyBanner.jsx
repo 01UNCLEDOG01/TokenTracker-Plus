@@ -113,15 +113,15 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0 }) {
               <img
                 src={activeTitle.art}
                 alt={activeTitle.name}
-                className={`h-14 w-14 rounded-full object-contain filter drop-shadow-lg ${
-                  activeResonance?.tier === 4
-                    ? "ring-2 ring-cyan-400 shadow-lg shadow-cyan-400/50"
+                className={`h-14 w-14 rounded-full object-contain filter drop-shadow-lg ${activeTitle.theme.ring} ${
+                  activeResonance?.tier >= 4
+                    ? "ring-2 shadow-lg"
                     : activeResonance?.tier === 3
-                    ? "ring-2 ring-amber-400 shadow-md shadow-amber-400/50"
+                    ? "ring-2 shadow-md"
                     : activeResonance?.tier === 2
-                    ? "ring-2 ring-slate-300 shadow-sm shadow-slate-300/40"
-                    : "ring-1 ring-amber-600/70"
-                }`}
+                    ? "ring-2"
+                    : "ring-1"
+                } ${activeTitle.rainbow ? "title-rainbow" : ""}`}
               />
               <span
                 className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${activeTitle.theme.accentDot} animate-ping`}
@@ -136,15 +136,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0 }) {
                   {activeTitle.tag}
                 </span>
                 {activeResonance?.unlocked && (
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded ${
-                    activeResonance.tier === 4
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/50"
-                      : activeResonance.tier === 3
-                      ? "bg-amber-500/20 text-amber-300 border border-amber-400/50"
-                      : activeResonance.tier === 2
-                      ? "bg-slate-700/50 text-slate-200 border border-slate-400/50"
-                      : "bg-amber-900/40 text-amber-400 border border-amber-700/50"
-                  }`}>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-black/40 border border-white/20 text-white/90">
                     {activeResonance.label}
                   </span>
                 )}
@@ -179,23 +171,19 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0 }) {
               onClick={() => handleSelectTitle(title.id)}
               className={`group relative flex flex-col justify-between rounded-2xl border p-4.5 text-left transition-all duration-200 antialiased ${
                 isEquipped
-                  ? `${theme.border} bg-gradient-to-br ${theme.bgGradient} shadow-xl ${
-                      resonance.tier === 4
-                        ? "shadow-cyan-500/30 ring-2 ring-cyan-400"
+                  ? `${theme.border} bg-gradient-to-br ${theme.bgGradient} ${theme.glow} ${theme.ring} ${
+                      resonance.tier >= 4
+                        ? "shadow-xl ring-2"
                         : resonance.tier === 3
-                        ? "shadow-amber-500/30 ring-2 ring-amber-400"
+                        ? "shadow-lg ring-2"
                         : resonance.tier === 2
-                        ? "shadow-slate-400/20 ring-2 ring-slate-300"
-                        : `${theme.glow} ring-1 ${theme.ring}`
-                    }`
+                        ? "shadow-md ring-2"
+                        : "ring-1"
+                    } ${title.rainbow ? "title-rainbow" : ""}`
                   : isUnlocked
-                  ? resonance.tier === 4
-                    ? "border-cyan-400/60 bg-white/[0.05] shadow-lg shadow-cyan-500/20 hover:border-cyan-300 hover:bg-white/[0.08] cursor-pointer"
-                    : resonance.tier === 3
-                    ? "border-amber-400/60 bg-white/[0.05] shadow-lg shadow-amber-500/20 hover:border-amber-300 hover:bg-white/[0.08] cursor-pointer"
-                    : resonance.tier === 2
-                    ? "border-slate-300/50 bg-white/[0.04] shadow-md shadow-slate-400/15 hover:border-slate-200 hover:bg-white/[0.08] cursor-pointer"
-                    : "border-amber-700/40 bg-white/[0.04] hover:border-amber-500/70 hover:bg-white/[0.08] cursor-pointer"
+                  ? `${theme.border} bg-white/[0.05] hover:bg-white/[0.08] cursor-pointer ${theme.ring} ring-1 ${
+                      resonance.tier >= 3 ? "shadow-lg" : resonance.tier === 2 ? "shadow-md" : "shadow-sm"
+                    } ${title.rainbow ? "title-rainbow" : ""}`
                   : "border-white/5 bg-white/[0.02] opacity-60 cursor-not-allowed"
               }`}
             >

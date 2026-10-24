@@ -483,8 +483,8 @@ async function scopedQueueRows(queuePath, url) {
 const LOCAL_BADGE_THRESHOLDS = {
   project_hopper: [3, 5, 10, 20], // distinct projects
   project_devotion: [1000000, 10000000, 100000000, 1000000000], // max tokens in one project
-  night_owl: [5, 20, 60, 150], // active hour buckets between 00:00–05:59 local
-  early_bird: [5, 20, 60, 150], // active hour buckets between 04:00–09:59 local
+  night_owl: [4, 12, 36, 90], // active half-hour buckets between 00:00–03:59 local
+  early_bird: [4, 12, 36, 90], // active half-hour buckets between 05:00–08:59 local
   around_the_clock: [6, 12, 18, 24], // distinct local hour-of-day buckets (0–23) with any activity
   sprinter: [1000000, 10000000, 100000000, 1000000000], // most tokens in a single hour bucket
   cache_alchemist: [50000000, 500000000, 5000000000, 50000000000], // lifetime cached-input tokens (reads + cache writes)
@@ -919,13 +919,13 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       dayHourBuckets.add(parts.hour);
       bump("around_the_clock", dayHourBuckets.size, row.hour_start);
     }
-    // night_owl / early_bird: one point per active hour_start bucket inside
-    // 00:00–05:59 / 04:00–09:59 local time.
-    if (parts.hour < 6 && !nightHours.has(row.hour_start)) {
+    // night_owl / early_bird: one point per active half-hour bucket inside
+    // 00:00–03:59 / 05:00–08:59 local time.
+    if (parts.hour < 4 && !nightHours.has(row.hour_start)) {
       nightHours.add(row.hour_start);
       bump("night_owl", nightHours.size, row.hour_start);
     }
-    if (parts.hour >= 4 && parts.hour < 10 && !earlyHours.has(row.hour_start)) {
+    if (parts.hour >= 5 && parts.hour < 9 && !earlyHours.has(row.hour_start)) {
       earlyHours.add(row.hour_start);
       bump("early_bird", earlyHours.size, row.hour_start);
     }

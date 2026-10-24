@@ -8,7 +8,7 @@ import {
   useLocalMachineIdentity,
   useLocalProfile,
 } from "../lib/local-profile";
-import { useEquippedTitle } from "../ui/achievements/title-registry";
+import { useEquippedTitle, titleDisplayName } from "../ui/achievements/title-registry";
 import { EquippedTitleBadge } from "../ui/achievements/EquippedTitleBadge";
 
 function LocalAvatar({ name, avatarDataUrl, size = 28, equippedTitle }) {
@@ -67,7 +67,7 @@ export function LocalProfileIdentity({ collapsed = false }) {
   const equippedTitle = useEquippedTitle();
   const name = resolveLocalDisplayName(profile, identity, copy("localProfile.defaultName"));
   const id = localIdShort(identity.machineId);
-  const titleParts = [name, equippedTitle ? `【${equippedTitle.name}】` : null, identity.machineId].filter(Boolean);
+  const titleParts = [name, equippedTitle ? `【${titleDisplayName(equippedTitle)}】` : null, identity.machineId].filter(Boolean);
   const title = titleParts.join(" · ");
 
   return (

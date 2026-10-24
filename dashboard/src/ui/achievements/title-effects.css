@@ -1,0 +1,37 @@
+/* Resonance is an EFFECT axis, never a color axis: the title's own hue comes
+   from title.theme and must stay identical at every resonance tier. The one
+   exception is the top-ranked crest, whose identity is a full-spectrum ring. */
+
+.title-rainbow {
+  position: relative;
+}
+
+.title-rainbow::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    #ff5d5d, #ffb84d, #fff45d, #6bff8a, #4dd2ff, #8a6bff, #ff5dcf, #ff5d5d
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: title-rainbow-hue 6s linear infinite;
+  opacity: 0.9;
+}
+
+@keyframes title-rainbow-hue {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-rainbow::after {
+    animation: none;
+  }
+}

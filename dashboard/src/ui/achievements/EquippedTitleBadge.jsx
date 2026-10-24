@@ -1,7 +1,7 @@
 import React from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "../../lib/cn";
-import { getTitleById } from "./title-registry";
+import { getTitleById, titleDisplayName } from "./title-registry";
 
 /**
  * EquippedTitleBadge: Renders the bespoke 3D crest emblem and stylized theme pill
@@ -78,7 +78,7 @@ export function EquippedTitleBadge({
           )}
         >
           <Sparkles className="h-2.5 w-2.5 shrink-0 opacity-80" />
-          <span className="truncate max-w-[120px] sm:max-w-none">{title.name}</span>
+          <span className="truncate max-w-[120px] sm:max-w-none">{titleDisplayName(title)}</span>
         </span>
       )}
     </div>

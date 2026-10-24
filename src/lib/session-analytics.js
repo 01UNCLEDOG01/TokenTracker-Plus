@@ -116,7 +116,7 @@ const {
 // v25 adds Kimi wire sessions, including official/legacy migration dedup.
 // v26 retains Codex Ultrafast (service_tier ultrafast) subset columns so
 // date-filtered session views and cached sidecars keep the 6x premium.
-const SIDECAR_VERSION = 28;
+const SIDECAR_VERSION = 30;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",

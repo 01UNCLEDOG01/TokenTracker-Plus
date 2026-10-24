@@ -22,11 +22,14 @@ CONFIG = {
     "title-zen-master": {"file": SRC_DIR / "title-zen-master.jpg", "zoom": 1.05},
     "title-code-cannon": {"file": SRC_DIR / "title-code-cannon.jpg", "zoom": 1.02},
     "title-grand-slam": {"file": SRC_DIR / "title-grand-slam.jpg", "zoom": 1.06},
+    "title-chosen-drudge": {"file": SRC_DIR / "title-chosen-drudge.jpg", "zoom": 1.05},
+    "title-von-neumann": {"file": SRC_DIR / "title-von-neumann.jpg", "zoom": 1.05},
 }
 
-def main():
-    print(f"Building {len(CONFIG)} Title Crest Medallions on house_coin rim...")
-    for stem, cfg in CONFIG.items():
+def main(only=None):
+    items = {k: v for k, v in CONFIG.items() if not only or k in only}
+    print(f"Building {len(items)} Title Crest Medallions on house_coin rim...")
+    for stem, cfg in items.items():
         src = cfg["file"]
         zoom = cfg["zoom"]
         if not src.exists():
@@ -38,4 +41,5 @@ def main():
         print(f"Successfully generated {stem}.png (zoom={zoom})")
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(sys.argv[1:] or None)

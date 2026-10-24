@@ -5,38 +5,45 @@ import { useState, useEffect } from "react";
  * 极客称号殿堂 · 羁绊共鸣开放设计架构 (Open Architecture Design)
  * =========================================================================
  * 1. 难度与色彩递进 (Ascending Difficulty & Color Progression):
- *    - 称号按获取难度从易到难严格排序（1 到 11 阶）；
+ *    - 称号按获取难度从易到难严格排序（1 到 13 阶）；
  *    - 色彩从质朴内敛逐渐演进到炫酷璀璨：
  *      Rank 1~3  (初入门径): 质朴古铜、晨曦天青、雅致竹青
- *      Rank 4~6  (登堂入室): 深洋碧青、炽烈熔火、幽夜紫电
- *      Rank 7~9  (炉火纯青): 圣堂深蓝、璀璨琉璃金、霓虹极光紫
- *      Rank 10~11(登峰造极): 华夏赤金、宇宙至尊全光谱星冕
+ *      Rank 4~6  (登堂入室): 深洋碧青、炽烈熔火、铁灰牛马
+ *      Rank 7~9  (炉火纯青): 幽夜紫电、圣堂深蓝、冷银电路
+ *      Rank 10~12(登峰造极): 璀璨琉璃金、霓虹极光紫、华夏赤金
+ *      Rank 13   (至高): 全光谱星冕（炫彩）
  *
  * 2. 称号定死颜色，共鸣改变特效 (Fixed Title Identity, Dynamic Resonance VFX):
  *    - 每个称号拥有固定且专属的色彩基调与阵营身份（Brand/Title Identity Hue）；
+ *      颜色只跟称号本身的难度阶位绑定，绝不随共鸣等级变化。
  *    - 羁绊共鸣（Resonance）决定的是光效的层级与能量形态：
- *      - 青铜共鸣 (Lv.1): 基础常态微芒，古铜内敛边线
+ *      - 青铜共鸣 (Lv.1): 基础常态微芒，单层边线
  *      - 白银共鸣 (Lv.2): 银霜流光脉冲，双层反光高亮
  *      - 黄金共鸣 (Lv.3): 灿金能量光晕，外框呼吸脉动，星芒微溢
  *      - 钻石共鸣 (MAX) : 巅峰星冕全开，极光粒子爆发，双环流光超载！
+ *    - 组件只消费 theme.ring / theme.glow，禁止按 tier 改色；tier 只叠加特效层。
+ *
+ * 3. 展示名 (Display names):
+ *    - name 是卡片全称；shortName 用于侧栏、排行榜与徽章旁的最小空间；
+ *      统一走 titleDisplayName(title) 取值，不要在组件里手写截断。
  * =========================================================================
  */
 
 export const TITLES_REGISTRY = [
-  // 1. 零元精算巨匠 (Rank 1: 质朴古铜 · 初入门径)
+  // 1. 零元购 (Rank 1: 质朴古铜 · 初入门径)
   {
     id: "frugal_archmage",
-    name: "零元精算巨匠",
-    en: "Frugal Archmage",
-    desc: "将上下文结构压缩至极致，白嫖每一分可用算力。",
+    name: "零元购",
+    en: "Zero-Cost Cart",
+    desc: "羊毛宗师与白嫖之光双修，把每一次调用都过成零元购。",
     tag: "质朴古铜",
     art: "/achievements/titles/title-frugal-archmage.png?v=5",
     requiredBadges: [
-      { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=5" },
-      { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=5" },
+      { id: "token_arbitrageur", name: "羊毛宗师", tier: 1, art: "/achievements/token-arbitrageur.png?v=5" },
+      { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=6" },
     ],
-    check: (badgeMap) => (badgeMap.get("frugal_architect")?.tier || 0) >= 2 && (badgeMap.get("cache_miser")?.tier || 0) >= 1,
-    reqText: "白嫖之光(白银) + 缓存精算师(青铜)",
+    check: (badgeMap) => (badgeMap.get("token_arbitrageur")?.tier || 0) >= 1 && (badgeMap.get("frugal_architect")?.tier || 0) >= 2,
+    reqText: "羊毛宗师(青铜) + 白嫖之光(白银)",
     theme: {
       text: "text-amber-200",
       bgGradient: "from-stone-900/90 via-zinc-950 to-black",
@@ -51,6 +58,7 @@ export const TITLES_REGISTRY = [
   {
     id: "cyber_speedster",
     name: "极速先锋 · 赛博狂飙者",
+    shortName: "赛博狂飙者",
     en: "Hyperspeed Pioneer",
     desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，光速推流，指尖破空。",
     tag: "曲率引擎",
@@ -74,16 +82,16 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-sky-400",
     },
   },
-  // 3. 生活工作禅师 (Rank 3: 雅致竹青翡翠 · 碧玉禅心)
+  // 3. 生活禅者 (Rank 3: 雅致竹青翡翠 · 碧玉禅心)
   {
     id: "zen_master",
-    name: "生活工作禅师",
+    name: "生活禅者",
     en: "Zen Master",
     desc: "周内高效输出，周末彻底拔电，AI 时代清醒的生活家。",
     tag: "碧玉禅心",
     art: "/achievements/titles/title-zen-master.png?v=5",
     requiredBadges: [
-      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=5" },
+      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=6" },
       { id: "marathoner", name: "马拉松", tier: 2, art: "/achievements/marathoner.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("zen_balancer")?.tier || 0) >= 1 && (badgeMap.get("marathoner")?.tier || 0) >= 2,
@@ -101,13 +109,13 @@ export const TITLES_REGISTRY = [
   // 4. 特遣舰队司令 (Rank 4: 深洋碧青 · 舰队幽蓝)
   {
     id: "fleet_admiral",
-    name: "特遣舰队司令",
+    name: "星际舰队统帅",
     en: "Fleet Admiral",
     desc: "多工具多智能体并发调度，一人即是一支特遣舰队。",
     tag: "星际舰队",
     art: "/achievements/titles/title-fleet-admiral.png?v=5",
     requiredBadges: [
-      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=5" },
+      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=6" },
       { id: "multitool", name: "多面手", tier: 2, art: "/achievements/multitool.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("swarm_commander")?.tier || 0) >= 1 && (badgeMap.get("multitool")?.tier || 0) >= 2,
@@ -131,7 +139,7 @@ export const TITLES_REGISTRY = [
     tag: "烈焰重炮",
     art: "/achievements/titles/title-code-cannon.png?v=5",
     requiredBadges: [
-      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=5" },
+      { id: "code_cannon", name: "代码巨炮", tier: 2, art: "/achievements/code-cannon.png?v=6" },
       { id: "wordsmith", name: "文字工匠", tier: 2, art: "/achievements/wordsmith.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("code_cannon")?.tier || 0) >= 2 && (badgeMap.get("wordsmith")?.tier || 0) >= 2,
@@ -146,7 +154,39 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-rose-400",
     },
   },
-  // 6. 赛博修仙者 (Rank 6: 幽夜紫电 · 夜战定道)
+  // 6. 天选牛马 (Rank 6: 铁灰牛马 · 四件套全开)
+  {
+    id: "chosen_drudge",
+    name: "天选牛马",
+    en: "Chosen Drudge",
+    desc: "分身、早鸟、周末与连胜四件套全开——天选的牛马，AI 时代的劳模。",
+    tag: "铁灰缰绳",
+    bondName: "天选四件套",
+    dimension: 4,
+    art: "/achievements/titles/title-chosen-drudge.png?v=1",
+    requiredBadges: [
+      { id: "multitool_day", name: "分身有术", tier: 1, art: "/achievements/multitool-day.png?v=11" },
+      { id: "early_bird", name: "早鸟", tier: 1, art: "/achievements/early-bird.png?v=11" },
+      { id: "weekend_warrior", name: "周末战士", tier: 1, art: "/achievements/weekend-warrior.png?v=7" },
+      { id: "streak", name: "连胜火焰", tier: 1, art: "/achievements/streak.png?v=7" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("multitool_day")?.tier || 0) >= 1 &&
+      (badgeMap.get("early_bird")?.tier || 0) >= 1 &&
+      (badgeMap.get("weekend_warrior")?.tier || 0) >= 1 &&
+      (badgeMap.get("streak")?.tier || 0) >= 1,
+    reqText: "分身有术 + 早鸟 + 周末战士 + 连胜火焰 (全解锁)",
+    theme: {
+      text: "text-zinc-200",
+      bgGradient: "from-zinc-800/90 via-slate-900 to-black",
+      border: "border-zinc-500/60",
+      glow: "shadow-lg shadow-zinc-500/35",
+      pillClass: "bg-zinc-900/80 text-zinc-200 border-zinc-500/50 shadow-zinc-500/20",
+      ring: "ring-zinc-400/50",
+      accentDot: "bg-zinc-300",
+    },
+  },
+  // 7. 赛博修仙者 (Rank 7: 幽夜紫电 · 夜战定道)
   {
     id: "cyber_immortal",
     name: "赛博修仙者",
@@ -170,16 +210,16 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-purple-400",
     },
   },
-  // 7. 奥特曼信徒 (Rank 7: 圣堂深蓝 · 纯血庄严)
+  // 8. 神之信徒 (Rank 8: 圣堂深蓝 · 纯血庄严)
   {
     id: "openai_paladin",
-    name: "奥特曼信徒",
-    en: "OpenAI Paladin",
+    name: "神之信徒",
+    en: "Divine Devotee",
     desc: "执着于前沿 AGI 探索，笃信奥特曼灯塔的终极力量。",
     tag: "AGI圣殿",
     art: "/achievements/titles/title-openai-paladin.png?v=5",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=5" },
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 2, art: "/achievements/closed-source-loyalist.png?v=6" },
       { id: "deep_thinker", name: "深度思考", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 2 && (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
@@ -194,7 +234,39 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-indigo-400",
     },
   },
-  // 8. 全知全能架构师 (Rank 8: 璀璨琉璃金 · 睿智博学)
+  // 9. 冯诺依曼派 (Rank 9: 冷银电路 · 体系结构)
+  {
+    id: "von_neumann",
+    name: "冯诺依曼派",
+    en: "Von Neumann School",
+    desc: "终端、缓存、重构、深思四线贯通，用体系结构的方法调度一切算力。",
+    tag: "体系结构",
+    bondName: "体系结构",
+    dimension: 4,
+    art: "/achievements/titles/title-von-neumann.png?v=1",
+    requiredBadges: [
+      { id: "terminal_purist", name: "终端原教旨主义", tier: 1, art: "/achievements/terminal-purist.png?v=6" },
+      { id: "cache_miser", name: "缓存精算师", tier: 1, art: "/achievements/cache-miser.png?v=6" },
+      { id: "refactor_titan", name: "重构狂徒", tier: 1, art: "/achievements/refactor-titan.png?v=6" },
+      { id: "deep_thinker", name: "深思者", tier: 1, art: "/achievements/deep-thinker.png?v=7" },
+    ],
+    check: (badgeMap) =>
+      (badgeMap.get("terminal_purist")?.tier || 0) >= 1 &&
+      (badgeMap.get("cache_miser")?.tier || 0) >= 1 &&
+      (badgeMap.get("refactor_titan")?.tier || 0) >= 1 &&
+      (badgeMap.get("deep_thinker")?.tier || 0) >= 1,
+    reqText: "终端原教旨主义 + 缓存精算师 + 重构狂徒 + 深思者 (全解锁)",
+    theme: {
+      text: "text-cyan-200",
+      bgGradient: "from-slate-900/90 via-cyan-950/60 to-black",
+      border: "border-cyan-400/60",
+      glow: "shadow-lg shadow-cyan-400/40",
+      pillClass: "bg-cyan-950/80 text-cyan-100 border-cyan-400/50 shadow-cyan-400/25",
+      ring: "ring-cyan-300/50",
+      accentDot: "bg-cyan-300",
+    },
+  },
+  // 10. 全知全能架构师 (Rank 10: 璀璨琉璃金 · 睿智博学)
   {
     id: "omniscient_architect",
     name: "全知全能架构师",
@@ -218,17 +290,18 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-yellow-400",
     },
   },
-  // 9. 诸神信使 · 硅谷三冠王 (Rank 9: 霓虹极光紫 · 闭源巅峰)
+  // 11. 诸神信使 · 硅谷三巨头 (Rank 11: 霓虹极光紫 · 闭源巅峰)
   {
     id: "silicon_trinity",
-    name: "诸神信使 · 硅谷三冠王",
+    name: "诸神信使 · 硅谷三巨头",
+    shortName: "诸神信使",
     en: "Silicon Valley Trinity",
     desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三冠王者。",
     tag: "三神交泰",
     dimension: 3,
     art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
-      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=5" },
+      { id: "closed_source_loyalist", name: "奥特曼信徒", tier: 1, art: "/achievements/closed-source-loyalist.png?v=6" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=11" },
       { id: "north_america_doubao", name: "北美豆包", tier: 1, art: "/achievements/north-america-doubao.png?v=5" },
     ],
@@ -247,10 +320,11 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-fuchsia-400",
     },
   },
-  // 10. 九州极客 · 四象掌门 (Rank 10: 华夏赤金 · 四象归一)
+  // 12. 九州极客 · 四象掌门 (Rank 12: 华夏赤金 · 四象归一)
   {
     id: "cn_quad_masters",
     name: "九州极客 · 四象掌门",
+    shortName: "四象掌门",
     en: "Domestic Quad Titans",
     desc: "融汇中华 AI 最前沿四大家族算力，四象归一，开辟东方极客新天地。",
     tag: "四象混元",
@@ -278,13 +352,14 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-orange-400",
     },
   },
-  // 11. 大满贯传奇 (Rank 11: 宇宙至尊全光谱星冕 · 至高王座)
+  // 13. 大满贯传奇 (Rank 13: 宇宙至尊全光谱星冕 · 至高王座)
   {
     id: "grand_slam_legend",
     name: "大满贯传奇",
     en: "Grand Slam Legend",
     desc: "勋章架上钻石熠熠生辉，登峰造极的开发大师。",
     tag: "至尊星冠",
+    rainbow: true,
     art: "/achievements/titles/title-grand-slam.png?v=5",
     requiredBadges: [
       { id: "grand_slam", name: "大满贯", tier: 1, art: "/achievements/grand-slam.png?v=11" },
@@ -305,6 +380,12 @@ export const TITLES_REGISTRY = [
 
 export const STORAGE_ACTIVE_TITLE = "tokentracker:active_title";
 export const EVENT_TITLE_CHANGED = "tokentracker:title_changed";
+
+/** Short form for the sidebar, leaderboard and badges; never hand-truncate. */
+export function titleDisplayName(title) {
+  if (!title) return "";
+  return title.shortName || title.name;
+}
 
 export function getActiveTitleId() {
   try {
@@ -339,9 +420,7 @@ export function useEquippedTitle() {
       setActiveId(e?.detail ?? getActiveTitleId());
     };
     const handleStorage = (e) => {
-      if (e.key === STORAGE_ACTIVE_TITLE) {
-        setActiveId(e.newValue || "");
-      }
+      if (e.key === STORAGE_ACTIVE_TITLE) setActiveId(e.newValue || "");
     };
     window.addEventListener(EVENT_TITLE_CHANGED, handleUpdate);
     window.addEventListener("storage", handleStorage);
@@ -354,13 +433,24 @@ export function useEquippedTitle() {
   return getTitleById(activeId);
 }
 
+/** Bond name shown in the resonance ribbon; per-title override wins. */
+export function getTitleBondName(title) {
+  if (!title) return "";
+  if (title.bondName) return title.bondName;
+  const dim = title.dimension || (title.requiredBadges?.length || 2);
+  if (dim === 4) return "四象混元";
+  if (dim === 3) return "三神交泰";
+  if (dim === 1) return "至尊星冕";
+  return "双星交汇";
+}
+
 /** Computes dynamic resonance tier (1 to 4) based on member badge tier levels */
 export function getTitleResonance(title, badgeMap) {
-  if (!title) return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim: 2, dimName: "双星交汇" };
+  const dim = title ? (title.dimension || (title.requiredBadges?.length || 2)) : 2;
+  const dimName = title ? getTitleBondName(title) : "双星交汇";
+  if (!title) return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim, dimName };
   const isUnlocked = title.check(badgeMap);
   if (!isUnlocked) {
-    const dim = title.dimension || (title.requiredBadges?.length || 2);
-    const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇";
     return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim, dimName };
   }
 
@@ -372,9 +462,6 @@ export function getTitleResonance(title, badgeMap) {
     const minTier = Math.min(...tiers);
     resonanceTier = Math.max(1, Math.min(4, minTier));
   }
-
-  const dim = title.dimension || (title.requiredBadges?.length || 2);
-  const dimName = dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇";
 
   const tierNames = ["未激活", "青铜", "白银", "黄金", "钻石"];
   const tierName = tierNames[resonanceTier] || "青铜";

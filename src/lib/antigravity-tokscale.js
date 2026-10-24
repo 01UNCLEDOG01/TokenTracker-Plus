@@ -21,6 +21,18 @@ const path = require("node:path");
 
 const ANTIGRAVITY_SOURCE = "antigravity";
 
+// Antigravity reports one Claude SKU as `-thinking`, dotted and hyphenated
+// variants. Canonicalize before keying, or a single model splits into three
+// rows in the sessions view and the model breakdown.
+function canonicalAntigravityModelId(raw) {
+  let id = String(raw || "").trim();
+  if (!id) return "antigravity-unknown";
+  if (!/^claude-/i.test(id)) return id;
+  id = id.toLowerCase().replace(/-thinking$/, "");
+  id = id.replace(/^(claude-(?:sonnet|opus|haiku))-(\d+)\.(\d+)$/, "$1-$2-$3");
+  return id;
+}
+
 function resolveTokenMonitorDbPath({ home = os.homedir(), env = process.env, platform = process.platform } = {}) {
   const override = typeof env.TOKENTRACKER_TOKEN_MONITOR_DB === "string"
     ? env.TOKENTRACKER_TOKEN_MONITOR_DB.trim()
@@ -72,19 +84,28 @@ function readTokenMonitorAntigravitySessions(dbPath) {
         const endedAt = p.lastUsedAt ? Date.parse(p.lastUsedAt) : null;
         const models = new Map();
         if (p.models && typeof p.models === "object") {
-          for (const [mName, mTokens] of Object.entries(p.models)) {
+          for (const [rawName, mTokens] of Object.entries(p.models)) {
+            const mName = canonicalAntigravityModelId(rawName);
             const mTot = num(mTokens);
             const mRatio = total > 0 ? (mTot / total) : 1;
-            models.set(mName, {
+            const entry = models.get(mName) || {
               model: mName,
-              input_tokens: Math.round(input * mRatio),
-              cached_input_tokens: Math.round(cached * mRatio),
-              cache_creation_input_tokens: Math.round(cacheWrite * mRatio),
-              output_tokens: Math.round(output * mRatio),
-              reasoning_output_tokens: Math.round(reasoning * mRatio),
-              total_tokens: mTot,
-              usage_events: num(p.messageCount) || 1,
-            });
+              input_tokens: 0,
+              cached_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+              output_tokens: 0,
+              reasoning_output_tokens: 0,
+              total_tokens: 0,
+              usage_events: 0,
+            };
+            entry.input_tokens += Math.round(input * mRatio);
+            entry.cached_input_tokens += Math.round(cached * mRatio);
+            entry.cache_creation_input_tokens += Math.round(cacheWrite * mRatio);
+            entry.output_tokens += Math.round(output * mRatio);
+            entry.reasoning_output_tokens += Math.round(reasoning * mRatio);
+            entry.total_tokens += mTot;
+            entry.usage_events += num(p.messageCount) || 1;
+            models.set(mName, entry);
           }
         }
         if (models.size === 0) {
@@ -290,7 +311,7 @@ function readAntigravityTokscaleUsage({ home = os.homedir(), env = process.env, 
       if (!hour) continue;
       const usage = usageFromCacheRecord(record);
       if (!usage) continue;
-      const model = String(record.modelId || record.model || "antigravity-unknown").trim() || "antigravity-unknown";
+      const model = canonicalAntigravityModelId(record.modelId || record.model);
       const key = `${hour}\0${model}`;
       const row = byHourModel.get(key) || { hour_start: hour, model, ...emptyTotals(), usage_events: 0 };
       addUsage(row, usage);

@@ -305,12 +305,14 @@ test("project_devotion tracks the max single-project running total", () => {
 });
 
 test("night_owl buckets hours in the caller's timezone, not UTC", () => {
-  // 18:00–22:00 UTC = 02:00–06:00 Asia/Shanghai (only <06:00 counts → 4 rows).
+  // 16:00–19:00 UTC = 00:00–03:00 Asia/Shanghai (all before 04:00 → 4 rows).
   const night = [
-    queueRow("2026-07-01T18:00:00Z", 10), // 02:00 local
-    queueRow("2026-07-01T19:00:00Z", 10), // 03:00
-    queueRow("2026-07-01T20:00:00Z", 10), // 04:00
-    queueRow("2026-07-01T21:00:00Z", 10), // 05:00
+    queueRow("2026-07-01T15:00:00Z", 10), // 23:00 local — before midnight, not counted
+    queueRow("2026-07-01T16:00:00Z", 10), // 00:00
+    queueRow("2026-07-01T17:00:00Z", 10), // 01:00
+    queueRow("2026-07-01T18:00:00Z", 10), // 02:00
+    queueRow("2026-07-01T19:00:00Z", 10), // 03:00 — crosses bronze (4) here
+    queueRow("2026-07-01T20:00:00Z", 10), // 04:00 — NOT night
     queueRow("2026-07-01T22:00:00Z", 10), // 06:00 — NOT night
     queueRow("2026-07-01T10:00:00Z", 10), // 18:00 — NOT night
   ];
@@ -319,19 +321,19 @@ test("night_owl buckets hours in the caller's timezone, not UTC", () => {
     "night_owl",
   );
   assert.equal(badge.metric_value, 4);
-  assert.equal(badge.tier, 0); // bronze needs 5
+  assert.equal(badge.tier, 1);
+  assert.equal(badge.achieved.bronze, "2026-07-01T19:00:00Z");
 
-  // One more genuine night hour crosses bronze.
-  const crossed = byId(
+  // A window-only row (04:00 local) must not add a point.
+  const noExtra = byId(
     computeLocalAchievements(
-      [...night, queueRow("2026-07-02T17:00:00Z", 10)], // 01:00 local next day
+      [...night, queueRow("2026-07-02T20:00:00Z", 10)], // 04:00 local next day
       [],
       { timeZoneContext: TZ_SHANGHAI },
     ),
     "night_owl",
   );
-  assert.equal(crossed.tier, 1);
-  assert.equal(crossed.metric_value, 5);
+  assert.equal(noExtra.metric_value, 4);
 });
 
 test("zero-token rows never count anywhere", () => {
@@ -374,23 +376,23 @@ function sessionRow(durationMs, { tokens = 100, hash = "s1", endedAt = "2026-07-
 }
 
 test("early_bird buckets hours in the caller's timezone, not UTC", () => {
-  // 20:00Z–01:00Z = 04:00–09:00 Asia/Shanghai (6 morning rows); 18:00Z (02:00
-  // local) and 02:00Z (10:00 local) fall outside the 04:00–09:59 window.
+  // 21:00Z–00:00Z = 05:00–08:00 Asia/Shanghai (4 morning rows). 20:00Z (04:00)
+  // and 01:00Z (09:00) sit outside the 05:00–08:59 window.
   const morning = [
     queueRow("2026-07-01T18:00:00Z", 10), // 02:00 local — too early
-    queueRow("2026-07-01T20:00:00Z", 10), // 04:00
+    queueRow("2026-07-01T20:00:00Z", 10), // 04:00 — too early
     queueRow("2026-07-01T21:00:00Z", 10), // 05:00
     queueRow("2026-07-01T22:00:00Z", 10), // 06:00
     queueRow("2026-07-01T23:00:00Z", 10), // 07:00
-    queueRow("2026-07-02T00:00:00Z", 10), // 08:00 — crosses bronze (5) here
-    queueRow("2026-07-02T01:00:00Z", 10), // 09:00
+    queueRow("2026-07-02T00:00:00Z", 10), // 08:00 — crosses bronze (4) here
+    queueRow("2026-07-02T01:00:00Z", 10), // 09:00 — too late
     queueRow("2026-07-02T02:00:00Z", 10), // 10:00 — too late
   ];
   const badge = byId(
     computeLocalAchievements(morning, [], { timeZoneContext: TZ_SHANGHAI }),
     "early_bird",
   );
-  assert.equal(badge.metric_value, 6);
+  assert.equal(badge.metric_value, 4);
   assert.equal(badge.tier, 1);
   assert.equal(badge.achieved.bronze, "2026-07-02T00:00:00Z");
 });

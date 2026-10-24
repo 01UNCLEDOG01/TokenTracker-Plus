@@ -1446,9 +1446,9 @@ achievements.badge.project_hopper.desc,dashboard,*,BadgeDetailModal,project_hopp
 achievements.badge.project_devotion.name,dashboard,*,AchievementsSection,project_devotion_name,"Project Devotion",,active
 achievements.badge.project_devotion.desc,dashboard,*,BadgeDetailModal,project_devotion_desc,"Pour tokens into a single beloved project.",,active
 achievements.badge.night_owl.name,dashboard,*,AchievementsSection,night_owl_name,"Night Owl",,active
-achievements.badge.night_owl.desc,dashboard,*,BadgeDetailModal,night_owl_desc,"Code in the small hours between midnight and 6 AM.",,active
+achievements.badge.night_owl.desc,dashboard,*,BadgeDetailModal,night_owl_desc,"Code between midnight and 4 AM.",,active
 achievements.badge.early_bird.name,dashboard,*,AchievementsSection,early_bird_name,"Early Bird",,active
-achievements.badge.early_bird.desc,dashboard,*,BadgeDetailModal,early_bird_desc,"Code in the early hours between 4 and 10 AM.",,active
+achievements.badge.early_bird.desc,dashboard,*,BadgeDetailModal,early_bird_desc,"Code between 5 and 9 AM.",,active
 achievements.badge.around_the_clock.name,dashboard,*,AchievementsSection,around_the_clock_name,"Around the Clock",,active
 achievements.badge.around_the_clock.desc,dashboard,*,BadgeDetailModal,around_the_clock_desc,"Leave a usage footprint in all 24 hours of the day.",,active
 achievements.badge.sprinter.name,dashboard,*,AchievementsSection,sprinter_name,"Sprinter",,active
