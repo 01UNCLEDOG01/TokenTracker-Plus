@@ -1321,7 +1321,7 @@ pet.controls.native_only,dashboard,PetPage,PetPage,native_only,"Open this page i
 pet.controls.island_mode,dashboard,PetPage,PetPage,island_mode,"Dynamic island (top)","顶部灵动岛",active
 pet.controls.float_mode,dashboard,PetPage,PetPage,float_mode,"Floating window","自由悬浮",active
 pet.controls.island_style,dashboard,PetPage,PetPage,island_style,"Island mode","悬浮形态",active
-pet.controls.quota,dashboard,PetPage,PetPage,quota,"Desktop quota","桌面限额",active
+pet.controls.quota,dashboard,PetPage,PetPage,quota,"Desktop quota widget","桌面限额",active
 pet.controls.tray_style,dashboard,PetPage,PetPage,tray_style,"Tray icon style","托盘图标风格",active
 pet.controls.tray_cat,dashboard,PetPage,PetPage,tray_cat,"Running cat","奔跑小猫",active
 pet.controls.tray_mascot,dashboard,PetPage,PetPage,tray_mascot,"App icon","应用图标",active
@@ -1475,10 +1475,10 @@ achievements.badge.code_cannon.name,dashboard,*,AchievementsSection,code_cannon_
 achievements.badge.code_cannon.desc,dashboard,*,BadgeDetailModal,code_cannon_desc,"Unleash a torrent of generated code output tokens in a single hour.",,active
 achievements.badge.buzzer_beater.name,dashboard,*,AchievementsSection,buzzer_beater_name,"Buzzer Beater",,active
 achievements.badge.buzzer_beater.desc,dashboard,*,BadgeDetailModal,buzzer_beater_desc,"Ship code right at the hour's edge or before midnight resets.",,active
-achievements.badge.zen_balancer.name,dashboard,*,AchievementsSection,zen_balancer_name,"Work-Life Zen",,active
+achievements.badge.zen_balancer.name,dashboard,*,AchievementsSection,zen_balancer_name,"Small Joys",,active
 achievements.badge.zen_balancer.desc,dashboard,*,BadgeDetailModal,zen_balancer_desc,"Code full blast on weekdays, and disconnect completely on weekends.",,active
-achievements.badge.swarm_commander.name,dashboard,*,AchievementsSection,swarm_commander_name,"Swarm Commander",,active
-achievements.badge.swarm_commander.desc,dashboard,*,BadgeDetailModal,swarm_commander_desc,"Command multiple AI coding tools simultaneously inside a single hour.",,active
+achievements.badge.swarm_commander.name,dashboard,*,AchievementsSection,swarm_commander_name,"One Person Company",,active
+achievements.badge.swarm_commander.desc,dashboard,*,BadgeDetailModal,swarm_commander_desc,"One Person Company (OPC): run a whole business solo with AI, commanding several tools inside a single hour.",,active
 achievements.badge.terminal_purist.name,dashboard,*,AchievementsSection,terminal_purist_name,"Terminal Purist",,active
 achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Spend your active days almost entirely inside terminal-based CLI tools.",,active
 achievements.badge.refactor_titan.name,dashboard,*,AchievementsSection,refactor_titan_name,"Refactor Titan",,active

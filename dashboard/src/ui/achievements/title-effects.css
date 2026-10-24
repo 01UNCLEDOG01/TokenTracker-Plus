@@ -35,3 +35,21 @@
     animation: none;
   }
 }
+
+/* Resonance decides how many hues the top crest carries: bronze 3, silver 4,
+   gold 5, diamond 6. The identity stays spectral at every tier. */
+.title-rainbow[data-spectrum="1"]::after {
+  background: conic-gradient(from 0deg, #ff6b6b, #ffd166, #6bff8a, #ff6b6b);
+}
+
+.title-rainbow[data-spectrum="2"]::after {
+  background: conic-gradient(from 0deg, #ff6b6b, #ffd166, #6bff8a, #4dd2ff, #ff6b6b);
+}
+
+.title-rainbow[data-spectrum="3"]::after {
+  background: conic-gradient(from 0deg, #ff6b6b, #ffb84d, #fff45d, #6bff8a, #4dd2ff, #ff6b6b);
+}
+
+.title-rainbow[data-spectrum="4"]::after {
+  background: conic-gradient(from 0deg, #ff5d5d, #ffb84d, #fff45d, #6bff8a, #4dd2ff, #8a6bff, #ff5d5d);
+}

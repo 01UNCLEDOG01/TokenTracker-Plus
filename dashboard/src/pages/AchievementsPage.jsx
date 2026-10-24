@@ -179,7 +179,16 @@ export default function AchievementsPage() {
           </div>
 
           {/* Synergies & Titles banner */}
-          {!loading && <BadgeSynergyBanner badges={merged} resonanceTestMode={resonanceTestMode} />}
+          {!loading && (
+            <BadgeSynergyBanner
+              badges={merged}
+              resonanceTestMode={resonanceTestMode}
+              onSelectBadge={(id) => {
+                const badge = merged.find((b) => b.id === id);
+                if (badge) setSelectedBadge(badge);
+              }}
+            />
+          )}
 
           {loading ? (
             <GridSkeleton />

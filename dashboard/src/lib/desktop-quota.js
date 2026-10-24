@@ -32,7 +32,7 @@ export function selectQuotaRows(rows, selected) {
     if (providers.has(row.provider)) return false;
     providers.add(row.provider);
     return true;
-  }).slice(0, 2);
+  }).slice(0, 6);
 }
 
 /** A provider failure must not erase its last known windows or look like a reset. */

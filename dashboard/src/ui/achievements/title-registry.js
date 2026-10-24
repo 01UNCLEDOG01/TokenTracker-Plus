@@ -85,17 +85,17 @@ export const TITLES_REGISTRY = [
   // 3. 生活禅者 (Rank 3: 雅致竹青翡翠 · 碧玉禅心)
   {
     id: "zen_master",
-    name: "生活禅者",
+    name: "生活禅师",
     en: "Zen Master",
     desc: "周内高效输出，周末彻底拔电，AI 时代清醒的生活家。",
     tag: "碧玉禅心",
     art: "/achievements/titles/title-zen-master.png?v=5",
     requiredBadges: [
-      { id: "zen_balancer", name: "工作生活禅", tier: 1, art: "/achievements/zen-balancer.png?v=6" },
+      { id: "zen_balancer", name: "小确幸", tier: 1, art: "/achievements/zen-balancer.png?v=6" },
       { id: "marathoner", name: "马拉松", tier: 2, art: "/achievements/marathoner.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("zen_balancer")?.tier || 0) >= 1 && (badgeMap.get("marathoner")?.tier || 0) >= 2,
-    reqText: "工作生活禅(青铜) + 马拉松(白银)",
+    reqText: "小确幸(青铜) + 马拉松(白银)",
     theme: {
       text: "text-emerald-300",
       bgGradient: "from-emerald-950/80 via-slate-900 to-black",
@@ -106,20 +106,30 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-emerald-400",
     },
   },
-  // 4. 特遣舰队司令 (Rank 4: 深洋碧青 · 舰队幽蓝)
+  // 4. 一人公司 OPC (Rank 4: 深洋碧青 · 一人军团)
   {
     id: "fleet_admiral",
-    name: "星际舰队统帅",
-    en: "Fleet Admiral",
-    desc: "多工具多智能体并发调度，一人即是一支特遣舰队。",
-    tag: "星际舰队",
+    name: "一人公司",
+    en: "One Person Company",
+    desc: "个人 + AI 驱动完整业务：工具、模型、分身与全天候节奏全部由一个人调度。",
+    tag: "OPC",
+    bondName: "一人军团",
+    dimension: 5,
     art: "/achievements/titles/title-fleet-admiral.png?v=5",
     requiredBadges: [
-      { id: "swarm_commander", name: "特遣舰队司令", tier: 1, art: "/achievements/swarm-commander.png?v=6" },
-      { id: "multitool", name: "多面手", tier: 2, art: "/achievements/multitool.png?v=7" },
+      { id: "swarm_commander", name: "一人公司", tier: 1, art: "/achievements/swarm-commander.png?v=6" },
+      { id: "multitool", name: "多面手", tier: 1, art: "/achievements/multitool.png?v=7" },
+      { id: "polyglot", name: "模型通", tier: 1, art: "/achievements/polyglot.png?v=7" },
+      { id: "multitool_day", name: "分身有术", tier: 1, art: "/achievements/multitool-day.png?v=11" },
+      { id: "around_the_clock", name: "昼夜不息", tier: 1, art: "/achievements/around-the-clock.png?v=11" },
     ],
-    check: (badgeMap) => (badgeMap.get("swarm_commander")?.tier || 0) >= 1 && (badgeMap.get("multitool")?.tier || 0) >= 2,
-    reqText: "特遣舰队司令(青铜) + 多面手(白银)",
+    check: (badgeMap) =>
+      (badgeMap.get("swarm_commander")?.tier || 0) >= 1 &&
+      (badgeMap.get("multitool")?.tier || 0) >= 1 &&
+      (badgeMap.get("polyglot")?.tier || 0) >= 1 &&
+      (badgeMap.get("multitool_day")?.tier || 0) >= 1 &&
+      (badgeMap.get("around_the_clock")?.tier || 0) >= 1,
+    reqText: "一人公司 + 多面手 + 模型通 + 分身有术 + 昼夜不息 (全解锁)",
     theme: {
       text: "text-teal-300",
       bgGradient: "from-teal-950/80 via-slate-900 to-black",
@@ -352,20 +362,23 @@ export const TITLES_REGISTRY = [
       accentDot: "bg-orange-400",
     },
   },
-  // 13. 大满贯传奇 (Rank 13: 宇宙至尊全光谱星冕 · 至高王座)
+  // 13. 机械降神 (Rank 13: 全光谱神机 · 至高王座)
   {
     id: "grand_slam_legend",
-    name: "大满贯传奇",
-    en: "Grand Slam Legend",
-    desc: "勋章架上钻石熠熠生辉，登峰造极的开发大师。",
-    tag: "至尊星冠",
+    name: "机械降神",
+    en: "Deus Ex Machina",
+    desc: "勋章架上钻石熠熠生辉，且站在本机排行榜顶端——神机天降，登峰造极。",
+    tag: "神机天降",
+    bondName: "神机天降",
+    dimension: 2,
     rainbow: true,
     art: "/achievements/titles/title-grand-slam.png?v=5",
     requiredBadges: [
       { id: "grand_slam", name: "大满贯", tier: 1, art: "/achievements/grand-slam.png?v=11" },
+      { id: "podium", name: "领奖台", tier: 1, art: "/achievements/podium.png?v=7" },
     ],
-    check: (badgeMap) => (badgeMap.get("grand_slam")?.tier || 0) >= 1,
-    reqText: "大满贯徽章(解锁至少 5 枚钻石勋章)",
+    check: (badgeMap) => (badgeMap.get("grand_slam")?.tier || 0) >= 1 && (badgeMap.get("podium")?.tier || 0) >= 1,
+    reqText: "大满贯徽章 + 领奖台 (全解锁)",
     theme: {
       text: "text-cyan-200",
       bgGradient: "from-cyan-950/90 via-purple-950/80 to-amber-950/70",
@@ -438,6 +451,7 @@ export function getTitleBondName(title) {
   if (!title) return "";
   if (title.bondName) return title.bondName;
   const dim = title.dimension || (title.requiredBadges?.length || 2);
+  if (dim >= 5) return "五星连珠";
   if (dim === 4) return "四象混元";
   if (dim === 3) return "三神交泰";
   if (dim === 1) return "至尊星冕";

@@ -62,7 +62,7 @@ internal sealed record TrayStrings(
                 "小",
                 "中",
                 "大",
-                "桌面限额",
+                "桌面限额浮窗",
                 "桌面灵动岛",
                 "隐藏灵动岛",
                 "托盘图标风格",

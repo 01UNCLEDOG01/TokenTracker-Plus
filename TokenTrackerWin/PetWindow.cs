@@ -641,6 +641,22 @@ internal sealed class PetWindow : Window
     }
 
     /// <summary>Set a boolean <c>window.__ttPet&lt;name&gt;</c> flag + dispatch <c>pet:&lt;name lower&gt;</c>.</summary>
+    /// <summary>
+    /// The pet host renders without ThemeProvider; the dashboard's theme switch
+    /// must repaint the pet and the island capsule immediately, not on restart.
+    /// </summary>
+    public void ApplyTheme(bool light)
+    {
+        try
+        {
+            if (_webView?.CoreWebView2 is null) return;
+            var dark = light ? "false" : "true";
+            _ = _webView.CoreWebView2.ExecuteScriptAsync(
+                $"window.__ttPetDark={dark};document.documentElement.classList.toggle('dark',{dark});");
+        }
+        catch { /* the next PushState carries the same flag */ }
+    }
+
     private void PushState(string name, bool value)
     {
         if (!_coreReady || !IsVisible) return;

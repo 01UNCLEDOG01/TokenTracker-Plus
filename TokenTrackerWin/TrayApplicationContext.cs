@@ -554,8 +554,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ApplyThemePreference(string preference)
     {
         var normalized = NativeTheme.NormalizePreference(preference);
-        _quotaWindow?.ApplyTheme(NativeTheme.ResolveIsLight(normalized));
-        _monitorWindow?.ApplyTheme(NativeTheme.ResolveIsLight(normalized));
+        var light = NativeTheme.ResolveIsLight(normalized);
+        _quotaWindow?.ApplyTheme(light);
+        _monitorWindow?.ApplyTheme(light);
+        _petWindow?.ApplyTheme(light);
         var nextPalette = TrayMenuRenderer.PaletteFor(NativeTheme.ResolveIsLight(normalized));
         if (_themePreference == normalized && _menuPalette == nextPalette) return;
 
