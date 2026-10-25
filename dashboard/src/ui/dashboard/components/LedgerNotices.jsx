@@ -216,3 +216,13 @@ export function WorkbuddyCreditSpend({ from, to, edition }) {
     </div>
   );
 }
+
+// Qoder international also records no token counts: its transcripts carry a
+// real per-message `credits` value, money converts at the published plan rate,
+// and the token rows are back-derived from credits at the reference model's
+// list prices. The CN card states its estimation basis explicitly, so the
+// international card declares its own ledger basis instead of staying silent
+// next to it.
+export function QoderIntlCreditsNote() {
+  return <p className={NOTE_CLASS}>{copy("usage.overview.qoder_intl_credits_note")}</p>;
+}

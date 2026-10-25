@@ -2242,6 +2242,7 @@ cloud.plan.device_sync,cloud,CloudPage,CloudPage,text,"Unlimited devices · cros
 cloud.plan.device_fair_use,cloud,CloudPage,CloudPage,text,"Unlimited devices for everyday personal use, with no per-device charges. Bulk or abnormal device connections may trigger sync protection.",,active
 usage.overview.qoder_cn_spend_snapshot,ui,DashboardPage,LedgerNotices,qoder_cn_spend_snapshot,"Official cloud totals are a snapshot from {{date}} - the live refresh failed, so today is not included.",,active
 usage.overview.qoder_cn_spend_unavailable,ui,DashboardPage,LedgerNotices,qoder_cn_spend_unavailable,"Official cloud totals could not be fetched. This is a fetch failure, not zero usage.",,active
+usage.overview.qoder_intl_credits_note,ui,DashboardPage,LedgerNotices,qoder_intl_credits_note,"Credits are per-message figures Qoder itself records; money converts at the published Pro rate ($0.01 per credit). Qoder writes no token counts, so the token rows below are back-derived estimates.",,active
 limits.label.qoder_cn_addon_credits,ui,LimitsPage,UsageLimitsPanel,qoder_cn_addon_credits,Add-on Credits,,active
 cloud.rebuild.action,cloud,SettingsPage,CloudRebuildControl,action,Rebuild this device's cloud data,,active
 cloud.rebuild.title,cloud,SettingsPage,CloudRebuildControl,title,Rebuild cloud data?,,active

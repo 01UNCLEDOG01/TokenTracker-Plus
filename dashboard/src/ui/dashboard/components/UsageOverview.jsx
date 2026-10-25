@@ -28,7 +28,7 @@ import { useTheme } from "../../../hooks/useTheme.js";
 import { useCurrency } from "../../../hooks/useCurrency.js";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 import { copy, getCopyLocale } from "../../../lib/copy";
-import { QoderCnOfficialSpend, WorkbuddyCreditSpend } from "./LedgerNotices.jsx";
+import { QoderCnOfficialSpend, QoderIntlCreditsNote, WorkbuddyCreditSpend } from "./LedgerNotices.jsx";
 import { CURRENCY_USD, getCurrencySymbol } from "../../../lib/currency";
 import { formatProviderDisplayName } from "../../../lib/provider-display";
 import { DateRangePopover, formatDateShort, getDateFnsLocale } from "./DateRangePopover.jsx";
@@ -918,12 +918,13 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
   // ("本地数据滞后 / 估算 tokens") on it would be a false statement about a
   // ledger that is neither estimated nor stale - it is Qoder's own credit bill.
   const isQoderCn = providerSource === "qoder-cn";
+  const isQoder = providerSource === "qoder";
   const isWorkbuddy = providerSource === "workbuddy";
   const isWorkbuddyAi = providerSource === "workbuddy-ai";
-  // Only the international card is filtered to its own ledger line. The domestic
-  // card still shows both editions until the merged history is re-attributed,
-  // otherwise the international credits would disappear from the panel entirely.
-  const workbuddyEdition = isWorkbuddyAi ? "intl" : null;
+  // Each card filters to its own ledger edition ("cn" / "intl"): the WorkBuddy
+  // AI card carries the international credits, so filtering the domestic card
+  // no longer hides them anywhere on the panel.
+  const workbuddyEdition = isWorkbuddyAi ? "intl" : "cn";
   // Kiro CLI does not report token counts; the overview shows an estimation
   // notice for it instead of a hard number.
   const isKiro =
@@ -948,6 +949,7 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
                         </div>
 
                         {isQoderCn && <QoderCnOfficialSpend from={from} to={to} />}
+                        {isQoder && <QoderIntlCreditsNote />}
                         {(isWorkbuddy || isWorkbuddyAi) && (
                           <WorkbuddyCreditSpend from={from} to={to} edition={workbuddyEdition} />
                         )}
