@@ -141,7 +141,7 @@ export const BADGE_CATALOG = [
   { id: "stepfun_voyager", scope: "local", icon: Milestone, format: "tokens", art: "/achievements/stepfun-voyager.png?v=4" },
   // Wave-6 badges (2026-10-25)
   { id: "dragon_heir", scope: "local", icon: Crown, format: "count", art: "/achievements/dragon-heir.png?v=3" },
-  { id: "kill_line", scope: "local", icon: Sword, format: "percent", art: "/achievements/kill-line.png?v=3" },
+  { id: "kill_line", scope: "local", icon: Sword, format: "percent", art: "/achievements/kill-line.png?v=4" },
 ];
 
 export const BADGE_BY_ID = new Map(BADGE_CATALOG.map((b) => [b.id, b]));

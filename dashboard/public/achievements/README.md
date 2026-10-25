@@ -74,7 +74,7 @@ efactor-titan. Source originals are stored in scripts/art/source-badges/ and com
 - **Remodeled 3D Relief Coins (3 coins)**: deep-thinker, claude-survivor, wishing-well were remodeled from flat 2D silhouettes into authentic 3D sculpted metallic relief coins (scripts/art/source-badges/deep-thinker.jpg, claude-survivor.jpg, wishing-well.jpg) via scripts/art/rebuild-badge-rims.py.
 - **Wave 4 Coins (9 coins)**: zhipu-sage, moonshot-voyager, minimax-abyss, north-america-doubao, hyperspeed-grok, qwen-dynasty, flash-immortal, seedance-master, token-arbitrageur. Compiled via scripts/art/build-wave4-assets.py.
 - **Wave 5 Coins (4 coins)**: meituan-longcat, jd-joy-brother, hunyuan-master, stepfun-voyager. Compiled via scripts/art/mint-wave4-batch2.py.
-- **Wave 6 Coins (2 new + 2 custom)**: dragon-heir, kill-line (new); sprinter and wishing-well keep the owner-approved custom faces. Their coin edge now matches the standard disc; subject fit inside the coin face is still being adjusted.
+- **Wave 6 Coins (2 new + 2 custom)**: dragon-heir, kill-line (new); sprinter and wishing-well keep the owner-approved custom faces. Kill-line now uses the owner's chosen intact DeepSeek whale above a V-shaped blade gouge (`kill-line-v2-source.png`, art v4). Coin edges match the standard disc; the owner reviewed subject-shrink samples for sprinter, wishing-well and dragon-heir, rejected them, and kept the current faces.
 - **Synergy Title Crests (16 crests)**: dashboard/public/achievements/titles/title-*.png (for the 16 geek title resonances). Source originals are stored in scripts/art/source-titles/ and compiled with strict binary alpha.
 
 Rebuild scripts & assets:
