@@ -95,7 +95,7 @@ export function sessionModels(session) {
 // 站主口径 — 速度为 0 的是失败对话，会污染数据). Real sessions measured 17-117 tok/s.
 const MIN_SUMMARY_SPEED_TPS = 1;
 
-export function aggregateSessionPerformance(sessions) {
+export function aggregateSessionPerformance(sessions, { activeOnly = false } = {}) {
   const total = {
     estimated_output_tokens: 0,
     estimated_duration_ms: 0,
@@ -118,6 +118,11 @@ export function aggregateSessionPerformance(sessions) {
     // while every genuinely active session ran at 17-117 tok/s. Failed sessions
     // must not pollute the aggregate; per-row ≈ figures stay untouched.
     const ownSpeed = duration > 0 ? (output * 1000) / duration : 0;
+    // activeOnly: pool only actively timed sessions (precise request windows).
+    // Sessions whose speed came from the wall-clock fallback span whole days of
+    // idle time, so their "throughput" is a different metric than pure
+    // generation speed - the dropdown lets the user pick which lens to see.
+    if (activeOnly && String(session.performance_source || "") === "wall-clock") continue;
     if (duration > 0 && output > 0 && count > 0 && ownSpeed >= MIN_SUMMARY_SPEED_TPS) {
       total.estimated_output_tokens += output;
       total.estimated_duration_ms += duration;
@@ -139,7 +144,7 @@ export function aggregateSessionPerformance(sessions) {
   return total;
 }
 
-export function summarizeSessions(sessions) {
+export function summarizeSessions(sessions, { activeOnly = false } = {}) {
   const seen = new Set();
   const distinct = sessions.filter((session) => {
     if (seen.has(session.session_hash)) return false;
@@ -151,7 +156,7 @@ export function summarizeSessions(sessions) {
     tokens: distinct.reduce((sum, session) => sum + sessionOwnTokens(session), 0),
     cost: distinct.reduce((sum, session) => sum + sessionOwnCost(session), 0),
     costIsPartial: distinct.some((session) => session.cost_is_partial),
-    performance: aggregateSessionPerformance(distinct),
+    performance: aggregateSessionPerformance(distinct, { activeOnly }),
   };
 }
 

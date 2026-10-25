@@ -545,11 +545,11 @@
   "sessions.sort.cost": "費用が高い順",
   "sessions.sort.tokens": "トークン数が多い順",
   "sessions.summary.count": "該当セッション",
-  "sessions.summary.scope": "トークンと費用の合計は、タイムスタンプ付き使用量のあるセッションを選択期間で集計します。使用量バケットのないセッションは累計値を保持します。速度の要約には、自身の生成レートが 1 tok/s 以上のセッションのみを含めます。数日にわたり開かれたままの出力ほぼゼロの失敗/放置セッションは除外されます。",
-  "sessions.summary.speed": "推定速度",
+  "sessions.summary.scope": "トークンと費用の合計は、タイムスタンプ付き使用量のあるセッションを選択期間で集計します。使用量バケットのないセッションは累計値を保持します。速率の要約には、自身の生成レートが 1 tok/s 以上のセッションのみを含めます。数日にわたり開かれたままの出力ほぼゼロの失敗/放置セッションは除外されます。",
+  "sessions.summary.speed": "推定速率",
   "sessions.performance.speed": "約 {{speed}} tok/s",
   "sessions.performance.samples": "計測済みリクエスト {{count}} 件",
-  "sessions.performance.method": "出力トークン数 ÷ 推定リクエスト時間。応答待ちを含み、ツール実行と待機時間を除きます。生成のみの速度ではありません。",
+  "sessions.performance.method": "出力トークン数 ÷ 推定リクエスト時間。応答待ちを含み、ツール実行と待機時間を除きます。生成のみの速率ではありません。",
   "sessions.performance.first_response": "初回応答の待ち時間",
   "sessions.performance.first_response_value": "{{seconds}} 秒 · {{count}} 件",
   "sessions.performance.first_response_method": "報告された最初のトークンまでの平均待ち時間。Codex はターン全体を計測し、1ターンに複数のモデル呼び出しが含まれる場合があります。",
@@ -596,7 +596,7 @@
   "sessions.filter.range_label_all": "全期間",
   "sessions.summary.scope_help": "集計方法について",
   "sessions.col.session": "セッション / プロジェクト",
-  "sessions.col.speed": "速度",
+  "sessions.col.speed": "速率",
   "sessions.col.actions": "操作",
   "sessions.detail.consumption": "使用量と費用",
   "sessions.detail.pricing_details": "料金の詳細",
@@ -769,5 +769,8 @@
   "settings.local_data.error": "転送に失敗しました。",
   "settings.local_data.self": "このスナップショットはこのマシンのものです。",
   "usage.overview.qoder_cn_details_toggle": "算出方法の詳細",
-  "usage.overview.qoder_cn_model_rows_generic": "下のモデル行＝公式のモデル別推定値（新しい Qoder CN ビルドはローカルにトークンを記録しません）"
+  "usage.overview.qoder_cn_model_rows_generic": "下のモデル行＝公式のモデル別推定値（新しい Qoder CN ビルドはローカルにトークンを記録しません）",
+  "sessions.summary.speed_mode_all": "全スパン",
+  "sessions.summary.speed_mode_active": "実測のみ",
+  "sessions.summary.speed_mode_aria": "速度集計の対象を選ぶ"
 }

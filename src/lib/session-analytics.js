@@ -4463,6 +4463,7 @@ function toSessionBrowserRow(row) {
     cost_usd: finite(row.cost_usd),
     cost_source: row.cost_source || null,
     usage_source: row.usage_source || null,
+    performance_source: row.performance_source || null,
     usage_precision: row.usage_precision || null,
     usage_is_incomplete: Boolean(row.usage_is_incomplete),
     cost_is_partial: Boolean(row.cost_is_partial),

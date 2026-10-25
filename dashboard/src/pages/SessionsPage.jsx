@@ -527,7 +527,22 @@ export function SessionsPage() {
     });
   }, [scopedSessions, sourceFilter, projectFilter, modelFilter, rangeFilter, customFrom, customTo, deferredQuery]);
 
-  const summary = useMemo(() => summarizeSessions(filtered), [filtered]);
+  // Speed summary lens: "all" pools every session's span (throughput through
+  // wall-clock), "active" pools only actively timed sessions (pure generation
+  // speed). Persisted so the chosen lens survives reloads.
+  const [speedMode, setSpeedMode] = useState(() => {
+    try { return localStorage.getItem("tt.sessions.speedMode") === "active" ? "active" : "all"; }
+    catch { return "all"; }
+  });
+  const handleSpeedModeChange = useCallback((mode) => {
+    setSpeedMode(mode);
+    try { localStorage.setItem("tt.sessions.speedMode", mode); } catch { /* private mode */ }
+  }, []);
+
+  const summary = useMemo(
+    () => summarizeSessions(filtered, { activeOnly: speedMode === "active" }),
+    [filtered, speedMode],
+  );
 
   const grouped = useMemo(() => {
     const visibleHashes = new Set(filtered.map((row) => row.session_hash));
@@ -734,7 +749,20 @@ export function SessionsPage() {
                     <span>{copy("sessions.summary.speed")}</span>
                     <SessionSummaryHelp />
                   </dt>
-                  <dd className="mt-1 text-lg font-medium tabular-nums"><SessionPerformance performance={summary.performance} />{summary.performance.estimated_tokens_per_second == null ? "—" : null}</dd>
+                  <dd className="mt-1 flex flex-wrap items-baseline gap-x-2 text-lg font-medium tabular-nums">
+                    <span><SessionPerformance performance={summary.performance} />{summary.performance.estimated_tokens_per_second == null ? "—" : null}</span>
+                    <Select
+                      ariaLabel={copy("sessions.summary.speed_mode_aria")}
+                      options={[
+                        { value: "all", label: copy("sessions.summary.speed_mode_all") },
+                        { value: "active", label: copy("sessions.summary.speed_mode_active") },
+                      ]}
+                      value={speedMode}
+                      onValueChange={handleSpeedModeChange}
+                      className="h-6 !min-h-0 rounded px-1.5 !py-0 text-[11px] font-normal"
+                      matchTriggerWidth={false}
+                    />
+                  </dd>
                 </div>
               </dl>
             </section>

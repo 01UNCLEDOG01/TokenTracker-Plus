@@ -769,5 +769,8 @@
   "settings.local_data.error": "전송에 실패했습니다.",
   "settings.local_data.self": "이 스냅샷은 이 컴퓨터에서 내보낸 것입니다.",
   "usage.overview.qoder_cn_details_toggle": "산출 방식 자세히",
-  "usage.overview.qoder_cn_model_rows_generic": "아래 모델 행＝공식 모델별 추정치(최신 Qoder CN 빌드는 로컬에 토큰을 기록하지 않음)"
+  "usage.overview.qoder_cn_model_rows_generic": "아래 모델 행＝공식 모델별 추정치(최신 Qoder CN 빌드는 로컬에 토큰을 기록하지 않음)",
+  "sessions.summary.speed_mode_all": "전체 구간",
+  "sessions.summary.speed_mode_active": "실측만",
+  "sessions.summary.speed_mode_aria": "속도 요약 기준 선택"
 }

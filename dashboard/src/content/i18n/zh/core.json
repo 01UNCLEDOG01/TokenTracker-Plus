@@ -733,7 +733,7 @@
   "limits.alert.enable": "开启额度预测提醒",
   "limits.alert.disable": "关闭额度预测提醒",
   "limits.alert.title": "{{provider}} 额度可能提前用尽",
-  "limits.alert.body": "按当前速度，额度可能在 {{eta}} 后用尽（已用 {{percent}}%）。",
+  "limits.alert.body": "按当前速率，额度可能在 {{eta}} 后用尽（已用 {{percent}}%）。",
   "settings.section.labs": "实验功能",
   "settings.section.labs.description": "提前体验即将成为标准功能的实验性洞察。",
   "limits.alert.blocked": "通知已关闭——去系统设置中允许",

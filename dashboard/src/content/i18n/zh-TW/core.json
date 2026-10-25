@@ -665,7 +665,7 @@
   "limits.alert.enable": "開啟額度預測提醒",
   "limits.alert.disable": "關閉額度預測提醒",
   "limits.alert.title": "{{provider}} 額度可能提前用盡",
-  "limits.alert.body": "按目前速度，額度可能在 {{eta}} 後用盡（已使用 {{percent}}%）。",
+  "limits.alert.body": "按目前速率，額度可能在 {{eta}} 後用盡（已使用 {{percent}}%）。",
   "settings.section.labs": "實驗功能",
   "settings.section.labs.description": "提前體驗即將成為標準功能的實驗性洞察。",
   "limits.alert.blocked": "通知已關閉——請到系統設定允許",
