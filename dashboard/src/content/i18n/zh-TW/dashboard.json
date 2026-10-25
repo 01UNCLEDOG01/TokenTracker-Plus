@@ -1014,7 +1014,7 @@
   "sessions.sort.cost": "費用最多",
   "sessions.sort.tokens": "Tokens 最多",
   "sessions.summary.count": "相符會話",
-  "sessions.summary.scope": "有時間用量記錄的會話按所選日期彙總 token 和成本；沒有用量時間桶的會話保留完整歷史。輪數、時長和效能指標仍描述整個會話。每個會話和子代理僅計一次。",
+  "sessions.summary.scope": "Token 與費用合計按所選日期統計有時間戳用量的會話；無用量分桶的會話保留生涯合計。輪次、時長與效能指標描述完整會話。每個會話與子代理只計一次。速度彙總只計入自身生成比率不低於 1 tok/s 的會話——掛起數天、近零輸出的失敗/掛機對話會被排除，不污染聚合。",
   "sessions.summary.speed": "估算速度",
   "sessions.performance.speed": "約 {{speed}} tok/s",
   "sessions.performance.samples": "{{count}} 個有效計時請求",

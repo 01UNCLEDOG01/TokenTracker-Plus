@@ -545,7 +545,7 @@
   "sessions.sort.cost": "費用が高い順",
   "sessions.sort.tokens": "トークン数が多い順",
   "sessions.summary.count": "該当セッション",
-  "sessions.summary.scope": "時刻付きの使用量があるセッションでは、選択した日付内のトークンと費用を集計します。使用量バケットがない場合は全期間の合計を保持します。ターン数、時間、性能はセッション全体の指標です。各セッションとサブエージェントは一度だけ集計します。",
+  "sessions.summary.scope": "トークンと費用の合計は、タイムスタンプ付き使用量のあるセッションを選択期間で集計します。使用量バケットのないセッションは累計値を保持します。速度の要約には、自身の生成レートが 1 tok/s 以上のセッションのみを含めます。数日にわたり開かれたままの出力ほぼゼロの失敗/放置セッションは除外されます。",
   "sessions.summary.speed": "推定速度",
   "sessions.performance.speed": "約 {{speed}} tok/s",
   "sessions.performance.samples": "計測済みリクエスト {{count}} 件",

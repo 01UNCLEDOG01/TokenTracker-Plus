@@ -90,6 +90,11 @@ export function sessionModels(session) {
   }];
 }
 
+// Sessions whose own measured ratio falls under this are treated as failed or
+// abandoned wall-clock spans and excluded from the pooled speed (KI: 2026-10-25
+// 站主口径 — 速度为 0 的是失败对话，会污染数据). Real sessions measured 17-117 tok/s.
+const MIN_SUMMARY_SPEED_TPS = 1;
+
 export function aggregateSessionPerformance(sessions) {
   const total = {
     estimated_output_tokens: 0,
@@ -106,7 +111,14 @@ export function aggregateSessionPerformance(sessions) {
     const duration = finiteValue(performance.estimated_duration_ms);
     const output = finiteValue(performance.estimated_output_tokens);
     const count = finiteValue(performance.estimated_request_count);
-    if (duration > 0 && output > 0 && count > 0) {
+    // A session whose own ratio lands below ~1 tok/s is a wall-clock span with
+    // no real generation: failed or abandoned conversations left open for days
+    // (one 340-hour Qoder session produced 0.1M tokens). Their spans used to
+    // make up two thirds of the pooled time and dragged the summary to ~7 tok/s
+    // while every genuinely active session ran at 17-117 tok/s. Failed sessions
+    // must not pollute the aggregate; per-row ≈ figures stay untouched.
+    const ownSpeed = duration > 0 ? (output * 1000) / duration : 0;
+    if (duration > 0 && output > 0 && count > 0 && ownSpeed >= MIN_SUMMARY_SPEED_TPS) {
       total.estimated_output_tokens += output;
       total.estimated_duration_ms += duration;
       total.estimated_request_count += count;

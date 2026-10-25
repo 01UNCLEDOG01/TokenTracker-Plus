@@ -2120,7 +2120,7 @@ sessions.sort.recent,ui,SessionsPage,SessionInsights,recent,Recent,,active
 sessions.sort.cost,ui,SessionsPage,SessionInsights,cost,Highest cost,,active
 sessions.sort.tokens,ui,SessionsPage,SessionInsights,tokens,Most tokens,,active
 sessions.summary.count,ui,SessionsPage,SessionInsights,count,Matching sessions,,active
-sessions.summary.scope,ui,SessionsPage,SessionInsights,scope,"Token and cost totals use the selected dates for sessions with timestamped usage. Sessions without usage buckets retain lifetime totals. Turn, duration and performance metrics describe the full session. Each session and subagent is counted once.",,active
+sessions.summary.scope,ui,SessionsPage,SessionInsights,scope,"Token and cost totals use the selected dates for sessions with timestamped usage. Sessions without usage buckets retain lifetime totals. Turn, duration and performance metrics describe the full session. Each session and subagent is counted once. The speed summary only pools sessions whose own generation ratio is at least 1 tok/s - abandoned or failed wall-clock spans (opened for days, near-zero output) are excluded so they cannot dilute the figure.",,active
 sessions.summary.speed,ui,SessionsPage,SessionInsights,speed,Estimated speed,,active
 sessions.performance.speed,ui,SessionsPage,SessionInsights,speed,≈{{speed}} tok/s,,active
 sessions.performance.samples,ui,SessionsPage,SessionInsights,samples,{{count}} timed requests,,active

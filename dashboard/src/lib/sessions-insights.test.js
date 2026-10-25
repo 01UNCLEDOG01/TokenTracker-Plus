@@ -34,6 +34,19 @@ describe("session statistics", () => {
     expect(performance).toMatchObject({ estimated_output_tokens: 200, estimated_duration_ms: 10000, estimated_request_count: 3, estimated_tokens_per_second: 20, first_response_ms: 2000, first_response_sample_count: 3 });
   });
 
+  it("excludes failed/abandoned wall-clock spans from the pooled speed", () => {
+    // A 340-hour abandoned conversation: 0.1M output over 1.23e9 ms ≈ 0.1 tok/s.
+    // It used to contribute its whole span to the pool and dragged the summary
+    // to ~7 tok/s while the real sessions here run at 20+.
+    const performance = aggregateSessionPerformance([
+      { performance: { estimated_output_tokens: 100_000, estimated_duration_ms: 1000, estimated_request_count: 4, estimated_tokens_per_second: 100 } },
+      { performance: { estimated_output_tokens: 100_000, estimated_duration_ms: 1_226_000_000, estimated_request_count: 9, estimated_tokens_per_second: 0.08 } },
+      { performance: { estimated_output_tokens: 200_000, estimated_duration_ms: 4000, estimated_request_count: 2, estimated_tokens_per_second: 50 } },
+    ]);
+    // Only the two healthy sessions enter the pool: 300k over 5s.
+    expect(performance).toMatchObject({ estimated_output_tokens: 300_000, estimated_duration_ms: 5000, estimated_tokens_per_second: 60_000 });
+  });
+
   it("retains zero own values and supports old servers without model rows", () => {
     expect(sessionModels({ model: "old", own_total_tokens: 0, total_tokens: 1000, own_cost_usd: 0, cost_usd: 10 })).toEqual([{ model: "old", total_tokens: 0, cost_usd: 0, performance: undefined }]);
   });

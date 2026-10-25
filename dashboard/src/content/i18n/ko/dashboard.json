@@ -545,7 +545,7 @@
   "sessions.sort.cost": "비용 높은 순",
   "sessions.sort.tokens": "토큰 많은 순",
   "sessions.summary.count": "일치하는 세션",
-  "sessions.summary.scope": "시간별 사용량이 있는 세션은 선택한 날짜의 토큰과 비용을 합산합니다. 사용량 버킷이 없으면 전체 기간 합계를 유지합니다. 턴 수, 시간, 성능은 전체 세션을 설명합니다. 각 세션과 하위 에이전트는 한 번만 집계합니다.",
+  "sessions.summary.scope": "토큰과 비용 합계는 타임스탬프가 있는 사용량의 세션을 선택한 기간으로 집계합니다. 속도 요약에는 자체 생성 비율이 1 tok/s 이상인 세션만 포함됩니다. 며칠 열려 있고 출력이 거의 없는 실패/방치 세션은 제외됩니다.",
   "sessions.summary.speed": "추정 속도",
   "sessions.performance.speed": "약 {{speed}} tok/s",
   "sessions.performance.samples": "유효한 요청 시간 샘플 {{count}}개",
