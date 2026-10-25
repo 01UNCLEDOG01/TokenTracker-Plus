@@ -1171,7 +1171,7 @@
   "achievements.badge.dragon_heir.name": "龙的传人",
   "achievements.badge.dragon_heir.desc": "使用国产大模型家族——DeepSeek、通义、智谱、Kimi、混元……龙的传人当之无愧。",
   "achievements.badge.kill_line.name": "斩杀线",
-  "achievements.badge.kill_line.desc": "DeepSeek 模型占全部 token 的比例越过斩杀线。",
+  "achievements.badge.kill_line.desc": "DeepSeek 系占全部 token 的比例过半，即为斩杀线——越过 50%，它就是你的默认。",
   "settings.section.localData": "本机数据",
   "settings.section.localData.description": "导出或导入本机的用量快照。",
   "settings.local_data.title": "本机数据备份",

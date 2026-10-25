@@ -781,7 +781,7 @@
   "achievements.badge.meituan_longcat.desc": "노란 캥거루 품속의 아기 고양이 — Meituan LongCat이 모든 것을 움직여 코드를 배달합니다.",
   "achievements.badge.stepfun_voyager.desc": "산해를 뛰어넘어 별을 오르다 — StepFun이 초대형 컨텍스트와 조 단위 연산의 정상에 섭니다.",
   "achievements.badge.dragon_heir.desc": "국산 모델 패밀리를 사용하세요 — DeepSeek, Qwen, Zhipu, Kimi, Hunyuan 등. 용의 후계자답습니다.",
-  "achievements.badge.kill_line.desc": "DeepSeek 모델이 전체 토큰에서 차지하는 비율이 킬 라인을 넘었습니다.",
+  "achievements.badge.kill_line.desc": "전체 토큰에서 DeepSeek 계열이 절반을 넘으면 킬 라인 — 50%를 넘으면 그것이 당신의 기본이 됩니다.",
   "achievements.badge.meituan_longcat.name": "먹보 고양이",
   "achievements.badge.jd_joy_brother.name": "너는 내 형제",
   "achievements.badge.hunyuan_master.name": "혼원귀일",

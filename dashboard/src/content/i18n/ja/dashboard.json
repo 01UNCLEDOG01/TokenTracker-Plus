@@ -781,7 +781,7 @@
   "achievements.badge.meituan_longcat.desc": "黄色いカンガルーのポケットの子猫——Meituan LongCat が万物を動かし、コードを届けます。",
   "achievements.badge.stepfun_voyager.desc": "山海を躍り、星辰を駆け上がる——StepFun が超大規模コンテキストと兆規模の計算力の頂へ。",
   "achievements.badge.dragon_heir.desc": "国産モデルファミリーを使いこなす——DeepSeek、Qwen、Zhipu、Kimi、Hunyuan など。龍の後継者にふさわしい。",
-  "achievements.badge.kill_line.desc": "DeepSeek モデルが全トークンに占める割合がキルラインを超えました。",
+  "achievements.badge.kill_line.desc": "全トークンのうち DeepSeek 系が半分を超えたらキルライン——50% を越えれば、それがあなたの既定になります。",
   "achievements.badge.meituan_longcat.name": "食いしん坊ねこ",
   "achievements.badge.jd_joy_brother.name": "お前は俺の兄弟",
   "achievements.badge.hunyuan_master.name": "混元帰一",

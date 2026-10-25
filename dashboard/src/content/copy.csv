@@ -1513,7 +1513,7 @@ achievements.badge.stepfun_voyager.desc,dashboard,*,BadgeDetailModal,stepfun_voy
 achievements.badge.dragon_heir.name,dashboard,*,AchievementsSection,dragon_heir_name,"Dragon Heir",,active
 achievements.badge.dragon_heir.desc,dashboard,*,BadgeDetailModal,dragon_heir_desc,"Use domestic model families across DeepSeek, Qwen, Zhipu, Kimi, Hunyuan and more.",,active
 achievements.badge.kill_line.name,dashboard,*,AchievementsSection,kill_line_name,"Kill Line",,active
-achievements.badge.kill_line.desc,dashboard,*,BadgeDetailModal,kill_line_desc,"The DeepSeek share of your lifetime tokens crosses the kill line.",,active
+achievements.badge.kill_line.desc,dashboard,*,BadgeDetailModal,kill_line_desc,"DeepSeek takes more than half of all your tokens — that is the kill line: past 50%, it becomes your default.",,active
 achievements.action.test_unlock,dashboard,AchievementsPage,AchievementsPage,action_test_unlock,"Test Unlock",,active
 achievements.action.test_tier_up,dashboard,AchievementsPage,AchievementsPage,action_test_tier_up,"Test Promotion",,active
 achievements.action.test_resonance,dashboard,AchievementsPage,AchievementsPage,action_test_resonance,"Test Synergy",,active

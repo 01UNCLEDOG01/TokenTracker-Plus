@@ -1230,7 +1230,7 @@
   "achievements.badge.dragon_heir.name": "龍的傳人",
   "achievements.badge.dragon_heir.desc": "使用國產大模型家族——DeepSeek、通義、智譜、Kimi、混元……龍的傳人當之無愧。",
   "achievements.badge.kill_line.name": "斬殺線",
-  "achievements.badge.kill_line.desc": "DeepSeek 模型佔全部 token 的比例越過斬殺線。",
+  "achievements.badge.kill_line.desc": "DeepSeek 系佔全部 token 的比例過半，即為斬殺線——越過 50%，它就是你的預設。",
   "settings.section.localData": "本機資料",
   "settings.section.localData.description": "匯出或匯入本機的用量快照。",
   "settings.local_data.title": "本機資料備份",
