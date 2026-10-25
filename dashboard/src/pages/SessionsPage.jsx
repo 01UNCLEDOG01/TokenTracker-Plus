@@ -52,6 +52,7 @@ const SOURCE_FILTERS = [
   { id: "cola", label: () => "Cola" },
   { id: "tuanjie-cowork", label: () => "Tuanjie Cowork" },
   { id: "kimi", label: () => copy("leaderboard.column.kimi") },
+  { id: "omp", label: () => "oh-my-pi" },
 ];
 
 const DATE_RANGES = [
