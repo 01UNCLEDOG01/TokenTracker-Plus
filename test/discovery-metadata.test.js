@@ -22,21 +22,21 @@ const TOOL_COUNT = SUPPORTED_PROVIDERS.length;
 const README_EXPECTATIONS = [
   [
     "README.md",
-    () => new RegExp(`${TOOL_COUNT} AI coding tools`),
-    () => new RegExp(`\\|\\s+\\*\\*AI tools supported\\*\\*\\s+\\|\\s+\\*\\*${TOOL_COUNT}\\*\\*`),
-    /Rate-limit tracking.*✅ 17 providers/,
+    () => new RegExp(`${TOOL_COUNT} 款 AI 编码工具`),
+    () => /支持的 AI 工具数.*52/,
+    /限额追踪.*✅ 18 家 provider/,
   ],
   [
-    "README.zh-CN.md",
-    () => new RegExp(`${TOOL_COUNT} 款 AI 编码工具`),
-    () => new RegExp(`\\|\\s+\\*\\*支持的 AI 工具数\\*\\*\\s+\\|\\s+\\*\\*${TOOL_COUNT}\\*\\*`),
-    /限额追踪.*✅ 17 家 provider/,
+    "README.en.md",
+    () => new RegExp(`${TOOL_COUNT} AI coding tools`),
+    () => /AI tools supported.*52/,
+    /Rate-limit tracking.*✅ 18 providers/,
   ],
   [
     "README.zh-TW.md",
     () => new RegExp(`${TOOL_COUNT} 款 AI 編碼工具`),
     () => /支援的 AI 工具數.*52/,
-    /限額追蹤.*✅ 17 家 provider/,
+    /限額追蹤.*✅ 18 家 provider/,
   ],
 ];
 
@@ -83,7 +83,7 @@ test("public discovery surfaces describe every supported tool", () => {
   assert.match(index, /Achievements/);
   assert.match(index, /Service Status page/);
   assert.match(index, /__TOKENTRACKER_DISCOVERY_TRACKED_USAGE__/);
-  assert.match(read("dashboard/src/content/copy.csv"), /landing\.discovery\.tracked_usage,.*usage limits for 17 providers/i);
+  assert.match(read("dashboard/src/content/copy.csv"), /landing\.discovery\.tracked_usage,.*usage limits for 18 providers/i);
 
   const llms = read("dashboard/public/llms.txt");
   assert.match(llms, new RegExp(`Supported AI coding tools \\(${TOOL_COUNT}\\)`));

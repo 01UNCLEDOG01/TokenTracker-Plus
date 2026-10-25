@@ -118,7 +118,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 |:---|:---:|:---:|:---:|
 | **Architecture & Focus** | **Macro Ledger + Deep Topology + Real-Time Speed** | General All-in-One Dashboard (optional hosted cloud) | Minimalist Desktop Floating Widget |
 | **AI tools supported** | **52** | 46 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
-| **Rate-limit tracking** | **✅ 17 providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
+| **Rate-limit tracking** | **✅ 18 providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
 | **Primary Interaction** | **Windows Tray + Web Dashboard + Widgets + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
 | **Data Privacy & Storage** | **100% Local-First** (Zero cloud requirement, WAL-aware) | Local SQLite + Optional official cloud sync | Local SQLite WAL (No macro historical reporting) |
 | **Token Speed (tok/s)** | **✅ Native Support** (Nanosecond duration, reasoning tokens) | ❌ Only totals and spend; no speed metrics | ✅ Supported (Key highlight of floating widget) |

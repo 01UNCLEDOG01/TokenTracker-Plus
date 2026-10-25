@@ -18,6 +18,16 @@ import { cycleView, countdownText, remainingLabel } from "../../../lib/subscript
 
 const LIMITS_PROVIDER_ICON_CLASS = "shrink-0 text-oai-black dark:text-oai-white";
 
+const PROVIDER_KEY_ENV = {
+  opencodeGo: "OPENCODE_GO_API_KEY",
+  commandCode: "COMMAND_CODE_API_KEY",
+};
+
+const PROVIDER_KEY_STORE_ID = {
+  opencodeGo: "opencode-go",
+  commandCode: "command-code",
+};
+
 function commandCodeSetupPlatform() {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent || "";
   return /Windows/i.test(ua) ? "windows" : /Linux/i.test(ua) ? "linux" : "macos";
@@ -92,10 +102,10 @@ function formatCreditAmount(
   }).format(n);
 }
 
-function buildQuotaDetail(window) {
+function buildQuotaDetail(window, maximumFractionDigits) {
   if (!window || typeof window !== "object") return null;
   if (!(Number(window.limit_credits) > 0)) return null;
-  const formatOptions = { useGrouping: window.unit !== "calls" };
+  const formatOptions = { useGrouping: window.unit !== "calls", maximumFractionDigits };
   const used = formatCreditAmount(window.used_credits, formatOptions);
   const limit = formatCreditAmount(window.limit_credits, formatOptions);
   const remaining = formatCreditAmount(window.remaining_credits, formatOptions);
@@ -141,7 +151,7 @@ function buildWindowHoverDetail(spec, pace, mode) {
   if (exact) {
     lines.push(copy(spec.timeKind === "expiry" ? "limits.hover.expires_at" : "limits.hover.resets_at", { time: exact }));
   }
-  const quota = buildQuotaDetail(spec.window);
+  const quota = buildQuotaDetail(spec.window, spec.creditPrecision);
   if (quota) lines.push(quota);
   return lines.join("\n");
 }
@@ -149,11 +159,35 @@ function buildWindowHoverDetail(spec, pace, mode) {
 // Shared with the session browser; see ui/components/HoverTooltip.jsx.
 const Tooltip = HoverTooltip;
 
-function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePercent = null, paceOver = false, title = null, share = false }) {
+// Slices of a segmented pool bar share the pool's threshold hue and fade per
+// product in API order, like grok.com's usage bar.
+const SEGMENT_OPACITIES = [1, 0.65, 0.45, 0.3, 0.2];
+
+function segmentOpacity(index) {
+  return SEGMENT_OPACITIES[Math.min(index, SEGMENT_OPACITIES.length - 1)];
+}
+
+function PaceMarker({ paceX, paceOver }) {
+  return (
+    <>
+      {/* Notch: a slice of bare track that "cuts" the fill, so the mark reads
+          as a marker and stays visible even over a same-colored fill. */}
+      <div
+        className="absolute top-0 h-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
+        style={{ left: `calc(${paceX}% - 3px)`, width: "6px" }}
+      />
+      <div
+        className={`absolute top-0 h-full ${paceOver ? "bg-red-500" : "bg-emerald-500"}`}
+        style={{ left: `calc(${paceX}% - 1px)`, width: "2px" }}
+      />
+    </>
+  );
+}
+
+function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePercent = null, paceOver = false, title = null, segments = null }) {
   const rawUsed = Math.max(0, Math.min(100, Number(pct) || 0));
-  // A product share is points of the pool, not a quota that fills at 100%.
-  const displayPct = !share && mode === LIMIT_DISPLAY_MODES.REMAINING ? 100 - rawUsed : rawUsed;
-  const colorMode = share ? LIMIT_DISPLAY_MODES.USED : mode;
+  const displayPct = mode === LIMIT_DISPLAY_MODES.REMAINING ? 100 - rawUsed : rawUsed;
+  const fillColor = barColor(displayPct, mode);
   const rounded = Math.round(displayPct);
   // Sub-1% still matters (e.g. team pool); keep bar/text from collapsing to 0%.
   const widthPct = displayPct > 0 && rounded === 0 ? Math.max(displayPct, 0.35) : displayPct;
@@ -162,6 +196,10 @@ function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePerc
     labelPct = copy("limits.bar.sub_one_percent");
   }
   const paceX = pacePercent == null ? null : Math.max(0, Math.min(100, pacePercent));
+  const segmentWeights = segments?.map((segment) => Math.max(0, Math.min(100, Number(segment.pct) || 0)));
+  const segmentTotal = segmentWeights?.reduce((sum, pct) => { return sum + pct; }, 0) || 0;
+  const unallocatedUsedWeight = segments ? Math.max(0, rawUsed - segmentTotal) : 0;
+  const remainingWeight = Math.max(0, 100 - segmentTotal - unallocatedUsedWeight);
   return (
     <div className="group relative flex items-center gap-2">
       <Tooltip text={title} />
@@ -172,26 +210,32 @@ function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePerc
       >
         {label}
       </span>
-      <div className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden">
-        <div
-          className={`${barColor(displayPct, colorMode)} rounded-full h-full transition-[width] duration-500 ease-out`}
-          style={{ width: `${widthPct}%`, minWidth: displayPct > 0 ? "3px" : 0 }}
-        />
-        {paceX != null && (
-          <>
-            {/* Notch: a slice of bare track that "cuts" the fill, so the mark reads
-                as a marker and stays visible even over a same-colored fill. */}
+      {segments ? (
+        <div data-limit-segments="" className="relative flex flex-1 h-1.5 overflow-hidden" style={{ gap: "min(2px, 1%)" }}>
+          {segments.map((segment, index) => (
             <div
-              className="absolute top-0 h-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
-              style={{ left: `calc(${paceX}% - 3px)`, width: "6px" }}
+              key={segment.key}
+              data-limit-segment={segment.key}
+              className={`${fillColor} min-w-0 rounded-full h-full transition-[flex-grow] duration-500 ease-out`}
+              style={{
+                flex: `${segmentWeights[index]} 1 0px`,
+                opacity: segmentOpacity(index),
+              }}
             />
-            <div
-              className={`absolute top-0 h-full ${paceOver ? "bg-red-500" : "bg-emerald-500"}`}
-              style={{ left: `calc(${paceX}% - 1px)`, width: "2px" }}
-            />
-          </>
-        )}
-      </div>
+          ))}
+          {unallocatedUsedWeight ? <div data-limit-unallocated-used="" className={`${fillColor} min-w-0 rounded-full h-full`} style={{ flex: `${unallocatedUsedWeight} 1 0px`, opacity: segmentOpacity(segments.length) }} /> : null}
+          {remainingWeight ? <div data-limit-remainder="" className="min-w-0 rounded-full h-full bg-oai-gray-100 dark:bg-oai-gray-700/50" style={{ flex: `${remainingWeight} 1 0px` }} /> : null}
+          {paceX != null && <PaceMarker paceX={paceX} paceOver={paceOver} />}
+        </div>
+      ) : (
+        <div className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden">
+          <div
+            className={`${fillColor} rounded-full h-full transition-[width] duration-500 ease-out`}
+            style={{ width: `${widthPct}%`, minWidth: displayPct > 0 ? "3px" : 0 }}
+          />
+          {paceX != null && <PaceMarker paceX={paceX} paceOver={paceOver} />}
+        </div>
+      )}
       <span className="text-[11px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400 w-9 text-right shrink-0 whitespace-nowrap">
         {labelPct}%
       </span>
@@ -202,14 +246,37 @@ function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePerc
   );
 }
 
+/** Dot + name + share for each slice of a segmented bar, aligned under the bar. */
+function LimitSegmentLegend({ segments, fillColor }) {
+  return (
+    <div
+      data-limit-legend=""
+      className="-mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-snug"
+      style={{ paddingLeft: "calc(var(--tt-limits-label-w, 0px) + 0.5rem)" }}
+    >
+      {segments.map((segment, index) => (
+        <span key={segment.key} className="inline-flex items-center gap-1 whitespace-nowrap">
+          <span
+            aria-hidden
+            className={`${fillColor} inline-block h-1.5 w-1.5 shrink-0 rounded-full`}
+            style={{ opacity: segmentOpacity(index) }}
+          />
+          <span className="text-oai-gray-500 dark:text-oai-gray-400">{segment.label ?? copy(segment.labelKey)}</span>
+          <span className="tabular-nums text-oai-gray-700 dark:text-oai-gray-200">{formatPercentValue(segment.pct)}%</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
  * One window's explanation line. Adds only what the bar doesn't already show:
  * pace status + a current-rate projection. Used %, reset time live on the bar.
  */
 function explainLineFor(spec, pace, mode) {
   const label = spec.label ?? copy(spec.labelKey);
-  // Remaining mode flips a real quota to "how much is left". A product share stays the used percent.
-  const remaining = mode === LIMIT_DISPLAY_MODES.REMAINING && spec.share !== true;
+  // In remaining mode every percentage flips to "how much is left".
+  const remaining = mode === LIMIT_DISPLAY_MODES.REMAINING;
   const projection = (usedPct) => (remaining ? 100 - usedPct : usedPct);
   // No trusted window length (monthly / billing cycle): just the usage.
   if (pace.expectedPercent == null) {
@@ -233,24 +300,32 @@ function rowHasPaceMarker({ pace }) {
   return pace.pacePercent != null;
 }
 
+/** The footnote explains the pace marker, so it follows the rows that draw one. */
+function paceFootnoteRemaining(rows, mode) {
+  return rows.some((row) => rowHasPaceMarker(row) && (row.mode ?? mode) === LIMIT_DISPLAY_MODES.REMAINING);
+}
+
 function LimitDetail({ rows, mode, now = Date.now() }) {
   if (rows.length === 0) return null;
-  const remaining = mode === LIMIT_DISPLAY_MODES.REMAINING;
+  const remaining = paceFootnoteRemaining(rows, mode);
   const hasPaceMarker = rows.some(rowHasPaceMarker);
   // No own background or extra horizontal padding: it sits on the expanded
   // group's tint and lines up flush-left with the bars above.
   return (
     <div className="mt-1 flex flex-col gap-1">
-      {rows.map(({ spec, pace }) => {
+      {rows.map(({ spec, pace, mode: rowMode = mode }) => {
         const exact = formatExactReset(resetToMs(readWindowReset(spec.window, spec.resetField)));
         return (
           <div key={spec.key} className="text-[11px] leading-snug text-oai-gray-600 dark:text-oai-gray-300">
-            {explainLineFor(spec, pace, mode)}
+            {explainLineFor(spec, pace, rowMode)}
             {exact ? (
               <span className="text-oai-gray-400 dark:text-oai-gray-500">
                 {" · "}
                 {copy(spec.timeKind === "expiry" ? "limits.hover.expires_at" : "limits.hover.resets_at", { time: exact })}
               </span>
+            ) : null}
+            {spec.showCreditDetail ? (
+              <div>{buildQuotaDetail(spec.window, spec.creditPrecision)}</div>
             ) : null}
           </div>
         );
@@ -383,7 +458,9 @@ function ToolGroup({ name, providerId, children, expandable = false, expanded = 
           onToggle?.();
         }
       }}
-      className="flex flex-col gap-1.5 -mx-1.5 px-1.5 py-1 rounded-lg cursor-pointer transition-colors hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40 aria-expanded:bg-oai-gray-50 dark:aria-expanded:bg-oai-gray-800/40"
+      // Expanding reveals detail (e.g. Grok's per-product slices), so keyboard
+      // focus needs the same visible ring as the card's other toggles.
+      className="flex flex-col gap-1.5 -mx-1.5 px-1.5 py-1 rounded-lg cursor-pointer transition-colors hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40 aria-expanded:bg-oai-gray-50 dark:aria-expanded:bg-oai-gray-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
     >
       {header}
       {children}
@@ -513,23 +590,33 @@ function StatusLine({ children, tone = "neutral" }) {
   return <div className={`text-[11px] leading-snug ${color}`}>{children}</div>;
 }
 
-function LimitWindowSection({ rows, mode, extra = null }) {
+function LimitWindowSection({ rows, mode, extra = null, expanded = false }) {
   const showEmpty = rows.length === 0 && !extra;
   return (
     <>
-      {rows.map(({ spec, pace }) => (
-        <LimitBar
-          key={spec.key}
-          label={spec.label ?? copy(spec.labelKey)}
-          pct={readWindowPct(spec.window, spec.pctField)}
-          reset={formatReset(readWindowReset(spec.window, spec.resetField))}
-          mode={mode}
-          share={spec.share === true}
-          pacePercent={pace.pacePercent}
-          paceOver={pace.paceOver}
-          title={buildWindowHoverDetail(spec, pace, mode)}
-        />
-      ))}
+      {rows.map(({ spec, pace, mode: rowMode = mode }) => {
+        const pct = readWindowPct(spec.window, spec.pctField);
+        // The per-product split is detail: collapsed shows the whole pool,
+        // expanding the group splits the bar and adds the legend.
+        const segments = expanded ? spec.segments : null;
+        return (
+          <React.Fragment key={spec.key}>
+            <LimitBar
+              label={spec.label ?? copy(spec.labelKey)}
+              pct={pct}
+              reset={formatReset(readWindowReset(spec.window, spec.resetField))}
+              mode={rowMode}
+              segments={segments}
+              pacePercent={pace.pacePercent}
+              paceOver={pace.paceOver}
+              title={buildWindowHoverDetail(spec, pace, rowMode)}
+            />
+            {segments ? (
+              <LimitSegmentLegend segments={segments} fillColor={barColor(pct, LIMIT_DISPLAY_MODES.USED)} />
+            ) : null}
+          </React.Fragment>
+        );
+      })}
       {showEmpty ? <StatusLine>{copy("limits.status.no_data")}</StatusLine> : null}
       {extra}
     </>
@@ -942,14 +1029,19 @@ function ZcodeStartPlanSection({ data, mode, now }) {
   );
 }
 
-function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, subscription = null, now = Date.now()) {
+function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, subscription = null, now = Date.now(), onKeySaved = null) {
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
   // Pace is computed once per window here and shared by the bar + the detail.
+  // A segmented pool always reads as used, like grok.com: its slices only add
+  // up to the headline in that orientation.
   const rows = spec
     .windows(data)
     .filter((s) => s.window)
-    .map((s) => ({ spec: s, pace: paceForSpec(s, mode, now) }));
+    .map((s) => {
+      const rowMode = s.productPool ? LIMIT_DISPLAY_MODES.USED : mode;
+      return { spec: s, mode: rowMode, pace: paceForSpec(s, rowMode, now) };
+    });
   const extra = renderProviderExtra(spec.extra, data);
   return (
     <ToolGroup
@@ -963,7 +1055,10 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       rightAdornment={subscription ? <SubscriptionRightBadge subscription={subscription} /> : null}
       toggleOnHeader={id === "zcode"}
     >
-      <LimitWindowSection mode={mode} rows={rows} extra={extra} />
+      <LimitWindowSection mode={mode} rows={rows} extra={extra} expanded={expanded} />
+      {id === "opencodeGo" || id === "commandCode" ? (
+        <EnvCredentialNotice providerId={id} data={data} onSaved={onKeySaved} />
+      ) : null}
       {subscription ? <SubscriptionBar subscription={subscription} now={now} mode={mode} /> : null}
       {expanded ? <LimitDetail rows={rows} mode={mode} now={now} /> : null}
       {expanded && subscription ? (
@@ -1003,7 +1098,7 @@ function renderUnlinkedProvider(id, statusNodes, expanded, onToggle, subscriptio
   );
 }
 
-function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = null, now = Date.now()) {
+function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = null, now = Date.now(), onKeySaved = null) {
   if (!PROVIDER_LIMIT_SPECS[id]) return null;
   if (!data?.configured) {
     return renderUnlinkedProvider(
@@ -1122,7 +1217,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       tooltip={copy("limits.provenance.tooltip", { source: provenance.source, confidence: provenance.confidence })}
     />;
   }
-  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, subscription, now);
+  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, subscription, now, onKeySaved);
 }
 
 function CopilotOtelHint({ defaultDir }) {
@@ -1516,13 +1611,106 @@ function useWidestLabelWidth(containerRef) {
   return labelWidth;
 }
 
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, raccoon, deepseek, trae, traeMain, codearts, clinePass, agentRouter };
+function ProviderKeyInput({ provider, onSaved }) {
+  const [apiKey, setApiKey] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = apiKey.trim();
+    if (!value || status === "saving") return;
+    setStatus("saving");
+    setError(false);
+    try {
+      await saveProviderApiKey(provider, value);
+      setApiKey("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("idle");
+      setError(true);
+    }
+  };
+
+  return (
+    <form
+      className="mt-1.5 space-y-1.5"
+      onSubmit={onSubmit}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => {
+            setApiKey(e.target.value);
+            setStatus("idle");
+            setError(false);
+          }}
+          placeholder={copy("limits.apiKey.placeholder")}
+          aria-label={copy("limits.apiKey.placeholder")}
+          autoComplete="new-password"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[11px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+        />
+        <button
+          type="submit"
+          disabled={!apiKey.trim() || status === "saving"}
+          className="shrink-0 rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.apiKey.saving")
+            : status === "saved"
+              ? copy("limits.apiKey.saved")
+              : copy("limits.apiKey.save")}
+        </button>
+      </div>
+      <div className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+        {error ? copy("limits.apiKey.save_failed") : copy("limits.apiKey.local_note")}
+      </div>
+    </form>
+  );
+}
+
+// A key can still arrive through the process environment (wrapper scripts,
+// headless installs). Show where it came from and how to stop exporting it
+// globally, because the env value shadows any key saved in the panel.
+function EnvCredentialNotice({ providerId, data, onSaved }) {
+  if (data?.credential_source !== "env") return null;
+  const envName = PROVIDER_KEY_ENV[providerId];
+  const storeId = PROVIDER_KEY_STORE_ID[providerId];
+  if (!envName || !storeId) return null;
+  return (
+    <div className="mt-1.5 rounded-md border border-amber-300/60 bg-amber-50/60 px-2 py-1.5 text-[10.5px] leading-snug text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+      <div>{copy("limits.apiKey.env_note", { env: envName })}</div>
+      <ProviderKeyInput provider={storeId} onSaved={onSaved} />
+      {commandCodeSetupPlatform() === "macos" ? (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <code className="rounded bg-white/70 px-1 py-0.5 font-mono text-[10px] dark:bg-oai-gray-900/60">
+            {copy("limits.apiKey.env_unset_command", { env: envName })}
+          </code>
+          <span>{copy("limits.apiKey.env_unset_note")}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// OpenCode Go limits come from OpenCode's official authenticated usage API
+// (GET /zen/go/v1/usage, Bearer OPENCODE_GO_API_KEY) once the user subscribes.
+// The key is entered here and stored by the backend in a 0600 file — never in
+// the launch environment, whose global scope is what leaked it into other apps
+// (issue 837). The panel only ever sends the key to the loopback backend.
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, raccoon, deepseek, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true, onProviderKeySaved = null }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, raccoon, deepseek, trae, traeMain, codearts, clinePass, agentRouter };
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
-  const effectiveOrder = Array.isArray(order) && order.length > 0 ? order : DEFAULT_ORDER;
+  const effectiveOrder = [...new Set((Array.isArray(order) && order.length > 0 ? order : DEFAULT_ORDER)
+    .map((id) => id === "workbuddyAi" ? "workbuddy" : id))];
   const effectiveMode = displayMode === LIMIT_DISPLAY_MODES.REMAINING
     ? LIMIT_DISPLAY_MODES.REMAINING
     : LIMIT_DISPLAY_MODES.USED;

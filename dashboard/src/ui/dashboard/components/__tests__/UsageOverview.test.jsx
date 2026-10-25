@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen , fireEvent} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { copy } from "../../../../lib/copy";
@@ -740,7 +740,11 @@ describe("UsageOverview", () => {
       to: "2026-10-31",
     };
     const { container } = render(<UsageOverview {...props} />);
-    const staleNote = copy("usage.overview.qoder_cn_local_stale");
+    // The methodology details collapse behind the 口径说明 toggle since the
+    // anchor localization round, and the "locally measured" line only appears
+    // for a machine-local anchor — this fixture has none, so the generic
+    // model-rows wording is what the CN card shows.
+    const staleNote = copy("usage.overview.qoder_cn_model_rows_generic");
     const open = async (source) => {
       const button = container.querySelector(`[aria-controls="provider-details-${source.toUpperCase()}"]`);
       await act(async () => {
@@ -749,7 +753,11 @@ describe("UsageOverview", () => {
     };
 
     await open("qoder-cn");
-    expect((await screen.findAllByText(staleNote)).length).toBe(1);
+    // Methodology details are collapsed by default; open the toggle first.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Methodology details/i }));
+    });
+    expect((await screen.findAllByText((_, el) => el?.textContent === staleNote)).length).toBe(1);
 
     await open("qoder");
     // Flush the cached limits promise so a wrongly gated banner has time to

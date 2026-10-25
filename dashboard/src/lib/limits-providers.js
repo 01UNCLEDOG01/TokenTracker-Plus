@@ -21,6 +21,7 @@ export const LIMIT_PROVIDER_IDS = [
   "codingPlan",
   "agentPlan",
   "devin",
+  "workbuddy",
   "raccoon",
   "deepseek",
   "traeMain",
@@ -62,6 +63,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   agentPlan: "VOLCANO-ARK",
   // Devin (devin.ai) — the three-hexagon "nodes" mark under /brand-logos/.
   devin: "DEVIN",
+  // WorkBuddy uses one product row for either regional edition.
+  workbuddy: "WORKBUDDY",
   // 小浣熊 (Raccoon, raccoon.sensetime.com) — the gateway's own provider icon
   // (Program Files/Agent2API/_up_/ui/assets/providers/raccoon.png).
   raccoon: "RACCOON",
@@ -123,6 +126,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.ark_agent_plan");
     case "devin":
       return copy("limits.provider.devin");
+    case "workbuddy":
+      return copy("limits.provider.workbuddy");
     case "raccoon":
       return copy("limits.provider.raccoon");
     case "deepseek":

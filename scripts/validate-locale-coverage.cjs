@@ -21,6 +21,8 @@ const SOURCE_IDENTICAL_KEY_ALLOWLIST = [
   /^provider[.]display[.]trae_work_cn$/,
   /^limits[.]label[.]sensenova_flash_lite_5h$/,
   /^landing[.]install[.]command$/,
+  // macOS shell commands are intentionally not localized (2026-10-26).
+  /^limits[.]apiKey[.]env_unset_command$/,
   /^(landing|share)[.]meta[.]/,
   /^landing[.]cta[.]secondary$/,
   /^landing[.]v2[.]hero[.]title_line2$/,
@@ -40,7 +42,7 @@ const SOURCE_IDENTICAL_KEY_ALLOWLIST = [
   /^limits[.]agentPlan[.]setupHint[.]snippet_install$/,
   /^limits[.]commandCode[.]setupHint[.]snippet_(?:login|login_windows|env_windows|read|export|setenv)$/,
   /^provider[.]display[.](?:omp|omo|minimax_code|command_code|deepseek_harness|cline|trae|workbuddy_ai)$/,
-  /^limits[.]label[.](?:cursor_api|zcode_glm52|zcode_glm5t|claude_opus|codex_spark_[57][hd]|gemini_(?:pro|flash|lite)|antigravity_|grok_(?:build|cursor|imagine))/,
+  /^limits[.]label[.](?:cursor_api|zcode_glm52|zcode_glm5t|claude_opus|codex_spark_[57][hd]|gemini_(?:pro|flash|lite)|antigravity_|grok_(?:build|cursor|imagine|voice))/,
   /^skills[.]mode[.]skillssh$/,
   /^skills[.]repo[.]placeholder$/,
   /^ipcheck[.]props[.]asn$/,

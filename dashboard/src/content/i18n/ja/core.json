@@ -157,6 +157,7 @@
   "limits.label.grok_bot": "Grokボット",
   "limits.label.grok_chat": "チャット",
   "limits.label.grok_imagine": "Imagine",
+  "limits.label.grok_voice": "ボイス",
   "limits.label.grok_cursor": "Cursor",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
@@ -627,5 +628,14 @@
   "leaderboard.pro.badge": "Pro",
   "leaderboard.pro.badge_aria": "TokenTracker Pro メンバー",
   "settings.account.avatarUrl": "アバターURL",
-  "settings.account.avatarUrlHint": "https:// の画像 URL を貼り付け（空で解除）"
+  "settings.account.avatarUrlHint": "https:// の画像 URL を貼り付け（空で解除）",
+  "limits.apiKey.placeholder": "API キーを貼り付け",
+  "limits.apiKey.save": "キーを保存",
+  "limits.apiKey.saving": "保存中…",
+  "limits.apiKey.saved": "保存しました",
+  "limits.apiKey.save_failed": "保存できませんでした。キーを確認して再試行してください。",
+  "limits.apiKey.local_note": "この端末にのみ保存されます（所有者権限）。TokenTracker は対応プロバイダの使用量 API にのみ送信します。",
+  "limits.apiKey.env_note": "環境変数 {{env}} のキーを使用中。ここに保存すればグローバル export をやめられます。",
+  "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
+  "limits.apiKey.env_unset_note": "macOS：実行後、TokenTracker を再起動すると反映されます。"
 }

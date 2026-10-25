@@ -162,6 +162,7 @@
   "limits.label.grok_bot": "Grok 機器人",
   "limits.label.grok_chat": "聊天",
   "limits.label.grok_imagine": "Imagine",
+  "limits.label.grok_voice": "語音",
   "limits.label.grok_cursor": "Cursor",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
@@ -823,6 +824,9 @@
   "limits.commandCode.setupHint.note_windows": "Windows：在 PowerShell 中執行，然後重新啟動 TokenTracker。",
   "limits.commandCode.setupHint.note_linux": "Linux：從目前終端啟動 TokenTracker，以讀取環境變數。",
   "limits.provider.devin": "Devin",
+  "limits.provider.workbuddy": "WorkBuddy",
+  "limits.provider.workbuddy_ai": "WorkBuddy AI",
+  "limits.label.workbuddy_plan": "套餐",
   "limits.label.devin_daily": "每日",
   "limits.label.devin_weekly": "每週",
   "limits.devin.setupHint.title": "連接 Devin",
@@ -838,5 +842,14 @@
   "legal.nav.terms": "服務條款",
   "legal.nav.support": "聯絡客服",
   "settings.account.avatarUrl": "頭像連結",
-  "settings.account.avatarUrlHint": "貼上 https:// 圖片網址；留空即清除"
+  "settings.account.avatarUrlHint": "貼上 https:// 圖片網址；留空即清除",
+  "limits.apiKey.placeholder": "貼上 API Key",
+  "limits.apiKey.save": "儲存 Key",
+  "limits.apiKey.saving": "儲存中…",
+  "limits.apiKey.saved": "已儲存",
+  "limits.apiKey.save_failed": "儲存失敗，請檢查 Key 後重試。",
+  "limits.apiKey.local_note": "僅保存在本機（僅限所有者權限）。TokenTracker 只把它發給對應服務商的用量 API。",
+  "limits.apiKey.env_note": "正在使用環境變數 {{env}} 中的 Key。在此儲存一份即可停用全域匯出。",
+  "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
+  "limits.apiKey.env_unset_note": "macOS：執行後重新啟動 TokenTracker 以生效。"
 }

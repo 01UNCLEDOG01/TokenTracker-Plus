@@ -258,6 +258,7 @@ export function LimitsPage() {
                 codingPlan={usageLimits?.codingPlan}
                 agentPlan={usageLimits?.agentPlan}
                 devin={usageLimits?.devin}
+                workbuddy={usageLimits?.workbuddy}
                 raccoon={usageLimits?.raccoon}
                 deepseek={usageLimits?.deepseek}
                 trae={usageLimits?.trae}

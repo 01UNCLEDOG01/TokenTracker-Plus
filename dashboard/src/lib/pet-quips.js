@@ -332,6 +332,7 @@ const PET_LIMIT_PROVIDER_COPY_NAME_KEYS = {
   agentPlan: "limits.provider.ark_agent_plan",
   commandCode: "limits.provider.command_code",
   devin: "limits.provider.devin",
+  workbuddy: "limits.provider.workbuddy",
 };
 
 // Unix timestamps are normally seconds; values above this order of magnitude
@@ -406,6 +407,7 @@ const GROK_PRODUCT_LABEL_KEYS = {
   GrokBot: "limits.label.grok_bot",
   GrokChat: "limits.label.grok_chat",
   GrokImagine: "limits.label.grok_imagine",
+  GrokVoice: "limits.label.grok_voice",
   Cursor: "limits.label.grok_cursor",
 };
 
@@ -519,6 +521,9 @@ function collectPetLimitRows(limits) {
   addGeneric("devin", limits.devin, [
     [copy("limits.label.devin_daily"), limits.devin?.primary_window],
     [copy("limits.label.devin_weekly"), limits.devin?.secondary_window],
+  ]);
+  addGeneric("workbuddy", limits.workbuddy, [
+    [copy("limits.label.workbuddy_plan"), limits.workbuddy?.primary_window],
   ]);
 
   const rank = (row) => {

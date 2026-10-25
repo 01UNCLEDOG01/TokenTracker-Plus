@@ -780,6 +780,7 @@ limits.label.grok_build,ui,LimitsPage,UsageLimitsPanel,grok_build,"Grok Build",,
 limits.label.grok_bot,ui,LimitsPage,UsageLimitsPanel,grok_bot,"Grok Bot",,active
 limits.label.grok_chat,ui,LimitsPage,UsageLimitsPanel,grok_chat,"Chat",,active
 limits.label.grok_imagine,ui,LimitsPage,UsageLimitsPanel,grok_imagine,"Imagine",,active
+limits.label.grok_voice,ui,LimitsPage,UsageLimitsPanel,grok_voice,"Voice",,active
 limits.label.grok_cursor,ui,LimitsPage,UsageLimitsPanel,grok_cursor,"Cursor",,active
 limits.provider.claude,ui,LimitsPage,UsageLimitsPanel,provider_claude,"Claude",,active
 limits.provider.codex,ui,LimitsPage,UsageLimitsPanel,provider_codex,"Codex",,active
@@ -1775,13 +1776,25 @@ limits.commandCode.setupHint.snippet_read,ui,LimitsPage,UsageLimitsPanel,command
 limits.commandCode.setupHint.snippet_export,ui,LimitsPage,UsageLimitsPanel,command_code_hint_snippet_export,"export COMMAND_CODE_API_KEY",,active
 limits.commandCode.setupHint.snippet_setenv,ui,LimitsPage,UsageLimitsPanel,command_code_hint_snippet_setenv,"launchctl setenv COMMAND_CODE_API_KEY ""$COMMAND_CODE_API_KEY""",,active
 limits.commandCode.setupHint.snippet_login_windows,ui,LimitsPage,UsageLimitsPanel,command_code_hint_snippet_login_windows,"cmdc auth login",,active
+limits.apiKey.placeholder,ui,LimitsPage,UsageLimitsPanel,api_key_placeholder,"Paste API key",,active
+limits.apiKey.save,ui,LimitsPage,UsageLimitsPanel,api_key_save,"Save key",,active
+limits.apiKey.saving,ui,LimitsPage,UsageLimitsPanel,api_key_saving,"Saving...",,active
+limits.apiKey.saved,ui,LimitsPage,UsageLimitsPanel,api_key_saved,"Saved",,active
+limits.apiKey.save_failed,ui,LimitsPage,UsageLimitsPanel,api_key_save_failed,"Could not save the key. Check the key and try again.",,active
+limits.apiKey.local_note,ui,LimitsPage,UsageLimitsPanel,api_key_local_note,"Stored only on this device (owner-only permissions). TokenTracker sends it only to the provider's usage API.",,active
+limits.apiKey.env_note,ui,LimitsPage,UsageLimitsPanel,api_key_env_note,"Using {{env}} from the environment. Save a key here so you can stop exporting it globally.",,active
+limits.apiKey.env_unset_command,ui,LimitsPage,UsageLimitsPanel,api_key_env_unset_command,"launchctl unsetenv {{env}}",,active
+limits.apiKey.env_unset_note,ui,LimitsPage,UsageLimitsPanel,api_key_env_unset_note,"Then reopen TokenTracker.",,active
 limits.commandCode.setupHint.snippet_env_windows,ui,LimitsPage,UsageLimitsPanel,command_code_hint_snippet_env_windows,"$token = Read-Host -AsSecureString\n$env:COMMAND_CODE_API_KEY = [System.Net.NetworkCredential]::new('', $token).Password\n[Environment]::SetEnvironmentVariable('COMMAND_CODE_API_KEY', $env:COMMAND_CODE_API_KEY, 'User')",,active
 limits.commandCode.setupHint.note_windows,ui,LimitsPage,UsageLimitsPanel,command_code_hint_note_windows,"Windows: run in PowerShell, then restart TokenTracker.",,active
 limits.commandCode.setupHint.note_linux,ui,LimitsPage,UsageLimitsPanel,command_code_hint_note_linux,"Linux: start TokenTracker from this terminal to inherit the environment variable.",,active
-landing.discovery.tracked_usage,landing,LandingPage,index.html,tracked_usage,"Token Tracker tracks input, output, cached, and cache-creation tokens per model, project, and time window. It also detects usage limits for 17 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, and Devin.",Build-time static discovery copy,active
-landing.discovery.limits_summary,landing,LandingPage,index.html,limits_summary,"live quota and subscription status for 17 providers, with last-good caching for local providers such as Antigravity and Qoder.",Build-time static discovery copy,active
-landing.discovery.faq_usage,landing,LandingPage,index.html,faq_usage,"Input, output, cached, and cache-creation tokens per model, project, and time window. It also surfaces usage limits for 17 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, and Devin.",Build-time static discovery copy,active
+landing.discovery.tracked_usage,landing,LandingPage,index.html,tracked_usage,"Token Tracker tracks input, output, cached, and cache-creation tokens per model, project, and time window. It also detects usage limits for 18 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, Devin, and WorkBuddy.",Build-time static discovery copy,active
+landing.discovery.limits_summary,landing,LandingPage,index.html,limits_summary,"live quota and subscription status for 18 providers, with last-good caching for local providers such as Antigravity and Qoder.",Build-time static discovery copy,active
+landing.discovery.faq_usage,landing,LandingPage,index.html,faq_usage,"Input, output, cached, and cache-creation tokens per model, project, and time window. It also surfaces usage limits for 18 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, Devin, and WorkBuddy.",Build-time static discovery copy,active
 limits.provider.devin,ui,LimitsPage,UsageLimitsPanel,provider_devin,"Devin",,active
+limits.provider.workbuddy,ui,LimitsPage,UsageLimitsPanel,provider_workbuddy,"WorkBuddy",,active
+limits.provider.workbuddy_ai,ui,LimitsPage,UsageLimitsPanel,provider_workbuddy_ai,"WorkBuddy AI",,active
+limits.label.workbuddy_plan,ui,LimitsPage,UsageLimitsPanel,workbuddy_plan,"Plan",,active
 limits.label.devin_daily,ui,LimitsPage,UsageLimitsPanel,devin_daily,"Daily",,active
 limits.label.devin_weekly,ui,LimitsPage,UsageLimitsPanel,devin_weekly,"Weekly",,active
 limits.devin.setupHint.title,ui,LimitsPage,UsageLimitsPanel,devin_hint_title,"Connect Devin",,active

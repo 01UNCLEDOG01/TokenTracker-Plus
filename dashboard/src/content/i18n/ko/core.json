@@ -157,6 +157,7 @@
   "limits.label.grok_bot": "Grok 봇",
   "limits.label.grok_chat": "채팅",
   "limits.label.grok_imagine": "Imagine",
+  "limits.label.grok_voice": "음성",
   "limits.label.grok_cursor": "Cursor",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",
@@ -627,5 +628,14 @@
   "leaderboard.pro.badge": "Pro",
   "leaderboard.pro.badge_aria": "TokenTracker Pro 회원",
   "settings.account.avatarUrl": "아바타 URL",
-  "settings.account.avatarUrlHint": "https:// 이미지 URL을 붙여넣기; 비우면 해제"
+  "settings.account.avatarUrlHint": "https:// 이미지 URL을 붙여넣기; 비우면 해제",
+  "limits.apiKey.placeholder": "API 키 붙여넣기",
+  "limits.apiKey.save": "키 저장",
+  "limits.apiKey.saving": "저장 중…",
+  "limits.apiKey.saved": "저장됨",
+  "limits.apiKey.save_failed": "저장하지 못했습니다. 키를 확인하고 다시 시도하세요.",
+  "limits.apiKey.local_note": "이 기기에만 저장됩니다(소유자 권한). TokenTracker는 해당 제공자의 사용량 API로만 전송합니다.",
+  "limits.apiKey.env_note": "환경 변수 {{env}}의 키를 사용 중입니다. 여기에 저장하면 전역 export를 끝낼 수 있습니다.",
+  "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
+  "limits.apiKey.env_unset_note": "macOS: 실행 후 TokenTracker를 다시 시작하면 적용됩니다."
 }

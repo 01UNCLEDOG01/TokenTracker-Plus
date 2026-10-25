@@ -411,6 +411,7 @@
   "limits.label.grok_bot": "Grok-Bot",
   "limits.label.grok_chat": "Chat",
   "limits.label.grok_imagine": "Imagine",
+  "limits.label.grok_voice": "Voice",
   "limits.label.grok_cursor": "Cursor",
   "limits.label.opencode_go_5h": "5h",
   "limits.label.opencode_go_monthly": "Monatlich",
@@ -624,5 +625,14 @@
   "leaderboard.pro.badge": "Pro",
   "leaderboard.pro.badge_aria": "TokenTracker Pro-Mitglied",
   "settings.account.avatarUrl": "Avatar-URL",
-  "settings.account.avatarUrlHint": "https:// Bild-URL einfügen; leeren zum Entfernen"
+  "settings.account.avatarUrlHint": "https:// Bild-URL einfügen; leeren zum Entfernen",
+  "limits.apiKey.placeholder": "API-Key einfügen",
+  "limits.apiKey.save": "Key speichern",
+  "limits.apiKey.saving": "Speichern…",
+  "limits.apiKey.saved": "Gespeichert",
+  "limits.apiKey.save_failed": "Speichern fehlgeschlagen. Key prüfen und erneut versuchen.",
+  "limits.apiKey.local_note": "Wird nur auf diesem Gerät gespeichert (Eigentümerrechte). TokenTracker sendet ihn nur an die Nutzungs-API des Anbieters.",
+  "limits.apiKey.env_note": "Key aus der Umgebungsvariable {{env}} in Gebrauch. Hier speichern, um den globalen Export zu beenden.",
+  "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
+  "limits.apiKey.env_unset_note": "macOS: Danach TokenTracker neu starten, damit es greift."
 }

@@ -42,6 +42,7 @@ const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
+const { fetchWorkbuddyLimits, fetchWorkbuddyAiLimits, selectWorkbuddyLimits } = require("./workbuddy-limits");
 const { fetchProviderServiceStatus } = require("./provider-status");
 const { readWorkbuddyCredits } = require("./workbuddy-credits");
 const { resolveKimiProfile } = require("./kimi-profile");
@@ -757,13 +758,12 @@ function normalizeCursorUsageSummary(body) {
 }
 
 /**
- * Cursor's Sand "Grok Bot" RPC reports the shared Super weekly pool (same
- * reset and about the same percent as Grok billing's creditUsagePercent).
- * Once the Grok card lists a Grok Bot product share, that Sand bar would
- * show the whole pool a second time under Cursor. Hide it only in that
- * case. A real separate Sand quota (different reset, or a percent more than
- * a point away from the pool) stays. Accounts with no Grok Bot product row
- * keep the Sand bar.
+ * Cursor's Sand RPC reports Grok Bot usage. grok.com shows that as a weekly
+ * Grok Bot limit of its own, separate from the SuperGrok pool and with its own
+ * reset, so the Sand bar normally stays. It is hidden only when it is
+ * indistinguishable from the Grok pool, so the same numbers are not drawn
+ * twice: Grok billing lists a GrokBot product share, and the two windows reset
+ * at the same instant and sit within a point of each other.
  */
 function cursorSandDuplicatesGrokPool(cursor, grok) {
   const sand = cursor?.quaternary_window;
@@ -4104,7 +4104,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4229,6 +4229,13 @@ async function fetchUsageLimitsUncached({
         (value) => ({ status: "fulfilled", value }),
         (reason) => ({ status: "rejected", reason }),
       ),
+    // WorkBuddy CN and WorkBuddy AI are separate editions. Each one calls only
+    // its own local authenticated billing proxy. Abort closes the IPC socket
+    // when the provider budget expires. Reward credits are not a plan window.
+    withAbortableProviderTimeout((signal) => fetchWorkbuddyLimits({ home, env, fetchImpl: providerFetch, signal }), "WorkBuddy", providerTimeoutMs)
+      .catch((reason) => ({ configured: true, error: reason?.message || "Unknown error" })),
+    withAbortableProviderTimeout((signal) => fetchWorkbuddyAiLimits({ home, env, fetchImpl: providerFetch, signal }), "WorkBuddy AI", providerTimeoutMs)
+      .catch((reason) => ({ configured: true, error: reason?.message || "Unknown error" })),
     withProviderTimeout(fetchApigotoLimits({ home, fetchImpl: providerFetch, nowMs }), "APIGOTO", providerTimeoutMs)
       .catch((reason) => ({ configured: true, error: reason?.message || "Unknown error" })),
     withProviderTimeout(fetchSensenovaLimits({ home, fetchImpl: providerFetch, nowMs }), "SenseNova", providerTimeoutMs)
@@ -4518,6 +4525,9 @@ async function fetchUsageLimitsUncached({
     workbuddyCredits: readWorkbuddyCreditsSafe(home),
     codingPlan: withPlanLabel(codingPlan, codingPlan?.plan_label, "Ark Coding Plan"),
     agentPlan: withPlanLabel(agentPlan, agentPlan?.plan_label, "Ark Agent Plan"),
+    // WorkBuddy preserves provider English names and official edition labels
+    // verbatim (including Free, STANDARD and Pro-Trial).
+    workbuddy: selectWorkbuddyLimits(workbuddy, workbuddyAi),
     // Balances, not windows: the fetcher never sets plan_name, so the panel
     // falls back to the bare brand and the wallets render as the status line.
     raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),
@@ -4611,4 +4621,6 @@ module.exports = {
   fetchCommandcodeLimits,
   fetchQoderLimits,
   fetchQoderCnLimits,
+  fetchWorkbuddyLimits,
+  fetchWorkbuddyAiLimits,
 };
