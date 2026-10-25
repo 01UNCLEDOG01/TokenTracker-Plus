@@ -24,6 +24,8 @@
 
 > **環境要求**：Node.js **20+**（CLI 支援 Windows / macOS / Linux；Windows 桌面端另需 .NET 8 SDK 與 WebView2 Runtime）。
 
+**Windows 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) 下載 `TokenTracker-plus-Setup-v*.exe` 安裝即可——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
+
 ```bash
 # 1. 複製代碼倉庫並安裝依賴
 git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
@@ -43,7 +45,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 **30 秒內你能看到什麼：**
 - 📊 **本地 Dashboard**（預設 `http://localhost:7680`）—— 總花費、每日趨勢、按模型明細、項目歸屬與會話拓撲。
 - ⚡ **毫秒級 Token 速率流** —— 自動接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客戶端的即時生成速率（`tok/s`）。
-- 🔌 **全自動掃描掛接** —— 自動識別掛接本地已安裝的 52 款 AI 編碼工具，零帳號綁定、零 API Key 洩漏風險。
+- 🔌 **全自動掃描掛接** —— 自動識別掛接本地已安裝的 52 款 AI 編碼工具，零帳號綁定、零 API Key 洩漏風險。（可選：個別限額卡需自行重新整理本地憑證，如 Qoder 限額卡用倉庫根目錄的 `Qoder-*-刷新Cookie` 指令碼；核心用量統計零設定可用。）
 - 🏆 **57 枚成就全量離線判定** —— 100% 按本機本地佇列解鎖，無需連接公網排行榜服務。
 
 > **想要原生桌面端？**

@@ -609,6 +609,8 @@
   "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} tokens (추정: 2026-07 실측 {{ratio}} tokens/건 기준)",
   "usage.overview.qoder_cn_local_stale": "아래 모델 행은 공식 모델별 추정치 + 2026-07 로컬 실측값입니다(최신 Qoder CN은 토큰 수를 로컬에 기록하지 않습니다).",
   "usage.overview.qoder_cn_period": "이번 기간 공식 클라우드: {{credits}} 크레딧 · 예상 ¥{{cost}} · {{messages}}건 ({{range}})",
+  "usage.overview.qoder_cn_three_values": "같은 소비의 다른 두 관점(병합하지 않음): 크레딧 실지출 ≈ ¥{{cash}}(요금제 환산) · 공식 계상 ¥{{official}}.",
+  "usage.overview.qoder_cn_freeloading": "0× 무료 사용 추정(구간): ≈ ¥{{low}}–{{high}} · 0× SKU {{msgs}}건 × 36,907 토큰/건 × ¥0.2657–0.2820/MTok(구간 공개. 세션별 재구성은 ±25% 스파이크 기준 미통과로 미채택)",
   "usage.overview.qoder_cn_today": "오늘 실시간: {{credits}} 크레딧 · ¥{{cost}} · {{messages}}건 (공식은 일 단위 확정, 오늘은 실시간 내역에서 산출)",
   "usage.overview.qoder_cn_none": "이번 기간 공식 클라우드 사용 기록이 없습니다",
   "usage.overview.qoder_intl_credits_note": "아래 토큰 행은 크레딧에서 역산한 추정치입니다(Qoder는 로컬에 토큰을 기록하지 않음). 금액은 추정이 아니며, Qoder가 메시지별로 기록한 실제 크레딧을 공개 요율(크레딧당 $0.01)로 환산한 값입니다.",

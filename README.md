@@ -24,6 +24,8 @@
 
 > **Prerequisites**: Node.js **20+** (CLI supports Windows / macOS / Linux; Windows desktop app requires .NET 8 SDK and WebView2 Runtime).
 
+**Windows users — no build needed**: download `TokenTracker-plus-Setup-v*.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+
 ```bash
 # 1. Clone the repository and install dependencies
 git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
@@ -43,8 +45,8 @@ node bin/tracker.js doctor     # System diagnostics and health check
 **What you can see in 30 seconds:**
 - 📊 **Local Dashboard** (default: `http://localhost:7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
-- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 52 AI tools on your machine without cloud account lock-in or API key risks.
-- 🏆 **42 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
+- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 52 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
+- 🏆 **57 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
 
 > **Looking for native desktop apps?**
 > - **Windows** — Run `TokenTrackerWin` (C# .NET 8 + WebView2 system tray app), bundled with desktop pets, quota cards, and an always-on-top usage pill. See [TokenTrackerWin/README.md](./TokenTrackerWin/README.md).
@@ -61,7 +63,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🏠 **100% Local-First & Zero Privacy Risk** — Runs strictly locally. Parses on-device logs and databases; code snippets, prompts, and personal account credentials never leave your computer.
 - 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights.
 - 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations; Trae CN merges both legacy Trae Work and modern Trae CN session databases.
-- 🏆 **42 Offline Achievements & 8 3D Synergy Title Crests (Steam Stacked Toasts)** — 100% local offline unlocking; authentic Steam unlock audio, concurrent multi-toast vertical stacking (up to 3 toasts with hover-pause), 8 bespoke 3D relief crest medallions with real-time UI/Leaderboard equip display, and Canvas battle report export.
+- 🏆 **57 Offline Achievements & 16 3D Synergy Title Crests (Steam Stacked Toasts)** — 100% local offline unlocking; authentic Steam unlock audio, concurrent multi-toast vertical stacking (up to 3 toasts with hover-pause), bespoke 3D relief crest medallions with real-time UI/Leaderboard equip display, and Canvas battle report export.
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
 
@@ -217,17 +219,18 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **Pricing Sources**: Aggregates LiteLLM official rate sheets and local curated overrides (`src/lib/pricing/curated-overrides.json`). Unpriced models record token quantities without fabricating fictitious currency.
 - **WorkBuddy Credits Reconciliation**: Dual-track accounting separating Standard and High-Flyer editions, reconciling consumption points against tokens.
 
-### Heatmap Tiers & Data Analytics (Lv0 ~ Lv6 7-Tier Scale)
-The activity heatmap uses an upgraded **7-tier scale** determined dynamically by 5 key quantiles (`P35`, `P60`, `P80`, `P92`, `P97`):
+### Heatmap Tiers & Data Analytics (Lv0 ~ Lv7 8-Tier Scale)
+The activity heatmap uses an **8-tier scale**: 5 dynamic quantiles (`P35`, `P60`, `P80`, `P92`, `P97`) plus the Lv7 Singularity tier:
 - **Level 0**: 0 tokens (No activity)
 - **Level 1**: `0 < tokens ≤ P35` (Light coding)
 - **Level 2**: `P35 < tokens ≤ P60` (Regular development)
 - **Level 3**: `P60 < tokens ≤ P80` (Deep coding)
 - **Level 4**: `P80 < tokens ≤ P92` (Intensive output)
-- **Level 5**: `P92 < tokens ≤ P97` (Extreme burst, 2.2B~2.85B tokens emerald enhancement)
-- **Level 6**: `> P97` (Peak production, supporting 2.85B to 55.5B+ tokens extreme load with glowing night tier)
+- **Level 5**: `P92 < tokens ≤ P97` (Extreme burst, emerald enhancement)
+- **Level 6**: `> P97` (Peak production with the glowing night tier)
+- **Level 7 · Singularity**: `tokens ≥ 3,000,000,000` in a single day — 3D voxels break past the nominal ceiling (up to $1.25 \times H_{\text{max}}$) with an emerald glow ring.
 
-Both 2D flat calendar and 3D voxel heatmaps (with voxel heights scaled to $\frac{\text{level}}{6} \times H_{\text{max}}$) are fully synchronized.
+Both 2D flat calendar and 3D voxel heatmaps (voxel heights scale with the level; Lv7 rises above the ceiling) are fully synchronized.
 
 ---
 

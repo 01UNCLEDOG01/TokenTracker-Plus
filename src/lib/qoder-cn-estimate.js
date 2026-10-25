@@ -102,6 +102,101 @@ function readQoderCnSpend({ home = os.homedir() } = {}) {
   }
 }
 
+// KI-030 standards (captured 2026-10-25). The CN client's credit multiplier
+// table lives only in its UI, so these are a manual snapshot with the capture
+// date attached. They are used for exactly two things: deciding which SKUs are
+// free (0x multiplier, judged per SKU - a 0.1x tier is NOT free) and sizing the
+// freeloading interval. Billed rows keep using the official cost figures; the
+// multipliers never reprice anything.
+const QODER_CN_CREDIT_TIERS_CAPTURED_AT = "2026-10-25";
+const QODER_CN_CREDIT_MULTIPLIERS = {
+  "Auto": 0.5,
+  "快速": 0.8,
+  "Qwen3.8-Max": 0.5,
+  "Qwen3.8-Flash": 0,
+  "DeepSeek-V4-Pro": 0.5,
+  "DeepSeek-Flash": 0,
+  "GLM-5.3": 0.8,
+  "GLM-5.3-Flash": 0.1,
+  "Kimi-K3.1-Pro": 1,
+  "Kimi-K2.8-Preview": 0.8,
+  "MiniMax-M3.1-Flash": 0.1,
+};
+// July 2026 anchor: 17,235,393 tokens / 467 messages measured locally while CN
+// still recorded tokens (queue rows). Per the 2026-10-25 spike verdict this is
+// the only same-tier measured ratio; transcript rebuild failed the +-25% gate,
+// so freeloading publishes as an interval, never a point value.
+const QODER_CN_TOKENS_PER_MSG_ANCHOR = 36907;
+// Two independent rate sources cross-check within 6.1% (KI-030): the official
+// July billing (¥0.2820/MTok) and a third-party flash-card blend (¥0.2657/MTok).
+const QODER_CN_CNY_PER_MTOK_BAND = [0.2657, 0.2820];
+// Cash actually paid for the credits, at the plan's fold rate (KI-030 standard
+// 3: cash paid / official pricing / freeloading are reported side by side and
+// never merged into one number).
+const QODER_CN_CNY_PER_CREDIT_PLAN = 0.0295;
+
+// The official daily feed returned byte-identical duplicate rows for 10-21 and
+// 10-22 (984 phantom messages, KI-030 standard 5). Dedupe whole-object-equal
+// rows before anything ingests or sums them.
+function dedupeQoderCnDaily(daily) {
+  if (!Array.isArray(daily)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const row of daily) {
+    if (!row || typeof row !== "object") continue;
+    const key = JSON.stringify(row);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+function computeQoderCnValueSummary(spend) {
+  if (!spend || typeof spend !== "object") return null;
+  const daily = dedupeQoderCnDaily(spend.daily);
+  const modelMessages = spend.model_messages && typeof spend.model_messages === "object"
+    ? spend.model_messages : {};
+  // Free consumption = messages on 0x SKUs only (per SKU, not per tier).
+  let freeMessages = 0;
+  for (const [sku, entry] of Object.entries(modelMessages)) {
+    const multiplier = Object.prototype.hasOwnProperty.call(QODER_CN_CREDIT_MULTIPLIERS, sku)
+      ? QODER_CN_CREDIT_MULTIPLIERS[sku] : 1;
+    if (multiplier === 0) freeMessages += Number(entry?.messages) || 0;
+  }
+  const freeTokens = freeMessages * QODER_CN_TOKENS_PER_MSG_ANCHOR;
+  const cashPaid = (Number(spend.credits_total) || 0) * QODER_CN_CNY_PER_CREDIT_PLAN;
+  return {
+    credit_tiers_captured_at: QODER_CN_CREDIT_TIERS_CAPTURED_AT,
+    daily_deduped: {
+      days: daily.length,
+      removed: (Array.isArray(spend.daily) ? spend.daily.length : 0) - daily.length,
+    },
+    official_cost_cny: Math.round((Number(spend.cost_total) || 0) * 100) / 100,
+    cash_paid_cny: Math.round(cashPaid * 100) / 100,
+    freeloading: {
+      messages: freeMessages,
+      tokens_est: freeTokens,
+      cny_low: Math.round((freeTokens / 1e6) * QODER_CN_CNY_PER_MTOK_BAND[0] * 100) / 100,
+      cny_high: Math.round((freeTokens / 1e6) * QODER_CN_CNY_PER_MTOK_BAND[1] * 100) / 100,
+      tokens_per_msg: QODER_CN_TOKENS_PER_MSG_ANCHOR,
+      cny_per_mtok_band: QODER_CN_CNY_PER_MTOK_BAND,
+      // Interval by construction: the per-message ratio is the July anchor
+      // (rebuild failed the spike gate), the rate is a two-source band.
+      estimate_kind: "interval",
+    },
+  };
+}
+
+// Serve-time enrichment: attach the deduped daily rows and the three-value
+// summary without touching the on-disk cache. Consumers that only need the
+// period sums automatically stop double counting the duplicated days.
+function enrichQoderCnSpend(limits) {
+  const spend = limits?.spend;
+  if (!spend || typeof spend !== "object" || spend.value_summary) return limits;
+  return { ...limits, spend: { ...spend, daily: dedupeQoderCnDaily(spend.daily), value_summary: computeQoderCnValueSummary(spend) } };
+}
+
 function beijingDayKey(hourStart) {
   const ms = Date.parse(String(hourStart || ""));
   if (!Number.isFinite(ms)) return null;
@@ -155,7 +250,9 @@ function qoderCnTokenShape(allRows) {
 // recorded for that day, so no day is ever double-counted.
 function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
   const spend = readQoderCnSpend({ home });
-  const daily = Array.isArray(spend?.daily) ? spend.daily : null;
+  // KI-030 standard 5: the official 10-21/10-22 duplicates must never enter
+  // the ledger; dedupe before any day is turned into a queue row.
+  const daily = Array.isArray(spend?.daily) ? dedupeQoderCnDaily(spend.daily) : null;
   const anchorTokens = Number(spend?.est_anchor?.tokens);
   const anchorMessages = Number(spend?.est_anchor?.messages);
   if (!daily || daily.length === 0 || !(anchorTokens > 0) || !(anchorMessages > 0)) {
@@ -246,6 +343,12 @@ module.exports = {
   readQoderCnEstimateMirror,
   readQoderCnSpend,
   qoderCnTokenShape,
+  dedupeQoderCnDaily,
+  computeQoderCnValueSummary,
+  enrichQoderCnSpend,
+  QODER_CN_CREDIT_MULTIPLIERS,
+  QODER_CN_TOKENS_PER_MSG_ANCHOR,
+  QODER_CN_CNY_PER_MTOK_BAND,
   SHAPE_FIELDS,
   QODER_CN_MIRROR_VERSION,
 };

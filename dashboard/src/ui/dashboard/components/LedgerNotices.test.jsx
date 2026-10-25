@@ -38,6 +38,26 @@ function liveSpend(extra = {}) {
   };
 }
 
+// KI-030: the backend attaches the three-value summary at serve time; the
+// banner renders cash paid / official / freeloading as separate lines.
+function valueSummary() {
+  return {
+    credit_tiers_captured_at: "2026-10-25",
+    daily_deduped: { days: 31, removed: 2 },
+    official_cost_cny: 118.62,
+    cash_paid_cny: 80.93,
+    freeloading: {
+      messages: 24118,
+      tokens_est: 890286826,
+      cny_low: 236.55,
+      cny_high: 251.06,
+      tokens_per_msg: 36907,
+      cny_per_mtok_band: [0.2657, 0.282],
+      estimate_kind: "interval",
+    },
+  };
+}
+
 async function renderNotices(qoderCn) {
   resetLedgerNoticesCacheForTests();
   vi.stubGlobal("fetch", vi.fn(async () => {
@@ -101,6 +121,26 @@ describe("QoderCnOfficialSpend freshness", () => {
       expect(screen.getByText(/Official cloud:/i)).toBeTruthy();
     });
     expect(screen.queryByText(/snapshot from/i)).toBeNull();
+  });
+
+  it("renders the three-value summary and the freeloading interval as separate lines", async () => {
+    await renderNotices({
+      configured: true,
+      source: "provider-api",
+      primary_window: { used_credits: 10, limit_credits: 100, remaining_credits: 90, unit: "credits" },
+      spend: liveSpend({ value_summary: valueSummary() }),
+      spend_stale: false,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/never merged/i)).toBeTruthy();
+    });
+    expect(screen.getByText(/¥80\.93/)).toBeTruthy();
+    expect(screen.getByText(/¥118\.62/)).toBeTruthy();
+    const freeload = screen.getByText(/0× freeloading estimate/i);
+    expect(freeload.textContent).toContain("¥237");
+    expect(freeload.textContent).toContain("251");
+    expect(freeload.textContent).toContain("24,118");
   });
 });
 

@@ -33,6 +33,7 @@ const { fetchOpencodeGoLimits } = require("./opencode-go-limits");
 const { fetchCommandcodeLimits } = require("./commandcode-limits");
 const { fetchDevinLimits } = require("./devin-limits");
 const { fetchQoderLimits, fetchQoderCnLimits } = require("./qoder-limits");
+const { enrichQoderCnSpend } = require("./qoder-cn-estimate");
 const { fetchApigotoLimits } = require("./apigoto-limits");
 const { fetchSensenovaLimits } = require("./sensenova-limits");
 const { fetchRaccoonLimits } = require("./raccoon-limits");
@@ -4509,7 +4510,9 @@ async function fetchUsageLimitsUncached({
     // Title-Case normalization is still harmless and strips any brand prefix.
     devin: withPlanLabel(devinObj, devinObj?.plan_label, "Devin"),
     qoder: withPlanLabel(qoder, qoder?.plan_label, "Qoder"),
-    qoderCn: withPlanLabel(qoderCn, qoderCn?.plan_label, "Qoder CN"),
+    // KI-030: serve the CN spend with duplicate official days removed and the
+    // three-value summary (cash paid / official / freeloading interval) attached.
+    qoderCn: enrichQoderCnSpend(withPlanLabel(qoderCn, qoderCn?.plan_label, "Qoder CN")),
     // WorkBuddy bills in its own credits and keeps that ledger in a local
     // SQLite file, so it rides along here rather than as a quota window.
     workbuddyCredits: readWorkbuddyCreditsSafe(home),

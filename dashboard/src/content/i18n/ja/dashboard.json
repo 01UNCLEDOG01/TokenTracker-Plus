@@ -609,6 +609,8 @@
   "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} tokens（推定：2026-07 の実測 {{ratio}} tokens/件から換算）",
   "usage.overview.qoder_cn_local_stale": "下のモデル行＝公式のモデル別推定値 + 2026-07 のローカル実測（新しい Qoder CN はトークン数をローカルに保存しません）",
   "usage.overview.qoder_cn_period": "今期の公式クラウド：{{credits}} クレジット · 推定 ¥{{cost}} · {{messages}} 件（{{range}}）",
+  "usage.overview.qoder_cn_three_values": "同じ消費の別の2つの見方（統合しない）：クレジット実費 ≈ ¥{{cash}}（プラン換算）· 公式計上 ¥{{official}}。",
+  "usage.overview.qoder_cn_freeloading": "0× 無料枠の推定（区間）：≈ ¥{{low}}–{{high}} · 0× SKU の {{msgs}} 件 × 36,907 トークン/件 × ¥0.2657–0.2820/MTok（区間公表。セッション再構築は ±25% スパイク基準を通らなかったため不採用）",
   "usage.overview.qoder_cn_today": "本日リアルタイム：{{credits}} クレジット · ¥{{cost}} · {{messages}} 件（公式は日次確定のため、本日はリアルタイム明細から算出）",
   "usage.overview.qoder_cn_none": "今期の公式クラウド利用はありません",
   "usage.overview.qoder_intl_credits_note": "下のトークン行はクレジットから逆算した推定値です（Qoder はローカルにトークンを記録しません）。金額は推定ではなく、Qoder がメッセージごとに記録した実クレジット値を公開レート（1クレジット = $0.01）で換算したものです。",

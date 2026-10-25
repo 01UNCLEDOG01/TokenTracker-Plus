@@ -110,6 +110,9 @@ export function QoderCnOfficialSpend({ from, to }) {
   const showsEstTokens = hasEstTokens && estTokensText != null;
   const showsToday = Boolean(spend.realtime_today) && Number(spend.messages_today) !== 0;
   const nothingInPeriod = !hasEstTokens;
+  const valueSummary = spend.value_summary || null;
+  const freeload = valueSummary?.freeloading || null;
+  const showsFreeload = Boolean(freeload) && Number(freeload.messages) !== 0;
 
   return (
     <div>
@@ -121,6 +124,23 @@ export function QoderCnOfficialSpend({ from, to }) {
           range: rangeLabel(from, to)
         })}
       </p>
+      {valueSummary && (
+        <p className={MUTED_LINE_CLASS}>
+          {copy("usage.overview.qoder_cn_three_values", {
+            cash: number(valueSummary.cash_paid_cny, 2),
+            official: number(valueSummary.official_cost_cny, 2)
+          })}
+        </p>
+      )}
+      {showsFreeload && (
+        <p className={MUTED_LINE_CLASS}>
+          {copy("usage.overview.qoder_cn_freeloading", {
+            low: number(freeload.cny_low, 0),
+            high: number(freeload.cny_high, 0),
+            msgs: number(freeload.messages, 0)
+          })}
+        </p>
+      )}
       {showsEstTokens && (
         <p className={MUTED_LINE_CLASS}>
           {copy("usage.overview.qoder_cn_est_tokens", {

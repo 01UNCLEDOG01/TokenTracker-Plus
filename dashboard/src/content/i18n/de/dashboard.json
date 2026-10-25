@@ -620,6 +620,8 @@
   "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} Tokens (geschätzt: {{ratio}} Tokens/Nachricht, Messung 2026-07)",
   "usage.overview.qoder_cn_local_stale": "Modellzeilen unten: offizielle Schätzung je Modell plus lokal gemessene Daten von 2026-07 (neue Qoder-CN-Builds speichern Tokens nicht mehr lokal).",
   "usage.overview.qoder_cn_period": "Dieser Zeitraum (Offizielle Cloud): {{credits}} Credits · geschätzt ¥{{cost}} · {{messages}} Nachrichten ({{range}})",
+  "usage.overview.qoder_cn_three_values": "Zwei weitere Sichtweisen auf denselben Verbrauch (nie zusammengeführt): für Credits gezahlt ≈ ¥{{cash}} (Tarifumrechnung) · offizielle Abrechnung ¥{{official}}.",
+  "usage.overview.qoder_cn_freeloading": "0×-Gratisverbrauch-Schätzung (Intervall): ≈ ¥{{low}}–{{high}} · {{msgs}} Nachrichten auf 0×-SKUs × 36.907 Tokens/Nachricht × ¥0,2657–0,2820/MTok (bewusst als Intervall; die Sitzungsrekonstruktion bestand die ±25%-Spike-Prüfung nicht)",
   "usage.overview.qoder_cn_today": "Heute live: {{credits}} Credits · ¥{{cost}} · {{messages}} Nachrichten (offizielle Tagesabrechnung; heute aus der Live-Liste)",
   "usage.overview.qoder_cn_none": "Kein Verbrauch der Offiziellen Cloud in diesem Zeitraum.",
   "usage.overview.qoder_intl_credits_note": "Die Token-Zeilen unten sind zurückgerechnete Schätzungen (Qoder zeichnet lokal keine Token auf). Der Geldbetrag ist keine Schätzung: Die Credits sind von Qoder selbst pro Nachricht erfasste Werte, umgerechnet zum veröffentlichten Pro-Tarif ($0,01 pro Credit).",

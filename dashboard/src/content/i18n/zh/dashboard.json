@@ -1019,6 +1019,8 @@
   "usage.overview.qoder_cn_est_tokens": "≈ {{tokens}} tokens（估算：按 2026-07 实测 {{ratio}} tokens/条 折算）",
   "usage.overview.qoder_cn_local_stale": "下方模型行＝官方分模型估算 + 2026-07 本机实测（新版 Qoder CN 不再在本机记录 token 数）",
   "usage.overview.qoder_cn_period": "本周期官方云端：{{credits}} 积分 · 预估 ¥{{cost}} · {{messages}} 条（{{range}}）",
+  "usage.overview.qoder_cn_three_values": "同一笔消耗的另两个口径（永不合并）：积分实付 ≈ ¥{{cash}}（套餐折算）· 官方计价 ¥{{official}}。",
+  "usage.overview.qoder_cn_freeloading": "0× 白嫖额度（估算区间）：≈ ¥{{low}}–{{high}} · {{msgs}} 条 0× 消息 × 36,907 tokens/条 × ¥0.2657–0.2820/MTok（区间口径；逐会话重建未过 ±25% spike 判据，不采用）",
   "usage.overview.qoder_cn_today": "今日实时：{{credits}} 积分 · ¥{{cost}} · {{messages}} 条（官方按自然日结算，今日取自实时明细）",
   "usage.overview.qoder_cn_none": "本周期官方云端无消耗记录",
   "usage.overview.qoder_intl_credits_note": "下方 token 行为按积分反推的估算值（Qoder 本地不记录 token）；金额不是估算——积分为 Qoder 逐消息真实记录，按公布汇率（$0.01/积分）折算。",
