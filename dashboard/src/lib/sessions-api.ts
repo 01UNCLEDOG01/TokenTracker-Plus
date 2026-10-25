@@ -111,6 +111,7 @@ export interface SessionRow {
   combined_cost_usd: number;
   cost_usd: number;
   cost_source: "provider_reported" | "model_pricing" | "mixed" | null;
+  usage_source: "token-monitor-archive" | "qoder-credit-estimate" | "antigravity-conversation-db" | null;
   usage_precision: "reported" | "reported_incomplete" | "mixed" | "unavailable" | null;
   usage_is_incomplete: boolean;
   cost_is_partial: boolean;

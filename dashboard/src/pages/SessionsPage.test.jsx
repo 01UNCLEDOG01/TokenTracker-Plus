@@ -247,6 +247,33 @@ describe("SessionsPage", () => {
     expect(screen.getByText("1.2K credits")).toBeInTheDocument();
     expect(screen.getByText(/transcript is still on this machine/)).toBeInTheDocument();
   });
+  it("labels Qoder credit-estimated tokens and cost as estimates", async () => {
+    const row = makeThreadSession({
+      session_hash: "qoder-estimate-row",
+      title: "Qoder credit estimate",
+      source: "qoder",
+      usage_source: "qoder-credit-estimate",
+      usage_is_incomplete: true,
+      total_tokens: 10_000,
+      own_total_tokens: 10_000,
+      combined_total_tokens: 10_000,
+      cost_usd: 1.23,
+    });
+    getSessions.mockResolvedValue({ ...response, sessions: [row], session_count: 1, returned_count: 1 });
+    render(<SessionsPage />);
+
+    expect(await screen.findByText("Qoder credit estimate")).toBeInTheDocument();
+    expect(document.body.textContent).toContain(copy("sessions.badge.estimated"));
+    expect(screen.queryByText(copy("sessions.badge.partial_usage"))).toBeNull();
+    expect(screen.getByText(/^≈10K$/)).toBeInTheDocument();
+    expect(screen.getByText(/^≈\$1\.23/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "View statistics for Qoder credit estimate" }));
+    expect(within(screen.getByRole("dialog")).getByText(
+      (_, element) => element?.textContent === ` · ${copy("sessions.badge.estimated")}`,
+    )).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     getSessions.mockReset();
     getSessions.mockResolvedValue(response);

@@ -34,15 +34,15 @@ const TITLES_UNSORTED = [
     difficulty: 3.2,
     name: "零元购",
     en: "Zero-Cost Cart",
-    desc: "羊毛宗师与白嫖之光双修，把每一次调用都过成零元购。",
+    desc: "淘金客与白嫖之光双修，把每一次调用都过成零元购。",
     tag: "质朴古铜",
     art: "/achievements/titles/title-frugal-archmage.png?v=5",
     requiredBadges: [
-      { id: "token_arbitrageur", name: "羊毛宗师", tier: 1, art: "/achievements/token-arbitrageur.png?v=9" },
+      { id: "token_arbitrageur", name: "淘金客", tier: 1, art: "/achievements/token-arbitrageur.png?v=10" },
       { id: "frugal_architect", name: "白嫖之光", tier: 2, art: "/achievements/frugal-architect.png?v=7" },
     ],
     check: (badgeMap) => (badgeMap.get("token_arbitrageur")?.tier || 0) >= 1 && (badgeMap.get("frugal_architect")?.tier || 0) >= 2,
-    reqText: "羊毛宗师(青铜) + 白嫖之光(白银)",
+    reqText: "淘金客(青铜) + 白嫖之光(白银)",
     theme: {
       text: "text-amber-200",
       bgGradient: "from-stone-900/90 via-zinc-950 to-black",
@@ -364,7 +364,7 @@ const TITLES_UNSORTED = [
     art: "/achievements/titles/title-cn-quad-masters.png?v=5",
     requiredBadges: [
       { id: "wishing_well", name: "许愿池(DeepSeek)", tier: 1, art: "/achievements/wishing-well.png?v=16" },
-      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=10" },
+      { id: "zhipu_sage", name: "智谱乾坤", tier: 1, art: "/achievements/zhipu-sage.png?v=11" },
       { id: "moonshot_voyager", name: "暗面行者", tier: 1, art: "/achievements/moonshot-voyager.png?v=10" },
       { id: "minimax_abyss", name: "海螺巨兽", tier: 1, art: "/achievements/minimax-abyss.png?v=11" },
     ],

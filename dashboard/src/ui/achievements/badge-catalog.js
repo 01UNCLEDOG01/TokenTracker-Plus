@@ -125,7 +125,7 @@ export const BADGE_CATALOG = [
   { id: "terminal_purist", scope: "local", icon: Terminal, format: "days", art: "/achievements/terminal-purist.png?v=7" },
   { id: "refactor_titan", scope: "local", icon: Hammer, format: "count", art: "/achievements/refactor-titan.png?v=7" },
   // Wave-4 badges (2026-10-24)
-  { id: "zhipu_sage", scope: "local", icon: Atom, format: "tokens", art: "/achievements/zhipu-sage.png?v=10" },
+  { id: "zhipu_sage", scope: "local", icon: Atom, format: "tokens", art: "/achievements/zhipu-sage.png?v=11" },
   { id: "moonshot_voyager", scope: "local", icon: Eclipse, format: "tokens", art: "/achievements/moonshot-voyager.png?v=10" },
   { id: "minimax_abyss", scope: "local", icon: Waves, format: "tokens", art: "/achievements/minimax-abyss.png?v=11" },
   { id: "north_america_doubao", scope: "local", icon: Bot, format: "tokens", art: "/achievements/north-america-doubao.png?v=7" },
@@ -133,7 +133,7 @@ export const BADGE_CATALOG = [
   { id: "qwen_dynasty", scope: "local", icon: Landmark, format: "tokens", art: "/achievements/qwen-dynasty.png?v=10" },
   { id: "flash_immortal", scope: "local", icon: Zap, format: "tokens", art: "/achievements/flash-immortal.png?v=9" },
   { id: "seedance_master", scope: "local", icon: Music4, format: "tokens", art: "/achievements/seedance-master.png?v=10" },
-  { id: "token_arbitrageur", scope: "local", icon: CircleDollarSign, format: "count", art: "/achievements/token-arbitrageur.png?v=9" },
+  { id: "token_arbitrageur", scope: "local", icon: CircleDollarSign, format: "count", art: "/achievements/token-arbitrageur.png?v=10" },
   // Wave-5 badges (2026-10-25)
   { id: "meituan_longcat", scope: "local", icon: Cat, format: "tokens", art: "/achievements/meituan-longcat.png?v=6" },
   { id: "jd_joy_brother", scope: "local", icon: Dog, format: "tokens", art: "/achievements/jd-joy-brother.png?v=6" },

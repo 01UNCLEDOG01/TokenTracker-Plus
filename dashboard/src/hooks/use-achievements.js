@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { getLocalAchievements } from "../lib/api";
 import { getBrowserTimeZone, getBrowserTimeZoneOffsetMinutes } from "../lib/timezone";
 import { triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
+import { BADGE_BY_ID } from "../ui/achievements/badge-catalog.js";
+import { TITLES_REGISTRY, getTitleResonance } from "../ui/achievements/title-registry.js";
 import { copy } from "../lib/copy";
 
 const TIERS_STORAGE_KEY = "tokentracker:achievement_tiers";
+const TITLE_RESONANCE_STORAGE_KEY = "tokentracker:title_resonance_tiers";
 const ACHIEVEMENTS_CACHE_KEY = "tokentracker:cached_achievements";
 
 function getCachedAchievements() {
@@ -47,7 +50,7 @@ export async function pollAchievements({ timeZone } = {}) {
           const nameKey = `achievements.badge.${b.id}.name`;
           const descKey = `achievements.badge.${b.id}.desc`;
           triggerAchievementNotification({
-            badge: b,
+            badge: { ...b, art: b.art || BADGE_BY_ID.get(b.id)?.art },
             tier: curTier,
             isTierUp: oldTier >= 1,
             name: copy(nameKey) || b.id,
@@ -56,6 +59,26 @@ export async function pollAchievements({ timeZone } = {}) {
         }
       }
     }
+    const previousTitles = JSON.parse(localStorage.getItem(TITLE_RESONANCE_STORAGE_KEY) || "null");
+    const badgeMap = new Map(achievements.map((badge) => [badge.id, { id: badge.id, tier: badge.tier || 0 }]));
+    const currentTitleTiers = {};
+    for (const title of TITLES_REGISTRY) {
+      const resonance = getTitleResonance(title, badgeMap);
+      const unlocked = Boolean(resonance.unlocked);
+      const tier = unlocked ? resonance.tier : 0;
+      currentTitleTiers[title.id] = { unlocked, tier };
+      const previous = previousTitles?.[title.id];
+      if (previousTitles && unlocked && (!previous?.unlocked || tier > (previous.tier || 0))) {
+        triggerAchievementNotification({
+          badge: { id: title.id, art: title.art },
+          tier: tier || 1,
+          isTierUp: Boolean(previous?.unlocked),
+          name: title.name,
+          desc: previous?.unlocked ? `共鸣提升至 ${resonance.label}` : title.desc,
+        });
+      }
+    }
+    localStorage.setItem(TITLE_RESONANCE_STORAGE_KEY, JSON.stringify(currentTitleTiers));
     localStorage.setItem(TIERS_STORAGE_KEY, JSON.stringify(currentTiers));
     localStorage.setItem(ACHIEVEMENTS_CACHE_KEY, JSON.stringify(achievements));
   } catch {

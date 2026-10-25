@@ -1499,8 +1499,8 @@ achievements.badge.flash_immortal.name,dashboard,*,AchievementsSection,flash_imm
 achievements.badge.flash_immortal.desc,dashboard,*,BadgeDetailModal,flash_immortal_desc,"Harness the lightning speed of Flash-tier models across every provider.",,active
 achievements.badge.seedance_master.name,dashboard,*,AchievementsSection,seedance_master_name,"Kinetic Note",,active
 achievements.badge.seedance_master.desc,dashboard,*,BadgeDetailModal,seedance_master_desc,"Spark creative cinematic flows with ByteDance Seed and Doubao models.",,active
-achievements.badge.token_arbitrageur.name,dashboard,*,AchievementsSection,token_arbitrageur_name,"Token Arbitrageur",,active
-achievements.badge.token_arbitrageur.desc,dashboard,*,BadgeDetailModal,token_arbitrageur_desc,"Master the art of compute arbitrage across diverse aggregation platforms.",,active
+achievements.badge.token_arbitrageur.name,dashboard,*,AchievementsSection,token_arbitrageur_name,"Compute Prospector",,active
+achievements.badge.token_arbitrageur.desc,dashboard,*,BadgeDetailModal,token_arbitrageur_desc,"Pan for compute across transit, free, and check-in platforms—the more platforms you use, the richer the haul.",,active
 achievements.badge.meituan_longcat.name,dashboard,*,AchievementsSection,meituan_longcat_name,"Foodie Kitty",,active
 achievements.badge.meituan_longcat.desc,dashboard,*,BadgeDetailModal,meituan_longcat_desc,"Accumulate lifetime tokens with Meituan LongCat models.",,active
 achievements.badge.jd_joy_brother.name,dashboard,*,AchievementsSection,jd_joy_brother_name,"You're My Brother",,active
@@ -1578,6 +1578,8 @@ sessions.detail.credits,ui,SessionsPage,SessionDetailModal,detail_credits,Credit
 sessions.notice.credits_coverage,ui,SessionsPage,SessionsPage,notice_credits_coverage,"Credits come from WorkBuddy's own per-request log, so they cover only the conversations whose transcript is still on this machine. The full credit ledger is on the Usage page.",,active
 sessions.badge.partial_usage,ui,SessionsPage,SessionsPage,badge_partial_usage,"Partial usage",,active
 sessions.badge.partial_cost,ui,SessionsPage,SessionsPage,badge_partial_cost,"Partial cost","Tokens are fully observed but at least one model in the session has no public rate.",active
+sessions.badge.estimated,ui,SessionsPage,SessionsPage,badge_estimated,"Estimated",,active
+sessions.estimate.prefix,ui,SessionsPage,SessionsPage,estimate_prefix,"≈",,active
 sessions.cost.partial_title,ui,SessionsPage,SessionsPage,cost_partial_title,"Lower bound - some models in this session have no public rate, so their tokens cost $0 here.","Tooltip on the greater-or-equal cost marker.",active
 sessions.grok.runtime_breakdown,ui,SessionsPage,SessionsPage,grok_runtime_breakdown,"Model calls {{calls}} · API {{seconds}}s · Tools {{tools}} · Errors {{errors}}",,active
 sessions.grok.context_breakdown,ui,SessionsPage,SessionsPage,grok_context_breakdown,"Context {{used}} / {{window}} ({{percent}}%)",,active

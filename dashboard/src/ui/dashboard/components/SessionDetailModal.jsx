@@ -128,6 +128,11 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
   }, [onClose]);
 
   const hasSubagents = subagentTokens > 0 || subagentCost > 0;
+  const isCreditEstimate = session.usage_source === "qoder-credit-estimate";
+  const estimatePrefix = copy("sessions.estimate.prefix");
+  const usageBadge = isCreditEstimate
+    ? copy("sessions.badge.estimated")
+    : session.usage_is_incomplete ? copy("sessions.badge.partial_usage") : null;
   const combinedPartial = session.cost_is_partial || (hasSubagents && descendants.costIsPartial);
   // The headline numbers cover the whole thread; the breakdown below them only
   // appears when there is something to break down.
@@ -172,8 +177,8 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
           <section aria-label={copy("sessions.detail.consumption")}>
             <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-oai-gray-200 dark:border-oai-gray-800">
-              <Kpi label={copy("sessions.col.tokens")}>{formatTokens(ownTokens + subagentTokens)}</Kpi>
-              <Kpi label={copy("sessions.col.cost")} className="border-l">{combinedPartial ? "≥" : ""}{formatCost(ownCost + subagentCost)}</Kpi>
+              <Kpi label={copy("sessions.col.tokens")}>{isCreditEstimate ? estimatePrefix : ""}{formatTokens(ownTokens + subagentTokens)}</Kpi>
+              <Kpi label={copy("sessions.col.cost")} className="border-l">{combinedPartial ? "≥" : isCreditEstimate ? "≈" : ""}{formatCost(ownCost + subagentCost)}</Kpi>
               <Kpi label={copy("sessions.summary.speed")} className="border-t" title={hasSpeed ? copy("sessions.performance.samples", { count: performance.estimated_request_count }) : copy("sessions.detail.no_speed")}>
                 {hasSpeed ? <SessionPerformance performance={performance} /> : "—"}
               </Kpi>
@@ -199,7 +204,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
             <p className="mt-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">
               {copy("sessions.detail.cost_source")} · {costSourceLabel(session.cost_source)}
               {session.cost_is_partial ? <span className="text-amber-700 dark:text-amber-300"> · {copy("sessions.cost.partial_title")}</span> : null}
-              {session.usage_is_incomplete ? <span className="text-amber-700 dark:text-amber-300"> · {copy("sessions.badge.partial_usage")}</span> : null}
+              {usageBadge ? <span className="text-amber-700 dark:text-amber-300"> · {usageBadge}</span> : null}
             </p>
           </section>
 

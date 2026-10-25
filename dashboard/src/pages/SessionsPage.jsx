@@ -160,9 +160,13 @@ const SessionRow = React.memo(function SessionRow({
   const title = isSubagent
     ? (session.agent_nickname || session.agent_role || session.title || projectLabel)
     : (session.title || projectLabel);
-  const costBadge = session.usage_is_incomplete
-    ? copy("sessions.badge.partial_usage")
-    : session.cost_is_partial ? copy("sessions.badge.partial_cost") : null;
+  const isCreditEstimate = session.usage_source === "qoder-credit-estimate";
+  const estimatePrefix = copy("sessions.estimate.prefix");
+  const costBadge = isCreditEstimate
+    ? copy("sessions.badge.estimated")
+    : session.usage_is_incomplete
+      ? copy("sessions.badge.partial_usage")
+      : session.cost_is_partial ? copy("sessions.badge.partial_cost") : null;
   // WorkBuddy charges credits and writes the figure into its own log per
   // request, so a conversation can show what it cost in the unit that product
   // actually bills in — which a transcript-only reader cannot know.
@@ -282,14 +286,14 @@ const SessionRow = React.memo(function SessionRow({
             title={Number(session.subagent_total_tokens) ? copy("sessions.thread.tokens_summary", { own: formatTokens(session.own_total_tokens), subagents: formatTokens(session.subagent_total_tokens), combined: formatTokens(session.combined_total_tokens) }) : undefined}
             className="mt-1 text-sm tabular-nums text-oai-black dark:text-white md:mt-0"
           >
-            {formatTokens(session.total_tokens)}
+            {isCreditEstimate ? estimatePrefix : ""}{formatTokens(session.total_tokens)}
             {Number(session.subagent_total_tokens) ? <span className="mt-0.5 block text-xs text-oai-gray-500 dark:text-oai-gray-400">Σ {formatTokens(session.combined_total_tokens)}</span> : null}
           </dd>
         </div>
         <div className="sessions-row-value">
           <dt className="text-xs text-oai-gray-600 dark:text-oai-gray-300 md:sr-only">{copy("sessions.col.cost")}</dt>
-          <dd className="mt-1 text-sm tabular-nums text-oai-black dark:text-white md:mt-0" title={session.cost_is_partial ? copy("sessions.cost.partial_title") : undefined}>
-            {session.cost_is_partial ? "≥" : ""}{formatUsdCurrency(session.cost_usd, { currency, rate })}
+          <dd className="mt-1 text-sm tabular-nums text-oai-black dark:text-white md:mt-0" title={isCreditEstimate ? copy("sessions.badge.estimated") : session.cost_is_partial ? copy("sessions.cost.partial_title") : undefined}>
+            {session.cost_is_partial ? "≥" : isCreditEstimate ? "≈" : ""}{formatUsdCurrency(session.cost_usd, { currency, rate })}
           </dd>
         </div>
         <div className="sessions-row-value">
