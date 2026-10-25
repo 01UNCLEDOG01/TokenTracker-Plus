@@ -291,13 +291,20 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
   // the ledger; dedupe before any day is turned into a queue row.
   const daily = Array.isArray(spend?.daily) ? dedupeQoderCnDaily(spend.daily) : null;
   const localByDay = new Map();
+  const realByDay = new Map();
   for (const row of Array.isArray(allRows) ? allRows : []) {
     if (String(row?.source || "").toLowerCase() !== QODER_CN_SOURCE) continue;
     const day = beijingDayKey(row?.hour_start);
     if (!day) continue;
-    localByDay.set(day, (localByDay.get(day) || 0) + (Number(row?.total_tokens) || 0));
+    const tokens = Number(row?.total_tokens) || 0;
+    localByDay.set(day, (localByDay.get(day) || 0) + tokens);
+    // The queue also holds the uploaded estimate rows (model names carry the
+    // 估算 suffix); they must never feed the anchor, or the anchor would be
+    // the estimate regenerating itself.
+    if (String(row?.model || "").includes(QODER_CN_EST_SUFFIX)) continue;
+    realByDay.set(day, (realByDay.get(day) || 0) + tokens);
   }
-  // Machine-local anchor: days where this queue actually holds real tokens,
+  // Machine-local anchor: days where this queue actually holds REAL tokens,
   // paired with the official message counts for exactly those days.
   let anchor = null;
   if (daily && daily.length > 0) {
@@ -305,7 +312,7 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
     for (const entry of daily) {
       const day = typeof entry?.date === "string" ? entry.date : "";
       const dayMessages = Number(entry?.messages) || 0;
-      const dayTokens = localByDay.get(day) || 0;
+      const dayTokens = realByDay.get(day) || 0;
       if (!day || dayMessages <= 0 || !(dayTokens > 0)) continue;
       tokens += dayTokens;
       messages += dayMessages;

@@ -31,12 +31,37 @@ const actualTitleCount = titleIds.length;
 
 console.log(`[README-GATE] Code Truth: ${actualBadgeCount} badges, ${actualTitleCount} titles.`);
 
-// 2. 校验文件清单
+// 2. 校验文件清单（2026-10-25 六语结构：主 README.md = 简体中文；新语种
+//    ja/ko/pt-BR 用各自语言的关键句校验，见 requiredFor）
 const readmes = [
-  { file: 'README.md', lang: 'en' },
-  { file: 'README.zh-CN.md', lang: 'zh-CN' },
-  { file: 'README.zh-TW.md', lang: 'zh-TW' }
+  { file: 'README.md', lang: 'zh-CN' },
+  { file: 'README.en.md', lang: 'en' },
+  { file: 'README.zh-TW.md', lang: 'zh-TW' },
+  { file: 'README.ja.md', lang: 'ja' },
+  { file: 'README.ko.md', lang: 'ko' },
+  { file: 'README.pt-BR.md', lang: 'pt-BR' }
 ];
+
+// 各语言「成就/称号」关键句；en 同时兼容两处（特性行与 30 秒清单）。
+const requiredFor = {
+  en: [
+    `${actualBadgeCount} Offline Achievements`,
+    `${actualTitleCount} 3D Synergy Title Crests`,
+    `${actualBadgeCount} offline achievements`
+  ],
+  'zh-CN': [
+    `${actualBadgeCount} 枚成就与 ${actualTitleCount} 大 3D 称号殿堂`,
+    `${actualBadgeCount} 枚成就全量离线判定`,
+    `${actualTitleCount} 大 3D 称号殿堂`
+  ],
+  'zh-TW': [
+    `${actualBadgeCount} 枚成就全量離線判定`,
+    `${actualTitleCount} 大 3D 稱號殿堂`
+  ],
+  ja: [`${actualBadgeCount} 種 + 称号 ${actualTitleCount} 種`],
+  ko: [`${actualBadgeCount}종 + 칭호 ${actualTitleCount}종`],
+  'pt-BR': [`${actualBadgeCount} conquistas + ${actualTitleCount} títulos`]
+};
 
 let hasErrors = false;
 
@@ -49,34 +74,12 @@ for (const { file, lang } of readmes) {
   }
   const content = fs.readFileSync(fullPath, 'utf8');
 
-  // Check badges
-  if (lang === 'en') {
-    if (!content.includes(`${actualBadgeCount} offline achievements`)) {
-      console.error(`[README-GATE] ❌ ${file} does not mention '${actualBadgeCount} offline achievements'!`);
-      hasErrors = true;
-    }
-    if (!content.includes(`${actualTitleCount} synergy titles`)) {
-      console.error(`[README-GATE] ❌ ${file} does not mention '${actualTitleCount} synergy titles'!`);
-      hasErrors = true;
-    }
-  } else if (lang === 'zh-CN') {
-    if (!content.includes(`${actualBadgeCount} 枚成就全量离线判定`)) {
-      console.error(`[README-GATE] ❌ ${file} does not mention '${actualBadgeCount} 枚成就全量离线判定'!`);
-      hasErrors = true;
-    }
-    if (!content.includes(`${actualTitleCount} 大 3D 称号殿堂`)) {
-      console.error(`[README-GATE] ❌ ${file} does not mention '${actualTitleCount} 大 3D 称号殿堂'!`);
-      hasErrors = true;
-    }
-  } else if (lang === 'zh-TW') {
-    if (!content.includes(`${actualBadgeCount} 枚成就全量離線判定`)) {
-      console.error(`[README-GATE] ❌ ${file} does not mention '${actualBadgeCount} 枚成就全量離線判定'!`);
-      hasErrors = true;
-    }
-    if (!content.includes(`${actualTitleCount} 大 3D 稱號殿堂`)) {
-      console.error(`[README-GATE] ❌ ${file} does not mention '${actualTitleCount} 大 3D 稱號殿堂'!`);
-      hasErrors = true;
-    }
+  // Check badges/titles: the file must mention the code truth in at least one
+  // of the accepted phrasings for its language.
+  const phrases = requiredFor[lang] || [];
+  if (phrases.length && !phrases.some((phrase) => content.includes(phrase))) {
+    console.error(`[README-GATE] ❌ ${file} does not mention '${phrases.join("' or '")}'!`);
+    hasErrors = true;
   }
 
   // Check for stale numbers
