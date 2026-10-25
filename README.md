@@ -152,8 +152,8 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **GitHub Copilot** | ✅ 自动 | 逐请求 SQLite 读取（`~/.copilot/session-store.db`） | 协调多源数据，防止重叠请求双计 |
 | **Kimi Code** | ✅ 自动 | 被动读取 `wire.jsonl` + 速率流 | **实时计算输出与分段 tok/s 生成速率** |
 | **CodeBuddy** (腾讯) | ✅ 自动 | 写入 `~/.codebuddy/settings.json` SessionEnd hook | 腾讯云体系编码助手支持 |
-| **WorkBuddy** (腾讯) | ✅ 自动 | SessionEnd hook + 被动扫描 `projects/**/*.jsonl` | **双源拆分：支持国内标准版** |
-| **WorkBuddy AI** (腾讯) | ✅ 自动 | SessionEnd hook + 被动扫描 | **双源拆分：支持进阶版与积分对账** |
+| **WorkBuddy** (腾讯) | ✅ 自动 | SessionEnd hook + 被动扫描 `projects/**/*.jsonl` | **双源拆分：国内标准版；配额卡经桌面端 IPC 读取（套餐 + 奖励额度），需桌面客户端运行** |
+| **WorkBuddy AI** (腾讯) | ✅ 自动 | SessionEnd hook + 被动扫描 | **双源拆分：进阶版与积分对账；配额卡同走桌面端 IPC（国际版客户端账单域可能为 CN 域，已自动兼容）** |
 | **Grok Build** (xAI) | ✅ 自动 | SessionEnd hook + 被动扫描 `updates.jsonl` | 共享限额卡与多产品占比拆分 |
 | **oh-my-pi** | ✅ 自动 | 被动读取会话日志 + 托管 notify 扩展 | 支持近实时变更同步 |
 | **OmO** | ✅ 自动 | 被动读取会话日志 | 细化模型映射 |

@@ -40,3 +40,19 @@ public class TokenFormatTests
     public void Normalize_defaults_to_english(string? raw, string expected)
         => Assert.Equal(expected, TokenUnits.Normalize(raw));
 }
+
+public class TokenFormatPillTests
+{
+    [Theory]
+    [InlineData(97_684_000L, "9768万")] // was "9768.4万" — the wrap culprit
+    [InlineData(99_999_000L, "1亿")] // 9999.9万 rounds to 10000万 and carries
+    [InlineData(110_000_000L, "1.1亿")] // 亿 tier keeps its decimal
+    [InlineData(99_999L, "10万")] // 9.9999万 rounds to 10万
+    [InlineData(9_999L, "9999")]
+    public void PillFormatKeepsWanTierFixedWidth(long n, string expected)
+        => Assert.Equal(expected, UsagePoller.FormatTokensPill(n, chineseUnits: true));
+
+    [Fact]
+    public void PillFormatLeavesEnglishUnitsAlone()
+        => Assert.Equal("9.8M", UsagePoller.FormatTokensPill(9_768_400_000L / 1000, chineseUnits: false));
+}

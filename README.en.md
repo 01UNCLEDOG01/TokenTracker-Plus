@@ -152,8 +152,8 @@ Canonical list of the **52 supported AI coding tools** (from `SUPPORTED_PROVIDER
 | **GitHub Copilot** | ✅ Auto | Per-request SQLite reader (`session-store.db`) | Reconciles multi-source data to avoid double-counting |
 | **Kimi Code** | ✅ Auto | Passive `wire.jsonl` reader + speed stream | **Live chunk speed and output tok/s metrics** |
 | **CodeBuddy** (Tencent) | ✅ Auto | SessionEnd hook in `~/.codebuddy/settings.json` | Tencent Cloud coding assistant support |
-| **WorkBuddy** (Tencent) | ✅ Auto | Hook + passive scanner in `projects/**/*.jsonl` | **Dual-source split: Standard Edition** |
-| **WorkBuddy AI** (Tencent) | ✅ Auto | Hook + passive scanner | **Dual-source split: High-Flyer Edition & points audit** |
+| **WorkBuddy** (Tencent) | ✅ Auto | Hook + passive scanner in `projects/**/*.jsonl` | **Dual-source split: Standard Edition; quota card reads the desktop app over IPC (plan + reward pool), requires the client running** |
+| **WorkBuddy AI** (Tencent) | ✅ Auto | Hook + passive scanner | **Dual-source split: High-Flyer Edition & points audit; quota card also via desktop IPC (the intl client may bill through the CN domain — auto-compat)** |
 | **Grok Build** (xAI) | ✅ Auto | Hook + passive scan on `updates.jsonl` | Shared quota cards with product breakdown |
 | **oh-my-pi** | ✅ Auto | Passive session logs + managed notify extension | Near real-time change synchronization |
 | **OmO** | ✅ Auto | Passive session logs reader | Fine-grained model mappings |

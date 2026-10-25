@@ -152,8 +152,8 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | **GitHub Copilot** | ✅ 自動 | 逐請求 SQLite 讀取（`~/.copilot/session-store.db`） | 協調多源數據，防止重疊請求雙計 |
 | **Kimi Code** | ✅ 自動 | 被動讀取 `wire.jsonl` + 速率流 | **即時計算輸出與分段 tok/s 生成速率** |
 | **CodeBuddy** (騰訊) | ✅ 自動 | 寫入 `~/.codebuddy/settings.json` SessionEnd hook | 騰訊雲體系編碼助手支援 |
-| **WorkBuddy** (騰訊) | ✅ 自動 | SessionEnd hook + 被動掃描 `projects/**/*.jsonl` | **雙源拆分：支援國內標準版** |
-| **WorkBuddy AI** (騰訊) | ✅ 自動 | SessionEnd hook + 被動掃描 | **雙源拆分：支援進階版與積分對帳** |
+| **WorkBuddy** (騰訊) | ✅ 自動 | SessionEnd hook + 被動掃描 `projects/**/*.jsonl` | **雙源拆分：國內標準版；配額卡經桌面端 IPC 讀取（套餐 + 獎勵額度），需桌面客戶端運行** |
+| **WorkBuddy AI** (騰訊) | ✅ 自動 | SessionEnd hook + 被動掃描 | **雙源拆分：進階版與積分對帳；配額卡同走桌面端 IPC（國際版客戶端賬單域可能為 CN 域，已自動兼容）** |
 | **Grok Build** (xAI) | ✅ 自動 | SessionEnd hook + 被動掃描 `updates.jsonl` | 共享限額卡與多產品佔比拆分 |
 | **oh-my-pi** | ✅ 自動 | 被動讀取會話日誌 + 託管 notify 擴展 | 支援近即時變更同步 |
 | **OmO** | ✅ 自動 | 被動讀取會話日誌 | 細化模型映射 |

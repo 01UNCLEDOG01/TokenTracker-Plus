@@ -82,7 +82,10 @@ const VARIANTS = Object.freeze({
     source: "workbuddy-ai",
     envToken: "WORKBUDDY_AI_ACCESS_TOKEN",
     defaultOrigin: "https://www.workbuddy.ai",
-    allowedHostSuffixes: ["workbuddy.ai"],
+    // The international desktop app itself bills through the CN proxy on
+    // this install (wb-product-config.json records www.workbuddy.cn), so the
+    // official-product allowlist carries both domains.
+    allowedHostSuffixes: ["workbuddy.ai", "workbuddy.cn"],
     authFileNames: ["workbuddy-ai.info", "workbuddy-desktop.info"],
     brand: "WorkBuddy AI",
   },

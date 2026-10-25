@@ -526,6 +526,30 @@ internal sealed class UsagePoller : IDisposable
         return wan >= 10_000 ? Text(Round1(wan / 10_000), "亿") : Text(wan, "万");
     }
 
+    /// <summary>Pill variant of <see cref="FormatTokensChinese"/>: the 万 tier is rounded
+    /// to an integer ("9768.4万" -> "9768万") so the widest daily reading ("9999万 · ¥xx.xx")
+    /// stays one fixed width — the near-screen-edge pill otherwise wraps to two lines at
+    /// 万-level counts and pops back at 亿 ("1.1亿"), which read as the widget changing
+    /// shape. 亿 keeps its decimal; 万 values that round to 10000 carry into 亿.</summary>
+    public static string FormatTokensPill(long n, bool chineseUnits)
+    {
+        if (!chineseUnits) return FormatTokens(n, chineseUnits: false);
+        var sign = n < 0 ? "-" : "";
+        var abs = Math.Abs((double)n);
+        if (abs < 10_000) return sign + Math.Abs((decimal)n).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string Text(double v, string unit) =>
+            sign + Math.Round(v, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + unit;
+        if (abs >= 1e12) return Text(abs / 1e12, "万亿");
+        if (abs >= 1e8)
+        {
+            var rounded = Math.Round(abs / 1e8, 1, MidpointRounding.AwayFromZero);
+            return rounded >= 10_000 ? Text(rounded / 10_000, "万亿")
+                : sign + rounded.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "亿";
+        }
+        var wan = Math.Round(abs / 1e4, MidpointRounding.AwayFromZero);
+        return wan >= 10_000 ? Text(wan / 10_000, "亿") : Text(wan, "万");
+    }
+
     public static string FormatCost(decimal usd) =>
         "$" + usd.ToString("0.00", CultureInfo.InvariantCulture);
 }

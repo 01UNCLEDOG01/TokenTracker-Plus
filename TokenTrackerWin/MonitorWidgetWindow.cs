@@ -39,6 +39,9 @@ internal sealed class MonitorWidgetWindow : Window
         FontSize = 13,
         FontWeight = FontWeights.SemiBold,
         Margin = new Thickness(0),
+        // A wrap near the screen edge made the pill two lines tall at 万-level
+        // counts; the compact format above keeps the width stable anyway.
+        TextWrapping = TextWrapping.NoWrap,
     };
     private readonly System.Windows.Controls.Image _petImage = new()
     {
@@ -174,7 +177,7 @@ internal sealed class MonitorWidgetWindow : Window
     {
         if (_closed) return;
         _text.Text = stats is { } s
-            ? $"{UsagePoller.FormatTokens(s.TodayTokens, chineseUnits)} · {symbol}{(s.TodayCostUsd * rate).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}"
+            ? $"{UsagePoller.FormatTokensPill(s.TodayTokens, chineseUnits)} · {symbol}{(s.TodayCostUsd * rate).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}"
             : "—";
     }
 
