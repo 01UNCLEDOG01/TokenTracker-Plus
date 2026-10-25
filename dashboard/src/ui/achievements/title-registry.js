@@ -39,7 +39,7 @@ const TITLES_UNSORTED = [
     id: "frugal_archmage",
     difficulty: 5.1,
     name: "零元购",
-    en: "Zero-Cost Cart",
+    en: "Zero-Cost Haul",
     desc: "淘金客与白嫖之光双修，把每一次调用都过成零元购。",
     tag: "质朴古铜",
     art: "/achievements/titles/title-frugal-archmage.png?v=5",

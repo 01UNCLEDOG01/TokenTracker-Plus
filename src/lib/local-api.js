@@ -601,15 +601,17 @@ function tierForValue(value, thresholds, lowerIsBetter = false) {
 // One vote per Chinese model family, not per alias. A provider can expose ten
 // spellings of the same model; "龙的传人" rewards breadth across families.
 // MIT/Apache-licensed families with no revenue gate — the definition the
-// "fire of the commons" badge uses. Deliberately excludes Kimi (custom licence,
-// >$20M/read revenue clause), Gemma/Llama (vendor AUP) and the Hunyuan/Seed
-// flagships, which stay in their own vendor badges.
+// commons badge uses. Deliberately excludes Kimi (custom licence, >$20M/read
+// revenue clause), Gemma/Llama (vendor AUP), Codestral (Mistral's non-production
+// licence) and the Hunyuan/Seed flagships, which stay in their own vendor
+// badges. Nemotron counts: NVIDIA's own licence allows commercial use with no
+// user cap, unlike the AUP families.
 const OPEN_WEIGHT_LICENSE_PATTERNS = [
   /deepseek/, /qwen|tongyi|qianwen/, /glm|chatglm|codegeex|zhipu/,
   /minimax|abab|hailuo|m3\.|m3-|space-bunny/, /step-|stepfun/,
   /longcat|meituan/, /joycode|joycoder|joyai|yanxi|言犀/,
   /sensenova/, /internlm/, /mimo/, /(^|[-_/ ])yi-/,
-  /mistral|devstral|magistral|pixtral|codestral/, /(^|[-_/ ])phi-\d/,
+  /mistral|devstral|magistral|pixtral/, /(^|[-_/ ])phi-\d/,
   /nemotron/, /olmo/, /gpt-oss/, /qwq/,
 ];
 
