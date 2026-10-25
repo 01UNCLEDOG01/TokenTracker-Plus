@@ -36,6 +36,8 @@ const SOURCE_IDENTICAL_KEY_ALLOWLIST = [
   /^dashboard[.]install[.]cmd[.]/,
   /^settings[.]menubar[.]iconStyle[.](?:clawd|bot)$/,
   /^settings[.]menubar[.]updates[.]footerCore$/,
+  // "OPC" is the product's own acronym for One-Person Company (2026-10-26).
+  /^achievements[.]title[.]fleet_admiral[.]tag$/,
   /^limits[.]provider[.]/,
   // Formatting-only wallet line: the text is the gateway's own wallet name.
   /^limits[.]label[.]cline_wallets$/,

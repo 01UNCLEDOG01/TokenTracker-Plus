@@ -504,6 +504,19 @@ const LOCAL_BADGE_THRESHOLDS = {
   jd_joy_brother: [500000, 5000000, 50000000, 500000000], // lifetime jd yanxi/joycode/joycoder tokens (JoyCode tasks are small)
   hunyuan_master: [10000000, 100000000, 1000000000, 10000000000], // lifetime tencent hunyuan tokens (incl. HY series)
   stepfun_voyager: [10000000, 100000000, 1000000000, 10000000000], // lifetime stepfun tokens
+  // Open-weight additions (2026-10-26). The three overseas families use the
+  // public cadence (≈1 week / 1 month / 1 quarter / 1 year at ~300M tokens per
+  // heavy developer-month) instead of the 10x ladder: no ordinary user can ever
+  // touch a 10B row for one vendor. The MIT/Apache aggregate keeps the family
+  // ladder because it sums every licensed vendor at once.
+  mistral_westwind: [3000000, 30000000, 300000000, 3000000000], // lifetime Mistral/Devstral/Magistral/Pixtral tokens
+  nemotron_spiral: [3000000, 30000000, 300000000, 3000000000], // lifetime NVIDIA Nemotron tokens
+  phi_disciple: [3000000, 30000000, 300000000, 3000000000], // lifetime Microsoft Phi tokens
+  spark_alpaca: [3000000, 30000000, 300000000, 3000000000], // lifetime Meta Llama / Muse Spark weights
+  // Fire of the commons: tokens spent on weights that ship under MIT/Apache
+  // with no revenue gate. Kimi (>$20M clause), Gemma/Llama (custom licence +
+  // AUP) and the Hunyuan/Seed flagships stay in their own vendor badges.
+  open_weights_spark: [30000000, 300000000, 3000000000, 10000000000], // lifetime open-weight tokens
   dragon_heir: [1, 3, 5, 7], // distinct domestic model families used
   kill_line: [50, 60, 70, 80], // DeepSeek share of lifetime tokens, %
 };
@@ -515,10 +528,13 @@ const LOCAL_BADGE_THRESHOLDS = {
 // whenever both carry the same badge id. Thresholds intentionally mirror the
 // SQL catalog; day grain is UTC because the SQL buckets
 // (hour_start AT TIME ZONE 'UTC')::date the same way.
-// trendsetter and podium use local proxies rather than staying locked: the
-// former counts models adopted in the first week of this machine's history,
-// the latter is rank 1 on the single-profile local leaderboard. Both are
-// labeled honestly by the page copy and keep the cloud thresholds.
+// trendsetter and podium use local proxies rather than staying locked:
+// trendsetter counts models first used inside the debut window of their
+// vendor's public release (pricing/debut-catalog.js; codenames and models the
+// catalog cannot judge still count, and the split ships in `meta`), while
+// podium is rank 1 on the single-profile local leaderboard — one machine has
+// one profile, so "climbing the leaderboard" is not a competitive act here.
+// The badge page copies must say so; both keep the cloud thresholds.
 const CLOUD_PARITY_BADGE_THRESHOLDS = {
   token_titan: [100000000, 1000000000, 10000000000, 100000000000], // total tokens
   big_day: [10000000, 100000000, 500000000, 3000000000], // best UTC day
@@ -584,6 +600,19 @@ function tierForValue(value, thresholds, lowerIsBetter = false) {
 
 // One vote per Chinese model family, not per alias. A provider can expose ten
 // spellings of the same model; "龙的传人" rewards breadth across families.
+// MIT/Apache-licensed families with no revenue gate — the definition the
+// "fire of the commons" badge uses. Deliberately excludes Kimi (custom licence,
+// >$20M/read revenue clause), Gemma/Llama (vendor AUP) and the Hunyuan/Seed
+// flagships, which stay in their own vendor badges.
+const OPEN_WEIGHT_LICENSE_PATTERNS = [
+  /deepseek/, /qwen|tongyi|qianwen/, /glm|chatglm|codegeex|zhipu/,
+  /minimax|abab|hailuo|m3\.|m3-|space-bunny/, /step-|stepfun/,
+  /longcat|meituan/, /joycode|joycoder|joyai|yanxi|言犀/,
+  /sensenova/, /internlm/, /mimo/, /(^|[-_/ ])yi-/,
+  /mistral|devstral|magistral|pixtral|codestral/, /(^|[-_/ ])phi-\d/,
+  /nemotron/, /olmo/, /gpt-oss/, /qwq/,
+];
+
 const DOMESTIC_FAMILY_MATCHERS = [
   ["deepseek", (m, s) => m.includes("deepseek") || s.includes("deepseek")],
   ["qwen", (m, s) => m.includes("qwen") || m.includes("tongyi") || m.includes("qianwen")
@@ -740,6 +769,11 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   let jdTokens = 0;
   let hunyuanTokens = 0;
   let stepfunTokens = 0;
+  let mistralTokens = 0;
+  let nemotronTokens = 0;
+  let phiTokens = 0;
+  let metaTokens = 0;
+  let openWeightTokens = 0;
   const arbitragePlatforms = new Set();
   const modelTokens = new Map();
   const bigModels = new Set();
@@ -810,8 +844,20 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     }
     if (row.model) {
       const modelKey = String(row.model);
-      const lowerModel = modelKey.toLowerCase();
+      const rawLowerModel = modelKey.toLowerCase();
       const sourceKey = String(row.source || "").toLowerCase();
+      // Family badges must read the model the user actually picked, not the
+      // router id the ledger keeps. Qoder stores `kmodel_latest` for
+      // Kimi-K3.1-Pro and `qfmodel` for Qwen3.8-Flash; stealth codenames such
+      // as `x-preview-f-free` only resolve through the pricing catalog.
+      const displayModel = sourceKey === "qoder" ? qoderIntlDisplayModel(modelKey) : modelKey;
+      const aliasLowerModel = String(identityKeyFor(displayModel) || displayModel).toLowerCase();
+      // Both spellings share one probe string: every family predicate below is
+      // an `includes`/regex check, and a row may carry either the router id
+      // (`kmodel_latest`) or the catalog-resolved model (`kimi-k-3-1-pro`).
+      const lowerModel = aliasLowerModel === rawLowerModel
+        ? rawLowerModel
+        : `${rawLowerModel} ${aliasLowerModel}`;
       const modelRunning = (modelTokens.get(modelKey) || 0) + tokens;
       modelTokens.set(modelKey, modelRunning);
       if (modelRunning >= DEEP_DIVER_MODEL_FLOOR && !bigModels.has(modelKey)) {
@@ -849,8 +895,8 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         sourceKey === "vllm" ||
         sourceKey === "local" ||
         sourceKey.includes("localhost") ||
-        lowerModel.startsWith("ollama/") ||
-        lowerModel.includes(":local")
+        rawLowerModel.startsWith("ollama/") ||
+        rawLowerModel.includes(":local")
       ) {
         offgridTokens += tokens;
         bump("offgrid_sovereign", offgridTokens, row.hour_start);
@@ -984,6 +1030,28 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       ) {
         stepfunTokens += tokens;
         bump("stepfun_voyager", stepfunTokens, row.hour_start);
+      }
+      if (lowerModel.includes("mistral") || lowerModel.includes("devstral")
+        || lowerModel.includes("magistral") || lowerModel.includes("pixtral")
+        || lowerModel.includes("codestral")) {
+        mistralTokens += tokens;
+        bump("mistral_westwind", mistralTokens, row.hour_start);
+      }
+      if (lowerModel.includes("nemotron")) {
+        nemotronTokens += tokens;
+        bump("nemotron_spiral", nemotronTokens, row.hour_start);
+      }
+      if (/(^|[-_/ ])phi-\d/.test(lowerModel)) {
+        phiTokens += tokens;
+        bump("phi_disciple", phiTokens, row.hour_start);
+      }
+      if (lowerModel.includes("llama") || lowerModel.includes("muse-spark")) {
+        metaTokens += tokens;
+        bump("spark_alpaca", metaTokens, row.hour_start);
+      }
+      if (OPEN_WEIGHT_LICENSE_PATTERNS.some((re) => re.test(lowerModel))) {
+        openWeightTokens += tokens;
+        bump("open_weights_spark", openWeightTokens, row.hour_start);
       }
       const ARBITRAGE_PATTERNS = [
         "apigoto", "agentrouter", "opencode", "openrouter", "codearts",

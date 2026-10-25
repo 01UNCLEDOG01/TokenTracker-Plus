@@ -2,14 +2,21 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
+  titleRequirementText,
+  titleText,
   getTitleBondName,
   getResonancePillStyle,
   getResonanceTextColor,
   spectrumTier,
 } from "./title-registry";
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
+import { copy } from "../../lib/copy";
+import { badgeCopyKey } from "./badge-catalog";
 
-const TIER_NAMES = ["未激活", "青铜", "白银", "黄金", "钻石"];
+const TIER_SLUGS = ["", "bronze", "silver", "gold", "diamond"];
+function tierLabel(tier) {
+  return copy(`achievements.tier.${TIER_SLUGS[Math.min(4, Math.max(1, tier))]}`);
+}
 
 /**
  * Large, read-only view of one title: crest, copy, resonance, and the member
@@ -66,9 +73,9 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-wider">
-              <span className={`rounded-md border px-2 py-0.5 ${theme.pillClass}`}>{title.tag}</span>
+              <span className={`rounded-md border px-2 py-0.5 ${theme.pillClass}`}>{titleText(title, "tag")}</span>
               <span className={`rounded-md border px-2 py-0.5 ${getResonancePillStyle(resonance?.tier)}`}>
-                {bondName} · {resonance?.label || "未激活"}
+                {bondName} · {resonance?.label || copy("achievements.resonance.inactive")}
               </span>
             </div>
             <h2 className="mt-3 truncate text-2xl font-black tracking-tight">{title.name}</h2>
@@ -103,42 +110,47 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
             }`}
             data-spectrum={title.rainbow ? (resonance?.spectrumTier || spectrumTier(resonance?.tier)) : undefined}
           />
-          <p className="text-sm leading-relaxed text-white/85">{title.desc}</p>
+          <p className="text-sm leading-relaxed text-white/85">{titleText(title, "desc")}</p>
         </div>
 
         <div className="mt-5 rounded-2xl border border-white/10 bg-black/40 p-4">
           <div className="flex items-center justify-between text-[11px] font-mono text-white/70">
             <span className="font-bold text-white/90">{bondName}</span>
-            <span className={getResonanceTextColor(resonance?.tier)}>{resonance?.label || "未激活"}</span>
+            <span className={getResonanceTextColor(resonance?.tier)}>{resonance?.label || copy("achievements.resonance.inactive")}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-3">
             {title.requiredBadges.map((req) => {
               const owned = badgeMap?.get(req.id);
               const tier = owned?.tier || 0;
+              // The badge catalog owns the name; the title only carries a
+              // fallback, so renaming a badge can never split the two cards.
+              const reqName = copy(badgeCopyKey(req.id, "name")) || req.name;
               return (
                 <button
                   key={req.id}
                   type="button"
                   onClick={() => onSelectBadge?.(req.id)}
                   className="group flex w-20 flex-col items-center gap-1 rounded-xl p-1 text-center transition hover:bg-white/5"
-                  title={`查看 ${req.name}`}
+                  title={`查看 ${reqName}`}
                 >
                   <img
                     src={req.art}
-                    alt={req.name}
+                    alt={reqName}
                     className={`h-14 w-14 rounded-full border-2 object-contain bg-black/60 ${theme.ring} ${
                       tier >= req.tier ? "" : "grayscale opacity-50"
                     } transition-transform group-hover:scale-105`}
                   />
-                  <span className="line-clamp-2 text-[10px] leading-tight text-white/80">{req.name}</span>
+                  <span className="line-clamp-2 text-[10px] leading-tight text-white/80">{reqName}</span>
                   <span className={`text-[9px] font-mono ${tier >= req.tier ? "text-emerald-300" : "text-white/40"}`}>
-                    {tier >= req.tier ? TIER_NAMES[Math.min(4, tier)] : `需${TIER_NAMES[req.tier]}`}
+                    {tier >= req.tier
+                      ? tierLabel(tier)
+                      : copy("achievements.tier.requirement", { tier: tierLabel(req.tier) })}
                   </span>
                 </button>
               );
             })}
           </div>
-          <div className="mt-3 border-t border-white/10 pt-2 text-[10px] text-white/50">{title.reqText}</div>
+          <div className="mt-3 border-t border-white/10 pt-2 text-[10px] text-white/50">{titleRequirementText(title)}</div>
         </div>
       </div>
     </div>

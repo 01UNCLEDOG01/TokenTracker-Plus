@@ -39,7 +39,7 @@ test("empty inputs yield the full locked catalog", () => {
   // Local badges plus the cloud-parity set, now including local
   // trendsetter/podium proxies and the four wave-4 model badges.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 57);
+  assert.equal(result.length, 62);
   for (const id of ["trendsetter", "podium"]) {
     const badge = result.find((entry) => entry.id === id);
     assert.ok(badge, `${id} must exist in the local catalog`);
@@ -573,4 +573,31 @@ test("wave-6 badges count domestic families and the DeepSeek kill line", () => {
   ], [], { timeZoneContext: TZ_SHANGHAI });
   assert.equal(byId(joycode, "jd_joy_brother").metric_value, 682000);
   assert.equal(byId(joycode, "jd_joy_brother").tier, 1);
+});
+
+test("qoder router ids reach their family before family badges read them", () => {
+  // The ledger keeps Qoder's router ids; only the client text table knows
+  // `kmodel_latest` is Kimi-K3.1-Pro. A family badge that read the raw id
+  // silently dropped 233M real tokens on 2026-10-25.
+  const qoder = computeLocalAchievements([
+    { source: "qoder", model: "kmodel_latest", hour_start: "2026-10-25T06:00:00Z", total_tokens: 120000000 },
+    { source: "qoder", model: "mmodel", hour_start: "2026-10-25T07:00:00Z", total_tokens: 100000000 },
+    { source: "qoder", model: "qfmodel", hour_start: "2026-10-25T08:00:00Z", total_tokens: 20000000 },
+  ], [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(qoder, "moonshot_voyager").metric_value, 120000000);
+  assert.equal(byId(qoder, "moonshot_voyager").tier, 2); // 100M silver
+  assert.equal(byId(qoder, "minimax_abyss").metric_value, 100000000);
+  assert.equal(byId(qoder, "minimax_abyss").tier, 2);
+  assert.equal(byId(qoder, "qwen_dynasty").metric_value, 20000000);
+  assert.equal(byId(qoder, "qwen_dynasty").tier, 1); // 10M bronze
+
+  // Stealth codenames resolve through the pricing catalog instead.
+  const stealth = computeLocalAchievements([
+    { source: "opencode", model: "x-preview-f-free", hour_start: "2026-10-25T09:00:00Z", total_tokens: 30000000 },
+    { source: "opencode", model: "space-bunny-free", hour_start: "2026-10-25T10:00:00Z", total_tokens: 40000000 },
+  ], [], { timeZoneContext: TZ_SHANGHAI });
+  assert.equal(byId(stealth, "zhipu_sage").metric_value, 30000000);
+  assert.equal(byId(stealth, "zhipu_sage").tier, 1);
+  assert.equal(byId(stealth, "minimax_abyss").metric_value, 40000000);
+  assert.equal(byId(stealth, "minimax_abyss").tier, 1);
 });

@@ -8,10 +8,16 @@ import {
   EVENT_TITLE_CHANGED,
   STORAGE_ACTIVE_TITLE,
   getTitleResonance,
+  getTitleBondName,
   getResonancePillStyle,
   getResonanceTextColor,
+  titleRequirementText,
+  titleText,
+  resonanceLabel,
 } from "./title-registry";
 import { TitleDetailModal } from "./TitleDetailModal.jsx";
+import { copy } from "../../lib/copy";
+import { badgeCopyKey } from "./badge-catalog";
 
 export { TITLES_REGISTRY, getTitleResonance };
 
@@ -34,24 +40,22 @@ function spectrumTier(tier) {
 }
 
 export function getEffectiveTitleResonance(title, badgeMap, testMode, index) {
-  if (!title) return { unlocked: false, tier: 0, label: "未激活", tierName: "未激活", dim: 2, dimName: "双星交汇" };
+  if (!title) return { unlocked: false, tier: 0, label: copy("achievements.resonance.inactive"), tierName: copy("achievements.resonance.inactive"), dim: 2, dimName: copy("achievements.bond.dim.2") };
   if (testMode === 1 || testMode === 2 || testMode === 3 || testMode === 4) {
     const tier = testMode;
-    const tierNames = ["未激活", "青铜", "白银", "黄金", "钻石"];
-    const tierName = tierNames[tier] || "青铜";
     const dim = title.dimension || (title.requiredBadges?.length || 2);
-    const dimName = title.bondName || (dim >= 5 ? "五星连珠" : dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇");
-    const label = tier === 4 ? `${tierName}共鸣 · MAX` : `${tierName}共鸣 · Lv.${tier}`;
+    const dimName = getTitleBondName(title);
+    const label = resonanceLabel(tier);
+    const tierName = label.split(" ")[0];
     return { unlocked: true, tier, dim, dimName, tierName, label };
   }
   if (testMode === 5) {
     const tierIdx = typeof index === "number" ? index : 0;
     const tier = STAGGERED_TIERS[tierIdx % STAGGERED_TIERS.length];
-    const tierNames = ["未激活", "青铜", "白银", "黄金", "钻石"];
-    const tierName = tierNames[tier] || "青铜";
     const dim = title.dimension || (title.requiredBadges?.length || 2);
-    const dimName = title.bondName || (dim >= 5 ? "五星连珠" : dim === 4 ? "四象混元" : dim === 3 ? "三神交泰" : dim === 1 ? "至尊星冕" : "双星交汇");
-    const label = tier === 4 ? `${tierName}共鸣 · MAX` : `${tierName}共鸣 · Lv.${tier}`;
+    const dimName = getTitleBondName(title);
+    const label = resonanceLabel(tier);
+    const tierName = label.split(" ")[0];
     return { unlocked: true, tier, dim, dimName, tierName, label };
   }
   return getTitleResonance(title, badgeMap);
@@ -201,7 +205,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                   ACTIVE TITLE · 当前佩戴
                 </span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-black/40 border border-white/20 text-white/90">
-                  {activeTitle.tag}
+                  {titleText(activeTitle, "tag")}
                 </span>
                 {activeResonance?.unlocked && (
                   <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${getResonancePillStyle(activeResonance.tier)}`}>
@@ -288,7 +292,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <span className="inline-block rounded-md bg-amber-400/15 border border-amber-400/35 px-2 py-0.5 text-xs font-bold text-amber-300 truncate">
-                        {title.tag}
+                        {titleText(title, "tag")}
                       </span>
                       {isUnlocked && (
                         <span className={`inline-block truncate rounded-md border px-1.5 py-0.5 text-[10px] font-mono font-bold ${getResonancePillStyle(resonance.tier)}`}>
@@ -328,7 +332,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                     ) : (
                       <span className="w-[84px] h-7.5 inline-flex items-center justify-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.04] border border-white/10 whitespace-nowrap">
                         <Lock className="h-3 w-3 mr-1 shrink-0" />
-                        <span>未解锁</span>
+                        <span>{copy("achievements.modal.locked")}</span>
                       </span>
                     )}
                   </div>
@@ -346,7 +350,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                   </div>
                 </div>
                 <p className="mt-1 line-clamp-1 text-xs text-slate-300">
-                  {title.desc}
+                  {titleText(title, "desc")}
                 </p>
 
                 {/* Miniature Badge Medallion Conduits */}
@@ -366,6 +370,9 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                       {title.requiredBadges.map(function (req, rIdx) {
                         const userBadge = badgeMap.get(req.id);
                         const userTier = userBadge ? (userBadge.tier || 0) : 0;
+                        // Badge catalog owns the name; the title keeps only a
+                        // fallback so a rename cannot desync the two cards.
+                        const reqName = copy(badgeCopyKey(req.id, "name")) || req.name;
                         const currentTier = resonanceTestMode !== 0 ? resonance.tier : userTier;
                         const isMet = Boolean(req.tier <= currentTier);
                         // The halo carries the achievement's own tier colour
@@ -383,13 +390,13 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                             {rIdx !== 0 && <span className="text-amber-400 text-xs font-bold">+</span>}
                             <div
                               className="relative group/mini"
-                              title={`${req.name} (要求: ${
+                              title={`${reqName} (要求: ${
                                 req.tier === 4 ? "钻石" : req.tier === 3 ? "黄金" : req.tier === 2 ? "白银" : "青铜"
                               })`}
                             >
                               <img
                                 src={req.art}
-                                alt={req.name}
+                                alt={reqName}
                                 className={`h-8 w-8 rounded-full border-2 object-contain bg-black/60 ${tierColor} transition-transform group-hover/mini:scale-110`}
                                 style={isMet ? {
                                   borderColor: tierRing,
@@ -410,7 +417,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                       })}
                     </div>
                     <div className="min-w-0 flex-1 text-[10px] text-slate-300 text-right line-clamp-1 border-l border-white/10 pl-2">
-                      {title.reqText}
+                      {titleRequirementText(title)}
                     </div>
                   </div>
                 </div>

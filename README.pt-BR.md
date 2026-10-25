@@ -18,7 +18,7 @@
 - ⚡ **Fluxo tok/s em milissegundos** —— duração por chunk e tokens de raciocínio separados, velocidade precisa por sessão.
 - 🌲 **Topologia de sessões** —— sessão principal / subagentes / chamadas de ferramenta, para achar as operações caras.
 - 📊 **Heatmap de 8 níveis (Lv0~Lv7)** —— incluindo o nível "Singularidade" para dias acima de 3 bilhões de tokens. 2D e 3D.
-- 🏆 **57 conquistas + 16 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas.
+- 🏆 **62 conquistas + 17 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas.
 - 🪟 **Integração no Windows** —— bandeja do sistema, pet e widgets de cota; o instalador já embute o Node (sem build).
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 

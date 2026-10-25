@@ -399,6 +399,9 @@ const PROVIDER_ICON_MAP = {
   GROK: GrokIcon,
   HERMES: HermesIcon,
   KIMI: KimiIcon,
+  // Kimi Code is the official @moonshot-ai/kimi-code CLI; it shares the Kimi
+  // mark the same way MiniMax Code shares the MiniMax one.
+  "KIMI-CODE": KimiIcon,
   KIRO: KiroIcon,
   KILOCODE: KilocodeIcon,
   MINIMAX: MinimaxIcon,
@@ -443,6 +446,16 @@ const PROVIDER_LOGO_MAP = {
   // /public/brand-logos/, so it renders through the image path below.
   "COMMAND-CODE": "/brand-logos/commandcode.svg",
   GEMINI: "/brand-logos/gemini.svg",
+  // Muse Code (Meta Superintelligence Labs) is distributed as a blue cursive
+  // M with a cursor; the wrapper app's logo is the only published mark, with
+  // its white card knocked out so it sits on the dark card like the SVG set.
+  MUSE: "/brand-logos/muse.png?v=1",
+  // OmO (Oh My OpenAgent) ships an official light-glyph SVG in its repo.
+  OMO: "/brand-logos/omo.svg",
+  // JoyCode ships no standalone glyph: the app's own 150px icon is a white
+  // line cube on a dark rounded tile. That tile is kept in both themes, the
+  // same call already made for AutoClaw.
+  JOYCODE: "/brand-logos/joycode.png?v=1",
   "KILO-CLI": "/brand-logos/kilo.svg",
   "KILO-CODE": "/brand-logos/kilo.svg",
   LMSTUDIO: "/brand-logos/lmstudio.svg",

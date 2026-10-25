@@ -66,6 +66,9 @@ import {
   Dog,
   Orbit,
   Milestone,
+  Handshake,
+  Wind,
+  Sigma,
 } from "lucide-react";
 
 // `art` files live in dashboard/public/achievements/ (see the README there
@@ -139,6 +142,13 @@ export const BADGE_CATALOG = [
   { id: "jd_joy_brother", scope: "local", icon: Dog, format: "tokens", art: "/achievements/jd-joy-brother.png?v=6" },
   { id: "hunyuan_master", scope: "local", icon: Orbit, format: "tokens", art: "/achievements/hunyuan-master.png?v=5" },
   { id: "stepfun_voyager", scope: "local", icon: Milestone, format: "tokens", art: "/achievements/stepfun-voyager.png?v=4" },
+  // Open-weight wave (2026-10-26). Art lands separately; the lucide icon is
+  // the documented fallback until each medallion is approved.
+  { id: "open_weights_spark", scope: "local", icon: Handshake, format: "tokens", art: "/achievements/open-weights-spark.png?v=4" },
+  { id: "mistral_westwind", scope: "local", icon: Wind, format: "tokens", art: "/achievements/mistral-westwind.png?v=2" },
+  { id: "nemotron_spiral", scope: "local", icon: Cpu, format: "tokens", art: "/achievements/nemotron-spiral.png?v=2" },
+  { id: "phi_disciple", scope: "local", icon: Sigma, format: "tokens", art: "/achievements/phi-disciple.png?v=2" },
+  { id: "spark_alpaca", scope: "local", icon: Bot, format: "tokens", art: "/achievements/spark-alpaca.png?v=2" },
   // Wave-6 badges (2026-10-25)
   { id: "dragon_heir", scope: "local", icon: Crown, format: "count", art: "/achievements/dragon-heir.png?v=3" },
   { id: "kill_line", scope: "local", icon: Sword, format: "percent", art: "/achievements/kill-line.png?v=4" },
@@ -181,7 +191,8 @@ export const BADGE_CATEGORY_MAP = {
     "qwen_dynasty", "seedance_master", "hunyuan_master", "jd_joy_brother", "meituan_longcat",
     "zhipu_sage", "moonshot_voyager", "minimax_abyss", "north_america_doubao", "hyperspeed_grok",
     "flash_immortal", "closed_source_loyalist", "claude_survivor", "wishing_well", "heart_model", "stepfun_voyager",
-    "dragon_heir", "kill_line"
+    "dragon_heir", "kill_line",
+    "open_weights_spark", "mistral_westwind", "nemotron_spiral", "phi_disciple", "spark_alpaca"
   ]),
   habits: new Set([
     "night_owl", "early_bird", "around_the_clock", "zen_balancer", "buzzer_beater",
@@ -219,6 +230,11 @@ export const BADGE_DIFFICULTY = {
   jd_joy_brother: 4.2,
   meituan_longcat: 4.2,
   stepfun_voyager: 4.2,
+  open_weights_spark: 5.5,
+  mistral_westwind: 4.5,
+  nemotron_spiral: 4.5,
+  phi_disciple: 4.2,
+  spark_alpaca: 5.0,
   dragon_heir: 4,
   kill_line: 4.6,
   zhipu_sage: 4.5,

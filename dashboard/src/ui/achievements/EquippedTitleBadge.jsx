@@ -1,7 +1,7 @@
 import React from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "../../lib/cn";
-import { getTitleById, titleDisplayName, getEquippedBadgeStyle } from "./title-registry";
+import { getTitleById, titleDisplayName, getEquippedBadgeStyle, titleText } from "./title-registry";
 
 /**
  * EquippedTitleBadge: Renders the bespoke 3D crest emblem and stylized theme pill
@@ -43,7 +43,7 @@ export function EquippedTitleBadge({
         "inline-flex items-center gap-1.5 rounded-full select-none transition-all duration-200",
         className
       )}
-      title={`${title.name} (${title.en}) · ${title.desc}`}
+      title={`${title.name} (${title.en}) · ${titleText(title, "desc")}`}
       onClick={onClick}
     >
       {/* 3D Crest Emblem */}

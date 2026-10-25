@@ -513,17 +513,20 @@ BEGIN
     WHERE v.models >= 5 AND b.total_tokens > 0
   ),
   -- Family badges: lifetime tokens through model-name prefixes. Claude family
-  -- ("封号幸存者") and deepseek family ("许愿池") are the hidden ones.
+  -- ("封号幸存者") and deepseek family ("许愿池") are the hidden ones. Matching
+  -- is case-insensitive and, for deepseek, substring-based: the local replay
+  -- uses startsWith/includes on the lowercased model, and uploads carry
+  -- spellings such as `DeepSeek-V4-Flash` and `sn-deepseek-v4-1-flash`.
   claude_family AS (
     SELECT user_id, SUM(tokens) AS claude_tokens
     FROM usm
-    WHERE model LIKE 'claude%' AND tokens > 0
+    WHERE lower(model) LIKE 'claude%' AND tokens > 0
     GROUP BY user_id
   ),
   deepseek_family AS (
     SELECT user_id, SUM(tokens) AS deepseek_tokens
     FROM usm
-    WHERE model LIKE 'deepseek%' AND tokens > 0
+    WHERE lower(model) LIKE '%deepseek%' AND tokens > 0
     GROUP BY user_id
   ),
   -- grand_slam: diamond-tier badges already earned, self excluded. Reads the
