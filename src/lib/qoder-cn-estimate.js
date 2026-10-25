@@ -191,10 +191,26 @@ function computeQoderCnValueSummary(spend) {
 // Serve-time enrichment: attach the deduped daily rows and the three-value
 // summary without touching the on-disk cache. Consumers that only need the
 // period sums automatically stop double counting the duplicated days.
-function enrichQoderCnSpend(limits) {
+function enrichQoderCnSpend(limits, { home = os.homedir() } = {}) {
   const spend = limits?.spend;
   if (!spend || typeof spend !== "object" || spend.value_summary) return limits;
-  return { ...limits, spend: { ...spend, daily: dedupeQoderCnDaily(spend.daily), value_summary: computeQoderCnValueSummary(spend) } };
+  // The cached est_anchor may be the fork-default constant; the anchor sidecar
+  // written by qoderCnEstimatedRows() is machine-local ground truth and wins.
+  // `source` is what lets the UI avoid claiming "locally measured" on machines
+  // that never had a measured window.
+  const localAnchor = readQoderCnAnchor({ home });
+  const estAnchor = localAnchor
+    ? { ...spend.est_anchor, ...localAnchor }
+    : { ...(spend.est_anchor || {}), source: "fork-default" };
+  return {
+    ...limits,
+    spend: {
+      ...spend,
+      est_anchor: estAnchor,
+      daily: dedupeQoderCnDaily(spend.daily),
+      value_summary: computeQoderCnValueSummary(spend),
+    },
+  };
 }
 
 function beijingDayKey(hourStart) {
@@ -248,13 +264,63 @@ function qoderCnTokenShape(allRows) {
 // Days inside the anchor window keep their locally recorded totals; every
 // other day is estimated at the anchor ratio minus any local tokens already
 // recorded for that day, so no day is ever double-counted.
+//
+// The anchor itself is machine-local ground truth whenever this machine has
+// real recorded rows: real tokens come from the queue, the matching message
+// counts from the official daily feed for exactly those days. Machines without
+// such a window fall back to the fork-default constant (the author's 2026-07
+// measurement) and the UI says so instead of claiming a local measurement.
+const QODER_CN_FALLBACK_ANCHOR = { tokens: 17235393, messages: 467, from: "2026-07-20", to: "2026-07-22" };
+
+function qoderCnAnchorFile({ home = os.homedir() } = {}) {
+  return path.join(home, ".tokentracker", "tracker", "qoder-cn-anchor.json");
+}
+
+function readQoderCnAnchor({ home = os.homedir() } = {}) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(qoderCnAnchorFile({ home }), "utf8"));
+    return raw && raw.source === "local-queue" && Number(raw.tokens) > 0 && Number(raw.messages) > 0 ? raw : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
   const spend = readQoderCnSpend({ home });
   // KI-030 standard 5: the official 10-21/10-22 duplicates must never enter
   // the ledger; dedupe before any day is turned into a queue row.
   const daily = Array.isArray(spend?.daily) ? dedupeQoderCnDaily(spend.daily) : null;
-  const anchorTokens = Number(spend?.est_anchor?.tokens);
-  const anchorMessages = Number(spend?.est_anchor?.messages);
+  const localByDay = new Map();
+  for (const row of Array.isArray(allRows) ? allRows : []) {
+    if (String(row?.source || "").toLowerCase() !== QODER_CN_SOURCE) continue;
+    const day = beijingDayKey(row?.hour_start);
+    if (!day) continue;
+    localByDay.set(day, (localByDay.get(day) || 0) + (Number(row?.total_tokens) || 0));
+  }
+  // Machine-local anchor: days where this queue actually holds real tokens,
+  // paired with the official message counts for exactly those days.
+  let anchor = null;
+  if (daily && daily.length > 0) {
+    let tokens = 0, messages = 0, from = null, to = null;
+    for (const entry of daily) {
+      const day = typeof entry?.date === "string" ? entry.date : "";
+      const dayMessages = Number(entry?.messages) || 0;
+      const dayTokens = localByDay.get(day) || 0;
+      if (!day || dayMessages <= 0 || !(dayTokens > 0)) continue;
+      tokens += dayTokens;
+      messages += dayMessages;
+      if (!from || day < from) from = day;
+      if (!to || day > to) to = day;
+    }
+    if (tokens > 0 && messages > 0) {
+      anchor = { tokens, messages, from, to, source: "local-queue" };
+    }
+  }
+  if (!anchor) {
+    anchor = { ...QODER_CN_FALLBACK_ANCHOR, source: "fork-default" };
+  }
+  const anchorTokens = Number(anchor.tokens);
+  const anchorMessages = Number(anchor.messages);
   if (!daily || daily.length === 0 || !(anchorTokens > 0) || !(anchorMessages > 0)) {
     // The limits cache is cold, absent, or was written by a failed fetch. Show
     // the last numbers we derived rather than collapsing the card to the raw
@@ -263,25 +329,25 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
     const mirrored = readQoderCnEstimateMirror({ home }) || [];
     return upgradeMirroredRows(mirrored, qoderCnTokenShape(allRows));
   }
-  const ratio = anchorTokens / anchorMessages;
-  const anchorFrom = typeof spend?.est_anchor?.from === "string" ? spend.est_anchor.from : null;
-  const anchorTo = typeof spend?.est_anchor?.to === "string" ? spend.est_anchor.to : null;
-  const localByDay = new Map();
-  for (const row of Array.isArray(allRows) ? allRows : []) {
-    if (String(row?.source || "").toLowerCase() !== QODER_CN_SOURCE) continue;
-    const day = beijingDayKey(row?.hour_start);
-    if (!day) continue;
-    localByDay.set(day, (localByDay.get(day) || 0) + (Number(row?.total_tokens) || 0));
+  // Persist only a genuinely local anchor; a fork-default result must never
+  // clobber a local sidecar written by an earlier run with a warm cache.
+  if (anchor.source === "local-queue") {
+    try {
+      const tmp = qoderCnAnchorFile({ home }) + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(anchor), "utf8");
+      fs.renameSync(tmp, qoderCnAnchorFile({ home }));
+    } catch (_error) { /* best effort; the cache anchor stays as fallback */ }
   }
+  const ratio = anchorTokens / anchorMessages;
   const shape = qoderCnTokenShape(allRows);
   const rows = [];
   for (const entry of daily) {
     const day = typeof entry?.date === "string" ? entry.date : "";
     const messages = Number(entry?.messages) || 0;
     if (!day || messages <= 0) continue;
-    // Inside the anchor window the locally recorded totals are ground truth;
-    // the estimate only covers days the local stores never captured.
-    if (anchorFrom && anchorTo && day >= anchorFrom && day <= anchorTo) continue;
+    // Days where this queue holds real recorded tokens are ground truth; the
+    // estimate only covers days the local stores never captured.
+    if ((localByDay.get(day) || 0) > 0) continue;
     const estimated = Math.round(messages * ratio);
     const shortfall = estimated - (localByDay.get(day) || 0);
     if (shortfall <= 0) continue;
@@ -340,7 +406,9 @@ module.exports = {
   qoderCnEstimatedRows,
   qoderCnLimitsCacheFile,
   qoderCnEstimateMirrorFile,
+  qoderCnAnchorFile,
   readQoderCnEstimateMirror,
+  readQoderCnAnchor,
   readQoderCnSpend,
   qoderCnTokenShape,
   dedupeQoderCnDaily,
@@ -349,6 +417,7 @@ module.exports = {
   QODER_CN_CREDIT_MULTIPLIERS,
   QODER_CN_TOKENS_PER_MSG_ANCHOR,
   QODER_CN_CNY_PER_MTOK_BAND,
+  QODER_CN_FALLBACK_ANCHOR,
   SHAPE_FIELDS,
   QODER_CN_MIRROR_VERSION,
 };

@@ -423,6 +423,48 @@
       "cache_read": 0.3,
       "note": "Kimi K3 (released 2026-07-16). Reported API rates: $3/M input, $15/M output, $0.30/M cached input (0.1x). Not yet in LiteLLM; remove once it carries k3. Kimi Code records the alias as bare \"k3\" (kimi-code/k3), hence the separate exact key below."
     },
+    "kimi-k3.1-pro": {
+      "input": 2,
+      "output": 10,
+      "cache_write": 2,
+      "cache_read": 0.2,
+      "note": "Kimi K3.1 Pro official USD list (platform.kimi.ai, verified 2026-10-25; absorbed from upstream #875). $2/M input, $10/M output, $2/M cache write, $0.20/M cache hit. Distinct from kimi-k3 - check that any prefix-style matcher resolves k3.1 before bare k3."
+    },
+    "kimi-k3.1-pro-highspeed": {
+      "input": 4,
+      "output": 20,
+      "cache_write": 4,
+      "cache_read": 0.2,
+      "note": "Kimi K3.1 Pro Highspeed official USD list (platform.kimi.ai, verified 2026-10-25; absorbed from upstream #875). $4/M input, $20/M output, $4/M cache write, $0.20/M cache hit."
+    },
+    "k3.1-pro": {
+      "input": 2,
+      "output": 10,
+      "cache_write": 2,
+      "cache_read": 0.2,
+      "note": "Bare alias for kimi-k3.1-pro (same rates). Absorbed from upstream #875 alongside the substring-order guard."
+    },
+    "k3.1pro": {
+      "input": 2,
+      "output": 10,
+      "cache_write": 2,
+      "cache_read": 0.2,
+      "note": "Compact alias for kimi-k3.1-pro (same rates). Absorbed from upstream #875."
+    },
+    "k3.1-pro-highspeed": {
+      "input": 4,
+      "output": 20,
+      "cache_write": 4,
+      "cache_read": 0.2,
+      "note": "Bare alias for kimi-k3.1-pro-highspeed (same rates). Absorbed from upstream #875."
+    },
+    "k3.1pro-highspeed": {
+      "input": 4,
+      "output": 20,
+      "cache_write": 4,
+      "cache_read": 0.2,
+      "note": "Compact alias for kimi-k3.1-pro-highspeed (same rates). Absorbed from upstream #875."
+    },
     "k3": {
       "input": 3,
       "output": 15,

@@ -767,5 +767,7 @@
   "settings.local_data.exported": "스냅샷을 내보냈습니다",
   "settings.local_data.done": "{{imported}}개 행을 가져왔습니다",
   "settings.local_data.error": "전송에 실패했습니다.",
-  "settings.local_data.self": "이 스냅샷은 이 컴퓨터에서 내보낸 것입니다."
+  "settings.local_data.self": "이 스냅샷은 이 컴퓨터에서 내보낸 것입니다.",
+  "usage.overview.qoder_cn_details_toggle": "산출 방식 자세히",
+  "usage.overview.qoder_cn_model_rows_generic": "아래 모델 행＝공식 모델별 추정치(최신 Qoder CN 빌드는 로컬에 토큰을 기록하지 않음)"
 }

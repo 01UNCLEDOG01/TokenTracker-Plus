@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   QoderCnOfficialSpend,
@@ -103,12 +103,14 @@ describe("QoderCnOfficialSpend freshness", () => {
       spend_cached_at: "2030-07-28T09:27:00.000Z",
     });
 
+    // Methodology details collapse by default; open them first.
+    fireEvent.click(await screen.findByRole("button", { name: /Methodology details/i }));
     await waitFor(() => {
       expect(screen.getByText(/snapshot from 2030-07-28 09:27/i)).toBeTruthy();
     });
   });
 
-  it("does not claim a snapshot when the spend is live", async () => {
+  it("does not claim a snapshot or a local measurement without a local anchor", async () => {
     await renderNotices({
       configured: true,
       source: "provider-api",
@@ -117,10 +119,31 @@ describe("QoderCnOfficialSpend freshness", () => {
       spend_stale: false,
     });
 
+    fireEvent.click(await screen.findByRole("button", { name: /Methodology details/i }));
     await waitFor(() => {
       expect(screen.getByText(/Official cloud:/i)).toBeTruthy();
     });
     expect(screen.queryByText(/snapshot from/i)).toBeNull();
+    // No est_anchor.source means the fork-default anchor: the "locally
+    // measured" claim would be false on this machine, so the generic line shows.
+    expect(screen.queryByText(/locally measured 2026-07/i)).toBeNull();
+    expect(screen.getByText(/official per-model estimates/i)).toBeTruthy();
+  });
+
+  it("claims the local measurement only when the anchor is machine-local", async () => {
+    await renderNotices({
+      configured: true,
+      source: "provider-api",
+      primary_window: { used_credits: 10, limit_credits: 100, remaining_credits: 90, unit: "credits" },
+      spend: liveSpend({ est_anchor: { tokens: 17235393, messages: 467, from: "2026-07-20", to: "2026-07-22", source: "local-queue" } }),
+      spend_stale: false,
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /Methodology details/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/locally measured 2026-07/i)).toBeTruthy();
+    });
+    expect(screen.queryByText(/official per-model estimates/i)).toBeNull();
   });
 
   it("renders the three-value summary and the freeloading interval as separate lines", async () => {
@@ -131,6 +154,10 @@ describe("QoderCnOfficialSpend freshness", () => {
       spend: liveSpend({ value_summary: valueSummary() }),
       spend_stale: false,
     });
+
+    // Collapsed by default: the small print must not be in the DOM yet.
+    expect(screen.queryByText(/never merged/i)).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /Methodology details/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/never merged/i)).toBeTruthy();

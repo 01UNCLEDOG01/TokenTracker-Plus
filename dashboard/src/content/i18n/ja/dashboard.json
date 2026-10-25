@@ -767,5 +767,7 @@
   "settings.local_data.exported": "スナップショットを書き出しました",
   "settings.local_data.done": "{{imported}} 行を読み込みました",
   "settings.local_data.error": "転送に失敗しました。",
-  "settings.local_data.self": "このスナップショットはこのマシンのものです。"
+  "settings.local_data.self": "このスナップショットはこのマシンのものです。",
+  "usage.overview.qoder_cn_details_toggle": "算出方法の詳細",
+  "usage.overview.qoder_cn_model_rows_generic": "下のモデル行＝公式のモデル別推定値（新しい Qoder CN ビルドはローカルにトークンを記録しません）"
 }

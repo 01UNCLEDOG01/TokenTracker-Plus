@@ -80,6 +80,10 @@ export function QoderCnOfficialSpend({ from, to }) {
   const { formatTokens } = useTokenFormat();
   const cn = useLimitsField("qoderCn");
   const spend = cn?.spend || null;
+  // Methodology details collapse. This hook must sit above the early return:
+  // the first render has no spend yet, and a hook count that changes once the
+  // data arrives crashes the whole tree.
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // "We could not fetch it" and "you used nothing" must never look the same.
   // Returning null here removed the whole block, and a missing block reads as
@@ -113,6 +117,9 @@ export function QoderCnOfficialSpend({ from, to }) {
   const valueSummary = spend.value_summary || null;
   const freeload = valueSummary?.freeloading || null;
   const showsFreeload = Boolean(freeload) && Number(freeload.messages) !== 0;
+  // "本机实测" is only true on machines that actually hold a measured window;
+  // everyone else runs on the fork-default anchor and must not read that claim.
+  const hasLocalAnchor = String(spend.est_anchor?.source || "") === "local-queue";
 
   return (
     <div>
@@ -124,34 +131,6 @@ export function QoderCnOfficialSpend({ from, to }) {
           range: rangeLabel(from, to)
         })}
       </p>
-      {valueSummary && (
-        <p className={MUTED_LINE_CLASS}>
-          {copy("usage.overview.qoder_cn_three_values", {
-            cash: number(valueSummary.cash_paid_cny, 2),
-            official: number(valueSummary.official_cost_cny, 2)
-          })}
-        </p>
-      )}
-      {showsFreeload && (
-        <p className={MUTED_LINE_CLASS}>
-          {copy("usage.overview.qoder_cn_freeloading", {
-            low: number(freeload.cny_low, 0),
-            high: number(freeload.cny_high, 0),
-            msgs: number(freeload.messages, 0)
-          })}
-        </p>
-      )}
-      {showsEstTokens && (
-        <p className={MUTED_LINE_CLASS}>
-          {copy("usage.overview.qoder_cn_est_tokens", {
-            tokens: estTokensText,
-            ratio: anchor != null ? number(anchor, 0) : "--"
-          })}
-        </p>
-      )}
-      {nothingInPeriod && (
-        <p className={MUTED_LINE_CLASS}>{copy("usage.overview.qoder_cn_none")}</p>
-      )}
       {showsToday && (
         <p className={LINE_CLASS}>
           {copy("usage.overview.qoder_cn_today", {
@@ -161,21 +140,73 @@ export function QoderCnOfficialSpend({ from, to }) {
           })}
         </p>
       )}
-      <p className={NOTE_CLASS}>
-        {copy("usage.overview.qoder_cn_official", {
-          credits: number(spend.credits_total, 3),
-          cost: number(spend.cost_total, 2),
-          messages: number(spend.messages_total, 0),
-          since: spend.since ? String(spend.since) : "--"
-        })}
-      </p>
-      <p className={NOTE_CLASS}>{copy("usage.overview.qoder_cn_local_stale")}</p>
-      {cn.spend_stale && (
-        <p className={NOTE_CLASS}>
-          {copy("usage.overview.qoder_cn_spend_snapshot", {
-            date: cn.spend_cached_at ? String(cn.spend_cached_at).slice(0, 16).replace("T", " ") : "--"
-          })}
-        </p>
+      {nothingInPeriod && (
+        <p className={MUTED_LINE_CLASS}>{copy("usage.overview.qoder_cn_none")}</p>
+      )}
+      <button
+        type="button"
+        onClick={() => setDetailsOpen((open) => !open)}
+        aria-expanded={detailsOpen}
+        className="mb-3 inline-flex items-center gap-1 text-[10px] text-oai-gray-500 transition-colors hover:text-oai-gray-700 dark:text-oai-gray-400 dark:hover:text-oai-gray-200"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden
+          className={`h-3 w-3 transition-transform ${detailsOpen ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+        {copy("usage.overview.qoder_cn_details_toggle")}
+      </button>
+      {detailsOpen && (
+        <div>
+          {valueSummary && (
+            <p className={MUTED_LINE_CLASS}>
+              {copy("usage.overview.qoder_cn_three_values", {
+                cash: number(valueSummary.cash_paid_cny, 2),
+                official: number(valueSummary.official_cost_cny, 2)
+              })}
+            </p>
+          )}
+          {showsFreeload && (
+            <p className={MUTED_LINE_CLASS}>
+              {copy("usage.overview.qoder_cn_freeloading", {
+                low: number(freeload.cny_low, 0),
+                high: number(freeload.cny_high, 0),
+                msgs: number(freeload.messages, 0)
+              })}
+            </p>
+          )}
+          {showsEstTokens && (
+            <p className={MUTED_LINE_CLASS}>
+              {copy("usage.overview.qoder_cn_est_tokens", {
+                tokens: estTokensText,
+                ratio: anchor != null ? number(anchor, 0) : "--"
+              })}
+            </p>
+          )}
+          <p className={NOTE_CLASS}>
+            {copy("usage.overview.qoder_cn_official", {
+              credits: number(spend.credits_total, 3),
+              cost: number(spend.cost_total, 2),
+              messages: number(spend.messages_total, 0),
+              since: spend.since ? String(spend.since) : "--"
+            })}
+          </p>
+          <p className={NOTE_CLASS}>
+            {copy(hasLocalAnchor ? "usage.overview.qoder_cn_local_stale" : "usage.overview.qoder_cn_model_rows_generic")}
+          </p>
+          {cn.spend_stale && (
+            <p className={NOTE_CLASS}>
+              {copy("usage.overview.qoder_cn_spend_snapshot", {
+                date: cn.spend_cached_at ? String(cn.spend_cached_at).slice(0, 16).replace("T", " ") : "--"
+              })}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

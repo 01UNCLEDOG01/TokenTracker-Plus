@@ -1246,5 +1246,7 @@
   "settings.local_data.exported": "快照已匯出",
   "settings.local_data.done": "已匯入 {{imported}} 列",
   "settings.local_data.error": "操作失敗",
-  "settings.local_data.self": "這是本機匯出的快照，無需匯入。"
+  "settings.local_data.self": "這是本機匯出的快照，無需匯入。",
+  "usage.overview.qoder_cn_details_toggle": "口徑說明",
+  "usage.overview.qoder_cn_model_rows_generic": "下方模型行＝官方分模型估算（新版 Qoder CN 不再在本地記錄 token 數）"
 }

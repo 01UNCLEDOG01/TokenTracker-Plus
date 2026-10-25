@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TokenTracker Plus 普通用户上手指南</title>
+<style>
+  body{font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:2rem 1.25rem 4rem;line-height:1.75;color:#1f2937;background:#fafafa}
+  h1{font-size:1.6rem;border-bottom:2px solid #10b981;padding-bottom:.5rem}
+  h2{font-size:1.15rem;margin-top:2rem;color:#065f46}
+  table{border-collapse:collapse;width:100%;margin:.75rem 0}
+  th,td{border:1px solid #d1d5db;padding:.4rem .6rem;text-align:left;font-size:.92rem}
+  th{background:#ecfdf5}
+  code{background:#e5e7eb;border-radius:4px;padding:.1rem .35rem;font-size:.9em}
+  li{margin:.25rem 0}
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:.75rem 1rem;font-size:.92rem}
+  footer{margin-top:3rem;font-size:.85rem;color:#6b7280;text-align:center}
+</style>
+</head>
+<body>
+<h1>TokenTracker Plus 普通用户上手指南</h1>
+<p>写给「我只是想看看我烧了多少 token」的你。不需要会编程、不需要命令行。</p>
+
+<h2>一、安装（Windows）</h2>
+<ol>
+  <li>打开 <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/releases">Releases 页面</a>（或你拿到安装包的网盘目录），下载最新版的 <code>TokenTracker-plus-Setup-v*.exe</code>。</li>
+  <li>双击安装。默认装到本机用户目录，不需要管理员权限。</li>
+  <li>装完它会自动启动，任务栏右下角出现托盘图标，浏览器自动打开仪表盘。</li>
+</ol>
+<p class="note">就这么多。安装包自带完整运行时：<b>不需要装 Node、不需要注册账号、不需要填 API Key、不连接任何云服务</b>。</p>
+
+<h2>二、第一次打开你会看到什么</h2>
+<ul>
+  <li><b>仪表盘</b>：总花费、每日趋势、按模型/工具明细、项目归属、活动热力图。</li>
+  <li><b>会话页</b>：每一轮对话烧了多少 token、多快（tok/s）、花了多少钱，可展开子代理树。</li>
+  <li><b>限额页</b>：各家工具的额度窗口和重置倒计时。</li>
+  <li><b>成就页</b>：57 枚成就 + 16 个称号，全部按本机数据离线判定，Steam 风格解锁弹窗。</li>
+</ul>
+<p>它会自动扫描电脑上装过的 52 款 AI 编码工具（Claude Code、Codex、Cursor、Qoder、Kimi……），读取本地用量记录。<b>你什么都不用配置，历史用量也会自动补齐。</b></p>
+
+<h2>三、日常使用</h2>
+<ul>
+  <li><b>开机自启</b>：托盘右键开关；后台常驻、自动增量同步。</li>
+  <li><b>端口</b>：本地仪表盘固定在 <code>http://127.0.0.1:17680</code>。</li>
+  <li><b>刷新</b>：页面每分钟自动刷新；手动同步走托盘菜单「立即同步」。</li>
+  <li><b>桌宠 / 悬浮窗 / 额度小组件</b>：都在托盘右键菜单里。</li>
+</ul>
+
+<h2>四、可选配置（不配也完全能用）</h2>
+<table>
+  <tr><th>功能</th><th>需要什么</th><th>怎么做</th></tr>
+  <tr><td>Qoder 国际版限额卡</td><td>网页版 Cookie</td><td>双击 <code>Qoder-Intl-刷新Cookie.cmd</code>，按提示粘贴</td></tr>
+  <tr><td>Qoder CN 限额卡</td><td>网页版 Cookie</td><td>双击 <code>Qoder-CN-刷新Cookie.cmd</code></td></tr>
+  <tr><td>其他余额类卡片</td><td>个别平台凭据</td><td>卡片上会写明缺什么</td></tr>
+</table>
+<p>这些凭据只保存在你自己电脑的用户目录里，TT-plus 不上传。</p>
+
+<h2>五、数据与隐私</h2>
+<ul>
+  <li><b>全部数据只在本机</b>：<code>C:\Users\&lt;你&gt;\.tokentracker\</code>（账本 queue.jsonl）。</li>
+  <li><b>只记数字，不记内容</b>：token 数、时间、模型名、估算费用。代码、提示词、对话正文不保存不上传。</li>
+  <li><b>备份</b>：设置页 → 本机数据备份，可导出快照到另一台电脑（先预览、只补缺失）。</li>
+</ul>
+
+<h2>六、升级与卸载</h2>
+<ul>
+  <li><b>升级</b>：下载新版安装包直接覆盖安装，数据不丢；「检查上游更新」只提醒不自动安装。</li>
+  <li><b>卸载</b>：控制面板卸载；想连数据一起清就再删 <code>~/.tokentracker</code> 目录。</li>
+</ul>
+
+<h2>常见问题</h2>
+<ul>
+  <li><b>页面打不开？</b>等 10 秒再试（首次启动热身）；不行就托盘右键退出重开。</li>
+  <li><b>数字对不上？</b>看口径说明：免费路由按官方刊例价计值；标注「估算」的数字带 ≈ 号。</li>
+  <li><b>托盘没图标？</b>可能被折叠在 ^ 小箭头里。</li>
+</ul>
+
+<footer>TokenTracker Plus · MIT License · 基于开源项目 xiufengsun/TokenTracker 构建</footer>
+</body>
+</html>

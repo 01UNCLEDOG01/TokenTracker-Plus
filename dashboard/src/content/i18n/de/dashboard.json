@@ -778,5 +778,7 @@
   "settings.local_data.exported": "Snapshot exportiert",
   "settings.local_data.done": "{{imported}} Zeilen importiert",
   "settings.local_data.error": "Der Transfer ist fehlgeschlagen.",
-  "settings.local_data.self": "Dieser Snapshot stammt von diesem Rechner."
+  "settings.local_data.self": "Dieser Snapshot stammt von diesem Rechner.",
+  "usage.overview.qoder_cn_details_toggle": "Methodik-Details",
+  "usage.overview.qoder_cn_model_rows_generic": "Modellzeilen unten = offizielle Schätzungen je Modell (neuere Qoder-CN-Builds zeichnen lokal keine Tokens auf)."
 }

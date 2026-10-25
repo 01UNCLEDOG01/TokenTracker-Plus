@@ -3,7 +3,7 @@
   <h1>TokenTracker Plus (TT-plus)</h1>
   <p><strong>跨 52 款 AI 編碼工具與 IDE，看清你到底在 AI 上花了多少錢與即時 Token 速率</strong></p>
   <p>
-    <a href="./README.zh-CN.md">简体中文</a> · <b>繁體中文</b> · <a href="./README.md">English</a>
+    <a href="./README.md">简体中文</a> · <b>繁體中文</b> · <a href="./README.en.md">English</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.pt-BR.md">Português (BR)</a>
   </p>
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
@@ -17,6 +17,8 @@
 </div>
 
 > 💡 **關於本倉庫**：TT-plus 是基於原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT 許可）深度重構的單機與自託管增強版。核心目標是**100% 本地優先**、**真值計費**、**會話拓撲下鑽**與**全鏈路 Token 生成速率即時捕獲**。上游版權歸原作者所有，本改造同樣遵循 MIT 協議開源。上游官方不為此 fork 提供支援或背書。
+
+[✨ 核心特性](#-核心特性) · [🔌 支援的工具](#-支援的-ai-工具列表52-款) · [⚡ 快速開始](#-快速開始) · [💰 計費與熱力圖](#-費用口徑與熱力圖準則) · [🖼️ 介面預覽](#-介面預覽) · [🆚 三方對比](#-為什麼選-tokentracker-plus) · [🔒 數據與隱私](#-數據與隱私準則) · [📜 使用指南](./docs/getting-started.zh-CN.md) · [❤️ 支持本項目](./SPONSOR.md)
 
 ---
 
