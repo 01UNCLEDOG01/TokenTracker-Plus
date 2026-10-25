@@ -517,6 +517,11 @@ const LOCAL_BADGE_THRESHOLDS = {
   // with no revenue gate. Kimi (>$20M clause), Gemma/Llama (custom licence +
   // AUP) and the Hunyuan/Seed flagships stay in their own vendor badges.
   open_commons: [30000000, 300000000, 3000000000, 10000000000], // lifetime open-weight tokens
+  // Domestic vendor families (2026-10-26) — same ladder as the other CN
+  // vendors so the five slots stay comparable across families.
+  iflytek_spark: [10000000, 100000000, 1000000000, 10000000000], // lifetime iFlytek Spark tokens
+  sensenova_daily: [10000000, 100000000, 1000000000, 10000000000], // lifetime SenseTime SenseNova tokens
+  xiaomi_mimo: [10000000, 100000000, 1000000000, 10000000000], // lifetime Xiaomi MiMo tokens
   dragon_heir: [1, 3, 5, 7], // distinct domestic model families used
   kill_line: [50, 60, 70, 80], // DeepSeek share of lifetime tokens, %
 };
@@ -776,6 +781,9 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   let phiTokens = 0;
   let metaTokens = 0;
   let openWeightTokens = 0;
+  let iflytekTokens = 0;
+  let sensenovaTokens = 0;
+  let xiaomiTokens = 0;
   const arbitragePlatforms = new Set();
   const modelTokens = new Map();
   const bigModels = new Set();
@@ -1054,6 +1062,25 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       if (OPEN_WEIGHT_LICENSE_PATTERNS.some((re) => re.test(lowerModel))) {
         openWeightTokens += tokens;
         bump("open_commons", openWeightTokens, row.hour_start);
+      }
+      // iFlytek: Spark model ids only. "Muse Spark" is Meta's, so the bare
+      // `spark` token must not swallow it.
+      if (
+        (!lowerModel.includes("muse-spark") && /(^|[-_/ ])spark/.test(lowerModel)) ||
+        lowerModel.includes("iflytek") ||
+        lowerModel.includes("iflycode") ||
+        sourceKey.includes("iflytek")
+      ) {
+        iflytekTokens += tokens;
+        bump("iflytek_spark", iflytekTokens, row.hour_start);
+      }
+      if (lowerModel.includes("sensenova")) {
+        sensenovaTokens += tokens;
+        bump("sensenova_daily", sensenovaTokens, row.hour_start);
+      }
+      if (lowerModel.includes("mimo")) {
+        xiaomiTokens += tokens;
+        bump("xiaomi_mimo", xiaomiTokens, row.hour_start);
       }
       const ARBITRAGE_PATTERNS = [
         "apigoto", "agentrouter", "opencode", "openrouter", "codearts",

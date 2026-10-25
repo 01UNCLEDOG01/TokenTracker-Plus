@@ -149,6 +149,9 @@ export const BADGE_CATALOG = [
   { id: "nemotron_spiral", scope: "local", icon: Cpu, format: "tokens", art: "/achievements/nemotron-spiral.png?v=2" },
   { id: "phi_disciple", scope: "local", icon: Sigma, format: "tokens", art: "/achievements/phi-disciple.png?v=2" },
   { id: "spark_alpaca", scope: "local", icon: Bot, format: "tokens", art: "/achievements/spark-alpaca.png?v=2" },
+  { id: "iflytek_spark", scope: "local", icon: Sparkles, format: "tokens", art: "/achievements/iflytek-spark.png?v=1" },
+  { id: "sensenova_daily", scope: "local", icon: Sunrise, format: "tokens", art: "/achievements/sensenova-daily.png?v=1" },
+  { id: "xiaomi_mimo", scope: "local", icon: Radio, format: "tokens", art: "/achievements/xiaomi-mimo.png?v=1" },
   // Wave-6 badges (2026-10-25)
   { id: "dragon_heir", scope: "local", icon: Crown, format: "count", art: "/achievements/dragon-heir.png?v=3" },
   { id: "kill_line", scope: "local", icon: Sword, format: "percent", art: "/achievements/kill-line.png?v=4" },
@@ -192,7 +195,8 @@ export const BADGE_CATEGORY_MAP = {
     "zhipu_sage", "moonshot_voyager", "minimax_abyss", "gemini_gemma", "hyperspeed_grok",
     "flash_immortal", "closed_source_loyalist", "claude_survivor", "wishing_well", "heart_model", "stepfun_voyager",
     "dragon_heir", "kill_line",
-    "open_commons", "mistral_westwind", "nemotron_spiral", "phi_disciple", "spark_alpaca"
+    "open_commons", "mistral_westwind", "nemotron_spiral", "phi_disciple", "spark_alpaca",
+    "iflytek_spark", "sensenova_daily", "xiaomi_mimo"
   ]),
   habits: new Set([
     "night_owl", "early_bird", "around_the_clock", "zen_balancer", "buzzer_beater",
@@ -235,6 +239,9 @@ export const BADGE_DIFFICULTY = {
   nemotron_spiral: 4.5,
   phi_disciple: 4.2,
   spark_alpaca: 5.0,
+  iflytek_spark: 4.3,
+  sensenova_daily: 4.4,
+  xiaomi_mimo: 4.6,
   dragon_heir: 4,
   kill_line: 4.6,
   zhipu_sage: 4.5,

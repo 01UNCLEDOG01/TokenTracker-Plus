@@ -2387,3 +2387,10 @@ achievements.resonance.inactive,dashboard,*,TitleDetailModal,inactive,Inactive,,
 achievements.resonance.label,dashboard,*,TitleDetailModal,label,{{tier}} resonance · Lv.{{level}},,active
 achievements.resonance.max,dashboard,*,TitleDetailModal,max,{{tier}} resonance · MAX,,active
 achievements.tier.requirement,dashboard,*,TitleDetailModal,tier_requirement,Needs {{tier}},,active
+achievements.badge.iflytek_spark.name,dashboard,*,AchievementsSection,iflytek_spark_name,Starfire,,active
+achievements.badge.iflytek_spark.desc,dashboard,*,BadgeDetailModal,iflytek_spark_desc,Lifetime tokens through iFlytek Spark models — one spark is enough to start a prairie fire.,,active
+achievements.badge.sensenova_daily.name,dashboard,*,AchievementsSection,sensenova_daily_name,Daily Renewal,,active
+achievements.badge.sensenova_daily.desc,dashboard,*,BadgeDetailModal,sensenova_daily_desc,"Lifetime tokens through SenseTime SenseNova models — renew today, renew again tomorrow.",,active
+achievements.badge.xiaomi_mimo.name,dashboard,*,AchievementsSection,xiaomi_mimo_name,MiMo Core,,active
+achievements.badge.xiaomi_mimo.desc,dashboard,*,BadgeDetailModal,xiaomi_mimo_desc,Lifetime tokens through Xiaomi MiMo models — the phone maker builds the chip and the model.,,active
+pet.state.run,dashboard,PetPage,PetPage,state_run,"Moving",,active

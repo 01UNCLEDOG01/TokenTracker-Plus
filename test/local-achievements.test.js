@@ -39,7 +39,7 @@ test("empty inputs yield the full locked catalog", () => {
   // Local badges plus the cloud-parity set, now including local
   // trendsetter/podium proxies and the four wave-4 model badges.
   assert.equal(result.length, Object.keys(LOCAL_BADGE_THRESHOLDS).length + Object.keys(CLOUD_PARITY_BADGE_THRESHOLDS).length);
-  assert.equal(result.length, 62);
+  assert.equal(result.length, 65);
   for (const id of ["trendsetter", "podium"]) {
     const badge = result.find((entry) => entry.id === id);
     assert.ok(badge, `${id} must exist in the local catalog`);

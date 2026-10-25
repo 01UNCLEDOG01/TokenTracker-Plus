@@ -849,5 +849,11 @@
   "achievements.badge.open_commons.name": "커먼즈",
   "achievements.badge.open_commons.desc": "MIT/Apache 오픈 웨이트 모델 누적 토큰 — 커먼즈에는 자물쇠가 없습니다. DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral, Phi 모두 자유롭게.",
   "achievements.badge.gemini_gemma.name": "쌍둥이 보석",
-  "achievements.badge.gemini_gemma.desc": "Google 패밀리(Gemini, Gemma, Vertex) 전체 누적 토큰 — 양도 질도 기대를 저버리지 않는 뷔페."
+  "achievements.badge.gemini_gemma.desc": "Google 패밀리(Gemini, Gemma, Vertex) 전체 누적 토큰 — 양도 질도 기대를 저버리지 않는 뷔페.",
+  "achievements.badge.iflytek_spark.name": "성화요원",
+  "achievements.badge.iflytek_spark.desc": "iFlytek Spark 모델 누적 토큰 — 작은 불씨가 들판을 태웁니다.",
+  "achievements.badge.sensenova_daily.name": "일일신",
+  "achievements.badge.sensenova_daily.desc": "SenseTime SenseNova 모델 누적 토큰 — 오늘 새롭게, 내일 또 새롭게.",
+  "achievements.badge.xiaomi_mimo.name": "미심",
+  "achievements.badge.xiaomi_mimo.desc": "Xiaomi MiMo 모델 누적 토큰 — 휴대폰 제조사가 칩과 모델을 함께 만듭니다."
 }

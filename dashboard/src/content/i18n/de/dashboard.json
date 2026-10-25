@@ -860,5 +860,11 @@
   "achievements.badge.open_commons.name": "Die Allmende",
   "achievements.badge.open_commons.desc": "Token insgesamt über MIT-/Apache-Gewichte ohne Umsatzschwelle — die Allmende hat kein Schloss: DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral und Phi stehen allen offen.",
   "achievements.badge.gemini_gemma.name": "Zwillingsjuwelen",
-  "achievements.badge.gemini_gemma.desc": "Token insgesamt über die ganze Google-Familie — Gemini, Gemma und Vertex — das Buffet, das nie leer wird."
+  "achievements.badge.gemini_gemma.desc": "Token insgesamt über die ganze Google-Familie — Gemini, Gemma und Vertex — das Buffet, das nie leer wird.",
+  "achievements.badge.iflytek_spark.name": "Funkenflug",
+  "achievements.badge.iflytek_spark.desc": "Token insgesamt über iFlytek-Spark-Modelle — ein Funke genügt, und die Steppe brennt.",
+  "achievements.badge.sensenova_daily.name": "Täglich neu",
+  "achievements.badge.sensenova_daily.desc": "Token insgesamt über SenseTime-SenseNova-Modelle — heute neu, morgen wieder.",
+  "achievements.badge.xiaomi_mimo.name": "MiMo-Kern",
+  "achievements.badge.xiaomi_mimo.desc": "Token insgesamt über Xiaomi-MiMo-Modelle — der Handyhersteller baut Chip und Modell."
 }

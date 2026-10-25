@@ -849,5 +849,11 @@
   "achievements.badge.open_commons.name": "コモンズ",
   "achievements.badge.open_commons.desc": "MIT/Apache の開放重みモデルでの累計トークン——コモンズに鍵はない。DeepSeek、Qwen、GLM、MiniMax、StepFun、Mistral、Phi から自由に取れます。",
   "achievements.badge.gemini_gemma.name": "双子の宝石",
-  "achievements.badge.gemini_gemma.desc": "Google ファミリー（Gemini、Gemma、Vertex）全体での累計トークン——量も質も、噂に違わぬビュッフェ。"
+  "achievements.badge.gemini_gemma.desc": "Google ファミリー（Gemini、Gemma、Vertex）全体での累計トークン——量も質も、噂に違わぬビュッフェ。",
+  "achievements.badge.iflytek_spark.name": "星火燎原",
+  "achievements.badge.iflytek_spark.desc": "iFlytek Spark 系モデルでの累計トークン——小さな火が野を焼く。",
+  "achievements.badge.sensenova_daily.name": "日日新",
+  "achievements.badge.sensenova_daily.desc": "SenseTime SenseNova 系モデルでの累計トークン——今日も新たに、明日もまた。",
+  "achievements.badge.xiaomi_mimo.name": "米芯",
+  "achievements.badge.xiaomi_mimo.desc": "Xiaomi MiMo 系モデルでの累計トークン——端末メーカーがチップもモデルも作る。"
 }

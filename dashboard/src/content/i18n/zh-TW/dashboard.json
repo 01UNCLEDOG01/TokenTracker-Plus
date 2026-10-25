@@ -403,6 +403,7 @@
   "pet.state.streak": "連續活躍",
   "pet.state.celebrate": "新增用量",
   "pet.state.rest": "休息",
+  "pet.state.run": "跑動",
   "pet.size.small": "小",
   "pet.size.medium": "中",
   "pet.size.large": "大",
@@ -1316,5 +1317,11 @@
   "achievements.badge.open_commons.name": "公地",
   "achievements.badge.open_commons.desc": "經 MIT/Apache 開放權重模型累計消耗——公地不設門鎖：DeepSeek、千問、智譜、MiniMax、階躍、Mistral、Phi 都能取用。",
   "achievements.badge.gemini_gemma.name": "雙子寶石",
-  "achievements.badge.gemini_gemma.desc": "經 Google 全家（Gemini、Gemma、Vertex）累計消耗——雙子與寶石輪流坐莊，量大管飽。"
+  "achievements.badge.gemini_gemma.desc": "經 Google 全家（Gemini、Gemma、Vertex）累計消耗——雙子與寶石輪流坐莊，量大管飽。",
+  "achievements.badge.iflytek_spark.name": "星火燎原",
+  "achievements.badge.iflytek_spark.desc": "經訊飛星火系模型累計消耗——一點星火，也能燎原。",
+  "achievements.badge.sensenova_daily.name": "日日新",
+  "achievements.badge.sensenova_daily.desc": "經商湯日日新（SenseNova）系模型累計消耗——苟日新，日日新。",
+  "achievements.badge.xiaomi_mimo.name": "米芯",
+  "achievements.badge.xiaomi_mimo.desc": "經小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。"
 }
