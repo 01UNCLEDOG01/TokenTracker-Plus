@@ -1578,7 +1578,7 @@ sessions.detail.credits,ui,SessionsPage,SessionDetailModal,detail_credits,Credit
 sessions.notice.credits_coverage,ui,SessionsPage,SessionsPage,notice_credits_coverage,"Credits come from WorkBuddy's own per-request log, so they cover only the conversations whose transcript is still on this machine. The full credit ledger is on the Usage page.",,active
 sessions.badge.partial_usage,ui,SessionsPage,SessionsPage,badge_partial_usage,"Partial usage",,active
 sessions.badge.partial_cost,ui,SessionsPage,SessionsPage,badge_partial_cost,"Partial cost","Tokens are fully observed but at least one model in the session has no public rate.",active
-sessions.badge.estimated,ui,SessionsPage,SessionsPage,badge_estimated,"Estimated",,active
+sessions.badge.estimated,ui,SessionsPage,SessionsPage,badge_estimated,"Estimated tokens",,active
 sessions.estimate.prefix,ui,SessionsPage,SessionsPage,estimate_prefix,"≈",,active
 sessions.cost.partial_title,ui,SessionsPage,SessionsPage,cost_partial_title,"Lower bound - some models in this session have no public rate, so their tokens cost $0 here.","Tooltip on the greater-or-equal cost marker.",active
 sessions.grok.runtime_breakdown,ui,SessionsPage,SessionsPage,grok_runtime_breakdown,"Model calls {{calls}} · API {{seconds}}s · Tools {{tools}} · Errors {{errors}}",,active
@@ -2242,7 +2242,7 @@ cloud.plan.device_sync,cloud,CloudPage,CloudPage,text,"Unlimited devices · cros
 cloud.plan.device_fair_use,cloud,CloudPage,CloudPage,text,"Unlimited devices for everyday personal use, with no per-device charges. Bulk or abnormal device connections may trigger sync protection.",,active
 usage.overview.qoder_cn_spend_snapshot,ui,DashboardPage,LedgerNotices,qoder_cn_spend_snapshot,"Official cloud totals are a snapshot from {{date}} - the live refresh failed, so today is not included.",,active
 usage.overview.qoder_cn_spend_unavailable,ui,DashboardPage,LedgerNotices,qoder_cn_spend_unavailable,"Official cloud totals could not be fetched. This is a fetch failure, not zero usage.",,active
-usage.overview.qoder_intl_credits_note,ui,DashboardPage,LedgerNotices,qoder_intl_credits_note,"Credits are per-message figures Qoder itself records; money converts at the published Pro rate ($0.01 per credit). Qoder writes no token counts, so the token rows below are back-derived estimates.",,active
+usage.overview.qoder_intl_credits_note,ui,DashboardPage,LedgerNotices,qoder_intl_credits_note,"Token rows below are back-derived estimates - Qoder records no token counts locally. The money is not an estimate: credits are per-message figures Qoder itself records, converted at the published Pro rate ($0.01 per credit).",,active
 limits.label.qoder_cn_addon_credits,ui,LimitsPage,UsageLimitsPanel,qoder_cn_addon_credits,Add-on Credits,,active
 cloud.rebuild.action,cloud,SettingsPage,CloudRebuildControl,action,Rebuild this device's cloud data,,active
 cloud.rebuild.title,cloud,SettingsPage,CloudRebuildControl,title,Rebuild cloud data?,,active

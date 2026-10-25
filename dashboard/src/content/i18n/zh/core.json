@@ -693,7 +693,7 @@
   "sessions.notice.credits_coverage": "积分取自 WorkBuddy 自己每次请求的记账，只覆盖本机仍保留对话记录的那些会话；完整积分账本在「用量」页。",
   "sessions.badge.partial_usage": "用量不完整",
   "sessions.badge.partial_cost": "成本不完整",
-  "sessions.badge.estimated": "估算",
+  "sessions.badge.estimated": "token 估算",
   "sessions.estimate.prefix": "≈",
   "sessions.cost.partial_title": "下限值 — 本会话中部分模型没有公开费率，其 token 在此按 $0 计。",
   "sessions.grok.runtime_breakdown": "模型调用 {{calls}} 次 · API {{seconds}} 秒 · 工具调用 {{tools}} 次 · 错误 {{errors}} 个",

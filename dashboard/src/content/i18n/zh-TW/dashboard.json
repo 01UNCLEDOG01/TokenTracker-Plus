@@ -1080,7 +1080,7 @@
   "usage.overview.qoder_cn_period": "本週期官方雲端：{{credits}} 積分 · 預估 ¥{{cost}} · {{messages}} 條（{{range}}）",
   "usage.overview.qoder_cn_today": "今日即時：{{credits}} 積分 · ¥{{cost}} · {{messages}} 條（官方按自然日結算，今日取自即時明細）",
   "usage.overview.qoder_cn_none": "本週期官方雲端無消耗記錄",
-  "usage.overview.qoder_intl_credits_note": "積分為 Qoder 逐訊息真實記錄，金額按公布匯率（$0.01/積分）折算；本地沒有 token 記錄，下方 token 行為按積分反推的估算值。",
+  "usage.overview.qoder_intl_credits_note": "下方 token 行為按積分反推的估算值（Qoder 本地不記錄 token）；金額不是估算——積分為 Qoder 逐訊息真實記錄，按公布匯率（$0.01/積分）折算。",
   "usage.overview.workbuddy_credits": "{{name}}（本機積分賬本）：本週期 {{credits}} 積分 ≈ {{symbol}}{{cost}} · 累計 {{total}} 積分（自 {{since}}，{{range}}）",
   "usage.overview.workbuddy_none": "本週期 WorkBuddy 無積分記賬",
   "usage.overview.workbuddy_note": "WorkBuddy 按積分計費、不按 token；按發放積分的套餐單價折算（國內版 1000 積分 = ¥50，國際版 1000 積分 = $10）。只讀本機賬本檔案，不上傳。",

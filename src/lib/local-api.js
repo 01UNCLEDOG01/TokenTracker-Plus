@@ -4660,40 +4660,58 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const now = Date.now();
       const forceRefresh = url.searchParams?.get("force") === "1" || url.searchParams?.get("refresh") === "1";
 
+      // A cold compute replays the whole queue (~3s), so once a payload exists
+      // it is served immediately even when stale, and the recompute runs in the
+      // background (stale-while-revalidate). Blocking every 60s poll on a 3s
+      // replay is what made the achievements page feel slow to load.
+      const recomputeAchievements = async () => {
+        const { allRows } = await scopedRowsForUrl(url);
+        const queueRows = allRows;
+        const { projectRows } = await readProjectUsageContext(qp, url);
+        // session_marathon needs the device's session rows. buildSessionAnalytics
+        // serves from its sidecar cache (5-min TTL), so repeated polls stay cheap.
+        let sessions = [];
+        try {
+          const { buildSessionAnalytics } = require("./session-analytics");
+          sessions = await buildSessionAnalytics({ force: false });
+        } catch (error) {
+          console.warn("[local-api] achievements session scan failed:", error?.message || error);
+        }
+        const achievements = computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions });
+        const payload = {
+          generated_at: new Date().toISOString(),
+          achievements,
+        };
+        _achievementsCache = {
+          timestamp: Date.now(),
+          tzKey,
+          payload,
+          recomputing: false,
+        };
+        return payload;
+      };
+
       if (
         !forceRefresh &&
         _achievementsCache &&
-        now - _achievementsCache.timestamp < ACHIEVEMENTS_CACHE_TTL_MS &&
         _achievementsCache.tzKey === tzKey
       ) {
+        if (now - _achievementsCache.timestamp < ACHIEVEMENTS_CACHE_TTL_MS) {
+          json(res, _achievementsCache.payload);
+          return true;
+        }
+        if (!_achievementsCache.recomputing) {
+          _achievementsCache.recomputing = true;
+          recomputeAchievements().catch((error) => {
+            console.warn("[local-api] achievements background refresh failed:", error?.message || error);
+            if (_achievementsCache) _achievementsCache.recomputing = false;
+          });
+        }
         json(res, _achievementsCache.payload);
         return true;
       }
 
-      const { allRows } = await scopedRowsForUrl(url);
-      const queueRows = allRows;
-      const { projectRows } = await readProjectUsageContext(qp, url);
-      // session_marathon needs the device's session rows. buildSessionAnalytics
-      // serves from its sidecar cache (5-min TTL), so repeated polls stay cheap.
-      let sessions = [];
-      try {
-        const { buildSessionAnalytics } = require("./session-analytics");
-        sessions = await buildSessionAnalytics({ force: false });
-      } catch (error) {
-        console.warn("[local-api] achievements session scan failed:", error?.message || error);
-      }
-      const achievements = computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions });
-      const payload = {
-        generated_at: new Date().toISOString(),
-        achievements,
-      };
-
-      _achievementsCache = {
-        timestamp: now,
-        tzKey,
-        payload,
-      };
-
+      const payload = await recomputeAchievements();
       json(res, payload);
       return true;
     }

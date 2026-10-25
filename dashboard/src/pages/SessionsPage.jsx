@@ -162,6 +162,9 @@ const SessionRow = React.memo(function SessionRow({
     : (session.title || projectLabel);
   const isCreditEstimate = session.usage_source === "qoder-credit-estimate";
   const estimatePrefix = copy("sessions.estimate.prefix");
+  // The "estimated" badge scopes to the token column only: credit-based rows
+  // carry real per-message credits, so the money figure is exact even though
+  // the token count is back-derived.
   const costBadge = isCreditEstimate
     ? copy("sessions.badge.estimated")
     : session.usage_is_incomplete
@@ -292,8 +295,8 @@ const SessionRow = React.memo(function SessionRow({
         </div>
         <div className="sessions-row-value">
           <dt className="text-xs text-oai-gray-600 dark:text-oai-gray-300 md:sr-only">{copy("sessions.col.cost")}</dt>
-          <dd className="mt-1 text-sm tabular-nums text-oai-black dark:text-white md:mt-0" title={isCreditEstimate ? copy("sessions.badge.estimated") : session.cost_is_partial ? copy("sessions.cost.partial_title") : undefined}>
-            {session.cost_is_partial ? "≥" : isCreditEstimate ? "≈" : ""}{formatUsdCurrency(session.cost_usd, { currency, rate })}
+          <dd className="mt-1 text-sm tabular-nums text-oai-black dark:text-white md:mt-0" title={session.cost_is_partial ? copy("sessions.cost.partial_title") : undefined}>
+            {session.cost_is_partial ? "≥" : ""}{formatUsdCurrency(session.cost_usd, { currency, rate })}
           </dd>
         </div>
         <div className="sessions-row-value">

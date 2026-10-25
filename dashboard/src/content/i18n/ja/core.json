@@ -575,7 +575,7 @@
   "sessions.notice.credits_coverage": "クレジットは WorkBuddy のリクエスト単位の記録から取得しているため、このマシンにログが残っている会話のみ対象です。完全なクレジット台帳は「使用量」ページにあります。",
   "sessions.badge.partial_usage": "不完全な使用量",
   "sessions.badge.partial_cost": "コスト不完全",
-  "sessions.badge.estimated": "推定",
+  "sessions.badge.estimated": "トークン推定",
   "sessions.estimate.prefix": "≈",
   "sessions.cost.partial_title": "下限値 — このセッションの一部のモデルには公開レートがないため、そのトークンは $0 として計上されます。",
   "sessions.grok.runtime_breakdown": "モデル呼出 {{calls}} 回 · API {{seconds}} 秒 · ツール {{tools}} 回 · エラー {{errors}} 件",

@@ -178,7 +178,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
           <section aria-label={copy("sessions.detail.consumption")}>
             <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-oai-gray-200 dark:border-oai-gray-800">
               <Kpi label={copy("sessions.col.tokens")}>{isCreditEstimate ? estimatePrefix : ""}{formatTokens(ownTokens + subagentTokens)}</Kpi>
-              <Kpi label={copy("sessions.col.cost")} className="border-l">{combinedPartial ? "≥" : isCreditEstimate ? "≈" : ""}{formatCost(ownCost + subagentCost)}</Kpi>
+              <Kpi label={copy("sessions.col.cost")} className="border-l">{combinedPartial ? "≥" : ""}{formatCost(ownCost + subagentCost)}</Kpi>
               <Kpi label={copy("sessions.summary.speed")} className="border-t" title={hasSpeed ? copy("sessions.performance.samples", { count: performance.estimated_request_count }) : copy("sessions.detail.no_speed")}>
                 {hasSpeed ? <SessionPerformance performance={performance} /> : "—"}
               </Kpi>

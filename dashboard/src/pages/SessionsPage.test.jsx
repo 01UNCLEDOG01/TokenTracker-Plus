@@ -247,7 +247,7 @@ describe("SessionsPage", () => {
     expect(screen.getByText("1.2K credits")).toBeInTheDocument();
     expect(screen.getByText(/transcript is still on this machine/)).toBeInTheDocument();
   });
-  it("labels Qoder credit-estimated tokens and cost as estimates", async () => {
+  it("marks Qoder credit-estimated tokens as estimates and leaves the cost unmarked", async () => {
     const row = makeThreadSession({
       session_hash: "qoder-estimate-row",
       title: "Qoder credit estimate",
@@ -266,12 +266,16 @@ describe("SessionsPage", () => {
     expect(document.body.textContent).toContain(copy("sessions.badge.estimated"));
     expect(screen.queryByText(copy("sessions.badge.partial_usage"))).toBeNull();
     expect(screen.getByText(/^≈10K$/)).toBeInTheDocument();
-    expect(screen.getByText(/^≈\$1\.23/)).toBeInTheDocument();
+    // The money is real credits converted at the published rate, so the cost
+    // cell must not carry the ≈ marker - only the token column does.
+    expect(screen.getByText(/^\$1\.23/)).toBeInTheDocument();
+    expect(screen.queryByText(/^≈\$/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "View statistics for Qoder credit estimate" }));
     expect(within(screen.getByRole("dialog")).getByText(
       (_, element) => element?.textContent === ` · ${copy("sessions.badge.estimated")}`,
     )).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).queryByText(/^≈\$/)).toBeNull();
   });
 
   beforeEach(() => {

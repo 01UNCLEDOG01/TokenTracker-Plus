@@ -611,7 +611,7 @@
   "usage.overview.qoder_cn_period": "今期の公式クラウド：{{credits}} クレジット · 推定 ¥{{cost}} · {{messages}} 件（{{range}}）",
   "usage.overview.qoder_cn_today": "本日リアルタイム：{{credits}} クレジット · ¥{{cost}} · {{messages}} 件（公式は日次確定のため、本日はリアルタイム明細から算出）",
   "usage.overview.qoder_cn_none": "今期の公式クラウド利用はありません",
-  "usage.overview.qoder_intl_credits_note": "クレジットは Qoder がメッセージごとに記録した実数値で、金額は公開レート（1クレジット = $0.01）で換算されます。ローカルにトークン記録がないため、下のトークン行はクレジットから逆算した推定値です。",
+  "usage.overview.qoder_intl_credits_note": "下のトークン行はクレジットから逆算した推定値です（Qoder はローカルにトークンを記録しません）。金額は推定ではなく、Qoder がメッセージごとに記録した実クレジット値を公開レート（1クレジット = $0.01）で換算したものです。",
   "usage.overview.workbuddy_credits": "{{name}}（ローカル台帳）：今期 {{credits}} クレジット ≈ {{symbol}}{{cost}} · 累計 {{total}} クレジット（{{since}} から、{{range}}）",
   "usage.overview.workbuddy_none": "今期の WorkBuddy クレジット記帳はありません",
   "usage.overview.workbuddy_note": "WorkBuddy はトークンではなくクレジットで課金されます。クレジットを付与するプラン単価で換算（国内版 1000 クレジット = ¥50、国際版 1000 クレジット = $10）。ローカル台帳を読むだけでアップロードはありません。",

@@ -622,7 +622,7 @@
   "usage.overview.qoder_cn_period": "Dieser Zeitraum (Offizielle Cloud): {{credits}} Credits · geschätzt ¥{{cost}} · {{messages}} Nachrichten ({{range}})",
   "usage.overview.qoder_cn_today": "Heute live: {{credits}} Credits · ¥{{cost}} · {{messages}} Nachrichten (offizielle Tagesabrechnung; heute aus der Live-Liste)",
   "usage.overview.qoder_cn_none": "Kein Verbrauch der Offiziellen Cloud in diesem Zeitraum.",
-  "usage.overview.qoder_intl_credits_note": "Credits sind von Qoder selbst pro Nachricht erfasste Werte; das Geld wird zum veröffentlichten Pro-Tarif ($0,01 pro Credit) umgerechnet. Lokal werden keine Token-Zahlen aufgezeichnet, daher sind die Token-Zeilen unten zurückgerechnete Schätzungen.",
+  "usage.overview.qoder_intl_credits_note": "Die Token-Zeilen unten sind zurückgerechnete Schätzungen (Qoder zeichnet lokal keine Token auf). Der Geldbetrag ist keine Schätzung: Die Credits sind von Qoder selbst pro Nachricht erfasste Werte, umgerechnet zum veröffentlichten Pro-Tarif ($0,01 pro Credit).",
   "usage.overview.workbuddy_credits": "{{name}} (lokales Kreditkonto): {{credits}} Credits ≈ {{symbol}}{{cost}} diesen Zeitraum · {{total}} Credits gesamt (seit {{since}}, {{range}})",
   "usage.overview.workbuddy_none": "Keine WorkBuddy-Credit-Buchungen in diesem Zeitraum",
   "usage.overview.workbuddy_note": "WorkBuddy rechnet in Credits ab, nicht in Tokens; umgerechnet pro 1000 Credits zum Tarifpreis, der diese Credits gewährt (Inland ¥50, international $10). Es wird nur die lokale Kontodatei gelesen, nichts hochgeladen.",
