@@ -783,5 +783,8 @@
   "usage.overview.qoder_cn_model_rows_generic": "Modellzeilen unten = offizielle Schätzungen je Modell (neuere Qoder-CN-Builds zeichnen lokal keine Tokens auf).",
   "sessions.summary.speed_mode_all": "Alle Zeitspannen",
   "sessions.summary.speed_mode_active": "Nur aktive",
-  "sessions.summary.speed_mode_aria": "Wählen, welche Sitzungen in die Geschwindigkeit einfließen"
+  "sessions.summary.speed_mode_aria": "Wählen, welche Sitzungen in die Geschwindigkeit einfließen",
+  "sessions.filter.activity_all": "Alle Sitzungen",
+  "sessions.filter.activity_active": "Nur aktive",
+  "sessions.filter.activity_aria": "Sitzungen nach Messqualität filtern"
 }

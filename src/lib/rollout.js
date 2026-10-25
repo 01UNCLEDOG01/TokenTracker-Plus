@@ -1,4 +1,5 @@
 const { claudeUserIdentity, collectClaudeForkAliases } = require("./claude-user-identity");
+const { canonicalModelName } = require("./model-canonical");
 const fs = require("node:fs/promises");
 const fssync = require("node:fs");
 const os = require("node:os");
@@ -4651,7 +4652,11 @@ function normalizeSourceInput(value) {
 function normalizeModelInput(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  // KI-031: fold verified alias spellings (case / separator / namespace /
+  // channel prefixes) onto the canonical SKU name at ingest, so every new row
+  // lands already unified. The map only matches exact model names, so any
+  // non-model string passing through here is untouched.
+  return trimmed.length > 0 ? canonicalModelName(trimmed) : null;
 }
 
 // OpenCode v1 stores the model as flat strings on every assistant message

@@ -916,7 +916,8 @@ describe("SessionsPage", () => {
     expect(help.closest("dt")).toHaveTextContent(copy("sessions.summary.speed"));
 
     screen.getByRole("button", { name: copy("sessions.filter.model_aria") }).focus();
-    await user.tab();
+    await user.tab(); // lands on the new activity filter select
+    await user.tab(); // then reaches the speed help trigger
     expect(help).toHaveFocus();
     expect(await screen.findByText(copy("sessions.summary.scope"))).toHaveAttribute("role", "tooltip");
     expect(help).toHaveAccessibleDescription(copy("sessions.summary.scope"));

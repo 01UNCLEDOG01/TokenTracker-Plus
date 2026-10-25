@@ -1192,5 +1192,8 @@
   "usage.overview.qoder_cn_model_rows_generic": "下方模型行＝官方分模型估算（新版 Qoder CN 不再在本地记录 token 数）",
   "sessions.summary.speed_mode_all": "全部会话吞吐",
   "sessions.summary.speed_mode_active": "仅真实活跃",
-  "sessions.summary.speed_mode_aria": "选择速率汇总的口径"
+  "sessions.summary.speed_mode_aria": "选择速率汇总的口径",
+  "sessions.filter.activity_all": "全部会话",
+  "sessions.filter.activity_active": "仅真实活跃",
+  "sessions.filter.activity_aria": "按计时质量筛选会话"
 }

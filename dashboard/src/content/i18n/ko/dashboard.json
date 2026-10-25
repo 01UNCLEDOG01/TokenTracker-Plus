@@ -772,5 +772,8 @@
   "usage.overview.qoder_cn_model_rows_generic": "아래 모델 행＝공식 모델별 추정치(최신 Qoder CN 빌드는 로컬에 토큰을 기록하지 않음)",
   "sessions.summary.speed_mode_all": "전체 구간",
   "sessions.summary.speed_mode_active": "실측만",
-  "sessions.summary.speed_mode_aria": "속도 요약 기준 선택"
+  "sessions.summary.speed_mode_aria": "속도 요약 기준 선택",
+  "sessions.filter.activity_all": "전체 세션",
+  "sessions.filter.activity_active": "실측만",
+  "sessions.filter.activity_aria": "측정 품질로 세션 필터"
 }

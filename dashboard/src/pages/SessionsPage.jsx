@@ -410,6 +410,10 @@ export function SessionsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState(initialFilters.source);
   const [modelFilter, setModelFilter] = useState(initialFilters.model);
+  // 仅真实活跃: list-level twin of the summary speed lens — keep only sessions
+  // with precise request-window timing (performance_source is not wall-clock)
+  // and a live generation ratio.
+  const [activityFilter, setActivityFilter] = useState("all");
   const [rangeFilter, setRangeFilter] = useState(initialFilters.from || initialFilters.to ? "custom" : "all");
   const [customFrom, setCustomFrom] = useState(initialFilters.from);
   const [customTo, setCustomTo] = useState(initialFilters.to);
@@ -517,6 +521,9 @@ export function SessionsPage() {
       if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
       if (projectFilter !== "all" && row.project_key !== projectFilter) return false;
       if (modelFilter !== "all" && !sessionModels(row).some((usage) => usage.model === modelFilter)) return false;
+      // 仅真实活跃: drop wall-clock fallback sessions (spans covering days of
+      // idle time) and anything without a usable timing sample at all.
+      if (activityFilter === "active" && (String(row.performance_source || "") === "wall-clock" || !(row.performance && Number(row.performance.estimated_tokens_per_second) > 0))) return false;
       if (rangeFilter === "custom") {
         if (!overlapsSessionDates(row, customFrom, customTo)) return false;
       } else if (!overlapsRange(row, startMs)) return false;
@@ -525,7 +532,7 @@ export function SessionsPage() {
       const haystack = `${row.title || ""} ${row.project_key || ""} ${models} ${row.agent_nickname || ""} ${row.agent_role || ""} ${row.project_ref || ""} ${row.session_id || ""}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [scopedSessions, sourceFilter, projectFilter, modelFilter, rangeFilter, customFrom, customTo, deferredQuery]);
+  }, [scopedSessions, sourceFilter, projectFilter, modelFilter, activityFilter, rangeFilter, customFrom, customTo, deferredQuery]);
 
   // Speed summary lens: "all" pools every session's span (throughput through
   // wall-clock), "active" pools only actively timed sessions (pure generation
@@ -723,6 +730,10 @@ export function SessionsPage() {
               <Select ariaLabel={copy("sessions.filter.range_aria")} options={rangeOptions} value={rangeFilter} onValueChange={setDateRange} leadingIcon={<Calendar className="h-3.5 w-3.5 shrink-0 text-oai-gray-500 dark:text-oai-gray-400" aria-hidden />} className="sessions-filter-trigger h-11 min-w-0 px-3 text-sm sm:h-9" matchTriggerWidth />
               <SearchableSelect options={projectOptions} value={projectFilter} onChange={setProjectFilter} allLabel={copy("sessions.filter.project_all")} searchPlaceholder={copy("sessions.filter.project_search")} emptyLabel={copy("sessions.filter.project_empty")} ariaLabel={copy("sessions.filter.project_aria")} className="sessions-filter-trigger !h-11 !w-full !max-w-none !px-3 !text-sm !font-normal sm:!h-9 !bg-white !text-oai-black dark:!bg-oai-gray-900 dark:!text-white [&>svg]:!text-oai-gray-500 dark:[&>svg]:!text-oai-gray-400" />
               <SearchableSelect options={modelOptions} value={modelFilter} onChange={setModelFilter} allLabel={copy("sessions.filter.model_all")} searchPlaceholder={copy("sessions.filter.model_search")} emptyLabel={copy("sessions.filter.model_empty")} ariaLabel={copy("sessions.filter.model_aria")} className="sessions-filter-trigger sessions-model-filter !h-11 !w-full !max-w-none !px-3 !text-sm !font-normal sm:!h-9 !bg-white !text-oai-black dark:!bg-oai-gray-900 dark:!text-white [&>svg]:!text-oai-gray-500 dark:[&>svg]:!text-oai-gray-400" />
+              <Select ariaLabel={copy("sessions.filter.activity_aria")} options={[
+                { value: "all", label: copy("sessions.filter.activity_all") },
+                { value: "active", label: copy("sessions.filter.activity_active") },
+              ]} value={activityFilter} onValueChange={setActivityFilter} className="sessions-filter-trigger h-11 min-w-0 px-3 text-sm sm:h-9" matchTriggerWidth />
             </div>
             {rangeFilter === "custom" ? (
               <div className="grid max-w-lg grid-cols-2 gap-3">

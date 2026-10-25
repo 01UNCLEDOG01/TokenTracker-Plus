@@ -2125,6 +2125,9 @@ sessions.summary.speed,ui,SessionsPage,SessionInsights,speed,Estimated speed,,ac
 sessions.summary.speed_mode_all,ui,SessionsPage,SessionInsights,speed_mode_all,"All spans",,active
 sessions.summary.speed_mode_active,ui,SessionsPage,SessionInsights,speed_mode_active,"Active only",,active
 sessions.summary.speed_mode_aria,ui,SessionsPage,SessionInsights,speed_mode_aria,"Choose which sessions feed the speed summary",,active
+sessions.filter.activity_all,ui,SessionsPage,SessionsPage,activity_all,"All sessions",,active
+sessions.filter.activity_active,ui,SessionsPage,SessionsPage,activity_active,"Genuinely active only",,active
+sessions.filter.activity_aria,ui,SessionsPage,SessionsPage,activity_aria,"Filter sessions by timing quality",,active
 sessions.performance.speed,ui,SessionsPage,SessionInsights,speed,≈{{speed}} tok/s,,active
 sessions.performance.samples,ui,SessionsPage,SessionInsights,samples,{{count}} timed requests,,active
 sessions.performance.method,ui,SessionsPage,SessionInsights,method,"Output tokens / estimated request time, including response wait. Tool execution and idle time are excluded. This is not pure generation speed.",,active

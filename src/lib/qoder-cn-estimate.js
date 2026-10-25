@@ -11,6 +11,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { canonicalModelName } = require("./model-canonical");
+
 const QODER_CN_SOURCE = "qoder-cn";
 const QODER_CN_EST_MODEL = "官方云端（估算）";
 const QODER_CN_EST_SUFFIX = "（估算）";
@@ -379,7 +381,11 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
     } else {
       buckets.push([QODER_CN_EST_MODEL, shortfall]);
     }
-    for (const [model, tokens] of buckets) {
+    for (const [rawModel, tokens] of buckets) {
+      // KI-031: fold the official name spellings onto the canonical SKU
+      // (GLM5.3-Flash（估算） -> glm-5.3-flash) so estimate rows group with
+      // everything else.
+      const model = canonicalModelName(rawModel);
       // Only split when the local rows taught us a non-degenerate shape; a
       // shape of all zeroes would leave every component field at zero while the
       // headline carries the whole total, which is the bug this split fixes.

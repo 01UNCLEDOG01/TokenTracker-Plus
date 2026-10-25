@@ -772,5 +772,8 @@
   "usage.overview.qoder_cn_model_rows_generic": "下のモデル行＝公式のモデル別推定値（新しい Qoder CN ビルドはローカルにトークンを記録しません）",
   "sessions.summary.speed_mode_all": "全スパン",
   "sessions.summary.speed_mode_active": "実測のみ",
-  "sessions.summary.speed_mode_aria": "速度集計の対象を選ぶ"
+  "sessions.summary.speed_mode_aria": "速度集計の対象を選ぶ",
+  "sessions.filter.activity_all": "全セッション",
+  "sessions.filter.activity_active": "実測のみ",
+  "sessions.filter.activity_aria": "計測品質でセッションを絞り込む"
 }
