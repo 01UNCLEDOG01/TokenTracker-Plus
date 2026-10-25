@@ -740,8 +740,6 @@
   "achievements.badge.moonshot_voyager.desc": "Kimi와 Moonshot 모델 누적 토큰 — 달의 뒷면까지 닿는 긴 컨텍스트.",
   "achievements.badge.minimax_abyss.name": "MiniMax Leviathan",
   "achievements.badge.minimax_abyss.desc": "MiniMax 모델 누적 토큰 — 해구에서 올라오는 연산의 속삭임.",
-  "achievements.badge.north_america_doubao.name": "쌍둥이 보석",
-  "achievements.badge.north_america_doubao.desc": "Google 패밀리(Gemini, Gemma, Vertex) 전체 누적 토큰 — 양도 질도 기대를 저버리지 않는 뷔페.",
   "achievements.badge.hyperspeed_grok.name": "Hyperspeed Grok",
   "achievements.badge.hyperspeed_grok.desc": "xAI Grok 모델 누적 토큰 — 점화하고 밀어붙이면 음속 장벽은 출발선일 뿐.",
   "achievements.badge.qwen_dynasty.name": "Qwen Dynasty",
@@ -788,8 +786,6 @@
   "achievements.badge.stepfun_voyager.name": "성진계약",
   "achievements.badge.dragon_heir.name": "용의 후계자",
   "achievements.badge.kill_line.name": "킬 라인",
-  "achievements.badge.open_weights_spark.name": "커먼즈",
-  "achievements.badge.open_weights_spark.desc": "MIT/Apache 오픈 웨이트 모델 누적 토큰 — 커먼즈에는 자물쇠가 없습니다. DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral, Phi 모두 자유롭게.",
   "achievements.badge.mistral_westwind.name": "서풍렬",
   "achievements.badge.mistral_westwind.desc": "Mistral, Devstral, Magistral, Pixtral, Codestral 누적 토큰 — 잠기지 않은 문을 여는 프랑스의 바람.",
   "achievements.badge.nemotron_spiral.name": "녹색 나선",
@@ -849,5 +845,9 @@
   "achievements.resonance.inactive": "비활성",
   "achievements.resonance.label": "{{tier}} 공명 · Lv.{{level}}",
   "achievements.resonance.max": "{{tier}} 공명 · MAX",
-  "achievements.tier.requirement": "{{tier}} 필요"
+  "achievements.tier.requirement": "{{tier}} 필요",
+  "achievements.badge.open_commons.name": "커먼즈",
+  "achievements.badge.open_commons.desc": "MIT/Apache 오픈 웨이트 모델 누적 토큰 — 커먼즈에는 자물쇠가 없습니다. DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral, Phi 모두 자유롭게.",
+  "achievements.badge.gemini_gemma.name": "쌍둥이 보석",
+  "achievements.badge.gemini_gemma.desc": "Google 패밀리(Gemini, Gemma, Vertex) 전체 누적 토큰 — 양도 질도 기대를 저버리지 않는 뷔페."
 }

@@ -1207,8 +1207,6 @@
   "achievements.badge.moonshot_voyager.desc": "經 Kimi 與 Moonshot 系模型累計消耗——月之暗面裡，長上下文是一整片夜。",
   "achievements.badge.minimax_abyss.name": "海螺巨獸",
   "achievements.badge.minimax_abyss.desc": "經 MiniMax 系模型累計消耗——深淵裡傳來的算力低語。",
-  "achievements.badge.north_america_doubao.name": "雙子寶石",
-  "achievements.badge.north_america_doubao.desc": "經 Google 全家（Gemini、Gemma、Vertex）累計消耗——雙子與寶石輪流坐莊，量大管飽。",
   "achievements.badge.hyperspeed_grok.name": "極速狂飆",
   "achievements.badge.hyperspeed_grok.desc": "經 xAI Grok 系模型累計消耗——點火推流，音障只是起跑線。",
   "achievements.badge.qwen_dynasty.name": "通義宗師",
@@ -1255,8 +1253,6 @@
   "sessions.filter.activity_all": "全部會話",
   "sessions.filter.activity_active": "僅真實活躍",
   "sessions.filter.activity_aria": "按計時品質篩選會話",
-  "achievements.badge.open_weights_spark.name": "公地",
-  "achievements.badge.open_weights_spark.desc": "經 MIT/Apache 開放權重模型累計消耗——公地不設門鎖：DeepSeek、千問、智譜、MiniMax、階躍、Mistral、Phi 都能取用。",
   "achievements.badge.mistral_westwind.name": "西風烈",
   "achievements.badge.mistral_westwind.desc": "經 Mistral、Devstral、Magistral、Pixtral、Codestral 累計消耗——法國來風，吹開一扇不鎖的門。",
   "achievements.badge.nemotron_spiral.name": "綠芯螺旋",
@@ -1316,5 +1312,9 @@
   "achievements.resonance.inactive": "未激活",
   "achievements.resonance.label": "{{tier}}共鳴 · Lv.{{level}}",
   "achievements.resonance.max": "{{tier}}共鳴 · MAX",
-  "achievements.tier.requirement": "需 {{tier}}"
+  "achievements.tier.requirement": "需 {{tier}}",
+  "achievements.badge.open_commons.name": "公地",
+  "achievements.badge.open_commons.desc": "經 MIT/Apache 開放權重模型累計消耗——公地不設門鎖：DeepSeek、千問、智譜、MiniMax、階躍、Mistral、Phi 都能取用。",
+  "achievements.badge.gemini_gemma.name": "雙子寶石",
+  "achievements.badge.gemini_gemma.desc": "經 Google 全家（Gemini、Gemma、Vertex）累計消耗——雙子與寶石輪流坐莊，量大管飽。"
 }

@@ -751,8 +751,6 @@
   "achievements.badge.moonshot_voyager.desc": "Token insgesamt über Kimi und Moonshot — langer Kontext bis auf die Mondrückseite.",
   "achievements.badge.minimax_abyss.name": "MiniMax Leviathan",
   "achievements.badge.minimax_abyss.desc": "Token insgesamt über MiniMax-Modelle — Rechenleistung, die aus der Tiefsee flüstert.",
-  "achievements.badge.north_america_doubao.name": "Zwillingsjuwelen",
-  "achievements.badge.north_america_doubao.desc": "Token insgesamt über die ganze Google-Familie — Gemini, Gemma und Vertex — das Buffet, das nie leer wird.",
   "achievements.badge.hyperspeed_grok.name": "Hyperspeed Grok",
   "achievements.badge.hyperspeed_grok.desc": "Token insgesamt über xAI Grok — Zündung und Schub, die Schallmauer ist nur die Startlinie.",
   "achievements.badge.qwen_dynasty.name": "Qwen Dynasty",
@@ -799,8 +797,6 @@
   "achievements.badge.stepfun_voyager.name": "StepFun-Voyager",
   "achievements.badge.dragon_heir.name": "Drachenerbe",
   "achievements.badge.kill_line.name": "Kill Line",
-  "achievements.badge.open_weights_spark.name": "Die Allmende",
-  "achievements.badge.open_weights_spark.desc": "Token insgesamt über MIT-/Apache-Gewichte ohne Umsatzschwelle — die Allmende hat kein Schloss: DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral und Phi stehen allen offen.",
   "achievements.badge.mistral_westwind.name": "Westwind",
   "achievements.badge.mistral_westwind.desc": "Token insgesamt über Mistral, Devstral, Magistral, Pixtral und Codestral — der französische Wind, der Türen offen hält.",
   "achievements.badge.nemotron_spiral.name": "Nemotron-Spirale",
@@ -860,5 +856,9 @@
   "achievements.resonance.inactive": "Inaktiv",
   "achievements.resonance.label": "{{tier}}-Resonanz · Lv.{{level}}",
   "achievements.resonance.max": "{{tier}}-Resonanz · MAX",
-  "achievements.tier.requirement": "{{tier}} nötig"
+  "achievements.tier.requirement": "{{tier}} nötig",
+  "achievements.badge.open_commons.name": "Die Allmende",
+  "achievements.badge.open_commons.desc": "Token insgesamt über MIT-/Apache-Gewichte ohne Umsatzschwelle — die Allmende hat kein Schloss: DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral und Phi stehen allen offen.",
+  "achievements.badge.gemini_gemma.name": "Zwillingsjuwelen",
+  "achievements.badge.gemini_gemma.desc": "Token insgesamt über die ganze Google-Familie — Gemini, Gemma und Vertex — das Buffet, das nie leer wird."
 }

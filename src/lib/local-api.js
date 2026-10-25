@@ -494,7 +494,7 @@ const LOCAL_BADGE_THRESHOLDS = {
   zhipu_sage: [10000000, 100000000, 1000000000, 10000000000], // lifetime glm/zhipu/codegeex tokens
   moonshot_voyager: [10000000, 100000000, 1000000000, 10000000000], // lifetime kimi/moonshot tokens
   minimax_abyss: [10000000, 100000000, 1000000000, 10000000000], // lifetime minimax/abab/m3.1 tokens
-  north_america_doubao: [10000000, 100000000, 1000000000, 10000000000], // lifetime google gemini tokens
+  gemini_gemma: [10000000, 100000000, 1000000000, 10000000000], // lifetime google gemini tokens
   hyperspeed_grok: [10000000, 100000000, 1000000000, 10000000000], // lifetime xai grok tokens
   qwen_dynasty: [10000000, 100000000, 1000000000, 10000000000], // lifetime qwen/tongyi tokens
   flash_immortal: [50000000, 500000000, 2000000000, 10000000000], // lifetime flash model tokens
@@ -516,7 +516,7 @@ const LOCAL_BADGE_THRESHOLDS = {
   // Fire of the commons: tokens spent on weights that ship under MIT/Apache
   // with no revenue gate. Kimi (>$20M clause), Gemma/Llama (custom licence +
   // AUP) and the Hunyuan/Seed flagships stay in their own vendor badges.
-  open_weights_spark: [30000000, 300000000, 3000000000, 10000000000], // lifetime open-weight tokens
+  open_commons: [30000000, 300000000, 3000000000, 10000000000], // lifetime open-weight tokens
   dragon_heir: [1, 3, 5, 7], // distinct domestic model families used
   kill_line: [50, 60, 70, 80], // DeepSeek share of lifetime tokens, %
 };
@@ -943,7 +943,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         sourceKey.includes("google")
       ) {
         geminiTokens += tokens;
-        bump("north_america_doubao", geminiTokens, row.hour_start);
+        bump("gemini_gemma", geminiTokens, row.hour_start);
       }
       if (
         lowerModel.includes("grok") ||
@@ -1053,7 +1053,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       }
       if (OPEN_WEIGHT_LICENSE_PATTERNS.some((re) => re.test(lowerModel))) {
         openWeightTokens += tokens;
-        bump("open_weights_spark", openWeightTokens, row.hour_start);
+        bump("open_commons", openWeightTokens, row.hour_start);
       }
       const ARBITRAGE_PATTERNS = [
         "apigoto", "agentrouter", "opencode", "openrouter", "codearts",

@@ -131,7 +131,7 @@ export const BADGE_CATALOG = [
   { id: "zhipu_sage", scope: "local", icon: Atom, format: "tokens", art: "/achievements/zhipu-sage.png?v=11" },
   { id: "moonshot_voyager", scope: "local", icon: Eclipse, format: "tokens", art: "/achievements/moonshot-voyager.png?v=10" },
   { id: "minimax_abyss", scope: "local", icon: Waves, format: "tokens", art: "/achievements/minimax-abyss.png?v=11" },
-  { id: "north_america_doubao", scope: "local", icon: Bot, format: "tokens", art: "/achievements/north-america-doubao.png?v=7" },
+  { id: "gemini_gemma", scope: "local", icon: Bot, format: "tokens", art: "/achievements/gemini-gemma.png?v=1" },
   { id: "hyperspeed_grok", scope: "local", icon: Rocket, format: "tokens", art: "/achievements/hyperspeed-grok.png?v=9" },
   { id: "qwen_dynasty", scope: "local", icon: Landmark, format: "tokens", art: "/achievements/qwen-dynasty.png?v=10" },
   { id: "flash_immortal", scope: "local", icon: Zap, format: "tokens", art: "/achievements/flash-immortal.png?v=9" },
@@ -144,7 +144,7 @@ export const BADGE_CATALOG = [
   { id: "stepfun_voyager", scope: "local", icon: Milestone, format: "tokens", art: "/achievements/stepfun-voyager.png?v=4" },
   // Open-weight wave (2026-10-26). Art lands separately; the lucide icon is
   // the documented fallback until each medallion is approved.
-  { id: "open_weights_spark", scope: "local", icon: Handshake, format: "tokens", art: "/achievements/open-weights-spark.png?v=4" },
+  { id: "open_commons", scope: "local", icon: Handshake, format: "tokens", art: "/achievements/open-commons.png?v=1" },
   { id: "mistral_westwind", scope: "local", icon: Wind, format: "tokens", art: "/achievements/mistral-westwind.png?v=2" },
   { id: "nemotron_spiral", scope: "local", icon: Cpu, format: "tokens", art: "/achievements/nemotron-spiral.png?v=2" },
   { id: "phi_disciple", scope: "local", icon: Sigma, format: "tokens", art: "/achievements/phi-disciple.png?v=2" },
@@ -189,10 +189,10 @@ export const BADGE_CATEGORIES = [
 export const BADGE_CATEGORY_MAP = {
   models: new Set([
     "qwen_dynasty", "seedance_master", "hunyuan_master", "jd_joy_brother", "meituan_longcat",
-    "zhipu_sage", "moonshot_voyager", "minimax_abyss", "north_america_doubao", "hyperspeed_grok",
+    "zhipu_sage", "moonshot_voyager", "minimax_abyss", "gemini_gemma", "hyperspeed_grok",
     "flash_immortal", "closed_source_loyalist", "claude_survivor", "wishing_well", "heart_model", "stepfun_voyager",
     "dragon_heir", "kill_line",
-    "open_weights_spark", "mistral_westwind", "nemotron_spiral", "phi_disciple", "spark_alpaca"
+    "open_commons", "mistral_westwind", "nemotron_spiral", "phi_disciple", "spark_alpaca"
   ]),
   habits: new Set([
     "night_owl", "early_bird", "around_the_clock", "zen_balancer", "buzzer_beater",
@@ -230,7 +230,7 @@ export const BADGE_DIFFICULTY = {
   jd_joy_brother: 4.2,
   meituan_longcat: 4.2,
   stepfun_voyager: 4.2,
-  open_weights_spark: 5.5,
+  open_commons: 5.5,
   mistral_westwind: 4.5,
   nemotron_spiral: 4.5,
   phi_disciple: 4.2,
@@ -240,7 +240,7 @@ export const BADGE_DIFFICULTY = {
   zhipu_sage: 4.5,
   moonshot_voyager: 4.5,
   minimax_abyss: 4.5,
-  north_america_doubao: 4.5,
+  gemini_gemma: 4.5,
   hyperspeed_grok: 4.5,
   flash_immortal: 4.5,
   wordsmith: 5,

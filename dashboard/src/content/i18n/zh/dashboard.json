@@ -1148,8 +1148,6 @@
   "achievements.badge.moonshot_voyager.desc": "经 Kimi 与 Moonshot 系模型累计消耗——月之暗面里，长上下文是一整片夜。",
   "achievements.badge.minimax_abyss.name": "海螺巨兽",
   "achievements.badge.minimax_abyss.desc": "经 MiniMax 系模型累计消耗——深渊里传来的算力低语。",
-  "achievements.badge.north_america_doubao.name": "双子宝石",
-  "achievements.badge.north_america_doubao.desc": "经 Google 全家（Gemini、Gemma、Vertex）累计消耗——双子与宝石轮流坐庄，量大管饱。",
   "achievements.badge.hyperspeed_grok.name": "极速狂飙",
   "achievements.badge.hyperspeed_grok.desc": "经 xAI Grok 系模型累计消耗——点火推流，音障只是起跑线。",
   "achievements.badge.qwen_dynasty.name": "通义宗师",
@@ -1196,8 +1194,6 @@
   "sessions.filter.activity_all": "全部会话",
   "sessions.filter.activity_active": "仅真实活跃",
   "sessions.filter.activity_aria": "按计时质量筛选会话",
-  "achievements.badge.open_weights_spark.name": "公地",
-  "achievements.badge.open_weights_spark.desc": "经 MIT/Apache 开放权重模型累计消耗——公地不设门锁：DeepSeek、千问、智谱、MiniMax、阶跃、Mistral、Phi 都能取用。",
   "achievements.badge.mistral_westwind.name": "西风烈",
   "achievements.badge.mistral_westwind.desc": "经 Mistral、Devstral、Magistral、Pixtral、Codestral 累计消耗——法国来风，吹开一扇不锁的门。",
   "achievements.badge.nemotron_spiral.name": "绿芯螺旋",
@@ -1257,5 +1253,9 @@
   "achievements.resonance.inactive": "未激活",
   "achievements.resonance.label": "{{tier}}共鸣 · Lv.{{level}}",
   "achievements.resonance.max": "{{tier}}共鸣 · MAX",
-  "achievements.tier.requirement": "需 {{tier}}"
+  "achievements.tier.requirement": "需 {{tier}}",
+  "achievements.badge.open_commons.name": "公地",
+  "achievements.badge.open_commons.desc": "经 MIT/Apache 开放权重模型累计消耗——公地不设门锁：DeepSeek、千问、智谱、MiniMax、阶跃、Mistral、Phi 都能取用。",
+  "achievements.badge.gemini_gemma.name": "双子宝石",
+  "achievements.badge.gemini_gemma.desc": "经 Google 全家（Gemini、Gemma、Vertex）累计消耗——双子与宝石轮流坐庄，量大管饱。"
 }

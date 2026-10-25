@@ -1490,8 +1490,8 @@ achievements.badge.moonshot_voyager.name,dashboard,*,AchievementsSection,moonsho
 achievements.badge.moonshot_voyager.desc,dashboard,*,BadgeDetailModal,moonshot_voyager_desc,"Lifetime tokens through Kimi and Moonshot models — long context, all the way to the far side.",,active
 achievements.badge.minimax_abyss.name,dashboard,*,AchievementsSection,minimax_abyss_name,"MiniMax Leviathan",,active
 achievements.badge.minimax_abyss.desc,dashboard,*,BadgeDetailModal,minimax_abyss_desc,Lifetime tokens through MiniMax models — compute whispering up from the trench.,,active
-achievements.badge.north_america_doubao.name,dashboard,*,AchievementsSection,north_america_doubao_name,Gemini & Gemma,,active
-achievements.badge.north_america_doubao.desc,dashboard,*,BadgeDetailModal,north_america_doubao_desc,"Lifetime tokens across the whole Google family — Gemini, Gemma and Vertex — twins and gems taking turns, the buffet never runs out.",,active
+achievements.badge.gemini_gemma.name,dashboard,*,AchievementsSection,gemini_gemma_name,Gemini & Gemma,,active
+achievements.badge.gemini_gemma.desc,dashboard,*,BadgeDetailModal,gemini_gemma_desc,"Lifetime tokens across the whole Google family — Gemini, Gemma and Vertex — twins and gems taking turns, the buffet never runs out.",,active
 achievements.badge.hyperspeed_grok.name,dashboard,*,AchievementsSection,hyperspeed_grok_name,"Hyperspeed Grok",,active
 achievements.badge.hyperspeed_grok.desc,dashboard,*,BadgeDetailModal,hyperspeed_grok_desc,"Lifetime tokens through xAI Grok models — ignition to push, the sound barrier is just the start line.",,active
 achievements.badge.qwen_dynasty.name,dashboard,*,AchievementsSection,qwen_dynasty_name,"Qwen Dynasty",,active
@@ -2325,8 +2325,8 @@ settings.local_data.exported,dashboard,*,SettingsPage,settings_local_data_export
 settings.local_data.done,dashboard,*,SettingsPage,settings_local_data_done,"Imported {{imported}} rows",,active
 settings.local_data.error,dashboard,*,SettingsPage,settings_local_data_error,"The transfer failed.",,active
 settings.local_data.self,dashboard,*,SettingsPage,settings_local_data_self,"This snapshot came from this machine.",,active
-achievements.badge.open_weights_spark.name,dashboard,*,AchievementsSection,open_weights_spark_name,The Commons,,active
-achievements.badge.open_weights_spark.desc,dashboard,*,BadgeDetailModal,open_weights_spark_desc,"Lifetime tokens on MIT/Apache weights with no revenue gate — the commons has no lock: DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral and Phi are all open to take.",,active
+achievements.badge.open_commons.name,dashboard,*,AchievementsSection,open_commons_name,The Commons,,active
+achievements.badge.open_commons.desc,dashboard,*,BadgeDetailModal,open_commons_desc,"Lifetime tokens on MIT/Apache weights with no revenue gate — the commons has no lock: DeepSeek, Qwen, GLM, MiniMax, StepFun, Mistral and Phi are all open to take.",,active
 achievements.badge.mistral_westwind.name,dashboard,*,AchievementsSection,mistral_westwind_name,Westwind,,active
 achievements.badge.mistral_westwind.desc,dashboard,*,BadgeDetailModal,mistral_westwind_desc,"Lifetime tokens through Mistral, Devstral, Magistral, Pixtral and Codestral — the French wind that keeps blowing doors open.",,active
 achievements.badge.nemotron_spiral.name,dashboard,*,AchievementsSection,nemotron_spiral_name,Nemotron Spiral,,active

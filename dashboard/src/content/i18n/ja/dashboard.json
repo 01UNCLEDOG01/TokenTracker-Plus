@@ -740,8 +740,6 @@
   "achievements.badge.moonshot_voyager.desc": "Kimi と Moonshot 系モデルでの累計トークン——月の裏側まで届く長いコンテキスト。",
   "achievements.badge.minimax_abyss.name": "MiniMax Leviathan",
   "achievements.badge.minimax_abyss.desc": "MiniMax 系モデルでの累計トークン——海溝から届く計算力のささやき。",
-  "achievements.badge.north_america_doubao.name": "双子の宝石",
-  "achievements.badge.north_america_doubao.desc": "Google ファミリー（Gemini、Gemma、Vertex）全体での累計トークン——量も質も、噂に違わぬビュッフェ。",
   "achievements.badge.hyperspeed_grok.name": "Hyperspeed Grok",
   "achievements.badge.hyperspeed_grok.desc": "xAI Grok 系モデルでの累計トークン——点火して押し流す、音の壁はスタートライン。",
   "achievements.badge.qwen_dynasty.name": "Qwen Dynasty",
@@ -788,8 +786,6 @@
   "achievements.badge.stepfun_voyager.name": "星辰階躍",
   "achievements.badge.dragon_heir.name": "龍の後継者",
   "achievements.badge.kill_line.name": "キルライン",
-  "achievements.badge.open_weights_spark.name": "コモンズ",
-  "achievements.badge.open_weights_spark.desc": "MIT/Apache の開放重みモデルでの累計トークン——コモンズに鍵はない。DeepSeek、Qwen、GLM、MiniMax、StepFun、Mistral、Phi から自由に取れます。",
   "achievements.badge.mistral_westwind.name": "西風烈",
   "achievements.badge.mistral_westwind.desc": "Mistral、Devstral、Magistral、Pixtral、Codestral での累計トークン——フランスから吹く、錠のない扉を開ける風。",
   "achievements.badge.nemotron_spiral.name": "緑芯螺旋",
@@ -849,5 +845,9 @@
   "achievements.resonance.inactive": "未活性",
   "achievements.resonance.label": "{{tier}}共鳴 · Lv.{{level}}",
   "achievements.resonance.max": "{{tier}}共鳴 · MAX",
-  "achievements.tier.requirement": "{{tier}}が必要"
+  "achievements.tier.requirement": "{{tier}}が必要",
+  "achievements.badge.open_commons.name": "コモンズ",
+  "achievements.badge.open_commons.desc": "MIT/Apache の開放重みモデルでの累計トークン——コモンズに鍵はない。DeepSeek、Qwen、GLM、MiniMax、StepFun、Mistral、Phi から自由に取れます。",
+  "achievements.badge.gemini_gemma.name": "双子の宝石",
+  "achievements.badge.gemini_gemma.desc": "Google ファミリー（Gemini、Gemma、Vertex）全体での累計トークン——量も質も、噂に違わぬビュッフェ。"
 }

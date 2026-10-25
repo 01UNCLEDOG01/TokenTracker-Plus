@@ -40,7 +40,7 @@ const MINTED_HOUSE_COINS = new Set([
   "zhipu-sage.png",
   "moonshot-voyager.png",
   "minimax-abyss.png",
-  "north-america-doubao.png",
+  "gemini-gemma.png",
   "hyperspeed-grok.png",
   "qwen-dynasty.png",
   "flash-immortal.png",

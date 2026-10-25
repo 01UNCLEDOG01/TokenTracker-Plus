@@ -72,12 +72,12 @@ const TITLES_UNSORTED = [
     bondName: "曲率先锋",
     art: "/achievements/titles/title-cyber-speedster.png?v=5",
     requiredBadges: [
-      { id: "north_america_doubao", name: "双子宝石", tier: 1, art: "/achievements/north-america-doubao.png?v=7" },
+      { id: "gemini_gemma", name: "双子宝石", tier: 1, art: "/achievements/gemini-gemma.png?v=1" },
       { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=9" },
       { id: "flash_immortal", name: "Flash 仙人", tier: 1, art: "/achievements/flash-immortal.png?v=9" },
     ],
     check: (badgeMap) =>
-      (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
+      (badgeMap.get("gemini_gemma")?.tier || 0) >= 1 &&
       (badgeMap.get("hyperspeed_grok")?.tier || 0) >= 1 &&
       (badgeMap.get("flash_immortal")?.tier || 0) >= 1,
     reqText: "双子宝石 + 极速狂飙 + Flash 仙人 (全解锁)",
@@ -340,12 +340,12 @@ const TITLES_UNSORTED = [
     requiredBadges: [
       { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=7" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=17" },
-      { id: "north_america_doubao", name: "双子宝石", tier: 1, art: "/achievements/north-america-doubao.png?v=7" },
+      { id: "gemini_gemma", name: "双子宝石", tier: 1, art: "/achievements/gemini-gemma.png?v=1" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
       (badgeMap.get("claude_survivor")?.tier || 0) >= 1 &&
-      (badgeMap.get("north_america_doubao")?.tier || 0) >= 1,
+      (badgeMap.get("gemini_gemma")?.tier || 0) >= 1,
     reqText: "神说要有光 + 封号幸存者 + 双子宝石 (全解锁)",
     theme: {
       text: "text-fuchsia-300",
@@ -533,14 +533,14 @@ const TITLES_UNSORTED = [
     dimension: 5,
     art: "/achievements/titles/title-fire-bringer.png?v=2",
     requiredBadges: [
-      { id: "open_weights_spark", name: "公地", tier: 3, art: "/achievements/open-weights-spark.png?v=4" },
+      { id: "open_commons", name: "公地", tier: 3, art: "/achievements/open-commons.png?v=1" },
       { id: "wishing_well", name: "许愿池", tier: 2, art: "/achievements/wishing-well.png?v=16" },
       { id: "qwen_dynasty", name: "通义宗师", tier: 2, art: "/achievements/qwen-dynasty.png?v=10" },
       { id: "zhipu_sage", name: "智谱乾坤", tier: 2, art: "/achievements/zhipu-sage.png?v=11" },
       { id: "mistral_westwind", name: "西风烈", tier: 1, art: "/achievements/mistral-westwind.png?v=2" },
     ],
     check: (badgeMap) =>
-      (badgeMap.get("open_weights_spark")?.tier || 0) >= 3 &&
+      (badgeMap.get("open_commons")?.tier || 0) >= 3 &&
       (badgeMap.get("wishing_well")?.tier || 0) >= 2 &&
       (badgeMap.get("qwen_dynasty")?.tier || 0) >= 2 &&
       (badgeMap.get("zhipu_sage")?.tier || 0) >= 2 &&

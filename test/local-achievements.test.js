@@ -534,7 +534,7 @@ test("wave-4 local badges replay with expected semantics", () => {
   assert.equal(byId(result, "zhipu_sage").tier, 1);
   assert.equal(byId(result, "moonshot_voyager").tier, 1);
   assert.equal(byId(result, "minimax_abyss").tier, 1);
-  assert.equal(byId(result, "north_america_doubao").tier, 1);
+  assert.equal(byId(result, "gemini_gemma").tier, 1);
   assert.equal(byId(result, "hyperspeed_grok").tier, 1);
   assert.equal(byId(result, "qwen_dynasty").tier, 1);
   assert.equal(byId(result, "flash_immortal").tier, 1);
