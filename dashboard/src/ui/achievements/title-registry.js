@@ -72,7 +72,7 @@ const TITLES_UNSORTED = [
     bondName: "曲率先锋",
     art: "/achievements/titles/title-cyber-speedster.png?v=5",
     requiredBadges: [
-      { id: "north_america_doubao", name: "北美水库", tier: 1, art: "/achievements/north-america-doubao.png?v=7" },
+      { id: "north_america_doubao", name: "双子宝石", tier: 1, art: "/achievements/north-america-doubao.png?v=7" },
       { id: "hyperspeed_grok", name: "极速狂飙", tier: 1, art: "/achievements/hyperspeed-grok.png?v=9" },
       { id: "flash_immortal", name: "Flash 仙人", tier: 1, art: "/achievements/flash-immortal.png?v=9" },
     ],
@@ -80,7 +80,7 @@ const TITLES_UNSORTED = [
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1 &&
       (badgeMap.get("hyperspeed_grok")?.tier || 0) >= 1 &&
       (badgeMap.get("flash_immortal")?.tier || 0) >= 1,
-    reqText: "北美水库 + 极速狂飙 + Flash 仙人 (全解锁)",
+    reqText: "双子宝石 + 极速狂飙 + Flash 仙人 (全解锁)",
     theme: {
       text: "text-sky-300",
       bgGradient: "from-sky-950/80 via-blue-950/70 to-black",
@@ -340,13 +340,13 @@ const TITLES_UNSORTED = [
     requiredBadges: [
       { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=7" },
       { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=17" },
-      { id: "north_america_doubao", name: "北美水库", tier: 1, art: "/achievements/north-america-doubao.png?v=7" },
+      { id: "north_america_doubao", name: "双子宝石", tier: 1, art: "/achievements/north-america-doubao.png?v=7" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
       (badgeMap.get("claude_survivor")?.tier || 0) >= 1 &&
       (badgeMap.get("north_america_doubao")?.tier || 0) >= 1,
-    reqText: "神说要有光 + 封号幸存者 + 北美水库 (全解锁)",
+    reqText: "神说要有光 + 封号幸存者 + 双子宝石 (全解锁)",
     theme: {
       text: "text-fuchsia-300",
       bgGradient: "from-fuchsia-950/80 via-purple-950/70 to-black",

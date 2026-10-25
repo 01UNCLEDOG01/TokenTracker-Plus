@@ -1490,8 +1490,8 @@ achievements.badge.moonshot_voyager.name,dashboard,*,AchievementsSection,moonsho
 achievements.badge.moonshot_voyager.desc,dashboard,*,BadgeDetailModal,moonshot_voyager_desc,"Lifetime tokens through Kimi and Moonshot models — long context, all the way to the far side.",,active
 achievements.badge.minimax_abyss.name,dashboard,*,AchievementsSection,minimax_abyss_name,"MiniMax Leviathan",,active
 achievements.badge.minimax_abyss.desc,dashboard,*,BadgeDetailModal,minimax_abyss_desc,Lifetime tokens through MiniMax models — compute whispering up from the trench.,,active
-achievements.badge.north_america_doubao.name,dashboard,*,AchievementsSection,north_america_doubao_name,Google Reservoir,,active
-achievements.badge.north_america_doubao.desc,dashboard,*,BadgeDetailModal,north_america_doubao_desc,"Lifetime tokens across the whole Google family — Gemini, Gemma and Vertex — the buffet that never runs out.",,active
+achievements.badge.north_america_doubao.name,dashboard,*,AchievementsSection,north_america_doubao_name,Gemini & Gemma,,active
+achievements.badge.north_america_doubao.desc,dashboard,*,BadgeDetailModal,north_america_doubao_desc,"Lifetime tokens across the whole Google family — Gemini, Gemma and Vertex — twins and gems taking turns, the buffet never runs out.",,active
 achievements.badge.hyperspeed_grok.name,dashboard,*,AchievementsSection,hyperspeed_grok_name,"Hyperspeed Grok",,active
 achievements.badge.hyperspeed_grok.desc,dashboard,*,BadgeDetailModal,hyperspeed_grok_desc,"Lifetime tokens through xAI Grok models — ignition to push, the sound barrier is just the start line.",,active
 achievements.badge.qwen_dynasty.name,dashboard,*,AchievementsSection,qwen_dynasty_name,"Qwen Dynasty",,active
