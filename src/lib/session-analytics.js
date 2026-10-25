@@ -3493,6 +3493,49 @@ async function writeAtomic(filePath, content) {
 // request is often useless as a label — keep it only as a fallback.
 const ANTIGRAVITY_USER_REQUEST_RE = /<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/;
 const ANTIGRAVITY_TRIVIAL_REQUEST = /^(?:继续|接着|continue|go on|ok|好的?|嗯)[。.!！?？]*$/i;
+
+// Antigravity transcripts only carry MODEL-side events (PLANNER_RESPONSE /
+// GENERIC / SYSTEM_MESSAGE) for some sessions, so the user prompt - the best
+// title source - is not always in the chunks. It always lives in the
+// conversation DB's trajectory_metadata_blob (id=main) as protobuf: repeated
+// field 1 message entries with the text in a nested subtree (KI-031 probe,
+// 2026-10-25). Generic wire-format walk, no schema dependency: collect
+// printable strings and prefer the first prompt-like one (CJK first, then a
+// sentence-like ASCII run; paths/URLs/ids excluded).
+function antigravityBlobTitleFromBuffer(buffer) {
+  const strings = [];
+  const looksLikeText = (s) => s.length >= 6 && (/[\u4e00-\u9fff]{3,}/.test(s) || /[a-zA-Z]{6,}/.test(s));
+  const isNoise = (s) => /^(?:file:\/\/|https?:\/\/|[a-z]:[\\/])/i.test(s.trim()) || /^[\w.-]+(?:\/[\w.-]+)+$/.test(s.trim());
+  const walk = (bytes, depth) => {
+    let i = 0;
+    while (i < bytes.length) {
+      let tag = 0, shift = 0, byte;
+      do { if (i >= bytes.length) return; byte = bytes[i++]; tag |= (byte & 0x7f) << shift; shift += 7; } while (byte & 0x80);
+      const wire = tag & 7;
+      if (wire === 2) {
+        let len = 0; shift = 0;
+        do { if (i >= bytes.length) return; byte = bytes[i++]; len |= (byte & 0x7f) << shift; shift += 7; } while (byte & 0x80);
+        if (i + len > bytes.length) return;
+        const slice = bytes.subarray(i, i + len); i += len;
+        const text = slice.toString("utf8");
+        if (looksLikeText(text) && !isNoise(text) && !/[\u0000-\u0008\u000e-\u001f]/.test(text)) {
+          strings.push(text.trim());
+        }
+        if (depth < 5) walk(slice, depth + 1);
+      } else if (wire === 0) {
+        let value = 0; shift = 0;
+        do { if (i >= bytes.length) return; byte = bytes[i++]; value |= (byte & 0x7f) << shift; shift += 7; } while (byte & 0x80);
+      } else {
+        return;
+      }
+    }
+  };
+  walk(Buffer.from(buffer), 0);
+  const cjk = strings.find((s) => /[\u4e00-\u9fff]/.test(s) && !ANTIGRAVITY_TRIVIAL_REQUEST.test(s));
+  const sentence = strings.find((s) => s.includes(" ") && s.length >= 20 && !ANTIGRAVITY_TRIVIAL_REQUEST.test(s));
+  const pick = cjk || sentence;
+  return pick ? pick.replace(/\s+/g, " ").slice(0, 120) : null;
+}
 const ANTIGRAVITY_TITLE_MAX = 80;
 
 function antigravityRequestText(content) {
@@ -3799,11 +3842,28 @@ async function scanAntigravitySession(dbPath) {
   const projectRef = workspace || project.projectRef || null;
   const projectKey = workspace ? path.basename(workspace) : (project.projectKey || null);
   const storage = sessionStorageUsage([...chunkPaths, dbPath]);
+  // KI-031 title backfill: sessions whose transcripts carry no USER_INPUT get
+  // their prompt from the conversation DB's metadata blob. Transcript-derived
+  // titles always win; if nothing readable exists anywhere it stays untitled
+  // rather than inventing one.
+  let blobTitle = null;
+  if (!substantiveRequestText && !firstRequestText) {
+    try {
+      const { DatabaseSync } = require("node:sqlite");
+      const db = new DatabaseSync(dbPath, { readOnly: true });
+      try {
+        const row = db.prepare("SELECT data FROM trajectory_metadata_blob WHERE id = 'main'").get();
+        if (row?.data) blobTitle = antigravityBlobTitleFromBuffer(Buffer.from(row.data));
+      } finally {
+        db.close();
+      }
+    } catch (_error) { /* locked or unreadable: untitled stays untitled */ }
+  }
   return [finalizeRecord({
     version: SIDECAR_VERSION,
     session_hash: sessionHash("antigravity", uuid),
     session_id: uuid,
-    title: substantiveRequestText || firstRequestText,
+    title: substantiveRequestText || firstRequestText || blobTitle,
     source: "antigravity",
     ...storage,
     project_key: projectKey,
@@ -4751,6 +4811,7 @@ function sessionsToCsv(rows) {
 module.exports = {
   resolveSessionSidecarPath,
   sessionHash,
+  antigravityBlobTitleFromBuffer,
   scanClaudeSession,
   scanWorkbuddySession,
   readDshSessions,
