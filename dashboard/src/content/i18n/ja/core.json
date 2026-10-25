@@ -637,5 +637,7 @@
   "limits.apiKey.local_note": "この端末にのみ保存されます（所有者権限）。TokenTracker は対応プロバイダの使用量 API にのみ送信します。",
   "limits.apiKey.env_note": "環境変数 {{env}} のキーを使用中。ここに保存すればグローバル export をやめられます。",
   "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
-  "limits.apiKey.env_unset_note": "macOS：実行後、TokenTracker を再起動すると反映されます。"
+  "limits.apiKey.env_unset_note": "macOS：実行後、TokenTracker を再起動すると反映されます。",
+  "limits.provider.workbuddy_ai": "WorkBuddy AI",
+  "limits.label.workbuddy_reward": "報酬クレジット"
 }

@@ -290,10 +290,21 @@ export const PROVIDER_LIMIT_SPECS = {
     },
   },
   workbuddy: {
-    // Subscription plan credits only. Reward grants are not a window.
+    // Plan cycle + the daily/free grant pool (reward rows the desktop app
+    // shows separately; absent pool simply renders no row).
     windows(data) {
       return [
         { key: "plan", labelKey: "limits.label.workbuddy_plan", window: data.primary_window, creditPrecision: 2, showCreditDetail: true },
+        { key: "reward", labelKey: "limits.label.workbuddy_reward", window: data.reward_window, creditPrecision: 2, showCreditDetail: true },
+      ];
+    },
+  },
+  workbuddyAi: {
+    // International edition: its own plan + reward pool, separate card.
+    windows(data) {
+      return [
+        { key: "plan", labelKey: "limits.label.workbuddy_plan", window: data.primary_window, creditPrecision: 2, showCreditDetail: true },
+        { key: "reward", labelKey: "limits.label.workbuddy_reward", window: data.reward_window, creditPrecision: 2, showCreditDetail: true },
       ];
     },
   },

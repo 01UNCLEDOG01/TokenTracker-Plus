@@ -851,5 +851,6 @@
   "limits.apiKey.local_note": "僅保存在本機（僅限所有者權限）。TokenTracker 只把它發給對應服務商的用量 API。",
   "limits.apiKey.env_note": "正在使用環境變數 {{env}} 中的 Key。在此儲存一份即可停用全域匯出。",
   "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
-  "limits.apiKey.env_unset_note": "macOS：執行後重新啟動 TokenTracker 以生效。"
+  "limits.apiKey.env_unset_note": "macOS：執行後重新啟動 TokenTracker 以生效。",
+  "limits.label.workbuddy_reward": "獎勵額度"
 }

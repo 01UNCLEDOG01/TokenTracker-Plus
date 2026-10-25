@@ -42,7 +42,7 @@ const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
-const { fetchWorkbuddyLimits, fetchWorkbuddyAiLimits, selectWorkbuddyLimits } = require("./workbuddy-limits");
+const { fetchWorkbuddyLimits, fetchWorkbuddyAiLimits } = require("./workbuddy-limits");
 const { fetchProviderServiceStatus } = require("./provider-status");
 const { readWorkbuddyCredits } = require("./workbuddy-credits");
 const { resolveKimiProfile } = require("./kimi-profile");
@@ -4525,9 +4525,11 @@ async function fetchUsageLimitsUncached({
     workbuddyCredits: readWorkbuddyCreditsSafe(home),
     codingPlan: withPlanLabel(codingPlan, codingPlan?.plan_label, "Ark Coding Plan"),
     agentPlan: withPlanLabel(agentPlan, agentPlan?.plan_label, "Ark Agent Plan"),
-    // WorkBuddy preserves provider English names and official edition labels
-    // verbatim (including Free, STANDARD and Pro-Trial).
-    workbuddy: selectWorkbuddyLimits(workbuddy, workbuddyAi),
+    // Two editions, two cards — the credits ledger already splits the same
+    // way, and the owner uses both. Each keeps its own plan + reward pool.
+    // Labels preserve provider English names verbatim (Free, STANDARD, Pro-Trial).
+    workbuddy,
+    workbuddyAi,
     // Balances, not windows: the fetcher never sets plan_name, so the panel
     // falls back to the bare brand and the wallets render as the status line.
     raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),

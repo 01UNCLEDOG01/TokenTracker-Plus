@@ -54,14 +54,33 @@ describe("UsageLimitsPanel", () => {
         used_percent: 50.586, used_credits: 252.92999996, limit_credits: 500, remaining_credits: 247.07000004,
       } }}
     />);
+    // Fork: two editions, two cards. The fixture only carries CN data, so
+    // the AI card renders its header with no windows rather than folding
+    // into the CN row.
     expect(screen.getByRole("button", { name: /^WorkBuddy Free/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^WorkBuddy/ })).toHaveLength(1);
+    expect(screen.getByText("WorkBuddy AI")).toBeInTheDocument();
     expect(screen.getByRole("tooltip")).toHaveTextContent("已用 252.93 / 500 点额度 · 剩余 247.07");
     expect(screen.getByText("49%")).toBeInTheDocument();
-    expect(screen.queryByText("WorkBuddy AI")).not.toBeInTheDocument();
     expect(screen.queryByText(/体验版/)).not.toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("button", { name: /^WorkBuddy Free/ }), { key: "Enter" });
     await waitFor(() => expect(screen.getByText("已用 252.93 / 500 点额度 · 剩余 247.07")).toBeVisible());
+  });
+
+  it("renders both editions as separate cards with plan and reward windows", () => {
+    setCopyLocale(EN_LOCALE);
+    render(<UsageLimitsPanel
+      order={["workbuddy", "workbuddyAi"]}
+      workbuddy={{ configured: true, plan_label: "Free", primary_window: { used_percent: 100, used_credits: 500, limit_credits: 500, remaining_credits: 0 },
+        reward_window: { used_percent: 25, used_credits: 12, limit_credits: 48, remaining_credits: 36, reset_at: "2030-11-01T00:00:00Z" } }}
+      workbuddyAi={{ configured: true, plan_label: "Pro-Trial", primary_window: { used_percent: 20, used_credits: 10, limit_credits: 50, remaining_credits: 40 } }}
+    />);
+    expect(screen.getByRole("button", { name: /^WorkBuddy Free/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^WorkBuddy AI Pro-Trial/ })).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText("20%")).toBeInTheDocument();
+    // The reward pool renders as its own window row on the CN card only.
+    expect(screen.getByText("Reward credits")).toBeInTheDocument();
+    expect(screen.getByText("25%")).toBeInTheDocument();
   });
 
   it("keeps the international English plan name in the single WorkBuddy row", () => {

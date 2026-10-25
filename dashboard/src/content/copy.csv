@@ -1794,6 +1794,7 @@ landing.discovery.faq_usage,landing,LandingPage,index.html,faq_usage,"Input, out
 limits.provider.devin,ui,LimitsPage,UsageLimitsPanel,provider_devin,"Devin",,active
 limits.provider.workbuddy,ui,LimitsPage,UsageLimitsPanel,provider_workbuddy,"WorkBuddy",,active
 limits.provider.workbuddy_ai,ui,LimitsPage,UsageLimitsPanel,provider_workbuddy_ai,"WorkBuddy AI",,active
+limits.label.workbuddy_reward,ui,LimitsPage,UsageLimitsPanel,workbuddy_reward,"Reward credits",,active
 limits.label.workbuddy_plan,ui,LimitsPage,UsageLimitsPanel,workbuddy_plan,"Plan",,active
 limits.label.devin_daily,ui,LimitsPage,UsageLimitsPanel,devin_daily,"Daily",,active
 limits.label.devin_weekly,ui,LimitsPage,UsageLimitsPanel,devin_weekly,"Weekly",,active

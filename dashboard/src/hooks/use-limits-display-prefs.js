@@ -93,7 +93,7 @@ function normalizeOrder(value) {
   const saved = [];
   if (Array.isArray(value)) {
     for (const rawId of value) {
-      const id = rawId === "workbuddyAi" ? "workbuddy" : rawId;
+      const id = rawId;
       if (ALL_LIMIT_PROVIDERS.includes(id) && !saved.includes(id)) {
         saved.push(id);
       }
@@ -120,9 +120,6 @@ function normalizeVisibility(value) {
   }
   for (const id of ALL_LIMIT_PROVIDERS) {
     if (typeof value[id] === "boolean") merged[id] = value[id];
-  }
-  if (typeof value.workbuddyAi === "boolean") {
-    merged.workbuddy = value.workbuddy === true || value.workbuddyAi;
   }
   return merged;
 }

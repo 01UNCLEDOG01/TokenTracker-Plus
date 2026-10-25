@@ -278,6 +278,33 @@ function planWindow(row) {
   };
 }
 
+// The daily/free grant pool (活动 / gift / bonus / extra). Upstream dropped
+// these rows; the owner wants them visible. Aggregate the pool: remaining and
+// total summed, reset = the soonest expiry among grants that carry one. No
+// grants -> null so the UI renders no row instead of a fake zero.
+function selectWorkbuddyRewardWindow(rows) {
+  const rewards = mergePackageRows(rows.filter(Boolean)).filter((row) => REWARD_CODES.has(row.code));
+  if (rewards.length === 0) return null;
+  let total = 0, used = 0, hasTotal = false, soonest = null;
+  for (const row of rewards) {
+    if (row.total !== null && row.total > 0) { total += row.total; hasTotal = true; }
+    const rowUsed = row.used ?? (row.total !== null && row.remain !== null ? Math.max(0, row.total - row.remain) : 0);
+    used += rowUsed;
+    const end = normalizeResetAt(row.cycleEnd);
+    if (end && (!soonest || end < soonest)) soonest = end;
+  }
+  if (!hasTotal || total <= 0) return null;
+  const usedPercent = clampPercent((used / total) * 100);
+  if (usedPercent === null) return null;
+  return {
+    used_percent: usedPercent,
+    reset_at: soonest,
+    used_credits: used,
+    limit_credits: total,
+    remaining_credits: Math.max(0, total - used),
+  };
+}
+
 // One product row, one account's balance. Prefer a usable quota; when both
 // editions are connected China wins deterministically. Never add their pools.
 function selectWorkbuddyLimits(china, international) {
@@ -472,13 +499,13 @@ async function fetchPlanQuota(post, variantId) {
     }
     throw new Error("WorkBuddy quota package list was incomplete.");
   }));
-  const quota = selectWorkbuddyPlanQuota([
-    ...collectPackageRows(summary), ...packageRows.flat(),
-  ], identity, variantId);
+  const allRows = [...collectPackageRows(summary), ...packageRows.flat()];
+  const quota = selectWorkbuddyPlanQuota(allRows, identity, variantId);
   return {
     configured: true, error: null,
     plan_label: quota?.plan_label || englishPlanLabel({ code: identity.code }, identity, variantId),
     primary_window: quota?.primary_window || null,
+    reward_window: selectWorkbuddyRewardWindow(allRows),
   };
 }
 
@@ -555,6 +582,7 @@ module.exports = {
   VARIANTS,
   selectWorkbuddyPlanQuota,
   selectWorkbuddyLimits,
+  selectWorkbuddyRewardWindow,
   collectPackageRows,
   readSubscriptionIdentity,
   originAllowed,

@@ -114,23 +114,26 @@ describe("useLimitsDisplayPrefs", () => {
     expect(Object.values(LIMIT_DISPLAY_MODES)).toEqual(["used", "remaining"]);
   });
 
-  it("merges old WorkBuddy edition switches and order into one preference", () => {
+  it("keeps the two WorkBuddy editions as separate preference keys", () => {
+    // Fork: the editions were re-split into two cards (both are in use), so a
+    // stored workbuddyAi entry maps to its own provider instead of folding.
     setStoredSnapshot({ providerOrder: ["workbuddyAi", "claude", "workbuddy"],
       providerVisibility: { workbuddy: false, workbuddyAi: true } });
     const { result } = renderHook(() => useLimitsDisplayPrefs());
-    expect(result.current.order.slice(0, 2)).toEqual(["workbuddy", "claude"]);
-    expect(result.current.order.filter((id) => id.startsWith("workbuddy"))).toEqual(["workbuddy"]);
-    expect(result.current.visibility.workbuddy).toBe(true);
-    expect(result.current.visibility).not.toHaveProperty("workbuddyAi");
-    act(() => result.current.toggle("workbuddy"));
+    expect(result.current.order.slice(0, 2)).toEqual(["workbuddyAi", "claude"]);
+    expect(result.current.order.filter((id) => id.startsWith("workbuddy"))).toEqual(["workbuddyAi", "workbuddy"]);
     expect(result.current.visibility.workbuddy).toBe(false);
-    expect(readStoredSnapshot().providerVisibility).not.toHaveProperty("workbuddyAi");
+    expect(result.current.visibility.workbuddyAi).toBe(true);
+    act(() => result.current.toggle("workbuddy"));
+    expect(result.current.visibility.workbuddy).toBe(true);
+    expect(readStoredSnapshot().providerVisibility.workbuddyAi).toBe(true);
   });
 
-  it("keeps WorkBuddy hidden when both former edition switches were off", () => {
+  it("keeps both editions hidden when their switches were off", () => {
     setStoredSnapshot({ providerVisibility: { workbuddy: false, workbuddyAi: false } });
     const { result } = renderHook(() => useLimitsDisplayPrefs());
     expect(result.current.visibility.workbuddy).toBe(false);
+    expect(result.current.visibility.workbuddyAi).toBe(false);
   });
 
   it("matches the provider list used for visibility/order keys", () => {
@@ -155,8 +158,9 @@ describe("useLimitsDisplayPrefs", () => {
         "copilot",
         "cursor",
         "devin",
-        "gemini",
         "workbuddy",
+        "workbuddyAi",
+        "gemini",
         "grok",
         "kimi",
         "kiro",

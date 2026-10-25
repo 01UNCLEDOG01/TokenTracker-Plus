@@ -22,6 +22,7 @@ export const LIMIT_PROVIDER_IDS = [
   "agentPlan",
   "devin",
   "workbuddy",
+  "workbuddyAi",
   "raccoon",
   "deepseek",
   "traeMain",
@@ -65,6 +66,7 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   devin: "DEVIN",
   // WorkBuddy uses one product row for either regional edition.
   workbuddy: "WORKBUDDY",
+  workbuddyAi: "WORKBUDDY",
   // 小浣熊 (Raccoon, raccoon.sensetime.com) — the gateway's own provider icon
   // (Program Files/Agent2API/_up_/ui/assets/providers/raccoon.png).
   raccoon: "RACCOON",
@@ -128,6 +130,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.devin");
     case "workbuddy":
       return copy("limits.provider.workbuddy");
+    case "workbuddyAi":
+      return copy("limits.provider.workbuddy_ai");
     case "raccoon":
       return copy("limits.provider.raccoon");
     case "deepseek":

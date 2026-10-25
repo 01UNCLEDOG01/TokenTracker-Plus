@@ -524,6 +524,11 @@ function collectPetLimitRows(limits) {
   ]);
   addGeneric("workbuddy", limits.workbuddy, [
     [copy("limits.label.workbuddy_plan"), limits.workbuddy?.primary_window],
+    [copy("limits.label.workbuddy_reward"), limits.workbuddy?.reward_window],
+  ]);
+  addGeneric("workbuddyAi", limits.workbuddyAi, [
+    [copy("limits.label.workbuddy_plan"), limits.workbuddyAi?.primary_window],
+    [copy("limits.label.workbuddy_reward"), limits.workbuddyAi?.reward_window],
   ]);
 
   const rank = (row) => {
