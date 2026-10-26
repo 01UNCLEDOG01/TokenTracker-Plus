@@ -222,14 +222,14 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **WorkBuddy Credits Reconciliation**: Dual-track accounting separating Standard and High-Flyer editions, reconciling consumption points against tokens.
 
 ### Heatmap Tiers & Data Analytics (Lv0 ~ Lv7 8-Tier Scale)
-The activity heatmap uses an **8-tier scale**: 5 dynamic quantiles (`P35`, `P60`, `P80`, `P92`, `P97`) plus the Lv7 Singularity tier:
+The activity heatmap uses an **8-tier scale**: 6 dynamic quantiles (`P30`, `P55`, `P75`, `P88`, `P95`, `P98.5`) plus the Lv7 Singularity tier:
 - **Level 0**: 0 tokens (No activity)
-- **Level 1**: `0 < tokens ≤ P35` (Light coding)
-- **Level 2**: `P35 < tokens ≤ P60` (Regular development)
-- **Level 3**: `P60 < tokens ≤ P80` (Deep coding)
-- **Level 4**: `P80 < tokens ≤ P92` (Intensive output)
-- **Level 5**: `P92 < tokens ≤ P97` (Extreme burst, emerald enhancement)
-- **Level 6**: `> P97` (Peak production with the glowing night tier)
+- **Level 1**: `0 < tokens ≤ P30` (Light coding)
+- **Level 2**: `P30 < tokens ≤ P55` (Regular development)
+- **Level 3**: `P55 < tokens ≤ P75` (Deep coding)
+- **Level 4**: `P75 < tokens ≤ P88` (Intensive output)
+- **Level 5**: `P88 < tokens ≤ P95` (Extreme burst, emerald enhancement)
+- **Level 6**: `> P95` (Peak production with the glowing night tier)
 - **Level 7 · Singularity**: `tokens ≥ 3,000,000,000` in a single day — 3D voxels break past the nominal ceiling (up to $1.25 \times H_{\text{max}}$) with an emerald glow ring.
 
 Both 2D flat calendar and 3D voxel heatmaps (voxel heights scale with the level; Lv7 rises above the ceiling) are fully synchronized.

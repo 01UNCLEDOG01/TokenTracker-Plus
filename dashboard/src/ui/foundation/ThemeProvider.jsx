@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useLayoutEffect, useMemo,
 import {
   getCachedNativeSystemDark,
   isNativeEmbed,
+  notifyNativeThemeChanged,
   requestNativeSystemAppearance,
   subscribeNativeSystemAppearance,
   syncNativeChromeAppearance,
@@ -144,6 +145,10 @@ export function ThemeProvider({ children }) {
     const forNative =
       theme === "system" && !isNativeEmbed() ? getSystemTheme() : resolvedTheme;
     syncNativeChromeAppearance(forNative, theme);
+    // The Windows tray hosts (pet / quota / monitor) repaint only when they are
+    // told to re-read the stored theme; macOS gets the same news through
+    // setChromeAppearance above and drops this one at its message filter.
+    notifyNativeThemeChanged();
   }, [resolvedTheme, theme]);
 
   const setTheme = useCallback((newTheme) => {

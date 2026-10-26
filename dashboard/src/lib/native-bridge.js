@@ -261,6 +261,18 @@ export function syncNativeChromeAppearance(resolvedTheme, theme) {
 }
 
 /**
+ * Windows 托盘宿主：主题一变就通知它，让它去读 localStorage 的 tokentracker-theme
+ * 并重绘桌宠 / 额度 / 监视器三个小窗（DashboardWindow 的 `case "theme"`）。
+ * 上面那条 setChromeAppearance 只有 macOS 消费，Windows 的 webview 消息过滤器
+ * （NativeQAProfile.permitsNativeMessage）对未知 type 直接 return false，
+ * 所以这条在 mac 上发了也是被丢弃，不影响那边已有的同步。
+ */
+export function notifyNativeThemeChanged() {
+  if (!isBridgeAvailable()) return false;
+  return post({ type: "theme" });
+}
+
+/**
  * Subscribe to native settings updates. Returns an unsubscribe function.
  * The handler is invoked with the settings object (`detail` of the CustomEvent).
  */

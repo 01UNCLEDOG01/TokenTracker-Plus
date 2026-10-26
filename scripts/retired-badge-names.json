@@ -1,0 +1,9 @@
+{
+  "_comment": "Names that no longer exist in the copy registry. Shipped docs must not mention them; the gate also fails if one becomes a live name again (that means this list needs deleting). Append on every rename.",
+  "names": [
+    { "name": "封号幸存者", "renamed_to": "克系幸存者", "reason": "2026-10-27 站主改名" },
+    { "name": "北美豆包", "renamed_to": "双子宝石", "reason": "2026-10-26 站主改名：Google 对他有实际帮助，不当笑点" },
+    { "name": "火种", "renamed_to": "公地", "reason": "2026-10-26 与称号「盗火者」的薪火意象三重重复" },
+    { "name": "羊毛宗师", "renamed_to": "淘金客", "reason": "2026-10-25 站主定名，图案是平台节点淘金盘" }
+  ]
+}

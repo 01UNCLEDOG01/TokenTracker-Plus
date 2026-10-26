@@ -39,7 +39,7 @@ O dashboard local fica em `http://localhost:7680`. A lista completa das 52 ferra
 
 ## 💰 Cobrança e heatmap
 
-`custo = Σ(tokens × preço de tabela)`. Tarifas do LiteLLM + ajustes locais. Modelos sem preço público registram apenas tokens, sem inventar valores. O heatmap usa os quantis P35–P97 + nível Lv7 (≥ 3 bi de tokens/dia), em 8 níveis.
+`custo = Σ(tokens × preço de tabela)`. Tarifas do LiteLLM + ajustes locais. Modelos sem preço público registram apenas tokens, sem inventar valores. O heatmap usa os quantis P30–P95 + nível Lv7 (≥ 3 bi de tokens/dia), em 8 níveis.
 
 ## 🔒 Privacidade
 
