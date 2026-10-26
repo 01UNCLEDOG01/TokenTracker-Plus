@@ -738,7 +738,7 @@
   "achievements.badge.swarm_commander.name": "Swarm Commander",
   "achievements.badge.swarm_commander.desc": "Command multiple AI coding tools simultaneously inside a single hour.",
   "achievements.badge.terminal_purist.name": "Terminal Purist",
-  "achievements.badge.terminal_purist.desc": "Kumulierte aktive Tage mit über 90 % Terminal-Tokens — 7 Tage Bronze, 30 Silber, 90 Gold, 180 Diamant.",
+  "achievements.badge.terminal_purist.desc": "Kumulierte aktive Tage mit über 90 % Terminal-Tokens im Fenster (CLI oder TUI) — 7 Tage Bronze, 30 Silber, 90 Gold, 180 Diamant.",
   "achievements.badge.refactor_titan.name": "Refactor Titan",
   "achievements.badge.refactor_titan.desc": "Persist through multiple active weeks deeply evolving a single repository.",
   "achievements.action.test_unlock": "Freischaltung testen",

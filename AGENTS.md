@@ -17,6 +17,7 @@
 ## Fork-specific working rules
 
 - **Development happens only in `D:\TokenTrackerPlus\repo` on branch `usage-desk-135`.**
+- **This fork ships source + the Windows package only** (owner decision 2026-10-27). `TokenTrackerBar/` (Swift) and `TokenTrackerLinux/` (Tauri) are kept consistent at source level only — text gates such as `test/pet-parity.test.js` and `validate:versions`. **Nobody builds them here**: this box has no Xcode, and Tauri needs a Linux toolchain. When you touch either side, say so in the commit and in `KNOWN_ISSUES.md` so whoever has a Mac/Linux compiles it; `ci.yml` does have `linux-client` (ubuntu) and `macos-tests` (macos-26) jobs, but they only fire on push/PR to `main`, not on `usage-desk-135`.
 - The legacy worktree/object store (`D:\tt-rebase` / `D:\tt-fork`) was deleted on 2026-10-26 after the one-week keep; the same-disk bare mirror `backup` (`D:\TokenTrackerPlus\archive\tt-fork-backup.git`) was deleted on 2026-10-27 — one disk protects against nothing, and with dual push a bad push would have mirrored anyway. Pre-rewrite history still lives on `mine` as branch `backup/pre-rewrite-868bfe16`. Never push to `origin`/`upstream`; `mine` is the only pushable remote.
 - After a work batch: update `FORK_STATUS.md` (current state), append to `CHANGELOG.md` (what happened and how it was verified), and add/remove `KNOWN_ISSUES.md` entries.
 - Never commit secrets. Put local overrides in `.env.local` (gitignored); `.env.example` is the template. Do **not** create `.dev.vars` (Cloudflare Workers convention, not used here).
