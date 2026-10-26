@@ -424,8 +424,8 @@ test("sprinter reads the fastest output rate inside one task, not an hour bucket
     estimated_tokens_per_second: output / (ms / 1000),
   });
   const sessions = [
-    sessionRow(60_000, { hash: "steady", performance: perf(3_000, 60_000) }), // 50 tok/s = bronze line
-    sessionRow(8_000, { hash: "burst", endedAt: "2026-07-06T09:00:00Z", performance: perf(2_400, 8_000) }), // 300 = gold
+    sessionRow(60_000, { hash: "steady", performance: perf(7_200, 60_000) }), // 120 tok/s = bronze
+    sessionRow(8_000, { hash: "burst", endedAt: "2026-07-06T09:00:00Z", performance: perf(2_400, 8_000) }), // 300 = diamond
     // A 0.4s blip divides out to 500 tok/s; sub-five-second rows are noise.
     sessionRow(400, { hash: "blip", performance: perf(200, 400) }),
   ];
@@ -434,9 +434,18 @@ test("sprinter reads the fastest output rate inside one task, not an hour bucket
     "sprinter",
   );
   assert.equal(badge.metric_value, 300);
-  assert.equal(badge.tier, 3); // 50 / 120 / 250 / 500
+  assert.equal(badge.tier, 4); // 100 / 150 / 200 / 250
   assert.equal(badge.meta.session_hash, "burst");
-  assert.equal(badge.achieved.gold, "2026-07-06T09:00:00Z");
+  assert.equal(badge.achieved.diamond, "2026-07-06T09:00:00Z");
+  // 50 tok/s sits under the new bronze line.
+  const slow = byId(
+    computeLocalAchievements([], [], {
+      timeZoneContext: TZ_SHANGHAI,
+      sessions: [sessionRow(60_000, { hash: "steady", performance: perf(3_000, 60_000) })],
+    }),
+    "sprinter",
+  );
+  assert.equal(slow?.tier || 0, 0);
   // The old grain must not move it any more — that is token_titan's job.
   const fromQueue = byId(
     computeLocalAchievements([queueRow("2026-07-01T09:00:00Z", 5_000_000)], [], { timeZoneContext: TZ_SHANGHAI }),

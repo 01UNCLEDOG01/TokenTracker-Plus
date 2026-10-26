@@ -476,12 +476,10 @@ const LOCAL_BADGE_THRESHOLDS = {
   early_bird: [4, 12, 36, 90], // active half-hour buckets between 05:00–08:59 local
   around_the_clock: [6, 12, 18, 24], // distinct local hour-of-day buckets (0–23) with any activity
   // sprinter: fastest output rate inside ONE conversation task (session
-  // sidecar), not an hour bucket — that is token_titan's job. Anchored on
-  // streaming reality, not on any single machine: 50 tok/s is a comfortable
-  // frontier model, 120 is the fast lane (Flash/Hyperspeed class), 250 is the
-  // top of what a hosted model sustains in one task, 500 needs a small local
-  // or edge model.
-  sprinter: [50, 120, 250, 500], // output tokens per second within one task
+  // sidecar), not an hour bucket — that is token_titan's job. Ladder set by the
+  // owner on 2026-10-27: 100 is a quick hosted model, 150 the Flash/Hyperspeed
+  // lane, 200 a small model running hot, 250 the ceiling for hosted output.
+  sprinter: [100, 150, 200, 250], // output tokens per second within one task
   cache_alchemist: [50000000, 500000000, 5000000000, 50000000000], // lifetime cached-input tokens (reads + cache writes)
   deep_thinker: [1000000, 5000000, 20000000, 60000000], // lifetime reasoning output tokens
   real_money: [5, 50, 500, 5000], // lifetime tracked cost, USD

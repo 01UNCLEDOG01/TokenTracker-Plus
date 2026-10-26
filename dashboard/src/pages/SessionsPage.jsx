@@ -661,7 +661,7 @@ export function SessionsPage() {
     [resolvedLocale],
   );
   const sortOptions = useMemo(
-    () => [{ value: "recent", label: copy("sessions.sort.recent") }, { value: "cost", label: copy("sessions.sort.cost") }, { value: "tokens", label: copy("sessions.sort.tokens") }],
+    () => [{ value: "recent", label: copy("sessions.sort.recent") }, { value: "cost", label: copy("sessions.sort.cost") }, { value: "tokens", label: copy("sessions.sort.tokens") }, { value: "speed", label: copy("sessions.sort.speed") }],
     [resolvedLocale],
   );
 

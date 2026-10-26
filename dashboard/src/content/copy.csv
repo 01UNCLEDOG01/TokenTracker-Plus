@@ -1433,7 +1433,7 @@ achievements.badge.deep_diver.desc,dashboard,*,BadgeDetailModal,deep_diver_desc,
 achievements.badge.multitool_day.name,dashboard,*,AchievementsSection,multitool_day_name,"One-Man Band",,active
 achievements.badge.multitool_day.desc,dashboard,*,BadgeDetailModal,multitool_day_desc,"Juggle that many different AI tools inside a single active day.",,active
 achievements.badge.heart_model.name,dashboard,*,AchievementsSection,heart_model_name,"The One",,active
-achievements.badge.heart_model.desc,dashboard,*,BadgeDetailModal,heart_model_desc,"Once you have used 5+ models, your top model's share of lifetime tokens decides: 50% bronze, 70% silver, 85% gold, 95% diamond.",,active
+achievements.badge.heart_model.desc,dashboard,*,BadgeDetailModal,heart_model_desc,"Once five models are behind you, the share your top model holds of a lifetime decides it — looks like you found your one.",,active
 achievements.badge.claude_survivor.name,dashboard,*,AchievementsSection,claude_survivor_name,"Ban Wave Survivor",,active
 achievements.badge.claude_survivor.desc,dashboard,*,BadgeDetailModal,claude_survivor_desc,"Even with Anthropic hunting you down, you still make the date with Lady Claude — will we meet again next time?",,active
 achievements.badge.wishing_well.name,dashboard,*,AchievementsSection,wishing_well_name,"Wishing Well",,active
@@ -1453,7 +1453,7 @@ achievements.badge.early_bird.desc,dashboard,*,BadgeDetailModal,early_bird_desc,
 achievements.badge.around_the_clock.name,dashboard,*,AchievementsSection,around_the_clock_name,"Around the Clock",,active
 achievements.badge.around_the_clock.desc,dashboard,*,BadgeDetailModal,around_the_clock_desc,"Leave a usage footprint in all 24 hours of the day.",,active
 achievements.badge.sprinter.name,dashboard,*,AchievementsSection,sprinter_name,"Sprinter",,active
-achievements.badge.sprinter.desc,dashboard,*,BadgeDetailModal,sprinter_desc,"Fastest output rate inside a single task — 50 tok/s bronze, 120 silver, 250 gold, 500 diamond.",,active
+achievements.badge.sprinter.desc,dashboard,*,BadgeDetailModal,sprinter_desc,"Fastest output rate inside a single task — 100 tok/s bronze, 150 silver, 200 gold, 250 diamond.",,active
 achievements.badge.cache_alchemist.name,dashboard,*,AchievementsSection,cache_alchemist_name,"Cache Alchemist",,active
 achievements.badge.cache_alchemist.desc,dashboard,*,BadgeDetailModal,cache_alchemist_desc,"Accumulate lifetime cached tokens — the art of saving.",,active
 achievements.badge.deep_thinker.name,dashboard,*,AchievementsSection,deep_thinker_name,"Deep Thinker",,active
@@ -2133,6 +2133,7 @@ sessions.sort.aria,ui,SessionsPage,SessionInsights,aria,Sort sessions,,active
 sessions.sort.recent,ui,SessionsPage,SessionInsights,recent,Recent,,active
 sessions.sort.cost,ui,SessionsPage,SessionInsights,cost,Highest cost,,active
 sessions.sort.tokens,ui,SessionsPage,SessionInsights,tokens,Most tokens,,active
+sessions.sort.speed,ui,SessionsPage,SessionInsights,speed,Fastest rate,,active
 sessions.summary.count,ui,SessionsPage,SessionInsights,count,Matching sessions,,active
 sessions.summary.scope,ui,SessionsPage,SessionInsights,scope,"Token and cost totals use the selected dates for sessions with timestamped usage. Sessions without usage buckets retain lifetime totals. Turn, duration and performance metrics describe the full session. Each session and subagent is counted once. The speed summary only pools sessions whose own generation ratio is at least 1 tok/s - abandoned or failed wall-clock spans (opened for days, near-zero output) are excluded so they cannot dilute the figure.",,active
 sessions.summary.speed,ui,SessionsPage,SessionInsights,speed,Estimated speed,,active

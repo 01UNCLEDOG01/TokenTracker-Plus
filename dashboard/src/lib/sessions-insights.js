@@ -69,6 +69,17 @@ export function sessionOwnCost(session) {
   return finiteValue(session?.own_cost_usd ?? session?.cost_usd);
 }
 
+// The rate the row actually shows: the collector's own figure when it has one,
+// otherwise output tokens over the timed span.
+export function sessionOwnSpeed(session) {
+  const performance = session?.performance;
+  const stated = Number(performance?.estimated_tokens_per_second);
+  if (Number.isFinite(stated) && stated > 0) return stated;
+  const duration = finiteValue(performance?.estimated_duration_ms);
+  const output = finiteValue(performance?.estimated_output_tokens);
+  return duration > 0 ? (output * 1000) / duration : 0;
+}
+
 function finiteValue(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : 0;
@@ -171,7 +182,9 @@ export function sortSessions(sessions, sort) {
       ? sessionOwnCost(b) - sessionOwnCost(a)
       : sort === "tokens"
         ? sessionOwnTokens(b) - sessionOwnTokens(a)
-        : 0;
+        : sort === "speed"
+          ? sessionOwnSpeed(b) - sessionOwnSpeed(a)
+          : 0;
     return difference || sessionDateMs(b) - sessionDateMs(a);
   });
 }
