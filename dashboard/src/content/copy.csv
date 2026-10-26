@@ -2394,4 +2394,5 @@ achievements.badge.sensenova_daily.name,dashboard,*,AchievementsSection,sensenov
 achievements.badge.sensenova_daily.desc,dashboard,*,BadgeDetailModal,sensenova_daily_desc,"Lifetime tokens through SenseTime SenseNova models — renew today, renew again tomorrow.",,active
 achievements.badge.xiaomi_mimo.name,dashboard,*,AchievementsSection,xiaomi_mimo_name,MiMo Core,,active
 achievements.badge.xiaomi_mimo.desc,dashboard,*,BadgeDetailModal,xiaomi_mimo_desc,Lifetime tokens through Xiaomi MiMo models — the phone maker builds the chip and the model.,,active
-pet.state.run,dashboard,PetPage,PetPage,state_run,"Moving",,active
+pet.state.run,dashboard,PetPage,PetPage,state_run,"Moving (while dragging)",,active
+pet.state.run_hint,dashboard,PetPage,PetPage,state_run_hint,"Plays only while dragging the pet",,active

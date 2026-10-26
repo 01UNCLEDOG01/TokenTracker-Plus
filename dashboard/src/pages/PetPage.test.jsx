@@ -261,6 +261,29 @@ describe("PetPage", () => {
     });
     expect(actionGroup.getByRole("button", { name: copy("pet.state.streak") })).toHaveAttribute("aria-pressed", "false");
   });
+
+  it("lists trotting as a disabled hint and never locks it", async () => {
+    const user = userEvent.setup();
+    const messages = installNativeBridge();
+    render(<PetPage />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium", actionLock: "auto" },
+      }));
+    });
+
+    expect(await screen.findByText(copy("pet.action.title"))).toBeInTheDocument();
+    const actionGroup = within(screen.getByRole("group", { name: copy("pet.action.title") }));
+    const runButton = actionGroup.getByRole("button", { name: copy("pet.state.run") });
+
+    // Rows 1/2 are the drag-only directional pair; the picker shows them but must
+    // never let them be locked into the ambient rotation.
+    expect(runButton).toBeDisabled();
+    await user.click(runButton);
+    expect(messages).not.toContainEqual(expect.objectContaining({ key: "actionLock" }));
+  });
+
   it("renders menu bar toggle on macOS native bridge and hides on Windows", async () => {
     installNativeBridge();
     const { unmount } = render(<PetPage />);

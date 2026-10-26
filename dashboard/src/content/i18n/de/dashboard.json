@@ -411,7 +411,8 @@
   "pet.state.streak": "Serie",
   "pet.state.celebrate": "Neue Nutzung",
   "pet.state.rest": "Pause",
-
+  "pet.state.run": "Laufen (beim Ziehen)",
+  "pet.state.run_hint": "Wird nur beim Ziehen des Pets abgespielt",
   "pet.size.small": "Klein",
   "pet.size.medium": "Mittel",
   "pet.size.large": "Groß",

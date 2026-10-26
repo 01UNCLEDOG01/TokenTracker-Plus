@@ -400,7 +400,8 @@
   "pet.state.streak": "連続記録",
   "pet.state.celebrate": "新しい利用",
   "pet.state.rest": "休憩",
-
+  "pet.state.run": "移動（ドラッグ時）",
+  "pet.state.run_hint": "ペットをドラッグした時のみ再生",
   "pet.size.small": "小",
   "pet.size.medium": "中",
   "pet.size.large": "大",

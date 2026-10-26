@@ -586,6 +586,14 @@ function Pet() {
     return () => window.removeEventListener("pet:bubble-band", update);
   }, []);
 
+  // 刚出现时挥手打招呼（图集 row3 = 「被召唤」动作），1.5 秒后回到自动状态。
+  // 首次挂载和切换宠物都走这条路径：宠物一露面、或换了一只宠物，都先招手而不是呆站着。
+  useEffect(() => {
+    setSleepState("waking");
+    wakeTimer.current = setTimeout(() => setSleepState(null), 1500);
+    return () => clearTimeout(wakeTimer.current);
+  }, [character]);
+
   useEffect(() => {
     const handleWake = () => {
       clearTimeout(wakeTimer.current);
@@ -610,7 +618,7 @@ function Pet() {
       clearTimeout(modelStatusTimer.current);
       setModelStatus(e.detail || null);
       // Auto-clear so the increment bubble is transient (parity with macOS' 3s timer).
-      modelStatusTimer.current = setTimeout(() => setModelStatus(null), 3000);
+      modelStatusTimer.current = setTimeout(() => setModelStatus(null), 6000);
     };
     window.addEventListener("pet:model-status", handleModelStatus);
     return () => {

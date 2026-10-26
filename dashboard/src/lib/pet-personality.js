@@ -32,15 +32,31 @@ export function pickPetAmbientState(stats = {}, random = Math.random) {
   const tokens = Number(stats.todayTokens) || 0;
   if (tokens <= 0) return "sleeping";
 
-  const choices = ["idle-living", "idle-living", "idle-living", "idle-look"];
+  // 平静 only gets two slots now (it used to get four). On a heavy day the pet sat
+  // in the calm pose ~44% of the time, which made the animated rows feel like dead
+  // weight — and 平静 is the one pose that looks identical whether or not it moves.
+  const choices = ["idle-living", "idle-look"];
   if (tokens >= 200_000) choices.push("working-thinking");
-  if (tokens >= 500_000) choices.push("working-juggling");
   // "working-overheated" is deliberately NOT an ambient choice: it reuses the error
   // visuals (X-eyes + red pulse), so it must only appear for the genuine rage/overheat
   // gag (see resolvePetState) — never on a healthy heavy-usage day.
-  if (tokens >= 2_000_000) choices.push("working-ultrathink");
+  // 10M is the "super heavy" tier: users who burn that much in a day get the
+  // deepest working pose on top of everything else.
+  if (tokens >= 10_000_000) choices.push("working-ultrathink");
+  // Trotting is NOT an ambient choice: rows 1/2 belong to dragging only. It used to
+  // be pushed into this pool so the row was not dead weight, which made the pet
+  // sprint in place for no reason — the drag handler in pet.jsx is the only caller.
+  // 多模型 owns its own atlas row (row5), so it is keyed on the model count alone.
+  // It used to be pushed a second time by the token threshold as well, which
+  // doubled its weight in the pool and made one pose twice as likely as the rest.
   if ((stats.topModels?.length || 0) >= 3) choices.push("working-juggling");
-  if ((Number(stats.streakDays) || 0) >= 7) choices.push("working-wizard");
+  // 新增用量 (上香) also shows up on its own between real usage events, so the
+  // celebration pose is not limited to the 3s burst that follows a token increase.
+  if (tokens >= 1_000_000) choices.push("happy");
+  // 连续活跃 gets a double slot: it is the 摇六爻 pose, the one worth seeing most,
+  // and the only ambient state that rewards a long streak. Kept last so the
+  // existing "last candidate" assertion in pet-personality.test.js still holds.
+  if ((Number(stats.streakDays) || 0) >= 7) choices.push("working-wizard", "working-wizard");
 
   const index = Math.min(choices.length - 1, Math.floor(random() * choices.length));
   return choices[Math.max(0, index)];
@@ -76,6 +92,8 @@ export const PET_ACTION_IDS = [
   "working-wizard",
   "happy",
   "sleeping",
+  // Trotting is deliberately absent: rows 1/2 are the directional pair driven only
+  // by dragging, so it cannot be locked. The picker still lists it, disabled.
 ];
 
 /**
@@ -119,6 +137,8 @@ const PET_ACTION_BUCKETS = {
   happy: "happy",
   sleeping: "sleep",
   disconnected: "disconnected",
+  "running-right": "run",
+  "running-left": "run",
 };
 
 const PET_ACTION_BUCKET_REPRESENTATIVES = {
@@ -127,6 +147,7 @@ const PET_ACTION_BUCKET_REPRESENTATIVES = {
   happy: "happy",
   sleep: "sleeping",
   disconnected: "idle-living",
+  run: "running-right",
 };
 
 /**
@@ -140,6 +161,7 @@ export function restrictPetStateToActions(state, allowed) {
   const fallbackOrder = [
     bucket,
     "working",
+    "run",
     "idle",
     "happy",
     "sleep",

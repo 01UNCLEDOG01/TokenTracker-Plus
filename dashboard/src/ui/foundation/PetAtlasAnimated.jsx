@@ -7,20 +7,51 @@ const ROWS = {
   "running-left": { row: 2, durations: [120, 120, 120, 120, 120, 120, 120, 220] },
   waving: { row: 3, durations: [140, 140, 140, 280] },
   jumping: { row: 4, durations: [140, 140, 140, 140, 280] },
-  failed: { row: 5, durations: [140, 140, 140, 140, 140, 140, 140, 240] },
+  // Row 5 was the "failed" pose in the original Codex atlas contract. Custom
+  // atlases now paint the 多模型 (multi-model) pose there, and offline/error
+  // feedback moved to the waving row — see petAtlasRowForState below.
+  multitask: { row: 5, durations: [140, 140, 140, 140, 140, 140, 140, 240] },
   waiting: { row: 6, durations: [150, 150, 150, 150, 150, 260] },
   running: { row: 7, durations: [120, 120, 120, 120, 120, 220] },
   review: { row: 8, durations: [150, 150, 150, 150, 150, 280] },
 };
 
+/**
+ * Nine atlas rows, nine distinct jobs. Every custom pet must paint all of them:
+ *
+ *   row0 平静       idle-living / idle-look / idle-doze
+ *   row1 向右跑动   drag right, and the running-right action
+ *   row2 向左跑动   drag left
+ *   row3 挥手       被召唤（刚出现 / 睡醒）· 离线 · 断网 · 出错
+ *   row4 上香礼拜   新增用量（happy）
+ *   row5 多模型     working-juggling
+ *   row6 道家打坐   休息（sleeping / waiting / dozing）
+ *   row7 摇六爻     连续活跃（working-wizard）+ 其余自动干活态
+ *   row8 看罗盘思考 专注（working-thinking / review）
+ *
+ * 6 standard actions + 1 greeting + 2 directional trots = 9 rows. Nothing
+ * shares a row any more: the old contract mapped working-thinking and
+ * working-wizard onto the same row, which made two picker entries animate
+ * identically.
+ */
 export function petAtlasRowForState(state) {
-  if (["error", "disconnected", "working-overheated"].includes(state)) return "failed";
-  if (["happy", "waking", "mini-happy", "jumping"].includes(state)) return "jumping";
-  if (["working-typing", "working-ultrathink", "working-juggling", "running"].includes(state)) return "running";
-  if (["working-thinking", "working-wizard", "review"].includes(state)) return "review";
+  // 离线 / 断网 / 出错 → 挥手行（与「被召唤」共用同一个动作）。
+  if (["error", "disconnected", "working-overheated"].includes(state)) return "waving";
+  // 被召唤 / 刚出现 / 睡醒 → 挥手行。
+  if (["waking", "mini-peek", "waving"].includes(state)) return "waving";
+  // 新增用量 → 上香礼拜行。
+  if (["happy", "mini-happy", "jumping"].includes(state)) return "jumping";
+  // 多模型 → row5。
+  if (state === "working-juggling") return "multitask";
+  // 连续活跃 + 其余自动干活态 → 摇六爻行。
+  if (["working-wizard", "working-typing", "working-ultrathink", "running"].includes(state)) return "running";
+  // 专注 → 看罗盘思考行。
+  if (["working-thinking", "review"].includes(state)) return "review";
+  // 休息 → 道家打坐行。
   if (["sleeping", "idle-doze", "mini-sleep", "waiting"].includes(state)) return "waiting";
-  if (["mini-peek", "waving"].includes(state)) return "waving";
+  // 拖拽 → 方向性跑动行。
   if (state === "running-left" || state === "running-right") return state;
+  // 平静 → row0。
   return "idle";
 }
 

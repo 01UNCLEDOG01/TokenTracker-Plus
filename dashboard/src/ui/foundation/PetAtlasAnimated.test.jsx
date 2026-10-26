@@ -5,10 +5,34 @@ import { PetAtlasAnimated, petAtlasRowForState } from "./PetAtlasAnimated.jsx";
 describe("PetAtlasAnimated", () => {
   it("maps live data states to distinct atlas actions", () => {
     expect(petAtlasRowForState("working-thinking")).toBe("review");
-    expect(petAtlasRowForState("working-juggling")).toBe("running");
-    expect(petAtlasRowForState("working-overheated")).toBe("failed");
+    expect(petAtlasRowForState("working-juggling")).toBe("multitask");
+    expect(petAtlasRowForState("working-wizard")).toBe("running");
     expect(petAtlasRowForState("happy")).toBe("jumping");
     expect(petAtlasRowForState("sleeping")).toBe("waiting");
+    expect(petAtlasRowForState("idle-living")).toBe("idle");
+  });
+
+  it("gives every picker action, the greeting and both trots their own row", () => {
+    // 6 standard actions + 1 greeting + 2 directional trots = 9 rows, no sharing.
+    const rows = [
+      petAtlasRowForState("idle-living"),
+      petAtlasRowForState("working-thinking"),
+      petAtlasRowForState("working-juggling"),
+      petAtlasRowForState("working-wizard"),
+      petAtlasRowForState("happy"),
+      petAtlasRowForState("sleeping"),
+      petAtlasRowForState("waking"),
+      petAtlasRowForState("running-right"),
+      petAtlasRowForState("running-left"),
+    ];
+    expect(rows).toHaveLength(9);
+    expect(new Set(rows).size).toBe(9);
+  });
+
+  it("routes offline and error feedback to the greeting row", () => {
+    expect(petAtlasRowForState("disconnected")).toBe("waving");
+    expect(petAtlasRowForState("error")).toBe("waving");
+    expect(petAtlasRowForState("working-overheated")).toBe("waving");
   });
 
   it("loads the selected character's independent sprite atlas", () => {

@@ -65,6 +65,10 @@ const PREVIEW_STATES = [
   { id: "working-wizard", labelKey: "pet.state.streak" },
   { id: "happy", labelKey: "pet.state.celebrate" },
   { id: "sleeping", labelKey: "pet.state.rest" },
+  // Trotting is shown for discoverability but cannot be locked: rows 1/2 are the
+  // directional pair and are driven purely by dragging the pet. Locking it would
+  // force the pet to sprint in place, which is why it renders disabled.
+  { id: "running-right", labelKey: "pet.state.run", disabled: true },
 ];
 
 function CharacterCard({ character, selected, onSelect, onRemove, removeDisabled }) {
@@ -454,11 +458,16 @@ export function PetPage() {
   // Only rendered when the host pushed the actionLock capability (older hosts keep
   // the control hidden).
   const actionOptions = [
-    ...PREVIEW_STATES.map((previewState) => ({ id: previewState.id, label: copy(previewState.labelKey) })),
+    ...PREVIEW_STATES.map((previewState) => ({
+      id: previewState.id,
+      label: copy(previewState.labelKey),
+      disabled: Boolean(previewState.disabled),
+    })),
   ];
   const currentActionLock = normalizePetActionLock(settings.actionLock);
   const selectedActions = currentActionLock === "auto" ? [] : currentActionLock.split(",");
   const toggleAction = (id) => {
+    if (actionOptions.find((option) => option.id === id)?.disabled) return;
     const next = selectedActions.includes(id)
       ? selectedActions.filter((kept) => kept !== id)
       : [...selectedActions, id];
@@ -750,13 +759,17 @@ export function PetPage() {
                             <button
                               key={option.id}
                               type="button"
+                              disabled={option.disabled}
                               aria-pressed={selectedActions.includes(option.id)}
                               onClick={() => toggleAction(option.id)}
+                              title={option.disabled ? copy("pet.state.run_hint") : undefined}
                               className={
                                 "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 " +
-                                (selectedActions.includes(option.id)
-                                  ? "border-oai-brand-500/40 bg-oai-brand-500/10 text-oai-brand-600 dark:text-oai-brand-400"
-                                  : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800")
+                                (option.disabled
+                                  ? "cursor-not-allowed border-dashed border-oai-gray-200 text-oai-gray-400 dark:border-oai-gray-700 dark:text-oai-gray-500"
+                                  : selectedActions.includes(option.id)
+                                    ? "border-oai-brand-500/40 bg-oai-brand-500/10 text-oai-brand-600 dark:text-oai-brand-400"
+                                    : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800")
                               }
                             >
                               {option.label}

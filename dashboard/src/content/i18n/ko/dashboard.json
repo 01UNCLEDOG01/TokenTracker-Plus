@@ -400,7 +400,8 @@
   "pet.state.streak": "연속 활동",
   "pet.state.celebrate": "새 사용량",
   "pet.state.rest": "휴식",
-
+  "pet.state.run": "이동(드래그 시)",
+  "pet.state.run_hint": "펫을 드래그할 때만 재생",
   "pet.size.small": "작게",
   "pet.size.medium": "보통",
   "pet.size.large": "크게",
