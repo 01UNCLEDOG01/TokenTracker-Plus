@@ -66,7 +66,7 @@ const TITLES_UNSORTED = [
     name: "极速先锋 · 赛博狂飙者",
     shortName: "赛博狂飙者",
     en: "Hyperspeed Pioneer",
-    desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，Flash 仙人全力推流，指尖破空。",
+    desc: "Google 海量 Flash 遇上马斯克 Grok 极速引擎，闪电仙人全力推流，指尖破空。",
     tag: "曲率引擎",
     dimension: 3,
     bondName: "曲率先锋",
@@ -91,14 +91,14 @@ const TITLES_UNSORTED = [
       accentDot: "bg-sky-400",
     },
   },
-  // 生活禅者 (Rank 3: 素心冷银 · 素心禅意)
+  // 生活禅者 (Rank 3: 素心冷银 · 碧玉禅心)
   {
     id: "zen_master",
     difficulty: 4.2,
     name: "生活禅师",
     en: "Zen Master",
     desc: "周内高效输出，周末彻底拔电，AI 时代清醒的生活家。",
-    tag: "素心禅意",
+    tag: "碧玉禅心",
     art: "/achievements/titles/title-zen-master.png?v=5",
     requiredBadges: [
       { id: "zen_balancer", name: "小确幸", tier: 1, art: "/achievements/zen-balancer.png?v=7" },
@@ -248,7 +248,7 @@ const TITLES_UNSORTED = [
     difficulty: 4.7,
     name: "神之信徒",
     en: "Divine Devotee",
-    desc: "OpenAI 家族与思考算力的双线并行——你追的是那束只往下照的光。",
+    desc: "OpenAI 家族思考与算力的双线并行——你追随的是神还是自己的未来？",
     tag: "AGI圣殿",
     art: "/achievements/titles/title-openai-paladin.png?v=5",
     requiredBadges: [
@@ -307,7 +307,7 @@ const TITLES_UNSORTED = [
     name: "全知全能架构师",
     shortName: "全域架构师",
     en: "Omniscient Architect",
-    desc: "八十款模型与二十款开发工具尽在掌中——每个模型的脾气和单价你都报得出来。",
+    desc: "主流模型与开发工具了如指掌——每个模型的脾气和单价你都报得出来。",
     tag: "全息星图",
     art: "/achievements/titles/title-omniscient-architect.png?v=5",
     requiredBadges: [
@@ -457,7 +457,7 @@ const TITLES_UNSORTED = [
     name: "四方饕餮 · 老吃家",
     shortName: "老吃家",
     en: "Cyber Gourmet Connoisseur",
-    desc: "通义宗师、灵动音符、你是我兄弟、小馋猫——四家的自研模型都在你账上点过菜，赛博老吃家只认菜单不认菜系。",
+    desc: "不只承包你的衣食住行，还要承包你的赛博日常——四家的自研模型都在你账上点过菜，赛博老吃家只认菜单不认菜系。",
     tag: "四方食神",
     dimension: 4,
     bondName: "四方饕餮",

@@ -1487,17 +1487,17 @@ achievements.badge.refactor_titan.desc,dashboard,*,BadgeDetailModal,refactor_tit
 achievements.badge.zhipu_sage.name,dashboard,*,AchievementsSection,zhipu_sage_name,"Zhipu Sage",,active
 achievements.badge.zhipu_sage.desc,dashboard,*,BadgeDetailModal,zhipu_sage_desc,Lifetime tokens through Zhipu GLM and CodeGeeX models — the other Chinese lineage.,,active
 achievements.badge.moonshot_voyager.name,dashboard,*,AchievementsSection,moonshot_voyager_name,"Moonshot Voyager",,active
-achievements.badge.moonshot_voyager.desc,dashboard,*,BadgeDetailModal,moonshot_voyager_desc,"Lifetime tokens through Kimi and Moonshot models — long context, all the way to the far side.",,active
+achievements.badge.moonshot_voyager.desc,dashboard,*,BadgeDetailModal,moonshot_voyager_desc,"A walk through the deep craters of the far side — piercing the night inside Kimi's enormous context.",,active
 achievements.badge.minimax_abyss.name,dashboard,*,AchievementsSection,minimax_abyss_name,"MiniMax Leviathan",,active
-achievements.badge.minimax_abyss.desc,dashboard,*,BadgeDetailModal,minimax_abyss_desc,Lifetime tokens through MiniMax models — compute whispering up from the trench.,,active
+achievements.badge.minimax_abyss.desc,dashboard,*,BadgeDetailModal,minimax_abyss_desc,"Wake MiniMax's neural leviathan from the deep-sea trench — whispers in the abyss, compute in floods.",,active
 achievements.badge.gemini_gemma.name,dashboard,*,AchievementsSection,gemini_gemma_name,Gemini & Gemma,,active
 achievements.badge.gemini_gemma.desc,dashboard,*,BadgeDetailModal,gemini_gemma_desc,"Lifetime tokens across the whole Google family — Gemini, Gemma and Vertex — twins and gems taking turns, the buffet never runs out.",,active
 achievements.badge.hyperspeed_grok.name,dashboard,*,AchievementsSection,hyperspeed_grok_name,"Hyperspeed Grok",,active
-achievements.badge.hyperspeed_grok.desc,dashboard,*,BadgeDetailModal,hyperspeed_grok_desc,"Lifetime tokens through xAI Grok models — ignition to push, the sound barrier is just the start line.",,active
+achievements.badge.hyperspeed_grok.desc,dashboard,*,BadgeDetailModal,hyperspeed_grok_desc,"Ride Musk's xAI heavy Falcon rocket through the sound barrier — ignition, full thrust, flat-out speed!",,active
 achievements.badge.qwen_dynasty.name,dashboard,*,AchievementsSection,qwen_dynasty_name,"Qwen Dynasty",,active
-achievements.badge.qwen_dynasty.desc,dashboard,*,BadgeDetailModal,qwen_dynasty_desc,Lifetime tokens through Alibaba Qwen models — the eastern tree that keeps a seat on the open-weights throne.,,active
+achievements.badge.qwen_dynasty.desc,dashboard,*,BadgeDetailModal,qwen_dynasty_desc,"Command Alibaba Qwen's formation, a regular on the open-source throne — the eastern tree, Tongyi Qianwen.",,active
 achievements.badge.flash_immortal.name,dashboard,*,AchievementsSection,flash_immortal_name,"Flash Immortal",,active
-achievements.badge.flash_immortal.desc,dashboard,*,BadgeDetailModal,flash_immortal_desc,Lifetime tokens through every provider's Flash-tier models — speed first; the tokens never catch up.,,active
+achievements.badge.flash_immortal.desc,dashboard,*,BadgeDetailModal,flash_immortal_desc,"Nothing beats pure speed, slip away superconducting — run Flash fast enough and the tokens never catch me.",,active
 achievements.badge.seedance_master.name,dashboard,*,AchievementsSection,seedance_master_name,"Kinetic Note",,active
 achievements.badge.seedance_master.desc,dashboard,*,BadgeDetailModal,seedance_master_desc,"Doubao is only the front door — Seed, Seedance, Seedream, Seed-Audio and Seed3D all count.",,active
 achievements.badge.token_arbitrageur.name,dashboard,*,AchievementsSection,token_arbitrageur_name,"Compute Prospector",,active
@@ -1507,13 +1507,13 @@ achievements.badge.meituan_longcat.desc,dashboard,*,BadgeDetailModal,meituan_lon
 achievements.badge.jd_joy_brother.name,dashboard,*,AchievementsSection,jd_joy_brother_name,"You're My Brother",,active
 achievements.badge.jd_joy_brother.desc,dashboard,*,BadgeDetailModal,jd_joy_brother_desc,"Accumulate lifetime tokens with JD Yanxi and JoyCoder models — once you call Yanxi, we are no longer strangers.",,active
 achievements.badge.hunyuan_master.name,dashboard,*,AchievementsSection,hunyuan_master_name,"Hunyuan Harmony",,active
-achievements.badge.hunyuan_master.desc,dashboard,*,BadgeDetailModal,hunyuan_master_desc,"Lifetime Tencent Hunyuan tokens, hy3/hy4 included — the free tier really is generous.",,active
+achievements.badge.hunyuan_master.desc,dashboard,*,BadgeDetailModal,hunyuan_master_desc,"Goose House commands the Hunyuan omni-modal base — deep pockets, free to use",,active
 achievements.badge.stepfun_voyager.name,dashboard,*,AchievementsSection,stepfun_voyager_name,"StepFun Voyager",,active
 achievements.badge.stepfun_voyager.desc,dashboard,*,BadgeDetailModal,stepfun_voyager_desc,"Accumulate lifetime tokens with StepFun models.",,active
 achievements.badge.dragon_heir.name,dashboard,*,AchievementsSection,dragon_heir_name,"Dragon Heir",,active
 achievements.badge.dragon_heir.desc,dashboard,*,BadgeDetailModal,dragon_heir_desc,"Use domestic model families across DeepSeek, Qwen, Zhipu, Kimi, Hunyuan and more.",,active
 achievements.badge.kill_line.name,dashboard,*,AchievementsSection,kill_line_name,"Kill Line",,active
-achievements.badge.kill_line.desc,dashboard,*,BadgeDetailModal,kill_line_desc,"DeepSeek takes more than half of all your tokens — that is the kill line: past 50%, it becomes your default.",,active
+achievements.badge.kill_line.desc,dashboard,*,BadgeDetailModal,kill_line_desc,"DeepSeek models pass half of all your tokens — that is the kill line. Next stop: a big bowl of plain rice!",,active
 achievements.action.test_unlock,dashboard,AchievementsPage,AchievementsPage,action_test_unlock,"Test Unlock",,active
 achievements.action.test_tier_up,dashboard,AchievementsPage,AchievementsPage,action_test_tier_up,"Test Promotion",,active
 achievements.action.test_resonance,dashboard,AchievementsPage,AchievementsPage,action_test_resonance,"Test Synergy",,active
@@ -2338,8 +2338,8 @@ achievements.badge.spark_alpaca.desc,dashboard,*,BadgeDetailModal,spark_alpaca_d
 achievements.title.frugal_archmage.tag,dashboard,*,TitleDetailModal,frugal_archmage_tag,Humble Bronze,,active
 achievements.title.frugal_archmage.desc,dashboard,*,TitleDetailModal,frugal_archmage_desc,Prospector and Frugal Architect both maxed — every call becomes a zero-cost haul.,,active
 achievements.title.cyber_speedster.tag,dashboard,*,TitleDetailModal,cyber_speedster_tag,Warp Core,,active
-achievements.title.cyber_speedster.desc,dashboard,*,TitleDetailModal,cyber_speedster_desc,Google's Flash flood meets Grok's rocket engine; Flash Immortal keeps the pipe wide open.,,active
-achievements.title.zen_master.tag,dashboard,*,TitleDetailModal,zen_master_tag,Plain-Heart Zen,,active
+achievements.title.cyber_speedster.desc,dashboard,*,TitleDetailModal,cyber_speedster_desc,"Google's Flash flood meets Musk's Grok rocket engine — the Lightning Immortal at full throttle, air tearing at the fingertips.",,active
+achievements.title.zen_master.tag,dashboard,*,TitleDetailModal,zen_master_tag,"Jade Zen Heart",,active
 achievements.title.zen_master.desc,dashboard,*,TitleDetailModal,zen_master_desc,"Full throttle on weekdays, power fully cut on weekends — the clear-headed life in the AI age.",,active
 achievements.title.fleet_admiral.tag,dashboard,*,TitleDetailModal,fleet_admiral_tag,OPC,,active
 achievements.title.fleet_admiral.desc,dashboard,*,TitleDetailModal,fleet_admiral_desc,"One person runs tools, models, clones and a round-the-clock rhythm as a complete business.",,active
@@ -2350,11 +2350,11 @@ achievements.title.chosen_drudge.desc,dashboard,*,TitleDetailModal,chosen_drudge
 achievements.title.cyber_immortal.tag,dashboard,*,TitleDetailModal,cyber_immortal_tag,Violet Lightning,,active
 achievements.title.cyber_immortal.desc,dashboard,*,TitleDetailModal,cyber_immortal_desc,"Night meditation, dawn breathing, day-and-night meridians — becoming a cyber immortal with AI.",,active
 achievements.title.openai_paladin.tag,dashboard,*,TitleDetailModal,openai_paladin_tag,AGI Temple,,active
-achievements.title.openai_paladin.desc,dashboard,*,TitleDetailModal,openai_paladin_desc,OpenAI family and reasoning compute running in parallel — you chase the light that only shines down.,,active
+achievements.title.openai_paladin.desc,dashboard,*,TitleDetailModal,openai_paladin_desc,"OpenAI's family, reasoning and compute on parallel tracks — do you follow a god, or your own future?",,active
 achievements.title.von_neumann.tag,dashboard,*,TitleDetailModal,von_neumann_tag,Architecture,,active
 achievements.title.von_neumann.desc,dashboard,*,TitleDetailModal,von_neumann_desc,"Terminal, cache, refactor, deep thought — scheduling all compute the architecture way.",,active
 achievements.title.omniscient_architect.tag,dashboard,*,TitleDetailModal,omniscient_architect_tag,Holo Star Chart,,active
-achievements.title.omniscient_architect.desc,dashboard,*,TitleDetailModal,omniscient_architect_desc,Eighty models and twenty development tools in hand — you can quote every model's temper and price.,,active
+achievements.title.omniscient_architect.desc,dashboard,*,TitleDetailModal,omniscient_architect_desc,"Mainstream models and dev tools all mapped — you can quote every model's temper and unit price.",,active
 achievements.title.silicon_trinity.tag,dashboard,*,TitleDetailModal,silicon_trinity_tag,Triune Accord,,active
 achievements.title.silicon_trinity.desc,dashboard,*,TitleDetailModal,silicon_trinity_desc,"OpenAI, Anthropic and Google at once — the three-crown king at the top of the pyramid.",,active
 achievements.title.cn_quad_masters.tag,dashboard,*,TitleDetailModal,cn_quad_masters_tag,Four Symbols,,active
@@ -2364,7 +2364,7 @@ achievements.title.chinese_can_fly.desc,dashboard,*,TitleDetailModal,chinese_can
 achievements.title.grand_slam_legend.tag,dashboard,*,TitleDetailModal,grand_slam_legend_tag,Machine Descends,,active
 achievements.title.grand_slam_legend.desc,dashboard,*,TitleDetailModal,grand_slam_legend_desc,Diamonds gleaming in the case and rank one on the local board — the machine god descends.,,active
 achievements.title.connoisseur_eater.tag,dashboard,*,TitleDetailModal,connoisseur_eater_tag,Four-Corner Foodie,,active
-achievements.title.connoisseur_eater.desc,dashboard,*,TitleDetailModal,connoisseur_eater_desc,"Qwen, Seed, JD and Meituan all cooked for you — a cyber gourmet who reads the menu, not the cuisine.",,active
+achievements.title.connoisseur_eater.desc,dashboard,*,TitleDetailModal,connoisseur_eater_desc,"Not just your food, clothes, home and rides — now your whole cyber daily too. All four houses' in-house models have ordered on your bill; a cyber gourmet reads the menu, not the cuisine.",,active
 achievements.title.industrial_giant.tag,dashboard,*,TitleDetailModal,industrial_giant_tag,Five Peaks,,active
 achievements.title.industrial_giant.desc,dashboard,*,TitleDetailModal,industrial_giant_desc,Five industrial-grade Chinese bases in a row — the compute spine running through digital and physical industry.,,active
 achievements.title.fire_bringer.tag,dashboard,*,TitleDetailModal,fire_bringer_tag,Pass the Flame,,active
