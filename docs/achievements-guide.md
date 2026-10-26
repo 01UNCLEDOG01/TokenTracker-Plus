@@ -16,6 +16,7 @@
   - [5. 垂直厂商大模型信仰类](#5-垂直厂商大模型信仰类)
   - [6. 终极荣誉与大满贯类](#6-终极荣誉与大满贯类)
 - [四、极客称号殿堂 · 羁绊共鸣规则 (17 大称号)](#四极客称号殿堂--羁绊共鸣规则-16-大称号)
+- [五、什么算「终端」：六个名词的层级与本机各源的归类](#五什么算终端六个名词的层级与本机各源的归类)
 
 ---
 
@@ -178,6 +179,43 @@ $$\text{本命模型用量占比} = \frac{\text{生涯用量第一名的单一�
 | **九鼎经纬 · 产业巨擘** | `产业巨擘` | 五岳擎天 | 通义宗师 + 灵动音符 + 混元归一 + 你是我兄弟 + 小馋猫 (五大厂全解锁) | 通义、豆包、混元、言犀、LongCat 国内五大工业级自研基座五星连珠，掌控横跨数字与实体产业的核心算力命脉。 |
 | **盗火者** | `盗火者` | 薪火相传 | 公地(黄金) + 许愿池(白银) + 通义宗师(白银) + 智谱乾坤(白银) + 西风烈(青铜) | DeepSeek、千问、智谱三条开放权重血脉与火种同燃，再借一阵法国西风——神把光收回神殿时，你把火种留在自己机器上。 |
 | **机械降神** | `机械降神` | 神机天降 | 大满贯徽章 + 领奖台 (全解锁) | 勋章架上钻石熠熠生辉，且站在本机排行榜顶端——神机天降，登峰造极。 |
+
+---
+
+## 五、什么算「终端」：六个名词的层级与本机各源的归类
+
+「终端原教旨主义」的图标是一台黑底绿字的终端，描述写的也是它，所以必须先分清六个词——它们**不在一个维度上**：
+
+- **按「跑在哪」分**：跑在终端窗口（Windows Terminal / Ghostty / iTerm 这类 terminal emulator）里的，和不跑在里面的。
+- **按「长什么样」分**：
+  - **CLI**：纯文本进出，敲一行回一段。
+  - **TUI**：也在终端窗口里，但程序自己画面板、光标、快捷键（ncurses 那一脉）。
+  - **GUI**：有窗口、用鼠标，再分**桌面 App**（独立程序）与 **IDE 插件**（寄生在编辑器里）。
+
+所以「黑底绿字」同时命中 **CLI 与 TUI**——这枚徽章真正测的是「人在终端窗口里干活的日子占比」，两者都算。
+
+### 归类判据：看采集器读的是哪份数据，不看产品叫什么名字
+
+一个工具今天可能同时有终端形态和 GUI 形态（Codex 就长在 ChatGPT 里，TRAE CN 合并了 Work/Solo）。**能定性的只有我们实际读到的那份记录来自哪里**：
+
+| 类别 | 源 | 证据 |
+|---|---|---|
+| CLI（终端里的纯文本） | `claude`、`codex`、`kimi` | `~/.claude/projects/**.jsonl`；`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl(.zst)`（本机 258 个，是 Codex CLI 的 `CODEX_HOME` 布局；`AppData/Roaming/Codex` 里只有一个 `web` 壳，采集器对它零引用）；`~/.kimi-code` |
+| TUI（终端里的自绘界面） | `opencode`、`zcode`、`loomy` | OpenCode 系 TUI；`~/.zcode/cli/db/db.sqlite`（路径里就写着 `cli`）；`loomy` 与 opencode 同族（`isOpencodeFamilySource()`） |
+| 桌面 App（GUI，独立窗口） | `workbuddy`、`workbuddy-ai`、`antigravity`、`qoder`、`qoder-cn`、`minimax-code`、`tuanjie-cowork`、`autoclaw` | 数据在 `AppData/Roaming/<App>` 或应用自己的桌面库里 |
+| IDE / 编辑器（含插件） | `cursor`、`copilot`、`trae-cn`、`codearts`、`cline`、`kilo` | 读 IDE 的本地 sqlite / 扩展状态（如 `resolveTraeCnLocalDbPath`），宿主是编辑器窗口不是终端 |
+| 网关 / 代理（不是人坐的工具） | `agent2api` | 本地转发进程，token 是别的客户端产生的 |
+
+### 口径本身
+
+- **累计**活跃日，不是连续：`terminalDays` 只加不归零，与「连续 streak」是两套机制（代码里 `runLength` 喂的是 `streak` 那枚）。
+- 一天达标 = **当日 ≥90% 的 token 来自上表的终端类源**。所以「我天天在用工具」不等于天天达标——多数日子是 IDE + 桌面 + 终端混着用，份额上不去。
+- 阈值：7 / 30 / 90 / 180 天（青铜 / 白银 / 黄金 / 钻石）。
+- 判定函数：`src/lib/local-api.js` 的 `TERMINAL_SOURCE_IDS` + `isTerminalSource()`，任何 id 含 `cli` 的一律算终端。
+
+### 已知没定下来的六个源
+
+`dsh`、`cola`、`loomy`、`reasonix`、`autoclaw`、`tuanjie-cowork` 在 `~/.<id>` 有会话目录，**同时** `AppData/Roaming` 里有同名桌面应用——同一个 source id 分不出当时敲的是哪个，故暂不计入（`loomy` 是唯一有较强 TUI 证据的）。本机实测：旧白名单 13 天 → 现表 18 天 → 六个全算上也只 20 天。追踪在 `KNOWN_ISSUES.md` 的 **KI-032**。
 
 ---
 
