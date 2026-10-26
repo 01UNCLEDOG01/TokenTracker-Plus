@@ -1435,7 +1435,7 @@ achievements.badge.multitool_day.desc,dashboard,*,BadgeDetailModal,multitool_day
 achievements.badge.heart_model.name,dashboard,*,AchievementsSection,heart_model_name,"The One",,active
 achievements.badge.heart_model.desc,dashboard,*,BadgeDetailModal,heart_model_desc,"Let one model take this share of your lifetime tokens — heart on your sleeve. Needs five models to qualify.",,active
 achievements.badge.claude_survivor.name,dashboard,*,AchievementsSection,claude_survivor_name,"Ban Wave Survivor",,active
-achievements.badge.claude_survivor.desc,dashboard,*,BadgeDetailModal,claude_survivor_desc,"Lifetime tokens through claude-family models — you outlived every ban wave.",,active
+achievements.badge.claude_survivor.desc,dashboard,*,BadgeDetailModal,claude_survivor_desc,"Even with Anthropic hunting you down, you still make the date with Lady Claude — will we meet again next time?",,active
 achievements.badge.wishing_well.name,dashboard,*,AchievementsSection,wishing_well_name,"Wishing Well",,active
 achievements.badge.wishing_well.desc,dashboard,*,BadgeDetailModal,wishing_well_desc,"Lifetime tokens tossed into deepseek-family models — every coin carries a wish.",,active
 achievements.badge.grand_slam.name,dashboard,*,AchievementsSection,grand_slam_name,"Grand Slam",,active
@@ -1467,7 +1467,7 @@ achievements.badge.frugal_architect.desc,dashboard,*,BadgeDetailModal,frugal_arc
 achievements.badge.closed_source_loyalist.name,dashboard,*,AchievementsSection,closed_source_loyalist_name,"Let There Be Light",,active
 achievements.badge.closed_source_loyalist.desc,dashboard,*,BadgeDetailModal,closed_source_loyalist_desc,"Lifetime tokens through OpenAI-family models — steadfast in the proprietary beacon.",,active
 achievements.badge.offgrid_sovereign.name,dashboard,*,AchievementsSection,offgrid_sovereign_name,"Off-Grid Sovereign",,active
-achievements.badge.offgrid_sovereign.desc,dashboard,*,BadgeDetailModal,offgrid_sovereign_desc,"Lifetime tokens processed entirely offline or through local inference runtimes.",,active
+achievements.badge.offgrid_sovereign.desc,dashboard,*,BadgeDetailModal,offgrid_sovereign_desc,"Lifetime tokens through local models — code with the network unplugged; the data stays 100% yours.",,active
 achievements.badge.megacontext_voyager.name,dashboard,*,AchievementsSection,megacontext_voyager_name,"Megacontext Voyager",,active
 achievements.badge.megacontext_voyager.desc,dashboard,*,BadgeDetailModal,megacontext_voyager_desc,"Feed a massive context window in a single hour or turn without flinching.",,active
 achievements.badge.cache_miser.name,dashboard,*,AchievementsSection,cache_miser_name,"Cache Miser",,active
@@ -1491,7 +1491,7 @@ achievements.badge.moonshot_voyager.desc,dashboard,*,BadgeDetailModal,moonshot_v
 achievements.badge.minimax_abyss.name,dashboard,*,AchievementsSection,minimax_abyss_name,"MiniMax Leviathan",,active
 achievements.badge.minimax_abyss.desc,dashboard,*,BadgeDetailModal,minimax_abyss_desc,"Wake MiniMax's neural leviathan from the deep-sea trench — whispers in the abyss, compute in floods.",,active
 achievements.badge.gemini_gemma.name,dashboard,*,AchievementsSection,gemini_gemma_name,Gemini & Gemma,,active
-achievements.badge.gemini_gemma.desc,dashboard,*,BadgeDetailModal,gemini_gemma_desc,"Lifetime tokens across the whole Google family — Gemini, Gemma and Vertex — twins and gems taking turns, the buffet never runs out.",,active
+achievements.badge.gemini_gemma.desc,dashboard,*,BadgeDetailModal,gemini_gemma_desc,"Lifetime tokens across the whole Google system — Gemini, Gemma and Vertex — twins and gems taking turns, the buffet never runs out.",,active
 achievements.badge.hyperspeed_grok.name,dashboard,*,AchievementsSection,hyperspeed_grok_name,"Hyperspeed Grok",,active
 achievements.badge.hyperspeed_grok.desc,dashboard,*,BadgeDetailModal,hyperspeed_grok_desc,"Ride Musk's xAI heavy Falcon rocket through the sound barrier — ignition, full thrust, flat-out speed!",,active
 achievements.badge.qwen_dynasty.name,dashboard,*,AchievementsSection,qwen_dynasty_name,"Qwen Dynasty",,active
@@ -1507,7 +1507,7 @@ achievements.badge.meituan_longcat.desc,dashboard,*,BadgeDetailModal,meituan_lon
 achievements.badge.jd_joy_brother.name,dashboard,*,AchievementsSection,jd_joy_brother_name,"You're My Brother",,active
 achievements.badge.jd_joy_brother.desc,dashboard,*,BadgeDetailModal,jd_joy_brother_desc,"Accumulate lifetime tokens with JD Yanxi and JoyCoder models — once you call Yanxi, we are no longer strangers.",,active
 achievements.badge.hunyuan_master.name,dashboard,*,AchievementsSection,hunyuan_master_name,"Hunyuan Harmony",,active
-achievements.badge.hunyuan_master.desc,dashboard,*,BadgeDetailModal,hunyuan_master_desc,"Goose House commands the Hunyuan omni-modal base — deep pockets, free to use",,active
+achievements.badge.hunyuan_master.desc,dashboard,*,BadgeDetailModal,hunyuan_master_desc,"Goose House commands the Hunyuan omni-modal base — deep pockets, free to use.",,active
 achievements.badge.stepfun_voyager.name,dashboard,*,AchievementsSection,stepfun_voyager_name,"StepFun Voyager",,active
 achievements.badge.stepfun_voyager.desc,dashboard,*,BadgeDetailModal,stepfun_voyager_desc,"Accumulate lifetime tokens with StepFun models.",,active
 achievements.badge.dragon_heir.name,dashboard,*,AchievementsSection,dragon_heir_name,"Dragon Heir",,active
@@ -2334,7 +2334,7 @@ achievements.badge.nemotron_spiral.desc,dashboard,*,BadgeDetailModal,nemotron_sp
 achievements.badge.phi_disciple.name,dashboard,*,AchievementsSection,phi_disciple_name,Phi Disciple,,active
 achievements.badge.phi_disciple.desc,dashboard,*,BadgeDetailModal,phi_disciple_desc,"Lifetime tokens through Microsoft Phi models — small weights, MIT licence, sharp reasoning.",,active
 achievements.badge.spark_alpaca.name,dashboard,*,AchievementsSection,spark_alpaca_name,Spark Alpaca,,active
-achievements.badge.spark_alpaca.desc,dashboard,*,BadgeDetailModal,spark_alpaca_desc,Lifetime tokens through Meta Llama and Muse Spark weights — the open-weights giant that now ships the harness too.,,active
+achievements.badge.spark_alpaca.desc,dashboard,*,BadgeDetailModal,spark_alpaca_desc,"Lifetime tokens through Meta Llama and Muse Spark — the iron-backed alpaca carries open weights, and you along with them.",,active
 achievements.title.frugal_archmage.tag,dashboard,*,TitleDetailModal,frugal_archmage_tag,Humble Bronze,,active
 achievements.title.frugal_archmage.desc,dashboard,*,TitleDetailModal,frugal_archmage_desc,Prospector and Frugal Architect both maxed — every call becomes a zero-cost haul.,,active
 achievements.title.cyber_speedster.tag,dashboard,*,TitleDetailModal,cyber_speedster_tag,Warp Core,,active
@@ -2356,9 +2356,9 @@ achievements.title.von_neumann.desc,dashboard,*,TitleDetailModal,von_neumann_des
 achievements.title.omniscient_architect.tag,dashboard,*,TitleDetailModal,omniscient_architect_tag,Holo Star Chart,,active
 achievements.title.omniscient_architect.desc,dashboard,*,TitleDetailModal,omniscient_architect_desc,"Mainstream models and dev tools all mapped — you can quote every model's temper and unit price.",,active
 achievements.title.silicon_trinity.tag,dashboard,*,TitleDetailModal,silicon_trinity_tag,Triune Accord,,active
-achievements.title.silicon_trinity.desc,dashboard,*,TitleDetailModal,silicon_trinity_desc,"OpenAI, Anthropic and Google at once — the three-crown king at the top of the pyramid.",,active
+achievements.title.silicon_trinity.desc,dashboard,*,TitleDetailModal,silicon_trinity_desc,"OpenAI, Anthropic and Google at once — the three kings at the top of the pyramid.",,active
 achievements.title.cn_quad_masters.tag,dashboard,*,TitleDetailModal,cn_quad_masters_tag,Four Symbols,,active
-achievements.title.cn_quad_masters.desc,dashboard,*,TitleDetailModal,cn_quad_masters_desc,Four Chinese frontier families' compute in one hand — the four symbols return to one.,,active
+achievements.title.cn_quad_masters.desc,dashboard,*,TitleDetailModal,cn_quad_masters_desc,"The four young dragons of Chinese AI, four symbols returning to one — clearing new ground for the eastern geek.",,active
 achievements.title.chinese_can_fly.tag,dashboard,*,TitleDetailModal,chinese_can_fly_tag,Dragon Across Three Realms,,active
 achievements.title.chinese_can_fly.desc,dashboard,*,TitleDetailModal,chinese_can_fly_desc,"Dragon Heir crosses the kill line, and Flash carries it skyward.",,active
 achievements.title.grand_slam_legend.tag,dashboard,*,TitleDetailModal,grand_slam_legend_tag,Machine Descends,,active

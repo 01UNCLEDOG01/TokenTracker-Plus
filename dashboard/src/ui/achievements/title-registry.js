@@ -333,20 +333,20 @@ const TITLES_UNSORTED = [
     name: "诸神信使 · 硅谷三巨头",
     shortName: "诸神信使",
     en: "Silicon Valley Trinity",
-    desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三冠王者。",
+    desc: "同时御统 OpenAI、Anthropic 与 Google 三大海外神殿，金字塔尖的三位王者。",
     tag: "三神交泰",
     dimension: 3,
     art: "/achievements/titles/title-silicon-trinity.png?v=5",
     requiredBadges: [
       { id: "closed_source_loyalist", name: "神说要有光", tier: 1, art: "/achievements/closed-source-loyalist.png?v=7" },
-      { id: "claude_survivor", name: "封号幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=17" },
+      { id: "claude_survivor", name: "克系幸存者", tier: 1, art: "/achievements/claude-survivor.png?v=17" },
       { id: "gemini_gemma", name: "双子宝石", tier: 1, art: "/achievements/gemini-gemma.png?v=1" },
     ],
     check: (badgeMap) =>
       (badgeMap.get("closed_source_loyalist")?.tier || 0) >= 1 &&
       (badgeMap.get("claude_survivor")?.tier || 0) >= 1 &&
       (badgeMap.get("gemini_gemma")?.tier || 0) >= 1,
-    reqText: "神说要有光 + 封号幸存者 + 双子宝石 (全解锁)",
+    reqText: "神说要有光 + 克系幸存者 + 双子宝石 (全解锁)",
     theme: {
       text: "text-fuchsia-300",
       bgGradient: "from-fuchsia-950/80 via-purple-950/70 to-black",
@@ -364,7 +364,7 @@ const TITLES_UNSORTED = [
     name: "九州极客 · 四象掌门",
     shortName: "四象掌门",
     en: "Domestic Quad Titans",
-    desc: "融汇中华 AI 最前沿四大家族算力，四象归一，开辟东方极客新天地。",
+    desc: "融汇华夏 AI 四小龙，四象归一，开辟东方极客新天地。",
     tag: "四象混元",
     dimension: 4,
     art: "/achievements/titles/title-cn-quad-masters.png?v=5",
