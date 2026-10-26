@@ -17,7 +17,7 @@
 ## Fork-specific working rules
 
 - **Development happens only in `D:\TokenTrackerPlus\repo` on branch `usage-desk-135`.**
-- The legacy worktree/object store (`D:\tt-rebase` / `D:\tt-fork`) was deleted on 2026-10-26 after the one-week keep; the only backup of pre-rewrite history is `backup` (`D:\TokenTrackerPlus\archive\tt-fork-backup.git`). Never push to `origin`/`upstream`.
+- The legacy worktree/object store (`D:\tt-rebase` / `D:\tt-fork`) was deleted on 2026-10-26 after the one-week keep; the same-disk bare mirror `backup` (`D:\TokenTrackerPlus\archive\tt-fork-backup.git`) was deleted on 2026-10-27 — one disk protects against nothing, and with dual push a bad push would have mirrored anyway. Pre-rewrite history still lives on `mine` as branch `backup/pre-rewrite-868bfe16`. Never push to `origin`/`upstream`; `mine` is the only pushable remote.
 - After a work batch: update `FORK_STATUS.md` (current state), append to `CHANGELOG.md` (what happened and how it was verified), and add/remove `KNOWN_ISSUES.md` entries.
 - Never commit secrets. Put local overrides in `.env.local` (gitignored); `.env.example` is the template. Do **not** create `.dev.vars` (Cloudflare Workers convention, not used here).
 - Merging upstream: any commit that changes pricing/billing semantics must be reconciled against local totals before and after. The upstream `-free` → zero-price rule is permanently rejected in this fork.
