@@ -1481,7 +1481,7 @@ achievements.badge.zen_balancer.desc,dashboard,*,BadgeDetailModal,zen_balancer_d
 achievements.badge.swarm_commander.name,dashboard,*,AchievementsSection,swarm_commander_name,Swarm Warden,,active
 achievements.badge.swarm_commander.desc,dashboard,*,BadgeDetailModal,swarm_commander_desc,"Manage several AI coding tools and agents at once — a team run by one person.",,active
 achievements.badge.terminal_purist.name,dashboard,*,AchievementsSection,terminal_purist_name,"Terminal Purist",,active
-achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Cumulative active days with 90%+ of the day's tokens spent in a terminal window (CLI or TUI) — 7 days bronze, 30 silver, 90 gold, 180 diamond.",,active
+achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Nine in ten tokens on those active days burned inside a terminal window — CLI and TUI alike.",,active
 achievements.badge.refactor_titan.name,dashboard,*,AchievementsSection,refactor_titan_name,"Refactor Master",,active
 achievements.badge.refactor_titan.desc,dashboard,*,BadgeDetailModal,refactor_titan_desc,"Persist through multiple active weeks deeply evolving a single repository.",,active
 achievements.badge.zhipu_sage.name,dashboard,*,AchievementsSection,zhipu_sage_name,"Zhipu Sage",,active

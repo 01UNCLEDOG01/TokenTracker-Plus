@@ -727,7 +727,7 @@
   "achievements.badge.swarm_commander.name": "Swarm Commander",
   "achievements.badge.swarm_commander.desc": "여러 AI 코딩 도구와 에이전트를 동시에 지휘 — 혼자서 팀을 굴립니다.",
   "achievements.badge.terminal_purist.name": "Terminal Purist",
-  "achievements.badge.terminal_purist.desc": "누적 활동 일수 중 90% 이상 토큰이 검은 배경 초록 글자 터미널 창(CLI · TUI)에서 나왔습니다 — 7일 브론즈, 30일 실버, 90일 골드, 180일 다이아.",
+  "achievements.badge.terminal_purist.desc": "누적 활동 일수에서 토큰의 9할이 터미널 창 안에서 타나갔습니다 — CLI도 TUI도.",
   "achievements.badge.refactor_titan.name": "Refactor Titan",
   "achievements.badge.refactor_titan.desc": "몇 주 동안 같은 저장소를 깊이 발전시킵니다 — 지우고 다시 쓰고, 작품이 될 때까지.",
   "achievements.action.test_unlock": "잠금 해제 테스트",

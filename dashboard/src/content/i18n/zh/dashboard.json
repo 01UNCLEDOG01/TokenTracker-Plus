@@ -1125,7 +1125,7 @@
   "achievements.badge.swarm_commander.name": "管理者",
   "achievements.badge.swarm_commander.desc": "同时管理多款 AI 编程工具与多个代理——一个人调度一支团队。",
   "achievements.badge.terminal_purist.name": "终端原教旨主义",
-  "achievements.badge.terminal_purist.desc": "累计活跃日里 90% 以上 Token 来自黑底绿字的终端窗口（CLI 与 TUI）——满 7 天青铜，30 天白银，90 天黄金，180 天钻石。",
+  "achievements.badge.terminal_purist.desc": "累计活跃日里九成 Token 都在终端窗口里烧掉——CLI 与 TUI。",
   "achievements.badge.refactor_titan.name": "重构巨匠",
   "achievements.badge.refactor_titan.desc": "跨越数周持续重构深耕同一代码库——删了又写，写了又改，直到它成为作品。",
   "achievements.action.test_unlock": "测试解锁",

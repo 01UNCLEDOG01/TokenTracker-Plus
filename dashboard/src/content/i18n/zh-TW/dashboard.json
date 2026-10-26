@@ -1184,7 +1184,7 @@
   "achievements.badge.swarm_commander.name": "管理者",
   "achievements.badge.swarm_commander.desc": "同時管理多款 AI 編程工具與多個代理——一個人調度一支團隊。",
   "achievements.badge.terminal_purist.name": "終端原教旨主義",
-  "achievements.badge.terminal_purist.desc": "累計活躍日裡 90% 以上 Token 來自黑底綠字的終端視窗（CLI 與 TUI）——滿 7 天青銅，30 天白銀，90 天黃金，180 天鑽石。",
+  "achievements.badge.terminal_purist.desc": "累計活躍日裡九成 Token 都在終端窗口裡燒掉——CLI 與 TUI。",
   "achievements.badge.refactor_titan.name": "重構巨匠",
   "achievements.badge.refactor_titan.desc": "跨越數週持續重構深耕同一程式庫——刪了又寫，寫了又改，直到它成為作品。",
   "achievements.action.test_unlock": "測試解鎖",

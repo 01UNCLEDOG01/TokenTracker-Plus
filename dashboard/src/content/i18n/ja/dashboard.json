@@ -727,7 +727,7 @@
   "achievements.badge.swarm_commander.name": "Swarm Commander",
   "achievements.badge.swarm_commander.desc": "複数の AI コーディングツールとエージェントを同時に指揮——一人でチームを回す。",
   "achievements.badge.terminal_purist.name": "Terminal Purist",
-  "achievements.badge.terminal_purist.desc": "アクティブ日数の累計で 90% 以上のトークンが黒背景緑文字のターミナルウィンドウ（CLI / TUI）由来——7日でブロンズ、30日でシルバー、90日でゴールド、180日でダイヤモンド。",
+  "achievements.badge.terminal_purist.desc": "累計のアクティブ日に使ったトークンの九割はターミナルウィンドウの中で燃えた——CLI も TUI も。",
   "achievements.badge.refactor_titan.name": "Refactor Titan",
   "achievements.badge.refactor_titan.desc": "数週にわたり同じリポジトリを深く進化させ続ける——書いては消し、消しては書き、作品になるまで。",
   "achievements.action.test_unlock": "アンロックテスト",
