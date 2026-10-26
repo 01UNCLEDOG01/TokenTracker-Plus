@@ -110,7 +110,7 @@ export const BADGE_CATALOG = [
   // reasoning; the name semantics carry over).
   { id: "early_bird", scope: "local", icon: Sunrise, format: "count", art: "/achievements/early-bird.png?v=12" },
   { id: "around_the_clock", scope: "local", icon: Clock, format: "count", art: "/achievements/around-the-clock.png?v=12" },
-  { id: "sprinter", scope: "local", icon: Gauge, format: "tokens", art: "/achievements/sprinter.png?v=15" },
+  { id: "sprinter", scope: "local", icon: Gauge, format: "rate", art: "/achievements/sprinter.png?v=15" },
   { id: "cache_alchemist", scope: "local", icon: FlaskConical, format: "tokens", art: "/achievements/cache-alchemist.png?v=12" },
   { id: "deep_thinker", scope: "local", icon: BrainCircuit, format: "tokens", art: "/achievements/deep-thinker.png?v=8" },
   { id: "real_money", scope: "local", icon: Banknote, format: "usd", art: "/achievements/real-money.png?v=12" },

@@ -371,8 +371,8 @@ function costRow(hourStart, tokens, costUsd) {
   return { source: "grok", model: "m", hour_start: hourStart, total_tokens: tokens, total_cost_usd: costUsd };
 }
 
-function sessionRow(durationMs, { tokens = 100, hash = "s1", endedAt = "2026-07-05T12:00:00Z" } = {}) {
-  return { session_hash: hash, source: "claude", total_tokens: tokens, duration_ms: durationMs, ended_at: endedAt };
+function sessionRow(durationMs, { tokens = 100, hash = "s1", endedAt = "2026-07-05T12:00:00Z", performance = null } = {}) {
+  return { session_hash: hash, source: "claude", total_tokens: tokens, duration_ms: durationMs, ended_at: endedAt, performance };
 }
 
 test("early_bird buckets hours in the caller's timezone, not UTC", () => {
@@ -417,19 +417,32 @@ test("around_the_clock dedupes by local hour-of-day across days", () => {
   assert.equal(badge.achieved.bronze, "2026-07-01T18:00:00Z");
 });
 
-test("sprinter peaks at the single strongest hour bucket", () => {
-  const rows = [
-    queueRow("2026-07-01T08:00:00Z", 1_000),
-    queueRow("2026-07-01T09:00:00Z", 5_000_000),
-    queueRow("2026-07-01T10:00:00Z", 3_000_000),
+test("sprinter reads the fastest output rate inside one task, not an hour bucket", () => {
+  const perf = (output, ms) => ({
+    estimated_output_tokens: output,
+    estimated_duration_ms: ms,
+    estimated_tokens_per_second: output / (ms / 1000),
+  });
+  const sessions = [
+    sessionRow(60_000, { hash: "steady", performance: perf(3_000, 60_000) }), // 50 tok/s = bronze line
+    sessionRow(8_000, { hash: "burst", endedAt: "2026-07-06T09:00:00Z", performance: perf(2_400, 8_000) }), // 300 = gold
+    // A 0.4s blip divides out to 500 tok/s; sub-five-second rows are noise.
+    sessionRow(400, { hash: "blip", performance: perf(200, 400) }),
   ];
   const badge = byId(
-    computeLocalAchievements(rows, [], { timeZoneContext: TZ_SHANGHAI }),
+    computeLocalAchievements([], [], { timeZoneContext: TZ_SHANGHAI, sessions }),
     "sprinter",
   );
-  assert.equal(badge.metric_value, 5_000_000);
-  assert.equal(badge.tier, 1); // bronze 1M
-  assert.equal(badge.meta.hour_start, "2026-07-01T09:00:00Z");
+  assert.equal(badge.metric_value, 300);
+  assert.equal(badge.tier, 3); // 50 / 120 / 250 / 500
+  assert.equal(badge.meta.session_hash, "burst");
+  assert.equal(badge.achieved.gold, "2026-07-06T09:00:00Z");
+  // The old grain must not move it any more — that is token_titan's job.
+  const fromQueue = byId(
+    computeLocalAchievements([queueRow("2026-07-01T09:00:00Z", 5_000_000)], [], { timeZoneContext: TZ_SHANGHAI }),
+    "sprinter",
+  );
+  assert.equal(fromQueue?.tier || 0, 0);
 });
 
 test("cache_alchemist, deep_thinker and real_money accrue across rows", () => {

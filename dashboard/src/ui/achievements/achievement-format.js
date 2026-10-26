@@ -10,6 +10,9 @@ export function formatBadgeValue(format, value) {
       return `#${Math.round(n)}`;
     case "multiplier":
       return `${(Math.round(n * 10) / 10).toString()}×`;
+    case "rate":
+      // sprinter: output tokens per second sustained inside one task.
+      return `${Math.round(n).toLocaleString("en-US")} tok/s`;
     case "percent":
       // heart_model: favorite model's share of lifetime tokens (0-100).
       return `${(Math.round(n * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;

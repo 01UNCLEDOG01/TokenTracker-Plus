@@ -12,6 +12,7 @@ import {
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
 import { copy } from "../../lib/copy";
 import { badgeCopyKey } from "./badge-catalog";
+import { paletteForTier } from "./tier-palette";
 
 const TIER_SLUGS = ["", "bronze", "silver", "gold", "diamond"];
 function tierLabel(tier) {
@@ -125,6 +126,11 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
               // The badge catalog owns the name; the title only carries a
               // fallback, so renaming a badge can never split the two cards.
               const reqName = copy(badgeCopyKey(req.id, "name")) || req.name;
+              // The halo carries the member's own tier colour, like the grid
+              // miniatures. The title's theme.ring only sets a CSS variable, so
+              // with no ring-width class every tier fell back to the same
+              // gray-200 border and gold read as silver.
+              const tierRing = paletteForTier(tier).rim[0];
               return (
                 <button
                   key={req.id}
@@ -136,9 +142,10 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
                   <img
                     src={req.art}
                     alt={reqName}
-                    className={`h-14 w-14 rounded-full border-2 object-contain bg-black/60 ${theme.ring} ${
-                      tier >= req.tier ? "" : "grayscale opacity-50"
+                    className={`h-14 w-14 rounded-full border-2 object-contain bg-black/60 ${
+                      tier >= req.tier ? "" : "border-white/20 grayscale opacity-50"
                     } transition-transform group-hover:scale-105`}
+                    style={tier >= req.tier ? { borderColor: tierRing, boxShadow: `0 0 10px ${tierRing}` } : undefined}
                   />
                   <span className="line-clamp-2 text-[10px] leading-tight text-white/80">{reqName}</span>
                   <span className={`text-[9px] font-mono ${tier >= req.tier ? "text-emerald-300" : "text-white/40"}`}>

@@ -475,7 +475,13 @@ const LOCAL_BADGE_THRESHOLDS = {
   night_owl: [4, 12, 36, 90], // active half-hour buckets between 00:00–03:59 local
   early_bird: [4, 12, 36, 90], // active half-hour buckets between 05:00–08:59 local
   around_the_clock: [6, 12, 18, 24], // distinct local hour-of-day buckets (0–23) with any activity
-  sprinter: [1000000, 10000000, 100000000, 1000000000], // most tokens in a single hour bucket
+  // sprinter: fastest output rate inside ONE conversation task (session
+  // sidecar), not an hour bucket — that is token_titan's job. Anchored on
+  // streaming reality, not on any single machine: 50 tok/s is a comfortable
+  // frontier model, 120 is the fast lane (Flash/Hyperspeed class), 250 is the
+  // top of what a hosted model sustains in one task, 500 needs a small local
+  // or edge model.
+  sprinter: [50, 120, 250, 500], // output tokens per second within one task
   cache_alchemist: [50000000, 500000000, 5000000000, 50000000000], // lifetime cached-input tokens (reads + cache writes)
   deep_thinker: [1000000, 5000000, 20000000, 60000000], // lifetime reasoning output tokens
   real_money: [5, 50, 500, 5000], // lifetime tracked cost, USD
@@ -743,7 +749,6 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
   const nightHours = new Set();
   const earlyHours = new Set();
   const dayHourBuckets = new Set();
-  let sprintPeak = 0;
   let cachedTotal = 0;
   let reasoningTotal = 0;
   let costTotal = 0;
@@ -847,10 +852,6 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
         multiSourceHours += 1;
         bump("swarm_commander", multiSourceHours, row.hour_start);
       }
-    }
-    if (tokens > sprintPeak) {
-      sprintPeak = tokens;
-      bump("sprinter", sprintPeak, row.hour_start, { hour_start: row.hour_start });
     }
     if (row.model) {
       const modelKey = String(row.model);
@@ -1355,6 +1356,31 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       longestSessionMs,
       longestSession.ended_at || longestSession.started_at || null,
       { session_hash: longestSession.session_hash || null },
+    );
+  }
+
+  // sprinter: the fastest output rate ever sustained inside a SINGLE
+  // conversation task. The queue has no task id (its key is
+  // source|model|hour_start), so only the session sidecar can answer this.
+  // Rows under five seconds are ignored — 40 tokens in 0.3s divides out to a
+  // flattering 133 tok/s that no model actually held.
+  let fastestRate = 0;
+  let fastestSession = null;
+  for (const session of sessions || []) {
+    const perf = session?.performance;
+    const rate = Number(perf?.estimated_tokens_per_second || 0);
+    if (!Number.isFinite(rate) || rate <= fastestRate) continue;
+    if (Number(perf.estimated_duration_ms || 0) < 5000) continue;
+    if (Number(perf.estimated_output_tokens || 0) < 200) continue;
+    fastestRate = rate;
+    fastestSession = session;
+  }
+  if (fastestSession) {
+    bump(
+      "sprinter",
+      fastestRate,
+      fastestSession.ended_at || fastestSession.started_at || null,
+      { session_hash: fastestSession.session_hash || null },
     );
   }
 

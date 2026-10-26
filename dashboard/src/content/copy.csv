@@ -1433,7 +1433,7 @@ achievements.badge.deep_diver.desc,dashboard,*,BadgeDetailModal,deep_diver_desc,
 achievements.badge.multitool_day.name,dashboard,*,AchievementsSection,multitool_day_name,"One-Man Band",,active
 achievements.badge.multitool_day.desc,dashboard,*,BadgeDetailModal,multitool_day_desc,"Juggle that many different AI tools inside a single active day.",,active
 achievements.badge.heart_model.name,dashboard,*,AchievementsSection,heart_model_name,"The One",,active
-achievements.badge.heart_model.desc,dashboard,*,BadgeDetailModal,heart_model_desc,"Let one model take this share of your lifetime tokens — heart on your sleeve. Needs five models to qualify.",,active
+achievements.badge.heart_model.desc,dashboard,*,BadgeDetailModal,heart_model_desc,"Once you have used 5+ models, your top model's share of lifetime tokens decides: 50% bronze, 70% silver, 85% gold, 95% diamond.",,active
 achievements.badge.claude_survivor.name,dashboard,*,AchievementsSection,claude_survivor_name,"Ban Wave Survivor",,active
 achievements.badge.claude_survivor.desc,dashboard,*,BadgeDetailModal,claude_survivor_desc,"Even with Anthropic hunting you down, you still make the date with Lady Claude — will we meet again next time?",,active
 achievements.badge.wishing_well.name,dashboard,*,AchievementsSection,wishing_well_name,"Wishing Well",,active
@@ -1453,7 +1453,7 @@ achievements.badge.early_bird.desc,dashboard,*,BadgeDetailModal,early_bird_desc,
 achievements.badge.around_the_clock.name,dashboard,*,AchievementsSection,around_the_clock_name,"Around the Clock",,active
 achievements.badge.around_the_clock.desc,dashboard,*,BadgeDetailModal,around_the_clock_desc,"Leave a usage footprint in all 24 hours of the day.",,active
 achievements.badge.sprinter.name,dashboard,*,AchievementsSection,sprinter_name,"Sprinter",,active
-achievements.badge.sprinter.desc,dashboard,*,BadgeDetailModal,sprinter_desc,"Burn more tokens in a single hour than ever before.",,active
+achievements.badge.sprinter.desc,dashboard,*,BadgeDetailModal,sprinter_desc,"Fastest output rate inside a single task — 50 tok/s bronze, 120 silver, 250 gold, 500 diamond.",,active
 achievements.badge.cache_alchemist.name,dashboard,*,AchievementsSection,cache_alchemist_name,"Cache Alchemist",,active
 achievements.badge.cache_alchemist.desc,dashboard,*,BadgeDetailModal,cache_alchemist_desc,"Accumulate lifetime cached tokens — the art of saving.",,active
 achievements.badge.deep_thinker.name,dashboard,*,AchievementsSection,deep_thinker_name,"Deep Thinker",,active
@@ -1481,7 +1481,7 @@ achievements.badge.zen_balancer.desc,dashboard,*,BadgeDetailModal,zen_balancer_d
 achievements.badge.swarm_commander.name,dashboard,*,AchievementsSection,swarm_commander_name,Swarm Warden,,active
 achievements.badge.swarm_commander.desc,dashboard,*,BadgeDetailModal,swarm_commander_desc,"Manage several AI coding tools and agents at once — a team run by one person.",,active
 achievements.badge.terminal_purist.name,dashboard,*,AchievementsSection,terminal_purist_name,"Terminal Purist",,active
-achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Spend your active days almost entirely inside terminal-based CLI tools.",,active
+achievements.badge.terminal_purist.desc,dashboard,*,BadgeDetailModal,terminal_purist_desc,"Cumulative active days with 90%+ of that day's tokens spent in terminal-based CLI tools — 7 days bronze, 30 silver, 90 gold, 180 diamond.",,active
 achievements.badge.refactor_titan.name,dashboard,*,AchievementsSection,refactor_titan_name,"Refactor Master",,active
 achievements.badge.refactor_titan.desc,dashboard,*,BadgeDetailModal,refactor_titan_desc,"Persist through multiple active weeks deeply evolving a single repository.",,active
 achievements.badge.zhipu_sage.name,dashboard,*,AchievementsSection,zhipu_sage_name,"Zhipu Sage",,active

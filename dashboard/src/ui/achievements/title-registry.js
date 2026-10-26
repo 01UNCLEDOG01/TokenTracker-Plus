@@ -25,7 +25,9 @@ import { badgeCopyKey } from "./badge-catalog";
  *      - 白银共鸣 (Lv.2): 银霜流光脉冲，双层反光高亮
  *      - 黄金共鸣 (Lv.3): 灿金能量光晕，外框呼吸脉动，星芒微溢
  *      - 钻石共鸣 (MAX) : 巅峰星冕全开，极光粒子爆发，双环流光超载！
- *    - 组件只消费 theme.ring / theme.glow，禁止按 tier 改色；tier 只叠加特效层。
+ *    - 称号自身的视觉只消费 theme.ring / theme.glow，不按 tier 改色；tier 只叠加特效层。
+ *      成员徽章光环是例外：它按成员自己的品阶上色（TitleDetailModal、BadgeSynergyBanner），
+ *      因为称号色对「这位成员现在是第几阶」没有任何信息量。
  *
  * 3. 展示名 (Display names):
  *    - name 是卡片全称；shortName 用于侧栏、排行榜与徽章旁的最小空间；
