@@ -62,8 +62,12 @@ function jsAmbientRules() {
   );
   assert.ok(models, "pet-personality.js topModels ambient rule must stay regex-parsable");
   rules.push({ trigger: `topModels>=${models[1]}`, state: models[2] });
+  // The streak pose deliberately holds two slots in the JS pool (it is the one
+  // worth seeing most), so the pattern stops after the first state instead of
+  // requiring the closing paren; only that first state is parity-checked
+  // against Swift's single variants.append.
   const streak = personalitySource.match(
-    /streakDays\) \|\| 0\) >= (\d+)\) choices\.push\("([a-z-]+)"\)/,
+    /streakDays\) \|\| 0\) >= (\d+)\) choices\.push\("([a-z-]+)"/,
   );
   assert.ok(streak, "pet-personality.js streak ambient rule must stay regex-parsable");
   rules.push({ trigger: `streak>=${streak[1]}`, state: streak[2] });

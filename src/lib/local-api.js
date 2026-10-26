@@ -463,6 +463,32 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
   };
 }
 
+// A source counts toward terminal_purist only when the record we read IS a
+// terminal program's own session log — not when the vendor merely also ships a
+// GUI. Evidence per entry:
+//   claude       ~/.claude/projects/**.jsonl          (Claude Code CLI)
+//   codex        ~/.codex/sessions/**/rollout-*.jsonl (Codex CLI rollout logs)
+//   opencode     ~/.local/share/opencode storage      (OpenCode is a TUI)
+//   zcode        ~/.zcode/cli/db/db.sqlite            (path literally says cli)
+//   kimi         ~/.kimi-code                         (Kimi Code CLI)
+//   kilo-cli     explicit CLI id
+// Anything whose id carries "cli" is treated as a terminal too.
+// NOT counted, and why: cursor / copilot / cline / trae-cn / codearts / qoder /
+// qoder-cn are IDE extensions; antigravity / workbuddy / workbuddy-ai / grok /
+// minimax-code / iflytek are desktop apps or gateway-backed clients; agent2api
+// is a local proxy, not a tool someone sits in. dsh, cola, loomy, reasonix,
+// autoclaw and tuanjie-cowork have BOTH a ~/.<id> session dir and a desktop app
+// in AppData, so their form is not decidable from the collector alone — they
+// stay out until the owner confirms which they run.
+const TERMINAL_SOURCE_IDS = new Set([
+  "claude", "codex", "opencode", "zcode", "kimi", "kimi-code", "kilo-cli",
+]);
+
+function isTerminalSource(sourceKey) {
+  const src = String(sourceKey || "").toLowerCase();
+  return TERMINAL_SOURCE_IDS.has(src) || src.includes("cli");
+}
+
 // ── Local achievements ───────────────────────────────────────────────────────
 // Thresholds are ordered bronze → silver → gold → diamond. This module is the
 // single server-side home for LOCAL thresholds; the dashboard renders whatever
@@ -1144,7 +1170,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       days.set(day, entry);
     }
     const src = String(row.source || "").toLowerCase();
-    if (src === "claude" || src === "codex" || src === "opencode" || src === "kilo-cli" || src.includes("cli")) {
+    if (isTerminalSource(src)) {
       entry.cliTokens += tokens;
     }
     entry.tokens += tokens;
