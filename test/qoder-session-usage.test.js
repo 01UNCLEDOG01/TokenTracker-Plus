@@ -58,11 +58,38 @@ test("Auto is a selector bucket and is never attributed as a model", async () =>
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-test("a session that mixed two routers is not guessed", async () => {
-  const { home, file } = qoderFixtureHome({ models: ["qfmodel", "dfmodel"] });
+test("a session that mixed two routers keeps both models with measured counts", async () => {
+  const { home, file } = qoderFixtureHome({ models: ["qfmodel", "qfmodel", "qfmodel", "dfmodel"] });
   const record = await scanQoderSession(file, "qoder-cn", { home });
-  assert.ok(!record.model || record.model === "unknown");
+  assert.equal(record.model, "mixed");
+  assert.deepEqual(record.model_message_counts, { "Qwen3.8-Flash": 3, "DeepSeek-Flash": 1 });
+  assert.equal(record.model_usage.length, 2);
+  assert.equal(record.total_tokens, 0);
   fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("mixed sessions split allocated tokens by measured message counts", () => {
+  const sessions = [{
+    source: "qoder-cn",
+    turns: 4,
+    active_ms: 60000,
+    total_tokens: 0,
+    performance: {},
+    model: "mixed",
+    model_message_counts: { "Qwen3.8-Flash": 3, "DeepSeek-Flash": 1 },
+  }];
+  applyQoderSessionUsageEstimates(sessions, [
+    { source: "qoder-cn", total_tokens: 1000, input_tokens: 800, cached_input_tokens: 100, output_tokens: 100 },
+  ]);
+
+  const [row] = sessions;
+  assert.equal(row.model_usage.length, 2);
+  // 3:1 measured message ratio, and the split must consume the whole pool.
+  assert.equal(row.model_usage[0].total_tokens, 750);
+  assert.equal(row.model_usage[1].total_tokens, 250);
+  assert.equal(row.model_usage.reduce((sum, r) => sum + r.total_tokens, 0), 1000);
+  assert.equal(row.model_usage.reduce((sum, r) => sum + r.input_tokens, 0), 800);
+  assert.ok(row.cost_usd > 0);
 });
 
 test("credit-derived rows are priced by model instead of collapsing to zero", () => {

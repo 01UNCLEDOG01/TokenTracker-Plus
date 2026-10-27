@@ -129,7 +129,10 @@ const {
 // v37 keeps the router id of Qoder rows that carry no usage, so a CN session
 // knows its model and the credit-derived pool split can be priced per model
 // instead of collapsing to ¥0.
-const SIDECAR_VERSION = 37;
+// v38 records the per-model message counts behind that attribution, so a
+// session that mixed two routers splits its allocated tokens by measured
+// message counts instead of being dropped as unattributable.
+const SIDECAR_VERSION = 38;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -583,6 +586,27 @@ function applyWallClockSpeed(record) {
   return record;
 }
 
+// Integer split that always consumes the whole value: rounding each share
+// independently would leave tokens unallocated and break the pool invariant
+// the session estimates are checked against, so the last slice takes the
+// remainder.
+function splitByWeights(value, weights) {
+  const total = weights.reduce((sum, weight) => sum + Math.max(0, weight), 0);
+  const parts = [];
+  let left = value;
+  weights.forEach((weight, index) => {
+    if (index === weights.length - 1) {
+      parts.push(Math.max(0, left));
+      return;
+    }
+    const share = total > 0 ? Math.max(0, Math.round((value * Math.max(0, weight)) / total)) : 0;
+    const take = Math.min(share, left);
+    parts.push(take);
+    left -= take;
+  });
+  return parts;
+}
+
 // Qoder's local transcripts carry no usage at all (every assistant row is
 // zero), while the queue carries the official daily credit estimate. The
 // sessions page has to show something: split the source's estimated queue
@@ -667,33 +691,74 @@ function applyQoderSessionUsageEstimates(sessions, queueRows) {
       session.usage_precision = "estimated";
       session.usage_is_incomplete = true;
       session.usage_source = "qoder-credit-estimate";
+      // Price the allocated tokens per model. The weights are the session's own
+      // measured message counts, so this is not a global tokens-per-message
+      // coefficient (KI-030 falsified assumption 1) — the only assumption is
+      // that message length is even across models inside one session.
+      const observedCounts = session.model_message_counts && typeof session.model_message_counts === "object"
+        ? Object.entries(session.model_message_counts).filter(([, messages]) => finite(messages) > 0)
+        : [];
       const estimatedModel = session.model || (source === "qoder-cn" ? "qoder-cn-estimated" : "qoder-estimated");
-      const estimatedRow = {
-        model: estimatedModel,
-        input_tokens: input,
-        cached_input_tokens: cached,
-        cache_creation_input_tokens: cacheWrite,
-        output_tokens: output,
-        reasoning_output_tokens: reasoning,
-        total_tokens: total,
-        usage_events: finite(session.turns),
-        // The pool split used to force cost to 0, which threw away the one
-        // thing that made these rows priceable: the model. Price it like any
-        // other row — an unattributed placeholder still resolves to no rate,
-        // so genuinely unknown rows stay at 0 instead of pretending.
-        cost_usd: computeRowCost({
-          source,
+      const estimatedRows = [];
+      if (observedCounts.length && total > 0) {
+        const weights = observedCounts.map(([, messages]) => finite(messages));
+        const parts = {
+          input_tokens: splitByWeights(input, weights),
+          cached_input_tokens: splitByWeights(cached, weights),
+          cache_creation_input_tokens: splitByWeights(cacheWrite, weights),
+          output_tokens: splitByWeights(output, weights),
+          reasoning_output_tokens: splitByWeights(reasoning, weights),
+          total_tokens: splitByWeights(total, weights),
+        };
+        observedCounts.forEach(([model, messages], index) => {
+          const row = {
+            model,
+            input_tokens: parts.input_tokens[index],
+            cached_input_tokens: parts.cached_input_tokens[index],
+            cache_creation_input_tokens: parts.cache_creation_input_tokens[index],
+            output_tokens: parts.output_tokens[index],
+            reasoning_output_tokens: parts.reasoning_output_tokens[index],
+            total_tokens: parts.total_tokens[index],
+            usage_events: finite(messages),
+            cost_usd: computeRowCost({
+              source,
+              model,
+              input_tokens: parts.input_tokens[index],
+              cached_input_tokens: parts.cached_input_tokens[index],
+              cache_creation_input_tokens: parts.cache_creation_input_tokens[index],
+              output_tokens: parts.output_tokens[index],
+            }),
+            performance: normalizePerformance(),
+          };
+          estimatedRows.push(row);
+        });
+      } else {
+        estimatedRows.push({
           model: estimatedModel,
           input_tokens: input,
           cached_input_tokens: cached,
           cache_creation_input_tokens: cacheWrite,
           output_tokens: output,
-        }),
-        performance: normalizePerformance(),
-      };
-      session.model_usage = [estimatedRow];
-      session.cost_usd = estimatedRow.cost_usd;
-      if (total > 0 && getModelPricingInfo(estimatedModel, { source }).status === "unpriced") {
+          reasoning_output_tokens: reasoning,
+          total_tokens: total,
+          usage_events: finite(session.turns),
+          // An unattributed row still resolves to no rate, so it stays at 0
+          // rather than borrowing some other model's price.
+          cost_usd: computeRowCost({
+            source,
+            model: estimatedModel,
+            input_tokens: input,
+            cached_input_tokens: cached,
+            cache_creation_input_tokens: cacheWrite,
+            output_tokens: output,
+          }),
+          performance: normalizePerformance(),
+        });
+      }
+      session.model_usage = estimatedRows;
+      session.model = estimatedRows.length === 1 ? estimatedRows[0].model : "mixed";
+      session.cost_usd = estimatedRows.reduce((sum, row) => sum + row.cost_usd, 0);
+      if (total > 0 && estimatedRows.some((row) => getModelPricingInfo(row.model, { source }).status === "unpriced")) {
         session.cost_is_partial = true;
       }
       applyWallClockSpeed(session);
@@ -3731,15 +3796,17 @@ async function scanQoderSession(filePath, source = "qoder", { home = os.homedir(
     models.set(model, bucket);
   }
   if (!sessionId) sessionId = path.basename(filePath, ".jsonl");
-  // A session that used exactly one router id still knows its model even when
-  // Qoder wrote no usage: keep that model with zero tokens so the credit-
-  // derived pool split can price per model instead of not at all. "Auto" is a
-  // selector bucket, not a model (KI-030 falsified assumption 3), so it stays
-  // unattributed, and a session that mixed two ids is not guessed either.
-  if (models.size === 0 && observedModels.size === 1) {
-    const slug = [...observedModels.keys()][0];
-    const named = normalizeSessionModel(qoderRouterNamesFor(source, home).get(slug) || "");
-    if (named && named.toLowerCase() !== "auto") {
+  // Qoder CN writes zero into every usage column, so the loop above can leave a
+  // session with no model at all even though each row named its router id. Keep
+  // those ids as zero-token buckets: the model itself is measured, only the
+  // token figures are later derived from the credit pool. "Auto" is a selector
+  // bucket rather than a model (KI-030 falsified assumption 3), so it stays out.
+  const modelMessageCounts = {};
+  if (models.size === 0 && observedModels.size > 0) {
+    const routerNames = qoderRouterNamesFor(source, home);
+    for (const [slug, messages] of observedModels) {
+      const named = normalizeSessionModel(routerNames.get(slug) || "");
+      if (!named || named.toLowerCase() === "auto") continue;
       models.set(slug, {
         model: named,
         input_tokens: 0,
@@ -3750,6 +3817,7 @@ async function scanQoderSession(filePath, source = "qoder", { home = os.homedir(
         total_tokens: 0,
         usage_events: 0,
       });
+      modelMessageCounts[named] = (modelMessageCounts[named] || 0) + messages;
     }
   }
   const modelUsage = [...models.values()].map((bucket) => ({
@@ -3779,8 +3847,12 @@ async function scanQoderSession(filePath, source = "qoder", { home = os.homedir(
     source,
     project_key: path.basename(path.dirname(filePath)),
     project_ref: null,
-    model: modelUsage[0]?.model ?? null,
+    model: modelUsage.length > 1 ? "mixed" : (modelUsage[0]?.model ?? null),
     model_usage: modelUsage,
+    // Measured per-model message counts, used to split the credit-derived pool
+    // across models for sessions Qoder left with zero usage. Null when the
+    // session reported real usage, where the split is already known.
+    model_message_counts: Object.keys(modelMessageCounts).length ? modelMessageCounts : null,
     performance: {},
     started_at: startedMs !== null ? new Date(startedMs).toISOString() : null,
     ended_at: endedMs !== null ? new Date(endedMs).toISOString() : null,
