@@ -189,6 +189,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | **Cola** | ✅ 自動 | 協作 Agent 日誌接入 | 本地安全同步 |
 | **Tuanjie Cowork** | ✅ 自動 | 協作工作流日誌接入 | 團隊端本地用量解析 |
 | **Agent2API** | ✅ 自動 | 本地閘道器與 Agent 映射用量歸集 | 面向多模型路由用量 |
+| **商湯小浣熊** | ✅ 自動 | 被動讀取桌面端 agent 軌跡（`~/.office-raccoon/agent/log/sessions`） | 只取 `llm.response` 的 usage，不碰 agent2api |
 
 ---
 

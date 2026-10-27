@@ -189,6 +189,7 @@ Canonical list of the **52 supported AI coding tools** (from `SUPPORTED_PROVIDER
 | **Cola** | ✅ Auto | Collaborative agent logs integration | Secure local sync |
 | **Tuanjie Cowork** | ✅ Auto | Team workflow logs integration | Team-level local usage parsing |
 | **Agent2API** | ✅ Auto | Local gateway & agent mapping integration | Multi-model routing usage |
+| **SenseTime Raccoon** | ✅ Auto | Reads the desktop agent trace (`~/.office-raccoon/agent/log/sessions`) | Usage from `llm.response` only; agent2api untouched |
 
 ---
 
