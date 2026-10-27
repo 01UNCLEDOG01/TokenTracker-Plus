@@ -137,9 +137,12 @@ async function waitForPortFree(baseUrl, timeoutMs = 30000) {
 function build() {
   console.log("[mirror] 构建 dashboard（TOKENTRACKER_BUILD_PET=1）…");
   const env = { ...process.env, TOKENTRACKER_BUILD_PET: "1" };
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const run = spawnSync(npm, ["run", "dashboard:build"], { cwd: ROOT, env, stdio: "inherit" });
-  if (run.status !== 0) throw new Error(`dashboard:build 失败（exit ${run.status}）`);
+  // Node 18.20+ 不允许 spawn .cmd 时不经 shell（会直接 EINVAL，status=null），
+  // 所以 Windows 上显式经 cmd.exe 调，别再回到 shell:true 那条带注入风险和弃用告警的老路。
+  const run = process.platform === "win32"
+    ? spawnSync(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", "npm run dashboard:build"], { cwd: ROOT, env, stdio: "inherit" })
+    : spawnSync("npm", ["run", "dashboard:build"], { cwd: ROOT, env, stdio: "inherit" });
+  if (run.status !== 0) throw new Error(`dashboard:build 失败（exit ${run.status}${run.error ? `: ${run.error.message}` : ""}）`);
 }
 
 function isAppRunning() {

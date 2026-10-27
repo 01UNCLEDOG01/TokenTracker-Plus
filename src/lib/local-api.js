@@ -4815,8 +4815,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const { allRows } = await scopedRowsForUrl(url);
         const queueRows = allRows;
         const { projectRows } = await readProjectUsageContext(qp, url);
-        // session_marathon needs the device's session rows. buildSessionAnalytics
-        // serves from its sidecar cache (5-min TTL), so repeated polls stay cheap.
+        // session_marathon and sprinter read the device's session sidecar.
+        // buildSessionAnalytics serves from its sidecar cache, so repeated polls
+        // stay cheap. A cold cache rescans every session file, which is real CPU
+        // work inside one Node thread — Promise.race cannot interrupt it, so this
+        // is awaited as-is. The 2026-10-27 boot stalls came from a stale
+        // `*.zcode-incomplete` retry marker (which disables the cache fast path)
+        // plus a dead background cloud sync, not from this call.
         let sessions = [];
         try {
           const { buildSessionAnalytics } = require("./session-analytics");

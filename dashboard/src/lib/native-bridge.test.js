@@ -8,28 +8,38 @@ afterEach(() => {
 });
 
 describe("notifyNativeThemeChanged", () => {
-  it("sends the theme nudge over the WebView2 JSON channel on Windows", () => {
+  it("sends the theme as a nativeSetting over the WebView2 JSON channel on Windows", () => {
     const postMessage = vi.fn();
     delete window.webkit;
     window.chrome = { webview: { postMessage } };
     expect(isBridgeAvailable()).toBe(true);
-    expect(notifyNativeThemeChanged()).toBe(true);
+    expect(notifyNativeThemeChanged("light")).toBe(true);
     expect(postMessage).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(postMessage.mock.calls[0][0])).toEqual({ type: "theme" });
+    // Windows parses every message as JSON and ignores unknown types, so the
+    // payload must be the shape its handler knows (nativeSetting), not {type:"theme"}.
+    expect(JSON.parse(postMessage.mock.calls[0][0])).toEqual({
+      type: "nativeSetting",
+      key: "tokentracker-theme",
+      value: "light",
+    });
   });
 
-  it("sends an object to the WKWebView handler on macOS", () => {
+  it("sends the same shape to the WKWebView handler on macOS", () => {
     const postMessage = vi.fn();
     window.webkit = { messageHandlers: { nativeBridge: { postMessage } } };
     delete window.chrome;
-    expect(notifyNativeThemeChanged()).toBe(true);
-    expect(postMessage).toHaveBeenCalledWith({ type: "theme" });
+    expect(notifyNativeThemeChanged("dark")).toBe(true);
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "nativeSetting",
+      key: "tokentracker-theme",
+      value: "dark",
+    });
   });
 
   it("is a silent no-op in a plain browser", () => {
     delete window.webkit;
     delete window.chrome;
     expect(isBridgeAvailable()).toBe(false);
-    expect(notifyNativeThemeChanged()).toBe(false);
+    expect(notifyNativeThemeChanged("light")).toBe(false);
   });
 });

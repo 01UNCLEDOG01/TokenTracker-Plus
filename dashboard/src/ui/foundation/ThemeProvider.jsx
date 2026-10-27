@@ -145,10 +145,9 @@ export function ThemeProvider({ children }) {
     const forNative =
       theme === "system" && !isNativeEmbed() ? getSystemTheme() : resolvedTheme;
     syncNativeChromeAppearance(forNative, theme);
-    // The Windows tray hosts (pet / quota / monitor) repaint only when they are
-    // told to re-read the stored theme; macOS gets the same news through
-    // setChromeAppearance above and drops this one at its message filter.
-    notifyNativeThemeChanged();
+    // Windows tray hosts repaint from the stored preference; the value must be the
+    // raw choice (light / dark / system), not the resolved boolean.
+    notifyNativeThemeChanged(theme);
   }, [resolvedTheme, theme]);
 
   const setTheme = useCallback((newTheme) => {

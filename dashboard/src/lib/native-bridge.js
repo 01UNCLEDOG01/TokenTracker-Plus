@@ -261,15 +261,18 @@ export function syncNativeChromeAppearance(resolvedTheme, theme) {
 }
 
 /**
- * Windows 托盘宿主：主题一变就通知它，让它去读 localStorage 的 tokentracker-theme
- * 并重绘桌宠 / 额度 / 监视器三个小窗（DashboardWindow 的 `case "theme"`）。
- * 上面那条 setChromeAppearance 只有 macOS 消费，Windows 的 webview 消息过滤器
- * （NativeQAProfile.permitsNativeMessage）对未知 type 直接 return false，
- * 所以这条在 mac 上发了也是被丢弃，不影响那边已有的同步。
+ * Windows 托盘宿主：主题一变就把偏好写进原生设置，宿主随即重绘桌宠 / 额度 / 监视器
+ * 三个小窗。必须用 `nativeSetting` 这个形状：Windows 的 DashboardWindow 先把消息当
+ * JSON 解析，只认 nativeAction / nativeSetting / getPetSettings / setPetSetting / notify，
+ * 其余直接 return —— 纯文本的 `case "theme"` 永远走不到，因为 post() 在 WebView2 上
+ * 一律 JSON.stringify（2026-10-27 实测：发 {type:"theme"} 被静默丢弃，`native-settings.json`
+ * 里的 Theme 一直停在旧值）。
+ * macOS 的 permitsNativeMessage 不认识 nativeSetting，会 return false 丢掉，不影响那边
+ * 已有的 setChromeAppearance 同步。
  */
-export function notifyNativeThemeChanged() {
+export function notifyNativeThemeChanged(theme) {
   if (!isBridgeAvailable()) return false;
-  return post({ type: "theme" });
+  return post({ type: "nativeSetting", key: "tokentracker-theme", value: theme ?? "system" });
 }
 
 /**

@@ -14,8 +14,12 @@ internal static class Constants
     /// <summary>Poll interval for the background health-check loop.</summary>
     public const int HealthCheckIntervalSeconds = 30;
 
-    /// <summary>How long to wait for the server to answer after launch.</summary>
-    public const int StartupTimeoutSeconds = 45;
+    /// <summary>
+    /// How long to wait for the server to answer after launch. A cold session
+    /// rescan after a payload swap measured ~70s on this machine (2026-10-27),
+    /// which the old 45s budget turned into a three-attempt failure loop.
+    /// </summary>
+    public const int StartupTimeoutSeconds = 120;
 
     public const string AppDisplayName = "TokenTracker Plus";
     public const string GitHubUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus";
