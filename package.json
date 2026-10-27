@@ -37,6 +37,7 @@
     "prepublishOnly": "node scripts/build-pricing-seed.cjs",
     "test": "node --test test/*.test.js",
     "test:fast": "node scripts/run-fast-tests.cjs",
+    "test:all": "node scripts/run-full-tests.cjs",
     "test:baseline:write": "node scripts/check-test-baseline.cjs --write",
     "validate:fast": "npm run validate:readme && npm run validate:copy && npm run validate:locale && npm run validate:ui-hardcode && npm run validate:guardrails && npm run validate:versions && npm run validate:retros && npm run validate:art && npm run validate:docs",
     "validate:readme": "node scripts/validate-readme-stats.cjs",
