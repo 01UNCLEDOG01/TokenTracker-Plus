@@ -74,6 +74,7 @@ const { computeCodexContextBreakdown } = require("./codex-context-breakdown");
 const { computeGrokContextBreakdown } = require("./grok-context-breakdown");
 const { qoderCnEstimatedRows } = require("./qoder-cn-estimate");
 const { joycodeTaskRows } = require("./joycode-usage");
+const { raccoonOfficeUsageRows } = require("./raccoon-office-usage");
 const { qoderIntlCreditRows, qoderIntlDisplayModel } = require("./qoder-intl-credits");
 const { applyAccountViewQoderMerge } = require("./qoder-cn-account-merge");
 const { applyAccountViewQoderIntlMerge } = require("./qoder-intl-account-merge");
@@ -452,8 +453,11 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
   // JoyCode keeps provider-reported task totals outside the queue; derive them
   // at read time so usage, sessions and the 京东 badge share one source.
   const joycodeRows = includeJoycode ? joycodeTaskRows() : [];
-  const mergedRows = estimatedRows.length || intlCreditRows.length || joycodeRows.length
-    ? allRows.concat(estimatedRows, intlCreditRows, joycodeRows)
+  // 商汤小浣熊's own agent trace (not gateway traffic): derived at read time so
+  // its card and the queue-backed cards share one aggregation path.
+  const raccoonRows = includeJoycode ? raccoonOfficeUsageRows() : [];
+  const mergedRows = estimatedRows.length || intlCreditRows.length || joycodeRows.length || raccoonRows.length
+    ? allRows.concat(estimatedRows, intlCreditRows, joycodeRows, raccoonRows)
     : allRows;
   return {
     scope,
