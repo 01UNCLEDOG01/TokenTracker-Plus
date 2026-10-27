@@ -4,6 +4,9 @@ import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { cloudLoginNextPath, LoginModalProvider, useLoginModal } from "./LoginModalContext.jsx";
 import { beginCloudAction, readCloudAction } from "../lib/cloud-action-intent.js";
+import { useConfiguredCloudInstance } from "../test/configured-cloud";
+
+useConfiguredCloudInstance();
 
 let modal;
 let navigate;

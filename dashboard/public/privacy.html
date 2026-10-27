@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Privacy Policy | TokenTracker</title><link rel="stylesheet" href="/legal.css"></head><body><header><a href="/">TokenTracker</a></header><main><h1>Privacy Policy</h1>
-<p><em>Last updated: 2026-10-08 · Applies to the <code>tokentracker-cli</code> npm package, the macOS app, the Windows app, the Linux app, and <a href="https://(removed)">(removed)</a>.</em></p>
+<p><em>Last updated: 2026-10-28 · Applies to TokenTracker Plus: the Windows desktop app, the CLI, and the bundled dashboard.</em></p>
+<p>This build ships <strong>no first-party cloud service</strong>. There is no TokenTracker-operated backend, account system, or leaderboard server, and no shared key is bundled. Cloud rows below are inactive unless you explicitly configure an InsForge-compatible instance of your own; with nothing configured the app makes no cloud request of any kind.</p>
 <p>TokenTracker reads the local logs that AI coding tools already write to your disk, and turns them into token counts and cost estimates. It is local-first: the dashboard, the parsers and the database all run on your machine.</p>
 <p>This document lists <strong>every</strong> network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/issues">open an issue</a>.</p>
 <hr />
@@ -74,12 +75,6 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>Anonymous heartbeat</strong></td>
-<td><code>srctyff5.us-east.insforge.app</code></td>
-<td>A one-way hash of the machine id, plus the app version, OS platform, and app shell (<code>cli</code> / <code>macos</code> / <code>windows</code> / <code>linux</code>) as separate plain fields. Nothing else.</td>
-<td>At most once per day</td>
-</tr>
-<tr>
 <td><strong>Dashboard analytics</strong></td>
 <td><code>us.i.posthog.com</code> (PostHog)</td>
 <td>Pageviews and explicitly instrumented feature events, plus which shell you use. Autocapture and session recording are <strong>off</strong>; browser Do-Not-Track is respected.</td>
@@ -140,10 +135,16 @@
 <td>Off by default — only while the Devin provider switch in Settings → Usage &amp; Limits → Providers is on, and only on a locally authenticated request</td>
 </tr>
 <tr>
+<td><strong>Anonymous heartbeat</strong></td>
+<td>The cloud instance you configured</td>
+<td>A one-way hash of the machine id, plus the app version, OS platform, and app shell (<code>cli</code> / <code>macos</code> / <code>windows</code> / <code>linux</code>) as separate plain fields. Nothing else.</td>
+<td>At most once per day, and only while a cloud instance is configured</td>
+</tr>
+<tr>
 <td><strong>Cloud sync / leaderboard</strong></td>
-<td><code>srctyff5.us-east.insforge.app</code></td>
+<td>The InsForge-compatible instance you configured</td>
 <td>Hourly buckets only — see §4</td>
-<td>Signing in to a TokenTracker account</td>
+<td>Signing in to an account on that instance</td>
 </tr>
 <tr>
 <td><strong>Exchange rates</strong></td>
@@ -200,7 +201,7 @@
 <li>Any provider credential</li>
 </ul>
 <p><strong>Public visibility:</strong> your profile appears on the public leaderboard only while <code>Settings → Account → Public profile</code> is on. Turning it off removes you from the leaderboard and turns badges into a "private" placeholder.</p>
-<p><strong>Deleting cloud data:</strong> contact us privately at <a href="mailto:rynnsun0509@gmail.com">rynnsun0509@gmail.com</a> and we will remove the account and its rows. Deleting <code>~/.tokentracker/</code> removes the local copy immediately.</p>
+<p><strong>Deleting cloud data:</strong> contact us privately at <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus">github.com/01UNCLEDOG01/TokenTracker-plus</a> and we will remove the account and its rows. Deleting <code>~/.tokentracker/</code> removes the local copy immediately.</p>
 <hr />
 <h2>5. Third parties</h2>
 <table>
@@ -214,18 +215,13 @@
 <tbody>
 <tr>
 <td>InsForge</td>
-<td>Backend for accounts, cloud sync, leaderboard, heartbeat</td>
+<td>The backend software you may self-host for accounts, cloud sync and the leaderboard</td>
 <td><a href="https://github.com/InsForge">github.com/InsForge</a></td>
 </tr>
 <tr>
 <td>PostHog</td>
 <td>Anonymous product analytics</td>
 <td><a href="https://posthog.com/privacy">posthog.com/privacy</a></td>
-</tr>
-<tr>
-<td>Vercel</td>
-<td>Hosting for (removed)</td>
-<td><a href="https://vercel.com/legal/privacy-policy">vercel.com/legal/privacy-policy</a></td>
 </tr>
 <tr>
 <td>GitHub</td>
@@ -271,8 +267,8 @@
 <h2>8. Changes</h2>
 <p>Material changes to this policy will be noted in the release notes and in the <code>Last updated</code> date above. The full history is in <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/commits/main/dashboard/public/privacy.html">this file's Git log</a>.</p>
 <h2>9. Contact</h2>
-<p>Questions, corrections, or deletion requests: <a href="mailto:rynnsun0509@gmail.com">rynnsun0509@gmail.com</a>. Do not publish private account or payment information in GitHub issues.</p>
+<p>Questions, corrections, or deletion requests: <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus">github.com/01UNCLEDOG01/TokenTracker-plus</a>. Do not publish private account or payment information in GitHub issues.</p>
 <h2>Planned Cloud billing</h2>
 <p>(removed) operates hosted checkout and handles payment details under its own terms and privacy policy. TokenTracker receives the order/payment reference, billing email, purchased plan, amount/currency, payment status, subscription term and refund status necessary to deliver access and handle billing. Full payment card numbers and security codes are not stored by TokenTracker. Only the usage metrics described above are synchronized.</p>
 <p>Cloud membership provides access to 90 days of hourly details and 24 months of daily summaries. After membership expires, personal history has a 30-day read/export window. These are access windows, not a promise to delete all stored usage on the expiry date. Aggregated community statistics and compressed usage metrics may be retained to preserve and correct lifetime statistics. Necessary billing records may be retained to meet legal/accounting obligations and resolve payment disputes. Contact the private support address for access, correction or deletion requests; legally required records may be retained. Local data is unaffected by Cloud expiry.</p>
-<p>TokenTracker is operated by Sun Xiufeng, an individual developer in China. Account and usage storage uses the existing InsForge backend, including infrastructure in the United States; other providers can process data in their operating regions. Contact <a href="mailto:rynnsun0509@gmail.com">rynnsun0509@gmail.com</a> for privacy and security requests. This billing supplement was updated on 10 October 2026.</p></main><footer><a href="/pricing.html">Cloud pricing</a><a href="/terms.html">Terms of Service</a><a href="/privacy.html">Privacy Policy</a><a href="mailto:rynnsun0509@gmail.com">Support: rynnsun0509@gmail.com</a></footer></body></html>
+<p>TokenTracker Plus is an open-source project maintained at <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus">github.com/01UNCLEDOG01/TokenTracker-plus</a>. This build operates no backend and stores nothing off your machine. If you point it at an InsForge-compatible instance, that instance controls any account and usage data it receives. Privacy and security questions belong in the project repository.</p></main><footer><a href="/pricing.html">Cloud pricing</a><a href="/terms.html">Terms of Service</a><a href="/privacy.html">Privacy Policy</a><a href="https://github.com/01UNCLEDOG01/TokenTracker-plus">Support: GitHub</a></footer></body></html>

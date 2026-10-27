@@ -4,8 +4,6 @@ const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { DEFAULT_BASE_URL } = require("./runtime-config");
-
 async function beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs, open }) {
   const nonce = crypto.randomBytes(16).toString("hex");
   const callbackPath = `/tokentracker/callback/${nonce}`;
@@ -17,7 +15,7 @@ async function beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs, open }) {
     redirectUrl: postAuthRedirect,
   });
   authUrl.searchParams.set("redirect", callbackUrl);
-  if (dashboardUrl && baseUrl && baseUrl !== DEFAULT_BASE_URL) {
+  if (dashboardUrl && baseUrl) {
     authUrl.searchParams.set("base_url", baseUrl);
   }
 

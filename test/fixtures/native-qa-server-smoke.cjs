@@ -5,6 +5,11 @@ const path = require("node:path");
 const assert = require("node:assert/strict");
 const { pathToFileURL } = require("node:url");
 const repoRoot = path.resolve(__dirname, "../..");
+// The sandbox gateway no longer bundles an upstream backend: its base/function
+// hosts are explicit inputs (`TT_SANDBOX_BACKEND` / `TT_SANDBOX_FUNCTIONS`).
+// The smoke fixture declares the same hosts its public profile advertises.
+process.env.TT_SANDBOX_BACKEND = process.env.TT_SANDBOX_BACKEND || "https://srctyff5.us-east.insforge.app";
+process.env.TT_SANDBOX_FUNCTIONS = process.env.TT_SANDBOX_FUNCTIONS || "https://srctyff5.function2.insforge.app";
 const { createNativeQAServer } = require("../../TokenTrackerBar/scripts/native-qa-server.cjs");
 const rawFetch = fetch;
 const rawHttpRequest = require("node:http").request;

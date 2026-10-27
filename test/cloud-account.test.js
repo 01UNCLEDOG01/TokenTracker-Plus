@@ -159,12 +159,12 @@ test("mintAccessToken scopes cache by base URL", async () => {
 test("mintAccessToken returns null on non-ok refresh and on network error", async () => {
   __resetCloudAccountCacheForTests();
   assert.equal(
-    await mintAccessToken({ refreshToken: "x", fetchImpl: async () => jsonResponse({}, false, 401) }),
+    await mintAccessToken({ baseUrl: "https://cloud.example", refreshToken: "x", fetchImpl: async () => jsonResponse({}, false, 401) }),
     null,
   );
   __resetCloudAccountCacheForTests();
   assert.equal(
-    await mintAccessToken({ refreshToken: "x", fetchImpl: async () => { throw new Error("offline"); } }),
+    await mintAccessToken({ baseUrl: "https://cloud.example", refreshToken: "x", fetchImpl: async () => { throw new Error("offline"); } }),
     null,
   );
 });
@@ -173,6 +173,7 @@ test("mintAccessToken surfaces a rotated refresh token", async () => {
   __resetCloudAccountCacheForTests();
   const access = makeJwt({ expSeconds: Math.floor(Date.now() / 1000) + 3600 });
   const out = await mintAccessToken({
+    baseUrl: "https://cloud.example",
     refreshToken: "old",
     fetchImpl: async () => jsonResponse({ accessToken: access, refreshToken: "new" }),
   });
@@ -201,6 +202,7 @@ test("mintAccessToken surfaces the csrf token paired with a rotation", async () 
   __resetCloudAccountCacheForTests();
   const access = makeJwt({ expSeconds: Math.floor(Date.now() / 1000) + 3600 });
   const out = await mintAccessToken({
+    baseUrl: "https://cloud.example",
     refreshToken: "old",
     fetchImpl: async () =>
       jsonResponse({ accessToken: access, refreshToken: "new", csrfToken: "csrf-new" }),
@@ -238,6 +240,7 @@ test("fetchAccountFunction forwards query params except account/scope, sets auth
 test("fetchAccountFunction throws with status on non-ok", async () => {
   await assert.rejects(
     () => fetchAccountFunction({
+      baseUrl: "https://cloud.example",
       accessToken: "x",
       slug: "tokentracker-account-summary",
       searchParams: new URLSearchParams(),
@@ -267,6 +270,36 @@ test("fetchAccountUsage returns null when not signed in (no refresh token)", asy
     fetchImpl: async () => jsonResponse({}),
   });
   assert.equal(out, null);
+});
+
+test("local-first: an unconfigured instance reports not-signed-in instead of dialing a host", async () => {
+  __resetCloudAccountCacheForTests();
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return jsonResponse({});
+  };
+  // Soft mode resolves to null ("not signed in" / no cloud view).
+  assert.equal(await mintAccessToken({ refreshToken: "r", fetchImpl }), null);
+  assert.equal(
+    await fetchAccountUsage({ usageSlug: "tokentracker-usage-summary", refreshToken: "r", fetchImpl }),
+    null,
+  );
+  // Throwing modes classify the missing instance instead of inventing a default host.
+  await assert.rejects(
+    mintAccessToken({ refreshToken: "r", fetchImpl, throwOnFailure: true }),
+    (err) => err.code === "cloud_not_configured",
+  );
+  await assert.rejects(
+    () => fetchAccountFunction({
+      accessToken: "x",
+      slug: "tokentracker-account-summary",
+      searchParams: new URLSearchParams(),
+      fetchImpl,
+    }),
+    (err) => err.code === "cloud_not_configured",
+  );
+  assert.equal(calls, 0, "an unconfigured instance must not produce any network call");
 });
 
 test("fetchAccountUsage mints a token then returns the account payload", async () => {
@@ -667,6 +700,7 @@ test("fetchAccountUsage caches the heatmap payload already expanded", async () =
   const call = () => fetchAccountUsage({
     usageSlug: "tokentracker-usage-heatmap",
     searchParams: new URLSearchParams("weeks=52"),
+    baseUrl: "https://cloud.example",
     refreshToken: "r",
     fetchImpl,
   });

@@ -6,7 +6,14 @@ const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "../..");
 const DIR = path.join(ROOT, ".tmp/waffo/hosted");
-const ORIGIN = "https://srctyff5.us-east.insforge.app";
+// The target InsForge instance is an explicit input, not a bundled default:
+// the local-first fork ships no cloud origin, so running this acceptance tool
+// requires naming the backend under test via TT_SANDBOX_ORIGIN.
+const ORIGIN = process.env.TT_SANDBOX_ORIGIN || "";
+if (!ORIGIN) {
+  console.error("TT_SANDBOX_ORIGIN is required (e.g. https://your-instance.us-east.insforge.app)");
+  process.exit(2);
+}
 const MODEL = "qa-archive-controlled-";
 const FROM = "2026-06-01T00:00:00Z", TO = "2026-06-04T00:00:00Z";
 const PREFIX = "tt_cloud_qa_acceptance_archive_";

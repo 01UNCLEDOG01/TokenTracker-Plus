@@ -8,6 +8,9 @@ import { readCloudAction } from "../../lib/cloud-action-intent.js";
 import { saveCloudPurchase } from "../../lib/cloud-checkout.js";
 import { formatCloudMoney } from "../../lib/cloud-billing";
 import { CloudMembershipCard } from "./CloudMembershipCard.jsx";
+import { useConfiguredCloudInstance } from "../../test/configured-cloud";
+
+useConfiguredCloudInstance();
 
 const mocks = vi.hoisted(() => ({
   account: null,

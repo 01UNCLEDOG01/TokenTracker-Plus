@@ -82,7 +82,7 @@ const {
   resolveMuseHome,
   resolveTraeStoragePath,
 } = require("../lib/rollout");
-const { resolveRuntimeConfig, DEFAULT_BASE_URL, normalizeInstanceBaseUrl, assertInsforgeRuntime,
+const { resolveRuntimeConfig, normalizeInstanceBaseUrl, assertInsforgeRuntime,
   clearDeviceIdentity, resetInstanceState } = require("../lib/runtime-config");
 const {
   BOLD,
@@ -113,7 +113,6 @@ const ASCII_LOGO = [
 ].join("\n");
 
 const DIVIDER = "----------------------------------------------";
-const DEFAULT_DASHBOARD_URL = "https://(removed)";
 
 // Single source of truth for the welcome screen's provider count + sample list.
 // test/discovery-metadata.test.js keeps this aligned with public tool copy.
@@ -395,18 +394,15 @@ async function runSetup({
   const config = {
     ...(changedInstance ? clearDeviceIdentity(existingPlainConfig) : existingPlainConfig),
     installedAt,
-    // Keep a persisted legacy URL until the first sync. sync owns the migration
-    // lock and must reset the upload offset/backoff before removing this marker;
-    // rewriting it here would skip the historical replay permanently.
-    baseUrl: opts.baseUrl || existingPlainConfig.baseUrl || DEFAULT_BASE_URL,
   };
-  if (changedInstance || opts.dashboardUrl) {
-    config.dashboardUrl = runtime.dashboardUrl;
-  }
-  if (changedInstance || opts.anonKey || runtime.sources.anonKey === "env") config.anonKey = runtime.anonKey;
-  if (runtime.baseUrl !== DEFAULT_BASE_URL) {
+  if (runtime.baseUrl) {
     config.baseUrl = runtime.baseUrl;
-    config.dashboardUrl = runtime.dashboardUrl;
+    if (runtime.dashboardUrl) config.dashboardUrl = runtime.dashboardUrl;
+    if (runtime.anonKey) config.anonKey = runtime.anonKey;
+  } else {
+    // Local-only install: no instance, so no backend URL, key or dashboard URL
+    // may survive on disk from a previous configuration.
+    for (const key of ["baseUrl", "anonKey", "dashboardUrl"]) delete config[key];
   }
 
   await writeJson(configPath, config);

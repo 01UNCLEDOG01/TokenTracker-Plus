@@ -127,6 +127,12 @@ async function maybeSendHeartbeat({
     if (!machineId) return { sent: false, reason: "no-machine-id" };
 
     const runtime = resolveRuntimeConfig({ config, env });
+    // Local-first: the heartbeat is a cloud function call. Without an
+    // explicitly configured cloud instance there is nowhere legitimate to
+    // send it, and a relative function URL would only produce noise.
+    if (!runtime.baseUrl) {
+      return { sent: false, reason: "local-only" };
+    }
     const payload = buildHeartbeatPayload({ machineId, version, env });
 
     const controller = new AbortController();

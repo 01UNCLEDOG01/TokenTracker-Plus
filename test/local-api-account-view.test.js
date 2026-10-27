@@ -91,6 +91,19 @@ async function startAccountHttpFixture(t, refreshToken = "seed") {
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory; seed an explicit instance so the account view can mint.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   const cookiePath = path.join(trackerDir, "relay-cookies.json");
   fs.writeFileSync(cookiePath, JSON.stringify({
     insforge_refresh_token: `insforge_refresh_token=${refreshToken}; Path=/; HttpOnly; SameSite=Lax`,
@@ -258,6 +271,13 @@ test("usage-summary?account=1 falls back to local data when not signed in", asyn
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
 
   const handler = freshHandler(queuePath);
   const res = await call(handler, {
@@ -273,9 +293,17 @@ test("usage-summary?account=1 falls back to local data when not signed in", asyn
 test("account-view failures are briefly backed off so refresh fan-out stays responsive", async () => {
   const queuePath = path.join(tmpHome, "queue.jsonl");
   writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({
@@ -306,9 +334,17 @@ test("account-view failures are briefly backed off so refresh fan-out stays resp
 test("concurrent account-view fan-out shares one pending cloud probe", async () => {
   const queuePath = path.join(tmpHome, "queue.jsonl");
   writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({
@@ -359,6 +395,13 @@ test("HTTP account fan-out shares a healthy read while manual refresh supersedes
     insforge_refresh_token: "insforge_refresh_token=fanout; Path=/; HttpOnly; SameSite=Lax",
   }));
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   const handler = freshHandler(queuePath);
   let received = 0;
   const waits = new Map();
@@ -421,10 +464,18 @@ test("HTTP account fan-out shares a healthy read while manual refresh supersedes
 test("usage-summary?account=1 serves the cross-device aggregate when signed in + cloud sync on", async () => {
   const queuePath = path.join(tmpHome, "queue.jsonl");
   writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
 
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   // Seed a relayed refresh token (what the auth proxy would have captured).
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
@@ -474,10 +525,18 @@ test("usage-summary?account=1 serves the cross-device aggregate when signed in +
 test("usage-hourly?account=1 serves account hourly data when signed in + cloud sync on", async () => {
   const queuePath = path.join(tmpHome, "queue.jsonl");
   writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
 
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({
@@ -533,6 +592,13 @@ test("usage-hourly?account=1 falls back to local hourly data when account hourly
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({
@@ -577,6 +643,13 @@ test("usage-hourly?account=1 falls back to local hourly data when account hourly
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({
@@ -645,7 +718,22 @@ test("usage-hourly?account=1 falls back to local hourly data when account hourly
 function seedSignedInTracker() {
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
+  // Local-first: cloud account reads require an explicitly configured
+  // instance (baseUrl + its public anon key); there is no bundled default.
+  // The handler resolves its runtime config from the queue file's directory
+  // (path.dirname(qp)), which in these tests is tmpHome itself.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({
@@ -653,6 +741,12 @@ function seedSignedInTracker() {
     }),
   );
   return trackerDir;
+}
+
+function freshAnonKey() {
+  return `${Buffer.from(JSON.stringify({ alg: "HS256" })).toString("base64url")}.${Buffer.from(
+    JSON.stringify({ role: "anon" }),
+  ).toString("base64url")}.sig`;
 }
 
 function freshAccessJwt() {
@@ -669,6 +763,13 @@ test("account fallback is tagged 'signed-out' when there is no relayed session",
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
 
   const handler = freshHandler(queuePath);
   const res = await call(handler, { endpoint: HEATMAP_ENDPOINT });
@@ -878,6 +979,13 @@ test("loopback account reads invalidate on successful-upload state, reset, and e
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(path.join(trackerDir, "relay-cookies.json"), JSON.stringify({
     insforge_refresh_token: "insforge_refresh_token=upload-test; Path=/; HttpOnly; SameSite=Lax",
   }));
@@ -953,6 +1061,13 @@ test("logout and account switch during an HTTP account read cannot restore the o
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   const cookiePath = path.join(trackerDir, "relay-cookies.json");
   fs.writeFileSync(cookiePath, JSON.stringify({ insforge_refresh_token: "insforge_refresh_token=a; Path=/; HttpOnly; SameSite=Lax" }));
   const handler = freshHandler(queuePath);
@@ -1021,6 +1136,13 @@ test("a late HTTP auth refresh cannot overwrite a new login's relay cookies", as
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   const cookiePath = path.join(trackerDir, "relay-cookies.json");
   fs.writeFileSync(cookiePath, JSON.stringify({ insforge_refresh_token: "insforge_refresh_token=a; Path=/; HttpOnly; SameSite=Lax" }));
   const handler = freshHandler(queuePath);
@@ -1391,6 +1513,13 @@ test("usage-summary?account=1 folds the local Qoder international credit spend i
   const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(path.join(trackerDir, "cloud-sync-pref.json"), JSON.stringify({ enabled: true }));
+  // Local-first: the handler resolves its runtime config from the queue
+  // file's directory (path.dirname(qp) === tmpHome); cloud account reads
+  // require an explicitly seeded instance — there is no bundled default.
+  fs.writeFileSync(
+    path.join(tmpHome, "config.json"),
+    JSON.stringify({ baseUrl: "https://cloud.example", anonKey: freshAnonKey() }),
+  );
   fs.writeFileSync(
     path.join(trackerDir, "relay-cookies.json"),
     JSON.stringify({ insforge_refresh_token: "insforge_refresh_token=refresh-xyz; Path=/; HttpOnly; SameSite=Lax" }),

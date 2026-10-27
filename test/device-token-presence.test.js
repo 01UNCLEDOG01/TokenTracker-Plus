@@ -13,11 +13,12 @@ const {
 const { cmdDoctor } = require("../src/commands/doctor");
 const { cmdStatus } = require("../src/commands/status");
 const { withHome } = require("./helpers/with-home");
-const { DEFAULT_BASE_URL } = require("../src/lib/runtime-config");
+// This build ships no default cloud; the fixture configures an explicit instance.
+const INSTANCE_BASE_URL = "https://instance.example";
 
 const binding = {
   userId: "user-oauth",
-  baseUrl: DEFAULT_BASE_URL,
+  baseUrl: INSTANCE_BASE_URL,
   machineId: "machine-oauth",
 };
 
@@ -33,7 +34,7 @@ test("legacy config.json deviceToken still counts as set", async (t) => {
   const { trackerDir } = await fixture(t);
   const presence = resolveDeviceTokenPresence({
     trackerDir,
-    config: { baseUrl: DEFAULT_BASE_URL, deviceToken: "legacy-token", machineId: binding.machineId },
+    config: { baseUrl: INSTANCE_BASE_URL, anonKey: `anon_${"a".repeat(40)}`, deviceToken: "legacy-token", machineId: binding.machineId },
   });
   assert.equal(presence.set, true);
   assert.equal(presence.source, "config");
@@ -47,7 +48,7 @@ test("OAuth cloud-device-token.json alone counts as set for matching machine", a
   );
   const presence = resolveDeviceTokenPresence({
     trackerDir,
-    config: { baseUrl: DEFAULT_BASE_URL, machineId: binding.machineId },
+    config: { baseUrl: INSTANCE_BASE_URL, machineId: binding.machineId },
   });
   assert.equal(presence.set, true);
   assert.equal(presence.source, "cloud-device-token");
@@ -62,7 +63,7 @@ test("store token for another machine or baseUrl does not count", async (t) => {
   assert.equal(
     resolveDeviceTokenPresence({
       trackerDir,
-      config: { baseUrl: DEFAULT_BASE_URL, machineId: "other-machine" },
+      config: { baseUrl: INSTANCE_BASE_URL, machineId: "other-machine" },
     }).set,
     false,
   );
@@ -81,7 +82,8 @@ test("config token wins over store for source reporting", async (t) => {
   const presence = resolveDeviceTokenPresence({
     trackerDir,
     config: {
-      baseUrl: DEFAULT_BASE_URL,
+      baseUrl: INSTANCE_BASE_URL,
+      anonKey: `anon_${"a".repeat(40)}`,
       machineId: binding.machineId,
       deviceToken: "config-token",
     },
@@ -94,7 +96,7 @@ test("status --json reports device_token_set when only cloud-device-token.json e
   const { home, trackerDir } = await fixture(t);
   await fs.writeFile(
     path.join(trackerDir, "config.json"),
-    JSON.stringify({ baseUrl: DEFAULT_BASE_URL, machineId: binding.machineId }) + "\n",
+    JSON.stringify({ baseUrl: INSTANCE_BASE_URL, machineId: binding.machineId }) + "\n",
   );
   createCloudDeviceTokenStore(path.join(trackerDir, "cloud-device-token.json")).set(binding, "oauth-token");
 
@@ -120,7 +122,7 @@ test("doctor reports runtime.device_token ok when only cloud-device-token.json e
   const { home, trackerDir } = await fixture(t);
   await fs.writeFile(
     path.join(trackerDir, "config.json"),
-    JSON.stringify({ baseUrl: DEFAULT_BASE_URL, machineId: binding.machineId }) + "\n",
+    JSON.stringify({ baseUrl: INSTANCE_BASE_URL, machineId: binding.machineId }) + "\n",
   );
   createCloudDeviceTokenStore(path.join(trackerDir, "cloud-device-token.json")).set(binding, "oauth-token");
 

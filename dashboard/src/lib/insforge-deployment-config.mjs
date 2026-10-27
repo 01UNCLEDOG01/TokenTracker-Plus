@@ -1,4 +1,8 @@
-export const OFFICIAL_INSFORGE_URL = "https://srctyff5.us-east.insforge.app";
+// Local-first fork: no official/bundled cloud instance. The default is
+// "no cloud" — an empty defaultBaseUrl makes an unconfigured deployment
+// resolve to invalid_backend_url (cloud UI hidden) instead of silently
+// dialing the upstream project's InsForge backend.
+export const OFFICIAL_INSFORGE_URL = "";
 
 export function isPublicAnonKey(value) {
   if (typeof value !== "string" || !value.trim()) return false;

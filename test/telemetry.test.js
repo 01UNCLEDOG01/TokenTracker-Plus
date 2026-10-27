@@ -18,10 +18,14 @@ const {
 
 // A sandboxed <home>/.tokentracker/tracker layout so machine-id's seed file
 // mirroring stays inside the temp home (see defaultSeedPath in machine-id.js).
+// The heartbeat is a cloud function call, and this build ships no default
+// cloud, so the fixture configures an explicit instance for the send tests.
+const CLOUD_CONFIG = { baseUrl: "https://telemetry.example", anonKey: `anon_${"a".repeat(40)}` };
 async function makeTrackerDir() {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "tt-telemetry-"));
   const trackerDir = path.join(home, ".tokentracker", "tracker");
   await fs.mkdir(trackerDir, { recursive: true });
+  await fs.writeFile(path.join(trackerDir, "config.json"), JSON.stringify(CLOUD_CONFIG));
   return { home, trackerDir };
 }
 
@@ -196,4 +200,15 @@ test("maybeSendHeartbeat survives a rejecting fetch (network error)", async () =
   });
   assert.equal(result.sent, false);
   assert.equal(result.reason, "error");
+});
+
+test("maybeSendHeartbeat stays silent when no cloud instance is configured", async () => {
+  const { trackerDir } = await makeTrackerDir();
+  await fs.writeFile(path.join(trackerDir, "config.json"), JSON.stringify({}));
+  const { calls, impl } = fakeFetch([]);
+
+  const result = await maybeSendHeartbeat({ trackerDir, fetchImpl: impl, nowMs: Date.now(), env: BASE_ENV });
+  assert.equal(result.sent, false);
+  assert.equal(result.reason, "local-only");
+  assert.equal(calls.length, 0, "a local-only install must not dial any host");
 });

@@ -21,10 +21,10 @@ timestamps, never prompts, responses, or source code.
 - [Claude IP check](https://(removed)/ip-check)
 
 ## Product
-- Install command: `npx tokentracker-cli`
+- Install: download the Windows installer from GitHub Releases
 - macOS app: `brew install --cask xiufengsun/tokentracker/tokentracker`
 - Windows app: `TokenTracker-Setup.exe` from the latest GitHub Release
-- [npm package](https://www.npmjs.com/package/tokentracker-cli)
+- [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest)
 - [Latest release](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest)
 
 ## Supported AI coding tools (53)
@@ -87,7 +87,7 @@ timestamps, never prompts, responses, or source code.
 - Optional cross-device sync, public leaderboard, profiles, and README badges
 
 ## Post-install local views
-After running `npx tokentracker-cli`, the private dashboard is available at
+After installing the desktop app, the private dashboard is available at
 http://localhost:7680 on the user's own machine. It includes usage, cost,
 limits, projects, heatmap, skills, achievements, widgets, and settings.
 

@@ -73,6 +73,14 @@ async function cmdDeviceLogin(argv = [], options = {}) {
     cli: { baseUrl: opts.baseUrl || process.env.TOKENTRACKER_BASE_URL || process.env.TOKENTRACKER_API_URL,
       anonKey: opts.anonKey, dashboardUrl: opts.dashboardUrl }, config, env: process.env,
   }));
+  // Device login is a cloud-only flow: this build ships no default backend, so
+  // an unconfigured runtime has nothing to authorize against.
+  if (!normalizeInstanceBaseUrl(runtime.baseUrl) || !normalizeInstanceBaseUrl(runtime.dashboardUrl)) {
+    throw Object.assign(
+      new Error("No cloud backend is configured. Pass --base-url together with --anon-key-file, or set TOKENTRACKER_INSFORGE_BASE_URL and TOKENTRACKER_INSFORGE_ANON_KEY."),
+      { code: "cloud_not_configured", status: 503 },
+    );
+  }
   const baseUrl = runtime.baseUrl;
 
   const clientInfo = `${os.platform()}-${os.arch()} ${os.hostname()}`;

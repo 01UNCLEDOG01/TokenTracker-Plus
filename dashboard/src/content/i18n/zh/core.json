@@ -1,5 +1,6 @@
 {
   "limits.label.qoder_cn_addon_credits": "资源包",
+  "limits.status.client_not_running": "{app} 未运行——打开并登录后可读取配额。",
   "cloud.rebuild.action": "重建本设备云端数据",
   "cloud.rebuild.title": "重建云端数据？",
   "cloud.rebuild.description": "将清除本设备的云端用量，再上传当前本地历史。本设备仅存于云端的历史会丢失。本地数据、其他设备和账号共享用量会保留。",
@@ -856,6 +857,7 @@
   "device.approval.error.sign_in": "请先登录。",
   "device.approval.error.invalid_code": "代码格式无效，应为 XXXX-XXXX。",
   "device.approval.error.no_token": "未获取到访问令牌，请重新登录。",
+  "device.approval.error.no_cloud": "未配置云端实例——设备授权需要 InsForge 后端。",
   "device.approval.success.already": "此设备此前已经授权。",
   "device.approval.success.already_client": "{{client}} 此前已经授权。",
   "device.approval.success.approved": "授权成功。你可以关闭此标签页，CLI 将在几秒内完成连接。",

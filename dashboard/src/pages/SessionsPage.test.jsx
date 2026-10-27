@@ -231,7 +231,7 @@ describe("SessionsPage", () => {
       session_hash: "workbuddy-row",
       title: "Sync the ledger copy",
       source: "workbuddy",
-      project_key: "gengxutang",
+      project_key: "acme-web",
       model: "hy3",
       credits: 1234,
       total_tokens: 45_000,

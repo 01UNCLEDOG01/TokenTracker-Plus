@@ -9,7 +9,7 @@ const vm = require("node:vm");
 const { createHmac, randomUUID } = require("node:crypto");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
-const { resolveRuntimeConfig, isPublicAnonKey, DEFAULT_ANON_KEY, DEFAULT_BASE_URL, DEFAULT_DASHBOARD_URL } = require("../src/lib/runtime-config");
+const { resolveRuntimeConfig, isPublicAnonKey, DEFAULT_BASE_URL } = require("../src/lib/runtime-config");
 const { createLocalApiHandler } = require("../src/lib/local-api");
 const { cmdDeviceLogin } = require("../src/commands/device-login");
 
@@ -88,6 +88,14 @@ test("invalid opaque formats never become public credentials or trigger the offi
 });
 async function local(t, { cloudSync = false } = {}) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "tt-instance-isolation-"));
+  // Read-time provider sources resolve from the real home; point them at the
+  // fixture so a developer machine's Qoder/JoyCode data cannot leak in.
+  const previousHome = process.env.HOME; const previousProfile = process.env.USERPROFILE;
+  process.env.HOME = directory; process.env.USERPROFILE = directory;
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.HOME; else process.env.HOME = previousHome;
+    if (previousProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = previousProfile;
+  });
   const queue = path.join(directory, "queue.jsonl");
   const history = '{"source":"codex","model":"gpt-6","hour_start":"2026-10-01T12:00:00Z","total_tokens":123}\n';
   await fs.writeFile(queue, history);
@@ -113,7 +121,7 @@ test("pure runtime parsing binds custom public keys and credentials to their sel
     deviceToken: "old-private-token", deviceTokenBaseUrl: a }, env: {} });
   assert.equal(invalid.anonKey, null); assert.equal(invalid.deviceToken, null);
   assert.equal(invalid.configurationError, "custom_insforge_anon_key_required");
-  for (const key of [DEFAULT_ANON_KEY, "ik_privileged-test-only", jwt("service_role", "A")]) {
+  for (const key of ["ik_privileged-test-only", jwt("service_role", "A")]) {
     const denied = resolveRuntimeConfig({ cli: { baseUrl: b, anonKey: key }, env: {} });
     assert.equal(denied.anonKey, null); assert.equal(denied.configurationError, "invalid_insforge_anon_key");
   }
@@ -153,10 +161,12 @@ test("CLI init persists its own public configuration and resets cloud identity w
   assert.equal(await fs.readFile(path.join(tracker, "cursors.json"), "utf8"), cursors);
   assert.equal(JSON.parse(await fs.readFile(path.join(tracker, "queue.state.json"), "utf8")).offset, 0);
   for (const file of transient) assert.equal(fssync.existsSync(path.join(tracker, file)), false);
-  await run(["--base-url", DEFAULT_BASE_URL]);
-  const official = JSON.parse(await fs.readFile(configPath, "utf8"));
-  assert.equal(official.baseUrl, DEFAULT_BASE_URL); assert.equal(official.anonKey, DEFAULT_ANON_KEY);
-  assert.equal(official.dashboardUrl, DEFAULT_DASHBOARD_URL);
+  await fs.writeFile(configPath, JSON.stringify({ installedAt: "2026-05-01T00:00:00.000Z", machineId: "same-machine" }));
+  await run([]);
+  const localOnly = JSON.parse(await fs.readFile(configPath, "utf8"));
+  assert.equal(localOnly.baseUrl, undefined, "a local-only init persists no backend URL");
+  assert.equal(localOnly.anonKey, undefined);
+  assert.equal(localOnly.dashboardUrl, undefined);
   const before = await fs.readFile(configPath, "utf8");
   await assert.rejects(run(["--base-url", b]), /requires its own public anon key/);
   await assert.rejects(run(["--base-url", b, "--anon-key", "ik_private-unsafe"]), /public anon key/);
@@ -250,30 +260,23 @@ test("two live HTTP instances never receive another instance's cookie, key, bear
     { "x-tokentracker-local-auth": localAuth })).status, 409, "returning to A cannot revive its previous upload capability");
 });
 
-test("switching a custom instance back to official never relays its old browser cookies", async t => {
-  const a = await instance(t, "A"); const app = await local(t); const officialCalls = [];
-  const originalFetch = global.fetch;
-  global.fetch = async (url, options) => {
-    if (String(url).startsWith(DEFAULT_BASE_URL + "/")) {
-      officialCalls.push({ url: String(url), headers: options.headers, body: options.body });
-      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
-    }
-    return originalFetch(url, options);
-  };
-  t.after(() => { global.fetch = originalFetch; });
+test("switching to another instance never relays the previous instance's browser cookies", async t => {
+  const a = await instance(t, "A"); const b = await instance(t, "B"); const app = await local(t);
   await app.config({ baseUrl: a.base, anonKey: a.anon, dashboardUrl: a.base });
   assert.equal((await app.request("/api/auth/sign-in", {}, { apikey: a.anon, "x-tokentracker-instance": a.base })).status, 200);
-  await app.config({ baseUrl: DEFAULT_BASE_URL });
+  await app.config({ baseUrl: b.base, anonKey: b.anon, dashboardUrl: b.base });
   assert.equal((await app.request("/api/runtime-config.js")).status, 200);
-  assert.equal((await app.request("/api/auth/refresh", {}, { apikey: DEFAULT_ANON_KEY, "x-tokentracker-instance": DEFAULT_BASE_URL,
+  const before = b.calls.length;
+  assert.equal((await app.request("/api/auth/refresh", {}, { apikey: b.anon, "x-tokentracker-instance": b.base,
     Cookie: "insforge_refresh_token=refresh-A; insforge_csrf_token=csrf-A", "x-csrf-token": "csrf-A" })).status, 200);
-  assert.equal(officialCalls.length, 1);
-  assert.equal(officialCalls[0].headers.cookie, undefined); assert.equal(officialCalls[0].headers["x-csrf-token"], undefined);
-  assert.equal(officialCalls[0].headers.apikey, DEFAULT_ANON_KEY);
-  assert.ok(!JSON.stringify(officialCalls).includes("refresh-A"));
-  assert.equal((await app.request("/api/auth/refresh", {}, { apikey: DEFAULT_ANON_KEY,
-    "x-tokentracker-instance": DEFAULT_BASE_URL, Authorization: "Bearer " + a.access })).status, 409);
-  assert.equal(officialCalls.length, 1, "a known custom JWT is rejected before the official request");
+  const relayed = b.calls.slice(before);
+  assert.equal(relayed.length, 1);
+  assert.equal(relayed[0].headers.cookie, undefined); assert.equal(relayed[0].headers["x-csrf-token"], undefined);
+  assert.equal(relayed[0].headers.apikey, b.anon);
+  assert.ok(!JSON.stringify(relayed).includes("refresh-A"));
+  assert.equal((await app.request("/api/auth/refresh", {}, { apikey: b.anon,
+    "x-tokentracker-instance": b.base, Authorization: "Bearer " + a.access })).status, 409,
+  "a JWT issued for the previous instance is rejected before any request");
 });
 
 test("a late auth response cannot restore the previous instance's relay credentials", async t => {
@@ -306,7 +309,7 @@ test("custom missing or privileged client configuration fails closed without exp
     { baseUrl: "https://user:secret@example.test", anonKey: b.anon }]) {
     await app.config(config);
     const script = await app.request("/api/runtime-config.js"); const body = await script.text();
-    assert.ok(!body.includes(DEFAULT_ANON_KEY) && !body.includes("ik_private") && !body.includes("user:secret"));
+    assert.ok(!body.includes("ik_private") && !body.includes("user:secret"));
     assert.equal((await app.request("/api/auth/sign-in", {})).status, 503);
     assert.equal(b.calls.length, 0);
   }

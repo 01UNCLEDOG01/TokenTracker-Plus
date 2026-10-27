@@ -2200,7 +2200,13 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     if (runtime.configurationError || (!fs.existsSync(runtimeConfigPath) && !fs.existsSync(qp))) return runtime;
     const fingerprint = fingerprintFor(runtime);
     if (fingerprint !== instanceFingerprint) {
-      if (instanceFingerprint || runtime.baseUrl !== DEFAULT_BASE_URL) {
+      // Local-first: clear relayed state only when a previously known instance
+      // (persisted in runtime-instance.json or seen earlier in this process)
+      // no longer matches. There is no bundled default instance anymore, so a
+      // true first start must adopt the fingerprint WITHOUT wiping cookies —
+      // the old `baseUrl !== DEFAULT_BASE_URL` arm would sign out every
+      // explicitly configured instance on each fresh start.
+      if (instanceFingerprint) {
         clearRelayCookies("backend instance changed");
         _nativeAuthPending = false; _nativeAuthExpiry = 0;
         resetInstanceState(path.dirname(qp));
@@ -2509,7 +2515,10 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     }
 
     const issuePromise = (async () => {
-      const root = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
+      const root = String(baseUrl || "").replace(/\/$/, "");
+      if (!root) {
+        throw Object.assign(new Error("no InsForge instance configured"), { code: "cloud_not_configured" });
+      }
       const headers = {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -2636,7 +2645,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         pending = fetchAccountUsage({
           usageSlug,
           searchParams: url.searchParams,
-          baseUrl: runtime.baseUrl || DEFAULT_BASE_URL,
+          baseUrl: runtime.baseUrl,
           anonKey: runtime.anonKey,
           refreshToken,
           timeoutMs,
@@ -2940,7 +2949,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const authSessionAtStart = getCloudAccountSessionGeneration();
       const runtime = getRuntime();
       try { assertInsforgeRuntime(runtime); } catch (error) { json(res, { code: error.code, error: error.message }, 503); return true; }
-      const insforgeBase = runtime.baseUrl || DEFAULT_BASE_URL;
+      // Local-first: with no cloud instance configured there is no auth
+      // backend to proxy to; local sessions are handled entirely in-process.
+      if (!runtime.baseUrl) {
+        json(res, { code: "cloud_not_configured", error: "No cloud instance configured. Set --base-url or TOKENTRACKER_INSFORGE_BASE_URL to enable cloud features." }, 409);
+        return true;
+      }
+      const insforgeBase = runtime.baseUrl;
       if (req.headers.apikey && req.headers.apikey !== runtime.anonKey) {
         json(res, { code: "instance_changed", error: "The public client key belongs to another backend instance." }, 409);
         return true;
@@ -3136,7 +3151,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           accept: req.headers["accept"] || "*/*",
           "accept-language": req.headers["accept-language"] || "en",
           "accept-encoding": req.headers["accept-encoding"] || "gzip",
-          "user-agent": "TokenTracker/IPCheck (https://(removed))",
+          "user-agent": "TokenTracker/IPCheck (local-first fork)",
           referer: `${IP_CHECK_TARGET}${targetPath}`,
         };
 
@@ -3242,7 +3257,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           headers: {
             accept: req.headers["accept"] || "image/*",
             "accept-language": req.headers["accept-language"] || "en",
-            "user-agent": "TokenTracker/AvatarProxy (https://(removed))",
+            "user-agent": "TokenTracker/AvatarProxy (local-first fork)",
           },
         });
         if (!upstream.ok) {

@@ -1,12 +1,14 @@
 # Privacy Policy
 
-_Last updated: 2026-10-04 · Applies to the `tokentracker-cli` npm package, the macOS app, the Windows app, the Linux app, and [(removed)](https://(removed))._
+_Last updated: 2026-10-28 · Applies to TokenTracker Plus: the Windows desktop app, the CLI, and the bundled dashboard.
+
+This build ships **no first-party cloud service**. There is no TokenTracker-operated backend, account system, or leaderboard server, and no shared key is bundled. Every row below marked as cloud-only is inactive unless you explicitly configure an InsForge-compatible instance of your own (`--base-url` with your own public anon key, or `TOKENTRACKER_INSFORGE_BASE_URL`); with nothing configured the app makes no cloud request of any kind.
 
 TokenTracker reads the local logs that AI coding tools already write to your disk, and turns them into token counts and cost estimates. It is local-first: the dashboard, the parsers and the database all run on your machine.
 
 Cloud billing is being developed. The billing entries below describe the planned flow and do not mean paid checkout or Cloud history retention is already active in production. See the [Cloud guide](cloud-guide.md) for the proposed limits and transition rules.
 
-This document lists **every** network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please [open an issue](https://github.com/xiufengsun/TokenTracker/issues).
+This document lists **every** network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please [open an issue](https://github.com/01UNCLEDOG01/TokenTracker-plus/issues).
 
 ---
 
@@ -53,7 +55,6 @@ To erase everything TokenTracker knows about you, delete that directory. `tokent
 
 | Request | Destination | What is sent | Frequency |
 |---|---|---|---|
-| **Anonymous heartbeat** | `srctyff5.us-east.insforge.app` | A one-way hash of the machine id, plus the app version, OS platform, and app shell (`cli` / `macos` / `windows` / `linux`) as separate plain fields. Nothing else. | At most once per day |
 | **Dashboard analytics** | `us.i.posthog.com` (PostHog) | Pageviews and explicitly instrumented feature events, plus which shell you use. Autocapture and session recording are **off**; browser Do-Not-Track is respected. | While the dashboard is open |
 | **Provider quota reads** | The provider's own API (`api.anthropic.com`, `chatgpt.com`, `cursor.com`, `api.github.com`, `api.kimi.com`, `api.z.ai`, `qoder.com`, `qoder.com.cn`, `openapi.qoder.sh`, `openapi.qoder.com.cn`, `cloudcode-pa.googleapis.com`, …) | Whatever that provider's own endpoint requires, authenticated with the credentials **that provider already stored on your machine**. These requests go directly from your machine to the provider — they never pass through our servers, and we never see the response. | While quota bars are visible |
 | **TRAE CN usage read** | TRAE's internal API | Transmits the existing sign-in authorization from the locally signed-in TRAE CN app to TRAE; reads usage metadata only. TokenTracker never persists or logs the auth token or prompt/response content. | Off unless you set `TOKENTRACKER_TRAE_CN_USAGE=1`; then during eligible non-background sync when local TRAE CN auth exists |
@@ -76,7 +77,8 @@ Audit: [`src/lib/telemetry.js`](../src/lib/telemetry.js), [`dashboard/src/lib/an
 | Request | Destination | What is sent | Trigger |
 |---|---|---|---|
 | **Devin quota read** | `server.codeium.com` (Devin's official `GetPlanStatus` RPC) | An empty JSON body, authenticated with the Devin CLI session token already stored on your machine. The token is never persisted or logged by TokenTracker. | Off by default — only while the Devin provider switch in Settings → Usage & Limits → Providers is on, and only on a locally authenticated request |
-| **Cloud sync / leaderboard** | `srctyff5.us-east.insforge.app` | Hourly buckets only — see §4 | Signing in to a TokenTracker account |
+| **Anonymous heartbeat** | The cloud instance you configured | A one-way hash of the machine id, plus the app version, OS platform, and app shell (`cli` / `macos` / `windows` / `linux`) as separate plain fields. Nothing else. | At most once per day, and only while a cloud instance is configured |
+| **Cloud sync / leaderboard** | The InsForge-compatible instance you configured | Hourly buckets only — see §4 | Signing in to an account on that instance |
 | **Cloud billing (planned)** | TokenTracker backend | Signed-in account, plan, provider, order reference, and requests to read membership or payment history | Choosing trial, checkout, or account billing after launch |
 | **Payment checkout (planned)** | (removed) hosted checkout | Order and opaque account references, environment, plan and amount/currency to bind payment to membership. You enter your purchase email and payment/billing details in Waffo's interface. No usage buckets or AI provider credentials are sent | Explicitly choosing paid Cloud checkout after launch |
 | **Exchange rates** | `open.er-api.com` | Nothing but the request itself | Selecting a non-USD display currency |
@@ -95,6 +97,8 @@ Audit: [`src/lib/telemetry.js`](../src/lib/telemetry.js), [`dashboard/src/lib/an
 
 ## 4. Cloud account and leaderboard
 
+**This build operates no cloud service**, so by default there is nothing to sign in to: local history, achievements, sessions and every card are computed on your machine. If you point the app at an InsForge-compatible instance you control, the account features below become available on that instance, and it — not the TokenTracker authors — operates and stores them.
+
 Signing in is **entirely optional**. TokenTracker is fully functional without an account; the leaderboard, cross-device aggregation, badges and public profiles are the only features that require one.
 
 **Sent when signed in:**
@@ -112,7 +116,7 @@ Signing in is **entirely optional**. TokenTracker is fully functional without an
 
 **Public visibility:** your profile appears on the public leaderboard only while `Settings → Account → Public profile` is on. Turning it off removes you from the leaderboard and turns badges into a "private" placeholder.
 
-**Deleting cloud data:** contact us via [GitHub issues](https://github.com/xiufengsun/TokenTracker/issues) and we will remove the account and its usage rows. Deleting `~/.tokentracker/` removes the local copy immediately. Do not include receipts or other billing information in a public issue.
+**Deleting cloud data:** contact us via [GitHub](https://github.com/01UNCLEDOG01/TokenTracker-plus) and we will remove the account and its usage rows. Deleting `~/.tokentracker/` removes the local copy immediately. Do not include receipts or other billing information in a public issue.
 
 ### 4.1 Cloud billing and retention (planned)
 
@@ -128,9 +132,9 @@ Usage deletion and billing-record retention are different requests. Any transact
 
 | Service | Role | Their policy |
 |---|---|---|
-| InsForge | Backend for accounts, cloud sync, leaderboard, heartbeat | [github.com/InsForge](https://github.com/InsForge) |
+| InsForge | The backend software you may self-host for accounts, cloud sync and the leaderboard | [github.com/InsForge](https://github.com/InsForge) |
 | PostHog | Anonymous product analytics | [posthog.com/privacy](https://posthog.com/privacy) |
-| Vercel | Hosting for (removed) | [vercel.com/legal/privacy-policy](https://vercel.com/legal/privacy-policy) |
+
 | GitHub | Source hosting, releases, OAuth, star counts, upstream pricing data (`raw.githubusercontent.com`) | [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement) |
 | Google | OAuth sign-in, fonts on share cards | [policies.google.com/privacy](https://policies.google.com/privacy) |
 | (removed) (planned) | New Cloud checkout, recurring/fixed-term purchases, MoR, consumer bills, payment/refund callbacks | [Waffo Privacy Policy](https://www.(removed)/privacy) |

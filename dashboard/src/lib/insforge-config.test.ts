@@ -12,7 +12,12 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); delete window.__TOKENTRACKER_RUNTIME_CONFIG__; });
 
 describe("instance-bound frontend SDK", () => {
-  it("keeps the official singleton and OAuth callback behavior without runtime overrides", async () => {
+  it("keeps the SDK singleton and OAuth callback behavior for an explicitly configured deployment", async () => {
+    // Local-first: no bundled official fallback — pin an explicit build
+    // deployment so the singleton behavior is exercised without runtime
+    // overrides.
+    vi.stubEnv("VITE_INSFORGE_BASE_URL", "https://build.example");
+    vi.stubEnv("VITE_INSFORGE_ANON_KEY", anon("build"));
     const config = await import("./insforge-config");
     const client = config.getOrCreateInsforgeClient();
     expect(config.getOrCreateInsforgeClient()).toBe(client);
@@ -42,6 +47,8 @@ describe("instance-bound frontend SDK", () => {
     expect(sdk.create).not.toHaveBeenCalled();
   });
   it("clears only SDK auth/PKCE when the instance changes and refuses stale clients", async () => {
+    vi.stubEnv("VITE_INSFORGE_BASE_URL", "https://build.example");
+    vi.stubEnv("VITE_INSFORGE_ANON_KEY", anon("build"));
     const config = await import("./insforge-config");
     const original: any = config.getOrCreateInsforgeClient();
     sessionStorage.setItem("insforge_pkce_verifier", "old-pkce");

@@ -122,6 +122,9 @@ export async function cloudBillingRequest<T>(
 ): Promise<T> {
   const requestInstance = getInsforgeRemoteUrl();
   const requestAnonKey = getInsforgeAnonKey();
+  // Local-first: with no instance configured there is no host to call. Refuse
+  // before `new URL("")` throws a bare TypeError into the UI.
+  if (!requestInstance) throw new CloudBillingError("cloud_not_configured", 409);
   const assertInstance = () => {
     if (requestInstance !== getInsforgeRemoteUrl() || requestAnonKey !== getInsforgeAnonKey())
       throw new CloudBillingError("instance_changed", 409);

@@ -1265,7 +1265,14 @@ function localDataApiPlugin() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ROOT_DIR, "VITE_");
   const backendConfiguration = validateInsforgeBuildEnv(env);
-  if (backendConfiguration.errorCode)
+  // Local-first: shipping no backend is a supported build. Only an explicitly
+  // provided (and therefore malformed) pair is rejected — otherwise the empty
+  // default would block every local-only `vite build` / `vite dev`.
+  const declaredBackend = Boolean(
+    String(env.VITE_INSFORGE_BASE_URL || env.VITE_TOKENTRACKER_BACKEND_BASE_URL || "").trim() ||
+    String(env.VITE_INSFORGE_ANON_KEY || env.VITE_TOKENTRACKER_BACKEND_ANON_KEY || "").trim(),
+  );
+  if (declaredBackend && backendConfiguration.errorCode)
     throw new Error(`InsForge frontend configuration rejected: ${backendConfiguration.errorCode}. Values were not logged.`);
   const fallbackVersion = loadAppVersion();
   const define = {};

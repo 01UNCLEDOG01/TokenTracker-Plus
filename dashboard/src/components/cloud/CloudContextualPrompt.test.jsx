@@ -7,6 +7,9 @@ import { setCopyLocale } from "../../lib/copy";
 import { publishCloudPromptBilling, recordCloudPromptIntent, recordCloudPromptFailure } from "../../lib/cloud-prompt-policy.js";
 import { CloudContextualPrompt, CloudDeadlinePrompt } from "./CloudContextualPrompt.jsx";
 import { readCloudAction } from "../../lib/cloud-action-intent.js";
+import { useConfiguredCloudInstance } from "../../test/configured-cloud";
+
+useConfiguredCloudInstance();
 
 const now = Date.parse("2026-10-08T08:00:00Z");
 let userId;

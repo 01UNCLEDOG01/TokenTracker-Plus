@@ -10,7 +10,6 @@
 // functions. Those functions mirror the local `tokentracker-usage-*` response
 // schema exactly, so the popover renders the cloud payload unchanged.
 
-const { DEFAULT_BASE_URL, DEFAULT_ANON_KEY } = require("./runtime-config");
 const { expandHeatmapCompact } = require("./heatmap-compact");
 const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 
@@ -320,7 +319,12 @@ async function mintAccessToken({
     if (throwOnFailure) throw new AccountAuthError("auth_missing_refresh_token", "not signed in");
     return null;
   }
-  const root = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
+  const root = String(baseUrl || "").replace(/\/$/, "");
+  if (!root) {
+    // Local-first: no configured cloud instance means nowhere to mint from.
+    if (throwOnFailure) throw new AccountAuthError("cloud_not_configured", "no InsForge instance configured");
+    return null;
+  }
   const cacheKey = `${root}\0${refreshToken}`;
   if (
     tokenCache.cacheKey === cacheKey &&
@@ -362,7 +366,11 @@ async function fetchAccountFunction({
   fetchImpl = fetch,
   timeoutMs,
 } = {}) {
-  const root = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
+  const root = String(baseUrl || "").replace(/\/$/, "");
+  if (!root) {
+    // Local-first: no configured cloud instance means nothing to fetch.
+    throw Object.assign(new Error("no InsForge instance configured"), { code: "cloud_not_configured" });
+  }
   const url = new URL(functionUrlFor(root, slug));
   url.search = accountFunctionParams(slug, searchParams).toString();
   const headers = { Accept: "application/json", Authorization: `Bearer ${accessToken}` };
@@ -409,8 +417,8 @@ async function fetchAccountFunction({
 async function fetchAccountUsage({
   usageSlug,
   searchParams,
-  baseUrl = DEFAULT_BASE_URL,
-  anonKey = DEFAULT_ANON_KEY,
+  baseUrl = "",
+  anonKey = "",
   refreshToken,
   fetchImpl = fetch,
   now = Date.now,
@@ -420,6 +428,12 @@ async function fetchAccountUsage({
   const slug = accountSlugFor(usageSlug);
   if (!slug) return null;
   if (!refreshToken) return null;
+  // Local-first: without an explicitly configured cloud instance there is no
+  // account view to fetch; report "not signed in" instead of dialing a host.
+  // The anon key is not gated here: strict instance/key pairing is validated
+  // at the runtime-config layer, and machinery-level callers may exercise the
+  // mint/cache pipeline with an explicit baseUrl while managing keys themselves.
+  if (!baseUrl) return null;
 
   const sessionAtStart = sessionGeneration;
   const startTime = now();
@@ -460,7 +474,7 @@ async function fetchAccountUsage({
   // revoked session fails here rather than being served from cache.
   const sub = decodeJwtSub(minted.accessToken);
   const cacheKey = sub
-    ? payloadCacheKey({ root: String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, ""), sub, slug, searchParams })
+    ? payloadCacheKey({ root: String(baseUrl || "").replace(/\/$/, ""), sub, slug, searchParams })
     : null;
   const force = searchParams?.get("refresh") === "1";
   if (cacheKey && !force) {

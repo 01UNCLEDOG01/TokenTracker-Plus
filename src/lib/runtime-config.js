@@ -1,21 +1,30 @@
-const DEFAULT_BASE_URL = "https://srctyff5.us-east.insforge.app";
+// Local-first fork: there is NO default cloud. The upstream project's
+// InsForge instance (srctyff5) is just another retired backend from this
+// fork's perspective — cloud features require an explicitly configured
+// instance (config.json, TOKENTRACKER_INSFORGE_BASE_URL, or --base-url).
+const DEFAULT_BASE_URL = null;
 // InsForge projects this product has retired. b46ug8xu was production until
 // the 2026-04-19 migration to srctyff5 (0.5.67, commit 73f461b8); init
 // preserves any persisted config.baseUrl, so installs initialized before the
 // migration stayed pinned to it and kept uploading there until the old
 // project's backend went dark on 2026-07-27 (HTTP 503 on every request).
 // Persisted values naming these hosts must fall back to the current default.
-const LEGACY_INSFORGE_HOSTS = new Set(["b46ug8xu.us-east.insforge.app"]);
-const DEFAULT_DASHBOARD_URL = "https://(removed)";
+// srctyff5 (both the API and the functions host) was the upstream default
+// until this fork went local-first: persisted copies of it must also fall
+// back to "no cloud" instead of silently phoning the upstream backend.
+const LEGACY_INSFORGE_HOSTS = new Set([
+  "b46ug8xu.us-east.insforge.app",
+  "srctyff5.us-east.insforge.app",
+  "srctyff5.function2.insforge.app",
+]);
+const DEFAULT_DASHBOARD_URL = null;
 const DEFAULT_HTTP_TIMEOUT_MS = 20_000;
-// Public InsForge anon key (JWT, role=anon). Mirrors dashboard/src/lib/insforge-config.ts
-// (PROD_INSFORGE_ANON_KEY) — public by design (ships in the browser bundle and
-// appears in .github/workflows/*.yml). The local server needs it to call the
-// cross-device `tokentracker-account-*` edge functions on the popover's behalf.
-// (Previously this mistakenly used the full-access `ik_*` API key, which has
-// admin access and must never be shipped to clients.)
-const DEFAULT_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDU5NDd9.T0auta_IrVIh0uXW1bob5QSnzvsnJmN28r5XkSGEuQY";
+// No bundled anon key: without an explicitly configured cloud instance
+// there is nothing to authenticate against. Self-hosters provide their own
+// instance's public anon key (config.json, TOKENTRACKER_INSFORGE_ANON_KEY,
+// or --anon-key-file). The historical value pointed at the upstream
+// project's InsForge instance and was removed with the local-first flip.
+const DEFAULT_ANON_KEY = null;
 
 function resolveRuntimeConfig({ cli = {}, config = {}, env = process.env, defaults = {} } = {}) {
   // Older Windows test runs could leak their fixture HOME and persist
@@ -31,10 +40,17 @@ function resolveRuntimeConfig({ cli = {}, config = {}, env = process.env, defaul
     DEFAULT_BASE_URL,
   );
   const selectedBase = normalizeInstanceBaseUrl(baseUrl.value);
-  const configBase = normalizeInstanceBaseUrl(persistedBaseUrl || DEFAULT_BASE_URL);
-  const envBase = normalizeInstanceBaseUrl(env?.TOKENTRACKER_INSFORGE_BASE_URL || baseUrl.value);
-  const defaultBase = normalizeInstanceBaseUrl(defaults.baseUrl || DEFAULT_BASE_URL);
-  const custom = selectedBase !== DEFAULT_BASE_URL;
+  // Local-first: a missing baseUrl is a valid "no cloud" state, not an error.
+  // Only a *provided but malformed* value (selectedBase null while a value
+  // exists) is a configuration error.
+  const localOnly = !baseUrl.value;
+  const configBase = normalizeInstanceBaseUrl(persistedBaseUrl);
+  const envBase = normalizeInstanceBaseUrl(env?.TOKENTRACKER_INSFORGE_BASE_URL);
+  const defaultBase = normalizeInstanceBaseUrl(defaults.baseUrl);
+  // Any resolved instance is "custom" from this fork's perspective: there is
+  // no bundled default cloud, so a self-configured instance must always bring
+  // its own public anon key.
+  const custom = Boolean(selectedBase);
   const anonKey = pickString(
     cli.anonKey,
     configBase === selectedBase ? config.anonKey : undefined,
@@ -49,12 +65,12 @@ function resolveRuntimeConfig({ cli = {}, config = {}, env = process.env, defaul
     defaultBase === selectedBase ? defaults.dashboardUrl : undefined,
     custom ? baseUrl.value : DEFAULT_DASHBOARD_URL,
   );
+  // A persisted or environment token is reused only for the instance it was stored for:
+  // the base match below already scopes it, so no separate marker is needed.
   const deviceToken = pickString(
     cli.deviceToken,
-    configBase === selectedBase && (!custom || normalizeInstanceBaseUrl(config.deviceTokenBaseUrl) === selectedBase)
-      ? config.deviceToken : undefined,
-    envBase === selectedBase && (!custom || normalizeInstanceBaseUrl(env?.TOKENTRACKER_INSFORGE_BASE_URL) === selectedBase)
-      ? env?.TOKENTRACKER_DEVICE_TOKEN : undefined,
+    configBase === selectedBase ? config.deviceToken : undefined,
+    envBase === selectedBase ? env?.TOKENTRACKER_DEVICE_TOKEN : undefined,
     defaultBase === selectedBase ? defaults.deviceToken : undefined,
     null,
   );
@@ -75,12 +91,12 @@ function resolveRuntimeConfig({ cli = {}, config = {}, env = process.env, defaul
   );
 
   const unsafeKey = anonKey.value && (!isPublicAnonKey(anonKey.value) || (custom && anonKey.value === DEFAULT_ANON_KEY));
-  const configurationError = !selectedBase ? "invalid_insforge_base_url"
-    : !normalizeInstanceBaseUrl(dashboardUrl.value) ? "invalid_dashboard_url"
+  const configurationError = (!localOnly && !selectedBase) ? "invalid_insforge_base_url"
+    : (!localOnly && !normalizeInstanceBaseUrl(dashboardUrl.value)) ? "invalid_dashboard_url"
     : unsafeKey ? "invalid_insforge_anon_key"
     : custom && !anonKey.value ? "custom_insforge_anon_key_required" : null;
   return {
-    baseUrl: selectedBase || baseUrl.value,
+    baseUrl: selectedBase || (localOnly ? null : baseUrl.value),
     anonKey: unsafeKey ? null : anonKey.value,
     dashboardUrl: dashboardUrl.value,
     deviceToken: configurationError ? null : deviceToken.value,

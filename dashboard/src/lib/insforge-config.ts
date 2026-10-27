@@ -3,20 +3,17 @@ import { functionUrlFor } from "./function-url";
 import { validateInsforgeDeployment } from "./insforge-deployment-config.mjs";
 
 /**
- * Production InsForge cloud — hardcoded fallback so deployments that don't
- * inject `VITE_INSFORGE_*` at build time (notably the Vercel build for
- * (removed)) still reach the cloud. Without this, `getInsforgeRemoteUrl`
- * returns "" and every cloud call (leaderboard list, profile modal, OAuth
- * login) silently fails on the public site.
+ * Local-first fork: no bundled cloud fallback. Cloud features require an
+ * explicitly configured InsForge instance injected at runtime (the local
+ * server sets `window.__TOKENTRACKER_RUNTIME_CONFIG__`) or `VITE_INSFORGE_*`
+ * build-time variables for a self-hosted deployment. With neither present,
+ * `getInsforgeRemoteUrl` returns "" and all cloud UI is hidden.
  *
- * Both values are public by design: the anon key is a JWT (role=anon) meant to
- * ship in the browser bundle and also appears in `.github/workflows/*.yml`.
- * (Previously this mistakenly hardcoded the full-access `ik_*` API key, which
- * has admin access and must never reach the frontend.) Explicit env vars still win.
+ * The historical production fallback pointed at the upstream project's
+ * InsForge instance and was removed with the local-first flip.
  */
-const PROD_INSFORGE_BASE_URL = "https://srctyff5.us-east.insforge.app";
-const PROD_INSFORGE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNDU5NDd9.T0auta_IrVIh0uXW1bob5QSnzvsnJmN28r5XkSGEuQY";
+const PROD_INSFORGE_BASE_URL = "";
+const PROD_INSFORGE_ANON_KEY = "";
 
 export const INSFORGE_INSTANCE_CHANGED_EVENT = "tt.insforgeInstanceChanged";
 const INSTANCE_STORAGE_KEY = "tt.insforge.instance";
@@ -67,7 +64,10 @@ export function getInsforgeInstanceFingerprint(): string {
   return getInsforgeConfiguration().baseUrl;
 }
 export function isOfficialInsforgeInstance(): boolean {
-  return getInsforgeConfiguration().baseUrl === PROD_INSFORGE_BASE_URL;
+  // Local-first: an unconfigured deployment must not masquerade as the
+  // (now empty) official instance and activate official-only behaviors.
+  const config = getInsforgeConfiguration();
+  return !config.errorCode && config.baseUrl === PROD_INSFORGE_BASE_URL;
 }
 export function getInsforgeConnectionHost(): string | null {
   const config = getInsforgeConfiguration();
@@ -118,8 +118,13 @@ export function getOrCreateInsforgeClient(): ReturnType<typeof createClient> | n
   if (insforgeClientSingleton && clientIdentity === identity) return insforgeClientSingleton;
   let previousBase = "";
   try { previousBase = localStorage.getItem(INSTANCE_STORAGE_KEY) || ""; } catch { /* No persisted instance. */ }
+  // Local-first: there is no bundled official instance, so a missing persisted
+  // marker means a brand-new profile, not an instance switch — OAuth callback
+  // detection and session restore must work on the very first load. The old
+  // third arm (!previousBase && baseUrl !== PROD) would have treated every
+  // first-time configured instance as a switch and blocked both.
   const changed = Boolean((clientIdentity && clientIdentity !== identity) ||
-    (previousBase && previousBase !== config.baseUrl) || (!previousBase && config.baseUrl !== PROD_INSFORGE_BASE_URL));
+    (previousBase && previousBase !== config.baseUrl));
   if (changed) resetInsforgeClientForInstanceChange();
   try { localStorage.setItem(INSTANCE_STORAGE_KEY, config.baseUrl); } catch { /* Restoration stays conservative. */ }
   const expectedBase = config.baseUrl;

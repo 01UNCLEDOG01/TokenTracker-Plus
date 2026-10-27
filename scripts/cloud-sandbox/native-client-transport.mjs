@@ -1,7 +1,11 @@
 export const REALM = "tokentracker-native-sandbox-v1";
-export const BACKEND = "https://srctyff5.us-east.insforge.app";
-export const FUNCTIONS = "https://srctyff5.function2.insforge.app";
-export const GATEWAY = FUNCTIONS + "/tokentracker-native-sandbox-gateway";
+// Local-first fork: the sandbox backend is an explicit input. Without
+// TT_SANDBOX_BACKEND / TT_SANDBOX_FUNCTIONS the constants are empty and the
+// tools that consume them must refuse to run instead of dialing a bundled
+// (upstream) host.
+export const BACKEND = process.env.TT_SANDBOX_BACKEND || "";
+export const FUNCTIONS = process.env.TT_SANDBOX_FUNCTIONS || "";
+export const GATEWAY = FUNCTIONS ? FUNCTIONS + "/tokentracker-native-sandbox-gateway" : "";
 const FUNCTIONS_ALLOWED = new Set(["tokentracker-billing", "tokentracker-device-token-issue", "tokentracker-device-rename", "tokentracker-ingest",
   "tokentracker-device-flow-authorize", "tokentracker-device-flow-grant", "tokentracker-device-flow-poll",
   ...["summary", "daily", "hourly", "monthly", "heatmap", "model-breakdown", "devices"].map(name => "tokentracker-account-" + name)]);

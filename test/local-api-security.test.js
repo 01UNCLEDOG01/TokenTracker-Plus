@@ -4,7 +4,6 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { beforeEach, test } = require("node:test");
-const { DEFAULT_BASE_URL } = require("../src/lib/runtime-config");
 const crypto = require("node:crypto");
 const publicAnon = [Buffer.from('{"alg":"HS256"}').toString("base64url"),
   Buffer.from('{"role":"anon"}').toString("base64url"), "test-signature"].join(".");
@@ -897,10 +896,12 @@ test("local sync scopes relayed device token cache by InsForge base URL", async 
   const fixture = createRelayedLoginFixture("tt-local-sync-auto-cache-base-url-");
   const prevFetch = global.fetch;
   const fetchCalls = [];
-  const defaultRoot = DEFAULT_BASE_URL.replace(/\/$/, "");
+  // This build has no default cloud: a second instance is just another
+  // explicitly named origin, and it must never share the minted token.
+  const otherRoot = "https://other-instance.example";
   const tokensByRoot = new Map([
     ["https://cloud.example", "cloud-device-token"],
-    [defaultRoot, "default-device-token"],
+    [otherRoot, "other-device-token"],
   ]);
 
   global.fetch = async (urlStr, opts) => {
@@ -913,16 +914,15 @@ test("local sync scopes relayed device token cache by InsForge base URL", async 
         json: async () => ({ accessToken: "cloud-access-token" }),
       };
     }
-    if (url === `${defaultRoot}/api/auth/refresh?client_type=mobile`) {
+    if (url === `${otherRoot}/api/auth/refresh?client_type=mobile`) {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ accessToken: "default-access-token" }),
+        json: async () => ({ accessToken: "other-access-token" }),
       };
     }
     if (url.endsWith("/tokentracker-device-token-issue")) {
-      const root = url.startsWith("https://srctyff5.function2.insforge.app/")
-        ? defaultRoot : url.slice(0, -"/functions/tokentracker-device-token-issue".length);
+      const root = url.slice(0, -"/functions/tokentracker-device-token-issue".length);
       return {
         ok: true,
         status: 200,
@@ -955,7 +955,7 @@ test("local sync scopes relayed device token cache by InsForge base URL", async 
     const secondReq = createRequest({
       method: "POST",
       headers: { "x-tokentracker-local-auth": localAuthToken },
-      body: JSON.stringify({ insforgeBaseUrl: DEFAULT_BASE_URL }),
+      body: JSON.stringify({ insforgeBaseUrl: otherRoot }),
     });
     const secondRes = createResponse();
     assert.equal(

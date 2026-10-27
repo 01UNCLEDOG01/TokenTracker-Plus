@@ -1,5 +1,6 @@
 {
   "limits.label.qoder_cn_addon_credits": "資源包",
+  "limits.status.client_not_running": "{app} 未執行——開啟並登入後可讀取配額。",
   "cloud.rebuild.action": "重建本裝置雲端資料",
   "cloud.rebuild.title": "重建雲端資料？",
   "cloud.rebuild.description": "將清除本裝置的雲端用量，再上傳目前本機歷史。本裝置僅存於雲端的歷史會遺失。本機資料、其他裝置和帳號共用用量會保留。",
@@ -797,6 +798,7 @@
   "device.approval.error.sign_in": "請先登入。",
   "device.approval.error.invalid_code": "代碼格式無效，應為 XXXX-XXXX。",
   "device.approval.error.no_token": "未取得存取權杖，請重新登入。",
+  "device.approval.error.no_cloud": "未設定雲端實例——裝置授權需要 InsForge 後端。",
   "device.approval.success.already": "此裝置先前已經授權。",
   "device.approval.success.already_client": "{{client}} 先前已經授權。",
   "device.approval.success.approved": "授權成功。你可以關閉此分頁，CLI 將在幾秒內完成連接。",

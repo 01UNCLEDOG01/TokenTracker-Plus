@@ -20,10 +20,12 @@ function buildGrantUrl() {
   // here (dev/staging may differ).
   const client = getOrCreateInsforgeClient();
   // SDK doesn't expose its baseUrl as a public field; fall back to the same
-  // VITE env var that initialized the client.
+  // VITE env var that initialized the client. Local-first fork: no bundled
+  // fallback instance — without VITE_INSFORGE_BASE_URL there is no grant URL
+  // and the device-approval flow is unavailable.
   const baseUrl =
-    (import.meta.env && import.meta.env.VITE_INSFORGE_BASE_URL) ||
-    "https://srctyff5.us-east.insforge.app";
+    (import.meta.env && import.meta.env.VITE_INSFORGE_BASE_URL) || "";
+  if (!baseUrl) return "";
   return `${baseUrl.replace(/\/$/, "")}/functions/tokentracker-device-flow-grant`;
 }
 
@@ -57,12 +59,17 @@ export default function DevicePage() {
     }
     setStatus({ kind: "working", message: copy("device.approval.action.approving") });
     try {
+      const grantUrl = buildGrantUrl();
+      if (!grantUrl) {
+        setStatus({ kind: "error", message: copy("device.approval.error.no_cloud") || "No cloud instance configured." });
+        return;
+      }
       const token = await auth.getAccessToken?.();
       if (!token) {
         setStatus({ kind: "error", message: copy("device.approval.error.no_token") });
         return;
       }
-      const res = await fetch(buildGrantUrl(), {
+      const res = await fetch(grantUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

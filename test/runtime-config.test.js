@@ -35,8 +35,9 @@ test("resolveRuntimeConfig recovers from the leaked Windows test base URL", () =
     env: {},
   });
 
-  assert.equal(recovered.baseUrl, "https://srctyff5.us-east.insforge.app");
+  assert.equal(recovered.baseUrl, null, "a dropped placeholder must leave the install local-only");
   assert.equal(recovered.sources.baseUrl, "default");
+  assert.equal(recovered.configurationError, null);
 
   const explicit = resolveRuntimeConfig({
     cli: { baseUrl: "https://example.invalid" },
@@ -45,6 +46,23 @@ test("resolveRuntimeConfig recovers from the leaked Windows test base URL", () =
   });
   assert.equal(explicit.baseUrl, "https://example.invalid");
   assert.equal(explicit.sources.baseUrl, "cli");
+});
+
+test("an unconfigured runtime is local-only instead of dialing a default cloud", () => {
+  const runtime = resolveRuntimeConfig({ env: {} });
+  assert.equal(runtime.baseUrl, null);
+  assert.equal(runtime.anonKey, null);
+  assert.equal(runtime.dashboardUrl, null);
+  assert.equal(runtime.configurationError, null);
+});
+
+test("a persisted upstream cloud host never becomes the active instance", () => {
+  const runtime = resolveRuntimeConfig({
+    config: { baseUrl: "https://srctyff5.us-east.insforge.app", anonKey: "anon_" + "a".repeat(40) },
+    env: {},
+  });
+  assert.equal(runtime.baseUrl, null);
+  assert.equal(runtime.sources.baseUrl, "default");
 });
 
 test("resolveRuntimeConfig normalizes timeout and flags", () => {

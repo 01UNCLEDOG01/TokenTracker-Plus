@@ -7,7 +7,7 @@ export function LegalLinks() {
       <a href="/pricing.html" className="hover:underline">{copy("legal.nav.pricing")}</a>
       <a href="/terms.html" className="hover:underline">{copy("legal.nav.terms")}</a>
       <a href="/privacy.html" className="hover:underline">{copy("landing.v2.nav.privacy")}</a>
-      <a href="mailto:rynnsun0509@gmail.com" className="hover:underline">{copy("legal.nav.support")}</a>
+      <a href="mailto:https://github.com/01UNCLEDOG01/TokenTracker-plus" className="hover:underline">{copy("legal.nav.support")}</a>
     </nav>
   );
 }

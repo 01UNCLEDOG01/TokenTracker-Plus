@@ -210,7 +210,7 @@ const {
   resolveScanRoots,
   scanRootDirState,
 } = require("../lib/scan-roots");
-const { resolveRuntimeConfig, isLegacyInsforgeBaseUrl } = require("../lib/runtime-config");
+const { resolveRuntimeConfig, isLegacyInsforgeBaseUrl, clearDeviceIdentity } = require("../lib/runtime-config");
 const { resolveDeviceTokenPresence } = require("../lib/cloud-device-token");
 
 function formatSyncUploadSummaryLine({ runtimeDeviceToken, uploadResult, tokenPresentOnDisk }) {
@@ -314,7 +314,6 @@ const CODEX_FORK_REPLAY_REPAIR_KEY = "codexForkReplayRepair_2026_07";
 // contributing rollout before committing the rebuild. The new key is required
 // so installs that finalized the original migration on a false negative retry.
 const CODEX_USAGE_LINEAGE_REPAIR_KEY = "codexUsageLineageRepair_2026_07_v2";
-const LEGACY_BASE_URL_MIGRATION_NOTE = "reset_after_legacy_baseurl_migration_2026_07";
 // Keep the one escalated desktop refresh bounded; explicit full syncs can retry
 // the same migration without this ceiling when the history needs a deeper scan.
 const CODEX_BACKGROUND_LINEAGE_SCAN_MAX_BYTES = 1024 * 1024;
@@ -632,55 +631,21 @@ async function cmdSync(argv, context = {}) {
     }
 
     const config = await readJson(configPath);
-    let legacyBaseUrlMigration = null;
-    // One-time repair for installs initialized before the 2026-04-19 InsForge
-    // project migration (0.5.67): init preserved any persisted config.baseUrl,
-    // so those installs kept uploading to the retired b46ug8xu project until
-    // its backend went dark on 2026-07-27 — every upload since 503s while the
-    // dashboard shows no error (silent cloud outage). Reset the upload offset
-    // so the whole local queue replays into the current project, clear the 503
-    // backoff, then remove the retired URL as the final commit step. Keeping the
-    // URL until every prerequisite succeeds makes an interrupted migration
-    // retryable on the next sync. Device tokens are opaque random values looked
-    // up by SHA-256 hash in tokentracker_device_tokens (not JWT_SECRET-signed);
-    // the database was restored into the current project, so preserve the old
-    // token unless the local API has already minted a replacement from the
-    // user's current login session and passed it through the environment.
-    // Ingest is a whole-row upsert per bucket key, making replay idempotent.
+    // One-time repair for installs initialized against a retired upstream
+    // project: init preserved any persisted config.baseUrl, so those installs
+    // stayed pinned to a dead backend. This fork has no first-party backend to
+    // replay into, so drop the dead instance and the credentials bound to it.
+    // The local queue is left untouched — nothing is replayed anywhere.
     if (config && isLegacyInsforgeBaseUrl(config.baseUrl) &&
         !Object.hasOwn(process.env, "TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN")) {
-      const priorQueueState = (await readJson(queueStatePath)) || {};
-      // Prepare the replay exactly once. The note survives successful batches,
-      // so retryable failures retain both their committed offset and backoff
-      // instead of restarting history and hammering the backend on every hook.
-      if (priorQueueState.note !== LEGACY_BASE_URL_MIGRATION_NOTE) {
-        await writeJson(queueStatePath, {
-          ...priorQueueState,
-          offset: 0,
-          updatedAt: new Date().toISOString(),
-          note: LEGACY_BASE_URL_MIGRATION_NOTE,
-        });
-        try {
-          await fs.unlink(uploadThrottlePath);
-        } catch (error) {
-          if (error?.code !== "ENOENT") throw error;
-        }
-      }
-      const replacementDeviceToken =
-        typeof process.env.TOKENTRACKER_DEVICE_TOKEN === "string"
-          ? process.env.TOKENTRACKER_DEVICE_TOKEN.trim()
-          : "";
-      const previousDeviceToken =
-        typeof config.deviceToken === "string" ? config.deviceToken.trim() : "";
-      // Do not commit either the replacement token or URL removal yet. The
-      // current backend must accept a token first; otherwise a stale environment
-      // token could destroy a valid restored credential and make recovery worse.
-      legacyBaseUrlMigration = {
-        previousDeviceToken,
-        replacementDeviceToken,
-        hadPersistedAnonKey: Object.prototype.hasOwnProperty.call(config, "anonKey"),
-        persistedAnonKey: config.anonKey,
-      };
+      await updateJsonLocked(configPath, async (latestConfig) => {
+        if (!isLegacyInsforgeBaseUrl(latestConfig.baseUrl)) return null;
+        const next = clearDeviceIdentity(latestConfig);
+        delete next.baseUrl;
+        delete next.anonKey;
+        delete next.dashboardUrl;
+        return next;
+      });
     }
     // Scan roots (#657). Every producer — hook-fired sync, native background
     // refresh, CLI — must derive the SAME root list, and the cursor store's
@@ -3710,12 +3675,6 @@ async function cmdSync(argv, context = {}) {
     progress?.stop();
 
     const runtimeConfig = config ? { ...config } : {};
-    if (legacyBaseUrlMigration) {
-      delete runtimeConfig.anonKey;
-    }
-    if (legacyBaseUrlMigration?.replacementDeviceToken) {
-      runtimeConfig.deviceToken = legacyBaseUrlMigration.replacementDeviceToken;
-    }
     // An authenticated local API supplies this capability for this upload.
     // Keep a separately configured CLI account from overriding its owner.
     const resolvedRuntime = resolveRuntimeConfig({
@@ -3751,7 +3710,7 @@ async function cmdSync(argv, context = {}) {
       );
       // Automatic producers honor success and failure deadlines. A verified
       // manual recheck may probe changed membership; the server decides access.
-      const bypassSuccessInterval = (!opts.auto && opts.drain) || legacyBaseUrlMigration;
+      const bypassSuccessInterval = !opts.auto && opts.drain;
       const lastSuccessMs = Number(uploadThrottleState.lastSuccessMs || 0);
       const successDeadline = lastSuccessMs > 0
         ? Math.max(Number(uploadThrottleState.serverNextAllowedAtMs || 0), Math.min(Number(uploadThrottleState.nextAllowedAtMs || 0),
@@ -3814,63 +3773,17 @@ async function cmdSync(argv, context = {}) {
         // best effort — upload below must not be blocked by identity mirroring
       }
       try {
-        let successfulDeviceToken = runtime.deviceToken;
-        const drainWithToken = (deviceToken) =>
-          drainQueueToCloud({
-            baseUrl: runtime.baseUrl,
-            anonKey: runtime.anonKey,
-            deviceToken,
-            queuePath,
-            queueStatePath,
-            maxBatches: opts.drain ? 100 : (autoUploadDecision?.maxBatches || 5),
-            batchSize: autoUploadDecision?.batchSize || 200,
-            maxDurationMs: UPLOAD_BUDGET_MS,
-            canUpload,
-          });
-        try {
-          uploadResult = await drainWithToken(successfulDeviceToken);
-        } catch (error) {
-          const fallbackDeviceToken = legacyBaseUrlMigration?.previousDeviceToken;
-          const replacementDeviceToken = legacyBaseUrlMigration?.replacementDeviceToken;
-          const stateAfterFailure = (await readJson(queueStatePath)) || { offset: 0 };
-          const canFallbackWithoutSplittingHistory =
-            !Object.hasOwn(process.env, "TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN") &&
-            (error?.status === 401 || error?.status === 403) &&
-            replacementDeviceToken &&
-            fallbackDeviceToken &&
-            fallbackDeviceToken !== replacementDeviceToken &&
-            Number(stateAfterFailure.offset || 0) === 0;
-          if (!canFallbackWithoutSplittingHistory) throw error;
-          successfulDeviceToken = fallbackDeviceToken;
-          uploadResult = await drainWithToken(successfulDeviceToken);
-        }
-        // A successful ingest response proves which credential belongs to the
-        // current backend. Only now commit the token and remove the retry marker.
-        // Empty queues make no request, so keep the marker until future data can
-        // validate a credential instead of persisting an unverified token.
-        if (legacyBaseUrlMigration && uploadResult.batches > 0) {
-          // device-login does not share the sync lock and may have written a
-          // fresh current-backend config while the scan/upload was running.
-          // Re-read before committing and only remove the anonymous key this
-          // migration observed. A concurrent login may replace the backend URL
-          // while preserving the old key, or another writer may replace the key
-          // while the legacy URL is still present.
-          await updateJsonLocked(configPath, async (latestConfig) => {
-            const hasLegacyBaseUrl = isLegacyInsforgeBaseUrl(latestConfig.baseUrl);
-            const hasUnchangedLegacyAnonKey =
-              legacyBaseUrlMigration.hadPersistedAnonKey &&
-              latestConfig.anonKey === legacyBaseUrlMigration.persistedAnonKey;
-            if (!hasLegacyBaseUrl && !hasUnchangedLegacyAnonKey) return null;
-            if (hasLegacyBaseUrl) {
-              latestConfig.deviceToken = successfulDeviceToken;
-              delete latestConfig.baseUrl;
-            }
-            if (hasUnchangedLegacyAnonKey) {
-              delete latestConfig.anonKey;
-            }
-            return latestConfig;
-          });
-        }
+        uploadResult = await drainQueueToCloud({
+          baseUrl: runtime.baseUrl,
+          anonKey: runtime.anonKey,
+          deviceToken: runtime.deviceToken,
+          queuePath,
+          queueStatePath,
+          maxBatches: opts.drain ? 100 : (autoUploadDecision?.maxBatches || 5),
+          batchSize: autoUploadDecision?.batchSize || 200,
+          maxDurationMs: UPLOAD_BUDGET_MS,
+          canUpload,
+        });
         // Record success so the exponential backoff step resets — otherwise
         // a single past failure keeps us pessimistically throttled forever.
         if (uploadResult.batches > 0) {

@@ -8,21 +8,28 @@ const malformedOpaque = ["anon_", ...[39, 41, 63, 65].map(length => "anon_" + "a
   "anon__" + "a".repeat(40), "an0n_" + "a".repeat(40), "ik_" + "a".repeat(40), "ik_" + anon, "a".repeat(64)];
 
 describe("public backend configuration", () => {
-  it("preserves the official default and accepts an explicit private public-key pair", () => {
-    expect(validateInsforgeDeployment({ defaultAnonKey: anon })).toMatchObject({ baseUrl: OFFICIAL_INSFORGE_URL, anonKey: anon, errorCode: null });
+  it("ships no official default and accepts an explicit private public-key pair", () => {
+    // Local-first fork: with no configured baseUrl and no bundled official
+    // instance, an empty deployment is rejected instead of silently dialing
+    // an upstream host.
+    expect(validateInsforgeDeployment({ defaultAnonKey: anon })).toMatchObject({ baseUrl: "", anonKey: "", errorCode: "invalid_backend_url" });
     expect(validateInsforgeDeployment({ baseUrl: "https://private.example/", anonKey: anon })).toMatchObject({ baseUrl: "https://private.example", anonKey: anon, errorCode: null });
   });
-  it("never borrows the official key for a custom URL, including an explicitly copied default", () => {
+  it("never borrows a configured key for a custom URL, including an explicitly copied default", () => {
     expect(validateInsforgeDeployment({ baseUrl: "https://private.example", defaultAnonKey: anon }).errorCode).toBe("missing_backend_anon_key");
     expect(validateInsforgeDeployment({ baseUrl: "https://private.example", anonKey: anon, defaultAnonKey: anon }).errorCode).toBe("missing_backend_anon_key");
-    expect(validateInsforgeDeployment({ strictPair: true }).errorCode).toBe("missing_backend_anon_key");
+    // No official fallback exists to pair with, so an empty strict
+    // configuration is an invalid deployment rather than a key mismatch.
+    expect(validateInsforgeDeployment({ strictPair: true }).errorCode).toBe("invalid_backend_url");
   });
   it.each(["service_role", "authenticated", "admin", "project_admin"])("rejects %s before a SDK or frontend build can use it", (role) => {
     expect(isPublicAnonKey(token(role))).toBe(false);
     expect(validateInsforgeBuildEnv({ VITE_INSFORGE_BASE_URL: "https://private.example", VITE_INSFORGE_ANON_KEY: token(role) }).errorCode).toBe("invalid_backend_anon_key");
   });
   it.each(["ik_admin_secret", "public-placeholder", "-----BEGIN PRIVATE KEY-----"])("rejects a non-anon credential without echoing it: %s", (value) => {
-    const result = validateInsforgeBuildEnv({ VITE_INSFORGE_ANON_KEY: value });
+    // An explicit base URL is required: with no bundled official instance an
+    // empty build env is rejected before key validation would even run.
+    const result = validateInsforgeBuildEnv({ VITE_INSFORGE_BASE_URL: "https://private.example", VITE_INSFORGE_ANON_KEY: value });
     expect(result).toEqual({ baseUrl: "", anonKey: "", errorCode: "invalid_backend_anon_key" });
   });
   it.each(["https://user:password@private.example", "http://private.example", "javascript:alert(1)", "https://private.example?token=secret", "https://private.example#secret"])("rejects unsafe backend URL %s", (baseUrl) => {

@@ -6,7 +6,9 @@ import {
 import { expandHeatmapCompact } from "./heatmap-compact";
 
 vi.mock("./insforge-config", () => ({
-  getInsforgeRemoteUrl: () => "https://srctyff5.us-east.insforge.app",
+  // Local-first fork: an explicitly configured instance, not a bundled
+  // official backend.
+  getInsforgeRemoteUrl: () => "https://config.example.insforge.app",
   getInsforgeAnonKey: () => "anon-key",
 }));
 vi.mock("./mock-data", () => ({ isMockEnabled: () => false }));
@@ -157,7 +159,7 @@ describe("local API host boundary", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("keeps authenticated public account reads on the verified direct cloud origin", async () => {
+  it("keeps authenticated public account reads on the explicitly configured cloud origin", async () => {
     vi.stubGlobal("window", { location: { hostname: "(removed)", origin: "https://(removed)" } });
     const fetch = vi.fn(async (_url: string) => json({ totals: { total_tokens: 42 } }));
     vi.stubGlobal("fetch", fetch);
@@ -165,8 +167,8 @@ describe("local API host boundary", () => {
     expect(await getUsageSummary({ accessToken: token, from: "2026-10-01", to: "2026-10-02" })).toEqual({ totals: { total_tokens: 42 } });
     expect(fetch).toHaveBeenCalledTimes(1);
     const url = new URL(fetch.mock.calls[0][0]);
-    expect(url.origin).toBe("https://srctyff5.function2.insforge.app");
-    expect(url.pathname).toBe("/tokentracker-account-summary");
+    expect(url.origin).toBe("https://config.example.insforge.app");
+    expect(url.pathname).toBe("/functions/tokentracker-account-summary");
     expect((fetch.mock.calls[0] as any)[1]?.headers.Authorization).toBe(`Bearer ${token}`);
   });
 
