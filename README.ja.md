@@ -35,7 +35,7 @@ node bin/tracker.js status   # 52 ツールの接続状態
 node bin/tracker.js doctor   # 診断
 ```
 
-ローカル Dashboard は `http://localhost:7680`。対応ツールの全リストは[中国語版 README](./README.md#-支持的-ai-工具列表52-款)を参照（CLI / VS Code 拡張 / IDE の 52 種）。
+ローカル Dashboard は `http://localhost:7680`。対応ツールの全リストは[中国語版 README](./README.md#-支持的-ai-工具列表53-款)を参照（CLI / VS Code 拡張 / IDE の 52 種）。
 
 ## 💰 課金とヒートマップ
 

@@ -23,19 +23,19 @@ const README_EXPECTATIONS = [
   [
     "README.md",
     () => new RegExp(`${TOOL_COUNT} 款 AI 编码工具`),
-    () => /支持的 AI 工具数.*52/,
+    () => new RegExp(`支持的 AI 工具数.*${TOOL_COUNT}`),
     /限额追踪.*✅ 18 家 provider/,
   ],
   [
     "README.en.md",
     () => new RegExp(`${TOOL_COUNT} AI coding tools`),
-    () => /AI tools supported.*52/,
+    () => new RegExp(`AI tools supported.*${TOOL_COUNT}`),
     /Rate-limit tracking.*✅ 18 providers/,
   ],
   [
     "README.zh-TW.md",
     () => new RegExp(`${TOOL_COUNT} 款 AI 編碼工具`),
-    () => /支援的 AI 工具數.*52/,
+    () => new RegExp(`支援的 AI 工具數.*${TOOL_COUNT}`),
     /限額追蹤.*✅ 18 家 provider/,
   ],
 ];

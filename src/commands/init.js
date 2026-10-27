@@ -123,6 +123,7 @@ const SUPPORTED_PROVIDERS = [
   "Cola",
   "Tuanjie Cowork",
   "Agent2API",
+  "SenseTime Raccoon",
   "Codex CLI",
   "AStudio",
   "Cursor",

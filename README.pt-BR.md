@@ -35,7 +35,7 @@ node bin/tracker.js status   # estado das 52 ferramentas
 node bin/tracker.js doctor   # diagnóstico
 ```
 
-O dashboard local fica em `http://localhost:7680`. A lista completa das 52 ferramentas está no [README em chinês](./README.md#-支持的-ai-工具列表52-款).
+O dashboard local fica em `http://localhost:7680`. A lista completa das 52 ferramentas está no [README em chinês](./README.md#-支持的-ai-工具列表53-款).
 
 ## 💰 Cobrança e heatmap
 

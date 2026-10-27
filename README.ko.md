@@ -35,7 +35,7 @@ node bin/tracker.js status   # 52개 도구 연결 상태
 node bin/tracker.js doctor   # 진단
 ```
 
-로컬 Dashboard는 `http://localhost:7680`. 지원 도구 전체 목록은 [중국어 README](./README.md#-支持的-ai-工具列表52-款)를 참고하세요(CLI / VS Code 확장 / IDE 총 52종).
+로컬 Dashboard는 `http://localhost:7680`. 지원 도구 전체 목록은 [중국어 README](./README.md#-支持的-ai-工具列表53-款)를 참고하세요(CLI / VS Code 확장 / IDE 총 52종).
 
 ## 💰 과금과 히트맵
 
