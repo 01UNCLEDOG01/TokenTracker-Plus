@@ -3,6 +3,10 @@ import { getInsforgeRemoteUrl } from "./insforge-config";
 export const STATUSPAGE_URL = "https://tokentracker.statuspage.io/";
 
 export const REPO_URL = "https://github.com/01UNCLEDOG01/TokenTracker-plus";
+// GitHub's REST API wants `owner/name`, not a browser URL, so derive it from
+// REPO_URL — the update check used to carry its own hardcoded upstream slug.
+export const REPO_SLUG = REPO_URL.replace(/^https:\/\/github\.com\//, "");
+export const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${REPO_SLUG}/releases/latest`;
 export const PRIVACY_URL = `${REPO_URL}/blob/main/docs/PRIVACY.md`;
 // The releases page lists every asset (used for the "other platforms" link and
 // as the fallback when we can't detect the OS).

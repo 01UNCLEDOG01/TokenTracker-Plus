@@ -5,7 +5,7 @@ import { useNativeSettings } from "../../hooks/use-native-settings.js";
 import { useLocale } from "../../hooks/useLocale.js";
 import { ConfirmModal } from "../../ui/components";
 import { showToast } from "../../ui/components/Toast.jsx";
-import { STATUSPAGE_URL } from "../../lib/config";
+import { STATUSPAGE_URL, LATEST_RELEASE_API_URL } from "../../lib/config";
 import { copy } from "../../lib/copy";
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
 import { SectionCard, SettingsRow, ToggleSwitch } from "./Controls.jsx";
@@ -105,7 +105,12 @@ export function MenuBarSection() {
 
 function hasUpdate(current, latest) {
   function parseParts(v) {
-    return v.replace(/^v/, "").split(".").map(Number);
+    // Release tags here carry a name prefix (`plus-v1.2.0`), not just `v`, so
+    // take the dotted number run out of the middle instead of stripping a
+    // leading v — the old version parsed "plus-v1" to NaN and only compared
+    // correctly by accident.
+    const match = String(v || "").match(/(\d+(?:\.\d+)*)/);
+    return match ? match[1].split(".").map(Number) : [];
   }
   const currParts = parseParts(current);
   const lateParts = parseParts(latest);
@@ -135,7 +140,7 @@ export function NativeAppFooter() {
   const handleCheckUpdates = async () => {
     setChecking(true);
     try {
-      const res = await fetch("https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest");
+      const res = await fetch(LATEST_RELEASE_API_URL);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       const latestVersion = data.tag_name;
