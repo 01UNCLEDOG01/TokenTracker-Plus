@@ -145,18 +145,23 @@ function beijingDayKey(isoOrMs) {
 // two-entry map: the ids change whenever Qoder adds a model (2026-10-22
 // brought gfmodel = GLM-5.3-Flash and mmodel = MiniMax-M3.1-Flash), and an
 // unmapped id used to reach the panel as a raw "gfmodel".
-let routerNamesCache = { file: "", mtimeMs: -1, names: new Map() };
+let routerNamesCache = new Map();
 
-function qoderIntlRouterNames({ home = os.homedir() } = {}) {
-  const file = path.join(home, ".qoder", ".auth", "dynamic-texts.json");
+// `dir` is the Qoder profile folder: `.qoder` is the international client and
+// `.qoder-cn` is the CN one. Both ship the same `modelSelector.item.<id>`
+// table, and the two installs do not agree on which ids exist, so each source
+// must read its own rather than borrowing the other's names.
+function qoderIntlRouterNames({ home = os.homedir(), dir = ".qoder" } = {}) {
+  const file = path.join(home, dir, ".auth", "dynamic-texts.json");
   let mtimeMs = -1;
   try {
     mtimeMs = fs.statSync(file).mtimeMs;
   } catch {
     return new Map();
   }
-  if (routerNamesCache.file === file && routerNamesCache.mtimeMs === mtimeMs) {
-    return routerNamesCache.names;
+  const cached = routerNamesCache.get(file);
+  if (cached && cached.mtimeMs === mtimeMs) {
+    return cached.names;
   }
   const names = new Map();
   try {
@@ -176,8 +181,12 @@ function qoderIntlRouterNames({ home = os.homedir() } = {}) {
   } catch {
     return new Map();
   }
-  routerNamesCache = { file, mtimeMs, names };
+  routerNamesCache.set(file, { mtimeMs, names });
   return names;
+}
+
+function qoderCnRouterNames({ home = os.homedir() } = {}) {
+  return qoderIntlRouterNames({ home, dir: ".qoder-cn" });
 }
 
 // The row keeps the router id it came from. Renaming a row's model would
@@ -374,6 +383,7 @@ module.exports = {
   qoderIntlModelLabel,
   qoderIntlDisplayModel,
   qoderIntlRouterNames,
+  qoderCnRouterNames,
   QODER_INTL_USD_PER_CREDIT,
   QODER_INTL_REFERENCE_MODEL,
   QODER_INTL_MIRROR_VERSION,

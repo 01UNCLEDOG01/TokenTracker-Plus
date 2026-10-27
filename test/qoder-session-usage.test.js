@@ -1,10 +1,85 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { test } = require("node:test");
 
 const {
   applyWallClockSpeed,
   applyQoderSessionUsageEstimates,
+  scanQoderSession,
 } = require("../src/lib/session-analytics");
+
+// A Qoder profile whose client texts name the router ids, plus a transcript
+// whose assistant rows carry a model and zeroed usage — the exact shape Qoder
+// CN writes.
+function qoderFixtureHome({ models, slug = "qfmodel" }) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-qoder-scan-"));
+  const authDir = path.join(home, ".qoder-cn", ".auth");
+  fs.mkdirSync(authDir, { recursive: true });
+  fs.writeFileSync(path.join(authDir, "dynamic-texts.json"), JSON.stringify({
+    en: {
+      "modelSelector.item.qfmodel": "Qwen3.8-Flash",
+      "modelSelector.item.dfmodel": "DeepSeek-Flash",
+      "modelSelector.item.auto": "Auto",
+    },
+  }));
+  const sessionDir = path.join(home, "projects", "F--demo");
+  fs.mkdirSync(sessionDir, { recursive: true });
+  const file = path.join(sessionDir, "s1.jsonl");
+  const lines = models.map((model, i) => JSON.stringify({
+    type: "assistant",
+    sessionId: "s1",
+    timestamp: new Date(1764000000000 + i * 60000).toISOString(),
+    message: {
+      model,
+      usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+    },
+  }));
+  fs.writeFileSync(file, `${lines.join("\n")}\n`);
+  return { home, file };
+}
+
+test("zero-usage Qoder CN rows still attribute their router model", async () => {
+  const { home, file } = qoderFixtureHome({ models: ["qfmodel", "qfmodel", "qfmodel"] });
+  const record = await scanQoderSession(file, "qoder-cn", { home });
+  assert.equal(record.model, "Qwen3.8-Flash");
+  assert.equal(record.total_tokens, 0);
+  // No usage was ever reported, so the row must not claim precision it lacks.
+  assert.equal(record.usage_precision, "unavailable");
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("Auto is a selector bucket and is never attributed as a model", async () => {
+  const { home, file } = qoderFixtureHome({ models: ["auto", "auto"] });
+  const record = await scanQoderSession(file, "qoder-cn", { home });
+  assert.notEqual(record.model, "Auto");
+  assert.ok(!record.model || record.model === "unknown");
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("a session that mixed two routers is not guessed", async () => {
+  const { home, file } = qoderFixtureHome({ models: ["qfmodel", "dfmodel"] });
+  const record = await scanQoderSession(file, "qoder-cn", { home });
+  assert.ok(!record.model || record.model === "unknown");
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("credit-derived rows are priced by model instead of collapsing to zero", () => {
+  const sessions = [
+    { source: "qoder-cn", turns: 1, active_ms: 60000, total_tokens: 0, performance: {}, model: "Qwen3.8-Flash" },
+    { source: "qoder-cn", turns: 1, active_ms: 60000, total_tokens: 0, performance: {} },
+  ];
+  applyQoderSessionUsageEstimates(sessions, [
+    { source: "qoder-cn", total_tokens: 2000000, input_tokens: 1600000, cached_input_tokens: 200000, output_tokens: 200000 },
+  ]);
+
+  const [named, unknown] = sessions;
+  assert.ok(named.cost_usd > 0, "a known model must cost something once tokens are allocated");
+  assert.equal(named.cost_usd, named.model_usage[0].cost_usd);
+  assert.equal(unknown.cost_usd, 0);
+  assert.equal(unknown.cost_is_partial, true, "an unattributed row stays a lower bound, not a real figure");
+});
 
 test("wall-clock speed fills sources without per-request timing", () => {
   const record = {

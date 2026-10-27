@@ -14,6 +14,7 @@ const {
   sessionsToCsv,
   resolveSessionSidecarPath,
   resumeCommandFor,
+  SIDECAR_VERSION,
 } = require("../src/lib/session-analytics");
 const { parseOmpIncremental } = require("../src/lib/rollout");
 
@@ -346,9 +347,11 @@ test("OMP sidecar rebuilds on v26 upgrade and nested-only transcript changes", a
   const afterVersion = await buildSessionAnalytics({ home, force: false, cacheTtlMs: 60 * 60_000 });
   const upgraded = afterVersion.find((row) => row.source === "omp");
   assert.ok(upgraded, "v26 → v27 rebuild must invent OMP rows");
-  assert.equal(upgraded.version, 36); // our fork lineage: omp landed at v36 (upstream #871 called it v27)
+  // Read the live constant: this assertion used to carry a literal that went
+  // stale on every sidecar bump and blamed the wrong commit.
+  assert.equal(upgraded.version, SIDECAR_VERSION); // omp landed at v36 (upstream #871 called it v27)
   assert.equal(upgraded.total_tokens, 20);
-  assert.equal(JSON.parse(fs.readFileSync(metaPath, "utf8")).version, 36);
+  assert.equal(JSON.parse(fs.readFileSync(metaPath, "utf8")).version, SIDECAR_VERSION);
 
   // Touch only the nested child so the dependency signature must invalidate.
   // cacheTtlMs: 0 skips the TTL short-circuit so signature/stat checks run.

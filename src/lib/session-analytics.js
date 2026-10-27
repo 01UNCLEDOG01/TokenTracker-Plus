@@ -30,6 +30,7 @@ const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
 const { resolveAutoClawSessionFiles, resolveColaSessionFiles, scanAutoClawSession, scanColaSession } = require("./agent-jsonl-sessions");
 const { resolveCoworkChatFiles, scanCoworkChat } = require("./cowork-sessions");
+const { qoderIntlRouterNames, qoderCnRouterNames } = require("./qoder-intl-credits");
 const readline = require("node:readline");
 const {
   claudeMessageDedupKey,
@@ -125,7 +126,10 @@ const {
 // instead of replacing them with Token Monitor's archive.
 // v36 adds oh-my-pi (omp) sessions from ~/.omp/agent/sessions/**/*.jsonl
 // (absorbed from upstream #871; our lineage had reached v35 by then).
-const SIDECAR_VERSION = 36;
+// v37 keeps the router id of Qoder rows that carry no usage, so a CN session
+// knows its model and the credit-derived pool split can be priced per model
+// instead of collapsing to ¥0.
+const SIDECAR_VERSION = 37;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -663,8 +667,9 @@ function applyQoderSessionUsageEstimates(sessions, queueRows) {
       session.usage_precision = "estimated";
       session.usage_is_incomplete = true;
       session.usage_source = "qoder-credit-estimate";
-      session.model_usage = [{
-        model: session.model || (source === "qoder-cn" ? "qoder-cn-estimated" : "qoder-estimated"),
+      const estimatedModel = session.model || (source === "qoder-cn" ? "qoder-cn-estimated" : "qoder-estimated");
+      const estimatedRow = {
+        model: estimatedModel,
         input_tokens: input,
         cached_input_tokens: cached,
         cache_creation_input_tokens: cacheWrite,
@@ -672,9 +677,25 @@ function applyQoderSessionUsageEstimates(sessions, queueRows) {
         reasoning_output_tokens: reasoning,
         total_tokens: total,
         usage_events: finite(session.turns),
-        cost_usd: 0,
+        // The pool split used to force cost to 0, which threw away the one
+        // thing that made these rows priceable: the model. Price it like any
+        // other row — an unattributed placeholder still resolves to no rate,
+        // so genuinely unknown rows stay at 0 instead of pretending.
+        cost_usd: computeRowCost({
+          source,
+          model: estimatedModel,
+          input_tokens: input,
+          cached_input_tokens: cached,
+          cache_creation_input_tokens: cacheWrite,
+          output_tokens: output,
+        }),
         performance: normalizePerformance(),
-      }];
+      };
+      session.model_usage = [estimatedRow];
+      session.cost_usd = estimatedRow.cost_usd;
+      if (total > 0 && getModelPricingInfo(estimatedModel, { source }).status === "unpriced") {
+        session.cost_is_partial = true;
+      }
       applyWallClockSpeed(session);
     });
   }
@@ -3621,9 +3642,18 @@ function qoderTitleFromContent(content) {
   return null;
 }
 
-async function scanQoderSession(filePath, source = "qoder") {
+// Each Qoder profile names its own router ids, so a session must be resolved
+// against the client that actually wrote it.
+function qoderRouterNamesFor(source, home = os.homedir()) {
+  return source === "qoder-cn" ? qoderCnRouterNames({ home }) : qoderIntlRouterNames({ home });
+}
+
+async function scanQoderSession(filePath, source = "qoder", { home = os.homedir() } = {}) {
   const text = await fs.promises.readFile(filePath, "utf8");
   const models = new Map();
+  // Router ids seen on rows that carry no usage at all. Qoder CN zeroes every
+  // token column, so `models` alone would leave the session with no model.
+  const observedModels = new Map();
   let sessionId = null;
   let startedMs = null;
   let endedMs = null;
@@ -3673,6 +3703,11 @@ async function scanQoderSession(filePath, source = "qoder") {
       + finite(cacheWrites.ephemeral_5m_input_tokens)
       + finite(cacheWrites.ephemeral_1h_input_tokens);
     const output = finite(usage.output_tokens);
+    // Record the router id before the zero-usage bail-out below: CN rows carry
+    // a real model and zero tokens, and dropping the id here is what made
+    // every credit-derived CN session unpriceable.
+    const observedKey = model.toLowerCase();
+    observedModels.set(observedKey, (observedModels.get(observedKey) || 0) + 1);
     if (input + cachedRead + cacheWrite + output <= 0) continue;
     usageEvents += 1;
     sawAnyToken = true;
@@ -3696,6 +3731,27 @@ async function scanQoderSession(filePath, source = "qoder") {
     models.set(model, bucket);
   }
   if (!sessionId) sessionId = path.basename(filePath, ".jsonl");
+  // A session that used exactly one router id still knows its model even when
+  // Qoder wrote no usage: keep that model with zero tokens so the credit-
+  // derived pool split can price per model instead of not at all. "Auto" is a
+  // selector bucket, not a model (KI-030 falsified assumption 3), so it stays
+  // unattributed, and a session that mixed two ids is not guessed either.
+  if (models.size === 0 && observedModels.size === 1) {
+    const slug = [...observedModels.keys()][0];
+    const named = normalizeSessionModel(qoderRouterNamesFor(source, home).get(slug) || "");
+    if (named && named.toLowerCase() !== "auto") {
+      models.set(slug, {
+        model: named,
+        input_tokens: 0,
+        cached_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0,
+        total_tokens: 0,
+        usage_events: 0,
+      });
+    }
+  }
   const modelUsage = [...models.values()].map((bucket) => ({
     ...bucket,
     cost_usd: computeRowCost({
@@ -4992,11 +5048,13 @@ function sessionsToCsv(rows) {
 }
 
 module.exports = {
+  SIDECAR_VERSION,
   resolveSessionSidecarPath,
   readSessionSidecar: readSidecar,
   sessionHash,
   antigravityBlobTitleFromBuffer,
   scanClaudeSession,
+  scanQoderSession,
   scanWorkbuddySession,
   readDshSessions,
   buildDshSessionRow,
