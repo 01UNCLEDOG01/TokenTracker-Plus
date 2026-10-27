@@ -121,6 +121,12 @@ jobs:
         run: cargo test --locked
 
   macos-tests:
+    # Zero-cost guard: macOS/Windows runners bill at 10x, and this fork's rule
+    # is no paid CI while the repo is private. Creating `main` activated the
+    # push trigger for the first time, so the paid jobs must stay gated until
+    # the repo goes public — then they turn on by themselves. If the context
+    # object is ever absent the comparison is false, which skips (never spends).
+    if: github.event.repository.private == false
     name: macOS unit tests
     runs-on: macos-26
     steps:
@@ -174,6 +180,7 @@ jobs:
             -destination 'platform=macOS'
 
   windows-build:
+    if: github.event.repository.private == false
     name: Windows build
     runs-on: windows-latest
     steps:
