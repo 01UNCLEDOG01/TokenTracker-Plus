@@ -16,7 +16,7 @@ it("explains the preview boundary and links to existing backend sources", () => 
   expect(screen.getByText(/clean TokenTracker schema bootstrap/)).toHaveTextContent(/verification are still pending/);
   expect(screen.getByText(/Released desktop apps currently/)).toHaveTextContent(/requires a client build/);
   expect(screen.getByText(/private instance has its own accounts/)).toHaveTextContent(/does not feed the official public leaderboard/);
-  expect(screen.getByRole("link", { name: "Backend source" })).toHaveAttribute("href", "https://github.com/xiufengsun/TokenTracker/tree/main/dashboard/edge-patches");
+  expect(screen.getByRole("link", { name: "Backend source" })).toHaveAttribute("href", "https://github.com/01UNCLEDOG01/TokenTracker-plus/tree/usage-desk/dashboard/edge-patches");
   expect(screen.getByRole("link", { name: "View Cloud plans" })).toHaveAttribute("href", "/cloud");
 });
 

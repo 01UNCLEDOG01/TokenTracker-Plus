@@ -62,7 +62,7 @@ export function SelfHostPage() {
               {copy("self_host.link.insforge")}
               <ExternalLink size={14} className="ml-2" aria-hidden />
             </Button>
-            <Button as="a" href="https://github.com/xiufengsun/TokenTracker/tree/main/dashboard/edge-patches" target="_blank" rel="noopener noreferrer" variant="secondary" className="no-underline">
+            <Button as="a" href="https://github.com/01UNCLEDOG01/TokenTracker-plus/tree/usage-desk/dashboard/edge-patches" target="_blank" rel="noopener noreferrer" variant="secondary" className="no-underline">
               {copy("self_host.link.source")}
               <ExternalLink size={14} className="ml-2" aria-hidden />
             </Button>
