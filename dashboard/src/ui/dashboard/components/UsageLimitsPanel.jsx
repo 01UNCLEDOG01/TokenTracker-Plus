@@ -590,6 +590,33 @@ function StatusLine({ children, tone = "neutral" }) {
   return <div className={`text-[11px] leading-snug ${color}`}>{children}</div>;
 }
 
+// Wallet balances (Trae credits, CodeArts packages, AgentRouter cash) are not
+// window quotas, but their bars must sit on the same label/pct grid as the
+// quota rows — a full-bleed stripe reads as a different component.
+function WalletBar({ pct, title = null }) {
+  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+  const rounded = Math.round(clamped);
+  const labelPct = clamped > 0 && rounded === 0 ? copy("limits.bar.sub_one_percent") : `${rounded}%`;
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <span className="shrink-0" style={{ width: "var(--tt-limits-label-w)" }} aria-hidden="true" />
+      <div
+        className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden"
+        title={title || undefined}
+      >
+        <div
+          className="h-full rounded-full bg-green-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
+          style={{ width: `${clamped}%`, minWidth: clamped > 0 ? "3px" : 0 }}
+        />
+      </div>
+      <span className="text-[11px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400 w-9 text-right shrink-0 whitespace-nowrap">
+        {labelPct}
+      </span>
+      <span className="w-6 shrink-0" aria-hidden="true" />
+    </div>
+  );
+}
+
 function LimitWindowSection({ rows, mode, extra = null, expanded = false }) {
   const showEmpty = rows.length === 0 && !extra;
   return (
@@ -762,18 +789,13 @@ function TraeWalletExtra({ data }) {
         {copy("limits.label.trae_balance", { credits: formatTraeCredit(available) })}
       </StatusLine>
       {remainingPct != null ? (
-        <div
-          className="mt-1 h-1 overflow-hidden rounded-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
+        <WalletBar
+          pct={remainingPct}
           title={copy("limits.label.trae_usage", {
             total: formatTraeCredit(total),
             used: formatTraeCredit(used),
           })}
-        >
-          <div
-            className="h-full rounded-full bg-green-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
-            style={{ width: `${remainingPct}%`, minWidth: remainingPct > 0 ? "3px" : 0 }}
-          />
-        </div>
+        />
       ) : null}
       {showUsage ? (
         <StatusLine>
@@ -811,18 +833,13 @@ function CodeArtsWalletExtra({ data }) {
         })}
       </StatusLine>
       {remainingPct != null ? (
-        <div
-          className="mt-1 h-1 overflow-hidden rounded-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
+        <WalletBar
+          pct={remainingPct}
           title={copy("limits.label.trae_usage", {
             total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
             used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
           })}
-        >
-          <div
-            className="h-full rounded-full bg-green-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
-            style={{ width: `${remainingPct}%`, minWidth: remainingPct > 0 ? "3px" : 0 }}
-          />
-        </div>
+        />
       ) : null}
       {Boolean(total) ? (
         <StatusLine className="text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
@@ -853,18 +870,13 @@ function AgentRouterWalletExtra({ data }) {
         })}
       </StatusLine>
       {remainingPct != null ? (
-        <div
-          className="mt-1 h-1 overflow-hidden rounded-full bg-oai-gray-100 dark:bg-oai-gray-700/50"
+        <WalletBar
+          pct={remainingPct}
           title={copy("limits.label.trae_usage", {
             total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
             used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
           })}
-        >
-          <div
-            className="h-full rounded-full bg-green-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
-            style={{ width: `${remainingPct}%`, minWidth: remainingPct > 0 ? "3px" : 0 }}
-          />
-        </div>
+        />
       ) : null}
       {Boolean(total && Number.isFinite(Number(data.agentrouter_used_usd))) ? (
         <StatusLine className="text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
@@ -1122,6 +1134,20 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
     return renderUnlinkedProvider(
       id,
       <StatusLine>{copy("limits.opencodeGo.status.inactive")}</StatusLine>,
+      expanded,
+      onToggle,
+      subscription,
+      now,
+      mode,
+    );
+  }
+  // WorkBuddy deletes its IPC endpoint when the desktop client quits, so
+  // "not running / not signed in" is an idle state, not a failure. Keep the
+  // hint, drop the red error styling reserved for real problems.
+  if (data.error && data.reason === "client_not_running") {
+    return renderUnlinkedProvider(
+      id,
+      <StatusLine>{copy("limits.status.client_not_running", { app: limitProviderName(id) })}</StatusLine>,
       expanded,
       onToggle,
       subscription,

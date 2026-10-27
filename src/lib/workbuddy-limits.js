@@ -552,7 +552,9 @@ async function fetchVariant(variantId, opts = {}) {
     ? { token: explicitToken, encrypted: false, matched: true }
     : resolveSession(variant, { env, authFiles: opts.authFiles, workbuddyHome });
   if (!session.token) {
-    if (session.encrypted || installed) return { configured: true, error: UNAVAILABLE };
+    // `reason` lets the dashboard show this as an idle state (client closed)
+    // rather than a red failure; the message stays for CLI/log consumers.
+    if (session.encrypted || installed) return { configured: true, error: UNAVAILABLE, reason: "client_not_running" };
     if (!installed) return { configured: false };
     return { configured: false };
   }
