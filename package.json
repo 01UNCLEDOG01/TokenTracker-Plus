@@ -1,5 +1,5 @@
 {
-  "name": "tokentracker-cli",
+  "name": "tokentracker-plus-cli",
   "version": "1.2.0",
   "description": "Local-first AI coding token usage and cost tracker for 53 tools, with a dashboard, desktop pet, widgets, achievements, and native macOS/Windows apps.",
   "main": "src/cli.js",
@@ -18,9 +18,6 @@
     "README.md"
   ],
   "type": "commonjs",
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "ci:local": "npm test && npm run validate:copy && npm run validate:locale && npm run validate:ui-hardcode && npm run validate:guardrails && npm run validate:versions && npm run validate:bot-frames && node --test test/architecture-guardrails.test.js && npm --prefix dashboard run build",
     "copy:pull": "node scripts/copy-sync.cjs pull",
@@ -77,12 +74,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xiufengsun/TokenTracker.git"
+    "url": "git+https://github.com/01UNCLEDOG01/TokenTracker-plus.git"
   },
-  "homepage": "https://(removed)",
-  "bugs": {
-    "url": "https://github.com/xiufengsun/TokenTracker/issues"
-  },
+  "homepage": "https://github.com/01UNCLEDOG01/TokenTracker-plus",
   "keywords": [
     "token",
     "tracker",
