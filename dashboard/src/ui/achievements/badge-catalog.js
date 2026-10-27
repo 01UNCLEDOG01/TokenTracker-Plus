@@ -149,12 +149,12 @@ export const BADGE_CATALOG = [
   { id: "nemotron_spiral", scope: "local", icon: Cpu, format: "tokens", art: "/achievements/nemotron-spiral.png?v=2" },
   { id: "phi_disciple", scope: "local", icon: Sigma, format: "tokens", art: "/achievements/phi-disciple.png?v=2" },
   { id: "spark_alpaca", scope: "local", icon: Bot, format: "tokens", art: "/achievements/spark-alpaca.png?v=2" },
-  { id: "iflytek_spark", scope: "local", icon: Sparkles, format: "tokens", art: "/achievements/iflytek-spark.png?v=1" },
+  { id: "iflytek_spark", scope: "local", icon: Sparkles, format: "tokens", art: "/achievements/iflytek-spark.png?v=2" },
   { id: "sensenova_daily", scope: "local", icon: Sunrise, format: "tokens", art: "/achievements/sensenova-daily.png?v=3" },
-  { id: "xiaomi_mimo", scope: "local", icon: Radio, format: "tokens", art: "/achievements/xiaomi-mimo.png?v=1" },
+  { id: "xiaomi_mimo", scope: "local", icon: Radio, format: "tokens", art: "/achievements/xiaomi-mimo.png?v=2" },
   // Wave-6 badges (2026-10-25)
   { id: "dragon_heir", scope: "local", icon: Crown, format: "count", art: "/achievements/dragon-heir.png?v=3" },
-  { id: "kill_line", scope: "local", icon: Sword, format: "percent", art: "/achievements/kill-line.png?v=4" },
+  { id: "kill_line", scope: "local", icon: Sword, format: "percent", art: "/achievements/kill-line.png?v=5" },
 ];
 
 export const BADGE_BY_ID = new Map(BADGE_CATALOG.map((b) => [b.id, b]));

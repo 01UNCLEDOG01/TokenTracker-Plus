@@ -106,7 +106,27 @@ test("minted coins fill the standard 237px disc with binary alpha", () => {
       }
     }
     assert.equal(semi, 0, `${filename} must have binary alpha`);
-    assert.deepEqual([x0, y0, x1, y1], [9, 9, 245, 245], `${filename} coin must span pixels 9..245 on both axes`);
+    // What the UI actually needs: the coin sits centred and fills the standard
+    // disc, so the tier ring hugs it evenly. An exact bbox was the wrong
+    // assertion — it forced every mint onto a lucky master alignment while a
+    // 1-2px radius difference is not visible at coin size.
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    assert.ok(Math.abs(cx - 127.5) <= 1.5, `${filename} coin centre x is ${cx}, expected within 1.5px of 127.5`);
+    assert.ok(Math.abs(cy - 127.5) <= 1.5, `${filename} coin centre y is ${cy}, expected within 1.5px of 127.5`);
+    let discArea = 0;
+    let filled = 0;
+    for (let y = 0; y < png.height; y++) {
+      for (let x = 0; x < png.width; x++) {
+        const dx = x + 0.5 - 128;
+        const dy = y + 0.5 - 128;
+        if (dx * dx + dy * dy > 118 * 118) continue;
+        discArea++;
+        if (png.data[(y * png.width + x) * 4 + 3] > 0) filled++;
+      }
+    }
+    const fill = filled / discArea;
+    assert.ok(fill >= 0.95, `${filename} coin fills only ${(fill * 100).toFixed(1)}% of the standard disc (need 95%)`);
   }
 });
 

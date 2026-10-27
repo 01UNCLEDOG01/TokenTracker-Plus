@@ -406,7 +406,7 @@ const TITLES_UNSORTED = [
     art: "/achievements/titles/title-chinese-can-fly.png?v=1",
     requiredBadges: [
       { id: "dragon_heir", name: "龙的传人", tier: 3, art: "/achievements/dragon-heir.png?v=3" },
-      { id: "kill_line", name: "斩杀线", tier: 1, art: "/achievements/kill-line.png?v=4" },
+      { id: "kill_line", name: "斩杀线", tier: 1, art: "/achievements/kill-line.png?v=5" },
       { id: "flash_immortal", name: "Flash 仙人", tier: 2, art: "/achievements/flash-immortal.png?v=9" },
     ],
     check: (badgeMap) =>
