@@ -163,6 +163,21 @@ function stopApp() {
     spawnSync("taskkill", ["/IM", "TokenTracker.exe", "/F"], { stdio: "inherit" });
     if (isAppRunning()) throw new Error("应用停不下来，拒绝在运行中替换文件");
   }
+  // 硬杀宿主会把它内嵌的 node 服务变成孤儿，继续占着 17680 —— 之后应用只能退到随机端口
+  // （2026-10-27 实测：端口被占 → "preferred port 17680 unavailable; falling back to a dynamic port"）。
+  spawnSync("powershell", ["-NoProfile", "-Command",
+    "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.ExecutablePath -like '*TokenTrackerPlus\\app\\EmbeddedServer*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; exit 0",
+  ], { stdio: "inherit" });
+}
+
+function lastPickedPort() {
+  try {
+    const log = fs.readFileSync(path.join(os.homedir(), "AppData", "Local", "TokenTracker", "windows-host.log"), "utf8");
+    const hits = [...log.matchAll(/picked port (\d+)/g)];
+    return hits.length ? hits[hits.length - 1][1] : null;
+  } catch {
+    return null;
+  }
 }
 
 function startApp(exePath) {
@@ -204,8 +219,11 @@ async function main() {
     console.log("[mirror] --no-restart：文件已换，应用没停也没起，下次启动才生效。");
   } else if (errors.length === 0) {
     startApp(exePath);
-    if (!(await waitForServer(baseUrl))) errors.push("启动后 180 秒内服务没有起来");
-    else errors.push(...(await smoke(baseUrl)));
+    if (!(await waitForServer(baseUrl))) {
+      const picked = lastPickedPort();
+      const hint = picked && !baseUrl.endsWith(picked) ? `；宿主最后落在 ${picked}，说明 17680 被占，先清掉占用者` : "";
+      errors.push(`启动后 180 秒内 ${baseUrl} 没有响应${hint}`);
+    } else errors.push(...(await smoke(baseUrl)));
   } else {
     startApp(exePath); // 文件有问题也要把应用拉起来，别让它停在那儿
     errors.push("镜像校验失败，已把应用重新启动，但内容可能不对");
