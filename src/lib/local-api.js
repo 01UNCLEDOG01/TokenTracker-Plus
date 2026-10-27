@@ -4815,36 +4815,81 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       // it is served immediately even when stale, and the recompute runs in the
       // background (stale-while-revalidate). Blocking every 60s poll on a 3s
       // replay is what made the achievements page feel slow to load.
-      const recomputeAchievements = async () => {
+      //
+      // session_marathon and sprinter are the only badges that read the session
+      // sidecar, and building it can mean a full multi-source rescan (30s+ on a
+      // cold or degraded cache — KI-033). A cold first request used to hold its
+      // response open for that whole scan.
+      //
+      // It now answers from the sidecar already on disk (a plain file read, no
+      // CPU-heavy rescan) and kicks the build off in the background. That keeps
+      // the values stable — the stored snapshot is the same data a rebuild would
+      // start from — so no badge flickers down while the refresh runs.
+      const readStoredSessions = () => {
+        try {
+          const { readSessionSidecar } = require("./session-analytics");
+          // The sidecar sits beside the queue this handler serves, so an
+          // isolated home or a test fixture never reads the machine's real
+          // session snapshot (resolveSessionSidecarPath takes the home dir,
+          // not the tracker dir, so it cannot be reused here).
+          return readSessionSidecar(path.join(path.dirname(qp), "session.queue.jsonl"));
+        } catch (error) {
+          console.warn("[local-api] stored session rows unavailable:", error?.message || error);
+          return [];
+        }
+      };
+
+      const recomputeAchievements = async ({ sessionsPending = false } = {}) => {
         const { allRows } = await scopedRowsForUrl(url);
         const queueRows = allRows;
         const { projectRows } = await readProjectUsageContext(qp, url);
-        // session_marathon and sprinter read the device's session sidecar.
-        // buildSessionAnalytics serves from its sidecar cache, so repeated polls
-        // stay cheap. A cold cache rescans every session file, which is real CPU
-        // work inside one Node thread — Promise.race cannot interrupt it, so this
-        // is awaited as-is. The 2026-10-27 boot stalls came from a stale
-        // `*.zcode-incomplete` retry marker (which disables the cache fast path)
-        // plus a dead background cloud sync, not from this call.
-        let sessions = [];
-        try {
-          const { buildSessionAnalytics } = require("./session-analytics");
-          sessions = await buildSessionAnalytics({ force: false });
-        } catch (error) {
-          console.warn("[local-api] achievements session scan failed:", error?.message || error);
-        }
+        // Always fold in the stored snapshot: it is a file read, so it costs
+        // nothing like a rescan, and it keeps session_marathon/sprinter at their
+        // real values instead of dropping them to zero while a rebuild runs.
+        const sessions = readStoredSessions();
         const achievements = computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions });
         const payload = {
           generated_at: new Date().toISOString(),
           achievements,
+          // True while the sidecar is being rebuilt in the background; the
+          // values above are already the stored ones, so nothing is withheld.
+          sessions_pending: sessionsPending,
         };
         _achievementsCache = {
           timestamp: Date.now(),
           tzKey,
           payload,
+          // Kept so the background session refresh can re-derive the badges
+          // without replaying the queue a second time.
+          queueRows,
+          projectRows,
           recomputing: false,
         };
         return payload;
+      };
+
+      // Rebuild the session sidecar off the response path, then fold the fresh
+      // rows into the cached payload once it lands.
+      const refreshSessionsInBackground = () => {
+        if (!_achievementsCache || _achievementsCache.recomputing) return;
+        _achievementsCache.recomputing = true;
+        const cache = _achievementsCache;
+        const { buildSessionAnalytics } = require("./session-analytics");
+        buildSessionAnalytics({ force: false })
+          .then((sessions) => {
+            if (_achievementsCache !== cache) return;
+            const achievements = computeLocalAchievements(cache.queueRows, cache.projectRows, { timeZoneContext, sessions });
+            cache.payload = {
+              generated_at: new Date().toISOString(),
+              achievements,
+              sessions_pending: false,
+            };
+            cache.recomputing = false;
+          })
+          .catch((error) => {
+            console.warn("[local-api] achievements session refresh failed:", error?.message || error);
+            if (_achievementsCache === cache) cache.recomputing = false;
+          });
       };
 
       if (
@@ -4867,8 +4912,26 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         return true;
       }
 
-      const payload = await recomputeAchievements();
+      // Cold cache. `?refresh=1` is an explicit user action on the page: it may
+      // wait for a fresh sidecar build, since the user asked for fresh data.
+      if (forceRefresh) {
+        try {
+          const { buildSessionAnalytics } = require("./session-analytics");
+          await buildSessionAnalytics({ force: false });
+        } catch (error) {
+          console.warn("[local-api] achievements refresh session build failed:", error?.message || error);
+        }
+        const payload = await recomputeAchievements();
+        json(res, payload);
+        return true;
+      }
+
+      // Implicit first paint: answer from the stored sidecar (a file read) and
+      // rebuild behind the response, so a cold or degraded session cache no
+      // longer holds the first request open for the whole rescan (KI-033).
+      const payload = await recomputeAchievements({ sessionsPending: true });
       json(res, payload);
+      refreshSessionsInBackground();
       return true;
     }
 

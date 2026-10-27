@@ -3954,18 +3954,107 @@ function isDatabaseBackedSessionSource(source) {
   return source === "zcode" || isOpencodeFamilySource(source) || source === "antigravity";
 }
 
+// ── incomplete-scan retry markers (KI-033) ──
+//
+// A source that could not be read completely (held SQLite lock, permission
+// error, half-written file) drops a `<meta>.json.<source>-incomplete` marker so
+// the next build retries it instead of trusting a cache that predates the
+// failure. The marker used to be a bare "1" with no expiry and no ceiling, and
+// its mere presence disabled BOTH cache fast paths for every source — so a
+// database that is locked whenever its app is open (ZCode) pinned every build
+// onto the full-scan path. Measured 2026-10-27 on this machine: 745ms with the
+// fast path, 36,504ms without it, on identical data.
+//
+// The marker now carries an attempt count and timestamps:
+//   - the first retries after a failure still bypass the cache (a transient
+//     lock must not leave a source stale for long), and
+//   - once INCOMPLETE_RETRY_LIMIT attempts have been spent, a build runs a
+//     one-row readability probe instead of a full re-read. A recovered database
+//     is therefore detected on the very next build while a permanently locked
+//     one stops costing a full re-parse per request.
+// A marker written by an older build is a bare "1"; it reads as attempt 1.
+const INCOMPLETE_RETRY_LIMIT = 3;
+
+function readIncompleteMarker(markerPath) {
+  let raw;
+  try {
+    raw = fs.readFileSync(markerPath, "utf8");
+  } catch {
+    return null;
+  }
+  const now = Date.now();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch { /* truncated or hand-written marker */ }
+  // Anything that is not the current shape is a legacy marker. Note "1\n" parses
+  // as the JSON number 1, so a bare truthiness check is not enough — the old
+  // format spent exactly one attempt and carries no timestamps.
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    let since = now;
+    try { since = fs.statSync(markerPath).mtimeMs || now; } catch { since = now; }
+    return { attempts: 1, since, lastAttemptAt: since };
+  }
+  const attempts = Number.isFinite(parsed.attempts) ? Math.max(1, Math.trunc(parsed.attempts)) : 1;
+  const parsedSince = Date.parse(parsed.since || "");
+  const since = Number.isFinite(parsedSince) ? parsedSince : now;
+  const parsedLast = Date.parse(parsed.last_attempt_at || "");
+  const lastAttemptAt = Number.isFinite(parsedLast) ? parsedLast : since;
+  return { attempts, since, lastAttemptAt };
+}
+
+// Should this source be re-read in full right now? True while the marker still
+// has retry budget. Once spent, the caller probes readability instead, so a
+// recovered database heals immediately and a broken one stops costing a full
+// re-read on every request (no blind cooldown — that would delay recovery).
+function incompleteRetryDue(marker) {
+  if (!marker) return false;
+  return marker.attempts < INCOMPLETE_RETRY_LIMIT;
+}
+
+// Cheap "is it readable again?" probe: one row through the same reader the scan
+// uses, so it fails exactly when a full scan would, at syscall cost.
+function databaseSourceReadable(dbPaths) {
+  const list = (Array.isArray(dbPaths) ? dbPaths : [dbPaths]).filter(Boolean);
+  return list.every((dbPath) => {
+    try {
+      readSqliteJsonRows(dbPath, "SELECT 1 AS probe", {
+        label: "session source", timeout: 5_000, maxBuffer: 1024 * 1024, readOnly: true,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function writeIncompleteMarker(markerPath, previous, nowMs = Date.now()) {
+  const attempts = (previous?.attempts || 0) + 1;
+  const since = previous?.since || nowMs;
+  await writeAtomic(markerPath, `${JSON.stringify({ attempts, since: new Date(since).toISOString(), last_attempt_at: new Date(nowMs).toISOString() })}\n`);
+}
+
 async function buildSessionAnalyticsInternal({ home = os.homedir(), force = false, cacheTtlMs = 5 * 60_000 } = {}) {
   const sidecarPath = resolveSessionSidecarPath(home);
   const metaPath = `${sidecarPath}.meta.json`;
   // A lock/permission failure need not alter the database's stat signature.
   // Keep a separate durable invalidation marker while preserving the complete
   // sidecar and metadata. TTL, signature and per-file reuse must all retry it.
+  //
+  // Whole-build fast paths (TTL, signature) are blocked whenever a marker
+  // exists: that costs one discovery + stat pass (~1.3s measured on real data)
+  // and it is what keeps a source that failed to read from being reported as
+  // current. The expensive part — re-parsing every file of that source — is
+  // throttled separately by incompleteRetryDue (KI-033).
   const incompleteZcodePath = `${metaPath}.zcode-incomplete`;
-  const retryZcodeScan = fs.existsSync(incompleteZcodePath);
+  const incompleteZcodeMarker = readIncompleteMarker(incompleteZcodePath);
+  const retryZcodeScan = Boolean(incompleteZcodeMarker);
   const incompleteOpencodePath = `${metaPath}.opencode-incomplete`;
-  const retryOpencodeScan = fs.existsSync(incompleteOpencodePath);
+  const incompleteOpencodeMarker = readIncompleteMarker(incompleteOpencodePath);
+  const retryOpencodeScan = Boolean(incompleteOpencodeMarker);
   const incompleteKimiPath = `${metaPath}.kimi-incomplete`;
-  const retryKimiScan = fs.existsSync(incompleteKimiPath);
+  const incompleteKimiMarker = readIncompleteMarker(incompleteKimiPath);
+  const retryKimiScan = Boolean(incompleteKimiMarker);
   // The meta and its cached rows also drive the forced path: a refresh still
   // re-walks and re-stats every file (no TTL or whole-signature shortcut), but
   // a per-file stat_key match (plus a readability probe for file sources)
@@ -3974,7 +4063,8 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   // change that must rebuild cached rows bumps SIDECAR_VERSION, which empties
   // both maps for every caller.
   const incompleteOmpPath = `${metaPath}.omp-incomplete`;
-  const retryOmpScan = fs.existsSync(incompleteOmpPath);
+  const incompleteOmpMarker = readIncompleteMarker(incompleteOmpPath);
+  const retryOmpScan = Boolean(incompleteOmpMarker);
   let previousMeta = null;
   try {
     previousMeta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
@@ -4090,6 +4180,35 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   let incompleteOpencodeScan = false;
   let incompleteKimiScan = false;
   let incompleteOmpScan = false;
+  // A retry is a per-source decision. Gating every entry on every marker meant
+  // one locked database (ZCode, held open by its app) also invalidated the
+  // per-file cache for Codex's 266 rollouts and Claude's transcripts — measured
+  // 17.3s of the 28.9s per-build cost on 2026-10-27 (KI-033). Only the source
+  // whose own marker is set re-reads itself; everything else keeps its row.
+  //
+  // Re-reading is not free either, so it is capped: after the marker's retry
+  // budget is spent, a one-row readability probe decides — a recovered database
+  // heals on the very next build, a permanently locked one stops costing a full
+  // re-read per request. The probe runs at most once per build.
+  let zcodeProbe = null;
+  const zcodeRescanDue = () => {
+    if (!retryZcodeScan) return false;
+    if (incompleteRetryDue(incompleteZcodeMarker)) return true;
+    if (zcodeProbe === null) zcodeProbe = databaseSourceReadable(discovered.zcode);
+    return zcodeProbe;
+  };
+  const sourceRetryDue = (source) => {
+    if (source === "zcode") return zcodeRescanDue();
+    if (isOpencodeFamilySource(source)) return incompleteRetryDue(incompleteOpencodeMarker);
+    if (source === "kimi") return incompleteRetryDue(incompleteKimiMarker);
+    if (source === "omp") return incompleteRetryDue(incompleteOmpMarker);
+    return false;
+  };
+  // Which sources were actually re-read from disk in THIS build. A marker may
+  // only be cleared by a source that really re-scanned successfully: clearing
+  // it from a cache-served build would discard the retry the marker exists for
+  // (a throttled source would silently lose its pending rescan).
+  const rescannedSources = new Set();
   for (const entry of entries) {
     const cacheKey = sessionFileCacheKey(entry.source, entry.filePath);
     const statKey = analyticsEntryStatKey(entry.source, entry.filePath);
@@ -4102,7 +4221,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       continue;
     }
     let rows = null;
-    if (!(entry.source === "zcode" && retryZcodeScan) && !(isOpencodeFamilySource(entry.source) && retryOpencodeScan) && !(entry.source === "kimi" && retryKimiScan) && !(entry.source === "omp" && retryOmpScan) && previousFiles[cacheKey]?.stat_key === statKey &&
+    if (!sourceRetryDue(entry.source) && previousFiles[cacheKey]?.stat_key === statKey &&
         (!force || (!isDatabaseBackedSessionSource(entry.source) && await fileStillReadable(entry.filePath)))) {
       if (entry.source === "zcode" || isOpencodeFamilySource(entry.source) || entry.source === "kimi" || entry.source === "omp") {
         // One db scans to many cached rows; recover them all from the previous
@@ -4120,6 +4239,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
           ? await scanClaudeSession(entry.filePath, { seenMessages: seenClaudeMessages, seenRecordHashes: seenClaudeRecords })
           : await entry.scan(entry.filePath);
         rows = Array.isArray(scanned) ? scanned.filter(Boolean) : (scanned ? [scanned] : []);
+        rescannedSources.add(entry.source);
       } catch (error) {
         // One active/partial session must not poison the sidecar, but do not
         // pretend it never existed either.
@@ -4154,7 +4274,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     if (rows.length > 0) nextFiles[cacheKey] = { stat_key: statKey };
   }
   if (incompleteZcodeScan) {
-    await writeAtomic(incompleteZcodePath, "1\n");
+    await writeIncompleteMarker(incompleteZcodePath, incompleteZcodeMarker);
     // ZCode databases form one deduplicated inventory. If any read fails, retain its last
     // complete rows even on a forced refresh; skippedFiles still reports that
     // these rows could not be refreshed. Older cache schemas must be rebuilt.
@@ -4162,7 +4282,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       row.source === "zcode" && row.version === SIDECAR_VERSION));
   }
   if (incompleteOpencodeScan) {
-    await writeAtomic(incompleteOpencodePath, "1\n");
+    await writeIncompleteMarker(incompleteOpencodePath, incompleteOpencodeMarker);
     sessions.push(...readSidecar(sidecarPath).filter((row) =>
       isOpencodeFamilySource(row.source) && row.version === SIDECAR_VERSION));
   }
@@ -4188,11 +4308,11 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
 
 
   if (incompleteKimiScan) {
-    await writeAtomic(incompleteKimiPath, "1\n");
+    await writeIncompleteMarker(incompleteKimiPath, incompleteKimiMarker);
     sessions.push(...readSidecar(sidecarPath).filter((row) => row.source === "kimi" && row.version === SIDECAR_VERSION));
   }
   if (incompleteOmpScan) {
-    await writeAtomic(incompleteOmpPath, "1\n");
+    await writeIncompleteMarker(incompleteOmpPath, incompleteOmpMarker);
     sessions.push(...readSidecar(sidecarPath).filter((row) => row.source === "omp" && row.version === SIDECAR_VERSION));
   }
   const archived = reconcileSessionArchive(sessions, archiveSeed);
@@ -4202,9 +4322,24 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   }
   sessions.push(...archived.retained);
   sessions.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
-  // A failed database scan is an incomplete inventory. Keep the last complete
-  // snapshot and signature so an unchanged database is retried next build.
-  if (incompleteDirs.length === 0 && !skippedFiles && !incompleteZcodeScan && !incompleteOpencodeScan && !incompleteKimiScan && !incompleteOmpScan) {
+  // A failed file or database scan used to block ALL persistence, which had a
+  // catastrophic cold-start mode: if the very first build already hit an
+  // unreadable database (ZCode is locked while its app is open), no cache was
+  // ever written, so every later build re-parsed every source — 28.9s vs 1.3s
+  // on real data (KI-033).
+  //
+  // Never let a partial build overwrite a complete one, but let a partial build
+  // write the first snapshot: healthy sources are keyed in nextFiles and reused,
+  // and the source that failed never reaches nextFiles[cacheKey], so its rows
+  // are re-read next build regardless of TTL. Its last complete rows are served
+  // meanwhile (pushed above) and its marker keeps the retry state.
+  //
+  // Unreadable discovery directories stay a hard stop even on a first build:
+  // there the inventory itself is unknown, so a snapshot could silently drop
+  // whole providers.
+  const completeScan = !skippedFiles && !incompleteZcodeScan && !incompleteOpencodeScan && !incompleteKimiScan && !incompleteOmpScan;
+  const hasPreviousSnapshot = previousMeta?.version === SIDECAR_VERSION;
+  if (incompleteDirs.length === 0 && (completeScan || !hasPreviousSnapshot)) {
     await writeAtomic(sessionArchivePath(home), serializeSessionArchive(archived.snapshots));
     const content = sessions.map(serializeSessionRecord).join("\n") + (sessions.length ? "\n" : "");
     await writeAtomic(sidecarPath, content);
@@ -4216,10 +4351,13 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       checked_at: generatedAt,
       files: nextFiles,
     })}\n`);
-    await fsp.rm(incompleteZcodePath, { force: true });
-    await fsp.rm(incompleteOpencodePath, { force: true });
-    await fsp.rm(incompleteKimiPath, { force: true });
-    await fsp.rm(incompleteOmpPath, { force: true });
+    // Only a source that actually re-read itself in this build may clear its
+    // marker. A throttled source serves cached rows and leaves its marker in
+    // place, so the pending rescan is not silently dropped.
+    if (rescannedSources.has("zcode")) await fsp.rm(incompleteZcodePath, { force: true });
+    if (rescannedSources.has("opencode") || rescannedSources.has("loomy")) await fsp.rm(incompleteOpencodePath, { force: true });
+    if (rescannedSources.has("kimi")) await fsp.rm(incompleteKimiPath, { force: true });
+    if (rescannedSources.has("omp")) await fsp.rm(incompleteOmpPath, { force: true });
   }
   // Non-enumerable so the array still behaves exactly like a plain row list
   // for every existing caller (map/filter/JSON of the rows is unaffected).
@@ -4855,6 +4993,7 @@ function sessionsToCsv(rows) {
 
 module.exports = {
   resolveSessionSidecarPath,
+  readSessionSidecar: readSidecar,
   sessionHash,
   antigravityBlobTitleFromBuffer,
   scanClaudeSession,

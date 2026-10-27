@@ -1282,3 +1282,97 @@ sqliteTest("ZCode sub-agent tool calls are counted per call, not per turn", asyn
   assert.deepEqual(row.subagent_types, { agent: 2, task: 1 }, "names are folded to lowercase and sorted");
   assert.equal(row.edit_turns, 1, "the Edit call still counts as one edit turn");
 });
+
+// KI-033 regression guards.
+//
+// The 2026-10-27 incident: ZCode's database is locked whenever its app is open,
+// its `zcode-incomplete` marker then disabled every cache fast path, and the
+// persistence gate refused to write anything while any source was incomplete.
+// Together those turned a single unreadable database into a full 28.9s re-parse
+// of every source on every request (1.3s with a cache, measured on real data).
+sqliteTest("a first build that cannot read ZCode still persists a cache for the healthy sources", async (t) => {
+  const { home, dbPath } = buildDb(t, (db) => {
+    insertSession(db, { id: "kept", directory: "/repo/kept", created: T0 });
+    insertModelUsage(db, { id: "kept", sessionId: "kept", input: 300, output: 200 });
+  });
+  // A Codex rollout next to it: an unrelated, healthy source.
+  const codexDir = path.join(home, ".codex", "sessions", "2026", "10", "08");
+  fs.mkdirSync(codexDir, { recursive: true });
+  fs.writeFileSync(path.join(codexDir, "rollout-2026-10-08T10-00-00-codex-kept.jsonl"), [
+    JSON.stringify({ timestamp: iso(T0), type: "session_meta", payload: { id: "codex-kept", cwd: "/repo/kept" } }),
+    JSON.stringify({ timestamp: iso(T0 + 1000), type: "turn_context", payload: { model: "gpt-6" } }),
+    JSON.stringify({
+      timestamp: iso(T0 + 2000), type: "event_msg",
+      payload: { type: "token_count", info: { total_token_usage: { input_tokens: 1000, output_tokens: 100 } } },
+    }),
+  ].join("\n") + "\n");
+
+  const previousZcodeHome = process.env.ZCODE_HOME;
+  const previousWslMode = process.env.TOKENTRACKER_WSL_MODE;
+  process.env.ZCODE_HOME = path.join(home, ".zcode");
+  process.env.TOKENTRACKER_WSL_MODE = "native-only";
+  t.after(() => {
+    if (previousZcodeHome === undefined) delete process.env.ZCODE_HOME;
+    else process.env.ZCODE_HOME = previousZcodeHome;
+    if (previousWslMode === undefined) delete process.env.TOKENTRACKER_WSL_MODE;
+    else process.env.TOKENTRACKER_WSL_MODE = previousWslMode;
+  });
+
+  // Break the database BEFORE the first build: no cache exists yet.
+  fs.writeFileSync(dbPath, "not a sqlite database");
+  const sidecarPath = resolveSessionSidecarPath(home);
+  const first = await buildSessionAnalytics({ home, force: true });
+  assert.equal(first.skippedFiles, 1, "the unreadable database is reported");
+  assert.equal(fs.existsSync(`${sidecarPath}.meta.json`), true, "a partial cache must be written, not withheld");
+  assert.equal(
+    fs.existsSync(`${sidecarPath}.meta.json.zcode-incomplete`), true,
+    "and the failed source stays marked for retry",
+  );
+
+  // Second build: the healthy Codex source must come from cache, not a re-parse,
+  // and the failed source must still be reported as skipped.
+  const second = await buildSessionAnalytics({ home, cacheTtlMs: 900_000 });
+  assert.equal(second.skippedFiles, 1);
+  assert.equal(second.some((row) => row.source === "codex"), true);
+});
+
+sqliteTest("an incomplete source does not invalidate other sources' per-file cache", async (t) => {
+  const { home, dbPath } = buildDb(t, (db) => {
+    insertSession(db, { id: "z1" });
+    insertModelUsage(db, { id: "z1", sessionId: "z1", input: 100, output: 100 });
+  });
+  const previousZcodeHome = process.env.ZCODE_HOME;
+  const previousWslMode = process.env.TOKENTRACKER_WSL_MODE;
+  process.env.ZCODE_HOME = path.join(home, ".zcode");
+  process.env.TOKENTRACKER_WSL_MODE = "native-only";
+  t.after(() => {
+    if (previousZcodeHome === undefined) delete process.env.ZCODE_HOME;
+    else process.env.ZCODE_HOME = previousZcodeHome;
+    if (previousWslMode === undefined) delete process.env.TOKENTRACKER_WSL_MODE;
+    else process.env.TOKENTRACKER_WSL_MODE = previousWslMode;
+  });
+
+  await buildSessionAnalytics({ home, force: true });
+  const sidecarPath = resolveSessionSidecarPath(home);
+  const before = fs.readFileSync(`${sidecarPath}.meta.json`, "utf8");
+  const healthyDb = fs.readFileSync(dbPath);
+
+  // Break ZCode with a marker already on disk (the incident's shape).
+  fs.writeFileSync(dbPath, "not a sqlite database");
+  fs.writeFileSync(`${sidecarPath}.meta.json.zcode-incomplete`, "1\n");
+
+  const failed = await buildSessionAnalytics({ home, cacheTtlMs: 0 });
+  assert.equal(failed.skippedFiles, 1);
+  // The complete snapshot must survive: a failed source never overwrites it.
+  assert.equal(fs.readFileSync(`${sidecarPath}.meta.json`, "utf8"), before);
+
+  // The marker carries an attempt count so the retry can be bounded; a legacy
+  // bare "1" is read as one attempt spent, never as unlimited retries.
+  const marker = JSON.parse(fs.readFileSync(`${sidecarPath}.meta.json.zcode-incomplete`, "utf8"));
+  assert.equal(marker.attempts, 2, "legacy marker counts as one attempt, this build adds one");
+  assert.equal(Number.isFinite(Date.parse(marker.last_attempt_at)), true);
+
+  fs.writeFileSync(dbPath, healthyDb);
+  const recovered = await buildSessionAnalytics({ home, cacheTtlMs: 0 });
+  assert.equal(recovered.skippedFiles, 0);
+});
