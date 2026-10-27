@@ -3833,7 +3833,11 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const day = cursor.toISOString().slice(0, 10);
         const data = byDay.get(day);
         const billable = data?.billable_total_tokens || 0;
-        cells.push({ day, total_tokens: data?.total_tokens || 0, billable_total_tokens: billable, level: calcLevel(billable), models: data?.models || null });
+        cells.push({ day, total_tokens: data?.total_tokens || 0, billable_total_tokens: billable,
+          // Per-day spend rides along so the heatmap tooltip can show it without
+          // a second round trip; the day rows already priced this bucket.
+          total_cost_usd: data?.total_cost_usd || 0,
+          level: calcLevel(billable), models: data?.models || null });
         cursor.setUTCDate(cursor.getUTCDate() + 1);
       }
       const weeksArr = [];

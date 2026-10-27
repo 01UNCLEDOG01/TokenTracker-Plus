@@ -1437,6 +1437,7 @@ export function DashboardPage({
       trendZoomConfig={trendZoomConfig}
       usageFrom={from}
       usageTo={to}
+      earliestUsageDay={identityStartDate}
       period={period}
       trendTimeZoneLabel={trendTimeZoneLabel}
       activityHeatmapBlock={activityHeatmapBlock}

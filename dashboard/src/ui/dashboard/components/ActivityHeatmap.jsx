@@ -332,6 +332,7 @@ export function ActivityHeatmap({
           day: cell.day,
           total_tokens: cell.total_tokens ?? cell.value ?? 0,
           billable_total_tokens: cell.billable_total_tokens ?? cell.value ?? cell.total_tokens ?? 0,
+          total_cost_usd: cell.total_cost_usd ?? 0,
           models: cell.models ?? null,
         });
       }
@@ -962,6 +963,11 @@ export function ActivityHeatmap({
                 <span className="text-[10px] text-oai-gray-400 uppercase tracking-wider font-semibold">
                   {copy("heatmap.unit.tokens")}
                 </span>
+              </div>
+              <div className="text-[10px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
+                {copy("heatmap.tooltip.cost", {
+                  value: formatUsdCurrency(Number(hoveredCell.cost) || 0, { currency, rate }),
+                })}
               </div>
               
               {hoveredCell.models && Object.keys(hoveredCell.models).length > 0 ? (

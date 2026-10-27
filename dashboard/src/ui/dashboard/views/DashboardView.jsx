@@ -136,6 +136,7 @@ export function DashboardView(props) {
     trendZoomConfig,
     usageFrom,
     usageTo,
+    earliestUsageDay,
     period,
     trendTimeZoneLabel,
     activityHeatmapBlock,
@@ -338,6 +339,7 @@ export function DashboardView(props) {
               onCustomRangeOpenChange={onCustomRangeOpenChange}
               from={usageFrom}
               to={usageTo}
+              totalFrom={earliestUsageDay}
               deviceOptions={deviceOptions}
               selectedDevice={selectedDevice}
               onDeviceChange={onDeviceChange}

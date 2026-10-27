@@ -229,6 +229,10 @@ export function UsageOverview({
   onOpenShare,
   from,
   to,
+  // First day that actually holds usage. "Total" queries a rolling 24-month
+  // window, but the number on screen is the whole history, so the label must
+  // start at the first recorded day instead of the window's left edge.
+  totalFrom = null,
   deviceOptions = [],
   selectedDevice = "",
   onDeviceChange,
@@ -246,9 +250,10 @@ export function UsageOverview({
     typeof from === "string" &&
     typeof to === "string" &&
     from.slice(0, 7) !== to.slice(0, 7);
+  const rangeStart = period === "total" && totalFrom ? totalFrom : from;
   const periodRangeLabel =
-    period !== "day" && from && to
-      ? `${formatDateShort(from, dateLocale)} — ${formatDateShort(to, dateLocale)}`
+    period !== "day" && rangeStart && to
+      ? `${formatDateShort(rangeStart, dateLocale)} — ${formatDateShort(to, dateLocale)}`
       : null;
   // The digit-by-digit Counter renders at a fixed 72px and would clip on
   // phones. Below sm we drop it and render the plain value, which scales

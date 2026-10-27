@@ -1652,6 +1652,7 @@ dashboard.cost_breakdown.model_column,ui,CostAnalysisModal,CostAnalysisModal,mod
 dashboard.cost_breakdown.cost_column,ui,CostAnalysisModal,CostAnalysisModal,cost_column,"Cost",,active
 heatmap.3d.modal.eyebrow,ui,ActivityHeatmap,ActivityHeatmap,eyebrow,"3D Insight",,active
 heatmap.tooltip.level,ui,ActivityHeatmap,ActivityHeatmap,tooltip_level,"Level {{level}}",,active
+heatmap.tooltip.cost,ui,ActivityHeatmap,ActivityHeatmap,tooltip_cost,"Day spend {{value}}",,active
 heatmap.tooltip.tokens,ui,ActivityHeatmap3D,ActivityHeatmap3D,tooltip_tokens,"{{day}}: {{value}} tokens",,active
 heatmap.tooltip.model_breakdown,ui,ActivityHeatmap,ActivityHeatmap,model_breakdown,"Model Breakdown",,active
 heatmap.tooltip.token_breakdown,ui,TrendMonitor,TrendMonitor,token_breakdown,"Token Breakdown",,active

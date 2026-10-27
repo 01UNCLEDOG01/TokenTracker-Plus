@@ -598,6 +598,40 @@ describe("UsageOverview", () => {
     expect(screen.getByText("Oct 1 — Oct 31")).toBeTruthy();
   });
 
+  it("labels the total range from the first recorded day, not the query window", () => {
+    render(
+      <UsageOverview
+        period="total"
+        periods={[]}
+        summaryLabel="Total"
+        summaryValue="500.1B"
+        fleetData={[]}
+        from="2025-11-01"
+        to="2026-10-29"
+        totalFrom="2026-06-17"
+      />,
+    );
+
+    expect(screen.getByText("Jun 17 — Oct 29")).toBeTruthy();
+    expect(screen.queryByText("Nov 1 — Oct 29")).toBeNull();
+  });
+
+  it("falls back to the query window when no earlier day is known", () => {
+    render(
+      <UsageOverview
+        period="total"
+        periods={[]}
+        summaryLabel="Total"
+        summaryValue="500.1B"
+        fleetData={[]}
+        from="2025-11-01"
+        to="2026-10-29"
+      />,
+    );
+
+    expect(screen.getByText("Nov 1 — Oct 29")).toBeTruthy();
+  });
+
 
   it("keeps the TRAE partial-cost notice visible beside combined totals in collapsed and expanded views", async () => {
     const user = userEvent.setup();

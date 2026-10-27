@@ -108,6 +108,7 @@ export function buildActivityHeatmap({
     valuesByDay.set(day, {
       value: Math.max(0, value),
       models: row?.models || null,
+      cost: Math.max(0, toFiniteNumber(row?.total_cost_usd) ?? 0),
     });
   }
 
@@ -162,6 +163,7 @@ export function buildActivityHeatmap({
         value,
         level: clampLevel(levelFor(value)),
         models,
+        cost: dayData ? dayData.cost : 0,
       });
     }
     weeksOut.push(week);

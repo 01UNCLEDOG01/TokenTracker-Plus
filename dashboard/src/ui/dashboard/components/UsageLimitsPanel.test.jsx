@@ -115,7 +115,7 @@ describe("UsageLimitsPanel", () => {
     expect(screen.getByText(copy("limits.label.trae_nearest", {
       credits: "35.48", date: "11-04",
     }))).toBeInTheDocument();
-    const greenBars = document.querySelectorAll(".bg-green-500");
+    const greenBars = document.querySelectorAll(".bg-emerald-500");
     expect(greenBars).toHaveLength(1);
     expect(greenBars[0].getAttribute("style")).toContain("46.4");
     // The per-grant array is data only; listing it was the previous design.
