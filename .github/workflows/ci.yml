@@ -77,6 +77,11 @@ jobs:
           node --test test/architecture-guardrails.test.js
 
   linux-client:
+    # Owner ships Windows only (he has no Linux/macOS machine), so this Rust
+    # client build is pointless work while private. Gated with the same
+    # visibility condition as the paid jobs; it returns on its own at
+    # publication, where standard runners cost nothing on a public repo.
+    if: github.event.repository.private == false
     name: Linux client (Rust)
     runs-on: ubuntu-latest
     steps:
