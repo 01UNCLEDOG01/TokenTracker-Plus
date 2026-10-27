@@ -20,12 +20,56 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { StringDecoder } = require("node:string_decoder");
 
 function raccoonOfficeSessionsDir({ home = os.homedir() } = {}) {
   return path.join(home, ".office-raccoon", "agent", "log", "sessions");
 }
 
 let cache = null;
+
+// Hand the file over line by line from fixed-size chunks. A single session
+// trace passes Node's ~512 MB maximum string length within days of normal use
+// (measured 579 MB on 2026-10-27), and `readFileSync(..., "utf8")` then throws
+// — which used to be swallowed, so the whole card silently disappeared.
+function forEachJsonLine(filePath, onLine) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, "r");
+  } catch {
+    return false;
+  }
+  const decoder = new StringDecoder("utf8");
+  const buffer = Buffer.alloc(1 << 20);
+  let pending = "";
+  try {
+    for (;;) {
+      const read = fs.readSync(fd, buffer, 0, buffer.length, null);
+      if (read <= 0) break;
+      pending += decoder.write(buffer.subarray(0, read));
+      const cut = pending.lastIndexOf("\n");
+      if (cut === -1) continue;
+      const completed = pending.slice(0, cut);
+      pending = pending.slice(cut + 1);
+      for (const line of completed.split(/\r?\n/)) {
+        if (line) onLine(line);
+      }
+    }
+    pending += decoder.end();
+    for (const line of pending.split(/\r?\n/)) {
+      if (line) onLine(line);
+    }
+  } catch {
+    return false;
+  } finally {
+    try {
+      fs.closeSync(fd);
+    } catch {
+      // already closed by the runtime; nothing left to release
+    }
+  }
+  return true;
+}
 
 function hourStartFor(iso) {
   const ms = Date.parse(iso);
@@ -56,34 +100,27 @@ function raccoonOfficeUsageRows({ home = os.homedir() } = {}) {
   if (cache && cache.key === cacheKey) return cache.rows;
 
   const buckets = new Map();
+  let readFailed = false;
   for (const name of names) {
-    let text;
-    try {
-      text = fs.readFileSync(path.join(dir, name), "utf8");
-    } catch {
-      continue;
-    }
-    let countedSession = new Set();
-    for (const line of text.split(/\r?\n/)) {
-      if (!line) continue;
+    if (!forEachJsonLine(path.join(dir, name), (line) => {
       let event;
       try {
         event = JSON.parse(line);
       } catch {
-        continue;
+        return;
       }
-      if (event?.event !== "llm.response") continue;
+      if (event?.event !== "llm.response") return;
       const usage = event.data?.usage;
-      if (!usage) continue;
+      if (!usage) return;
       const hourStart = hourStartFor(event.timestamp);
-      if (!hourStart) continue;
+      if (!hourStart) return;
       const model = String(event.data?.model || "").trim() || "unknown";
       const prompt = Math.max(0, Number(usage.prompt_tokens) || 0);
       const output = Math.max(0, Number(usage.completion_tokens) || 0);
       const cached = Math.min(prompt, Math.max(0, Number(usage.cached_tokens) || 0));
       const input = prompt - cached;
       const total = prompt + output;
-      if (total <= 0) continue;
+      if (total <= 0) return;
       const key = `${model}|${hourStart}`;
       const bucket = buckets.get(key) || {
         model,
@@ -100,7 +137,8 @@ function raccoonOfficeUsageRows({ home = os.homedir() } = {}) {
       bucket.total_tokens += total;
       bucket.sessions.add(name);
       buckets.set(key, bucket);
-      countedSession.add(name);
+    })) {
+      readFailed = true;
     }
   }
 
@@ -123,7 +161,9 @@ function raccoonOfficeUsageRows({ home = os.homedir() } = {}) {
     }))
     .sort((a, b) => String(a.hour_start).localeCompare(String(b.hour_start)));
 
-  cache = { key: cacheKey, rows };
+  // Never cache a pass that failed to read: an empty result frozen here would
+  // keep the card hidden until the fingerprint changed again.
+  if (!readFailed) cache = { key: cacheKey, rows };
   return rows;
 }
 

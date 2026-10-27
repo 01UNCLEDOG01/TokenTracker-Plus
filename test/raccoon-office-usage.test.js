@@ -61,6 +61,34 @@ test("ignores rows without usage and survives a missing directory", () => {
   assert.deepEqual(raccoonOfficeUsageRows({ home: empty }), []);
 });
 
+test("reassembles lines that straddle the reader's 1 MB chunks", () => {
+  // The real trace blows past Node's ~512 MB string cap within days, so the
+  // reader works in fixed chunks. A single line longer than a chunk, with
+  // multi-byte characters landing on chunk boundaries, must still be counted
+  // exactly once — the failure mode this replaced was silently zero rows.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "raccoon-big-"));
+  const dir = path.join(home, ".office-raccoon", "agent", "log", "sessions");
+  fs.mkdirSync(dir, { recursive: true });
+  const pad = "浣熊tokenusage".repeat(120000); // mixed 3-byte and 1-byte UTF-8
+  const events = [];
+  for (let i = 0; i < 6; i += 1) {
+    events.push(response(`2026-10-27T05:${String(i).padStart(2, "0")}:00.000Z`, "m", {
+      prompt_tokens: 100, completion_tokens: 10, total_tokens: 110, cached_tokens: 40,
+    }));
+    events.push({ event: "context.snapshot", timestamp: "2026-10-27T05:00:00.000Z", data: { blob: pad } });
+  }
+  const file = path.join(dir, "big.jsonl");
+  fs.writeFileSync(file, events.map((event) => JSON.stringify(event)).join("\n"), "utf8");
+  assert.ok(fs.statSync(file).size > 3 * 1024 * 1024, "fixture must span several 1 MB chunks");
+
+  const rows = raccoonOfficeUsageRows({ home });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].total_tokens, 660, "six calls of 110, none lost or double counted");
+  assert.equal(rows[0].input_tokens, 360);
+  assert.equal(rows[0].cached_input_tokens, 240);
+  assert.equal(rows[0].output_tokens, 60);
+});
+
 test("caches by file fingerprint but re-reads when the log grows", () => {
   const home = fixture([
     response("2026-10-27T05:06:05.923Z", "m", { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, cached_tokens: 0 }),
