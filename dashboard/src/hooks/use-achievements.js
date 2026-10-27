@@ -35,12 +35,6 @@ export async function pollAchievements({ timeZone } = {}) {
   try {
     const raw = localStorage.getItem(TIERS_STORAGE_KEY);
     const prevTiers = raw ? JSON.parse(raw) : null;
-    const currentTiers = {};
-    for (const b of achievements) {
-      if (b && b.id) {
-        currentTiers[b.id] = b.tier || 0;
-      }
-    }
 
     if (prevTiers) {
       for (const b of achievements) {
@@ -59,6 +53,15 @@ export async function pollAchievements({ timeZone } = {}) {
         }
       }
     }
+    // Persist a high-water mark, not the latest reading. Share- and streak-based
+    // badges (kill_line, heart_model, streak, zen_balancer …) legitimately drop
+    // when the underlying ratio moves, and storing the dipped value made every
+    // rebound look like a fresh unlock — the "same three achievements keep
+    // firing" report of 2026-10-27.
+    const highWaterTiers = {};
+    for (const b of achievements) {
+      if (b && b.id) highWaterTiers[b.id] = Math.max(b.tier || 0, prevTiers?.[b.id] || 0);
+    }
     const previousTitles = JSON.parse(localStorage.getItem(TITLE_RESONANCE_STORAGE_KEY) || "null");
     const badgeMap = new Map(achievements.map((badge) => [badge.id, { id: badge.id, tier: badge.tier || 0 }]));
     const currentTitleTiers = {};
@@ -66,8 +69,12 @@ export async function pollAchievements({ timeZone } = {}) {
       const resonance = getTitleResonance(title, badgeMap);
       const unlocked = Boolean(resonance.unlocked);
       const tier = unlocked ? resonance.tier : 0;
-      currentTitleTiers[title.id] = { unlocked, tier };
       const previous = previousTitles?.[title.id];
+      // Same reasoning as the badge tiers: keep the best state ever seen.
+      currentTitleTiers[title.id] = {
+        unlocked: unlocked || Boolean(previous?.unlocked),
+        tier: Math.max(tier, previous?.tier || 0),
+      };
       if (previousTitles && unlocked && (!previous?.unlocked || tier > (previous.tier || 0))) {
         triggerAchievementNotification({
           badge: { id: title.id, art: title.art },
@@ -79,7 +86,7 @@ export async function pollAchievements({ timeZone } = {}) {
       }
     }
     localStorage.setItem(TITLE_RESONANCE_STORAGE_KEY, JSON.stringify(currentTitleTiers));
-    localStorage.setItem(TIERS_STORAGE_KEY, JSON.stringify(currentTiers));
+    localStorage.setItem(TIERS_STORAGE_KEY, JSON.stringify(highWaterTiers));
     localStorage.setItem(ACHIEVEMENTS_CACHE_KEY, JSON.stringify(achievements));
   } catch {
     // Safe handling for storage restrictions

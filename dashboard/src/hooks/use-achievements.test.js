@@ -74,4 +74,40 @@ describe("achievement notification artwork", () => {
     expect(triggerAchievementNotification).not.toHaveBeenCalled();
     expect(JSON.parse(localStorage.getItem(TITLE_KEY)).frugal_archmage).toEqual({ unlocked: true, tier: 2 });
   });
+
+  it("does not re-announce a badge that dips below its tier and climbs back", async () => {
+    // kill_line rides the DeepSeek share, which wobbles around the 50% bronze
+    // line — the exact shape behind the "same achievements keep unlocking" report.
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 0 }));
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 1 }] });
+    await pollAchievements();
+    expect(triggerAchievementNotification).toHaveBeenCalledTimes(1);
+
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 0 }] });
+    await pollAchievements();
+    expect(triggerAchievementNotification).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(localStorage.getItem(BADGE_KEY)).kill_line).toBe(1); // high-water kept
+
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 1 }] });
+    await pollAchievements();
+    expect(triggerAchievementNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("still announces a genuine tier-up after a dip", async () => {
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 0 }));
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 1 }] });
+    await pollAchievements();
+
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 0 }] });
+    await pollAchievements();
+
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 2 }] });
+    await pollAchievements();
+
+    expect(triggerAchievementNotification).toHaveBeenCalledTimes(2);
+    expect(triggerAchievementNotification).toHaveBeenLastCalledWith(expect.objectContaining({
+      isTierUp: true,
+      tier: 2,
+    }));
+  });
 });
