@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Privacy Policy | TokenTracker</title><link rel="stylesheet" href="/legal.css"></head><body><header><a href="/">TokenTracker</a></header><main><h1>Privacy Policy</h1>
 <p><em>Last updated: 2026-10-08 · Applies to the <code>tokentracker-cli</code> npm package, the macOS app, the Windows app, the Linux app, and <a href="https://(removed)">(removed)</a>.</em></p>
 <p>TokenTracker reads the local logs that AI coding tools already write to your disk, and turns them into token counts and cost estimates. It is local-first: the dashboard, the parsers and the database all run on your machine.</p>
-<p>This document lists <strong>every</strong> network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please <a href="https://github.com/xiufengsun/TokenTracker/issues">open an issue</a>.</p>
+<p>This document lists <strong>every</strong> network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/issues">open an issue</a>.</p>
 <hr />
 <h2>1. What never leaves your machine</h2>
 <p>TokenTracker's parsers extract numbers and timestamps only. TRAE CN is a narrow exception to the local-only source model, and it is off by default: only when you explicitly set <code>TOKENTRACKER_TRAE_CN_USAGE=1</code>, during an eligible non-background sync, when local TRAE CN auth exists, does TokenTracker transmit the existing sign-in authorization from the locally signed-in app to TRAE's internal API for a read-only usage request. Without that variable nothing is ever sent. It is not an unconditional or default generic network request. That authorization is never persisted or logged.</p>
@@ -17,7 +17,7 @@
 <ul>
 <li><strong>File paths, project names, and repository names.</strong> The Projects view needs to know which repo a session belonged to, so <code>project.queue.jsonl</code> stores a project key and git remote URL, and <code>session.queue.jsonl</code> stores each session's working directory. Both files stay on your machine — they are excluded from cloud sync (see §4) and the Projects view is computed entirely locally. Set <code>TOKENTRACKER_DISABLE_GIT_ATTRIBUTION=1</code> to stop deriving them at all.</li>
 </ul>
-<p>You can verify this in <a href="https://github.com/xiufengsun/TokenTracker/blob/main/src/lib/rollout.js"><code>src/lib/rollout.js</code></a>: every <code>parse*Incremental</code> function emits only the queue row shapes described below.</p>
+<p>You can verify this in <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/blob/main/src/lib/rollout.js"><code>src/lib/rollout.js</code></a>: every <code>parse*Incremental</code> function emits only the queue row shapes described below.</p>
 <hr />
 <h2>2. What is stored locally</h2>
 <p>Everything lives under <code>~/.tokentracker/</code> (<code>%USERPROFILE%\.tokentracker\</code> on Windows):</p>
@@ -121,7 +121,7 @@
 <pre><code class="language-bash">export TOKENTRACKER_NO_TELEMETRY=1     # or DO_NOT_TRACK=1
 </code></pre>
 <p>You can also set <code>"telemetry": false</code> in <code>~/.tokentracker/tracker/config.json</code>. On localhost and inside the desktop apps, the dashboard asks the local server for this preference before initialising analytics — and if the answer cannot be confirmed, analytics stays <strong>off</strong> (fail-closed).</p>
-<p>Audit: <a href="https://github.com/xiufengsun/TokenTracker/blob/main/src/lib/telemetry.js"><code>src/lib/telemetry.js</code></a>, <a href="https://github.com/xiufengsun/TokenTracker/blob/main/dashboard/src/lib/analytics.js"><code>dashboard/src/lib/analytics.js</code></a>, <a href="https://github.com/xiufengsun/TokenTracker/blob/main/src/lib/pricing/litellm-fetcher.js"><code>src/lib/pricing/litellm-fetcher.js</code></a>.</p>
+<p>Audit: <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/blob/main/src/lib/telemetry.js"><code>src/lib/telemetry.js</code></a>, <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/blob/main/dashboard/src/lib/analytics.js"><code>dashboard/src/lib/analytics.js</code></a>, <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/blob/main/src/lib/pricing/litellm-fetcher.js"><code>src/lib/pricing/litellm-fetcher.js</code></a>.</p>
 <h3>3.2 Only after you opt in or click something</h3>
 <table>
 <thead>
@@ -269,7 +269,7 @@
 <h2>7. Children</h2>
 <p>TokenTracker is a developer tool and is not directed at children under 13. We do not knowingly collect personal information from children.</p>
 <h2>8. Changes</h2>
-<p>Material changes to this policy will be noted in the release notes and in the <code>Last updated</code> date above. The full history is in <a href="https://github.com/xiufengsun/TokenTracker/commits/main/dashboard/public/privacy.html">this file's Git log</a>.</p>
+<p>Material changes to this policy will be noted in the release notes and in the <code>Last updated</code> date above. The full history is in <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/commits/main/dashboard/public/privacy.html">this file's Git log</a>.</p>
 <h2>9. Contact</h2>
 <p>Questions, corrections, or deletion requests: <a href="mailto:rynnsun0509@gmail.com">rynnsun0509@gmail.com</a>. Do not publish private account or payment information in GitHub issues.</p>
 <h2>Planned Cloud billing</h2>

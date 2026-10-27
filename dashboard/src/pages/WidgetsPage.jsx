@@ -4,6 +4,7 @@ import { copy } from "../lib/copy";
 import { cn } from "../lib/cn";
 import { Select } from "../ui/components";
 import { isNativeEmbed, nativeAction } from "../lib/native-bridge.js";
+import { RELEASES_URL as RELEASE_URL } from "../lib/config";
 import { useNativeSettings } from "../hooks/use-native-settings.js";
 import {
   FALLBACK_MENU_BAR_ITEMS,
@@ -586,7 +587,7 @@ function HeaderCta() {
   if (platform === "mac-web") {
     return (
       <a
-        href="https://github.com/xiufengsun/TokenTracker/releases/latest"
+        href={RELEASE_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex h-10 items-center gap-2 rounded-lg bg-oai-black px-4 text-sm font-medium text-white no-underline transition-colors hover:bg-oai-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 focus-visible:ring-offset-2 dark:bg-white dark:text-oai-black dark:hover:bg-oai-gray-200"

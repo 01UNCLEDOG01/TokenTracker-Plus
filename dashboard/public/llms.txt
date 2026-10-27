@@ -16,7 +16,7 @@ timestamps, never prompts, responses, or source code.
 
 ## Priority URLs
 - [Homepage](https://(removed)/)
-- [GitHub repository](https://github.com/xiufengsun/TokenTracker)
+- [GitHub repository](https://github.com/01UNCLEDOG01/TokenTracker-plus)
 - [Leaderboard](https://(removed)/leaderboard)
 - [Claude IP check](https://(removed)/ip-check)
 
@@ -25,7 +25,7 @@ timestamps, never prompts, responses, or source code.
 - macOS app: `brew install --cask xiufengsun/tokentracker/tokentracker`
 - Windows app: `TokenTracker-Setup.exe` from the latest GitHub Release
 - [npm package](https://www.npmjs.com/package/tokentracker-cli)
-- [Latest release](https://github.com/xiufengsun/TokenTracker/releases/latest)
+- [Latest release](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest)
 
 ## Supported AI coding tools (53)
 - Claude Code
@@ -100,4 +100,4 @@ limits, projects, heatmap, skills, achievements, widgets, and settings.
 - Token counts only; prompts and conversation content are never collected.
 
 ## Contact
-- [GitHub issues](https://github.com/xiufengsun/TokenTracker/issues)
+- [GitHub issues](https://github.com/01UNCLEDOG01/TokenTracker-plus/issues)

@@ -17,7 +17,7 @@ import {
   useLeaderboardProfileData,
 } from "../components/leaderboard/LeaderboardProfileModal.jsx";
 
-const RELEASE_URL = "https://github.com/xiufengsun/TokenTracker/releases/latest";
+import { RELEASES_URL as RELEASE_URL } from "../lib/config";
 
 /**
  * Standalone, shareable per-user profile page at /u/:userId. Reuses the same
