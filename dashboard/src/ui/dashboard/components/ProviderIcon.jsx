@@ -503,7 +503,10 @@ const PROVIDER_LOGO_MAP = {
   // CodeBuddy CN's own app icon (purple gradient plate + white mascot), taken
   // from the installed client's resources/app/resources/tray.png. The mono
   // mascot above stays the fallback for WorkBuddy AI, which shares the mark.
-  CODEBUDDY: "/brand-logos/codebuddy-cn.png",
+  // ?v=2: the first cut kept the source art's 28px transparent margin, so at
+  // 16px the mark read ~27% smaller than its neighbours. The asset is now
+  // trimmed to its content box; the version busts the WebView2 image cache.
+  CODEBUDDY: "/brand-logos/codebuddy-cn.png?v=2",
   // 团结 Cowork's own app mark, copied from the installed app's toast icon
   // (AppData\Local\Tuanjie Cowork\codely-toast-icon.png) - the green/teal
   // Codely hexagon.
