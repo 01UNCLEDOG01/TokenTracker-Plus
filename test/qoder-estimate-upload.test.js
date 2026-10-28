@@ -13,8 +13,24 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { persistQoderEstimateRows, readAllQueueRows } = require("../src/lib/qoder-estimate-upload");
-const { qoderCnLimitsCacheFile, qoderCnEstimateMirrorFile } = require("../src/lib/qoder-cn-estimate");
+const { qoderCnLimitsCacheFile, qoderCnEstimateMirrorFile, qoderCnEstimatedRows } = require("../src/lib/qoder-cn-estimate");
 const { qoderIntlCreditMirrorFile, QODER_INTL_MIRROR_VERSION } = require("../src/lib/qoder-intl-credits");
+
+// A queue row with REAL tokens (no 估算 suffix) for the given Beijing day.
+function realRow(hourStart, totalTokens) {
+  return {
+    source: "qoder-cn",
+    model: "qoder-cn-model",
+    hour_start: hourStart,
+    input_tokens: totalTokens,
+    cached_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    output_tokens: 0,
+    reasoning_output_tokens: 0,
+    total_tokens: totalTokens,
+    conversation_count: 1,
+  };
+}
 
 const HEALTHY_SPEND = {
   cached_at: "2026-10-16T01:00:00Z",
@@ -144,6 +160,43 @@ test("a newer estimate day appends incrementally past the watermark", async () =
       assert.equal(now, cnCountAfterFirst(day), `older day ${day} was not rewritten`);
     }
     assert.ok(queueRows.filter((r) => r.source === "qoder-cn" && r.hour_start.startsWith("2026-10-03")).length >= 1);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a local anchor only silences its own measurement days, not the gaps between them", () => {
+  const home = sandbox({});
+  try {
+    // Daily feed: two days carry real local tokens (they form the anchor),
+    // one day inside the anchor span has nothing locally (a gap), one day is
+    // outside the span.
+    const spend = {
+      cached_at: "2026-10-16T01:00:00Z",
+      qoder: {
+        spend: {
+          daily: [
+            { date: "2026-10-01", messages: 100 },
+            { date: "2026-10-02", messages: 50 },
+            { date: "2026-10-03", messages: 40 },
+            { date: "2026-10-05", messages: 30 },
+          ],
+        },
+      },
+    };
+    fs.writeFileSync(qoderCnLimitsCacheFile({ home }), JSON.stringify(spend));
+    const rows = [
+      realRow("2026-10-01T04:00:00.000Z", 1000),
+      realRow("2026-10-05T04:00:00.000Z", 2000),
+    ];
+    const estimated = qoderCnEstimatedRows(rows, { home });
+    const days = estimated.map((row) => String(row.hour_start).slice(0, 10));
+    // The two anchor days are ground truth; the gap day inside the span and the
+    // day outside it are still estimated.
+    assert.ok(!days.includes("2026-10-01"), "an anchor day is never estimated");
+    assert.ok(!days.includes("2026-10-05"), "an anchor day is never estimated");
+    assert.ok(days.includes("2026-10-02"), "a gap inside the anchor span is still estimated");
+    assert.ok(days.includes("2026-10-03"), "a gap inside the anchor span is still estimated");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

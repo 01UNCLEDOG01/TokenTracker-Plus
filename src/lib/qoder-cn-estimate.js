@@ -311,6 +311,7 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
   let anchor = null;
   if (daily && daily.length > 0) {
     let tokens = 0, messages = 0, from = null, to = null;
+    const days = [];
     for (const entry of daily) {
       const day = typeof entry?.date === "string" ? entry.date : "";
       const dayMessages = Number(entry?.messages) || 0;
@@ -318,11 +319,12 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
       if (!day || dayMessages <= 0 || !(dayTokens > 0)) continue;
       tokens += dayTokens;
       messages += dayMessages;
+      days.push(day);
       if (!from || day < from) from = day;
       if (!to || day > to) to = day;
     }
     if (tokens > 0 && messages > 0) {
-      anchor = { tokens, messages, from, to, source: "local-queue" };
+      anchor = { tokens, messages, from, to, days, source: "local-queue" };
     }
   }
   if (!anchor) {
@@ -350,6 +352,18 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
   const ratio = anchorTokens / anchorMessages;
   const shape = qoderCnTokenShape(allRows);
   const rows = [];
+  // The anchor window itself is machine-local ground truth by definition (the
+  // ratio was measured on exactly those days) — estimating them again would
+  // regenerate the anchor from itself, so they never produce rows.
+  //
+  // A local anchor spans from..to, but only the days that actually carried the
+  // measurement are ground truth; a gap in between (a day the official feed
+  // lists while the queue holds nothing) must still be estimated. The
+  // fork-default anchor has no day list and falls back to its own 3-day range.
+  const anchorDays = new Set(Array.isArray(anchor.days) ? anchor.days : []);
+  const isForkDefault = anchor.source === "fork-default";
+  const windowFrom = typeof anchor.from === "string" ? anchor.from : "";
+  const windowTo = typeof anchor.to === "string" ? anchor.to : "";
   for (const entry of daily) {
     const day = typeof entry?.date === "string" ? entry.date : "";
     const messages = Number(entry?.messages) || 0;
@@ -357,6 +371,13 @@ function qoderCnEstimatedRows(allRows, { home = os.homedir() } = {}) {
     // Days where this queue holds real recorded tokens are ground truth; the
     // estimate only covers days the local stores never captured.
     if ((localByDay.get(day) || 0) > 0) continue;
+    if (anchorDays.size > 0) {
+      if (anchorDays.has(day)) continue;
+    } else if (isForkDefault && windowFrom && windowTo && day >= windowFrom && day <= windowTo) {
+      // Only the fork-default constant has a narrow, known range; a local
+      // anchor without a day list (older sidecar) must not skip a wide span.
+      continue;
+    }
     const estimated = Math.round(messages * ratio);
     const shortfall = estimated - (localByDay.get(day) || 0);
     if (shortfall <= 0) continue;
