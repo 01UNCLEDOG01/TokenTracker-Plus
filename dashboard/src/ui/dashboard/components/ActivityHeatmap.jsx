@@ -963,11 +963,11 @@ export function ActivityHeatmap({
                 <span className="text-[10px] text-oai-gray-400 uppercase tracking-wider font-semibold">
                   {copy("heatmap.unit.tokens")}
                 </span>
-              </div>
-              <div className="text-[10px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
-                {copy("heatmap.tooltip.cost", {
-                  value: formatUsdCurrency(Number(hoveredCell.cost) || 0, { currency, rate }),
-                })}
+                <span className="ml-auto whitespace-nowrap text-[10px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
+                  {copy("heatmap.tooltip.cost", {
+                    value: formatUsdCurrency(Number(hoveredCell.cost) || 0, { currency, rate }),
+                  })}
+                </span>
               </div>
               
               {hoveredCell.models && Object.keys(hoveredCell.models).length > 0 ? (
