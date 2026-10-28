@@ -9,7 +9,7 @@ namespace TokenTrackerWin.Tests;
 public sealed class UpdateReleaseClientTests
 {
     private const string ApiUrl = "https://api.github.com/repos/01UNCLEDOG01/TokenTracker-plus/releases/latest";
-    private const string TagUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9";
+    private const string TagUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9";
     private static readonly DateTimeOffset Now = new(2026, 10, 12, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -171,14 +171,13 @@ public sealed class UpdateReleaseClientTests
     }
 
     [Theory]
-    [InlineData("https://example.test/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9")]
-    [InlineData("http://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9")]
-    [InlineData("https://github.com/another/repo/releases/tag/plus-v1.3.9")]
+    [InlineData("https://example.test/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9")]
+    [InlineData("http://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9")]
+    [InlineData("https://github.com/another/repo/releases/tag/v1.3.9")]
     [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest")]
-    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9-rc.1")]
-    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9/extra")]
-    // 上游式的裸 v 标签不再算数：只认本仓的 plus-v* 方案。
-    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9")]
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9-rc.1")]
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9/extra")]
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9")]
     public async Task FallbackRejectsUnexpectedRedirectsAndInvalidTags(string redirect)
     {
         var calls = 0;
@@ -243,7 +242,7 @@ public sealed class UpdateReleaseClientTests
     [Fact]
     public async Task ExistingVersionStillReportsUpToDate()
     {
-        using var http = Http(_ => ApiRelease("plus-v0.0.0"));
+        using var http = Http(_ => ApiRelease("v0.0.0"));
         var checker = new UpdateChecker(http);
         Assert.Equal(UpdateChecker.CheckOutcome.UpToDate, await checker.CheckAsync(silent: false));
         Assert.Equal(UpdateChecker.UpdateState.Idle, checker.State);
@@ -289,7 +288,7 @@ public sealed class UpdateReleaseClientTests
 
     private static bool IsApi(HttpRequestMessage request) => request.RequestUri!.Host == "api.github.com";
 
-    private static HttpResponseMessage ApiRelease(string tag = "plus-v1.3.9")
+    private static HttpResponseMessage ApiRelease(string tag = "v1.3.9")
         => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { tag_name = tag })) };
 
     private static HttpResponseMessage RateLimited(DateTimeOffset? reset = null)
