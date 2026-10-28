@@ -109,15 +109,17 @@ describe("UsageLimitsPanel", () => {
     );
 
     expect(screen.getByText(copy("limits.label.trae_balance", { credits: "1,835.48" }))).toBeInTheDocument();
-    expect(screen.getByText(copy("limits.label.trae_usage", {
+    // 总积分/已用/最近到期只在进度条的悬浮提示里，卡片上不再重复。
+    expect(screen.queryByText(copy("limits.label.trae_usage", {
       total: "3,950", used: "2,114.52",
-    }))).toBeInTheDocument();
-    expect(screen.getByText(copy("limits.label.trae_nearest", {
-      credits: "35.48", date: "11-04",
-    }))).toBeInTheDocument();
+    }))).toBeNull();
     const greenBars = document.querySelectorAll(".bg-emerald-500");
     expect(greenBars).toHaveLength(1);
     expect(greenBars[0].getAttribute("style")).toContain("46.4");
+    const trackTitle = greenBars[0].parentElement.getAttribute("title");
+    expect(trackTitle).toContain("3,950");
+    expect(trackTitle).toContain("2,114.52");
+    expect(trackTitle).toContain("35.48");
     // The per-grant array is data only; listing it was the previous design.
     expect(screen.queryByText("签到奖励")).not.toBeInTheDocument();
     expect(screen.queryByText("每月登录赠送")).not.toBeInTheDocument();

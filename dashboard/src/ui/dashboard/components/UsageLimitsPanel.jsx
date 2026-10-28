@@ -786,7 +786,7 @@ function traeAccountSummary(data) {
 const formatTraeCredit = (value) => formatCreditAmount(value, { maximumFractionDigits: 2 });
 
 function TraeWalletExtra({ data }) {
-  const { available, total, used, remainingPct, nearestExpireAt, showUsage } =
+  const { available, total, used, remainingPct, nearestExpireAt } =
     traeAccountSummary(data);
 
   return (
@@ -798,28 +798,21 @@ function TraeWalletExtra({ data }) {
         <WalletBar
           label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
-          title={copy("limits.label.trae_usage", {
-            total: formatTraeCredit(total),
-            used: formatTraeCredit(used),
-          })}
+          title={[
+            copy("limits.label.trae_usage", {
+              total: formatTraeCredit(total),
+              used: formatTraeCredit(used),
+            }),
+            nearestExpireAt
+              ? copy("limits.label.trae_nearest", {
+                  credits: formatTraeCredit(Number(data.trae_nearest_points)),
+                  date: nearestExpireAt.slice(5, 10),
+                })
+              : null,
+          ].filter(Boolean).join("\n")}
         />
       ) : null}
-      {showUsage ? (
-        <StatusLine>
-          {copy("limits.label.trae_usage", {
-            total: formatTraeCredit(total),
-            used: formatTraeCredit(used),
-          })}
-        </StatusLine>
-      ) : null}
-      {nearestExpireAt ? (
-        <StatusLine>
-          {copy("limits.label.trae_nearest", {
-            credits: formatTraeCredit(Number(data.trae_nearest_points)),
-            date: nearestExpireAt.slice(5, 10),
-          })}
-        </StatusLine>
-      ) : null}
+      {/* 总积分/已用/最近到期都在进度条的悬浮提示里，卡片上不再重复一遍。 */}
     </>
   );
 }
@@ -848,14 +841,6 @@ function CodeArtsWalletExtra({ data }) {
             used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
           })}
         />
-      ) : null}
-      {Boolean(total) ? (
-        <StatusLine className="text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
-          {copy("limits.label.trae_usage", {
-            total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
-            used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
-          })}
-        </StatusLine>
       ) : null}
     </>
   );
@@ -886,14 +871,6 @@ function AgentRouterWalletExtra({ data }) {
             used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
           })}
         />
-      ) : null}
-      {Boolean(total && Number.isFinite(Number(data.agentrouter_used_usd))) ? (
-        <StatusLine className="text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
-          {copy("limits.label.trae_usage", {
-            total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
-            used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
-          })}
-        </StatusLine>
       ) : null}
     </>
   );
