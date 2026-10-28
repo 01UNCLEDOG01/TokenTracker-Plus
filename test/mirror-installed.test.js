@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { verifyTree, mirrorTree, countFiles } = require("../scripts/mirror-installed.cjs");
+const { verifyTree, mirrorTree, countFiles, awaitStartup } = require("../scripts/mirror-installed.cjs");
 
 function makeRepo(root) {
   fs.mkdirSync(path.join(root, "dashboard", "dist", "assets"), { recursive: true });
@@ -76,3 +76,46 @@ test("mirroring twice keeps the tree at the repo file count (no accumulation)", 
     assert.equal(countFiles(path.join(tree, "dashboard", "dist")), want);
   });
 });
+
+// KI-037: a slow cold start used to be reported as a failed hot update. The
+// verdict must distinguish "never came up" from "came up during the grace
+// window" — the latter is a success, and the retry hint must not fire.
+test("startup inside the main budget is a primary success", async () => {
+  const calls = [];
+  const verdict = await awaitStartup("http://127.0.0.1:1", {
+    probe: async (_url, ms) => { calls.push(ms); return true; },
+    log: () => {},
+  });
+  assert.equal(verdict.ok, true);
+  assert.equal(verdict.phase, "primary");
+  assert.equal(calls.length, 1, "grace probe must not run when the first budget succeeds");
+});
+
+test("startup that only answers inside the grace window counts as success", async () => {
+  const calls = [];
+  const logs = [];
+  const verdict = await awaitStartup("http://127.0.0.1:1", {
+    timeoutMs: 180000,
+    graceMs: 60000,
+    probe: async (_url, ms) => { calls.push(ms); return calls.length > 1; },
+    log: (line) => logs.push(line),
+  });
+  assert.equal(verdict.ok, true);
+  assert.equal(verdict.phase, "grace");
+  assert.deepEqual(calls, [180000, 60000]);
+  assert.match(logs.join("\n"), /宽限/);
+});
+
+test("a server that never answers fails only after both budgets", async () => {
+  const calls = [];
+  const verdict = await awaitStartup("http://127.0.0.1:1", {
+    timeoutMs: 1000,
+    graceMs: 2000,
+    probe: async (_url, ms) => { calls.push(ms); return false; },
+    log: () => {},
+  });
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.phase, "failed");
+  assert.deepEqual(calls, [1000, 2000]);
+});
+

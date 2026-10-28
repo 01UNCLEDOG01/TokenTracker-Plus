@@ -9,6 +9,9 @@
  *
  * 做的事：带 flag 构建 → 两棵安装树各镜像 dist(先删再拷)/src/bin → 逐棵核对
  * （文件数、入口页、src+bin 文件大小）→ HTTP 冒烟 → 重启应用 → 再次冒烟。
+ * 启动判定（KI-037）：主预算 180 秒内 200 即算成功；超时后宽限 60 秒复查一次，
+ * 宽限内上线记为「冷启动慢」而不是失败。可用 MIRROR_STARTUP_TIMEOUT_MS /
+ * MIRROR_STARTUP_GRACE_MS 覆盖（机器更慢时不必改代码）。
  *
  * 用法：
  *   npm run mirror:installed              # 全部做，最后重启应用
@@ -129,7 +132,13 @@ async function smoke(baseUrl) {
   return errors;
 }
 
-async function waitForServer(baseUrl, timeoutMs = 180000) {
+// KI-037: Windows 桌面端拉起内嵌 node serve 实测约 60 秒，机器忙时更久。旧的单次
+// 180 秒判定会把「镜像已完成、应用只是慢」当成热更失败，退出码不可信、还会诱导重跑
+// （重跑又产生一份 dist 暂存）。现在超时后再宽限一轮复查，并把两种结论分开报。
+const STARTUP_TIMEOUT_MS = Number(process.env.MIRROR_STARTUP_TIMEOUT_MS || 180000);
+const STARTUP_GRACE_MS = Number(process.env.MIRROR_STARTUP_GRACE_MS || 60000);
+
+async function waitForServer(baseUrl, timeoutMs = STARTUP_TIMEOUT_MS) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     try {
@@ -139,6 +148,21 @@ async function waitForServer(baseUrl, timeoutMs = 180000) {
     await new Promise((r) => setTimeout(r, 2000));
   }
   return false;
+}
+
+// 纯判定逻辑，便于单测注入假探针：主预算内上线 → primary；超时但宽限内上线 →
+// grace（镜像有效，只是冷启动慢）；两轮都没上线 → failed（此时才该怀疑启动本身）。
+async function awaitStartup(baseUrl, options = {}) {
+  const {
+    timeoutMs = STARTUP_TIMEOUT_MS,
+    graceMs = STARTUP_GRACE_MS,
+    probe = waitForServer,
+    log = console.log,
+  } = options;
+  if (await probe(baseUrl, timeoutMs)) return { ok: true, phase: "primary", graceUsedMs: 0 };
+  log(`[mirror] ${Math.round(timeoutMs / 1000)} 秒内没有响应，宽限 ${Math.round(graceMs / 1000)} 秒再复查一次（镜像文件此时已全部就位）…`);
+  if (await probe(baseUrl, graceMs)) return { ok: true, phase: "grace", graceUsedMs: graceMs };
+  return { ok: false, phase: "failed", graceUsedMs: graceMs };
 }
 
 async function waitForPortFree(baseUrl, timeoutMs = 30000) {
@@ -243,11 +267,20 @@ async function main() {
     console.log("[mirror] --no-restart：文件已换，应用没停也没起，下次启动才生效。");
   } else if (errors.length === 0) {
     startApp(exePath);
-    if (!(await waitForServer(baseUrl))) {
+    const startup = await awaitStartup(baseUrl);
+    if (!startup.ok) {
       const picked = lastPickedPort();
       const hint = picked && !baseUrl.endsWith(picked) ? `；宿主最后落在 ${picked}，说明 17680 被占，先清掉占用者` : "";
-      errors.push(`启动后 180 秒内 ${baseUrl} 没有响应${hint}`);
-    } else errors.push(...(await smoke(baseUrl)));
+      errors.push(
+        `启动后 ${Math.round((STARTUP_TIMEOUT_MS + STARTUP_GRACE_MS) / 1000)} 秒内 ${baseUrl} 没有响应${hint}` +
+        `。注意：镜像文件已全部就位（前面各棵树的核对与冒烟前检查都通过了），失败点在「应用没起来」，重跑热更不能解决`
+      );
+    } else {
+      if (startup.phase === "grace") {
+        console.log(`[mirror] 宽限期内上线（冷启动慢，不是热更失败）；本次多等了 ${Math.round(startup.graceUsedMs / 1000)} 秒。`);
+      }
+      errors.push(...(await smoke(baseUrl)));
+    }
   } else {
     startApp(exePath); // 文件有问题也要把应用拉起来，别让它停在那儿
     errors.push("镜像校验失败，已把应用重新启动，但内容可能不对");
@@ -261,7 +294,7 @@ async function main() {
   console.log(`[mirror] 完成：${trees.length} 棵树与仓库构建一致（${countFiles(REPO_DIST)} 个 dist 文件），冒烟 ${SMOKE_PATHS.length} 项 200。`);
 }
 
-module.exports = { verifyTree, mirrorTree, countFiles, listFiles, SMOKE_PATHS };
+module.exports = { verifyTree, mirrorTree, countFiles, listFiles, SMOKE_PATHS, waitForServer, awaitStartup };
 
 if (require.main === module) {
   main().catch((err) => {
