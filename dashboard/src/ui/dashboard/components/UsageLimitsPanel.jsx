@@ -1,9 +1,16 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Gift, Clock as ClockIcon, Infinity as InfinityIcon } from "lucide-react";
 import { Card } from "../../components";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
 import { copy, getCopyLocale } from "../../../lib/copy";
 import { LIMIT_DISPLAY_MODES } from "../../../hooks/use-limits-display-prefs.js";
+import {
+  MAX_PET_LIMIT_ROWS,
+  petLimitRowKey,
+  readPetLimitSelection,
+  togglePetLimitSelection,
+  writePetLimitSelection,
+} from "../../../lib/pet-limit-selection.js";
 import {
   LIMIT_PROVIDER_IDS,
   limitProviderIconKey,
@@ -190,7 +197,7 @@ function PaceMarker({ paceX, paceOver }) {
   );
 }
 
-function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePercent = null, paceOver = false, title = null, segments = null }) {
+function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePercent = null, paceOver = false, title = null, segments = null, picker = null }) {
   const rawUsed = Math.max(0, Math.min(100, Number(pct) || 0));
   const displayPct = mode === LIMIT_DISPLAY_MODES.REMAINING ? 100 - rawUsed : rawUsed;
   const fillColor = barColor(displayPct, mode);
@@ -255,6 +262,17 @@ function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePerc
       {reset && (
         <span className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500 w-6 text-right shrink-0">{reset}</span>
       )}
+      {picker ? (
+        <input
+          type="checkbox"
+          checked={picker.checked}
+          disabled={!picker.checked && picker.full}
+          onChange={() => picker.onToggle(picker.providerId, picker.rowKey)}
+          aria-label={copy("limits.pet.toggle_aria", { label })}
+          title={copy("limits.pet.toggle_hint")}
+          className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-oai-gray-300 accent-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+        />
+      ) : null}
     </div>
   );
 }
@@ -613,11 +631,18 @@ function WalletBar({ label, pct, title = null }) {
   );
 }
 
-function LimitWindowSection({ rows, mode, extra = null, expanded = false }) {
+function LimitWindowSection({ rows, mode, extra = null, expanded = false, picker = null }) {
   const showEmpty = rows.length === 0 && !extra;
   return (
     <>
       {rows.map(({ spec, pace, mode: rowMode = mode }) => {
+        const rowPicker = picker ? {
+          providerId: picker.providerId,
+          rowKey: spec.key,
+          checked: picker.selected.includes(petLimitRowKey(picker.providerId, spec.key)),
+          full: picker.selected.length >= MAX_PET_LIMIT_ROWS,
+          onToggle: picker.onToggle,
+        } : null;
         const pct = readWindowPct(spec.window, spec.pctField);
         // The per-product split is detail: collapsed shows the whole pool,
         // expanding the group splits the bar and adds the legend.
@@ -633,6 +658,7 @@ function LimitWindowSection({ rows, mode, extra = null, expanded = false }) {
               pacePercent={pace.pacePercent}
               paceOver={pace.paceOver}
               title={buildWindowHoverDetail(spec, pace, rowMode)}
+              picker={rowPicker}
             />
             {segments ? (
               <LimitSegmentLegend segments={segments} fillColor={barColor(pct, LIMIT_DISPLAY_MODES.USED)} />
@@ -1013,7 +1039,7 @@ function ZcodeStartPlanSection({ data, mode, now }) {
   );
 }
 
-function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, subscription = null, now = Date.now(), onKeySaved = null) {
+function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, subscription = null, now = Date.now(), onKeySaved = null, petPicker = null) {
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
   // Pace is computed once per window here and shared by the bar + the detail.
@@ -1039,7 +1065,8 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       rightAdornment={subscription ? <SubscriptionRightBadge subscription={subscription} /> : null}
       toggleOnHeader={id === "zcode"}
     >
-      <LimitWindowSection mode={mode} rows={rows} extra={extra} expanded={expanded} />
+      <LimitWindowSection mode={mode} rows={rows} extra={extra} expanded={expanded}
+        picker={petPicker ? { providerId: id, ...petPicker } : null} />
       {id === "opencodeGo" || id === "commandCode" ? (
         <EnvCredentialNotice providerId={id} data={data} onSaved={onKeySaved} />
       ) : null}
@@ -1082,7 +1109,7 @@ function renderUnlinkedProvider(id, statusNodes, expanded, onToggle, subscriptio
   );
 }
 
-function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = null, now = Date.now(), onKeySaved = null) {
+function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = null, now = Date.now(), onKeySaved = null, petPicker = null) {
   if (!PROVIDER_LIMIT_SPECS[id]) return null;
   if (!data?.configured) {
     return renderUnlinkedProvider(
@@ -1215,7 +1242,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       tooltip={copy("limits.provenance.tooltip", { source: provenance.source, confidence: provenance.confidence })}
     />;
   }
-  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, subscription, now, onKeySaved);
+  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, subscription, now, onKeySaved, petPicker);
 }
 
 function CopilotOtelHint({ defaultDir }) {
@@ -1707,6 +1734,14 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
+  // 宠物悬浮窗勾选：默认 null（走前 6 行），一旦勾过就按 localStorage 的列表来。
+  const [petLimitRows, setPetLimitRows] = useState(() => readPetLimitSelection() || []);
+  const togglePetLimitRow = useCallback((providerId, rowKey) => {
+    setPetLimitRows((prev) => {
+      const { list } = togglePetLimitSelection(prev, petLimitRowKey(providerId, rowKey));
+      return writePetLimitSelection(list);
+    });
+  }, []);
   const effectiveOrder = [...new Set((Array.isArray(order) && order.length > 0 ? order : DEFAULT_ORDER)
     .map((id) => id))];
   const effectiveMode = displayMode === LIMIT_DISPLAY_MODES.REMAINING
@@ -1764,6 +1799,8 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
         () => setExpandedId((prev) => (prev === id ? null : id)),
         subscriptionByProvider.get(id) || null,
         now,
+        null,
+        { selected: petLimitRows, onToggle: togglePetLimitRow },
       );
     })
     .filter(Boolean);

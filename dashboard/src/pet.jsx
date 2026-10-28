@@ -10,6 +10,10 @@ import {
   petLabels,
 } from "./lib/pet-quips.js";
 import {
+  petLimitRowKey,
+  readPetLimitSelection,
+} from "./lib/pet-limit-selection.js";
+import {
   normalizePetCharacter,
   parsePetActionLock,
   petRenderer,
@@ -116,7 +120,12 @@ function readPetStats() {
 
 function readPetLimitSummaries() {
   const limits = typeof window !== "undefined" ? window.__ttPetLimits : null;
-  return buildPetLimitSummaries(limits);
+  const rows = buildPetLimitSummaries(limits);
+  // 用户在限额页勾选的行优先；没勾过（null / 空列表）就走默认前 6 行。
+  const selection = typeof window !== "undefined" ? readPetLimitSelection() : null;
+  if (!selection || selection.length === 0) return rows;
+  const picked = new Set(selection);
+  return rows.filter((row) => picked.has(petLimitRowKey(row.providerId, row.windowKey)));
 }
 
 function readPetConnected() {
@@ -639,7 +648,14 @@ function Pet() {
     const update = () => setLimitSummaries(readPetLimitSummaries());
     update();
     window.addEventListener("pet:limits", update);
-    return () => window.removeEventListener("pet:limits", update);
+    // 勾选变化：storage 事件来自设置页的跨窗口写入，自定义事件兜底同窗口。
+    window.addEventListener("storage", update);
+    window.addEventListener("tt:pet-limit-rows", update);
+    return () => {
+      window.removeEventListener("pet:limits", update);
+      window.removeEventListener("storage", update);
+      window.removeEventListener("tt:pet-limit-rows", update);
+    };
   }, []);
   useEffect(() => {
     const update = () => setConnected(readPetConnected());

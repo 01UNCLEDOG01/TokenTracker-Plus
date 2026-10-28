@@ -842,6 +842,8 @@ limits.status.no_data,ui,LimitsPage,UsageLimitsPanel,status_no_data,"No live lim
 limits.status.client_not_running,ui,LimitsPage,UsageLimitsPanel,status_client_not_running,"{app} is not running — open it and sign in to read its quota.",,active
 limits.label.wallet_credits,ui,LimitsPage,UsageLimitsPanel,wallet_credits,"Credits",,active
 limits.label.wallet_balance,ui,LimitsPage,UsageLimitsPanel,wallet_balance,"Balance",,active
+limits.pet.toggle_aria,ui,LimitsPage,UsageLimitsPanel,pet_toggle_aria,"Show {{label}} in the pet hover card",,active
+limits.pet.toggle_hint,ui,LimitsPage,UsageLimitsPanel,pet_toggle_hint,"Show in pet hover card (max 6)",,active
 limits.label.qoder_pool_plan,ui,LimitsPage,UsageLimitsPanel,qoder_pool_plan,"Included",,active
 limits.label.qoder_pool_resource,ui,LimitsPage,UsageLimitsPanel,qoder_pool_resource,"Resource pack",,active
 limits.label.qoder_pool_dedicated,ui,LimitsPage,UsageLimitsPanel,qoder_pool_dedicated,"SOTA credits",,active

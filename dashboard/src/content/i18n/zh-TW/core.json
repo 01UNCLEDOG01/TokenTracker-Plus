@@ -3,6 +3,8 @@
   "heatmap.tooltip.cost": "當日花費 {{value}}",
   "limits.label.wallet_credits": "積分",
   "limits.label.wallet_balance": "餘額",
+  "limits.pet.toggle_aria": "把 {{label}} 顯示到寵物懸浮窗",
+  "limits.pet.toggle_hint": "顯示到寵物懸浮窗（最多 6 條）",
   "limits.label.qoder_pool_plan": "套餐內",
   "limits.label.qoder_pool_resource": "資源包",
   "limits.label.qoder_pool_dedicated": "SOTA 專屬",
