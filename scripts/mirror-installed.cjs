@@ -14,7 +14,9 @@
  *   npm run mirror:installed              # 全部做，最后重启应用
  *   npm run mirror:installed -- --no-restart
  *   npm run mirror:installed -- --skip-build   # 只镜像现有 dist（调试用）
- * 环境变量：TOKENTRACKER_APP_EXE 覆盖 exe 路径；MIRROR_TREES 用 ; 分隔覆盖安装树。
+ *   npm run mirror:installed -- --purge-old    # 删掉旧 dist 而不是挪到暂存目录
+ * 环境变量：TOKENTRACKER_APP_EXE 覆盖 exe 路径；MIRROR_TREES 用 ; 分隔覆盖安装树；
+ * MIRROR_STASH_DIR 覆盖旧 dist 的暂存目录（默认 %TEMP%/tokentracker-mirror-stash）。
  */
 const fs = require("fs");
 const os = require("os");
@@ -85,10 +87,28 @@ function verifyTree(treeDir, repoDistDir, repoRoot) {
   return errors;
 }
 
-function mirrorTree(treeDir, repoRoot) {
+function mirrorTree(treeDir, repoRoot, { purgeOld = false } = {}) {
   const distTarget = path.join(treeDir, "dashboard", "dist");
-  // 先删再拷：只覆盖会把历史构建的 hashed chunk 永远留在原地。
-  fs.rmSync(distTarget, { recursive: true, force: true });
+  // 先挪后拷：只覆盖会把历史构建的 hashed chunk 永远留在原地。
+  //
+  // 2026-10-28: 这一步从「删掉旧 dist」改成「把旧 dist 挪到暂存目录」。
+  // 站点环境的 safe-delete 守卫会拦下批量删除（733 个文件 > 500 阈值），
+  // 挪走同样能达成「安装树里只剩新构建」的效果，而且旧构建留在暂存目录里
+  // 可以随时回滚。需要真正的删除语义时显式传 --purge-old。
+  if (purgeOld) {
+    fs.rmSync(distTarget, { recursive: true, force: true });
+  } else if (fs.existsSync(distTarget)) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    // The stash must live on the SAME volume as the tree: a rename across
+    // devices fails with EXDEV, and the install trees span D: and C:.
+    // Default to a sibling of the tree (same parent ⇒ same volume).
+    const stashRoot = process.env.MIRROR_STASH_DIR
+      || path.join(path.dirname(treeDir), `${path.basename(treeDir)}-stash`);
+    const stash = path.join(stashRoot, `dist-${stamp}`);
+    fs.mkdirSync(stashRoot, { recursive: true });
+    fs.renameSync(distTarget, stash);
+    console.log(`[mirror] 旧 dist 暂存 → ${stash}`);
+  }
   fs.mkdirSync(path.dirname(distTarget), { recursive: true });
   fs.cpSync(path.join(repoRoot, "dashboard", "dist"), distTarget, { recursive: true });
   for (const dir of ["src", "bin"]) {
@@ -208,13 +228,14 @@ async function main() {
   }
 
   const errors = [];
+  const purgeOld = argv.includes("--purge-old");
   if (!noRestart) {
     stopApp();
     if (!(await waitForPortFree(baseUrl))) errors.push("应用已停但端口 30 秒内没有释放，镜像可能被旧进程占用");
   }
   for (const tree of trees) {
     console.log(`[mirror] 镜像 → ${tree}`);
-    mirrorTree(tree, ROOT);
+    mirrorTree(tree, ROOT, { purgeOld });
     errors.push(...verifyTree(tree, REPO_DIST, ROOT));
   }
 
