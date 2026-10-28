@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createRAMAuthBroker, REALM } = require("../TokenTrackerBar/scripts/native-qa-auth.cjs");
+const { createRAMAuthBroker, REALM } = require("../scripts/native-qa-auth.cjs");
 const USER = "00000000-0000-4000-8000-000000000001";
 const ORDER = "00000000-0000-4000-8000-000000000003";
 const gatewayHeaders = { "X-TokenTracker-Sandbox-Realm": REALM, "X-TokenTracker-Billing-Environment": "sandbox" };

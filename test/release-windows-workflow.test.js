@@ -131,9 +131,11 @@ test("Windows builds from the version tag and only uploads to a draft", () => {
     content.includes("Published assets are immutable"),
     "must reject public same-version releases"
   );
+  // After release-dmg.yml was removed this workflow owns draft creation, so a
+  // `gh release create` line is fine as long as it is `--draft` (never public).
   assert.ok(
-    !/^\s*gh release create\b/m.test(content),
-    "standalone Windows workflow must never create a public release"
+    !/^\s*gh release create\b(?![^\n]*--draft)/m.test(content),
+    "must never create a public release directly"
   );
 });
 
@@ -145,7 +147,7 @@ test("workflow uploads version-less assets only (no versioned duplicate)", () =>
   // version-less macOS DMG instead of doubling up versioned + stable names.
   const ghLines = content
     .split("\n")
-    .filter((l) => /gh release (upload|create)/.test(l));
+    .filter((l) => /gh release upload/.test(l));
   assert.ok(ghLines.length >= 1, "should have a gh release upload/create line");
   for (const line of ghLines) {
     assert.ok(
@@ -270,50 +272,25 @@ test("bundled Chinese language files exist as UTF-8 with BOM", () => {
   }
 });
 
-// ── Linked release: one DMG dispatch ships BOTH platforms ──────────────────
-// release-windows is a reusable workflow (workflow_call) that the macOS DMG
-// workflow invokes, so `gh workflow run "release DMG"` fans out to Windows too.
-
-const DMG_WORKFLOW_PATH = path.join(
-  __dirname,
-  "..",
-  ".github",
-  "workflows",
-  "release-dmg.yml"
-);
-
+// release-windows is still published as a reusable workflow (workflow_call) so
+// an external wrapper can fan a single dispatch out to this build. The macOS DMG
+// workflow that used to call it was removed on 2026-10-28.
 test("release-windows is callable as a reusable workflow", () => {
   const content = loadWorkflow();
   assert.ok(
     content.includes("workflow_call:"),
-    "must expose workflow_call so the DMG workflow can invoke it"
+    "must expose workflow_call for external wrappers"
   );
 });
 
-test("release-dmg invokes release-windows so one dispatch ships both platforms", () => {
-  const dmg = fs.readFileSync(DMG_WORKFLOW_PATH, "utf8");
+test("release-windows owns the draft release when none exists", () => {
+  const content = loadWorkflow();
   assert.ok(
-    /uses:\s*\.\/\.github\/workflows\/release-windows\.yml/.test(dmg),
-    "DMG workflow must call the Windows reusable workflow"
+    /gh release create \$tag --draft/.test(content),
+    "must create the draft itself now that release-dmg no longer does"
   );
   assert.ok(
-    /version:\s*\$\{\{\s*inputs\.version\s*\}\}/.test(dmg),
-    "DMG workflow must pass its version input through to Windows"
-  );
-});
-
-test("macOS + Windows build in parallel off a shared create-release job", () => {
-  const dmg = fs.readFileSync(DMG_WORKFLOW_PATH, "utf8");
-  // A dedicated create-release job makes the release first; both the macOS
-  // `build` job and the `windows` job depend on it (NOT on each other), so they
-  // run in parallel and each uploads its assets with --clobber.
-  assert.ok(/^\s{2}create-release:/m.test(dmg), "must have a create-release job");
-  assert.ok(
-    /windows:\s*\n\s*needs:\s*create-release/.test(dmg),
-    "windows job must declare `needs: create-release` (parallel, not serial)"
-  );
-  assert.ok(
-    /build:\s*\n\s*needs:\s*create-release/.test(dmg),
-    "macOS build job must also depend on create-release"
+    /Published assets are immutable|isDraft/.test(content),
+    "must refuse to touch an already-published release"
   );
 });
