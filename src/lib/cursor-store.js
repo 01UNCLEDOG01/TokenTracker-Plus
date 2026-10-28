@@ -1009,7 +1009,7 @@ class V2CursorStore {
       ].filter(Boolean)));
     } catch (error) {
       if (!published) {
-        await fs.rm(generationDir, { recursive: true, force: true }).catch(() => {});
+        await removeGenerationDir(generationDir).catch(() => {});
       }
       throw error;
     }
@@ -1856,6 +1856,41 @@ function sameFingerprint(left, right) {
     .every((key) => String(left[key]) === String(right[key]));
 }
 
+// Retire a generation directory without deleting hundreds of files one by one
+// (each delete is a trash operation on hosts with a safe-delete guard, which
+// turned a cleanup into minutes of I/O). Renaming the whole directory out of
+// the store is instant, keeps the snapshot recoverable, and lets the host
+// reclaim it later. Cross-device renames fall back to the slow path.
+async function removeGenerationDir(dirPath) {
+  const trashRoot = path.join(require("node:os").tmpdir(), "tokentracker-cursor-trash");
+  try {
+    await fs.mkdir(trashRoot, { recursive: true });
+    const target = path.join(trashRoot, `${Date.now()}-${path.basename(dirPath)}`);
+    await fs.rename(dirPath, target);
+    return;
+  } catch (e) {
+    if (e?.code === "ENOENT") return;
+    // EXDEV (different volume) or a locked file: fall through to the slow path.
+  }
+  let entries = [];
+  try {
+    entries = await fs.readdir(dirPath, { withFileTypes: true });
+  } catch (e) {
+    if (e?.code === "ENOENT") return;
+    throw e;
+  }
+  for (const entry of entries) {
+    const child = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      await removeGenerationDir(child);
+      await fs.rmdir(child).catch(() => {});
+      continue;
+    }
+    await fs.rm(child, { force: true }).catch(() => {});
+  }
+  await fs.rmdir(dirPath).catch(() => {});
+}
+
 async function cleanupGenerations(storeRoot, keep) {
   const root = path.join(storeRoot, GENERATIONS_DIRNAME);
   let entries = [];
@@ -1867,7 +1902,7 @@ async function cleanupGenerations(storeRoot, keep) {
   }
   for (const entry of entries) {
     if (!entry.isDirectory() || keep.has(entry.name)) continue;
-    await fs.rm(path.join(root, entry.name), { recursive: true, force: true });
+    await removeGenerationDir(path.join(root, entry.name));
   }
 }
 
