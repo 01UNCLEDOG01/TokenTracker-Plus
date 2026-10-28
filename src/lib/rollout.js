@@ -24014,9 +24014,15 @@ function isCjkCodePoint(code) {
 //
 // The ledger keeps one compact tuple per turn, keyed by a 128-bit digest, so a
 // correction can retract exactly what the turn contributed even after TRAE
-// deletes its history. total_tokens is the five token columns plus any input
-// without a cache split, which is counted but unpriced (normalizeTraeUsage).
-const TRAE_CURSOR_VERSION = 2;
+// deletes its history.
+//
+// v3 (2026-10-28): input without a cache split is now PRICED — the split is
+// inferred from the final request's observed hit rate (normalizeTraeUsage), so
+// it lives inside input_tokens/cached_input_tokens. The unpriced remainder
+// stays in the tuple for auditing only. A v2 ledger stores that remainder as a
+// separate column, so it is bumped to force one clean rebuild instead of
+// mixing two accounting semantics in the same bucket.
+const TRAE_CURSOR_VERSION = 3;
 const HALF_HOUR_MS = 30 * 60 * 1000;
 const [T_SESSION, T_MODEL, T_BUCKET, T_MODIFIED, T_STORE, T_INPUT, T_CACHED, T_WRITTEN,
   T_OUTPUT, T_REASONING, T_CONVERSATIONS, T_ESTIMATED, T_UNPRICED] = Array.from({ length: 13 }, (_, i) => i);
@@ -24035,8 +24041,10 @@ function unpackTraeTotals(turn) {
     cache_creation_input_tokens: turn[T_WRITTEN],
     output_tokens: turn[T_OUTPUT],
     reasoning_output_tokens: turn[T_REASONING],
-    total_tokens: turn[T_INPUT] + turn[T_CACHED] + turn[T_WRITTEN] + turn[T_OUTPUT] + turn[T_REASONING]
-      + turn[T_UNPRICED],
+    // The unpriced remainder is already folded into input_tokens and
+    // cached_input_tokens (v3 semantics) — adding it again would double-count
+    // the turn when a correction retracts it.
+    total_tokens: turn[T_INPUT] + turn[T_CACHED] + turn[T_WRITTEN] + turn[T_OUTPUT] + turn[T_REASONING],
     conversation_count: turn[T_CONVERSATIONS],
   };
   if (turn[T_ESTIMATED]) totals.usage_precision = "estimated";

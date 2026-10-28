@@ -131,7 +131,7 @@ test("auto TRAE sync imports a real database once and reconciles a corrected tur
     assert.equal(first.reasoning_output_tokens, 2);
     assert.equal(first.total_tokens, 110);
     assert.equal(first.conversation_count, 1);
-    assert.equal(readCursors(trackerDir).trae.version, 2);
+    assert.equal(readCursors(trackerDir).trae.version, 3);
 
     const queuePath = path.join(trackerDir, "queue.jsonl");
     const before = fs.readFileSync(queuePath, "utf8");

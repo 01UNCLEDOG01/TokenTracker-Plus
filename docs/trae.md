@@ -29,11 +29,14 @@ CN directories and `database_decrypted.db` siblings, which may be stale.
 
 For a turn with several model requests, TRAE records whole-turn prompt and
 completion totals, but its cache and reasoning fields describe the final
-request. The reader prices that request's split. The rest of the turn's prompt
-tokens have no cache split, so they count toward `total_tokens` but no priced
-column, and TRAE cost is partial; the dashboard says so beside the totals.
+request. The reader prices that request's split and infers the earlier
+requests' split from the same request's observed cache hit rate (falling back
+to the uncached price when the final request reports no cache fields). The
+inferred share is marked estimated, so TRAE cost is a best-effort estimate
+rather than an observed bill; the dashboard says so beside the totals, and the
+pre-inference remainder stays in `unpriced_input_tokens` for auditing.
 In agent sessions, where most prompt tokens belong to earlier requests, the
-displayed cost can be a small fraction of what those tokens would cost.
+estimate can still drift from what those requests actually cost.
 Completion tokens stay priced, since output costs the same with or without a
 cache hit. Older Gemini records with omitted
 thoughts or duplicated cache-write counters are repaired and marked estimated.

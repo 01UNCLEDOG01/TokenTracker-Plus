@@ -82,15 +82,29 @@ function normalizeTraeUsage(raw, { model } = {}) {
   const totals = candidates.values().next().value;
   if (aggregateInput !== input || aggregateOutput !== output) {
     // The *_total counters cover the whole turn; the cache and reasoning fields
-    // describe its final request. The difference in prompt tokens has no cache
-    // split, so it counts toward total_tokens but no priced column. Completion
-    // tokens are priced the same with or without caching and stay in output.
+    // describe its final request. Completion tokens are priced the same with
+    // or without caching and stay in output. The earlier requests' prompt has
+    // no recorded split: infer one from the final request's observed cache mix
+    // (its hit rate is the best available predictor for the same turn), so the
+    // tokens land in priced columns as an estimate instead of vanishing from
+    // the bill. Without any observed split the remainder is priced as uncached
+    // input. unpriced_input_tokens keeps the pre-inference remainder for
+    // auditing; usage_precision flags the inferred share.
     const unpriced = aggregateInput - input;
     totals.output_tokens += aggregateOutput - output;
     totals.total_tokens += unpriced + aggregateOutput - output;
-    if (unpriced > 0) totals.unpriced_input_tokens = unpriced;
+    if (unpriced > 0) {
+      const observedCache = cached + written;
+      const hitRate = input > 0 ? Math.min(observedCache / input, 1) : 0;
+      const inferredCache = Math.min(unpriced, Math.round(unpriced * hitRate));
+      totals.cached_input_tokens += inferredCache;
+      totals.input_tokens += unpriced - inferredCache;
+      totals.unpriced_input_tokens = unpriced;
+      totals.usage_precision = "estimated";
+    }
   }
-  if (Object.values(totals).some((value) => !Number.isSafeInteger(value))) return null;
+  if (Object.entries(totals).some(([, value]) =>
+    typeof value !== "string" && !Number.isSafeInteger(value))) return null;
   if (estimated) totals.usage_precision = "estimated";
   return totals;
 }

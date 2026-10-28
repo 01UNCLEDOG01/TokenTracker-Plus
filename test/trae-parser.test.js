@@ -247,9 +247,9 @@ test("TRAE parser rebuilds its buckets from an unreadable ledger without duplica
   const rebuilt = await parse(f, [], options);
   assert.equal(reads, 1, "an unchanged store behind an unreadable ledger is reread");
   assert.equal(rebuilt.eventsAggregated, 2, "every turn is re-imported into cleared buckets");
-  assert.equal(f.cursors.trae.version, 2);
+  assert.equal(f.cursors.trae.version, 3);
   assert.equal(latest(f.queuePath).total_tokens, 330, "110 + 220, not 110 on top of the old bucket");
-  assert.equal(latest(f.queuePath).input_tokens, 160, "100 + the aggregate's last request, not its earlier prompt");
+  assert.equal(latest(f.queuePath).input_tokens, 220, "100 + the aggregate's earlier prompt at the inferred split");
   assert.equal(latest(f.queuePath, "claude-4-sonnet").total_tokens, 0, "a key the rebuild no longer produces is retracted");
   const queueBefore = fs.readFileSync(f.queuePath, "utf8");
   await parse(f, [], options);
@@ -285,7 +285,7 @@ test("TRAE parser publishes nothing from a rebuild while a store is unreadable",
     assert.equal(f.cursors.trae.version, 1, "the rebuild is retried on the next sync");
   }
   await parse(f, [], both);
-  assert.equal(f.cursors.trae.version, 2);
+  assert.equal(f.cursors.trae.version, 3);
   assert.equal(latest(f.queuePath).total_tokens, 165, "no double count after the retried rebuild");
 });
 
@@ -309,7 +309,7 @@ test("TRAE ledger stores one compact tuple per turn and reproduces its totals", 
   }
   assert.ok(!JSON.stringify(f.cursors.trae).includes("session-one"));
   assert.equal(latest(f.queuePath, "gpt-5.2", B2).total_tokens, 310);
-  assert.equal(latest(f.queuePath, "gpt-5.2", B2).input_tokens, 100, "the earlier 200 input tokens stay unpriced");
+  assert.equal(latest(f.queuePath, "gpt-5.2", B2).input_tokens, 300, "the earlier 200 input tokens are priced as uncached");
   assert.ok(entries.some(([, entry]) => entry[12] === 200), "the ledger keeps the unpriced input to retract it");
   // A correction retracts exactly the stored contribution from both buckets.
   changed(f.dbPath);
@@ -519,7 +519,7 @@ test("TRAE parser persists no raw identifiers, conversation content, or decrypti
   for (const canary of canaries) assert.ok(!persisted.includes(canary), `does not persist ${canary}`);
 });
 
-test("TRAE parser prices only the observed split and publishes a correction that splits earlier input", async (t) => {
+test("TRAE parser prices the inferred split and publishes a correction that splits earlier input", async (t) => {
   const f = fixture(t);
   const aggregate = turn({ usage: {
     prompt_tokens: 100, completion_tokens: 10, total_tokens: 110,
@@ -528,12 +528,13 @@ test("TRAE parser prices only the observed split and publishes a correction that
   } });
   const first = await parse(f, [aggregate]);
   assert.equal(first.unpricedRecords, 1);
-  assert.equal(first.estimatedRecords, 0, "unsplit input is left unpriced, not estimated");
+  assert.equal(first.estimatedRecords, 1, "the inferred split marks the turn estimated");
   assert.equal(latest(f.queuePath).total_tokens, 220);
-  assert.equal(latest(f.queuePath).input_tokens, 60);
-  assert.equal(latest(f.queuePath).cached_input_tokens, 40);
+  // hit rate = 40/100 → half of the earlier 100 tokens are inferred as cached.
+  assert.equal(latest(f.queuePath).input_tokens, 120);
+  assert.equal(latest(f.queuePath).cached_input_tokens, 80);
   assert.equal(latest(f.queuePath).output_tokens, 20);
-  assert.equal(latest(f.queuePath).usage_precision, undefined);
+  assert.equal(latest(f.queuePath).usage_precision, "estimated");
   const queueBefore = fs.readFileSync(f.queuePath, "utf8");
   f.cursors = JSON.parse(JSON.stringify(f.cursors));
   await parse(f, [aggregate]);
