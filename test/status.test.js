@@ -7,12 +7,7 @@ const { test } = require("node:test");
 
 const { cmdStatus } = require("../src/commands/status");
 const { mockPlatform, mockMethod } = require("./helpers/mock");
-
-function runSql(dbPath, sql) {
-  cp.execFileSync("sqlite3", [dbPath, sql], {
-    stdio: ["ignore", "ignore", "pipe"],
-  });
-}
+const { runSql } = require("./helpers/sqlite-write");
 
 test("status prints last upload timestamps from upload.throttle.json", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-status-"));

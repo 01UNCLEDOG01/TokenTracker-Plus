@@ -1,10 +1,10 @@
 const assert = require("node:assert/strict");
-const childProcess = require("node:child_process");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
 
+const { runSql } = require("./helpers/sqlite-write");
 const {
   repairWorkbuddyContextUsage,
   WORKBUDDY_CONTEXT_USAGE_REPAIR_KEY,
@@ -17,15 +17,12 @@ test("repairWorkbuddyContextUsage retracts context-only SQLite history and rebui
     const projectDir = path.join(workbuddyHome, "projects", "encoded-cwd");
     await fs.mkdir(projectDir, { recursive: true });
     const dbPath = path.join(workbuddyHome, "workbuddy.db");
-    childProcess.execFileSync("sqlite3", [
-      dbPath,
-      [
-        "CREATE TABLE sessions (id TEXT PRIMARY KEY, cwd TEXT, model TEXT);",
-        "CREATE TABLE session_usage (session_id TEXT PRIMARY KEY, used INTEGER, size INTEGER, updated_at INTEGER, credit_json TEXT);",
-        "INSERT INTO sessions VALUES ('wb-sess','/tmp/project','auto');",
-        "INSERT INTO session_usage VALUES ('wb-sess',100,192000,1780000000000,'{}');",
-      ].join(" "),
-    ]);
+    runSql(dbPath, [
+      "CREATE TABLE sessions (id TEXT PRIMARY KEY, cwd TEXT, model TEXT);",
+      "CREATE TABLE session_usage (session_id TEXT PRIMARY KEY, used INTEGER, size INTEGER, updated_at INTEGER, credit_json TEXT);",
+      "INSERT INTO sessions VALUES ('wb-sess','/tmp/project','auto');",
+      "INSERT INTO session_usage VALUES ('wb-sess',100,192000,1780000000000,'{}');",
+    ].join(" "));
 
     const sessionFile = path.join(projectDir, "wb-sess.jsonl");
     await fs.writeFile(sessionFile, JSON.stringify({

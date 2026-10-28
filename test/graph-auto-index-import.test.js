@@ -3,16 +3,13 @@ const assert = require("node:assert");
 const path = require("node:path");
 const os = require("node:os");
 const fs = require("node:fs");
-const { execFileSync } = require("node:child_process");
-const { importScip } = require("../scripts/graph/lib/importer.cjs");
+const { DatabaseSync } = require("node:sqlite");
+const { importScip, buildSql } = require("../scripts/graph/lib/importer.cjs");
 
 test("importScip writes sqlite with documents, symbols, and occurrences", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graph-import-"));
   const dbPath = path.join(tmpDir, "graph.sqlite");
   const deps = {
-    fs,
-    path,
-    execFileSync,
     parseScipFile: () => ({
       documents: [
         {
@@ -36,36 +33,34 @@ test("importScip writes sqlite with documents, symbols, and occurrences", () => 
 
   importScip({ rootDir: tmpDir, scipPath: "/repo/index.src.scip", dbPath, deps });
 
-  const docsCount = Number(
-    execFileSync("sqlite3", [dbPath, "select count(*) from documents"]).toString().trim(),
-  );
-  const symbolsCount = Number(
-    execFileSync("sqlite3", [dbPath, "select count(*) from symbols"]).toString().trim(),
-  );
-  const occurrencesCount = Number(
-    execFileSync("sqlite3", [dbPath, "select count(*) from occurrences"]).toString().trim(),
-  );
-  const defsCount = Number(
-    execFileSync("sqlite3", [dbPath, "select count(*) from occurrences where role='definition'"])
-      .toString()
-      .trim(),
-  );
+  const db = new DatabaseSync(dbPath);
+  try {
+    const scalar = (sql) => db.prepare(sql).get().n;
+    const docsCount = Number(scalar("select count(*) as n from documents"));
+    const symbolsCount = Number(scalar("select count(*) as n from symbols"));
+    const occurrencesCount = Number(scalar("select count(*) as n from occurrences"));
+    const defsCount = Number(
+      scalar("select count(*) as n from occurrences where role='definition'"),
+    );
 
-  assert.equal(docsCount, 1);
-  assert.equal(symbolsCount, 1);
-  assert.equal(occurrencesCount, 2);
-  assert.equal(defsCount, 1);
+    assert.equal(docsCount, 1);
+    assert.equal(symbolsCount, 1);
+    assert.equal(occurrencesCount, 2);
+    assert.equal(defsCount, 1);
+  } finally {
+    db.close();
+  }
 });
 
 test("importScip deletes existing occurrences for documents before insert", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graph-import-"));
-  const calls = [];
+  const sqls = [];
   const deps = {
-    fs,
-    path,
-    execFileSync: (cmd, args, opts = {}) => {
-      calls.push({ cmd, args, opts });
-      return Buffer.from("");
+    DatabaseSync: class {
+      exec(sql) {
+        sqls.push(sql);
+      }
+      close() {}
     },
     parseScipFile: () => ({
       documents: [
@@ -85,9 +80,7 @@ test("importScip deletes existing occurrences for documents before insert", () =
 
   importScip({ rootDir: tmpDir, scipPath: "/repo/index.src.scip", deps });
 
-  const sqlCall = calls.find((call) => call.opts && typeof call.opts.input === "string");
-  assert.ok(sqlCall && sqlCall.opts && typeof sqlCall.opts.input === "string");
-  const sql = sqlCall.opts.input;
+  const sql = sqls.join("\n");
   const docsInsert = sql.indexOf("INSERT OR IGNORE INTO documents");
   const deleteOccurrences = sql.indexOf("DELETE FROM occurrences");
   assert.ok(docsInsert !== -1);
@@ -95,19 +88,23 @@ test("importScip deletes existing occurrences for documents before insert", () =
   assert.ok(deleteOccurrences > docsInsert);
 });
 
-test("importScip throws helpful error when sqlite3 is missing", () => {
+test("buildSql escapes single quotes in identifiers", () => {
+  const sql = buildSql({
+    documents: [
+      {
+        relative_path: "src/it's.ts",
+        occurrences: [{ symbol: "sym'i", symbol_roles: 1, range: [0, 0, 0] }],
+      },
+    ],
+  });
+  assert.ok(sql.includes("'src/it''s.ts'"));
+  assert.ok(sql.includes("'sym''i'"));
+});
+
+test("importScip throws helpful error when node:sqlite is unavailable", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graph-import-"));
   const deps = {
-    fs,
-    path,
-    execFileSync: (cmd, args) => {
-      if (Array.isArray(args) && args[0] === "-version") {
-        const err = new Error("sqlite3 not found");
-        err.code = "ENOENT";
-        throw err;
-      }
-      return Buffer.from("");
-    },
+    DatabaseSync: null,
     parseScipFile: () => ({
       documents: [{ relative_path: "src/a.ts", occurrences: [] }],
     }),
@@ -115,6 +112,6 @@ test("importScip throws helpful error when sqlite3 is missing", () => {
 
   assert.throws(
     () => importScip({ rootDir: tmpDir, scipPath: "/repo/index.src.scip", deps }),
-    /sqlite3.*install/i,
+    /node:sqlite.*22\.5/i,
   );
 });

@@ -277,7 +277,9 @@ sqliteTest("legacy OpenCode message table feeds sessions that model_usage never 
   // Empty directory column: the message's own cwd takes over.
   assert.equal(row.project_ref, "C:\\repo\\legacy");
   assert.equal(row.project_key, "legacy");
-  assert.equal(row.model, "GLM-5.2");
+  // Model is canonicalised to the pricing key's lowercase form ("glm-5.2"),
+  // same as the native-layout and usage-queue paths.
+  assert.equal(row.model, "glm-5.2");
   assert.equal(row.usage_precision, "reported");
   assert.equal(row.model_calls, 2);
   // Legacy snapshots carry no durations: estimates stay empty, tokens still count.

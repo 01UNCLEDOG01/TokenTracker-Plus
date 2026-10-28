@@ -5562,7 +5562,13 @@ async function repairZcodePruneWindowRestore({
   hourly.buckets ||= {};
   const restorations = [];
   for (const [key, peak] of backupPeaks) {
-    const bucketKeyName = bucketKey("zcode", peak.model, peak.hour_start);
+    // Queue rows and cursor buckets keep the model's original case (buckets are
+    // written by bucketKey() elsewhere, which lower-cases), so prefer the exact
+    // key that already exists before falling back to the normalized one —
+    // writing a differently-cased duplicate key would double-count the hour.
+    const keyExact = `zcode|${peak.model}|${peak.hour_start}`;
+    const keyNormalized = bucketKey("zcode", peak.model, peak.hour_start);
+    const bucketKeyName = hourly.buckets[keyExact] ? keyExact : keyNormalized;
     const live = liveLatest.get(key)?.totals || null;
     // Compare against the latest queue emission (last-wins), not historical peaks
     // or cursor buckets — a 9000→0 retraction must still restore.

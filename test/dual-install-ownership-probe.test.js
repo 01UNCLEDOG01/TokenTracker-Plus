@@ -17,7 +17,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
-const cp = require("node:child_process");
+const { DatabaseSync } = require("node:sqlite");
 const { runSql } = require("./helpers/sqlite-write");
 
 const {
@@ -94,8 +94,12 @@ test("ownership probes escape quote characters in ids", (t) => {
 
   assert.equal(gooseInstallOwnsCursor(dbPath, { sessionTotals: { [weird]: {} } }), true);
   // Table intact after the probe
-  const out = cp.execFileSync("sqlite3", [dbPath, "SELECT COUNT(*) FROM sessions;"], {
-    encoding: "utf8",
-  });
-  assert.equal(out.trim(), "1");
+  const db = new DatabaseSync(dbPath);
+  let out;
+  try {
+    out = db.prepare("SELECT COUNT(*) AS n FROM sessions").get().n;
+  } finally {
+    db.close();
+  }
+  assert.equal(String(out), "1");
 });

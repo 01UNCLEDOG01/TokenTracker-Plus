@@ -1,22 +1,36 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { execFileSync } = require("node:child_process");
 const { scip } = require("@sourcegraph/scip-typescript/dist/src/scip");
 
-function importScip({ rootDir, scipPath, dbPath, deps = {} }) {
-  const fsDep = deps.fs || fs;
-  const pathDep = deps.path || path;
-  const execDep = deps.execFileSync || execFileSync;
-  const parseScipFile = deps.parseScipFile || ((p) => parseIndex(p, fsDep));
-  const sqlite3Path = deps.sqlite3Path || "sqlite3";
+// node:sqlite ships with Node 22.5+ (CI runs Node 24). Wiring the import
+// through it removes the external sqlite3 CLI dependency, which was not
+// installable on every dev machine (Windows).
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = require("node:sqlite"));
+} catch {
+  // Node < 22.5 — the helpful error below fires when importScip is called.
+}
 
-  ensureSqlite3Available(execDep, sqlite3Path);
-  const targetDb = dbPath || pathDep.join(rootDir, "data", "graph.sqlite");
-  fsDep.mkdirSync(pathDep.dirname(targetDb), { recursive: true });
+function importScip({ rootDir, scipPath, dbPath, deps = {} }) {
+  const parseScipFile = deps.parseScipFile || ((p) => parseIndex(p, fs));
+  const Open = deps.DatabaseSync !== undefined ? deps.DatabaseSync : DatabaseSync;
+  if (!Open) {
+    throw new Error(
+      "node:sqlite is not available. Please use Node.js >= 22.5 to run graph imports.",
+    );
+  }
+  const targetDb = dbPath || path.join(rootDir, "data", "graph.sqlite");
+  fs.mkdirSync(path.dirname(targetDb), { recursive: true });
 
   const index = parseScipFile(scipPath);
   const sql = buildSql(index);
-  execDep(sqlite3Path, [targetDb], { input: sql });
+  const db = new Open(targetDb);
+  try {
+    db.exec(sql);
+  } finally {
+    db.close();
+  }
   return targetDb;
 }
 
@@ -146,15 +160,4 @@ function escapeSql(value) {
   return String(value).replace(/'/g, "''");
 }
 
-function ensureSqlite3Available(execDep, sqlite3Path) {
-  try {
-    execDep(sqlite3Path, ["-version"], { stdio: "ignore" });
-  } catch (err) {
-    if (err && err.code === "ENOENT") {
-      throw new Error("sqlite3 not found. Please install sqlite3 to run graph imports.");
-    }
-    throw err;
-  }
-}
-
-module.exports = { importScip };
+module.exports = { importScip, buildSql };

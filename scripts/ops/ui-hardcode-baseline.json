@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-10-24T00:04:40.147Z",
+  "generatedAt": "2026-10-28T14:11:02.486Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 499,
-    "rawText": 178
+    "colors": 505,
+    "rawText": 177
   },
   "files": {
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
@@ -253,23 +253,22 @@
     },
     "dashboard/src/ui/achievements/BadgeSynergyBanner.jsx": {
       "colors": 0,
-      "rawText": 8,
+      "rawText": 6,
       "rawTextTokens": [
         ") : isUnlocked ? (",
         "ACTIVE TITLE · 当前佩戴",
-        "t.id === activeTitleId) || unlockedTitles[0] || null; return (",
         "佩戴",
         "已佩戴",
         "当核心勋章达到指定品阶时触发羁绊共鸣，融合多维算力与工程习惯，加冕你的极客专属荣耀称号。",
-        "未解锁",
         "极客称号殿堂 · 羁绊共鸣"
       ]
     },
     "dashboard/src/ui/achievements/SteamAchievementToast.jsx": {
-      "colors": 18,
-      "rawText": 3,
+      "colors": 24,
+      "rawText": 4,
       "rawTextTokens": [
         ") : ( /* DISTINCT VISUAL 2: UNLOCK (CLASSIC STEAM OBSIDIAN & AMBER GLOW) */",
+        ") : isTierUp ? (",
         "ACHIEVEMENT PROMOTED · 勋章晋阶",
         "ACHIEVEMENT UNLOCKED · 成就解锁"
       ]

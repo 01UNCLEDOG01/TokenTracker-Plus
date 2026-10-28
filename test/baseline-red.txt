@@ -1,7 +1,5 @@
-importScip writes sqlite with documents, symbols, and occurrences
-malformed local configuration never falls back into an official authentication request
-ownership probes escape quote characters in ids
-parseCopilotAppDbIncremental reprocesses when only SQLite sidecars change
-repairWorkbuddyContextUsage retracts context-only SQLite history and rebuilds JSONL usage
-status JSON reports Copilot canonical store diagnostics
-status JSON reports JSONL-only Qoder install with projects-dir detail
+Claude Code client traffic is re-sourced to the claude source
+Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves
+an edition mismatch is rejected before opening its proxy
+china and international hosts stay on their own allowlists
+international fetch refuses a china host and a china session

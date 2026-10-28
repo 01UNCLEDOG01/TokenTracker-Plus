@@ -9550,6 +9550,13 @@ test("resolveKiroCliSessionFiles discovers Kiro CLI 2.13 messages.jsonl sessions
 });
 
 test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn model and reasoning attribution", async () => {
+  // The cursor's 90-day clamp prunes entries older than that window and
+  // advances a watermark that skips them forever, so the fixture must stay
+  // relative to "yesterday" — a fixed July 2026 date time-bombed the test
+  // once the wall clock crossed the cutoff (2026-10-28).
+  const fixtureDay = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-kirocli-v2-"));
   try {
     const sessionDir = path.join(
@@ -9564,7 +9571,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
       JSON.stringify({
         id: "sess_54d63bb9-e719-461e-a3b0-52ba957d6fb9",
         modelId: "auto",
-        createdAt: "2026-07-22T03:24:00.000Z",
+        createdAt: fixtureDay + "T03:24:00.000Z",
       }),
     );
     const messagesPath = path.join(sessionDir, "messages.jsonl");
@@ -9572,17 +9579,17 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
       const events = [
         {
           id: "user-1",
-          timestamp: "2026-07-22T03:24:03.717Z",
+          timestamp: fixtureDay + "T03:24:03.717Z",
           payload: { type: "user", content: "u".repeat(400) },
         },
         {
           id: "exec-1-turn-start",
-          timestamp: "2026-07-22T03:24:04.000Z",
+          timestamp: fixtureDay + "T03:24:04.000Z",
           payload: { type: "turn_start", executionId: "exec-1" },
         },
         {
           id: "exec-1-reasoning",
-          timestamp: "2026-07-22T03:24:05.000Z",
+          timestamp: fixtureDay + "T03:24:05.000Z",
           payload: {
             type: "assistant",
             operationType: "Reasoning",
@@ -9593,7 +9600,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
         },
         {
           id: "exec-1-tool-call",
-          timestamp: "2026-07-22T03:24:05.200Z",
+          timestamp: fixtureDay + "T03:24:05.200Z",
           payload: {
             type: "tool_call",
             executionId: "exec-1",
@@ -9604,7 +9611,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
         // model request — must be counted as input chars, not skipped.
         {
           id: "exec-1-tool-result",
-          timestamp: "2026-07-22T03:24:05.500Z",
+          timestamp: fixtureDay + "T03:24:05.500Z",
           payload: {
             type: "tool_result",
             executionId: "exec-1",
@@ -9613,7 +9620,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
         },
         {
           id: "exec-1-say",
-          timestamp: "2026-07-22T03:24:06.000Z",
+          timestamp: fixtureDay + "T03:24:06.000Z",
           payload: {
             type: "assistant",
             operationType: "Say",
@@ -9623,14 +9630,14 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
         },
         {
           id: "exec-1-turn-end",
-          timestamp: "2026-07-22T03:24:07.000Z",
+          timestamp: fixtureDay + "T03:24:07.000Z",
           payload: { type: "turn_end", executionId: "exec-1" },
         },
         // Credits are billing metadata and may arrive after turn_end. Keep
         // their attribution independent from the token turn state machine.
         {
           id: "exec-1-usage",
-          timestamp: "2026-07-22T03:24:07.500Z",
+          timestamp: fixtureDay + "T03:24:07.500Z",
           payload: {
             type: "usage_summary",
             executionId: "exec-1",
@@ -9642,17 +9649,17 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
         },
         {
           id: "user-2",
-          timestamp: "2026-07-22T03:25:00.000Z",
+          timestamp: fixtureDay + "T03:25:00.000Z",
           payload: { type: "user", content: "v".repeat(200) },
         },
         {
           id: "exec-2-turn-start",
-          timestamp: "2026-07-22T03:25:01.000Z",
+          timestamp: fixtureDay + "T03:25:01.000Z",
           payload: { type: "turn_start", executionId: "exec-2" },
         },
         {
           id: "exec-2-say",
-          timestamp: "2026-07-22T03:25:02.000Z",
+          timestamp: fixtureDay + "T03:25:02.000Z",
           payload: {
             type: "assistant",
             operationType: "Say",
@@ -9665,7 +9672,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
         // perturb the char approximation (#366 Problem 2 is tracked apart).
         {
           id: "exec-2-usage",
-          timestamp: "2026-07-22T03:25:03.000Z",
+          timestamp: fixtureDay + "T03:25:03.000Z",
           payload: {
             type: "usage_summary",
             executionId: "exec-2",
@@ -9713,7 +9720,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
       .filter(Boolean)
       .map(JSON.parse);
     const claude = firstRows.find(
-      (row) => row.model === "claude-sonnet-4.6",
+      (row) => row.model === "claude-sonnet-4-6",
     );
     const minimax = firstRows.find((row) => row.model === "minimax-m2.1");
     assert.ok(claude);
@@ -9733,7 +9740,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
     assert.equal(firstCredits.record_count, 2);
     assert.equal(firstCredits.session_count, 1);
     assert.equal(firstCredits.file_count, 1);
-    assert.equal(firstCredits.latest_at, "2026-07-22T03:25:03.000Z");
+    assert.equal(firstCredits.latest_at, fixtureDay + "T03:25:03.000Z");
     // POSIX mode bits do not describe Windows NTFS access permissions.
     if (process.platform !== "win32") {
       assert.equal((await fs.stat(creditsPath)).mode & 0o777, 0o600);
@@ -9765,7 +9772,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
       .filter(Boolean)
       .map(JSON.parse);
     const latestClaude = allRows
-      .filter((row) => row.model === "claude-sonnet-4.6")
+      .filter((row) => row.model === "claude-sonnet-4-6")
       .pop();
     assert.equal(latestClaude.output_tokens, 20);
     assert.equal(latestClaude.total_tokens, 200);

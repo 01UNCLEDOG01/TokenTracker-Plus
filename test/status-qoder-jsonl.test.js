@@ -21,6 +21,13 @@ const ENV_KEYS = [
   "QODER_HOME",
   "QODER_CN_DB_PATH",
   "QODER_CN_HOME",
+  // Keep the legacy-DB resolvers off the real WSL probe: on machines with an
+  // actual QoderCN install the probe would leak real data into the assertion
+  // that qoder-cn is not installed.
+  "TOKENTRACKER_WSL_MODE",
+  // win32 legacy-DB resolution falls back to %APPDATA%\\QoderCN — keep the real
+  // install (if any) out of the isolated-home fixture.
+  "APPDATA",
 ];
 
 function saveEnv() {
@@ -88,7 +95,9 @@ test("status JSON reports JSONL-only Qoder install with projects-dir detail", as
     // Isolated home (no legacy local.db anywhere) + explicit projects override.
     process.env.HOME = tmp;
     process.env.USERPROFILE = tmp;
+    process.env.APPDATA = tmp;
     process.env.QODER_PROJECTS_DIR = projectsDir;
+    process.env.TOKENTRACKER_WSL_MODE = "native-only";
     delete process.env.QODER_CN_PROJECTS_DIR;
     delete process.env.QODER_DB_PATH;
     delete process.env.QODER_HOME;
@@ -119,6 +128,7 @@ test("status JSON joins legacy DB and JSONL paths with ' + '", async () => {
     fs.writeFileSync(legacyDb, "", "utf8");
     process.env.HOME = tmp;
     process.env.USERPROFILE = tmp;
+    process.env.APPDATA = tmp;
     process.env.QODER_PROJECTS_DIR = projectsDir;
     process.env.QODER_DB_PATH = legacyDb;
     delete process.env.QODER_CN_PROJECTS_DIR;
