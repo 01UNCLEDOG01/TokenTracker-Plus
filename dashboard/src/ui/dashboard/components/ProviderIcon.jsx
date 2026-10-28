@@ -31,14 +31,14 @@ function AcodeIcon({ size = 16, className = "" }) {
       aria-hidden="true"
     >
       <img
-        src="/brand-logos/acode.png"
+        src="/brand-logos/acode.png?v=2"
         alt=""
         width={size}
         height={size}
         className="block h-full w-full object-contain dark:hidden"
       />
       <img
-        src="/brand-logos/acode-dark.png"
+        src="/brand-logos/acode-dark.png?v=2"
         alt=""
         width={size}
         height={size}
@@ -435,7 +435,7 @@ const PROVIDER_LOGO_MAP = {
   // - user-corrected 2026-10-19). The dark square reads in both themes.
   // ?v= is mandatory on this asset: it was replaced under the same URL once
   // already, and a bare reference serves the stale pre-fix cache.
-  CODEARTS: "/brand-logos/codearts.png?v=2",
+  CODEARTS: "/brand-logos/codearts.png?v=3",
   CLAUDE: "/brand-logos/claude-code.svg",
   "CLAUDE-SCIENCE": "/brand-logos/claude-code.svg",
   CODEX: "/brand-logos/codex.svg",
@@ -455,7 +455,7 @@ const PROVIDER_LOGO_MAP = {
   // JoyCode ships no standalone glyph: the app's own 150px icon is a white
   // line cube on a dark rounded tile. That tile is kept in both themes, the
   // same call already made for AutoClaw.
-  JOYCODE: "/brand-logos/joycode.png?v=1",
+  JOYCODE: "/brand-logos/joycode.png?v=2",
   "KILO-CLI": "/brand-logos/kilo.svg",
   "KILO-CODE": "/brand-logos/kilo.svg",
   LMSTUDIO: "/brand-logos/lmstudio.svg",
@@ -476,7 +476,7 @@ const PROVIDER_LOGO_MAP = {
   QODER: "/brand-logos/qoder.svg",
   // Devin (devin.ai) — the three-hexagon "nodes" mark, mono like Qoder.
   DEVIN: "/brand-logos/devin.svg",
-  REASONIX: "/brand-logos/reasonix.png",
+  REASONIX: "/brand-logos/reasonix.png?v=2",
   UNSLOTH: "/brand-logos/unsloth.svg",
   // Qoder CN ships its own brand mark — the domestic edition's icon (a green
   // crescent) differs from the international black double-crescent, so it gets
@@ -523,7 +523,7 @@ const PROVIDER_LOGO_MAP = {
   "DEEPSEEK-PLATFORM": "/brand-logos/deepseek.svg",
   "CLINE-PASS": "/brand-logos/cline.png",
   // AgentRouter.org (New API relay panel) — the site\u0027s own logo.png.
-  AGENTROUTER: "/brand-logos/agentrouter.png",
+  AGENTROUTER: "/brand-logos/agentrouter.png?v=2",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

@@ -593,13 +593,19 @@ function StatusLine({ children, tone = "neutral" }) {
 // Wallet balances (Trae credits, CodeArts packages, AgentRouter cash) are not
 // window quotas, but their bars must sit on the same label/pct grid as the
 // quota rows — a full-bleed stripe reads as a different component.
-function WalletBar({ pct, title = null }) {
+function WalletBar({ label, pct, title = null }) {
   const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
   const rounded = Math.round(clamped);
   const labelPct = clamped > 0 && rounded === 0 ? copy("limits.bar.sub_one_percent") : `${rounded}%`;
   return (
     <div className="mt-1 flex items-center gap-2">
-      <span className="shrink-0" style={{ width: "var(--tt-limits-label-w)" }} aria-hidden="true" />
+      <span
+        data-limit-label=""
+        className="shrink-0 whitespace-nowrap text-[11px] text-oai-gray-500 dark:text-oai-gray-400"
+        style={{ width: "var(--tt-limits-label-w)" }}
+      >
+        {label}
+      </span>
       <div
         className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden"
         title={title || undefined}
@@ -790,6 +796,7 @@ function TraeWalletExtra({ data }) {
       </StatusLine>
       {remainingPct != null ? (
         <WalletBar
+          label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
           title={copy("limits.label.trae_usage", {
             total: formatTraeCredit(total),
@@ -834,6 +841,7 @@ function CodeArtsWalletExtra({ data }) {
       </StatusLine>
       {remainingPct != null ? (
         <WalletBar
+          label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
           title={copy("limits.label.trae_usage", {
             total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
@@ -871,6 +879,7 @@ function AgentRouterWalletExtra({ data }) {
       </StatusLine>
       {remainingPct != null ? (
         <WalletBar
+          label={copy("limits.label.wallet_balance")}
           pct={remainingPct}
           title={copy("limits.label.trae_usage", {
             total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
