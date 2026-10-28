@@ -125,6 +125,9 @@ $$\text{本命模型用量占比} = \frac{\text{生涯用量第一名的单一�
   以及 Agent2API 这种本地网关。
 - 内嵌 CLI 运行时的桌面应用（AutoClaw / Cola / Loomy）**不算**：用户点的是窗口，不是终端。
 - 全表与每个来源的本机证据在 `src/lib/terminal-sources.js`，未知来源默认按非终端处理（宁少算不错算）。
+- **别和「agent 视角的终端」混为一谈**：那套定义看的是「工具能不能给 agent 一个 shell」，所以 IDE 内嵌终端、SSH、容器 shell 都算；
+  本徽章看的是「用户是不是坐在终端里」，所以 IDE 内嵌终端不算、GUI 终端应用（Windows Terminal）算。
+  按 agent 口径改会把本机达标天数从 18 天抬到 60 天，徽章就失去意义了。
 
 ### 5. 垂直厂商大模型信仰类
 
