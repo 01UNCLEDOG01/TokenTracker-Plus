@@ -7,7 +7,7 @@
   </p>
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-    <a href="#-支援的-ai-工具列表53-款"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="52 Supported AI Tools" /></a>
+    <a href="#-支援的-ai-工具列表53-款"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="53 Supported AI Tools" /></a>
     <a href="#-快速開始"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-數據與隱私準則"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>

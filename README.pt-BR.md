@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>Acompanhe custos reais de tokens, topologia de sessões e velocidade de geração em 52 ferramentas de IA</strong></p>
+  <p><strong>Acompanhe custos reais de tokens, topologia de sessões e velocidade de geração em 53 ferramentas de IA</strong></p>
   <p>
     <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <b>Português (BR)</b>
   </p>
@@ -13,7 +13,7 @@
 
 ## ✨ Recursos principais
 
-- 🔌 **52 ferramentas conectadas sem configuração** —— detecção automática dos logs locais de Claude Code, Codex, Cursor, Qoder, Kimi e mais. Sem login, sem chave de API, sem nuvem.
+- 🔌 **53 ferramentas conectadas sem configuração** —— detecção automática dos logs locais de Claude Code, Codex, Cursor, Qoder, Kimi e mais. Sem login, sem chave de API, sem nuvem.
 - 💰 **Modelos gratuitos avaliados pelo preço de tabela** —— rejeitamos a regra do upstream que zera rotas `-free`; o valor que você "pegou de graça" fica visível.
 - ⚡ **Fluxo tok/s em milissegundos** —— duração por chunk e tokens de raciocínio separados, velocidade precisa por sessão.
 - 🌲 **Topologia de sessões** —— sessão principal / subagentes / chamadas de ferramenta, para achar as operações caras.
@@ -31,11 +31,11 @@ git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
 cd TokenTracker-plus
 npm install
 node bin/tracker.js   # 1ª execução: instala hooks, sincroniza e abre o Dashboard
-node bin/tracker.js status   # estado das 52 ferramentas
+node bin/tracker.js status   # estado das 53 ferramentas
 node bin/tracker.js doctor   # diagnóstico
 ```
 
-O dashboard local fica em `http://localhost:7680`. A lista completa das 52 ferramentas está no [README em chinês](./README.md#-支持的-ai-工具列表53-款).
+O dashboard local fica em `http://localhost:7680`. A lista completa das 53 ferramentas está no [README em chinês](./README.md#-支持的-ai-工具列表53-款).
 
 ## 💰 Cobrança e heatmap
 

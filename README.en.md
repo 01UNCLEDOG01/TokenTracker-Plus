@@ -7,7 +7,7 @@
   </p>
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-    <a href="#-supported-ai-tools-53"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="52 Supported AI Tools" /></a>
+    <a href="#-supported-ai-tools-53"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="53 Supported AI Tools" /></a>
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-data--privacy"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-key-features"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
@@ -39,7 +39,7 @@ node bin/tracker.js
 
 # Daily operations
 node bin/tracker.js sync       # Trigger incremental sync
-node bin/tracker.js status     # Inspect hook / parser status for all 52 tools
+node bin/tracker.js status     # Inspect hook / parser status for all 53 tools
 node bin/tracker.js status --json  # Machine-readable JSON output for AI pipelines
 node bin/tracker.js doctor     # System diagnostics and health check
 ```
@@ -47,7 +47,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 **What you can see in 30 seconds:**
 - 📊 **Local Dashboard** (default: `http://localhost:7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
-- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 52 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
+- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 53 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
 - 🏆 **65 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
 
 > **Looking for native desktop apps?**
@@ -59,7 +59,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ## ✨ Key Features
 
-- 🔌 **Built for Multi-Platform Power Users (52 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
+- 🔌 **Built for Multi-Platform Power Users (53 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
 - 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
 - ⚡ **Nanosecond Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
 - 🏠 **100% Local-First & Zero Privacy Risk** — Runs strictly locally. Parses on-device logs and databases; code snippets, prompts, and personal account credentials never leave your computer.
@@ -133,7 +133,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ## 🔌 Supported AI Tools (53)
 
-Canonical list of the **52 supported AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`):
+Canonical list of the **53 supported AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`):
 
 | Tool | Detection | Integration Mechanism | Fork Enhancements |
 |---|:---:|---|---|
@@ -197,7 +197,7 @@ Canonical list of the **52 supported AI coding tools** (from `SUPPORTED_PROVIDER
 
 ```mermaid
 flowchart LR
-    A["52 AI Coding Tools<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder etc.)"] -->|Hook / Passive Probe| B[TokenTracker Plus Core Engine]
+    A["53 AI Coding Tools<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder etc.)"] -->|Hook / Passive Probe| B[TokenTracker Plus Core Engine]
     B -->|Speed Parsing & Reasoning Tokens<br/>SQLite WAL Lock-free Probing| C[(Local SQLite & Queue Snapshot)]
     C --> D[Web Dashboard UI]
     C --> E[Windows System Tray & Pill]
