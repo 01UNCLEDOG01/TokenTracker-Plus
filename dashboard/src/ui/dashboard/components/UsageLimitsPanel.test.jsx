@@ -117,7 +117,7 @@ describe("UsageLimitsPanel", () => {
     const greenBars = document.querySelectorAll(".bg-emerald-500");
     expect(greenBars).toHaveLength(1);
     expect(greenBars[0].getAttribute("style")).toContain("46.4");
-    const trackTitle = greenBars[0].parentElement.getAttribute("title");
+    const trackTitle = greenBars[0].closest(".group").querySelector('[role="tooltip"]').textContent;
     expect(trackTitle).toContain("1,835.48");
     expect(trackTitle).toContain("3,950");
     expect(trackTitle).toContain("2,114.52");

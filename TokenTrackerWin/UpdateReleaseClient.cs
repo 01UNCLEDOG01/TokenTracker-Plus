@@ -7,16 +7,16 @@ using System.Text.Json;
 namespace TokenTrackerWin;
 
 /// <summary>
-/// Resolves the latest upstream release tag for the read-only gap check.
+/// Resolves the latest release tag of this fork for the read-only gap check.
 /// Nothing here downloads or executes an installer. A throttled REST API falls
-/// back to the official release redirect, so the check keeps working when the
+/// back to the release redirect, so the check keeps working when the
 /// unauthenticated GitHub quota is exhausted.
 /// </summary>
 internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>? utcNow = null)
 {
-    internal const string ReleasePageUrl = "https://github.com/xiufengsun/TokenTracker/releases/latest";
-    private const string ApiUrl = "https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest";
-    private const string TagPath = "/xiufengsun/TokenTracker/releases/tag/";
+    internal const string ReleasePageUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest";
+    private const string ApiUrl = "https://api.github.com/repos/01UNCLEDOG01/TokenTracker-plus/releases/latest";
+    private const string TagPath = "/01UNCLEDOG01/TokenTracker-plus/releases/tag/";
     private readonly Func<DateTimeOffset> _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
     private DateTimeOffset? _apiNotBefore;
 
@@ -105,9 +105,15 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
     private static string? Header(HttpResponseMessage response, string name)
         => response.Headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
 
+    /// <summary>
+    /// The fork tags releases as <c>plus-v1.3.0</c>; upstream used a bare
+    /// <c>v1.3.0</c>. Accept both prefixes so an older release still parses.
+    /// </summary>
     private static string ParseVersion(string tag)
     {
-        var version = tag.StartsWith('v') ? tag[1..] : tag;
+        var version = tag;
+        if (version.StartsWith("plus-", StringComparison.OrdinalIgnoreCase)) version = version["plus-".Length..];
+        if (version.StartsWith('v')) version = version[1..];
         if (!Version.TryParse(version, out var parsed) || parsed.Build < 0 || parsed.Revision >= 0)
             throw new InvalidDataException("The release tag is not a stable three-part version.");
         return version;

@@ -8,8 +8,8 @@ namespace TokenTrackerWin.Tests;
 
 public sealed class UpdateReleaseClientTests
 {
-    private const string ApiUrl = "https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest";
-    private const string TagUrl = "https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9";
+    private const string ApiUrl = "https://api.github.com/repos/01UNCLEDOG01/TokenTracker-plus/releases/latest";
+    private const string TagUrl = "https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9";
     private static readonly DateTimeOffset Now = new(2026, 10, 12, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -171,12 +171,12 @@ public sealed class UpdateReleaseClientTests
     }
 
     [Theory]
-    [InlineData("https://example.test/xiufengsun/TokenTracker/releases/tag/v1.3.9")]
-    [InlineData("http://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9")]
-    [InlineData("https://github.com/another/repo/releases/tag/v1.3.9")]
-    [InlineData("https://github.com/xiufengsun/TokenTracker/releases/latest")]
-    [InlineData("https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9-rc.1")]
-    [InlineData("https://github.com/xiufengsun/TokenTracker/releases/tag/v1.3.9/extra")]
+    [InlineData("https://example.test/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9")]
+    [InlineData("http://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9")]
+    [InlineData("https://github.com/another/repo/releases/tag/plus-v1.3.9")]
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest")]
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9-rc.1")]
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9/extra")]
     public async Task FallbackRejectsUnexpectedRedirectsAndInvalidTags(string redirect)
     {
         var calls = 0;
@@ -287,7 +287,7 @@ public sealed class UpdateReleaseClientTests
 
     private static bool IsApi(HttpRequestMessage request) => request.RequestUri!.Host == "api.github.com";
 
-    private static HttpResponseMessage ApiRelease(string tag = "v1.3.9")
+    private static HttpResponseMessage ApiRelease(string tag = "plus-v1.3.9")
         => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { tag_name = tag })) };
 
     private static HttpResponseMessage RateLimited(DateTimeOffset? reset = null)

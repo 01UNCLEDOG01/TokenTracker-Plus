@@ -583,7 +583,8 @@ function WalletBar({ label, pct, title = null }) {
   const rounded = Math.round(clamped);
   const labelPct = clamped > 0 && rounded === 0 ? copy("limits.bar.sub_one_percent") : `${rounded}%`;
   return (
-    <div className="mt-1 flex items-center gap-2">
+    <div className="group relative mt-1 flex cursor-pointer items-center gap-2">
+      <HoverTooltip text={title} />
       <span
         data-limit-label=""
         className="shrink-0 whitespace-nowrap text-[11px] text-oai-gray-500 dark:text-oai-gray-400"
@@ -591,10 +592,7 @@ function WalletBar({ label, pct, title = null }) {
       >
         {label}
       </span>
-      <div
-        className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden"
-        title={title || undefined}
-      >
+      <div className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden">
         <div
           className="h-full rounded-full bg-emerald-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
           style={{ width: `${clamped}%`, minWidth: clamped > 0 ? "3px" : 0 }}
