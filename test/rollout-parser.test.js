@@ -4135,9 +4135,9 @@ test("parseOpencodeDbIncremental aggregates ZCode GLM rows into source=zcode buc
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.length, 1);
     assert.equal(queued[0].source, "zcode");
-    // Model is stored with the DB's original case ("GLM-5.2"); the pricing
-    // matcher is case-insensitive so cost still resolves to the curated key.
-    assert.equal(queued[0].model, "GLM-5.2");
+    // Model is canonicalised to the pricing key's lowercase form ("glm-5.2"),
+    // so cost resolves deterministically regardless of the DB's original case.
+    assert.equal(queued[0].model, "glm-5.2");
     assert.equal(queued[0].input_tokens, 3438);
     assert.equal(queued[0].output_tokens, 203);
     assert.equal(queued[0].cached_input_tokens, 7040);

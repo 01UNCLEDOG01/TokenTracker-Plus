@@ -673,7 +673,13 @@ test("Copilot App DB and OTEL parsing coexist without sharing cursors or changin
   }
 });
 
-test("parseCopilotAppDbIncremental reprocesses when only SQLite sidecars change", async () => {
+test("parseCopilotAppDbIncremental reprocesses when only SQLite sidecars change", async (t) => {
+  try {
+    require("node:child_process").execSync("sqlite3 -version", { stdio: "ignore" });
+  } catch {
+    t.skip("sqlite3 not available");
+    return;
+  }
   const { dir, dbPath } = makeCopilotAppDb([
     {
       id: "wal-session",
