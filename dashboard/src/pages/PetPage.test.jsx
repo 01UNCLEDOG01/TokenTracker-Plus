@@ -275,12 +275,18 @@ describe("PetPage", () => {
 
     expect(await screen.findByText(copy("pet.action.title"))).toBeInTheDocument();
     const actionGroup = within(screen.getByRole("group", { name: copy("pet.action.title") }));
-    const runButton = actionGroup.getByRole("button", { name: copy("pet.state.run") });
+    const runRight = actionGroup.getByRole("button", { name: copy("pet.state.run_right") });
+    const runLeft = actionGroup.getByRole("button", { name: copy("pet.state.run_left") });
+    // 挥手是宿主信号动作（被召唤/唤醒/离线/出错），常驻会淹没提示，只展示不可锁。
+    const waveButton = actionGroup.getByRole("button", { name: copy("pet.state.wave") });
 
     // Rows 1/2 are the drag-only directional pair; the picker shows them but must
     // never let them be locked into the ambient rotation.
-    expect(runButton).toBeDisabled();
-    await user.click(runButton);
+    expect(runRight).toBeDisabled();
+    expect(runLeft).toBeDisabled();
+    expect(waveButton).toBeDisabled();
+    await user.click(runRight);
+    await user.click(waveButton);
     expect(messages).not.toContainEqual(expect.objectContaining({ key: "actionLock" }));
   });
 

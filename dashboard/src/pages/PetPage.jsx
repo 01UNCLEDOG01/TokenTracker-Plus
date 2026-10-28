@@ -65,10 +65,14 @@ const PREVIEW_STATES = [
   { id: "working-wizard", labelKey: "pet.state.streak" },
   { id: "happy", labelKey: "pet.state.celebrate" },
   { id: "sleeping", labelKey: "pet.state.rest" },
+  // 挥手是宿主驱动的信号动作（被召唤 / 唤醒 / 离线 / 出错），常驻会淹没提示，
+  // 所以只做展示、不可锁定。
+  { id: "waving", labelKey: "pet.state.wave", disabled: true },
   // Trotting is shown for discoverability but cannot be locked: rows 1/2 are the
-  // directional pair and are driven purely by dragging the pet. Locking it would
-  // force the pet to sprint in place, which is why it renders disabled.
-  { id: "running-right", labelKey: "pet.state.run", disabled: true },
+  // directional pair and are driven purely by dragging the pet. Locking them would
+  // force the pet to sprint in place, which is why they render disabled.
+  { id: "running-right", labelKey: "pet.state.run_right", disabled: true },
+  { id: "running-left", labelKey: "pet.state.run_left", disabled: true },
 ];
 
 function CharacterCard({ character, selected, onSelect, onRemove, removeDisabled }) {
