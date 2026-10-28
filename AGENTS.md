@@ -26,6 +26,7 @@
 - Never commit secrets. Put local overrides in `.env.local` (gitignored); `.env.example` is the template. Do **not** create `.dev.vars` (Cloudflare Workers convention, not used here).
 - Merging upstream: any commit that changes pricing/billing semantics must be reconciled against local totals before and after. The upstream `-free` → zero-price rule is permanently rejected in this fork.
 - Before claiming a UI feature is delivered, read the rendered text/DOM, not only the server endpoint.
+- **新增 UI 必须复用原版组件与版式，不许自制一套**（2026-10-28 站主明确要求）。具体到限额页：行 = 标签列（`--tt-limits-label-w`）+ `h-1.5` 圆角轨道 + 右侧百分比列；配色只用 `barColor()` 的 emerald/amber/red；悬浮一律用 `HoverTooltip`（深色玻璃卡），**禁止原生 `title`**；行上要有 `cursor-pointer`；明细只放悬浮提示里，正文不重复；`limit_credits = 0` 的窗口不占行。新增卡片、行类型、图例都按这条走。
 
 ## 版本与发版规则（semver，2026-10-26 起所有接手 AI 必须遵守）
 

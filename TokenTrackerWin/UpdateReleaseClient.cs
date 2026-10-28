@@ -106,14 +106,16 @@ internal sealed class UpdateReleaseClient(HttpClient http, Func<DateTimeOffset>?
         => response.Headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
 
     /// <summary>
-    /// The fork tags releases as <c>plus-v1.3.0</c>; upstream used a bare
-    /// <c>v1.3.0</c>. Accept both prefixes so an older release still parses.
+    /// This fork tags releases as <c>plus-v1.3.0</c>. Only that scheme counts:
+    /// a bare <c>v1.3.0</c> would be an upstream tag and comparing our version
+    /// against upstream's numbering is exactly what this check no longer does.
     /// </summary>
     private static string ParseVersion(string tag)
     {
-        var version = tag;
-        if (version.StartsWith("plus-", StringComparison.OrdinalIgnoreCase)) version = version["plus-".Length..];
-        if (version.StartsWith('v')) version = version[1..];
+        const string prefix = "plus-v";
+        if (!tag.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The release tag is not a plus-v* tag.");
+        var version = tag[prefix.Length..];
         if (!Version.TryParse(version, out var parsed) || parsed.Build < 0 || parsed.Revision >= 0)
             throw new InvalidDataException("The release tag is not a stable three-part version.");
         return version;

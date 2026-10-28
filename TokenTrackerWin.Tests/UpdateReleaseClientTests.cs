@@ -177,6 +177,8 @@ public sealed class UpdateReleaseClientTests
     [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/latest")]
     [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9-rc.1")]
     [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/plus-v1.3.9/extra")]
+    // 上游式的裸 v 标签不再算数：只认本仓的 plus-v* 方案。
+    [InlineData("https://github.com/01UNCLEDOG01/TokenTracker-plus/releases/tag/v1.3.9")]
     public async Task FallbackRejectsUnexpectedRedirectsAndInvalidTags(string redirect)
     {
         var calls = 0;
@@ -241,7 +243,7 @@ public sealed class UpdateReleaseClientTests
     [Fact]
     public async Task ExistingVersionStillReportsUpToDate()
     {
-        using var http = Http(_ => ApiRelease("v0.0.0"));
+        using var http = Http(_ => ApiRelease("plus-v0.0.0"));
         var checker = new UpdateChecker(http);
         Assert.Equal(UpdateChecker.CheckOutcome.UpToDate, await checker.CheckAsync(silent: false));
         Assert.Equal(UpdateChecker.UpdateState.Idle, checker.State);
