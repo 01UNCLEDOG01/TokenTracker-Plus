@@ -118,6 +118,9 @@ export function ActivityHeatmap({
   // wrapper (e.g. the leaderboard profile modal). Default keeps the
   // standalone dashboard appearance.
   embedded = false,
+  // Clicking (or Enter/Space on) a day switches the dashboard to that day.
+  // Screenshot/share surfaces pass null so the grid stays inert.
+  onSelectDay = null,
 }) {
   const { resolvedTheme } = useTheme();
   const { currency, rate } = useCurrency();
@@ -592,9 +595,22 @@ export function ActivityHeatmap({
                   return (
                     <span
                       key={key}
+                      role={onSelectDay ? "button" : undefined}
+                      tabIndex={onSelectDay ? 0 : undefined}
+                      aria-label={onSelectDay ? cell.day : undefined}
                       onMouseEnter={(e) => handleCellMouseEnter(e, cell)}
                       onMouseLeave={handleCellMouseLeave}
-                      className="rounded-[2px] transition-transform hover:scale-125 hover:z-10 cursor-pointer"
+                      onClick={onSelectDay ? () => onSelectDay(cell.day) : undefined}
+                      onKeyDown={onSelectDay ? (event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        onSelectDay(cell.day);
+                      } : undefined}
+                      className={`rounded-[2px] transition-transform hover:scale-125 hover:z-10 ${
+                        onSelectDay
+                          ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                          : "cursor-default"
+                      }`}
                       style={{ width: cellSize, height: cellSize, background: color }}
                     />
                   );

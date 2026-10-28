@@ -1157,6 +1157,7 @@ export function DashboardPage({
       timeZoneShortLabel={timeZoneShortLabel}
       hideLegend={screenshotMode}
       defaultToLatestMonth={screenshotMode}
+      onSelectDay={screenshotMode ? null : (day) => handleCustomRangeApply(day, day)}
     />
   );
 

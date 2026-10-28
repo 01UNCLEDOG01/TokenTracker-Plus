@@ -31,14 +31,14 @@ function AcodeIcon({ size = 16, className = "" }) {
       aria-hidden="true"
     >
       <img
-        src="/brand-logos/acode.png?v=2"
+        src="/brand-logos/acode.png?v=3"
         alt=""
         width={size}
         height={size}
         className="block h-full w-full object-contain dark:hidden"
       />
       <img
-        src="/brand-logos/acode-dark.png?v=2"
+        src="/brand-logos/acode-dark.png?v=3"
         alt=""
         width={size}
         height={size}
@@ -435,13 +435,13 @@ const PROVIDER_LOGO_MAP = {
   // - user-corrected 2026-10-19). The dark square reads in both themes.
   // ?v= is mandatory on this asset: it was replaced under the same URL once
   // already, and a bare reference serves the stale pre-fix cache.
-  CODEARTS: "/brand-logos/codearts.png?v=3",
+  CODEARTS: "/brand-logos/codearts.png?v=4",
   CLAUDE: "/brand-logos/claude-code.svg",
   "CLAUDE-SCIENCE": "/brand-logos/claude-code.svg",
   CODEX: "/brand-logos/codex.svg",
   // Cola's own app mark, taken from its installed resources/icon.png - an orange
   // ring on a cream tile.
-  COLA: "/brand-logos/cola.png?v=2",
+  COLA: "/brand-logos/cola.png?v=3",
   // Command Code ships an official multi-color brand SVG asset in
   // /public/brand-logos/, so it renders through the image path below.
   "COMMAND-CODE": "/brand-logos/commandcode.svg",
@@ -449,13 +449,13 @@ const PROVIDER_LOGO_MAP = {
   // Muse Code (Meta Superintelligence Labs) is distributed as a blue cursive
   // M with a cursor; the wrapper app's logo is the only published mark, with
   // its white card knocked out so it sits on the dark card like the SVG set.
-  MUSE: "/brand-logos/muse.png?v=2",
+  MUSE: "/brand-logos/muse.png?v=3",
   // OmO (Oh My OpenAgent) ships an official light-glyph SVG in its repo.
   OMO: "/brand-logos/omo.svg",
   // JoyCode ships no standalone glyph: the app's own 150px icon is a white
   // line cube on a dark rounded tile. That tile is kept in both themes, the
   // same call already made for AutoClaw.
-  JOYCODE: "/brand-logos/joycode.png?v=2",
+  JOYCODE: "/brand-logos/joycode.png?v=3",
   "KILO-CLI": "/brand-logos/kilo.svg",
   "KILO-CODE": "/brand-logos/kilo.svg",
   LMSTUDIO: "/brand-logos/lmstudio.svg",
@@ -471,12 +471,12 @@ const PROVIDER_LOGO_MAP = {
   // droplet — Dots has its own recognizable brand mark, so it overrides the
   // generic pi fallback below for both the standalone "dots" provider and the
   // pi-routed source.
-  DOTS: "/brand-logos/dots.png?v=2",
-  "PI-DOTS": "/brand-logos/dots.png?v=2",
+  DOTS: "/brand-logos/dots.png?v=3",
+  "PI-DOTS": "/brand-logos/dots.png?v=3",
   QODER: "/brand-logos/qoder.svg",
   // Devin (devin.ai) — the three-hexagon "nodes" mark, mono like Qoder.
   DEVIN: "/brand-logos/devin.svg",
-  REASONIX: "/brand-logos/reasonix.png?v=2",
+  REASONIX: "/brand-logos/reasonix.png?v=3",
   UNSLOTH: "/brand-logos/unsloth.svg",
   // Qoder CN ships its own brand mark — the domestic edition's icon (a green
   // crescent) differs from the international black double-crescent, so it gets
@@ -506,11 +506,11 @@ const PROVIDER_LOGO_MAP = {
   // ?v=2: the first cut kept the source art's 28px transparent margin, so at
   // 16px the mark read ~27% smaller than its neighbours. The asset is now
   // trimmed to its content box; the version busts the WebView2 image cache.
-  CODEBUDDY: "/brand-logos/codebuddy-cn.png?v=2",
+  CODEBUDDY: "/brand-logos/codebuddy-cn.png?v=3",
   // 团结 Cowork's own app mark, copied from the installed app's toast icon
   // (AppData\Local\Tuanjie Cowork\codely-toast-icon.png) - the green/teal
   // Codely hexagon.
-  "TUANJIE-COWORK": "/brand-logos/tuanjie-cowork.png?v=2",
+  "TUANJIE-COWORK": "/brand-logos/tuanjie-cowork.png?v=3",
   // Agent2API's own brand mark, taken from the installed gateway's icon set
   // (Program Files/Agent2API/_up_/ui/icons.js "brand": the blue swap-arrows
   // tile), rendered verbatim as SVG.
@@ -523,7 +523,7 @@ const PROVIDER_LOGO_MAP = {
   "DEEPSEEK-PLATFORM": "/brand-logos/deepseek.svg",
   "CLINE-PASS": "/brand-logos/cline.png",
   // AgentRouter.org (New API relay panel) — the site\u0027s own logo.png.
-  AGENTROUTER: "/brand-logos/agentrouter.png?v=2",
+  AGENTROUTER: "/brand-logos/agentrouter.png?v=3",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

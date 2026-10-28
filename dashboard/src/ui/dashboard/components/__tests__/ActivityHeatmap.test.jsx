@@ -1,5 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeContext } from "../../../foundation/ThemeProvider.jsx";
 import { TokenFormatContext } from "../../../foundation/TokenFormatProvider.jsx";
 import {
@@ -90,6 +90,29 @@ describe("ActivityHeatmap", () => {
     expect(container.querySelector("[role='tablist']")).toBeNull();
     // The embedded instance must not clobber the dashboard's persisted choice.
     expect(window.localStorage.getItem("tt:heatmap-view")).toBe("3d");
+  });
+
+  it("switches the dashboard to a day when its cell is clicked or activated", () => {
+    const onSelectDay = vi.fn();
+    const { container } = renderHeatmap({ onSelectDay });
+    const cell = container.querySelector('[aria-label="2026-04-27"]');
+
+    expect(cell).toBeTruthy();
+    expect(cell).toHaveAttribute("role", "button");
+
+    fireEvent.click(cell);
+    expect(onSelectDay).toHaveBeenLastCalledWith("2026-04-27");
+
+    fireEvent.keyDown(cell, { key: "Enter" });
+    expect(onSelectDay).toHaveBeenCalledTimes(2);
+    expect(onSelectDay).toHaveBeenLastCalledWith("2026-04-27");
+  });
+
+  it("stays inert when no day handler is provided", () => {
+    const { container } = renderHeatmap();
+    const cell = container.querySelector('[aria-label="2026-04-27"]');
+
+    expect(cell).toBeNull();
   });
 
   it("keeps the 3D modal's left-side token metrics compact in full-number mode", () => {
