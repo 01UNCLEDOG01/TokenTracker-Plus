@@ -7,6 +7,9 @@ export const BUILTIN_PETS = [
   { id: "sprout", displayName: "Sprout", nameKey: "pet.character.sprout", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/sprout/spritesheet.webp" },
   { id: "byte", displayName: "Byte", nameKey: "pet.character.byte", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/byte/spritesheet.webp" },
   { id: "ember", displayName: "Ember", nameKey: "pet.character.ember", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/ember/spritesheet.webp" },
+  // TT-plus 自有角色：名字走文案键，切语言时与界面同步；繁中保留原字，其余语言用英文名。
+  { id: "gengxu", displayName: "Gengxu", nameKey: "pet.character.gengxu", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/gengxu/spritesheet.webp" },
+  { id: "yeacat", displayName: "YeaCat", nameKey: "pet.character.yeacat", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/yeacat/spritesheet.webp" },
 ];
 
 async function payload(response) {
@@ -26,12 +29,12 @@ export async function listPets() {
   const hiddenBuiltinIds = new Set(
     Array.isArray(data.hiddenBuiltinIds) ? data.hiddenBuiltinIds : [],
   );
-  return [
-    // clawd and bot have no atlas to reclaim, so they are never hideable — see
-    // REMOVABLE_BUILTIN_IDS in src/lib/pet-packages.js.
-    ...BUILTIN_PETS.filter((pet) => !pet.assetUrl || !hiddenBuiltinIds.has(pet.id)),
-    ...(Array.isArray(data.pets) ? data.pets : []),
-  ];
+  const builtins = BUILTIN_PETS.filter((pet) => !pet.assetUrl || !hiddenBuiltinIds.has(pet.id));
+  const builtinIds = new Set(builtins.map((pet) => pet.id));
+  // Gengxu / YeaCat used to be user-installed packages. Now that they ship in
+  // the app, a leftover copy in ~/.tokentracker/pets must not show up twice.
+  const custom = (Array.isArray(data.pets) ? data.pets : []).filter((pet) => !builtinIds.has(pet?.id));
+  return [...builtins, ...custom];
 }
 
 async function mutate(body) {

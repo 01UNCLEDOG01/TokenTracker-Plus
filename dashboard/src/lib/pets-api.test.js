@@ -27,6 +27,9 @@ describe("pets api catalog", () => {
       "clawd",
       "bot",
       "sprout",
+      // TT-plus 自有角色，默认不隐藏
+      "gengxu",
+      "yeacat",
       "community-pet",
     ]);
   });

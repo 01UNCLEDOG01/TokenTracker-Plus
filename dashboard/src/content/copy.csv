@@ -1356,6 +1356,10 @@ pet.character.byte,dashboard,PetPage,PetPage,character_byte,"Byte",,active
 pet.character.byte_desc,dashboard,PetPage,PetPage,character_byte_desc,"A hovering terminal robot with expressive screen eyes.",,active
 pet.character.ember,dashboard,PetPage,PetPage,character_ember,"Ember",,active
 pet.character.ember_desc,dashboard,PetPage,PetPage,character_ember_desc,"A flame-tailed fox spirit that celebrates hot streaks.",,active
+pet.character.gengxu,dashboard,PetPage,PetPage,character_gengxu,"Gengxu",,active
+pet.character.gengxu_desc,dashboard,PetPage,PetPage,character_gengxu_desc,"A little divination apprentice from the Gengxu hall, counting your tokens with a brass compass on his back.",,active
+pet.character.yeacat,dashboard,PetPage,PetPage,character_yeacat,"YeaCat",,active
+pet.character.yeacat_desc,dashboard,PetPage,PetPage,character_yeacat_desc,"YeaCat, the ginger tabby taoist of the Gengxu hall — one coin bowl, one divination slip, counting every token you spend.",,active
 pet.state.calm,dashboard,PetPage,PetPage,state_calm,"Calm",,active
 pet.state.focus,dashboard,PetPage,PetPage,state_focus,"Focus",,active
 pet.state.multitask,dashboard,PetPage,PetPage,state_multitask,"Multi-model",,active

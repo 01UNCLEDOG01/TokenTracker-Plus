@@ -239,6 +239,13 @@ function LimitBar({ label, pct, reset, mode = LIMIT_DISPLAY_MODES.USED, pacePerc
             className={`${fillColor} rounded-full h-full transition-[width] duration-500 ease-out`}
             style={{ width: `${widthPct}%`, minWidth: displayPct > 0 ? "3px" : 0 }}
           />
+          {/* 0% 的行留一个浅色起点，避免整条看上去是空白（不是"用过一点"）。 */}
+          {displayPct <= 0 ? (
+            <div
+              data-limit-empty-tick=""
+              className="absolute inset-y-0 left-0 w-[3px] rounded-full bg-oai-gray-300/70 dark:bg-oai-gray-600/70"
+            />
+          ) : null}
           {paceX != null && <PaceMarker paceX={paceX} paceOver={paceOver} />}
         </div>
       )}
