@@ -23,6 +23,38 @@ const {
   fetchQoderCnLimits,
 } = require("../src/lib/qoder-limits");
 
+test("normalizeQoderUsageResponse keeps the three credit pools apart (captured 2026-10-28)", () => {
+  const expiresAt = Date.parse("2026-10-29T00:00:00Z");
+  const result = normalizeQoderUsageResponse({
+    plan_quota: { quota_summary: { used_value: 0, limit_value: 0, remaining_value: 0, usage_percentage: 0, unit: "credits" }, quota_detail: [] },
+    resource_package_quota: {
+      quota_summary: { used_value: 2000, limit_value: 2000, remaining_value: 0, usage_percentage: 100, unit: "credits" },
+      quota_detail: [{ remaining_value: 0, expires_at: expiresAt, is_active: true }],
+    },
+    dedicated_resource_package_quota: {
+      quota_summary: { used_value: 60, limit_value: 2000, remaining_value: 1940, usage_percentage: 4, unit: "credits" },
+      quota_detail: [{ remaining_value: 1940, expires_at: expiresAt, is_active: true }],
+    },
+    total_quota: { quota_summary: { used_value: 2060, limit_value: 4000, remaining_value: 1940, usage_percentage: 52, unit: "credits" } },
+    nextResetAt: Date.parse("2026-08-02T00:00:00Z"),
+  });
+
+  // The summed window still comes from the server, for callers that want one bar.
+  assert.equal(result.primary_window.used_percent, 52);
+  assert.equal(result.primary_window.reset_at, "2026-08-02T00:00:00.000Z");
+
+  assert.deepEqual(result.pools.map((pool) => pool.key), ["plan", "resourcePackage", "dedicated"]);
+  const [plan, pack, sota] = result.pools;
+  assert.equal(plan.limit, 0);
+  assert.equal(pack.used, 2000);
+  assert.equal(pack.percent, 100);
+  // The exhausted pack has nothing left, so it contributes no expiry.
+  assert.equal(pack.expires_at, null);
+  assert.equal(sota.remaining, 1940);
+  assert.equal(sota.percent, 4);
+  assert.equal(sota.expires_at, "2026-10-29T00:00:00.000Z");
+});
+
 test("normalizeQoderUsageResponse merges camel-case base and shared quotas", () => {
   const result = normalizeQoderUsageResponse({
     totalQuota: {

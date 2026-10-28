@@ -108,8 +108,8 @@ describe("UsageLimitsPanel", () => {
       />,
     );
 
-    expect(screen.getByText(copy("limits.label.trae_balance", { credits: "1,835.48" }))).toBeInTheDocument();
-    // 总积分/已用/最近到期只在进度条的悬浮提示里，卡片上不再重复。
+    // 余额 / 总额 / 已用 / 最近到期都只在进度条的悬浮提示里，卡片上不再写一遍。
+    expect(screen.queryByText(copy("limits.label.trae_balance", { credits: "1,835.48" }))).toBeNull();
     expect(screen.queryByText(copy("limits.label.trae_usage", {
       total: "3,950", used: "2,114.52",
     }))).toBeNull();
@@ -117,12 +117,38 @@ describe("UsageLimitsPanel", () => {
     expect(greenBars).toHaveLength(1);
     expect(greenBars[0].getAttribute("style")).toContain("46.4");
     const trackTitle = greenBars[0].parentElement.getAttribute("title");
+    expect(trackTitle).toContain("1,835.48");
     expect(trackTitle).toContain("3,950");
     expect(trackTitle).toContain("2,114.52");
     expect(trackTitle).toContain("35.48");
     // The per-grant array is data only; listing it was the previous design.
     expect(screen.queryByText("签到奖励")).not.toBeInTheDocument();
     expect(screen.queryByText("每月登录赠送")).not.toBeInTheDocument();
+  });
+
+  it("renders Qoder's three credit pools instead of one summed bar", () => {
+    render(
+      <UsageLimitsPanel
+        order={["qoder"]}
+        qoder={{
+          configured: true,
+          primary_window: { used_percent: 52, used_credits: 2060, limit_credits: 4000, remaining_credits: 1940 },
+          pools: [
+            { key: "plan", used: 0, limit: 0, remaining: 0, percent: 0, unit: "credits", expires_at: null },
+            { key: "resourcePackage", used: 2000, limit: 2000, remaining: 0, percent: 100, unit: "credits", expires_at: null },
+            { key: "dedicated", used: 60, limit: 2000, remaining: 1940, percent: 4, unit: "credits", expires_at: "2026-10-29T00:00:00.000Z" },
+          ],
+        }}
+      />,
+    );
+
+    // 0/0 的套餐内不画空条，剩下的两池各占一行。
+    expect(screen.getByText(copy("limits.label.qoder_pool_resource"))).toBeInTheDocument();
+    expect(screen.getByText(copy("limits.label.qoder_pool_dedicated"))).toBeInTheDocument();
+    expect(screen.queryByText(copy("limits.label.qoder_pool_plan"))).toBeNull();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText("4%")).toBeInTheDocument();
+    expect(screen.queryByText("52%")).toBeNull();
   });
 
   it("keeps Start grants collapsed inside the Pro row and expands them independently", () => {

@@ -49,7 +49,13 @@ function formatReset(isoOrUnix) {
   const ts = resetToMs(isoOrUnix);
   if (!Number.isFinite(ts)) return null;
   const diff = ts - Date.now();
-  if (diff <= 0) return copy("shared.time.now");
+  // A window that just rolled over still reads "now"; a timestamp the provider
+  // forgot to refresh (months old) must not claim a reset is imminent.
+  if (diff <= 0) {
+    const staleByMs = -86400000;
+    if (diff < staleByMs) return null;
+    return copy("shared.time.now");
+  }
   const m = Math.floor(diff / 60000);
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
@@ -305,12 +311,12 @@ function paceFootnoteRemaining(rows, mode) {
   return rows.some((row) => rowHasPaceMarker(row) && (row.mode ?? mode) === LIMIT_DISPLAY_MODES.REMAINING);
 }
 
+// Collapsed cards must not repeat what the bar's hover already says, so this
+// list only renders when the user expands the group.
 function LimitDetail({ rows, mode, now = Date.now() }) {
   if (rows.length === 0) return null;
   const remaining = paceFootnoteRemaining(rows, mode);
   const hasPaceMarker = rows.some(rowHasPaceMarker);
-  // No own background or extra horizontal padding: it sits on the expanded
-  // group's tint and lines up flush-left with the bars above.
   return (
     <div className="mt-1 flex flex-col gap-1">
       {rows.map(({ spec, pace, mode: rowMode = mode }) => {
@@ -791,14 +797,12 @@ function TraeWalletExtra({ data }) {
 
   return (
     <>
-      <StatusLine>
-        {copy("limits.label.trae_balance", { credits: formatTraeCredit(available) })}
-      </StatusLine>
       {remainingPct != null ? (
         <WalletBar
           label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
           title={[
+            copy("limits.label.trae_balance", { credits: formatTraeCredit(available) }),
             copy("limits.label.trae_usage", {
               total: formatTraeCredit(total),
               used: formatTraeCredit(used),
@@ -812,7 +816,6 @@ function TraeWalletExtra({ data }) {
           ].filter(Boolean).join("\n")}
         />
       ) : null}
-      {/* 总积分/已用/最近到期都在进度条的悬浮提示里，卡片上不再重复一遍。 */}
     </>
   );
 }
@@ -826,20 +829,20 @@ function CodeArtsWalletExtra({ data }) {
 
   return (
     <>
-      <StatusLine>
-        {copy("limits.label.codearts_wallets", {
-          credits: formatCreditAmount(available, { maximumFractionDigits: 2 }),
-          date: typeof data.codearts_reset_date === "string" && data.codearts_reset_date ? data.codearts_reset_date : "—",
-        })}
-      </StatusLine>
       {remainingPct != null ? (
         <WalletBar
           label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
-          title={copy("limits.label.trae_usage", {
-            total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
-            used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
-          })}
+          title={[
+            copy("limits.label.codearts_wallets", {
+              credits: formatCreditAmount(available, { maximumFractionDigits: 2 }),
+              date: typeof data.codearts_reset_date === "string" && data.codearts_reset_date ? data.codearts_reset_date : "—",
+            }),
+            copy("limits.label.trae_usage", {
+              total: formatCreditAmount(total, { maximumFractionDigits: 2 }),
+              used: formatCreditAmount(used, { maximumFractionDigits: 2 }),
+            }),
+          ].join("\n")}
         />
       ) : null}
     </>
@@ -854,22 +857,22 @@ function AgentRouterWalletExtra({ data }) {
 
   return (
     <>
-      <StatusLine>
-        {copy("limits.label.agentrouter_balance", {
-          balance: formatCreditAmount(balance, { maximumFractionDigits: 2 }),
-          used: Number.isFinite(Number(data.agentrouter_used_usd))
-            ? formatCreditAmount(used, { maximumFractionDigits: 2 })
-            : "—",
-        })}
-      </StatusLine>
       {remainingPct != null ? (
         <WalletBar
           label={copy("limits.label.wallet_balance")}
           pct={remainingPct}
-          title={copy("limits.label.trae_usage", {
-            total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
-            used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
-          })}
+          title={[
+            copy("limits.label.agentrouter_balance", {
+              balance: formatCreditAmount(balance, { maximumFractionDigits: 2 }),
+              used: Number.isFinite(Number(data.agentrouter_used_usd))
+                ? formatCreditAmount(used, { maximumFractionDigits: 2 })
+                : "—",
+            }),
+            copy("limits.label.trae_usage", {
+              total: "$" + formatCreditAmount(total, { maximumFractionDigits: 2 }),
+              used: "$" + formatCreditAmount(used, { maximumFractionDigits: 2 }),
+            }),
+          ].join("\n")}
         />
       ) : null}
     </>
@@ -1010,7 +1013,6 @@ function ZcodeStartPlanSection({ data, mode, now }) {
           ) : (
             <>
               <LimitWindowSection rows={rows} mode={mode} />
-              <LimitDetail rows={rows} mode={mode} now={now} />
               {(data.buckets || []).filter((bucket) => Number.isFinite(bucket.remaining_units) && Number.isFinite(bucket.total_units)).map((bucket, index) => (
                 <div key={bucket.entitlement_id || index} className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
                   {copy("limits.zcode.grant_amount", {

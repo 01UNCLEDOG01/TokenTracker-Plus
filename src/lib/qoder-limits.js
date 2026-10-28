@@ -117,6 +117,35 @@ function normalizeQuotaSummary(summary) {
   };
 }
 
+// Qoder splits credits into three pools the official panel lists separately:
+// 套餐内 (plan), 资源包 (resource package) and SOTA 专属积分 (dedicated).
+// `total_quota` is the server's sum of them; showing only that hides the fact
+// that one pool is exhausted while another still holds credits.
+const QODER_POOL_DEFS = [
+  ["plan", "planQuota", "plan_quota"],
+  ["resourcePackage", "resourcePackageQuota", "resource_package_quota"],
+  ["dedicated", "dedicatedResourcePackageQuota", "dedicated_resource_package_quota"],
+];
+
+// Earliest future expiry among the pool's still-unspent grants. A pool made of
+// 20 small packs (resource package) reports the pack that runs out first.
+function poolExpiresAt(container) {
+  const details = firstDefined(container, "quotaDetail", "quota_detail");
+  if (!Array.isArray(details)) return null;
+  let earliest = null;
+  for (const row of details) {
+    if (!row || row.is_active === false) continue;
+    const remaining = Number(firstDefined(row, "remainingValue", "remaining_value"));
+    if (Number.isFinite(remaining) && remaining <= 0) continue;
+    const iso = normalizeResetAt(firstDefined(row, "expiresAt", "expires_at"));
+    if (!iso) continue;
+    const at = Date.parse(iso);
+    if (!Number.isFinite(at) || at <= Date.now()) continue;
+    if (!earliest || at < Date.parse(earliest)) earliest = iso;
+  }
+  return earliest;
+}
+
 function normalizeQoderUsageResponse(response) {
   if (!response || typeof response !== "object") {
     throw new Error("Qoder usage response is not an object.");
@@ -136,17 +165,37 @@ function normalizeQoderUsageResponse(response) {
       : 100
     : base.usagePercentage;
 
+  const pools = QODER_POOL_DEFS.map(([key, camel, snake]) => {
+    const container = firstDefined(response, camel, snake);
+    const summary = quotaSummary(container);
+    if (!summary) return null;
+    const quota = normalizeQuotaSummary(summary);
+    return {
+      key,
+      used: quota.used,
+      limit: quota.total,
+      remaining: quota.remaining,
+      percent: quota.usagePercentage,
+      unit: quota.unit,
+      expires_at: poolExpiresAt(container),
+    };
+  }).filter(Boolean);
+
   return {
     configured: true,
     error: null,
     primary_window: {
       used_percent: Math.max(0, Math.min(100, usedPercent)),
+      // Raw passthrough: the provider sometimes leaves this months in the past
+      // (observed 2026-08-02 on an active October account), so the renderer —
+      // not the parser — decides whether a stale value is worth showing.
       reset_at: normalizeResetAt(firstDefined(response, "nextResetAt", "next_reset_at")),
       used_credits: used,
       limit_credits: total,
       remaining_credits: remaining,
       unit: base.unit || shared?.unit || null,
     },
+    pools,
     user_id: typeof response.user_id === "string" ? response.user_id : undefined,
     source: "provider-api",
   };

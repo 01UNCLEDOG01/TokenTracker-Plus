@@ -2,6 +2,13 @@ import { copy } from "../../../lib/copy";
 
 /** Window + optional extra metadata for UsageLimitsPanel (no JSX — keeps hardcode scan clean). */
 
+// Qoder's three credit pools, named the way the official usage panel names them.
+const QODER_POOL_LABEL_KEYS = {
+  plan: "limits.label.qoder_pool_plan",
+  resourcePackage: "limits.label.qoder_pool_resource",
+  dedicated: "limits.label.qoder_pool_dedicated",
+};
+
 export const PROVIDER_LIMIT_SPECS = {
   claude: {
     windows(data) {
@@ -218,6 +225,28 @@ export const PROVIDER_LIMIT_SPECS = {
   },
   qoder: {
     windows(data) {
+      // The provider reports 套餐内 / 资源包 / SOTA 三池；`total_quota` is their
+      // sum. Rendering the pools separately is what makes "资源包 already at
+      // 100% while SOTA still holds 1,940" legible; the summed bar hides it.
+      const pools = Array.isArray(data.pools) ? data.pools : [];
+      const usable = pools.filter((pool) => Number(pool.limit) > 0);
+      if (usable.length) {
+        return usable.map((pool) => ({
+          key: pool.key,
+          labelKey: QODER_POOL_LABEL_KEYS[pool.key] || "limits.label.qoder_credits",
+          window: {
+            used_percent: pool.percent,
+            used_credits: pool.used,
+            limit_credits: pool.limit,
+            remaining_credits: pool.remaining,
+            unit: pool.unit,
+            ...(pool.expires_at ? { expires_at: pool.expires_at } : {}),
+          },
+          resetField: pool.expires_at ? "expires_at" : undefined,
+          timeKind: pool.expires_at ? "expiry" : undefined,
+          showCreditDetail: true,
+        }));
+      }
       return [
         { key: "credits", labelKey: "limits.label.qoder_credits", window: data.primary_window },
         {

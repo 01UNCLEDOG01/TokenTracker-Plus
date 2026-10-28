@@ -842,6 +842,9 @@ limits.status.no_data,ui,LimitsPage,UsageLimitsPanel,status_no_data,"No live lim
 limits.status.client_not_running,ui,LimitsPage,UsageLimitsPanel,status_client_not_running,"{app} is not running — open it and sign in to read its quota.",,active
 limits.label.wallet_credits,ui,LimitsPage,UsageLimitsPanel,wallet_credits,"Credits",,active
 limits.label.wallet_balance,ui,LimitsPage,UsageLimitsPanel,wallet_balance,"Balance",,active
+limits.label.qoder_pool_plan,ui,LimitsPage,UsageLimitsPanel,qoder_pool_plan,"Included",,active
+limits.label.qoder_pool_resource,ui,LimitsPage,UsageLimitsPanel,qoder_pool_resource,"Resource pack",,active
+limits.label.qoder_pool_dedicated,ui,LimitsPage,UsageLimitsPanel,qoder_pool_dedicated,"SOTA credits",,active
 limits.opencodeGo.status.inactive,ui,LimitsPage,UsageLimitsPanel,opencode_go_status_inactive,"OpenCode Go subscription is inactive",,active
 limits.status.all_hidden,ui,LimitsPage,UsageLimitsPanel,status_all_hidden,"All limit providers are hidden. Open display settings to show them.",,active
 shared.time.now,shared,*,Shared,time_now,"now",,active
