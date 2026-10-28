@@ -3,13 +3,16 @@
 // 哪些来源算「终端」（`terminal_purist` / 终端原教旨主义，以及 cliTokens 列）。
 //
 // 判据只有一个：**这行用量是不是在终端窗口里烧掉的**（CLI 或 TUI）。
-// 不是「id 里有没有 cli」，也不是「厂商是不是也发过 CLI」—— 一个产品只要
-// 存在桌面/IDE 外壳、而那条外壳写的是同一份日志，就没法证明用户当时坐在
-// 终端里，这种来源不进指标（宁可少算，不可错算）。
+// 不看「厂商是不是也发过 CLI」—— 一个产品只要存在桌面/IDE 外壳、而那条外壳
+// 写的是同一份日志，就没法证明用户当时坐在终端里，这种来源不进指标
+// （宁可少算，不可错算）。id 自带 `cli` 的（gemini-cli / kiro-cli …）算
+// 产品名自证，见 CLI_NAME_HINT；它只是省掉逐条登记，不是另一套判据。
 //
-// 每个条目都带本机证据（2026-10-29 实测）。要加新来源：先在本机把它的
-// 家目录形态看清，写进表里再提交；**不要**把未知来源默认当终端 —— 未分类
-// 的一律非终端，并在开发环境打印一次提示（见 isTerminalSource）。
+// 三层结构（2026-10-29）：verified 计入 / excluded 明确不算 / candidate 待核实。
+// 每个条目都带本机证据。要加新来源：先在本机把它的家目录形态看清，写进
+// verified 或 excluded；**本机没装、拿不到形态证据的，写进 candidate**（不计入
+// 也不猜，但会出现在 listUnresolvedSources() 里等审计）。完全没登记的 key 按
+// 非终端处理并在开发环境打印一次提示（见 isTerminalSource）。
 //
 // 判定依据的两类证据：
 //   ① 目录形态：终端程序的 home 是 `projects/ plugins/ mcp.json settings.json`
@@ -55,6 +58,9 @@ const TERMINAL_SOURCES = new Map([
   ["tuanjie-cowork", "团结 Cowork CLI：~/.codely-cli（oauth_creds/model-config/tmp 形态；桌面壳在 %APPDATA%/TuanjieHub）"],
   ["codebuddy", "CodeBuddy CLI：~/.codebuddy（projects/plugins/mcp.json/settings.json，Claude-Code 式 CLI home；IDE 版是 %APPDATA%/CodeBuddy CN）"],
   ["minimax-code", "MiniMax Code CLI：~/.minimax（bin/ config.yaml agents/ run/，无 Electron 缓存）"],
+  ["copilot", "GitHub Copilot CLI：~/.copilot/otel/*.jsonl 的 OTEL 文件导出器（rollout.js 该段标题即 GitHub Copilot CLI；VS Code 扩展不写这里）"],
+  ["acode", "AStudio（acode）：~/.acode 的 sessions/ + archived_sessions/ + config.toml + acode_notify 钩子，与 Codex CLI 同形"],
+  ["every-code", "Every Code：rollout.js 注明「same shape as Codex, different home」，即 Codex CLI 同形的另一个 home"],
 ]);
 
 // ── 非终端：IDE / 桌面应用 / 网关 ───────────────────────────────────────────
@@ -63,7 +69,6 @@ const NON_TERMINAL_SOURCES = new Map([
   ["agent2api", "本地网关，不是人坐在里面的工具"],
   ["antigravity", "IDE：%APPDATA%/Antigravity、Antigravity IDE"],
   ["cursor", "IDE：%APPDATA%/Cursor"],
-  ["copilot", "VS Code 扩展（不是终端程序，无自己的 CLI home）"],
   ["codearts", "CodeArts IDE（华为 IDE，不是终端程序）"],
   ["trae", "IDE：%APPDATA%/Trae"],
   ["trae-cn", "IDE：%APPDATA%/Trae CN、TRAE SOLO CN"],
@@ -81,7 +86,6 @@ const NON_TERMINAL_SOURCES = new Map([
   ["lmstudio", "桌面应用（LM Studio 本地模型工作台）"],
   ["unsloth", "桌面应用（Unsloth Studio 训练工作台）"],
   ["anythingllm", "桌面应用（AnythingLLM Desktop）"],
-  ["acode", "IDE（AStudio，移动端/桌面编辑器）"],
   ["zed", "编辑器（Zed Agent 是编辑器里的 agent 面板）"],
   ["cline", "VS Code 扩展（无自己的终端会话）"],
   ["roo", "VS Code 扩展（Roo Code，无自己的终端会话）"],
@@ -100,7 +104,6 @@ const CANDIDATE_SOURCES = new Map([
   ["pi", "pi —— TUI agent，本机未安装"],
   ["prime-agent", "Prime Agent —— CLI agent，本机未安装"],
   ["openclaw", "OpenClaw —— CLI agent（~/.openclaw），本机未安装；注意与 autoclaw 桌面版区分"],
-  ["every-code", "Every Code —— CLI agent，本机未安装"],
   ["craft-agents", "Craft Agents —— CLI agent，本机未安装"],
   ["hermes-agent", "Hermes Agent —— CLI agent，本机未安装"],
   ["kilo", "kilo —— 与 kilo-cli / kilo-code 的对应关系未定，本机未安装"],
@@ -113,7 +116,7 @@ const CANDIDATE_SOURCES = new Map([
   ["muse", "Muse Code —— 桌面端还是 CLI 未定，本机未安装"],
 ]);
 
-// 产品名自证：`gemini-cli` / `devin-cli` / `kilo-cli` / `kiro-cli` / `command-code`
+// 产品名自证：`gemini-cli` / `devin-cli` / `kilo-cli` / `kiro-cli` 这类 id
 // 这类 id 直接把「我是 CLI」写在名字里，不必逐条维护。
 const CLI_NAME_HINT = /(?:^|[-_])cli(?:$|[-_])|cli$/;
 

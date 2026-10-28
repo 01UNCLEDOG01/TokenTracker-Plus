@@ -5781,22 +5781,34 @@ function readOpencodeDbMessages(dbPath, sqliteOptions = {}, { propagateReadFailu
 // mimo tokens. Counting the mirror under "mimo" double-counts and mislabels
 // Claude usage (user saw claude-* rows under the MIMO provider).
 //
-// The discriminator is providerID, NOT the model id. mimo's own runtime tags
-// turns providerID="mimo" (its auto router) or "xiaomi". providerID="anthropic"
+// The discriminator is providerID, NOT the model id. providerID="anthropic"
 // means the turn went through a Claude-compatible endpoint — plain Claude Code,
 // OR a mimo-named model the user picked IN Claude Code (e.g. model=mimo-v2.5-pro
 // run inside Claude Code, logged in ~/.claude, counted as source=claude). Keying
 // off the model id would wrongly re-count that mimo-v2.5-pro. claude_import is
 // irrelevant — it never covers the observer/session mirror; the provider rule
 // subsumes it.
+//
+// MiMo Desktop also lets users add CUSTOM providers (GLM, any OpenAI-compatible
+// endpoint) and those turns live ONLY in this DB. An allowlist of
+// mimo|xiaomi silently dropped every one of them: a real box ran glm-4.7 under
+// providerID="glm", so the mimo card never appeared despite a live session.
+// So blocklist the three direct vendors whose history mimocode mirrors and
+// whose own parsers already count those turns — the same rule as
+// isZcodeNativeMessage.
 function isMimoNativeMessage(data) {
   if (!data) return false;
   const provider = String(opencodeMessageProvider(data)).toLowerCase();
-  return provider === "mimo" || provider === "xiaomi";
+  if (!provider) return false;
+  return !(
+    provider.includes("anthropic") ||
+    provider.includes("openai") ||
+    provider.includes("google")
+  );
 }
 
-// Read only genuine mimo assistant messages (mimo's own models), dropping the
-// mirrored Claude/claude-mem rows. See isMimoNativeMessage for why.
+// Read only genuine mimo messages, dropping the mirrored Claude/claude-mem
+// rows. See isMimoNativeMessage for why.
 function readMimoDbMessages(dbPath, sqliteOptions = {}) {
   if (!dbPath || !fssync.existsSync(dbPath)) return [];
   const all = readOpencodeDbMessages(dbPath, sqliteOptions);

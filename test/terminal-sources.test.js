@@ -46,8 +46,10 @@ test("the two tables never overlap and every entry carries evidence", () => {
 test("every CLI/TUI product seen in this machine's queue is classified terminal", () => {
   // 2026-10-29 实测：这十个源的 home 目录形态证明记录是终端程序写的
   // （projects/plugins/bin/config.yaml 形态，或路径里就写着 cli）。
+  // copilot 是 GitHub Copilot CLI（~/.copilot/otel 的 OTEL 导出），不是 VS Code 扩展；
+  // acode(AStudio) 与 every-code 的采集形态与 Codex CLI 完全一致（sessions + config.toml + 通知钩子）。
   for (const key of ["claude", "codex", "opencode", "zcode", "kimi", "kimi-code",
-    "dsh", "tuanjie-cowork", "codebuddy", "minimax-code"]) {
+    "dsh", "tuanjie-cowork", "codebuddy", "minimax-code", "copilot", "acode", "every-code"]) {
     assert.equal(isTerminalSource(key), true, `${key} must count as terminal`);
     assert.match(classifySource(key).evidence, /CLI|TUI/);
   }
@@ -57,7 +59,7 @@ test("desktop apps and IDEs never count, even with CLI lineage", () => {
   // autoclaw/cola/loomy 内嵌 OpenCode 运行时，但外壳是桌面应用 —— 用户点的是窗口。
   for (const key of ["autoclaw", "cola", "loomy", "reasonix", "raccoon", "mimo",
     "workbuddy", "workbuddy-ai", "cursor", "trae", "trae-cn", "qoder", "qoder-cn",
-    "codearts", "antigravity", "copilot", "kilo-code", "agent2api"]) {
+    "codearts", "antigravity", "kilo-code", "agent2api"]) {
     assert.equal(isTerminalSource(key), false, `${key} must not count as terminal`);
   }
 });
