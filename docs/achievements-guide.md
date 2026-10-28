@@ -115,6 +115,17 @@ $$\text{本命模型用量占比} = \frac{\text{生涯用量第一名的单一�
 | **淘金客** | `token_arbitrageur` | 横跨中转、免费与签到平台淘金，平台越多，算力收获越丰。 | 5 | 10 | 18 | 26 |
 | **离线自主权** | `offgrid_sovereign` | 本地模型累计消耗——断网也能敲代码，数据 100% 属于你自己。 | 100 万 | 1000 万 (10M) | 5000 万 (50M) | 20000 万 (200M) |
 
+**`terminal_purist` 具体算哪些来源**（判据 = 这行用量是不是在终端窗口里烧掉的，CLI 或 TUI）：
+
+- **算**：Claude Code CLI、Codex CLI、OpenCode（TUI）、ZCode CLI、Kimi Code CLI、DeepSeek Harness CLI、
+  团结 Cowork CLI、CodeBuddy CLI、MiniMax Code CLI，以及任何 id 自带 `cli` 的来源（Gemini CLI / Devin CLI / Kilo CLI / Kiro CLI）。
+- **不算**：IDE（Cursor / Trae / Qoder / CodeArts / Antigravity / Copilot / Cline / Roo / Kilo Code / Zed）、
+  桌面应用（WorkBuddy / 商汤小浣熊 / MiMo / Loomy / Cola / AutoClaw / Reasonix / LM Studio / Unsloth / AnythingLLM；
+  注意 `%APPDATA%\MiniMax` 是 MiniMax 桌面聊天客户端，与 `minimax-code` 这个 CLI 不是同一个产品）、
+  以及 Agent2API 这种本地网关。
+- 内嵌 CLI 运行时的桌面应用（AutoClaw / Cola / Loomy）**不算**：用户点的是窗口，不是终端。
+- 全表与每个来源的本机证据在 `src/lib/terminal-sources.js`，未知来源默认按非终端处理（宁少算不错算）。
+
 ### 5. 垂直厂商大模型信仰类
 
 | 徽章名称 | 标识 (ID) | 详细口径与说明 | 青铜 | 白银 | 黄金 | 钻石 |

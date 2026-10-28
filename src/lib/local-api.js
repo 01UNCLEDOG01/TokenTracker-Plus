@@ -14,6 +14,7 @@ const {
 } = require("./source-metadata");
 const { accountSlugFor, fetchAccountUsage, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration } = require("./cloud-account");
 const { resetCloudDeviceUsage, readCloudUsageReset } = require("./cloud-usage-reset");
+const { isTerminalSource } = require("./terminal-sources");
 const { getOrCreateMachineId, computeStableMachineId } = require("./machine-id");
 const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 const { createCloudDeviceTokenStore } = require("./cloud-device-token");
@@ -467,31 +468,13 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
   };
 }
 
-// A source counts toward terminal_purist only when the record we read IS a
-// terminal program's own session log — not when the vendor merely also ships a
-// GUI. Evidence per entry:
-//   claude       ~/.claude/projects/**.jsonl          (Claude Code CLI)
-//   codex        ~/.codex/sessions/**/rollout-*.jsonl (Codex CLI rollout logs)
-//   opencode     ~/.local/share/opencode storage      (OpenCode is a TUI)
-//   zcode        ~/.zcode/cli/db/db.sqlite            (path literally says cli)
-//   kimi         ~/.kimi-code                         (Kimi Code CLI)
-//   kilo-cli     explicit CLI id
-// Anything whose id carries "cli" is treated as a terminal too.
-// NOT counted, and why: cursor / copilot / cline / trae-cn / codearts / qoder /
-// qoder-cn are IDE extensions; antigravity / workbuddy / workbuddy-ai / grok /
-// minimax-code / iflytek are desktop apps or gateway-backed clients; agent2api
-// is a local proxy, not a tool someone sits in. dsh, cola, loomy, reasonix,
-// autoclaw and tuanjie-cowork have BOTH a ~/.<id> session dir and a desktop app
-// in AppData, so their form is not decidable from the collector alone — they
-// stay out until the owner confirms which they run.
-const TERMINAL_SOURCE_IDS = new Set([
-  "claude", "codex", "opencode", "zcode", "kimi", "kimi-code", "kilo-cli",
-]);
-
-function isTerminalSource(sourceKey) {
-  const src = String(sourceKey || "").toLowerCase();
-  return TERMINAL_SOURCE_IDS.has(src) || src.includes("cli");
-}
+// A source counts toward terminal_purist only when the tokens were burned in a
+// terminal window (CLI or TUI) - the badge name and its description say exactly
+// that. The classification lives in ./terminal-sources with per-source evidence,
+// so it can be audited instead of guessed: an IDE, a desktop app, or a product
+// whose GUI writes the same log is NOT a terminal. Unknown ids are treated as
+// non-terminal (under-count rather than mis-count) and logged once.
+// See src/lib/terminal-sources.js for the table and the local evidence per entry.
 
 // ── Local achievements ───────────────────────────────────────────────────────
 // Thresholds are ordered bronze → silver → gold → diamond. This module is the
