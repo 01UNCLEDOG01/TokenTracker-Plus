@@ -30,6 +30,7 @@ const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
 const { resolveAutoClawSessionFiles, resolveColaSessionFiles, scanAutoClawSession, scanColaSession } = require("./agent-jsonl-sessions");
 const { resolveCoworkChatFiles, scanCoworkChat } = require("./cowork-sessions");
+const { readRaccoonAggregate, raccoonRecordFromAggregate, resolveRaccoonSessionFiles } = require("./raccoon-sessions");
 const { qoderIntlRouterNames, qoderCnRouterNames } = require("./qoder-intl-credits");
 const readline = require("node:readline");
 const {
@@ -132,7 +133,9 @@ const {
 // v38 records the per-model message counts behind that attribution, so a
 // session that mixed two routers splits its allocated tokens by measured
 // message counts instead of being dropped as unattributable.
-const SIDECAR_VERSION = 38;
+// v39 adds SenseTime Raccoon (box-agent) sessions, read incrementally from a
+// single append-only trace file that is already hundreds of MB on this machine.
+const SIDECAR_VERSION = 39;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -3296,6 +3299,31 @@ async function scanOmpSession(filePath) {
   return rows[0] || null;
 }
 
+// SenseTime Raccoon keeps one append-only trace per session and the file can
+// already be hundreds of MB, so the parse is incremental (see
+// raccoon-sessions.js) and this wrapper only supplies the shared primitives:
+// bounds, repricing, first_pass and the storage footprint stay ONE
+// implementation with every other source.
+function scanRaccoonSession(filePath) {
+  let agg;
+  try {
+    agg = readRaccoonAggregate(filePath);
+  } catch (error) {
+    if (isRecoverableSessionReadError(error)) return null;
+    throw error;
+  }
+  if (!agg || (!agg.calls && !agg.turns)) return null;
+  return raccoonRecordFromAggregate(agg, filePath, {
+    finalizeRecord,
+    sessionHash,
+    projectKey,
+    sessionStorageUsage,
+    normalizeSessionModel,
+    normalizePerformance,
+    version: SIDECAR_VERSION,
+  });
+}
+
 async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const grokHome = resolveGrokHome(home);
   // config.scanRoots (#657): read from the tracker config unless the caller
@@ -3326,6 +3354,14 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const autoclawFiles = (() => { try { return resolveAutoClawSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const colaFiles = (() => { try { return resolveColaSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const coworkFiles = (() => { try { return resolveCoworkChatFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  // SenseTime Raccoon: one trace file per session under
+  // ~/.office-raccoon/agent/log/sessions. Only that level is listed - the
+  // sibling runtime tree is 2.6 GB of binaries with no usage in it.
+  const raccoonFiles = (() => {
+    try {
+      return deps.raccoonSessionFiles || resolveRaccoonSessionFiles({ env: jsonlEnv, home });
+    } catch { return []; }
+  })();
   // Antigravity keeps one SQLite database per conversation under
   // <home>/.gemini/antigravity/conversations; each pairs with a transcript
   // directory of the same uuid.
@@ -3455,6 +3491,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     autoclaw: autoclawFiles,
     cola: colaFiles,
     cowork: coworkFiles,
+    raccoon: raccoonFiles,
     antigravity: antigravityDbs,
     qoder,
     qoderCn,
@@ -4279,6 +4316,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...((discovered.autoclaw || []).length ? [{ source: "autoclaw", filePath: discovered.autoclaw, scan: scanAutoClawSession }] : []),
     ...((discovered.cola || []).length ? [{ source: "cola", filePath: discovered.cola, scan: scanColaSession }] : []),
     ...((discovered.cowork || []).length ? [{ source: "tuanjie-cowork", filePath: discovered.cowork, scan: scanCoworkChat }] : []),
+    ...((discovered.raccoon || []).map((filePath) => ({ source: "raccoon", filePath, scan: scanRaccoonSession }))),
     ...(discovered.antigravity || []).map((filePath) => ({ source: "antigravity", filePath, scan: scanAntigravitySession })),
     ...(discovered.workbuddy || []).map((filePaths) => ({
       // The domestic and the international edition are two products with two
@@ -5139,6 +5177,7 @@ module.exports = {
   scanKimiSessions,
   scanOmpSessions,
   scanOmpSession,
+  scanRaccoonSession,
   buildSessionAnalytics,
   summarizeSessions,
   listSessionsForBrowser,

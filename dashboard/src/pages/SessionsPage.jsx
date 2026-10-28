@@ -51,6 +51,7 @@ const SOURCE_FILTERS = [
   { id: "autoclaw", label: () => "AutoClaw" },
   { id: "cola", label: () => "Cola" },
   { id: "tuanjie-cowork", label: () => "Tuanjie Cowork" },
+  { id: "raccoon", label: () => "SenseTime Raccoon" },
   { id: "kimi", label: () => copy("leaderboard.column.kimi") },
   { id: "omp", label: () => "oh-my-pi" },
 ];
