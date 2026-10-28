@@ -441,7 +441,7 @@ const PROVIDER_LOGO_MAP = {
   CODEX: "/brand-logos/codex.svg",
   // Cola's own app mark, taken from its installed resources/icon.png - an orange
   // ring on a cream tile.
-  COLA: "/brand-logos/cola.png",
+  COLA: "/brand-logos/cola.png?v=2",
   // Command Code ships an official multi-color brand SVG asset in
   // /public/brand-logos/, so it renders through the image path below.
   "COMMAND-CODE": "/brand-logos/commandcode.svg",
@@ -449,7 +449,7 @@ const PROVIDER_LOGO_MAP = {
   // Muse Code (Meta Superintelligence Labs) is distributed as a blue cursive
   // M with a cursor; the wrapper app's logo is the only published mark, with
   // its white card knocked out so it sits on the dark card like the SVG set.
-  MUSE: "/brand-logos/muse.png?v=1",
+  MUSE: "/brand-logos/muse.png?v=2",
   // OmO (Oh My OpenAgent) ships an official light-glyph SVG in its repo.
   OMO: "/brand-logos/omo.svg",
   // JoyCode ships no standalone glyph: the app's own 150px icon is a white
@@ -471,8 +471,8 @@ const PROVIDER_LOGO_MAP = {
   // droplet — Dots has its own recognizable brand mark, so it overrides the
   // generic pi fallback below for both the standalone "dots" provider and the
   // pi-routed source.
-  DOTS: "/brand-logos/dots.png",
-  "PI-DOTS": "/brand-logos/dots.png",
+  DOTS: "/brand-logos/dots.png?v=2",
+  "PI-DOTS": "/brand-logos/dots.png?v=2",
   QODER: "/brand-logos/qoder.svg",
   // Devin (devin.ai) — the three-hexagon "nodes" mark, mono like Qoder.
   DEVIN: "/brand-logos/devin.svg",
@@ -510,7 +510,7 @@ const PROVIDER_LOGO_MAP = {
   // 团结 Cowork's own app mark, copied from the installed app's toast icon
   // (AppData\Local\Tuanjie Cowork\codely-toast-icon.png) - the green/teal
   // Codely hexagon.
-  "TUANJIE-COWORK": "/brand-logos/tuanjie-cowork.png",
+  "TUANJIE-COWORK": "/brand-logos/tuanjie-cowork.png?v=2",
   // Agent2API's own brand mark, taken from the installed gateway's icon set
   // (Program Files/Agent2API/_up_/ui/icons.js "brand": the blue swap-arrows
   // tile), rendered verbatim as SVG.
