@@ -191,6 +191,15 @@ module.exports = {
         "pulse-slow": "pulse 3s ease-in-out infinite",
         "star-movement-bottom": "star-movement-bottom linear infinite alternate",
         "star-movement-top": "star-movement-top linear infinite alternate",
+        // Title-resonance toast: the beam hue slides along the card top,
+        // reading as "linking up" rather than the achievement pulse.
+        "resonance-flow": "resonanceFlow 2.4s linear infinite",
+      },
+      backgroundImage: {
+        // Violet link-up beam for the resonance toast (kept here so the toast
+        // component adds zero new color literals).
+        "resonance-beam":
+          "linear-gradient(90deg, #8b5cf6, #d946ef, #6366f1, #8b5cf6)",
       },
       keyframes: {
         fadeIn: {
@@ -200,6 +209,10 @@ module.exports = {
         slideUp: {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        resonanceFlow: {
+          "0%": { backgroundPosition: "0% 50%" },
+          "100%": { backgroundPosition: "200% 50%" },
         },
         "star-movement-bottom": {
           "0%": { transform: "translate(0%, 0%)", opacity: "1" },
@@ -211,6 +224,8 @@ module.exports = {
         },
       },
       boxShadow: {
+        "resonance-card": "0 16px 40px rgba(0, 0, 0, 0.85), 0 0 30px rgba(139, 92, 246, 0.35)",
+        "resonance-ring": "0 0 20px rgba(139, 92, 246, 0.35)",
         "oai-sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
         "oai": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
         "oai-md": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",

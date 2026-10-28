@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Trophy, X, Sparkles, Award, Gem, TrendingUp, Layers } from "lucide-react";
+import { Trophy, X, Sparkles, Award, Gem, TrendingUp, Layers, Link2 } from "lucide-react";
 import { playUnlockSound, playTierUpSound } from "../../lib/achievement-audio";
+import { copy } from "../../lib/copy";
 
 const TIER_META = {
   1: { en: "Bronze", zh: "青铜阶", border: "border-amber-600/80", bg: "from-amber-950/60 to-[#171a21]", tagBg: "bg-amber-900/60 text-amber-300 border-amber-600/50" },
@@ -100,6 +101,9 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
   const tier = Number(toast.tier) || 1;
   const tierMeta = TIER_META[tier] || TIER_META[1];
   const isTierUp = Boolean(toast.isTierUp);
+  // Title-resonance toasts get their own visual language (violet link-up),
+  // not the achievement promotion flare.
+  const isResonance = toast.kind === "resonance";
 
   return (
     <div
@@ -112,11 +116,83 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
           : "translate-y-6 opacity-0 scale-95"
       }`}
     >
-      {/* DISTINCT VISUAL 1: PROMOTION / TIER UP (CYAN/PRISMATIC CELEBRATION FLARE) */}
-      {isTierUp ? (
-        <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-br from-[#131b2e] via-[#10141f] to-[#0d1017] p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(34,211,238,0.3)] backdrop-blur-xl">
-          {/* Animated radiant top beam */}
-          <div className="absolute inset-x-0 top-0 h-[3px] rounded-t-2xl bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-300 animate-pulse" />
+      {/* DISTINCT VISUAL 0: TITLE RESONANCE (VIOLET LINK-UP FLOW) */}
+      {isResonance ? (
+        <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 overflow-hidden rounded-2xl border-2 border-violet-400/80 bg-gradient-to-br from-[#1a1230] via-[#14101f] to-[#0d1017] p-4 text-white shadow-resonance-card backdrop-blur-xl">
+          {/* Flowing resonance beam — hue slides along the top edge */}
+          <div className="absolute inset-x-0 top-0 h-[3px] bg-resonance-beam bg-[length:200%_100%] animate-resonance-flow" />
+
+          {/* Left emblem with resonance link ring */}
+          <div className="relative shrink-0">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-violet-400/70 bg-gradient-to-b from-violet-950/60 to-[#171a21] p-1 shadow-resonance-ring overflow-hidden">
+              {toast.badge?.art ? (
+                <img
+                  src={toast.badge.art}
+                  alt={toast.name || "Title"}
+                  className="h-full w-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : (
+                <Link2 className="h-8 w-8 text-violet-300" />
+              )}
+            </div>
+            {/* Resonance link marker */}
+            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-white border-2 border-[#14101f] shadow-lg">
+              <Link2 className="h-3.5 w-3.5 stroke-[3]" />
+            </span>
+          </div>
+
+          {/* Middle text content */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5 text-violet-400" />
+                <span className="text-[11px] font-black uppercase tracking-wider text-violet-400">
+                  {copy("achievements.resonance.toast_badge")}
+                </span>
+              </div>
+            </div>
+
+            <h4 className="mt-1 truncate text-base font-bold tracking-tight text-white">
+              {toast.name || copy("achievements.resonance.toast_name_fallback")}
+            </h4>
+
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md border border-violet-500/50 bg-violet-500/20 px-2 py-0.5 text-xs font-semibold text-violet-300">
+                <Layers className="h-3 w-3" />
+                <span>
+                  {copy(
+                    isTierUp
+                      ? "achievements.resonance.toast_tier_up"
+                      : "achievements.resonance.toast_unlocked",
+                    { tier: tierMeta.zh },
+                  )}
+                </span>
+              </span>
+              <p className="truncate text-xs text-gray-300">
+                {toast.desc || copy("achievements.resonance.toast_fallback")}
+              </p>
+            </div>
+          </div>
+
+          {/* Dismiss button */}
+          <button
+            type="button"
+            onClick={handleManualDismiss}
+            className="shrink-0 rounded-lg p-1 text-gray-400 transition hover:bg-white/10 hover:text-white cursor-pointer"
+            aria-label="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : isTierUp ? (
+        <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 overflow-hidden rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-br from-[#131b2e] via-[#10141f] to-[#0d1017] p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(34,211,238,0.3)] backdrop-blur-xl">
+          {/* Animated radiant top beam — same cyan family as the border, faded
+              ends so the line melts into the rounded corners instead of
+              overshooting them. */}
+          <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-cyan-400/30 via-cyan-300 to-cyan-400/30 animate-pulse" />
 
           {/* Left emblem with glowing promotion ring */}
           <div className="relative shrink-0">
@@ -178,9 +254,9 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
         </div>
       ) : (
         /* DISTINCT VISUAL 2: UNLOCK (CLASSIC STEAM OBSIDIAN & AMBER GLOW) */
-        <div className="relative flex w-[370px] max-w-[calc(100vw-3rem)] items-center gap-3.5 rounded-xl border border-[#384b60] bg-[#171a21]/95 p-3.5 text-white shadow-[0_12px_36px_rgba(0,0,0,0.8)] backdrop-blur-md">
+        <div className="relative flex w-[370px] max-w-[calc(100vw-3rem)] items-center gap-3.5 overflow-hidden rounded-xl border border-[#384b60] bg-[#171a21]/95 p-3.5 text-white shadow-[0_12px_36px_rgba(0,0,0,0.8)] backdrop-blur-md">
           {/* Steam-style top ambient glow line */}
-          <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-xl bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600" />
+          <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600" />
 
           {/* Left emblem avatar */}
           <div className="relative shrink-0">

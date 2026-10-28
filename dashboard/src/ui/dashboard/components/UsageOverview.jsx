@@ -351,13 +351,6 @@ export function UsageOverview({
     (provider) =>
       String(provider?.source || provider?.label || "").trim().toLowerCase() === "kiro",
   );
-  // TRAE cost leaves out input without a cache split (docs/trae.md). Keep the
-  // caveat visible with the combined totals, including cloud data, which has
-  // no per-bucket marker.
-  const traeContributes = providers.some(
-    (provider) =>
-      String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae",
-  );
   const allModels = useMemo(() => buildAllModels(fleetData), [fleetData]);
   const allUsage = allModels.reduce((sum, model) => sum + (Number(model.usage) || 0), 0);
   const allCost = providers.reduce((sum, provider) => sum + (Number(provider.usd) || 0), 0);
@@ -516,12 +509,6 @@ export function UsageOverview({
               )}
             </div>
           )}
-          {traeContributes && (
-            <p className="mx-auto mt-3 max-w-xl text-[11px] leading-snug text-oai-gray-500 dark:text-oai-gray-400">
-              <span className="font-medium">{copy("usage.overview.trae_notice_title")}.</span>{" "}
-              {copy("usage.overview.trae_notice_body")}
-            </p>
-          )}
           {periodRangeLabel ? (
             <div className="mt-3 flex flex-col items-center gap-1 text-[11px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
               <span className="tabular-nums">{periodRangeLabel}</span>
@@ -620,6 +607,10 @@ export function UsageOverview({
                   provider.usage > 0 || !providerCost
                     ? copy("usage.overview.model_count", { count: provider.models.length })
                     : `${copy("usage.overview.model_count", { count: provider.models.length })} · ${providerCost}`;
+                // The TRAE pricing caveat lives on the TRAE card itself (short
+                // hint + tooltip), never on the combined totals above.
+                const isTraeCard =
+                  String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
 
                 return (
                   <button
@@ -647,8 +638,13 @@ export function UsageOverview({
                     <div className="text-lg font-semibold text-oai-black dark:text-oai-white tabular-nums">
                       {percentLabel}%
                     </div>
-                    <div className="mt-0.5 text-[11px] text-oai-gray-400 dark:text-oai-gray-400 tabular-nums">
-                      {modelCountLabel}
+                    <div
+                      className="mt-0.5 text-[11px] text-oai-gray-400 dark:text-oai-gray-400 tabular-nums"
+                      title={isTraeCard ? copy("usage.overview.trae_notice_body") : undefined}
+                    >
+                      {isTraeCard
+                        ? `${modelCountLabel} · ${copy("usage.overview.trae_card_hint")}`
+                        : modelCountLabel}
                     </div>
                   </button>
                 );
@@ -687,21 +683,25 @@ export function UsageOverview({
                     const sortedModels = [...provider.models].sort((a, b) => {
                       return (b.share || 0) - (a.share || 0);
                     });
+                    const isTraeProvider =
+                      String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
 
                     const providerHeading = contextSource
                       ? contextBreakdownHeading(contextSource)
                       : formatProviderDisplayName(provider.label);
                     return (
-                      <ProviderExpandedSection
-                        key={provider.label}
-                        provider={provider}
-                        color={color}
-                        providerHeading={providerHeading}
-                        contextSource={contextSource}
-                        from={from}
-                        to={to}
-                        sortedModels={sortedModels}
-                      />
+                      <React.Fragment key={provider.label}>
+                        {isTraeProvider && <TraePricingNotice />}
+                        <ProviderExpandedSection
+                          provider={provider}
+                          color={color}
+                          providerHeading={providerHeading}
+                          contextSource={contextSource}
+                          from={from}
+                          to={to}
+                          sortedModels={sortedModels}
+                        />
+                      </React.Fragment>
                     );
                   })}
               </div>
@@ -900,6 +900,17 @@ function KiroEstimateNotice() {
         {copy("usage.overview.kiro_notice_title")}.
       </span>{" "}
       {copy("usage.overview.kiro_notice_body")}
+    </p>
+  );
+}
+
+function TraePricingNotice() {
+  return (
+    <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+      <span className="font-medium text-oai-gray-500 dark:text-oai-gray-400">
+        {copy("usage.overview.trae_notice_title")}.
+      </span>{" "}
+      {copy("usage.overview.trae_notice_body")}
     </p>
   );
 }

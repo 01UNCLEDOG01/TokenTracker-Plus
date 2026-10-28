@@ -80,6 +80,9 @@ export async function pollAchievements({ timeZone } = {}) {
           badge: { id: title.id, art: title.art },
           tier: tier || 1,
           isTierUp: Boolean(previous?.unlocked),
+          // Own visual language (violet link-up) — must not reuse the
+          // achievement promotion flare.
+          kind: "resonance",
           name: title.name,
           desc: previous?.unlocked ? `共鸣提升至 ${resonance.label}` : title.desc,
         });

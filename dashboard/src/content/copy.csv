@@ -742,8 +742,14 @@ usage.overview.antigravity_notice_title,ui,DashboardPage,UsageOverview,antigravi
 usage.overview.antigravity_notice_body,ui,DashboardPage,UsageOverview,antigravity_notice_body,"Exact token usage and prompt-cache hits are parsed from Antigravity session metadata when available. Fallback transcripts without metadata are estimated from text length (~4 chars/token).",,active
 usage.overview.devin_notice_title,ui,DashboardPage,UsageOverview,devin_notice_title,"Cost not estimated",,active
 usage.overview.devin_notice_body,ui,DashboardPage,UsageOverview,devin_notice_body,"Devin reports real local token counts, but swe-2, swe-2-high and compactor have no pricing data in this build, so they are excluded from dollar estimates. A $0 figure does not mean the usage was free.",,active
-usage.overview.trae_notice_title,ui,DashboardPage,UsageOverview,trae_notice_title,"TRAE cost is partial",,active
-usage.overview.trae_notice_body,ui,DashboardPage,UsageOverview,trae_notice_body,"In multi-step turns, TRAE splits cached input for the final step, not the earlier ones. Input without a cache split counts toward token totals but not toward cost. Costs use model prices, not billed amounts.",,active
+usage.overview.trae_notice_title,ui,DashboardPage,UsageOverview,trae_notice_title,"TRAE cost uses list prices",,active
+usage.overview.trae_notice_body,ui,DashboardPage,UsageOverview,trae_notice_body,"Cost = TokenTracker model price x token count; tokens are measured. In multi-step turns TRAE splits cached input only for the final step, so the cache share of earlier steps is inferred from that final request's hit rate — the figure is a list-price calculation, not a billed amount.",,active
+usage.overview.trae_card_hint,ui,DashboardPage,UsageOverview,trae_card_hint,"price-based estimate",,active
+achievements.resonance.toast_badge,ui,AchievementsPage,SteamAchievementToast,resonance_toast_badge,"TITLE RESONANCE · badge resonance",,active
+achievements.resonance.toast_name_fallback,ui,AchievementsPage,SteamAchievementToast,resonance_toast_name_fallback,"Title resonance",,active
+achievements.resonance.toast_tier_up,ui,AchievementsPage,SteamAchievementToast,resonance_toast_tier_up,"Resonance up to {{tier}}",,active
+achievements.resonance.toast_unlocked,ui,AchievementsPage,SteamAchievementToast,resonance_toast_unlocked,"Resonance reached · {{tier}}",,active
+achievements.resonance.toast_fallback,ui,AchievementsPage,SteamAchievementToast,resonance_toast_fallback,"Badge bonds lit up — the linked title is active!",,active
 usage.overview.week_cross_month_hint,ui,DashboardPage,UsageOverview,week_cross_month_hint,"This week spans two calendar months, so its total is not directly comparable with a single month's usage",,active
 limits.panel.title,ui,LimitsPage,UsageLimitsPanel,title,"Usage Limits",,active
 limits.panel.mode_separator,ui,LimitsPage,UsageLimitsPanel,title_separator," · ",,active

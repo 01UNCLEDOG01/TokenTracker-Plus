@@ -633,7 +633,7 @@ describe("UsageOverview", () => {
   });
 
 
-  it("keeps the TRAE partial-cost notice visible beside combined totals in collapsed and expanded views", async () => {
+  it("keeps the TRAE pricing notice out of the combined totals and scoped to the TRAE card", async () => {
     const user = userEvent.setup();
     render(
       <UsageOverview
@@ -663,16 +663,31 @@ describe("UsageOverview", () => {
       />,
     );
     const notice = copy("usage.overview.trae_notice_body");
+    const hint = copy("usage.overview.trae_card_hint");
+    const count = copy("usage.overview.model_count", { count: 1 });
+    // The combined-totals panel stays clean.
+    expect(screen.queryByText(notice)).toBeNull();
+    // The TRAE card carries the hint appended to its model count; exactly one
+    // card (CODEX) still shows the bare count.
+    expect(screen.getByText(`${count} · ${hint}`)).toBeVisible();
+    expect(screen.getAllByText(count)).toHaveLength(1);
+    // Expanding the TRAE card shows the full notice; expanding anything else
+    // (or collapsing back) does not.
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /TRAE:/i }));
+    });
     expect(screen.getByText(notice)).toBeVisible();
-    for (const provider of [/TRAE:/i, /CODEX:/i, /All tools:/i]) {
-      await act(async () => {
-        await user.click(screen.getByRole("button", { name: provider }));
-      });
-      expect(screen.getByText(notice)).toBeVisible();
-    }
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /CODEX:/i }));
+    });
+    expect(screen.queryByText(notice)).toBeNull();
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /All tools:/i }));
+    });
+    expect(screen.queryByText(notice)).toBeNull();
   });
 
-  it("does not apply the international TRAE partial-cost notice to TRAE-CN or unrelated sources", () => {
+  it("does not apply the international TRAE card hint to TRAE-CN or unrelated sources", () => {
     const props = {
       period: "month",
       periods: [],
@@ -690,11 +705,13 @@ describe("UsageOverview", () => {
     const showSource = (source) => {
       rerender(<UsageOverview {...props} fleetData={fleet(source)} />);
     };
-    expect(screen.queryByText(copy("usage.overview.trae_notice_body"))).toBeNull();
+    const hint = copy("usage.overview.trae_card_hint");
+    const count = copy("usage.overview.model_count", { count: 1 });
+    expect(screen.queryByText(`${count} · ${hint}`)).toBeNull();
     showSource("trae");
-    expect(screen.getByText(copy("usage.overview.trae_notice_body"))).toBeVisible();
+    expect(screen.getByText(`${count} · ${hint}`)).toBeVisible();
     showSource("codex");
-    expect(screen.queryByText(copy("usage.overview.trae_notice_body"))).toBeNull();
+    expect(screen.queryByText(`${count} · ${hint}`)).toBeNull();
   });
 
   it("shows the cost on a card that has spend but no tokens", () => {
