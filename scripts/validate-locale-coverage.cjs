@@ -396,6 +396,49 @@ function main() {
     }
   }
 
+  // 六语覆盖率的棘轮：de/ja/ko 仍大量回落英文，不要求一次补完，
+  // 但记录当前水位，日后只准上升；跌破基线即失败。
+  const RATCHET_LOCALES = ["de", "ja", "ko"];
+  const baselinePath = path.join(ROOT, "test", "locale-coverage-baseline.json");
+  const writeBaseline = process.argv.includes("--write-baseline");
+  let baseline = {};
+  try {
+    if (fs.existsSync(baselinePath)) {
+      baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+    }
+  } catch { baseline = {}; }
+  let ratchetFailed = false;
+
+  for (const locale of RATCHET_LOCALES) {
+    const { values } = readLocale(locale);
+    const total = registry.length;
+    const covered = registry.filter((record) => {
+      const v = values.get(record.key)?.value;
+      return typeof v === "string" && v.trim() !== "";
+    }).length;
+    const percent = total ? ((covered / total) * 100).toFixed(1) : "100.0";
+    const floor = Number(baseline[locale]);
+    if (Number.isFinite(floor) && covered < floor) {
+      console.error(
+        `${locale} locale coverage regressed: ${covered} < baseline ${floor} (${percent}%)`,
+      );
+      ratchetFailed = true;
+    }
+    console.log(
+      `${locale}: ${covered}/${total} keys localized (${percent}%)` +
+        (Number.isFinite(floor) ? ` · baseline ${floor}` : " · no baseline yet"),
+    );
+    if (writeBaseline || !Number.isFinite(floor)) {
+      baseline[locale] = covered;
+    }
+  }
+
+  if (writeBaseline) {
+    fs.writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`, "utf8");
+    console.log(`Baseline written to ${path.relative(ROOT, baselinePath)}`);
+  }
+  if (ratchetFailed) process.exit(1);
+
   if (failed) process.exit(1);
   console.log("Chinese locale coverage ok.");
 }
