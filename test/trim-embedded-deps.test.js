@@ -57,9 +57,7 @@ test("the trimmed wa-sqlite package still runs the TRAE SQLite reader", async (t
 
 test("every desktop bundle step runs the dependency trim", () => {
   for (const script of [
-    "TokenTrackerBar/scripts/bundle-node.sh",
     "TokenTrackerWin/scripts/bundle-node.ps1",
-    "TokenTrackerLinux/scripts/bundle-node-linux.sh",
   ]) {
     const source = fs.readFileSync(path.join(ROOT, script), "utf8");
     assert.match(source, /trim-embedded-deps\.cjs/, script);

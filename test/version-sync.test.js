@@ -11,20 +11,12 @@ const {
   findVersionMismatches,
 } = require('../scripts/version-files.cjs');
 
+// Only two managed files are left after the macOS/Linux clients were removed
+// on 2026-10-28: the root package.json and the Windows desktop csproj.
 function writeFixture(root, canonical = '2.3.4', stale = '0.0.1') {
   const files = {
-    'package.json': JSON.stringify({ name: 'tokentracker-cli', version: canonical }, null, 2),
-    'TokenTrackerBar/project.yml': [
-      'MARKETING_VERSION: "' + stale + '"',
-      'MARKETING_VERSION: "' + stale + '"',
-    ].join('\n'),
+    'package.json': JSON.stringify({ name: 'tokentracker-plus-cli', version: canonical }, null, 2),
     'TokenTrackerWin/TokenTrackerWin.csproj': `<Project><PropertyGroup><Version>${stale}</Version></PropertyGroup></Project>`,
-    'TokenTrackerLinux/package.json': JSON.stringify({ name: 'tokentracker-linux', version: stale }, null, 2),
-    'TokenTrackerLinux/package-lock.json': JSON.stringify({ name: 'tokentracker-linux', version: stale, lockfileVersion: 3, packages: { '': { name: 'tokentracker-linux', version: stale }, 'node_modules/example': { version: stale } } }, null, 2),
-    'TokenTrackerLinux/src-tauri/Cargo.toml': `[package]\nname = "tokentracker-linux"\nversion = "${stale}"\n`,
-    'TokenTrackerLinux/src-tauri/Cargo.lock': `version = 4\n\n[[package]]\nname = "other"\nversion = "${stale}"\n\n[[package]]\nname = "tokentracker-linux"\nversion = "${stale}"\n`,
-    'TokenTrackerLinux/src-tauri/tauri.conf.json': JSON.stringify({ productName: 'TokenTracker', version: stale }, null, 2),
-    'TokenTrackerLinux/packaging/arch/tokentracker-linux/PKGBUILD': `pkgname=tokentracker-linux\npkgver=${stale}\npkgrel=1\n`,
   };
   for (const [relativePath, content] of Object.entries(files)) {
     const target = path.join(root, relativePath);
@@ -33,71 +25,46 @@ function writeFixture(root, canonical = '2.3.4', stale = '0.0.1') {
   }
 }
 
-function fixture() {
+function fixture(canonical, stale) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tokentracker-version-sync-'));
-  writeFixture(root);
+  writeFixture(root, canonical, stale);
   return root;
 }
 
-test('syncVersions updates every managed platform version from the root package version', (t) => {
+test('syncVersions updates the Windows csproj from the root package version', (t) => {
   const root = fixture();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
   const version = readCanonicalVersion(root);
-  const changed = syncVersions(root, version);
-
   assert.equal(version, '2.3.4');
+
+  syncVersions(root, version);
+
+  const csproj = fs.readFileSync(path.join(root, 'TokenTrackerWin/TokenTrackerWin.csproj'), 'utf8');
+  assert.match(csproj, /<Version>2\.3\.4<\/Version>/);
   assert.deepEqual(findVersionMismatches(root, version), []);
-  assert.equal(collectVersionEntries(root).length, 9);
-  assert.equal(changed.length, 8);
-  assert.match(fs.readFileSync(path.join(root, 'TokenTrackerLinux/src-tauri/Cargo.lock'), 'utf8'), /name = "other"\nversion = "0\.0\.1"/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'TokenTrackerLinux/package-lock.json'), 'utf8')).version, version);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'TokenTrackerLinux/package-lock.json'), 'utf8')).packages['node_modules/example'].version, '0.0.1');
 });
 
-test('collectVersionEntries rejects duplicate PKGBUILD pkgver entries', (t) => {
+test('collectVersionEntries tracks exactly the root package and the csproj', (t) => {
   const root = fixture();
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const file = path.join(root, 'TokenTrackerLinux/packaging/arch/tokentracker-linux/PKGBUILD');
-  fs.appendFileSync(file, 'pkgver=9.9.9\n');
 
-  assert.throws(
-    () => collectVersionEntries(root),
-    /Expected exactly one pkgver entry/,
-  );
+  const labels = collectVersionEntries(root).map((entry) => entry.label).sort();
+  assert.deepEqual(labels, ['TokenTrackerWin/TokenTrackerWin.csproj', 'package.json']);
 });
 
-test('collectVersionEntries rejects duplicate target Cargo.lock versions', (t) => {
-  const root = fixture();
+test('findVersionMismatches reports the stale csproj without touching files', (t) => {
+  const root = fixture('2.3.4', '0.0.1');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const file = path.join(root, 'TokenTrackerLinux/src-tauri/Cargo.lock');
-  fs.appendFileSync(file, 'version = "9.9.9"\n');
 
-  assert.throws(
-    () => collectVersionEntries(root),
-    /Expected exactly one tokentracker-linux Cargo.lock version entry/,
-  );
-});
-
-test('findVersionMismatches reports all stale values without modifying any fixture file', (t) => {
-  const root = fixture();
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const before = new Map(collectVersionEntries(root).map(({ label }) => [label, fs.readFileSync(path.join(root, label), 'utf8')]));
-
+  const before = fs.readFileSync(path.join(root, 'TokenTrackerWin/TokenTrackerWin.csproj'), 'utf8');
   const mismatches = findVersionMismatches(root, '2.3.4');
 
-  assert.equal(mismatches.length, 8);
-  assert.deepEqual(mismatches.map(({ label }) => label), [
-    'TokenTrackerBar/project.yml',
-    'TokenTrackerWin/TokenTrackerWin.csproj',
-    'TokenTrackerLinux/package.json',
-    'TokenTrackerLinux/package-lock.json',
-    'TokenTrackerLinux/src-tauri/Cargo.toml',
-    'TokenTrackerLinux/src-tauri/Cargo.lock',
-    'TokenTrackerLinux/src-tauri/tauri.conf.json',
-    'TokenTrackerLinux/packaging/arch/tokentracker-linux/PKGBUILD',
-  ]);
-  for (const [label, content] of before) {
-    assert.equal(fs.readFileSync(path.join(root, label), 'utf8'), content, `${label} was modified by validation`);
-  }
+  assert.equal(mismatches.length, 1);
+  assert.equal(mismatches[0].label, 'TokenTrackerWin/TokenTrackerWin.csproj');
+  assert.equal(mismatches[0].actual, '0.0.1');
+  assert.equal(
+    fs.readFileSync(path.join(root, 'TokenTrackerWin/TokenTrackerWin.csproj'), 'utf8'),
+    before,
+  );
 });
