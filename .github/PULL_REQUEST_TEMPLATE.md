@@ -6,7 +6,6 @@
 
 - [ ] CLI (`src/`)
 - [ ] Dashboard (`dashboard/`)
-- [ ] macOS app (`TokenTrackerBar/`)
 - [ ] Windows app (`TokenTrackerWin/`)
 - [ ] Docs / CI / config
 

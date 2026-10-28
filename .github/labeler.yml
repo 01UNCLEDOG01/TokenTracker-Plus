@@ -9,10 +9,6 @@ dashboard:
   - changed-files:
       - any-glob-to-any-file: "dashboard/**"
 
-macos:
-  - changed-files:
-      - any-glob-to-any-file: "TokenTrackerBar/**"
-
 windows:
   - changed-files:
       - any-glob-to-any-file: "TokenTrackerWin/**"

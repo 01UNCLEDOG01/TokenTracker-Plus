@@ -10,7 +10,7 @@ const repoRoot = path.resolve(__dirname, "../..");
 // The smoke fixture declares the same hosts its public profile advertises.
 process.env.TT_SANDBOX_BACKEND = process.env.TT_SANDBOX_BACKEND || "https://srctyff5.us-east.insforge.app";
 process.env.TT_SANDBOX_FUNCTIONS = process.env.TT_SANDBOX_FUNCTIONS || "https://srctyff5.function2.insforge.app";
-const { createNativeQAServer } = require("../../TokenTrackerBar/scripts/native-qa-server.cjs");
+const { createNativeQAServer } = require("../../scripts/native-qa-server.cjs");
 const rawFetch = fetch;
 const rawHttpRequest = require("node:http").request;
 const USER = "00000000-0000-4000-8000-000000000001";

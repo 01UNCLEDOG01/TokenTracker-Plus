@@ -20,5 +20,4 @@
 # Release & CI plumbing.
 /.github/                                 @xiufengsun
 /package.json                             @xiufengsun
-/TokenTrackerBar/project.yml              @xiufengsun
 /TokenTrackerWin/TokenTrackerWin.csproj   @xiufengsun

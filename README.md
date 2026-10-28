@@ -8,7 +8,7 @@
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
     <a href="#-支持的-ai-工具列表53-款"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="52 Supported AI Tools" /></a>
-    <a href="#-快速开始"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
+    <a href="#-快速开始"><img src="https://img.shields.io/badge/Desktop-Windows-9cf.svg" alt="Desktop" /></a>
     <a href="#-数据与隐私准则"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
     <a href="#-热力图色阶与数据分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
@@ -24,7 +24,7 @@
 
 ## ⚡ 快速开始
 
-> **环境要求**：Node.js **20+**（CLI 支持 Windows / macOS / Linux；Windows 桌面端另需 .NET 8 SDK 与 WebView2 Runtime）。
+> **环境要求**：Node.js **20+**（CLI 为跨平台源码，Windows 上可直接使用；桌面端只提供 Windows 安装包，另需 .NET 8 SDK 与 WebView2 Runtime）。
 
 **Windows 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) 下载 `TokenTracker-plus-Setup-v*.exe` 安装即可——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
 
@@ -52,8 +52,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **macOS** —— 运行 `TokenTrackerBar`（菜单栏状态图标 + 原生 WKWebView Dashboard）。
-> - **Linux** —— 运行 `TokenTrackerLinux`（Tauri / AppImage 托盘版）。
+> - **其他平台** —— 只提供源码与 CLI（`npx tokentracker`），不提供安装包，也不做兼容性保证；桌面端目前只有 Windows 版本。
 
 ---
 

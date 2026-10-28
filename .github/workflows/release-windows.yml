@@ -1,8 +1,8 @@
 name: release Windows
 
 on:
-  # Manual one-off Windows build. It may only attach assets to an existing draft
-  # created by release-dmg.yml; it can never create or mutate a public release.
+  # Manual Windows build. It creates the draft release when none exists and only
+  # ever uploads to a draft; it never mutates an already-published release.
   workflow_dispatch:
     inputs:
       version:
@@ -14,8 +14,7 @@ on:
         required: false
         type: boolean
         default: false
-  # Reusable: the macOS "release DMG" workflow calls this so a single dispatch
-  # ships both platforms to the same vX.Y.Z release (see release-dmg.yml).
+  # Reusable entry point kept for callers that want to wrap the Windows build.
   workflow_call:
     inputs:
       version:
@@ -165,10 +164,10 @@ jobs:
           if (-not (Test-Path $setup)) { Write-Host "::error::installer not produced at $setup"; exit 1 }
           Write-Host "Installer built: $setup"
 
-      # 7. Attach BOTH assets to the draft created by release-dmg.yml. Published
-      # releases are immutable; a same-version rebuild must never replace assets
-      # already being served to users.
-      - name: Upload assets to existing draft release
+      # 7. Create the draft if this is the first run for the tag, then attach BOTH
+      # assets. Published releases are immutable; a same-version rebuild must
+      # never replace assets already being served to users.
+      - name: Create draft if needed and upload assets
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -191,8 +190,12 @@ jobs:
           Copy-Item $zipBuilt $zip -Force
           $releaseJson = gh release view $tag --json isDraft 2>$null
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::Draft release $tag does not exist. Start the combined release workflow first."
-            exit 1
+            # No macOS workflow creates the draft any more: this job owns it.
+            gh release create $tag --draft --title "v$env:VERSION" `
+              --notes "Windows installer and portable zip for v$env:VERSION."
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error::Could not create draft $tag"; exit 1 }
+            $releaseJson = gh release view $tag --json isDraft
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error::Draft $tag missing right after create"; exit 1 }
           }
           $release = $releaseJson | ConvertFrom-Json
           if (-not $release.isDraft) {
