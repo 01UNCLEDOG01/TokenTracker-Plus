@@ -260,7 +260,7 @@ export const PROVIDER_LIMIT_SPECS = {
   },
   qoderCn: {
     windows(data) {
-      return [
+      const rows = [
         { key: "credits", labelKey: "limits.label.qoder_cn_credits", window: data.primary_window },
         { key: "addon", labelKey: "limits.label.qoder_cn_addon_credits", window: data.tertiary_window },
         {
@@ -270,6 +270,8 @@ export const PROVIDER_LIMIT_SPECS = {
           timeKind: "expiry",
         },
       ];
+      // 0/0 的池（套餐内没配额度）画出来就是一条空条 + 0%，干脆不占行。
+      return rows.filter((row) => Number(row.window?.limit_credits) > 0);
     },
   },
   codingPlan: {

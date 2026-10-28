@@ -311,36 +311,15 @@ function paceFootnoteRemaining(rows, mode) {
   return rows.some((row) => rowHasPaceMarker(row) && (row.mode ?? mode) === LIMIT_DISPLAY_MODES.REMAINING);
 }
 
-// Collapsed cards must not repeat what the bar's hover already says, so this
-// list only renders when the user expands the group.
-function LimitDetail({ rows, mode, now = Date.now() }) {
+// 「已用 X% · 重置时间」「已用 A / B · 剩余 C」这些行与每根条的悬浮提示
+// 一字不差，展开时也不再重复；展开只保留 pace 标记的图例说明。
+function LimitDetail({ rows, mode }) {
   if (rows.length === 0) return null;
+  if (!rows.some(rowHasPaceMarker)) return null;
   const remaining = paceFootnoteRemaining(rows, mode);
-  const hasPaceMarker = rows.some(rowHasPaceMarker);
   return (
-    <div className="mt-1 flex flex-col gap-1">
-      {rows.map(({ spec, pace, mode: rowMode = mode }) => {
-        const exact = formatExactReset(resetToMs(readWindowReset(spec.window, spec.resetField)));
-        return (
-          <div key={spec.key} className="text-[11px] leading-snug text-oai-gray-600 dark:text-oai-gray-300">
-            {explainLineFor(spec, pace, rowMode)}
-            {exact ? (
-              <span className="text-oai-gray-400 dark:text-oai-gray-500">
-                {" · "}
-                {copy(spec.timeKind === "expiry" ? "limits.hover.expires_at" : "limits.hover.resets_at", { time: exact })}
-              </span>
-            ) : null}
-            {spec.showCreditDetail ? (
-              <div>{buildQuotaDetail(spec.window, spec.creditPrecision)}</div>
-            ) : null}
-          </div>
-        );
-      })}
-      {hasPaceMarker ? (
-        <div className="mt-1 pt-1.5 border-t border-oai-gray-200/70 dark:border-oai-gray-700/50 text-[10.5px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
-          {copy(remaining ? "limits.explain.body_remaining" : "limits.explain.body")}
-        </div>
-      ) : null}
+    <div className="mt-1 pt-1.5 border-t border-oai-gray-200/70 dark:border-oai-gray-700/50 text-[10.5px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+      {copy(remaining ? "limits.explain.body_remaining" : "limits.explain.body")}
     </div>
   );
 }

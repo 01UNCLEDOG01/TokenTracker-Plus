@@ -63,7 +63,8 @@ describe("UsageLimitsPanel", () => {
     expect(screen.getByText("49%")).toBeInTheDocument();
     expect(screen.queryByText(/体验版/)).not.toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("button", { name: /^WorkBuddy Free/ }), { key: "Enter" });
-    await waitFor(() => expect(screen.getByText("已用 252.93 / 500 点额度 · 剩余 247.07")).toBeVisible());
+    // 展开也不再重复这段文字：它只在进度条的悬浮提示里。
+    await waitFor(() => expect(screen.queryByText("已用 252.93 / 500 点额度 · 剩余 247.07")).toBeNull());
   });
 
   it("renders both editions as separate cards with plan and reward windows", () => {
@@ -649,7 +650,8 @@ describe("UsageLimitsPanel", () => {
     expect(within(group).getByText("80%")).toBeInTheDocument();
     fireEvent.click(group);
     expect(group.querySelector("[data-limit-segments]")).toBeNull();
-    expect(within(group).getAllByText(copy("limits.explain.used", { label: copy("limits.label.grok_week"), used: "0" }))).toHaveLength(2);
+    // 只保留悬浮提示里的那一份；展开不再重复一行同样的文案。
+    expect(within(group).getAllByText(copy("limits.explain.used", { label: copy("limits.label.grok_week"), used: "0" }))).toHaveLength(1);
   });
 
   it.each([98, 97])("budgets near-full Grok slices with %s percent in the first product", (first) => {
