@@ -6,8 +6,10 @@ const { test } = require("node:test");
 const {
   TERMINAL_SOURCES,
   NON_TERMINAL_SOURCES,
+  CANDIDATE_SOURCES,
   isTerminalSource,
   classifySource,
+  listUnresolvedSources,
 } = require("../src/lib/terminal-sources");
 const { computeLocalAchievements } = require("../src/lib/local-api");
 
@@ -63,6 +65,34 @@ test("desktop apps and IDEs never count, even with CLI lineage", () => {
 test("an id that spells cli counts without a table entry", () => {
   for (const key of ["gemini-cli", "devin-cli", "kilo-cli", "kiro-cli"]) {
     assert.equal(isTerminalSource(key), true, `${key} names itself a CLI`);
+  }
+});
+
+// 每个能被采集器产出的 key 都必须落在三层之一 —— 静默未知是这套表唯一的真故障模式
+// （未知 = 不计入 = 悄悄少算）。这份清单从 src/lib 的 source 常量与队列实测汇总而来。
+const KNOWN_SOURCE_KEYS = [
+  "claude", "codex", "opencode", "zcode", "kimi", "kimi-code", "dsh", "tuanjie-cowork",
+  "codebuddy", "minimax-code", "autoclaw", "cola", "loomy", "reasonix", "raccoon",
+  "workbuddy", "workbuddy-ai", "antigravity", "cursor", "trae", "trae-cn", "qoder",
+  "qoder-cn", "codearts", "copilot", "agent2api", "gemini-cli", "devin-cli", "kilo-cli",
+  "kiro-cli", "command-code", "joycode", "dumate", "grok", "omp", "omo", "pi",
+  "prime-agent", "openclaw", "every-code", "craft-agents", "hermes-agent", "kilo",
+  "kilo-code", "mimo", "droid", "goose", "zed", "cline", "roo", "acode", "anythingllm",
+  "lmstudio", "unsloth", "claudescience", "dots", "muse", "qwen-code",
+];
+
+test("every collector-emitted source key is classified into one of the three layers", () => {
+  const unknown = KNOWN_SOURCE_KEYS.filter((key) => classifySource(key).layer === "unknown");
+  assert.deepEqual(unknown, [], `these keys would be silently under-counted: ${unknown.join(", ")}`);
+});
+
+test("a candidate is not counted, does not warn, and shows up in the audit list", () => {
+  assert.equal(classifySource("grok").layer, "candidate");
+  assert.equal(isTerminalSource("grok"), false, "candidates must not be counted before they are verified");
+  assert.ok(listUnresolvedSources().includes("grok"));
+  // 三层互斥
+  for (const key of CANDIDATE_SOURCES.keys()) {
+    assert.equal(TERMINAL_SOURCES.has(key) || NON_TERMINAL_SOURCES.has(key), false, `${key} sits in two layers`);
   }
 });
 

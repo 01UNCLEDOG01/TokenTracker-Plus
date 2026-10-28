@@ -88,6 +88,31 @@ const NON_TERMINAL_SOURCES = new Map([
   ["kilo-code", "VS Code 扩展（注意与 kilo-cli 区分：后者是 CLI）"],
 ]);
 
+// ── 待核实：形态像终端程序，但本机没装、拿不到证据 ─────────────────────────
+// 这一层不是"排除"，是**待办**：不计入指标（不猜），但也不许静默消失 ——
+// 它们会出现在 listUnresolvedSources() 里，审计时逐个定性后再挪进上面两张表。
+// 2026-10-29 实测：这 18 个 key 都能被采集器产出，本机除 joycode 外都没安装。
+const CANDIDATE_SOURCES = new Map([
+  ["command-code", "Command Code —— 产品名是 CLI agent，本机未安装、无日志形态证据"],
+  ["grok", "Grok Build —— 走 ~/.grok 的 CLI，本机未安装"],
+  ["omp", "oh-my-pi —— TUI agent（~/.omp），本机未安装"],
+  ["omo", "OmO —— pi 系 TUI，本机未安装"],
+  ["pi", "pi —— TUI agent，本机未安装"],
+  ["prime-agent", "Prime Agent —— CLI agent，本机未安装"],
+  ["openclaw", "OpenClaw —— CLI agent（~/.openclaw），本机未安装；注意与 autoclaw 桌面版区分"],
+  ["every-code", "Every Code —— CLI agent，本机未安装"],
+  ["craft-agents", "Craft Agents —— CLI agent，本机未安装"],
+  ["hermes-agent", "Hermes Agent —— CLI agent，本机未安装"],
+  ["kilo", "kilo —— 与 kilo-cli / kilo-code 的对应关系未定，本机未安装"],
+  ["droid", "Factory Droid —— CLI agent，本机未安装"],
+  ["goose", "Goose —— 同时有 CLI 与桌面版，本机未安装，形态未定"],
+  ["qwen-code", "Qwen Code —— CLI agent，本机未安装"],
+  ["joycode", "JoyCode —— ~/.joycode 有 agent.json，但同目录还有 remote_binary_ide，IDE 还是 CLI 未定"],
+  ["claudescience", "Claude Science —— 产品形态未知，本机未安装"],
+  ["dots", "Dots —— 桌面端还是 CLI 未定，本机未安装"],
+  ["muse", "Muse Code —— 桌面端还是 CLI 未定，本机未安装"],
+]);
+
 // 产品名自证：`gemini-cli` / `devin-cli` / `kilo-cli` / `kiro-cli` / `command-code`
 // 这类 id 直接把「我是 CLI」写在名字里，不必逐条维护。
 const CLI_NAME_HINT = /(?:^|[-_])cli(?:$|[-_])|cli$/;
@@ -100,7 +125,9 @@ function isTerminalSource(sourceKey, options = {}) {
   if (TERMINAL_SOURCES.has(src)) return true;
   if (NON_TERMINAL_SOURCES.has(src)) return false;
   if (CLI_NAME_HINT.test(src)) return true;
-  // 未分类：按非终端处理（宁少不算错），但让开发环境知道该补表了。
+  // candidate 已登记，不计入但也不再重复告警（它已经躺在待审计清单里）。
+  if (CANDIDATE_SOURCES.has(src)) return false;
+  // 完全未知：按非终端处理（宁少算不错算），并让开发环境知道该补表了。
   if (!options.quiet && !warnedUnknown.has(src) && !process.env.NODE_TEST_CONTEXT) {
     warnedUnknown.add(src);
     console.warn(`[terminal-sources] unclassified source "${src}" treated as non-terminal — add it to src/lib/terminal-sources.js`);
@@ -110,10 +137,16 @@ function isTerminalSource(sourceKey, options = {}) {
 
 function classifySource(sourceKey) {
   const src = String(sourceKey || "").toLowerCase().trim();
-  if (TERMINAL_SOURCES.has(src)) return { terminal: true, evidence: TERMINAL_SOURCES.get(src) };
-  if (NON_TERMINAL_SOURCES.has(src)) return { terminal: false, evidence: NON_TERMINAL_SOURCES.get(src) };
-  if (CLI_NAME_HINT.test(src)) return { terminal: true, evidence: "id 自带 cli 后缀" };
-  return { terminal: false, evidence: "未分类（按非终端处理）" };
+  if (TERMINAL_SOURCES.has(src)) return { layer: "verified", terminal: true, evidence: TERMINAL_SOURCES.get(src) };
+  if (NON_TERMINAL_SOURCES.has(src)) return { layer: "excluded", terminal: false, evidence: NON_TERMINAL_SOURCES.get(src) };
+  if (CLI_NAME_HINT.test(src)) return { layer: "verified", terminal: true, evidence: "id 自带 cli 后缀" };
+  if (CANDIDATE_SOURCES.has(src)) return { layer: "candidate", terminal: false, evidence: CANDIDATE_SOURCES.get(src) };
+  return { layer: "unknown", terminal: false, evidence: "未分类（按非终端处理）" };
+}
+
+// 审计入口：列出所有还没定性的 source（candidate 登记过的 + 运行时撞见的未知）。
+function listUnresolvedSources() {
+  return [...new Set([...CANDIDATE_SOURCES.keys(), ...warnedUnknown])].sort();
 }
 
 function resetTerminalSourceWarningsForTests() {
@@ -123,7 +156,9 @@ function resetTerminalSourceWarningsForTests() {
 module.exports = {
   TERMINAL_SOURCES,
   NON_TERMINAL_SOURCES,
+  CANDIDATE_SOURCES,
   isTerminalSource,
   classifySource,
+  listUnresolvedSources,
   resetTerminalSourceWarningsForTests,
 };
