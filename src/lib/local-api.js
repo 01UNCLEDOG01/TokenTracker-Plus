@@ -15,6 +15,7 @@ const {
 const { accountSlugFor, fetchAccountUsage, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration } = require("./cloud-account");
 const { resetCloudDeviceUsage, readCloudUsageReset } = require("./cloud-usage-reset");
 const { isTerminalSource } = require("./terminal-sources");
+const { isLoopbackHostname } = require("./loopback-host");
 const { getOrCreateMachineId, computeStableMachineId } = require("./machine-id");
 const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 const { createCloudDeviceTokenStore } = require("./cloud-device-token");
@@ -1758,17 +1759,34 @@ function parseCookieHeader(value) {
   return out;
 }
 
-function isLoopbackHostname(hostname) {
-  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1" || hostname === "[::1]";
+function parseHostPort(hostHeader) {
+  if (typeof hostHeader !== "string") return "";
+  const raw = hostHeader.trim().toLowerCase();
+  if (!raw) return "";
+  if (raw.startsWith("[")) {
+    const end = raw.indexOf("]");
+    return end === -1 ? "" : raw.slice(end + 1).replace(/^:/, "");
+  }
+  const at = raw.lastIndexOf(":");
+  return at === -1 ? "" : raw.slice(at + 1);
+}
+
+function originPortOf(url) {
+  return url.port || (url.protocol === "http:" ? "80" : "443");
 }
 
 function hasAllowedLoopbackOrigin(headers = {}) {
   const candidates = [headers.origin, headers.referer];
+  // 审计 2026-10-25 S2：同机异端口的本地页面（如 :5173 的 dev server）同样是跨源
+  // ——origin 的端口必须与 Host 头的端口一致（主机名的 loopback 白名单维持原判）。
+  // 缺失 Origin 的非浏览器调用方（C# 壳、脚本）与缺失 Host 头的夹具不受影响。
+  const hostPort = parseHostPort(headers.host);
   for (const raw of candidates) {
     if (raw == null || raw === "") continue;
     try {
       const url = new URL(String(raw));
       if (url.protocol !== "http:" || !isLoopbackHostname(url.hostname)) return false;
+      if (hostPort && originPortOf(url) !== hostPort) return false;
     } catch (_e) {
       return false;
     }
@@ -2818,6 +2836,12 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         json(res, { error: "Method Not Allowed" }, 405);
         return true;
       }
+      // 审计 2026-10-25 S1：这里发的是突变令牌，绝不能应答跨站页面。C# 壳不带
+      // Origin / Sec-Fetch-Site 头调用本端点，「缺失即放行」的语义保持不变。
+      if (req.headers?.["sec-fetch-site"] === "cross-site" || !hasAllowedLoopbackOrigin(req.headers || {})) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
       res.writeHead(200, {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",
@@ -3732,6 +3756,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
 
     // --- local usage snapshot transfer (single-machine export/import) ---
     if (p === "/functions/tokentracker-local-usage") {
+      // 审计 2026-10-25 P0-2：export 搬运整份队列快照、import 直写队列，是 13 个
+      // 写端点里唯一没设防的——补齐与其他突变端点同门槛（令牌 + loopback origin，
+      // 跨站一律拒）。dashboard 的备份 UI 本就随请求带令牌，不受影响。
+      if (!isAuthorizedLocalMutation(req) || req.headers["sec-fetch-site"] === "cross-site") {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
       const transfer = require("./local-usage-transfer");
       res.setHeader("Cache-Control", "no-store");
       try {

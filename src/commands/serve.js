@@ -6,6 +6,7 @@ const cp = require("node:child_process");
 
 const { resolveTrackerPaths } = require("../lib/tracker-paths");
 const { createLocalApiHandler, resolveQueuePath } = require("../lib/local-api");
+const { isAllowedLoopbackHostHeader } = require("../lib/loopback-host");
 const { ensurePricingLoaded } = require("../lib/pricing");
 const { serveStaticFile } = require("../lib/static-server");
 const { openInBrowser } = require("../lib/browser-auth");
@@ -166,6 +167,14 @@ async function cmdServe(argv) {
 
   const server = http.createServer(async (req, res) => {
     try {
+      // 审计 2026-10-25 P0-1：DNS rebinding 把恶意域名解析到 127.0.0.1 后，浏览器以
+      // 「同源」姿态打穿全部 GET 端点；rebind 后的域名就在 Host 头里，而 GET 没有
+      // Origin 可查——入口处的 Host 白名单是覆盖所有端点的唯一总闸。
+      if (!isAllowedLoopbackHostHeader(req.headers.host, server.address()?.port)) {
+        res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("Forbidden: loopback Host required");
+        return;
+      }
       const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
       // CORS preflight
