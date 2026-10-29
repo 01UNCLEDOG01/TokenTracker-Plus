@@ -2,6 +2,16 @@
 
 **中文**
 
+## 📮 商务合作 / Business Contact
+
+功能定制、企业集成、赞助与合作事宜，欢迎邮件联系：
+
+**gengxutang@agent.qq.com**
+
+（也欢迎直接在 [Issues](https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues) 里公开讨论——通用问题公开问，能让后来者受益。）
+
+---
+
 TokenTracker Plus 完全免费、开源（MIT）：没有会员，也没有付费功能。如果它帮你省下了时间，欢迎请作者喝杯咖啡。
 
 赞赏完全自愿，不解锁任何功能，也不影响项目的任何使用。
@@ -21,6 +31,16 @@ TokenTracker Plus 完全免费、开源（MIT）：没有会员，也没有付�
 ---
 
 **English**
+
+## 📮 Business Contact
+
+For custom development, enterprise integration, sponsorship or partnership, reach me by email:
+
+**gengxutang@agent.qq.com**
+
+(Or just open a public [Issue](https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues) — general questions in public help everyone.)
+
+---
 
 TokenTracker Plus is completely free and open source (MIT) — no memberships, no paid features. If it saves you time, you are welcome to buy the author a coffee.
 
