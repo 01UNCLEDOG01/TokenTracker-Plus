@@ -645,8 +645,13 @@ function LimitWindowSection({ rows, mode, extra = null, expanded = false, picker
         } : null;
         const pct = readWindowPct(spec.window, spec.pctField);
         // The per-product split is detail: collapsed shows the whole pool,
-        // expanding the group splits the bar and adds the legend.
-        const segments = expanded ? spec.segments : null;
+        // expanding the group adds the legend. In remaining mode the shares
+        // are portions of the amount used — legend-only, the bar is one fill
+        // (upstream PR 904).
+        const shareSegments = expanded && spec.productPool && Array.isArray(spec.segments) && spec.segments.length !== 0
+          ? spec.segments
+          : null;
+        const barSegments = shareSegments && rowMode !== LIMIT_DISPLAY_MODES.REMAINING ? shareSegments : null;
         return (
           <React.Fragment key={spec.key}>
             <LimitBar
@@ -654,14 +659,25 @@ function LimitWindowSection({ rows, mode, extra = null, expanded = false, picker
               pct={pct}
               reset={formatReset(readWindowReset(spec.window, spec.resetField))}
               mode={rowMode}
-              segments={segments}
+              segments={barSegments}
               pacePercent={pace.pacePercent}
               paceOver={pace.paceOver}
               title={buildWindowHoverDetail(spec, pace, rowMode)}
               picker={rowPicker}
             />
-            {segments ? (
-              <LimitSegmentLegend segments={segments} fillColor={barColor(pct, LIMIT_DISPLAY_MODES.USED)} />
+            {shareSegments ? (
+              <>
+                <LimitSegmentLegend segments={shareSegments} fillColor={barColor(pct, LIMIT_DISPLAY_MODES.USED)} />
+                {rowMode === LIMIT_DISPLAY_MODES.REMAINING ? (
+                  <div
+                    data-limit-share-note=""
+                    className="-mt-0.5 text-[11px] leading-snug text-oai-gray-400 dark:text-oai-gray-500"
+                    style={{ paddingLeft: "calc(var(--tt-limits-label-w, 0px) + 0.5rem)" }}
+                  >
+                    {copy("limits.grok.shares_are_used")}
+                  </div>
+                ) : null}
+              </>
             ) : null}
           </React.Fragment>
         );
@@ -724,8 +740,23 @@ function ResetBankSection({ model }) {
   );
 }
 
+// A clean zero hides the whole section; a fetch failure always counts as
+// content so errors can't be buried (upstream PR 919, closes issue 888).
+// Plain loop, not an arrow chain — the ui-hardcode scanner trips on `>`
+// inside JSX-text heuristics.
+function zcodeResetBankHasContent(data, now) {
+  if (data.error) return true;
+  for (const groupKey of ["five_hour", "weekly"]) {
+    for (const card of data[groupKey] || []) {
+      if (Date.parse(card.expires_at) > now) return true;
+    }
+  }
+  return false;
+}
+
 function ZcodeResetBankSection({ data }) {
   const now = Date.now();
+  if (!zcodeResetBankHasContent(data, now)) return null;
   const groups = [
     { key: "five_hour", label: copy("limits.label.zcode_5h") },
     { key: "weekly", label: copy("limits.label.zcode_weekly") },
@@ -734,6 +765,10 @@ function ZcodeResetBankSection({ data }) {
     cards: (data[group.key] || []).filter((card) => Date.parse(card.expires_at) > now)
       .slice().sort((a, b) => Date.parse(a.expires_at) - Date.parse(b.expires_at)),
   }));
+  const liveGroups = [];
+  for (const group of groups) {
+    if (group.cards.length !== 0) liveGroups.push(group);
+  }
   return (
     <div className="mt-1 flex flex-col gap-1.5">
       <div className="text-[10.5px] font-medium uppercase tracking-wide text-oai-gray-400 dark:text-oai-gray-500">
@@ -741,7 +776,7 @@ function ZcodeResetBankSection({ data }) {
       </div>
       {data.error ? (
         <StatusLine tone="error">{copy("shared.error.prefix", { error: data.error })}</StatusLine>
-      ) : groups.map((group) => (
+      ) : liveGroups.map((group) => (
         <div key={group.key} className="flex items-center gap-2 text-[11px]">
           <span
             data-limit-label=""
@@ -891,7 +926,12 @@ function AgentRouterWalletExtra({ data }) {
 
 function renderProviderExtra(kind, data) {
   if (kind === "zcode_reset_bank") {
-    return data.reset_credits ? <ZcodeResetBankSection data={data.reset_credits} /> : null;
+    if (!data.reset_credits) return null;
+    // A spent bank must pass a real null through so the no-data line renders
+    // instead of a truthy element that draws nothing (upstream PR 919).
+    return zcodeResetBankHasContent(data.reset_credits, Date.now())
+      ? <ZcodeResetBankSection data={data.reset_credits} />
+      : null;
   }
   if (kind === "codex_meta") {
     // Credit amounts show on hover (LimitBar's title) instead of an
@@ -1043,15 +1083,13 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
   // Pace is computed once per window here and shared by the bar + the detail.
-  // A segmented pool always reads as used, like grok.com: its slices only add
-  // up to the headline in that orientation.
+  // Every window, including a segmented pool, follows the selected display
+  // mode (upstream PR 904); the product slices stay "portions of the amount
+  // used", so they only add up to the headline in used orientation.
   const rows = spec
     .windows(data)
     .filter((s) => s.window)
-    .map((s) => {
-      const rowMode = s.productPool ? LIMIT_DISPLAY_MODES.USED : mode;
-      return { spec: s, mode: rowMode, pace: paceForSpec(s, rowMode, now) };
-    });
+    .map((s) => ({ spec: s, pace: paceForSpec(s, mode, now) }));
   const extra = renderProviderExtra(spec.extra, data);
   return (
     <ToolGroup

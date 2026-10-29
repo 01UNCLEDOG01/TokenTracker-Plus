@@ -158,6 +158,7 @@
   "limits.label.grok_chat": "チャット",
   "limits.label.grok_imagine": "Imagine",
   "limits.label.grok_voice": "ボイス",
+  "limits.grok.shares_are_used": "製品別の割合は使用量のシェアです。",
   "limits.label.grok_cursor": "Cursor",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",

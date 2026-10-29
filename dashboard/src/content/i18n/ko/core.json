@@ -158,6 +158,7 @@
   "limits.label.grok_chat": "채팅",
   "limits.label.grok_imagine": "Imagine",
   "limits.label.grok_voice": "음성",
+  "limits.grok.shares_are_used": "제품별 비율은 사용량의 비중입니다.",
   "limits.label.grok_cursor": "Cursor",
   "limits.provider.claude": "Claude",
   "limits.provider.codex": "Codex",

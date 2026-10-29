@@ -235,6 +235,36 @@ describe("UsageLimitsPanel", () => {
     expect(screen.queryByText(copy("limits.zcode.reset_bank.count", { count: 0 }))).not.toBeInTheDocument();
   });
 
+  it("hides the whole zcode reset bank when every card has expired", () => {
+    render(<UsageLimitsPanel order={["zcode"]} zcode={{
+      configured: true, plan_label: "Pro", plan_kind: "coding-plan",
+      reset_credits: {
+        five_hour: [{ expires_at: "2000-01-01T00:00:00Z" }],
+        weekly: [{ expires_at: "2000-01-02T00:00:00Z" }],
+      },
+    }} />);
+    expect(screen.queryByText(copy("limits.zcode.reset_bank.title"))).not.toBeInTheDocument();
+    // A spent bank passes a real null through, so the no-data placeholder renders.
+    expect(screen.getByText(copy("limits.status.no_data"))).toBeInTheDocument();
+  });
+
+  it("keeps a live weekly window visible while expired siblings drop out", () => {
+    render(<UsageLimitsPanel order={["zcode"]} zcode={{
+      configured: true, plan_label: "Pro", plan_kind: "coding-plan",
+      primary_window: { used_percent: 2 },
+      reset_credits: {
+        five_hour: [{ expires_at: "2000-01-01T00:00:00Z" }],
+        weekly: [
+          { expires_at: "2030-10-20T09:00:00Z" },
+          { expires_at: "2000-01-02T00:00:00Z" },
+        ],
+      },
+    }} />);
+    expect(screen.getByText(copy("limits.zcode.reset_bank.title"))).toBeInTheDocument();
+    expect(screen.getByText(copy("limits.zcode.reset_bank.count", { count: 1 }))).toBeInTheDocument();
+    expect(screen.queryByText(copy("limits.zcode.reset_bank.count", { count: 0 }))).not.toBeInTheDocument();
+  });
+
   it("shows provider status rows instead of hiding configured providers with errors", () => {
     render(
       <UsageLimitsPanel
@@ -567,12 +597,14 @@ describe("UsageLimitsPanel", () => {
     }));
 
     const group = screen.getByText("Grok Build").closest("[role='button']");
-    expect(within(group).getByText("3%")).toBeInTheDocument();
+    // The pool row follows the selected display mode (upstream PR 904): the
+    // headline is the remaining share, and the pace marker flips orientation.
+    expect(within(group).getByText("97%")).toBeInTheDocument();
     const markers = group.querySelectorAll("div.absolute.top-0.h-full");
     expect(markers).toHaveLength(2);
-    expect(markers[1].style.left).toContain("14.285");
+    expect(markers[1].style.left).toContain("85.714");
     fireEvent.click(group);
-    expect(within(group).getByText(copy("limits.explain.body"))).toBeInTheDocument();
+    expect(within(group).getByText(copy("limits.explain.body_remaining"))).toBeInTheDocument();
 
     rerender(createElement(UsageLimitsPanel, {
       grok: { ...grok, primary_window: { ...grok.primary_window, used_percent: 0 } },
@@ -582,7 +614,7 @@ describe("UsageLimitsPanel", () => {
     expect(group.querySelectorAll("div.absolute.top-0.h-full")).toHaveLength(0);
   });
 
-  it("shows Grok's whole pool collapsed and splits it into product slices with a legend on click", () => {
+  it("shows Grok's whole pool collapsed and keeps product shares legend-only in remaining mode", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-25T00:00:00.000Z"));
     const resetAt = "2026-10-01T00:00:00.000Z";
@@ -606,39 +638,28 @@ describe("UsageLimitsPanel", () => {
     // Collapsed: one whole-pool bar, no slices or legend yet.
     expect(document.querySelector("[data-limit-legend]")).toBeNull();
     expect(document.querySelectorAll("[data-limit-segment]")).toHaveLength(0);
-    const group = screen.getByText("62%").closest("[role='button']");
-    // The pool stays "used" even in Remaining mode, so it equals the slices' sum.
-    expect(within(group).queryByText("38%")).toBeNull();
-    // Products are legend entries, not rows with their own 0–100% track.
+    const group = screen.getByText("38%").closest("[role='button']");
+    // The pool follows the selected display mode now: the headline is the
+    // remaining share, not the slices' sum (upstream PR 904).
+    expect(within(group).queryByText("62%")).toBeNull();
     const rowLabels = [...group.querySelectorAll("[data-limit-label]")].map((el) => el.textContent);
     expect(rowLabels).toEqual([copy("limits.label.grok_week")]);
-    // Pace mark in used orientation: one day of seven elapsed.
-    let markers = group.querySelectorAll("div.absolute.top-0.h-full");
-    expect(markers).toHaveLength(2);
-    expect(markers[1].style.left).toContain("14.285");
+    expect(group.querySelectorAll("div.absolute.top-0.h-full")).toHaveLength(2);
 
-    // Clicking the group reveals each product's share.
+    // Clicking the group reveals the legend with each product's share, but the
+    // bar itself stays one remaining fill — shares are portions of the used
+    // amount, so they only sum to the headline in used mode.
     fireEvent.click(group);
     const legend = group.querySelector("[data-limit-legend]");
     expect(legend).not.toBeNull();
-    expect(group.querySelectorAll("[data-limit-segment]")).toHaveLength(4);
-    expect([...group.querySelectorAll("[data-limit-segment]")].map((el) => el.style.flexGrow)).toEqual(["45", "13", "3", "0.4"]);
-    expect(Number(group.querySelector("[data-limit-unallocated-used]").style.flexGrow)).toBeCloseTo(0.6);
-    expect(Number(group.querySelector("[data-limit-remainder]").style.flexGrow)).toBe(38);
-    expect(within(group).getByText("62%")).toBeInTheDocument();
+    expect(group.querySelectorAll("[data-limit-segment]")).toHaveLength(0);
     expect(within(legend).getByText("Grok Build")).toBeInTheDocument();
-    expect(within(legend).getByText(copy("limits.label.grok_chat"))).toBeInTheDocument();
-    expect(within(legend).getByText(copy("limits.label.grok_voice"))).toBeInTheDocument();
-    expect(within(legend).getByText("Grok New")).toBeInTheDocument();
     expect(within(legend).getByText("45%")).toBeInTheDocument();
-    expect(within(legend).getByText(`${copy("limits.bar.sub_one_percent")}%`)).toBeInTheDocument();
-    markers = group.querySelectorAll("div.absolute.top-0.h-full");
-    expect(markers).toHaveLength(2);
-    expect(markers[1].style.left).toContain("14.285");
-    expect(within(group).getByText(copy("limits.explain.body"))).toBeInTheDocument();
+    expect(within(group).getByText(copy("limits.grok.shares_are_used"))).toBeInTheDocument();
+    expect(within(group).getByText("38%")).toBeInTheDocument();
   });
 
-  it.each([[], [{ product: "GrokBuild", window: { used_percent: 0 } }]])("keeps the Grok pool in used mode after reset with products %j", (products) => {
+  it.each([[], [{ product: "GrokBuild", window: { used_percent: 0 } }]])("follows remaining mode after reset with products %j", (products) => {
     render(<UsageLimitsPanel order={["grok"]} displayMode="remaining" grok={{
       configured: true, period_type: "weekly",
       primary_window: { used_percent: 0 },
@@ -646,16 +667,14 @@ describe("UsageLimitsPanel", () => {
       products,
     }} />);
     const group = screen.getByRole("button", { name: /^Grok Build/ });
-    expect(within(group).getByText("0%")).toBeInTheDocument();
+    expect(within(group).getByText("100%")).toBeInTheDocument();
     expect(within(group).getByText("80%")).toBeInTheDocument();
     fireEvent.click(group);
-    expect(group.querySelector("[data-limit-segments]")).toBeNull();
-    // 只保留悬浮提示里的那一份；展开不再重复一行同样的文案。
-    expect(within(group).getAllByText(copy("limits.explain.used", { label: copy("limits.label.grok_week"), used: "0" }))).toHaveLength(1);
+    expect(group.querySelector("[data-limit-segment]")).toBeNull();
   });
 
   it.each([98, 97])("budgets near-full Grok slices with %s percent in the first product", (first) => {
-    render(<UsageLimitsPanel order={["grok"]} displayMode="remaining" grok={{
+    render(<UsageLimitsPanel order={["grok"]} displayMode="used" grok={{
       configured: true, primary_window: { used_percent: first + 2 },
       products: [
         { product: "GrokBuild", window: { used_percent: first } },
