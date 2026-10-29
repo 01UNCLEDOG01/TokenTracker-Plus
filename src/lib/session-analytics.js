@@ -144,7 +144,10 @@ const {
 // counters are matched back per request and booked into the owning session.
 // v41 adds TRAE (intl / TRAE SOLO) and merged Trae CN sessions from the same
 // SQLCipher-encrypted local databases the usage side already reads.
-const SIDECAR_VERSION = 41;
+// v42 gives those sessions a 速率: second-resolution turn spans feed the
+// zcode-style collector (output+reasoning over turn wall time), with the
+// wall-clock estimate as the fallback for sessions whose spans never qualify.
+const SIDECAR_VERSION = 42;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -576,11 +579,14 @@ function applyTokenMonitorSessionTotals(record) {
   record.usage_is_incomplete = false;
 }
 
-// These four sources have no per-request timing in their local stores (and TM's
+// These sources have no per-request timing in their local stores (and TM's
 // timed counters are zero for them), but they do have output tokens and a
 // measured wall-clock session span. Report that as an explicitly estimated
-// speed instead of a blank column; precise collectors always win.
-const WALL_CLOCK_SPEED_SOURCES = new Set(["workbuddy", "workbuddy-ai", "qoder", "qoder-cn", "antigravity"]);
+// speed instead of a blank column; precise collectors always win. TRAE's
+// coarse turn spans (second-resolution created/updated) feed the collector
+// where they qualify; the wall-clock estimate covers the sessions whose
+// spans never do.
+const WALL_CLOCK_SPEED_SOURCES = new Set(["workbuddy", "workbuddy-ai", "qoder", "qoder-cn", "antigravity", "trae", "trae-cn"]);
 
 function applyWallClockSpeed(record) {
   if (!record || !WALL_CLOCK_SPEED_SOURCES.has(String(record.source || "").toLowerCase())) return record;
@@ -3266,6 +3272,7 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
     const modelUsageByModel = new Map();
     const bounds = emptyBounds();
     const usageBuckets = new Map();
+    const collector = createZcodePerformanceCollector();
     let usageEvents = 0;
     let anyEstimated = false;
     const turnIds = new Set();
@@ -3273,9 +3280,13 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
     for (const turn of group) {
       if (turn.turnId) turnIds.add(turn.turnId);
       const startMs = coerceEpochMs(turn.createdMs) || coerceEpochMs(turn.updatedMs);
+      // chat_turn carries second-resolution created/updated — the turn's own
+      // wall-clock span. Same-second turns degenerate to an instant.
+      const endMsRaw = coerceEpochMs(turn.updatedMs);
+      const endMs = endMsRaw > startMs ? endMsRaw : startMs;
       if (startMs > 0) {
         updateBounds(bounds, new Date(startMs).toISOString());
-        activeSpans.push([startMs, startMs]);
+        activeSpans.push([startMs, endMs]);
       }
       // normalizeTraeUsage nulls out turns whose counters do not validate
       // against each other — they stay as activity, never as tokens.
@@ -3284,6 +3295,18 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
       usageEvents += 1;
       if (totals.usage_precision === "estimated") anyEstimated = true;
       const model = normalizeTraeModel(turn.model);
+      // Speed sample: turn generation (output + reasoning, the same numerator
+      // zcode's raw output_tokens carries) over the turn's wall-clock span.
+      // The accumulator's own thresholds (MIN_OUTPUT/MIN_DURATION) drop
+      // too-small samples; sessions without qualifying spans fall back to the
+      // wall-clock estimate via applyWallClockSpeed.
+      if (startMs > 0 && endMs > startMs) {
+        collector.consumeUsage({
+          model,
+          outputTokens: totals.output_tokens + totals.reasoning_output_tokens,
+          durationMs: endMs - startMs,
+        });
+      }
       const delta = tokenTotals(totals);
       // tokenTotals' generic total omits reasoning; the usage queue's total
       // includes it (same fold-back as zcodeMessageTotals).
@@ -3314,9 +3337,8 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
       if (created > 0) updateBounds(bounds, new Date(created).toISOString());
       if (updated > 0) updateBounds(bounds, new Date(updated).toISOString());
     }
-    // Active time = the union of turn instants, bridged across the same idle
-    // gap the zcode scan uses. TRAE records no per-request durations, so each
-    // turn contributes its start instant only.
+    // Active time = the union of turn wall-clock spans, bridged across the
+    // same idle gap the zcode scan uses.
     const spans = activeSpans.sort((a, b) => a[0] - b[0]);
     let unionActiveMs = 0;
     let unionStart = null;
@@ -3337,9 +3359,10 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
     }
     if (unionStart !== null) unionActiveMs += unionEnd - unionStart;
     bounds.active_ms = unionActiveMs;
+    const finished = collector.finish();
     const modelUsage = [...modelUsageByModel.values()].map((usage) => ({
       ...usage,
-      performance: normalizePerformance(),
+      performance: finished.byModel.get(usage.model) || finished.performance || normalizePerformance(),
     }));
     const cwd = row.projectPath;
     records.push(finalizeRecord({
@@ -3371,7 +3394,7 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
       api_duration_ms: 0,
       error_count: 0,
       compaction_count: 0,
-      performance: normalizePerformance(),
+      performance: finished.performance || normalizePerformance(),
       provenance: {
         source: "local-session-log",
         confidence: "observed",

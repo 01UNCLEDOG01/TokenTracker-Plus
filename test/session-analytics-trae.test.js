@@ -51,20 +51,20 @@ const insertSession = (db, [id, sessionId, projectId, title, created, updated, d
 const insertTurn = (db, [id, sessionId, turnId, status, created, updated, context]) =>
   db.run("INSERT INTO chat_turn VALUES (?, ?, ?, ?, ?, ?, ?)", [id, sessionId, turnId, status, created, updated, JSON.stringify(context)]);
 
-test("TRAE session scan groups turns per session with title, project and reported usage", async (t) => {
+test("TRAE session scan groups turns per session with title, project, usage and a measured rate", async (t) => {
   const { file } = await writeDb(t, (db) => {
     db.run("INSERT INTO project VALUES ('p1', 'C:\\repo\\demo')");
     // Soft-deleted by the merge artifact: still listed, stats visible.
     insertSession(db, [1, "sess-1", "p1", "优化后台管理数据看板-67", 1793200000, 1793285000, 1793285000]);
     insertSession(db, [2, "sess-2", null, "零用量会话", 1793200000, 1793200100, 1793200100]);
-    // Prompt is fresh-only, cache on top, reasoning reported separately —
-    // the exclusive shape the usage queue books without inference.
+    // Prompt fresh-only, cache on top, reasoning reported separately — the
+    // exclusive shape the usage queue books without inference.
     insertTurn(db, [1, "sess-1", "turn-1", "completed", 1793280000, 1793280060, {
       model_name: "DeepSeek-V4.1-Flash",
-      token_usage: { prompt_tokens: 20, completion_tokens: 20, cache_read_input_tokens: 80, reasoning_tokens: 5, total_tokens: 125 },
+      token_usage: { prompt_tokens: 200, completion_tokens: 600, cache_read_input_tokens: 800, reasoning_tokens: 100, total_tokens: 1700 },
     }]);
     // Activity-only turn: no token_usage object at all — counts as a turn,
-    // never as tokens or a usage event.
+    // never as tokens, a usage event, or a speed sample.
     insertTurn(db, [2, "sess-1", "turn-2", "completed", 1793280120, 1793280180, { model_name: "DeepSeek-V4.1-Flash" }]);
     // Counters that do not validate normalize to null usage (activity only).
     insertTurn(db, [3, "sess-1", "turn-3", "error", 1793280240, 1793280250, { token_usage: { prompt_tokens: -1 } }]);
@@ -82,12 +82,12 @@ test("TRAE session scan groups turns per session with title, project and reporte
   assert.equal(first.project_ref, "C:\\repo\\demo");
   assert.equal(first.project_key, "demo");
   assert.deepEqual(first.tokens, {
-    input_tokens: 20,
-    cached_input_tokens: 80,
+    input_tokens: 200,
+    cached_input_tokens: 800,
     cache_creation_input_tokens: 0,
-    output_tokens: 20,
-    reasoning_output_tokens: 5,
-    total_tokens: 125,
+    output_tokens: 600,
+    reasoning_output_tokens: 100,
+    total_tokens: 1700,
   });
   assert.equal(first.turns, 3);
   assert.equal(first.usage_events, 1);
@@ -97,20 +97,33 @@ test("TRAE session scan groups turns per session with title, project and reporte
   assert.equal(first.model_usage.length, 1);
   assert.equal(first.model_usage[0].model, "deepseek-v4.1-flash");
   assert.equal(first.model_usage[0].usage_events, 1);
+  // Speed: the qualifying turn's generation (output 600 + reasoning 100) over
+  // its 60s wall-clock span; the two activity-only turns contribute no sample.
+  assert.equal(first.performance.estimated_output_tokens, 700);
+  assert.equal(first.performance.estimated_duration_ms, 60000);
+  assert.equal(first.performance.estimated_request_count, 1);
+  assert.ok(Math.abs(first.performance.estimated_tokens_per_second - 700 / 60) < 1e-9);
+  assert.equal(first.model_usage[0].performance.estimated_duration_ms, 60000);
+  // Active time: the union of turn spans (and instants), bridged — 0s → 250s.
+  assert.equal(first.active_ms, 250000);
   // Seconds-resolution store timestamps surface as ISO bounds and minute
   // buckets carry the turn's usage under its model.
   const startIso = new Date(1793280000 * 1000).toISOString();
   assert.equal(first.started_at, startIso);
   const bucket = first.usage_buckets.find((b) => b.timestamp === startIso);
-  assert.equal(bucket.total_tokens, 125);
+  assert.equal(bucket.total_tokens, 1700);
   assert.equal(bucket.usage_events, 1);
   // Soft-deleted sessions keep their stats (merge artifact, owner ruling).
+  // Their turn span (10s) is below the collector's output threshold, so the
+  // rate falls back to the wall-clock estimate: 10 output tokens / 10s.
   const second = rows.find((row) => row.session_id === "sess-2");
   assert.equal(second.title, "零用量会话");
   assert.equal(second.tokens.total_tokens, 60);
   assert.equal(second.project_ref, null);
   assert.equal(second.cost_usd > 0, true);
   assert.equal(second.model_usage[0].pricing.status, "priced");
+  assert.equal(second.performance_source, "wall-clock");
+  assert.equal(second.performance.estimated_tokens_per_second, 1);
 });
 
 test("TRAE session scan lists a session whose turns carry no usage at all", async (t) => {
@@ -127,11 +140,13 @@ test("TRAE session scan lists a session whose turns carry no usage at all", asyn
   assert.equal(row.usage_events, 0);
   assert.equal(row.usage_precision, "unavailable");
   assert.equal(row.model, "unknown");
+  // No output, no rate — the blank column is the honest answer.
+  assert.ok(!row.performance.estimated_tokens_per_second);
   // Wall-clock span falls back to the chat_session row's own timestamps.
   assert.equal(row.started_at, new Date(1793200000 * 1000).toISOString());
 });
 
-test("TRAE alias counters are booked once and multi-model sessions read as mixed", async (t) => {
+test("TRAE alias counters are booked once, multi-model sessions read as mixed, small outputs rate via wall-clock", async (t) => {
   const { file } = await writeDb(t, (db) => {
     insertSession(db, [1, "sess-mix", null, "混合模型", 1793200000, 1793200200, null]);
     insertTurn(db, [1, "sess-mix", "turn-1", "completed", 1793200000, 1793200060, {
@@ -154,6 +169,10 @@ test("TRAE alias counters are booked once and multi-model sessions read as mixed
   assert.equal(row.model, "mixed");
   assert.equal(row.model_usage.length, 2);
   assert.equal(row.version, SIDECAR_VERSION);
+  // Both turns are below the collector's 200-output threshold: the rate comes
+  // from the wall-clock estimate over the bridged span union (0s → 180s).
+  assert.equal(row.performance_source, "wall-clock");
+  assert.ok(Math.abs(row.performance.estimated_tokens_per_second - 50 / 180) < 1e-9);
 });
 
 test("discovery lists TRAE and Trae CN databases from the environment", async (t) => {
