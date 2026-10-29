@@ -15786,6 +15786,54 @@ function resolveAgent2ApiDbPath(env = process.env) {
   return path.join(home, ".agent2api", "agent2api.db");
 }
 
+// The per-request rows a gateway client needs to reconcile its own sessions:
+// prompt_tokens (INCLUSIVE of cache_read) and completion_tokens per successful
+// round trip, under the same source name the credit path uses. model_usage
+// rows for ZCode's self-added providers carry the completion alone — these
+// rows are the only record of the input side, but they carry no session id,
+// so the session scanner matches them back by completion count and start
+// time. Degrade to "no rows" on any read failure: this is an enrichment of
+// the client's own ledger, never a reason to drop the sessions themselves.
+function readAgent2ApiGatewayRowsForClient(clientSource, env = process.env, sqliteOptions = {}) {
+  const dbPath = resolveAgent2ApiDbPath(env);
+  if (!dbPath || !fssync.existsSync(dbPath)) return [];
+  let rows;
+  try {
+    rows = readSqliteJsonRows(
+      dbPath,
+      "SELECT ts, client, client_model, model AS upstream_model, prompt_tokens, "
+        + "completion_tokens, cache_read_tokens, status FROM requests ORDER BY ts",
+      {
+        label: "Agent2API",
+        maxBuffer: 32 * 1024 * 1024,
+        timeout: 30_000,
+        readOnly: true,
+        ...sqliteOptions,
+      },
+    );
+  } catch (_error) {
+    return [];
+  }
+  const gatewayRows = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (Number(row?.status) !== 200) continue;
+    if (gatewayClientSource(row?.client) !== clientSource) continue;
+    const ts = Number(row?.ts);
+    const prompt = Number(row?.prompt_tokens) || 0;
+    const completion = Number(row?.completion_tokens) || 0;
+    if (!Number.isFinite(ts) || ts <= 0 || prompt <= 0 || completion <= 0) continue;
+    gatewayRows.push({
+      ts,
+      // Same resolution the credit totals in parseAgent2ApiIncremental use.
+      model: String(row?.upstream_model || row?.client_model || "").trim(),
+      prompt,
+      completion,
+      cacheRead: Number(row?.cache_read_tokens) || 0,
+    });
+  }
+  return gatewayRows;
+}
+
 function agent2ApiSqliteFingerprint(dbPath) {
   const fingerprint = sqliteSidecarFingerprint(dbPath);
   // -shm is reader bookkeeping: opening a WAL database can bump it without any
@@ -27806,6 +27854,7 @@ module.exports = {
   resolveDevinDbPath,
   resolveAgent2ApiDbPath,
   parseAgent2ApiIncremental,
+  readAgent2ApiGatewayRowsForClient,
   resolveMagpieUsageLogPath,
   parseMagpieIncremental,
   gatewayClientSource,

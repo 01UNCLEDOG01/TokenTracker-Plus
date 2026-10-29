@@ -210,4 +210,88 @@ async function projectTraeCnLocalRows(queryRows, watermark) {
   });
 }
 
-module.exports = { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows };
+// ── Session-layer projection (session browser) ──
+// Same stores the usage side reads, shaped for per-session grouping. Sessions
+// AND turns are returned regardless of deleted_at: the 2026-10-29 Work CN ×
+// SOLO CN merge marked the entire local history soft-deleted while the turns
+// carry real billed usage (owner ruling: deleted sessions' stats stay visible;
+// the rows are the only record that usage ever happened). token_usage is
+// returned RAW — normalizeTraeUsage (the exact normalizer the usage queue
+// books) owns alias precedence, inclusive/exclusive disambiguation and the
+// Gemini repairs, so the session browser cannot drift from the card.
+async function projectTraeSessionRows(queryRows) {
+  const columns = new Set((await queryRows("PRAGMA table_info(chat_turn)")).map((row) => row.name));
+  const sessionColumns = new Set((await queryRows("PRAGMA table_info(chat_session)")).map((row) => row.name));
+  if (!columns.has("session_id") || !sessionColumns.has("session_id")) {
+    throw error("unsupported database schema: chat_turn/chat_session session_id is missing.");
+  }
+  const modelPaths = [
+    "persist_user_message_context.model_info.display_model_name",
+    "persist_user_message_context.model_info.model_name",
+    "persist_user_message_context.model_info.config_name", "model_name", "model",
+    "agent_model", "selected_model.name", "selectedModel.name",
+  ];
+  const model = modelPaths.map((field) => `CASE WHEN json_type(t.context, '$.${field}') = 'text'
+    THEN NULLIF(NULLIF(TRIM(json_extract(t.context, '$.${field}')), ''), '-') END`);
+  // turn_id/turn_status are the signal columns; older schemas without them
+  // still scan (null turnId, zero-error accounting) — same conditional
+  // projection the usage side uses for its optional columns.
+  const turnId = columns.has("turn_id") ? "t.turn_id AS turn_id" : "NULL AS turn_id";
+  const turnStatus = columns.has("turn_status") ? "t.turn_status AS turn_status" : "NULL AS turn_status";
+  const turnQuery = `SELECT t.session_id AS session_id, ${turnId}, ${turnStatus},
+    COALESCE(t.created_at, t.updated_at) AS created_at, t.updated_at AS updated_at,
+    COALESCE(${model.join(", ")}, 'trae-unknown') AS model,
+    json_extract(t.context, '$.token_usage') AS token_usage,
+    json_type(t.context, '$.token_usage') AS usage_type
+    FROM chat_turn t
+    WHERE json_valid(t.context)
+    ORDER BY t.rowid ASC`;
+  const sessionQuery = `SELECT cs.session_id AS session_id, cs.session_title AS session_title,
+    cs.created_at AS created_at, cs.updated_at AS updated_at,
+    p.absolute_path AS absolute_path
+    FROM chat_session cs
+    LEFT JOIN project p ON p.project_id = cs.project_id
+    ORDER BY cs.rowid ASC`;
+  const turnRows = await queryRows(turnQuery);
+  const sessionRows = await queryRows(sessionQuery);
+  return {
+    sessions: sessionRows.map((row) => ({
+      sessionId: String(row?.session_id || "").trim(),
+      title: typeof row?.session_title === "string" ? row.session_title : null,
+      createdMs: row?.created_at, updatedMs: row?.updated_at,
+      projectPath: typeof row?.absolute_path === "string" ? row.absolute_path : null,
+    })),
+    turns: turnRows.map((row) => ({
+      sessionId: String(row?.session_id || "").trim(),
+      turnId: row?.turn_id == null ? null : String(row.turn_id),
+      turnStatus: row?.turn_status == null ? null : String(row.turn_status),
+      createdMs: row?.created_at, updatedMs: row?.updated_at,
+      model: row?.model || null,
+      usagePresent: row?.usage_type === "object",
+      tokenUsage: row?.token_usage == null ? null : String(row.token_usage),
+    })),
+  };
+}
+
+async function readTraeSessionRows(dbPath, { env = process.env } = {}) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let snapshot;
+    try { snapshot = openTraeSnapshot(dbPath, env); }
+    catch (err) {
+      if (err?.transient && attempt < 2) continue;
+      throw err;
+    }
+    try {
+      let result;
+      try { result = await withTraeSqlite(snapshot, projectTraeSessionRows); }
+      catch (err) {
+        if (snapshot.isStable()) throw err;
+        continue;
+      }
+      if (snapshot.isStable()) return result;
+    } finally { snapshot.close(); }
+  }
+  throw error("database changed during the read; retry after TRAE finishes its current turn.");
+}
+
+module.exports = { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeSessionRows };

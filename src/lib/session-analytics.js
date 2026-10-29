@@ -46,6 +46,7 @@ const {
   inspectDshZstdFrames,
   decodeDshZstd,
   readZcodeDbMessages,
+  readAgent2ApiGatewayRowsForClient,
   resolveDshSessionFiles,
   resolveWorkbuddyDefaultModel,
   resolveWorkbuddyHomes,
@@ -67,6 +68,8 @@ const { readCursorStateSummary } = require("./cursor-store");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
 const wsl = require("./wsl-probe");
 const { resolveLoomyDbPaths } = require("./loomy-paths");
+const { readTraeSessionRows, resolveTraeDbPaths, resolveTraeCnLocalDbPath } = require("./trae-db");
+const { normalizeTraeUsage, normalizeTraeModel } = require("./trae-usage");
 const { discoverKimiWireFiles, kimiSessionDependencies, readKimiSessions } = require("./kimi-session");
 const { discoverOmpSessionFiles, ompSessionDependencies, readOmpSessions } = require("./omp-session");
 const {
@@ -135,7 +138,13 @@ const {
 // message counts instead of being dropped as unattributable.
 // v39 adds SenseTime Raccoon (box-agent) sessions, read incrementally from a
 // single append-only trace file that is already hundreds of MB on this machine.
-const SIDECAR_VERSION = 39;
+// v40 credits ZCode sessions with the input side their own database never
+// recorded: model_usage rows for self-added providers carry output alone
+// (input 0, cache 0), so the agent2api gateway's authoritative prompt/cache
+// counters are matched back per request and booked into the owning session.
+// v41 adds TRAE (intl / TRAE SOLO) and merged Trae CN sessions from the same
+// SQLCipher-encrypted local databases the usage side already reads.
+const SIDECAR_VERSION = 41;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -2719,10 +2728,15 @@ const ZCODE_SIGNAL_REQUIRED_COLUMNS = [
 // whole scan (metadata, signals, turns, tools, messages) against the local
 // copy — otherwise the metadata query succeeds while the message read fails
 // on the same database.
-async function scanZcodeSessions(dbPaths) {
+async function scanZcodeSessions(dbPaths, deps = {}) {
   const paths = [...new Set((Array.isArray(dbPaths) ? dbPaths : [dbPaths]).filter(Boolean))];
   const snapshots = [];
   const inputs = [];
+  // The gateway rows come injected (the production dispatch reads the gateway
+  // once per scan, both installs reconcile against the same requests table);
+  // a bare call — tests, tooling — stays pure and keeps the output-only
+  // totals the client's own ledger supports.
+  const gatewayRows = Array.isArray(deps.gatewayRows) ? deps.gatewayRows : [];
   try {
     for (const dbPath of paths) {
       let effectiveDbPath = dbPath;
@@ -2735,7 +2749,7 @@ async function scanZcodeSessions(dbPaths) {
       }
       inputs.push(readZcodeSessionInputs(effectiveDbPath));
     }
-    return buildZcodeSessionRecords(inputs, paths[0]);
+    return buildZcodeSessionRecords(inputs, paths[0], gatewayRows);
   } finally {
     for (const snapshot of snapshots) snapshot.cleanup();
   }
@@ -2756,8 +2770,14 @@ function readZcodeSessionInputs(dbPath) {
   );
   const messages = readZcodeDbMessages(dbPath, { readOnly: true }, { propagateReadFailure: true });
   const modelUsageColumns = zcodeTableColumns(dbPath, "model_usage");
+  // The input/cache columns exist on every native model_usage layout; gating
+  // them individually keeps a hypothetical partial schema reading its signals
+  // instead of failing the whole query. They feed gateway reconciliation only
+  // (reconcileGatewaySessionCredits below) — the signal path never totals them.
+  const gatewayColumns = ["input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
+    .filter((name) => modelUsageColumns.has(name));
   const requestRows = ZCODE_SIGNAL_REQUIRED_COLUMNS.every((name) => modelUsageColumns.has(name))
-    ? readSqliteJsonRows(dbPath, `SELECT id, session_id, model_id, status, started_at, output_tokens, duration_ms, time_to_first_token_ms, query_source
+    ? readSqliteJsonRows(dbPath, `SELECT id, session_id, model_id, status, started_at, output_tokens, duration_ms, time_to_first_token_ms, query_source${gatewayColumns.length ? `, ${gatewayColumns.join(", ")}` : ""}
        FROM model_usage
        WHERE status IN ('completed', 'error')
          AND trim(provider_id) != ''
@@ -2789,7 +2809,7 @@ function uniqueZcodeRows(rows, keyFor) {
   });
 }
 
-function buildZcodeSessionRecords(inputs, displayPath) {
+function buildZcodeSessionRecords(inputs, displayPath, gatewayRows = []) {
   const collect = (key) => inputs.flatMap((input) => input[key] || []);
   const eventKey = (row, sessionKey, idKey) => row?.[sessionKey] && row?.[idKey]
     ? `${row[sessionKey]}\u0000${row[idKey]}` : null;
@@ -2816,6 +2836,7 @@ function buildZcodeSessionRecords(inputs, displayPath) {
     .filter((row) => !forkCopies.has(eventKey(row, "session_id", "id")));
   const turnRows = uniqueZcodeRows(collect("turnRows"), (row) => eventKey(row, "session_id", "turn_id"));
   const toolRows = collect("toolRows");
+  const gatewayCredits = reconcileGatewaySessionCredits({ gatewayRows, requestRows });
 
   const messagesBySession = new Map();
   // propagateReadFailure: a failed native-usage query must abort the scan (the
@@ -2975,6 +2996,34 @@ function buildZcodeSessionRecords(inputs, displayPath) {
         messageCwd = data.path.cwd.trim();
       }
     }
+    // Gateway input credit (see reconcileGatewaySessionCredits): measured
+    // usage completing requests this session's own ledger recorded without an
+    // input side. Booked as tokens only — no usage_events, no new model rows'
+    // request counts, no performance samples — under the anchor request's
+    // model and minute so day-scoped views attribute it like any other usage.
+    for (const credit of gatewayCredits.get(sessionId) || []) {
+      const model = normalizeSessionModel(normalizeOpencodeModelFields({ modelID: credit.modelId }).modelId) || "unknown";
+      const delta = {
+        input_tokens: credit.inputTokens,
+        cached_input_tokens: credit.cachedInputTokens,
+        cache_creation_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0,
+        total_tokens: credit.inputTokens + credit.cachedInputTokens,
+      };
+      addTotals(tokens, delta);
+      let usage = modelUsageByModel.get(model);
+      if (!usage) {
+        usage = { model, ...emptyTotals(), usage_events: 0 };
+        modelUsageByModel.set(model, usage);
+      }
+      addTotals(usage, delta);
+      const timestamp = new Date(Math.floor(credit.startedMs / 60_000) * 60_000).toISOString();
+      const bucketKey = `${timestamp}\u0000${model}`;
+      const bucket = usageBuckets.get(bucketKey) || { timestamp, model, ...emptyTotals(), usage_events: 0 };
+      addTotals(bucket, delta);
+      usageBuckets.set(bucketKey, bucket);
+    }
     // Sessions without any message (claude-import migrations the import did
     // not rebuild, sessions abandoned before the first reply) keep the row's
     // own wall-clock span; they end up with zero tokens and the browser's
@@ -3080,6 +3129,255 @@ function buildZcodeSessionRecords(inputs, displayPath) {
         retry_confidence: "unavailable",
         content_retained: false,
         usage: messages.length > 0 ? "zcode-db-messages" : "unavailable",
+      },
+    }));
+  }
+  return records;
+}
+
+// ZCode's model_usage rows for self-added providers (`new-provider*`) record
+// the completion alone: input 0, cache 0 — the gateway's streamed responses
+// omit usage (measured 2026-10-29: 6,439 glm rows, every one inputless). The
+// agent2api requests table carries the authoritative prompt/cache counters for
+// the same round trip but no session id, so each gateway row is matched back
+// to the model_usage row it produced — same completion token count, nearest
+// request start within a window — and its input side is credited to that row's
+// session, split fresh/cached exactly like the usage card's credit
+// (gatewayCreditTotals in rollout.js, which keeps output out because ZCode
+// already logs it).
+//
+// Anchors are only model_usage rows that could not self-certify input; rows
+// with input>0 already carry it and must not be credited twice. Matching is
+// conservative: a row whose nearest anchor is already claimed is dropped
+// rather than cascading onto another session's identical completion, and an
+// exact-distance tie across sessions credits nobody. Measured on the
+// reference box: 5,064 of 5,397 gateway rows match exactly one session, zero
+// match two, zero claims contested.
+const GATEWAY_INPUT_MATCH_WINDOW_MS = 120_000;
+
+function reconcileGatewaySessionCredits({ gatewayRows, requestRows }) {
+  const creditsBySession = new Map();
+  if (!Array.isArray(gatewayRows) || !gatewayRows.length) return creditsBySession;
+  const anchorsByOutput = new Map();
+  for (const row of Array.isArray(requestRows) ? requestRows : []) {
+    if (!row || String(row?.status || "") !== "completed") continue;
+    if (finite(row?.input_tokens) > 0 || finite(row?.cache_read_input_tokens) > 0 ||
+        finite(row?.cache_creation_input_tokens) > 0) continue;
+    const output = finite(row?.output_tokens);
+    const startedMs = coerceEpochMs(row?.started_at);
+    const sessionId = String(row?.session_id || "").trim();
+    const modelId = String(row?.model_id || "").trim();
+    if (!sessionId || !output || !startedMs || !modelId) continue;
+    const anchor = { sessionId, modelId, output, startedMs, used: false };
+    if (!anchorsByOutput.has(output)) anchorsByOutput.set(output, []);
+    anchorsByOutput.get(output).push(anchor);
+  }
+  if (!anchorsByOutput.size) return creditsBySession;
+  for (const row of gatewayRows) {
+    const ts = Number(row?.ts);
+    const completion = finite(row?.completion);
+    const prompt = finite(row?.prompt);
+    const cacheRead = finite(row?.cacheRead);
+    if (!Number.isFinite(ts) || !completion || !prompt) continue;
+    const candidates = (anchorsByOutput.get(completion) || [])
+      .filter((anchor) => Math.abs(anchor.startedMs - ts) <= GATEWAY_INPUT_MATCH_WINDOW_MS)
+      .sort((a, b) => Math.abs(a.startedMs - ts) - Math.abs(b.startedMs - ts));
+    if (!candidates.length) continue;
+    const best = candidates[0];
+    // Our own request was already credited through an earlier gateway row
+    // (a logged retry): drop this row instead of spilling onto another
+    // session's identical completion.
+    if (best.used) continue;
+    const tie = candidates.filter((anchor) =>
+      Math.abs(anchor.startedMs - ts) === Math.abs(best.startedMs - ts));
+    if (new Set(tie.map((anchor) => anchor.sessionId)).size > 1) continue;
+    const gatewayModel = String(row?.model || "").trim().toLowerCase();
+    if (gatewayModel && gatewayModel !== best.modelId.toLowerCase()) continue;
+    const inputTokens = Math.max(0, prompt - cacheRead);
+    if (!inputTokens && !cacheRead) continue;
+    best.used = true;
+    let credits = creditsBySession.get(best.sessionId);
+    if (!credits) {
+      credits = [];
+      creditsBySession.set(best.sessionId, credits);
+    }
+    credits.push({
+      modelId: best.modelId,
+      startedMs: best.startedMs,
+      inputTokens,
+      cachedInputTokens: cacheRead,
+    });
+  }
+  return creditsBySession;
+}
+
+// TRAE (intl / TRAE SOLO) and the merged Trae CN keep every conversation in one
+// SQLCipher-encrypted SQLite database — the same stores the usage side already
+// reads (trae-db.js), so the session browser cannot see a different history
+// than the one that produced the card. deleted_at is ignored on both tables:
+// the 2026-10-29 Work CN × SOLO CN merge soft-deleted the entire local history
+// while the turns carry real billed usage (owner ruling: deleted sessions'
+// stats stay visible — the user never deleted anything, the flag is a merge
+// artifact). Turn usage goes through normalizeTraeUsage, the exact normalizer
+// the usage queue books, so per-session totals can never drift from the card.
+const TRAE_SNAPSHOT_RETRY_DELAY_MS = 3_000;
+
+async function scanTraeSessions(dbPaths, { source = "trae" } = {}) {
+  const paths = [...new Set((Array.isArray(dbPaths) ? dbPaths : [dbPaths]).filter(Boolean))];
+  const records = [];
+  for (const dbPath of paths) {
+    let data = null;
+    // A writer can invalidate every snapshot while TRAE is mid-turn (it
+    // touches the WAL every few seconds). The reader's own three attempts are
+    // back-to-back, so space scanner-level retries out; a rebuild that gives
+    // up throws and the source is skipped for this cycle rather than cached
+    // as an empty inventory.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        data = await readTraeSessionRows(dbPath);
+        break;
+      } catch (err) {
+        if (attempt === 2 || !/database changed during the read/i.test(String(err?.message || ""))) throw err;
+        await new Promise((resolve) => setTimeout(resolve, TRAE_SNAPSHOT_RETRY_DELAY_MS));
+      }
+    }
+    if (data) records.push(...buildTraeSessionRecords(data, source, dbPath));
+  }
+  return records;
+}
+
+function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
+  const turnsBySession = new Map();
+  for (const turn of turns) {
+    if (!turn.sessionId) continue;
+    let group = turnsBySession.get(turn.sessionId);
+    if (!group) {
+      group = [];
+      turnsBySession.set(turn.sessionId, group);
+    }
+    group.push(turn);
+  }
+  const records = [];
+  for (const row of Array.isArray(sessions) ? sessions : []) {
+    const sessionId = row?.sessionId;
+    if (!sessionId) continue;
+    const group = turnsBySession.get(sessionId) || [];
+    const tokens = emptyTotals();
+    const modelUsageByModel = new Map();
+    const bounds = emptyBounds();
+    const usageBuckets = new Map();
+    let usageEvents = 0;
+    let anyEstimated = false;
+    const turnIds = new Set();
+    const activeSpans = [];
+    for (const turn of group) {
+      if (turn.turnId) turnIds.add(turn.turnId);
+      const startMs = coerceEpochMs(turn.createdMs) || coerceEpochMs(turn.updatedMs);
+      if (startMs > 0) {
+        updateBounds(bounds, new Date(startMs).toISOString());
+        activeSpans.push([startMs, startMs]);
+      }
+      // normalizeTraeUsage nulls out turns whose counters do not validate
+      // against each other — they stay as activity, never as tokens.
+      const totals = turn.usagePresent ? normalizeTraeUsage(turn.tokenUsage, { model: turn.model }) : null;
+      if (!totals) continue;
+      usageEvents += 1;
+      if (totals.usage_precision === "estimated") anyEstimated = true;
+      const model = normalizeTraeModel(turn.model);
+      const delta = tokenTotals(totals);
+      // tokenTotals' generic total omits reasoning; the usage queue's total
+      // includes it (same fold-back as zcodeMessageTotals).
+      delta.total_tokens += delta.reasoning_output_tokens;
+      addTotals(tokens, delta);
+      let usage = modelUsageByModel.get(model);
+      if (!usage) {
+        usage = { model, ...emptyTotals(), usage_events: 0 };
+        modelUsageByModel.set(model, usage);
+      }
+      addTotals(usage, delta);
+      usage.usage_events += 1;
+      if (startMs > 0) {
+        const timestamp = new Date(Math.floor(startMs / 60_000) * 60_000).toISOString();
+        const bucketKey = `${timestamp}\u0000${model}`;
+        const bucket = usageBuckets.get(bucketKey) || { timestamp, model, ...emptyTotals(), usage_events: 0 };
+        addTotals(bucket, delta);
+        bucket.usage_events += 1;
+        usageBuckets.set(bucketKey, bucket);
+      }
+    }
+    // Sessions whose turns were all dropped (no usage rows anywhere) keep the
+    // chat_session row's own wall-clock span, mirroring zcode's message-less
+    // path; the browser's total_tokens > 0 filter decides visibility.
+    if (group.length === 0) {
+      const created = coerceEpochMs(row.createdMs);
+      const updated = coerceEpochMs(row.updatedMs);
+      if (created > 0) updateBounds(bounds, new Date(created).toISOString());
+      if (updated > 0) updateBounds(bounds, new Date(updated).toISOString());
+    }
+    // Active time = the union of turn instants, bridged across the same idle
+    // gap the zcode scan uses. TRAE records no per-request durations, so each
+    // turn contributes its start instant only.
+    const spans = activeSpans.sort((a, b) => a[0] - b[0]);
+    let unionActiveMs = 0;
+    let unionStart = null;
+    let unionEnd = null;
+    for (const [startMs, endMs] of spans) {
+      if (unionStart === null) {
+        unionStart = startMs;
+        unionEnd = endMs;
+        continue;
+      }
+      if (startMs <= unionEnd + IDLE_GAP_MS) {
+        if (endMs > unionEnd) unionEnd = endMs;
+        continue;
+      }
+      unionActiveMs += unionEnd - unionStart;
+      unionStart = startMs;
+      unionEnd = endMs;
+    }
+    if (unionStart !== null) unionActiveMs += unionEnd - unionStart;
+    bounds.active_ms = unionActiveMs;
+    const modelUsage = [...modelUsageByModel.values()].map((usage) => ({
+      ...usage,
+      performance: normalizePerformance(),
+    }));
+    const cwd = row.projectPath;
+    records.push(finalizeRecord({
+      version: SIDECAR_VERSION,
+      session_hash: sessionHash(source, sessionId),
+      session_id: sessionId,
+      parent_session_id: null,
+      // Agent/IDE-authored session title (chat_session.session_title) — the
+      // user-visible name inside TRAE, not the raw prompt. Local-only.
+      title: cleanSessionTitle(row.title),
+      source,
+      project_key: projectKey(cwd && cwd.replace(/\\/g, "/"), displayPath),
+      project_ref: cwd || null,
+      model: modelUsage.length > 1 ? "mixed" : (modelUsage[0]?.model || "unknown"),
+      model_usage: modelUsage,
+      usage_buckets: [...usageBuckets.values()],
+      ...bounds,
+      turns: turnIds.size || group.length,
+      edit_turns: 0,
+      subagent_calls: 0,
+      subagent_types: {},
+      retry_turns: 0,
+      tokens,
+      usage_events: usageEvents,
+      usage_precision: usageEvents > 0 ? (anyEstimated ? "estimated" : "reported") : "unavailable",
+      cost_source: "model_pricing",
+      provider_cost_usd: null,
+      model_calls: usageEvents,
+      api_duration_ms: 0,
+      error_count: 0,
+      compaction_count: 0,
+      performance: normalizePerformance(),
+      provenance: {
+        source: "local-session-log",
+        confidence: "observed",
+        retry_confidence: "unavailable",
+        content_retained: false,
+        usage: usageEvents > 0 ? "trae-local-db" : "unavailable",
       },
     }));
   }
@@ -3481,6 +3779,16 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     ? { ...env, HOME: home }
     : { HOME: home, OMP_HOME: path.join(home, ".omp") };
   const omp = discoverOmpSessionFiles(ompEnv, incomplete);
+  // TRAE (intl + TRAE SOLO) and the merged Trae CN keep every conversation in
+  // one SQLCipher-encrypted local database each — the same stores the usage
+  // side reads. Absent installs simply drop out of the session page. The
+  // resolvers read %APPDATA%, so pin it to the caller's home (the workbuddy
+  // discipline): an injected test home must never pick up the real machine's
+  // stores, and the real machine's home resolves to the identical path.
+  const traeEnv = { ...env, APPDATA: path.join(home, "AppData", "Roaming") };
+  const trae = resolveTraeDbPaths(traeEnv).filter((dbPath) => fs.existsSync(dbPath));
+  const traeCn = [resolveTraeCnLocalDbPath({ env: traeEnv, home, platform: deps.platform || process.platform })]
+    .filter((dbPath) => dbPath && fs.existsSync(dbPath));
   return {
     claude,
     codex: groupCodexFiles([...codex, ...archived]),
@@ -3500,6 +3808,8 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     loomy,
     kimi,
     omp,
+    trae,
+    traeCn,
     incomplete,
   };
 }
@@ -4310,9 +4620,17 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.claude.map((filePaths) => ({ source: "claude", filePath: filePaths, scan: scanClaudeSession })),
     ...discovered.codex.map((filePaths) => ({ source: "codex", filePath: filePaths, scan: scanCodexSession })),
     ...discovered.grok.map((filePath) => ({ source: "grok", filePath, scan: scanGrokSession })),
-    ...(discovered.zcode.length ? [{ source: "zcode", filePath: discovered.zcode, scan: scanZcodeSessions }] : []),
+    ...(discovered.zcode.length ? [{
+      source: "zcode",
+      filePath: discovered.zcode,
+      // Read the gateway once for the whole scan and let both installs
+      // reconcile against it (see reconcileGatewaySessionCredits).
+      scan: (paths) => scanZcodeSessions(paths, { gatewayRows: readAgent2ApiGatewayRowsForClient("zcode") }),
+    }] : []),
     ...(discovered.opencode.length ? [{ source: "opencode", filePath: discovered.opencode, scan: scanOpencodeSessions }] : []),
     ...((discovered.loomy || []).length ? [{ source: "loomy", filePath: discovered.loomy, scan: (paths) => scanOpencodeSessions(paths, { source: "loomy" }) }] : []),
+    ...((discovered.trae || []).length ? [{ source: "trae", filePath: discovered.trae, scan: (paths) => scanTraeSessions(paths, { source: "trae" }) }] : []),
+    ...((discovered.traeCn || []).length ? [{ source: "trae-cn", filePath: discovered.traeCn, scan: (paths) => scanTraeSessions(paths, { source: "trae-cn" }) }] : []),
     ...((discovered.autoclaw || []).length ? [{ source: "autoclaw", filePath: discovered.autoclaw, scan: scanAutoClawSession }] : []),
     ...((discovered.cola || []).length ? [{ source: "cola", filePath: discovered.cola, scan: scanColaSession }] : []),
     ...((discovered.cowork || []).length ? [{ source: "tuanjie-cowork", filePath: discovered.cowork, scan: scanCoworkChat }] : []),
@@ -5173,6 +5491,8 @@ module.exports = {
   scanCodexSession,
   scanGrokSession,
   scanZcodeSessions,
+  reconcileGatewaySessionCredits,
+  scanTraeSessions,
   scanOpencodeSessions,
   scanKimiSessions,
   scanOmpSessions,

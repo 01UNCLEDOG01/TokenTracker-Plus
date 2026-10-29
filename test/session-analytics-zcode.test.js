@@ -243,6 +243,74 @@ sqliteTest("native ZCode session: disjoint tokens, priced cost, tokens/s and tur
   assert.equal(listSessionsForBrowser(rows, { from: day, to: day }).sessions[0].model_usage[0].usage_events, 3);
 });
 
+sqliteTest("gateway reconciliation credits the input side self-added providers never record", async (t) => {
+  const { dbPath } = buildDb(t, (db) => {
+    insertSession(db, { id: "sess-gw", directory: "C:\\repo\\gateway", title: "Gateway session", created: T0, updated: T0 + 300000 });
+    // new-provider completed rows: the gateway's streamed responses omit
+    // usage, so ZCode records output alone (input 0, cache 0).
+    insertModelUsage(db, { id: "g1", sessionId: "sess-gw", providerId: "new-provider", model: "glm-5.3-flash", startedAt: T0, output: 3943, durationMs: 20000 });
+    insertModelUsage(db, { id: "g2", sessionId: "sess-gw", providerId: "new-provider", model: "glm-5.3-flash", startedAt: T0 + 60000, output: 1513, durationMs: 40000 });
+    // A self-certified row: its gateway twin must not credit it twice.
+    insertModelUsage(db, { id: "g3", sessionId: "sess-gw", providerId: "new-provider-2", model: "deepseek-flash", startedAt: T0 + 120000, input: 80000, cacheRead: 70000, output: 500, durationMs: 9000 });
+    // A second session whose anchor repeats g2's completion at the same
+    // instant: the tied gateway row credits nobody. The provider id differs so
+    // the fork-copy fingerprint dedup (identical tokens+timestamps+model in a
+    // second session reads as a forked copy) keeps both messages as anchors.
+    insertSession(db, { id: "sess-other", directory: "C:\\repo\\other", title: "Other session", created: T0, updated: T0 + 120000 });
+    insertModelUsage(db, { id: "g4", sessionId: "sess-other", providerId: "new-provider-9", model: "glm-5.3-flash", startedAt: T0 + 60000, output: 1513, durationMs: 10000 });
+    // An anchor whose model disagrees with the gateway row: never credited.
+    insertModelUsage(db, { id: "g6", sessionId: "sess-gw", providerId: "new-provider", model: "deepseek-flash", startedAt: T0 + 180000, output: 777, durationMs: 5000 });
+  });
+
+  const gatewayRows = [
+    // Matches g1 (Δ300ms): the input side lands in sess-gw, split fresh/cached.
+    { ts: T0 + 300, model: "glm-5.3-flash", prompt: 448660, completion: 3943, cacheRead: 411260 },
+    // A logged retry of the same request: g1 is already claimed → dropped.
+    { ts: T0 + 700, model: "glm-5.3-flash", prompt: 448660, completion: 3943, cacheRead: 411260 },
+    // Equal distance to g2 (sess-gw) and g4 (sess-other) → credit nobody.
+    { ts: T0 + 60300, model: "glm-5.3-flash", prompt: 78912, completion: 1513, cacheRead: 78336 },
+    // Matches the self-certified g3, which is not an anchor → no candidate.
+    { ts: T0 + 120300, model: "deepseek-flash", prompt: 90000, completion: 500, cacheRead: 80000 },
+    // Model mismatch against g6 → dropped.
+    { ts: T0 + 180300, model: "glm-5.3-flash", prompt: 12345, completion: 777, cacheRead: 12000 },
+  ];
+
+  const rows = await scanZcodeSessions(dbPath, { gatewayRows });
+  assert.equal(rows.length, 2);
+  const credited = rows.find((row) => row.session_id === "sess-gw");
+  assert.deepEqual(credited.tokens, {
+    // 37400 fresh (448660 - 411260) + the self-certified 10000; nothing from
+    // the retry, the tied row, the self-certified twin, or the model mismatch.
+    input_tokens: 37400 + 10000,
+    cached_input_tokens: 411260 + 70000,
+    cache_creation_input_tokens: 0,
+    output_tokens: 3943 + 1513 + 500 + 777,
+    reasoning_output_tokens: 0,
+    total_tokens: 37400 + 10000 + 411260 + 70000 + 3943 + 1513 + 500 + 777,
+  });
+  // The credit is usage, not a request: counts stay at the message tally.
+  assert.equal(credited.usage_events, 4);
+  assert.equal(credited.model_calls, 4);
+  const glmUsage = credited.model_usage.find((usage) => usage.model === "glm-5.3-flash");
+  assert.equal(glmUsage.input_tokens, 37400);
+  assert.equal(glmUsage.cached_input_tokens, 411260);
+  assert.equal(glmUsage.usage_events, 2);
+  // The credit lands in the anchor request's minute bucket, marked with zero
+  // usage_events so day-scoped views attribute the tokens, not a phantom call.
+  const minuteBucket = credited.usage_buckets.find((bucket) => bucket.timestamp === iso(T0));
+  assert.equal(minuteBucket.total_tokens, 3943 + 448660);
+  assert.equal(minuteBucket.usage_events, 1);
+  // The tied row left sess-other output-only.
+  const other = rows.find((row) => row.session_id === "sess-other");
+  assert.equal(other.tokens.input_tokens, 0);
+  assert.equal(other.tokens.cached_input_tokens, 0);
+  assert.equal(other.tokens.output_tokens, 1513);
+
+  // Without injected gateway rows the scan stays output-only (tests, tooling).
+  const bare = await scanZcodeSessions(dbPath);
+  assert.equal(bare.find((row) => row.session_id === "sess-gw").tokens.input_tokens, 10000);
+});
+
 sqliteTest("legacy OpenCode message table feeds sessions that model_usage never covers", async (t) => {
   const { dbPath } = buildDb(t, (db) => {
     insertSession(db, { id: "sess-legacy", directory: null, title: "Legacy session", created: T0, updated: T0 + 3600000 });
