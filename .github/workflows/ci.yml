@@ -20,6 +20,15 @@ jobs:
   ci:
     name: test + validate + build
     runs-on: ubuntu-latest
+    # The fork ships the Windows package + source only (owner decision
+    # 2026-10-28); the maintainer gate is the Windows suite plus the local
+    # fast gate with its baseline. The inherited linux suite has permanent
+    # platform reds (workbuddy env, POSIX-only fixtures), so every main push
+    # since publication mailed a "Run failed" that carried no signal. Keep the
+    # job for the visible signal, but a linux red must not fail the workflow
+    # or page the owner; the real gates stay local and (if it ever runs) in
+    # the windows-build job below.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 

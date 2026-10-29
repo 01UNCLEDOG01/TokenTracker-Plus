@@ -33,7 +33,9 @@ function loadRedlineEmail() {
 }
 
 function git(args) {
-  return execFileSync("git", args, { encoding: "utf8" });
+  // 大暂存 diff（批量导入、生成文件）会把 spawnSync 默认 1 MiB 缓冲撑爆
+  // （ENOBUFS），fail-closed 堵住一切提交——给 diff 读取一个真实上限。
+  return execFileSync("git", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
 const REAL_EMAIL = loadRedlineEmail();

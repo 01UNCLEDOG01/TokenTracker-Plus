@@ -104,8 +104,11 @@ test("TRAE session scan groups turns per session with title, project, usage and 
   assert.equal(first.performance.estimated_request_count, 1);
   assert.ok(Math.abs(first.performance.estimated_tokens_per_second - 700 / 60) < 1e-9);
   assert.equal(first.model_usage[0].performance.estimated_duration_ms, 60000);
-  // Active time: the union of turn spans (and instants), bridged — 0s → 250s.
+  // Display time bridges the <30min gaps (0s → 250s); the rate denominator
+  // (speed_active_ms) stays pure working time: unbridged span union
+  // 60s + 60s + 10s = 130s — the 挂机/工作 split.
   assert.equal(first.active_ms, 250000);
+  assert.equal(first.speed_active_ms, 130000);
   // Seconds-resolution store timestamps surface as ISO bounds and minute
   // buckets carry the turn's usage under its model.
   const startIso = new Date(1793280000 * 1000).toISOString();
@@ -170,9 +173,35 @@ test("TRAE alias counters are booked once, multi-model sessions read as mixed, s
   assert.equal(row.model_usage.length, 2);
   assert.equal(row.version, SIDECAR_VERSION);
   // Both turns are below the collector's 200-output threshold: the rate comes
-  // from the wall-clock estimate over the bridged span union (0s → 180s).
+  // from the wall-clock estimate over the WORKING time (unbridged span union
+  // 60s + 60s = 120s), not the bridged 180s display span.
   assert.equal(row.performance_source, "wall-clock");
-  assert.ok(Math.abs(row.performance.estimated_tokens_per_second - 50 / 180) < 1e-9);
+  assert.ok(Math.abs(row.performance.estimated_tokens_per_second - 50 / 120) < 1e-9);
+  assert.equal(row.speed_active_ms, 120000);
+  assert.equal(row.active_ms, 180000);
+});
+
+test("span-less intl sessions rate from the chat_session row span", async (t) => {
+  // intl TRAE writes created==updated on every turn (no turn-end evidence), so
+  // a single-turn session degenerates to an instant. The chat_session row's
+  // created→updated span is the remaining store evidence of activity.
+  const { file } = await writeDb(t, (db) => {
+    insertSession(db, [1, "sess-intl", null, "2.紫微斗数功能构思", 1793197251, 1793198139, 1793198139]);
+    insertTurn(db, [1, "sess-intl", "turn-1", "completed", 1793197252, 1793197252, {
+      model_name: "MiniMax-M3.1-Flash",
+      token_usage: { prompt_tokens: 300, completion_tokens: 400, total_tokens: 700 },
+    }]);
+  });
+  const rows = await scanTraeSessions(file, { source: "trae" });
+  assert.equal(rows.length, 1);
+  const row = rows[0];
+  assert.equal(row.tokens.total_tokens, 700);
+  // active_ms falls back to the chat_session row span (888s); speed_active_ms
+  // is 0 (no spans) so the rate uses that row span.
+  assert.equal(row.active_ms, 1793198139000 - 1793197251000);
+  assert.equal(row.speed_active_ms, 0);
+  assert.equal(row.performance_source, "wall-clock");
+  assert.ok(Math.abs(row.performance.estimated_tokens_per_second - 400 / 888) < 1e-9);
 });
 
 test("discovery lists TRAE and Trae CN databases from the environment", async (t) => {

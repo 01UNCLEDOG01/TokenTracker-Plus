@@ -147,7 +147,11 @@ const {
 // v42 gives those sessions a 速率: second-resolution turn spans feed the
 // zcode-style collector (output+reasoning over turn wall time), with the
 // wall-clock estimate as the fallback for sessions whose spans never qualify.
-const SIDECAR_VERSION = 42;
+// v43 splits 挂机 from 工作: speed_active_ms carries the UNBRIDGED turn-span
+// union (pure working time) as the wall-clock fallback's denominator, and a
+// span-less session falls back to its chat_session row's created→updated span
+// instead of reporting zero active time.
+const SIDECAR_VERSION = 43;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -3328,22 +3332,34 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
         usageBuckets.set(bucketKey, bucket);
       }
     }
-    // Sessions whose turns were all dropped (no usage rows anywhere) keep the
-    // chat_session row's own wall-clock span, mirroring zcode's message-less
-    // path; the browser's total_tokens > 0 filter decides visibility.
-    if (group.length === 0) {
-      const created = coerceEpochMs(row.createdMs);
-      const updated = coerceEpochMs(row.updatedMs);
-      if (created > 0) updateBounds(bounds, new Date(created).toISOString());
-      if (updated > 0) updateBounds(bounds, new Date(updated).toISOString());
-    }
-    // Active time = the union of turn wall-clock spans, bridged across the
-    // same idle gap the zcode scan uses.
+    // Active time (duration display) = the union of turn wall-clock spans,
+    // bridged across the same idle gap the zcode scan uses. The rate
+    // denominator (speed_active_ms) is the UNBRIDGED span union instead —
+    // pure working time with inter-turn idle excluded — so the wall-clock
+    // fallback rates on the same working-time notion the collector samples.
+    // When no span carries duration (intl TRAE writes created==updated, every
+    // turn degenerates to an instant), both fall back to the chat_session
+    // row's own created→updated span; a number from the store beats a blank.
     const spans = activeSpans.sort((a, b) => a[0] - b[0]);
     let unionActiveMs = 0;
     let unionStart = null;
     let unionEnd = null;
+    let workingMs = 0;
+    let workStart = null;
+    let workEnd = null;
     for (const [startMs, endMs] of spans) {
+      // Working time: merge overlaps, never bridge gaps.
+      if (workStart === null) {
+        workStart = startMs;
+        workEnd = endMs;
+      } else if (startMs <= workEnd) {
+        if (endMs > workEnd) workEnd = endMs;
+      } else {
+        workingMs += workEnd - workStart;
+        workStart = startMs;
+        workEnd = endMs;
+      }
+      // Display time: bridge gaps ≤ IDLE_GAP_MS.
       if (unionStart === null) {
         unionStart = startMs;
         unionEnd = endMs;
@@ -3357,8 +3373,20 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
       unionStart = startMs;
       unionEnd = endMs;
     }
+    if (workStart !== null) workingMs += workEnd - workStart;
     if (unionStart !== null) unionActiveMs += unionEnd - unionStart;
+    if (unionActiveMs === 0) {
+      // No span and no bridgeable instants carried any duration: the
+      // chat_session row's created→updated span is the remaining store
+      // evidence of activity (intl single-turn sessions land here).
+      const created = coerceEpochMs(row.createdMs);
+      const updated = coerceEpochMs(row.updatedMs);
+      if (created > 0) updateBounds(bounds, new Date(created).toISOString());
+      if (updated > 0) updateBounds(bounds, new Date(updated).toISOString());
+      if (created > 0 && updated > created) unionActiveMs = updated - created;
+    }
     bounds.active_ms = unionActiveMs;
+    const speedActiveMs = workingMs;
     const finished = collector.finish();
     const modelUsage = [...modelUsageByModel.values()].map((usage) => ({
       ...usage,
@@ -3392,6 +3420,10 @@ function buildTraeSessionRecords({ sessions, turns }, source, displayPath) {
       provider_cost_usd: null,
       model_calls: usageEvents,
       api_duration_ms: 0,
+      // The rate denominator applyWallClockSpeed prefers: unbridged turn-span
+      // working time. Zero for span-less sessions so the fallback falls
+      // through to active_ms (the chat_session row span there).
+      speed_active_ms: speedActiveMs,
       error_count: 0,
       compaction_count: 0,
       performance: finished.performance || normalizePerformance(),
