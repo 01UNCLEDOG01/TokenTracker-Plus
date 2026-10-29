@@ -174,9 +174,6 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
                   )}
                 </span>
               </span>
-              <p className="truncate text-xs text-gray-300">
-                {toast.desc || copy("achievements.resonance.toast_fallback")}
-              </p>
             </div>
           </div>
 
