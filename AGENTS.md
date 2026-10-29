@@ -37,7 +37,7 @@
 2. **单一版本轨**：根 `package.json` 是唯一真源。同一提交内同步全部 manifest（`package-lock.json` 两处 + `TokenTrackerBar/project.yml` + `TokenTrackerWin.csproj` + `TokenTrackerLinux/{package.json,package-lock.json,src-tauri/tauri.conf.json,src-tauri/Cargo.toml,Cargo.lock,PKGBUILD}`），改完必跑 `npm run validate:versions`（全部应为 vX.Y.Z 才放行）。dashboard 的 lock 不含本包版本，不用动。
 3. **热更 ≠ 发版**：改 `src/` 或 `dashboard/` 后镜像到两处安装副本只是热更，台账必须记「未重打安装包」；热更内容必须随下一个安装包进入安装器，不许无限期只靠热更。
 4. **发版链固定顺序**（详见 GATE_REGISTRY §4，坑点已写在注释里）：版本号 → `TOKENTRACKER_BUILD_PET=1` dashboard 构建 → `bundle-node.ps1` → `dotnet publish` → **先 `Remove-Item` 再 `Copy-Item` EmbeddedServer（直接 Copy 会嵌套，1.0.1 首包事故）** → `verify-windows-package.cjs`（版本号必须正确、matchedInputs>0，不过不准进 ISCC）→ `dotnet test` → `MSYS_NO_PATHCONV=1 ISCC /DMyAppVersion=X.Y.Z` → 停 app → `/VERYSILENT` 安装 → FileVersion/端点/哈希冒烟 → 大小 + SHA-256 记账。
-5. **tag 与推送**：注释 tag `plus-vX.Y.Z`；只推 `mine` 与 `backup`；`origin`/`upstream` 永不推。GitHub Release 一律先建**草稿**（draft），由站主手动 Publish。
+5. **tag 与推送**：注释 tag `vX.Y.Z`（2026-10-29 独立仓库起取消 `plus-` 前缀——本仓库已无上游 tag 可冲突）；只推本仓库的 `origin` 与备份裸库。GitHub Release 一律先建**草稿**（draft），由站主手动 Publish。
 6. **发版完成的定义**：CHANGELOG（发版段）/ FORK_STATUS（版本行 + 门禁表安装包行 + 里程碑）/ HANDOFF（版本行）/ GATE_REGISTRY（runbook 中的版本引用）四处同步更新并提交后，才算发版完成。
 7. **队列迁移纪律**（发版相关，2026-10-25 事故教训）：任何要改写 `queue.jsonl` 的脚本，对账必须模拟**读取端语义**（`createAsyncQueueReader` 的 last-wins/resolve），不能对原始行求和；先备份、先 dry-run、断言失败拒绝写入。
 
