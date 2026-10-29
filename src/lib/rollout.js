@@ -554,6 +554,10 @@ async function parseRolloutIncremental({
       return fs.stat(filePath).catch(() => null);
     },
   );
+  // P0-3（审计 2026-10-25）：游标先缓冲、enqueue 成功后才写回 cursors.files——
+  // 循环中途抛错或 appendFile 失败时这批文件下轮从头重读（增量重算幂等），
+  // 旧顺序会让已推进的游标越过未落盘的增量，用量永久少计。
+  const pendingCursorWrites = [];
   for (let idx = 0; idx < rolloutFiles.length; idx++) {
     const entry = rolloutFiles[idx];
     const filePath = typeof entry === "string" ? entry : entry?.path;
@@ -772,7 +776,7 @@ async function parseRolloutIncremental({
       nextCursor.projectOffset = prev.projectOffset;
       if (prev?.projectFileContext) nextCursor.projectFileContext = prev.projectFileContext;
     }
-    cursors.files[key] = nextCursor;
+    pendingCursorWrites.push([key, nextCursor]);
 
     filesProcessed += 1;
     eventsAggregated += result.eventsAggregated;
@@ -793,6 +797,7 @@ async function parseRolloutIncremental({
   const projectBucketsQueued = projectEnabled
     ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
     : 0;
+  for (const [cursorKey, cursorValue] of pendingCursorWrites) cursors.files[cursorKey] = cursorValue;
   codexEventDedup.persist();
   acodeEventDedup?.persist();
   if (syncDiagnostics) {
@@ -1134,6 +1139,8 @@ async function parseClaudeIncremental({
   // at 100k entries, and eviction would let bulk history double count.
   let sawUncFile = false;
   let sawLocalFile = false;
+  // P0-3：同 parseRolloutIncremental——游标缓冲到 enqueue 成功后才写回。
+  const pendingCursorWrites = [];
   for (const entry of files) {
     const p = typeof entry === "string" ? entry : entry?.path;
     if (typeof p !== "string" || !p) continue;
@@ -1184,7 +1191,7 @@ async function parseClaudeIncremental({
           // native copy sorts first). Mark it caught-up so future syncs only
           // look at genuinely new tail bytes — message hashes still guard the
           // tail if the copies diverge later.
-          cursors.files[key] = {
+          pendingCursorWrites.push([key, {
             inode,
             offset: st.size,
             updatedAt: new Date().toISOString(),
@@ -1199,7 +1206,7 @@ async function parseClaudeIncremental({
                   projectKey: null,
                 }
               : {}),
-          };
+          }]);
           if (cb) {
             cb({
               index: idx + 1,
@@ -1298,7 +1305,7 @@ async function parseClaudeIncremental({
       forkAliases,
     });
 
-    cursors.files[key] = {
+    pendingCursorWrites.push([key, {
       inode,
       offset: result.endOffset,
       claudeForkIndexed: true,
@@ -1312,7 +1319,7 @@ async function parseClaudeIncremental({
             projectKey,
           }
         : {}),
-    };
+    }]);
 
     filesProcessed += 1;
     eventsAggregated += result.eventsAggregated;
@@ -1333,6 +1340,7 @@ async function parseClaudeIncremental({
   const projectBucketsQueued = projectEnabled
     ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
     : 0;
+  for (const [cursorKey, cursorValue] of pendingCursorWrites) cursors.files[cursorKey] = cursorValue;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
   if (projectState) {
@@ -1376,6 +1384,9 @@ async function parseGeminiIncremental({
   if (!cursors.files || typeof cursors.files !== "object") {
     cursors.files = {};
   }
+
+  // P0-3：同 parseRolloutIncremental——游标缓冲到 enqueue 成功后才写回。
+  const pendingCursorWrites = [];
 
   for (let idx = 0; idx < files.length; idx++) {
     const entry = files[idx];
@@ -1467,7 +1478,7 @@ async function parseGeminiIncremental({
       projectKey,
     });
 
-    cursors.files[key] = {
+    const nextGeminiCursor = {
       inode,
       size,
       mtimeMs,
@@ -1477,7 +1488,7 @@ async function parseGeminiIncremental({
       updatedAt: new Date().toISOString(),
     };
     if (projectKey) {
-      cursors.files[key].project = {
+      nextGeminiCursor.project = {
         projectKey,
         projectRef,
         lastIndex: result.projectLastIndex,
@@ -1486,8 +1497,9 @@ async function parseGeminiIncremental({
         updatedAt: new Date().toISOString(),
       };
     } else if (prev?.project) {
-      cursors.files[key].project = prev.project;
+      nextGeminiCursor.project = prev.project;
     }
+    pendingCursorWrites.push([key, nextGeminiCursor]);
 
     filesProcessed += 1;
     eventsAggregated += result.eventsAggregated;
@@ -1508,6 +1520,7 @@ async function parseGeminiIncremental({
   const projectBucketsQueued = projectEnabled
     ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
     : 0;
+  for (const [cursorKey, cursorValue] of pendingCursorWrites) cursors.files[cursorKey] = cursorValue;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
   if (projectState) {
@@ -1549,6 +1562,9 @@ async function parseOpencodeIncremental({
   if (!cursors.files || typeof cursors.files !== "object") {
     cursors.files = {};
   }
+
+  // P0-3：同 parseRolloutIncremental——游标缓冲到 enqueue 成功后才写回。
+  const pendingCursorWrites = [];
 
   for (let idx = 0; idx < files.length; idx++) {
     const entry = files[idx];
@@ -1619,7 +1635,7 @@ async function parseOpencodeIncremental({
       projectKey,
     });
 
-    cursors.files[key] = {
+    pendingCursorWrites.push([key, {
       inode,
       size,
       mtimeMs,
@@ -1627,7 +1643,7 @@ async function parseOpencodeIncremental({
       messageKey: result.messageKey || null,
       opencodeForkRepairVersion: 1,
       updatedAt: new Date().toISOString(),
-    };
+    }]);
 
     filesProcessed += 1;
     eventsAggregated += result.eventsAggregated;
@@ -1659,6 +1675,7 @@ async function parseOpencodeIncremental({
   const projectBucketsQueued = projectEnabled
     ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
     : 0;
+  for (const [cursorKey, cursorValue] of pendingCursorWrites) cursors.files[cursorKey] = cursorValue;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
   opencodeState.updatedAt = new Date().toISOString();
@@ -3623,6 +3640,9 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
   const codexDominants = collectCodexDominantModels(hourlyState);
 
   const toAppend = [];
+  // P0-3（审计 2026-10-25）：queuedKey / alignedModel / retractedUnknownKey 都在
+  // appendFile 成功后才允许写回（见函数尾部），失败即保持旧值、整段重发。
+  const pendingStamps = [];
   for (const group of groupedBuckets.values()) {
     const unknownBucket = group.buckets.get(DEFAULT_MODEL) || null;
     const dominantModel = pickDominantModel(group.buckets);
@@ -3676,10 +3696,10 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
               conversation_count: zeroTotals.conversation_count,
             }),
           );
-          unknownBucket.retractedUnknownKey = zeroKey;
+          pendingStamps.push([unknownBucket, "retractedUnknownKey", zeroKey]);
         }
       }
-      if (unknownBucket) unknownBucket.alignedModel = null;
+      pendingStamps.push([unknownBucket, "alignedModel", null]);
       for (const [model, bucket] of group.buckets.entries()) {
         if (model === DEFAULT_MODEL) continue;
         let totals = bucket.totals;
@@ -3711,7 +3731,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
             conversation_count: totals.conversation_count,
           }),
         );
-        bucket.queuedKey = key;
+        pendingStamps.push([bucket, "queuedKey", key]);
       }
       continue;
     }
@@ -3764,10 +3784,10 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
             conversation_count: zeroTotals.conversation_count,
           }),
         );
-        unknownBucket.retractedUnknownKey = zeroKey;
+        pendingStamps.push([unknownBucket, "retractedUnknownKey", zeroKey]);
       }
     }
-    if (unknownBucket) unknownBucket.alignedModel = nextAligned;
+    pendingStamps.push([unknownBucket, "alignedModel", nextAligned]);
     const usagePrecision = unknownBucket.usage_precision || null;
     const metadata = antigravityQueueMetadata(group.source, unknownBucket);
     const precisionKey = usagePrecision
@@ -3795,7 +3815,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
         conversation_count: unknownBucket.totals.conversation_count,
       }),
     );
-    unknownBucket.queuedKey = outputKey;
+    pendingStamps.push([unknownBucket, "queuedKey", outputKey]);
   }
 
   if (legacyGroups.size > 0) {
@@ -3844,15 +3864,21 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
           conversation_count: group.totals.conversation_count,
         }),
       );
-      groupQueued[groupKey] = key;
+      pendingStamps.push([groupQueued, groupKey, key]);
     }
   }
-
-  hourlyState.groupQueued = groupQueued;
 
   if (toAppend.length > 0) {
     await fs.appendFile(queuePath, toAppend.join("\n") + "\n", "utf8");
   }
+
+  // P0-3（审计 2026-10-25）：行已 appendFile 成功才把 queuedKey 等状态写回——
+  // 失败时保持旧值，下一轮重发同一批行（读取侧按 key 幂等去重，重发无害）；
+  // 旧顺序「先打戳后落盘」会让这批行在下次 sync 因 queuedKey 相同被永久跳过。
+  for (const [target, prop, value] of pendingStamps) {
+    if (target) target[prop] = value;
+  }
+  hourlyState.groupQueued = groupQueued;
 
   return toAppend.length;
 }
@@ -3873,6 +3899,7 @@ async function enqueueTouchedProjectBuckets({
   await ensureDir(path.dirname(projectQueuePath));
 
   const toAppend = [];
+  const pendingStamps = [];
   for (const key of projectTouchedBuckets) {
     const bucket = projectState.buckets[key];
     if (!bucket || !bucket.totals) continue;
@@ -3900,11 +3927,16 @@ async function enqueueTouchedProjectBuckets({
         conversation_count: totals.conversation_count,
       }),
     );
-    bucket.queuedKey = queuedKey;
+    pendingStamps.push([bucket, "queuedKey", queuedKey]);
   }
 
   if (toAppend.length > 0) {
     await fs.appendFile(projectQueuePath, toAppend.join("\n") + "\n", "utf8");
+  }
+
+  // P0-3：同主队列——append 成功后才打 queuedKey，失败整段重发。
+  for (const [target, prop, value] of pendingStamps) {
+    if (target) target[prop] = value;
   }
 
   return toAppend.length;

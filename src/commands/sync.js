@@ -420,9 +420,47 @@ const BACKGROUND_AUTO_SYNC_SOURCES = new Set([
   "reasonix",
 ]);
 
+// D1（审计 2026-10-25）：auto（钩子触发）是生产最常见路径，stderr 没人看——
+// 解析失败至少落一份标记文件，status / 人工排查能发现「数字变少」的原因。
+let autoParseFailureLogDir = null;
+
+function recordAutoParseFailure(label, err) {
+  if (!autoParseFailureLogDir) return;
+  try {
+    const fssync = require("node:fs");
+    const markerPath = path.join(autoParseFailureLogDir, "sync.parse-failures.json");
+    let state = {};
+    try {
+      state = JSON.parse(fssync.readFileSync(markerPath, "utf8"));
+    } catch {
+      state = {};
+    }
+    if (!state || typeof state !== "object") state = {};
+    const at = new Date().toISOString();
+    const failures = state.failures && typeof state.failures === "object" ? state.failures : {};
+    const entry = failures[label] && typeof failures[label] === "object" ? failures[label] : {};
+    entry.count = Number(entry.count || 0) + 1;
+    entry.last_message = String((err && err.message) || err).slice(0, 500);
+    entry.last_at = at;
+    failures[label] = entry;
+    state.updatedAt = at;
+    state.failures = failures;
+    fssync.writeFileSync(markerPath, JSON.stringify(state, null, 2));
+  } catch {
+    // 诊断标记写不进去也不能干扰主流程。
+  }
+}
+
 function warnProviderParseFailure(label, err, opts) {
-  if (opts?.auto) return;
+  if (opts?.auto) {
+    recordAutoParseFailure(label, err);
+    return;
+  }
   process.stderr.write(`${label} sync: ${err && err.message ? err.message : err}\n`);
+}
+
+function setAutoParseFailureLogDir(dir) {
+  autoParseFailureLogDir = dir;
 }
 
 function mergeParseResult(total, next) {
@@ -620,6 +658,7 @@ async function cmdSync(argv, context = {}) {
     progress = !opts.auto ? createProgress({ stream: process.stdout }) : null;
     const configPath = path.join(trackerDir, "config.json");
     const cursorsPath = path.join(trackerDir, "cursors.json");
+    setAutoParseFailureLogDir(trackerDir);
     const queuePath = path.join(trackerDir, "queue.jsonl");
     const queueStatePath = path.join(trackerDir, "queue.state.json");
     const projectQueuePath = path.join(trackerDir, "project.queue.jsonl");
@@ -4083,6 +4122,8 @@ function recordCodexColdScanAudit(
 module.exports = {
   formatSyncUploadSummaryLine,
   cmdSync,
+  warnProviderParseFailure,
+  setAutoParseFailureLogDir,
   acquireSyncLock,
   readQueueBatch,
   drainQueueToCloud,
