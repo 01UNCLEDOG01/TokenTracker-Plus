@@ -3805,10 +3805,13 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   // TRAE (intl + TRAE SOLO) and the merged Trae CN keep every conversation in
   // one SQLCipher-encrypted local database each — the same stores the usage
   // side reads. Absent installs simply drop out of the session page. The
-  // resolvers read %APPDATA%, so pin it to the caller's home (the workbuddy
-  // discipline): an injected test home must never pick up the real machine's
-  // stores, and the real machine's home resolves to the identical path.
-  const traeEnv = { ...env, APPDATA: path.join(home, "AppData", "Roaming") };
+  // resolvers read %APPDATA%, which the usage side takes from the process
+  // environment: keep that when scanning the real home (a redirected APPDATA
+  // must not split the session browser from the card), and pin it under the
+  // caller's home only for injected test homes, which must never see the real
+  // machine's stores (same guard as the kimi desktop roots below).
+  const usingRealHome = path.resolve(home) === path.resolve((deps.homedir || os.homedir)());
+  const traeEnv = usingRealHome ? env : { ...env, APPDATA: path.join(home, "AppData", "Roaming") };
   const trae = resolveTraeDbPaths(traeEnv).filter((dbPath) => fs.existsSync(dbPath));
   const traeCn = [resolveTraeCnLocalDbPath({ env: traeEnv, home, platform: deps.platform || process.platform })]
     .filter((dbPath) => dbPath && fs.existsSync(dbPath));
