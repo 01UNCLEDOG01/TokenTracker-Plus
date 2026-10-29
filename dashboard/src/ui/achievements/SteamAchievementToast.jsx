@@ -104,6 +104,14 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
   // Title-resonance toasts get their own visual language (iridescent frame),
   // not the achievement promotion flare.
   const isResonance = toast.kind === "resonance";
+  // 共鸣档位胶囊：颜色随青铜/白银/黄金/钻石变化（金=琥珀、钻=青，
+  // 与成就页其他档位色一致）；文字仍是档位名。
+  const RESONANCE_TIER_PILL = {
+    1: "border-amber-800/60 bg-amber-900/20 text-amber-200",
+    2: "border-slate-300/50 bg-slate-300/10 text-slate-100",
+    3: "border-amber-400/60 bg-amber-400/20 text-amber-200",
+    4: "border-cyan-300/60 bg-cyan-400/20 text-cyan-200",
+  };
 
   return (
     <div
@@ -163,7 +171,7 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
             </h4>
 
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/80">
+              <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold ${RESONANCE_TIER_PILL[tier] || "border-white/20 bg-white/10 text-white/80"}`}>
                 <Layers className="h-3 w-3" />
                 <span>
                   {copy(
