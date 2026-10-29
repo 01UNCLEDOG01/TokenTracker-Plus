@@ -116,9 +116,10 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
           : "translate-y-6 opacity-0 scale-95"
       }`}
     >
-      {/* DISTINCT VISUAL 0: TITLE RESONANCE (VIOLET LINK-UP FLOW) */}
+      {/* DISTINCT VISUAL 0: TITLE RESONANCE (IRIDESCENT FRAME + VIOLET LINK-UP FLOW) */}
       {isResonance ? (
-        <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 overflow-hidden rounded-2xl border-2 border-violet-400/80 bg-gradient-to-br from-[#1a1230] via-[#14101f] to-[#0d1017] p-4 text-white shadow-resonance-card backdrop-blur-xl">
+        <div className="relative w-[390px] max-w-[calc(100vw-3rem)] rounded-2xl p-[2px] bg-resonance-iridescent bg-[length:300%_100%] animate-resonance-flow shadow-resonance-card">
+          <div className="relative flex items-center gap-3.5 overflow-hidden rounded-[14px] bg-gradient-to-br from-[#1a1230] via-[#14101f] to-[#0d1017] p-4 text-white backdrop-blur-xl">
           {/* Flowing resonance beam — hue slides along the top edge */}
           <div className="absolute inset-x-0 top-0 h-[3px] bg-resonance-beam bg-[length:200%_100%] animate-resonance-flow" />
 
@@ -186,6 +187,7 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
           >
             <X className="h-4 w-4" />
           </button>
+          </div>
         </div>
       ) : isTierUp ? (
         <div className="relative flex w-[390px] max-w-[calc(100vw-3rem)] items-center gap-3.5 overflow-hidden rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-br from-[#131b2e] via-[#10141f] to-[#0d1017] p-4 text-white shadow-[0_16px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(34,211,238,0.3)] backdrop-blur-xl">

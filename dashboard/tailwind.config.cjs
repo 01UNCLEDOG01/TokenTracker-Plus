@@ -200,6 +200,10 @@ module.exports = {
         // component adds zero new color literals).
         "resonance-beam":
           "linear-gradient(90deg, #8b5cf6, #d946ef, #6366f1, #8b5cf6)",
+        // Iridescent frame for the resonance level-up popup: full-spectrum
+        // gradient, hue-cycled via resonance-flow so the rim keeps shifting.
+        "resonance-iridescent":
+          "linear-gradient(120deg, #f0abfc, #818cf8, #22d3ee, #34d399, #fbbf24, #fb7185, #f0abfc)",
       },
       keyframes: {
         fadeIn: {
