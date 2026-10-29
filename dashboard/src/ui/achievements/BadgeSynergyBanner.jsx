@@ -390,8 +390,12 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
                             {rIdx !== 0 && <span className="text-amber-400 text-xs font-bold">+</span>}
                             <div
                               className="relative group/mini"
-                              title={`${reqName} (要求: ${
+                              title={`${reqName} (要求 ${
                                 req.tier === 4 ? "钻石" : req.tier === 3 ? "黄金" : req.tier === 2 ? "白银" : "青铜"
+                              } · 当前 ${
+                                currentTier >= req.tier
+                                  ? req.tier === 4 ? "钻石" : req.tier === 3 ? "黄金" : req.tier === 2 ? "白银" : "青铜"
+                                  : "未达成"
                               })`}
                             >
                               <img
@@ -430,6 +434,7 @@ export function BadgeSynergyBanner({ badges = [], resonanceTestMode = 0, onSelec
       {detailTitle && (
         <TitleDetailModal
           title={detailTitle.title}
+          testMode={resonanceTestMode}
           resonance={
             detailTitle.title.rainbow
               ? { ...detailTitle.resonance, spectrumTier: spectrumTier(detailTitle.resonance.tier) }

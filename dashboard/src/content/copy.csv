@@ -745,7 +745,7 @@ usage.overview.devin_notice_body,ui,DashboardPage,UsageOverview,devin_notice_bod
 usage.overview.trae_notice_title,ui,DashboardPage,UsageOverview,trae_notice_title,"TRAE cost uses list prices",,active
 usage.overview.trae_notice_body,ui,DashboardPage,UsageOverview,trae_notice_body,"Cost = TokenTracker model price x token count; tokens are measured. In multi-step turns TRAE splits cached input only for the final step, so the cache share of earlier steps is inferred from that final request's hit rate — the figure is a list-price calculation, not a billed amount.",,active
 usage.overview.trae_card_hint,ui,DashboardPage,UsageOverview,trae_card_hint,"price-based estimate",,active
-achievements.resonance.toast_badge,ui,AchievementsPage,SteamAchievementToast,resonance_toast_badge,"TITLE RESONANCE · badge resonance",,active
+achievements.resonance.toast_badge,ui,AchievementsPage,SteamAchievementToast,resonance_toast_badge,"Title · Resonance Upgrade",,active
 achievements.resonance.toast_name_fallback,ui,AchievementsPage,SteamAchievementToast,resonance_toast_name_fallback,"Title resonance",,active
 achievements.resonance.toast_tier_up,ui,AchievementsPage,SteamAchievementToast,resonance_toast_tier_up,"Resonance up to {{tier}}",,active
 achievements.resonance.toast_unlocked,ui,AchievementsPage,SteamAchievementToast,resonance_toast_unlocked,"Resonance reached · {{tier}}",,active

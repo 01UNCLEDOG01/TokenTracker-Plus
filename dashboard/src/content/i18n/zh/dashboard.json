@@ -1264,7 +1264,7 @@
   "achievements.resonance.inactive": "未激活",
   "achievements.resonance.label": "{{tier}}共鸣 · Lv.{{level}}",
   "achievements.resonance.max": "{{tier}}共鸣 · MAX",
-  "achievements.resonance.toast_badge": "TITLE RESONANCE · 羁绊共鸣",
+  "achievements.resonance.toast_badge": "称号·羁绊共鸣升级",
   "achievements.resonance.toast_name_fallback": "羁绊共鸣",
   "achievements.resonance.toast_tier_up": "共鸣升至 {{tier}}",
   "achievements.resonance.toast_unlocked": "共鸣达成 · {{tier}}",

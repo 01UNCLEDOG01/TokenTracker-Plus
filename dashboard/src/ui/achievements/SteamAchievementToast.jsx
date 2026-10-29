@@ -101,7 +101,7 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
   const tier = Number(toast.tier) || 1;
   const tierMeta = TIER_META[tier] || TIER_META[1];
   const isTierUp = Boolean(toast.isTierUp);
-  // Title-resonance toasts get their own visual language (violet link-up),
+  // Title-resonance toasts get their own visual language (iridescent frame),
   // not the achievement promotion flare.
   const isResonance = toast.kind === "resonance";
 
@@ -125,7 +125,8 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
 
           {/* Left emblem with resonance link ring */}
           <div className="relative shrink-0">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-violet-400/70 bg-gradient-to-b from-violet-950/60 to-[#171a21] p-1 shadow-resonance-ring overflow-hidden">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl p-[1.5px] bg-resonance-iridescent bg-[length:300%_100%] animate-resonance-flow overflow-hidden">
+            <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-black p-[3px] overflow-hidden">
               {toast.badge?.art ? (
                 <img
                   src={toast.badge.art}
@@ -136,11 +137,12 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
                   }}
                 />
               ) : (
-                <Link2 className="h-8 w-8 text-violet-300" />
+                <Link2 className="h-8 w-8 text-white/70" />
               )}
             </div>
+            </div>
             {/* Resonance link marker */}
-            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-white border-2 border-[#14101f] shadow-lg">
+            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#1a1230] text-white border-2 border-[#14101f] shadow-lg">
               <Link2 className="h-3.5 w-3.5 stroke-[3]" />
             </span>
           </div>
@@ -149,8 +151,8 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
-                <Link2 className="h-3.5 w-3.5 text-violet-400" />
-                <span className="text-[11px] font-black uppercase tracking-wider text-violet-400">
+                <Link2 className="h-3.5 w-3.5 text-white/70" />
+                <span className="text-[11px] font-black uppercase tracking-wider text-white/80">
                   {copy("achievements.resonance.toast_badge")}
                 </span>
               </div>
@@ -161,7 +163,7 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
             </h4>
 
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md border border-violet-500/50 bg-violet-500/20 px-2 py-0.5 text-xs font-semibold text-violet-300">
+              <span className="inline-flex items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-xs font-semibold text-white/80">
                 <Layers className="h-3 w-3" />
                 <span>
                   {copy(

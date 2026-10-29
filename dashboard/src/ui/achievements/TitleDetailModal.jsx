@@ -24,7 +24,7 @@ function tierLabel(tier) {
  * badges. Member badges are buttons so the caller can open the same achievement
  * detail modal the wall uses.
  */
-export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelectBadge }) {
+export function TitleDetailModal({ title, resonance, badgeMap, testMode = 0, onClose, onSelectBadge }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose?.();
@@ -122,7 +122,10 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
           <div className="mt-3 flex flex-wrap gap-3">
             {title.requiredBadges.map((req) => {
               const owned = badgeMap?.get(req.id);
-              const tier = owned?.tier || 0;
+              const realTier = owned?.tier || 0;
+              // 共鸣测试模式下，卡片标的是测试档位（与横幅卡片完全一致）；
+              // 非测试模式显示成员成就自己的真实品阶。
+              const tier = testMode ? Math.max(realTier, resonance?.tier || 0) : realTier;
               // The badge catalog owns the name; the title only carries a
               // fallback, so renaming a badge can never split the two cards.
               const reqName = copy(badgeCopyKey(req.id, "name")) || req.name;
@@ -148,10 +151,9 @@ export function TitleDetailModal({ title, resonance, badgeMap, onClose, onSelect
                     style={tier >= req.tier ? { borderColor: tierRing, boxShadow: `0 0 10px ${tierRing}` } : undefined}
                   />
                   <span className="line-clamp-2 text-[10px] leading-tight text-white/80">{reqName}</span>
+                  <span className="text-[9px] font-mono text-white/40">要求 {tierLabel(req.tier)}</span>
                   <span className={`text-[9px] font-mono ${tier >= req.tier ? "text-emerald-300" : "text-white/40"}`}>
-                    {tier >= req.tier
-                      ? tierLabel(tier)
-                      : copy("achievements.tier.requirement", { tier: tierLabel(req.tier) })}
+                    当前 {tier >= req.tier ? tierLabel(tier) : "未达成"}
                   </span>
                 </button>
               );

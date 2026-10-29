@@ -284,6 +284,7 @@ export default function AchievementsPage() {
         <TitleDetailModal
           title={selectedTitleInfo.title}
           resonance={selectedTitleInfo.resonance}
+          testMode={resonanceTestMode}
           badgeMap={new Map(merged.map((b) => [b.id, b]))}
           onClose={() => setSelectedTitleInfo(null)}
           onSelectBadge={(id) => {

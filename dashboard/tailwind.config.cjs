@@ -228,7 +228,7 @@ module.exports = {
         },
       },
       boxShadow: {
-        "resonance-card": "0 16px 40px rgba(0, 0, 0, 0.85), 0 0 30px rgba(139, 92, 246, 0.35)",
+        "resonance-card": "0 16px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(34, 211, 238, 0.22), 0 0 48px rgba(244, 114, 182, 0.16)",
         "resonance-ring": "0 0 20px rgba(139, 92, 246, 0.35)",
         "oai-sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
         "oai": "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
