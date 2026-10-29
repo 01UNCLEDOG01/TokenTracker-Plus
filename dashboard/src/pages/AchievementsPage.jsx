@@ -137,6 +137,7 @@ export default function AchievementsPage() {
                       const activeTitle = TITLES_REGISTRY.find((t) => t.id === currentActiveId) || TITLES_REGISTRY[0];
                       const modeTier = nextMode === 5 ? 4 : Math.max(1, nextMode);
                       triggerAchievementNotification({
+                        kind: "resonance",
                         badge: {
                           id: "synergy_resonance",
                           art: activeTitle.art,
