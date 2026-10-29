@@ -245,9 +245,6 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
                 {tier === 4 ? <Gem className="h-3 w-3" /> : <Award className="h-3 w-3" />}
                 <span>晋阶至 {tierMeta.zh}</span>
               </span>
-              <p className="truncate text-xs text-gray-300">
-                {toast.desc || "战绩辉煌，荣耀升级！"}
-              </p>
             </div>
           </div>
 
@@ -304,9 +301,7 @@ function SteamToastCard({ toast, onDismiss, totalQueued }) {
               {toast.name || toast.badge?.id || "新成就达成"}
             </h4>
 
-            <p className="mt-0.5 line-clamp-1 text-xs text-gray-300">
-              {toast.desc || `已达成 ${tierMeta.zh}！`}
-            </p>
+
           </div>
 
           {/* Dismiss button */}

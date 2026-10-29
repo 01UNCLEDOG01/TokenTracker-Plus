@@ -58,6 +58,31 @@ describe("resonance level-up toast", () => {
     expect(frame.className).toContain("animate-resonance-flow");
   });
 
+
+  it("promotion and unlock toasts also drop the description line", () => {
+    render(React.createElement(SteamAchievementContainer));
+    act(() => {
+      triggerAchievementNotification({
+        badge: { id: "badge_a", art: "" },
+        tier: 4,
+        isTierUp: true,
+        name: "晋级成就",
+        desc: "PROMO-DESC-MUST-NOT-RENDER",
+      });
+    });
+    act(() => {
+      triggerAchievementNotification({
+        badge: { id: "badge_b", art: "" },
+        tier: 2,
+        isTierUp: false,
+        name: "解锁成就",
+        desc: "UNLOCK-DESC-MUST-NOT-RENDER",
+      });
+    });
+    expect(screen.queryByText(/PROMO-DESC-MUST-NOT-RENDER/)).toBeNull();
+    expect(screen.queryByText(/UNLOCK-DESC-MUST-NOT-RENDER/)).toBeNull();
+  });
+
   it("the promotion toast keeps its own cyan identity (must stay distinct)", () => {
     render(React.createElement(SteamAchievementContainer));
     act(() => {
