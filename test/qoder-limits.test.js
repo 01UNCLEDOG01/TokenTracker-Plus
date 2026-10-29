@@ -24,7 +24,9 @@ const {
 } = require("../src/lib/qoder-limits");
 
 test("normalizeQoderUsageResponse keeps the three credit pools apart (captured 2026-10-28)", () => {
-  const expiresAt = Date.parse("2026-10-29T00:00:00Z");
+  // Relative, not a literal date: poolExpiresAt drops an expiry at or before
+  // now(), so a hard-coded day turns this test red the moment it passes.
+  const expiresAt = Date.now() + 30 * 864e5;
   const result = normalizeQoderUsageResponse({
     plan_quota: { quota_summary: { used_value: 0, limit_value: 0, remaining_value: 0, usage_percentage: 0, unit: "credits" }, quota_detail: [] },
     resource_package_quota: {
@@ -52,7 +54,7 @@ test("normalizeQoderUsageResponse keeps the three credit pools apart (captured 2
   assert.equal(pack.expires_at, null);
   assert.equal(sota.remaining, 1940);
   assert.equal(sota.percent, 4);
-  assert.equal(sota.expires_at, "2026-10-29T00:00:00.000Z");
+  assert.equal(sota.expires_at, new Date(expiresAt).toISOString());
 });
 
 test("normalizeQoderUsageResponse merges camel-case base and shared quotas", () => {

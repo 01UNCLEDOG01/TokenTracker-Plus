@@ -67,6 +67,7 @@ const TERMINAL_SOURCES = new Map([
 // 只列「容易被误判成终端」的那些；其余未列的按未分类处理（同样非终端）。
 const NON_TERMINAL_SOURCES = new Map([
   ["agent2api", "本地网关，不是人坐在里面的工具"],
+  ["magpie", "本地网关（127.0.0.1:3425），不是人坐在里面的工具"],
   ["antigravity", "IDE：%APPDATA%/Antigravity、Antigravity IDE"],
   ["cursor", "IDE：%APPDATA%/Cursor"],
   ["codearts", "CodeArts IDE（华为 IDE，不是终端程序）"],

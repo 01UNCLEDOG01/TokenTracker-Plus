@@ -459,7 +459,14 @@ const PROVIDER_LOGO_MAP = {
   "KILO-CLI": "/brand-logos/kilo.svg",
   "KILO-CODE": "/brand-logos/kilo.svg",
   LMSTUDIO: "/brand-logos/lmstudio.svg",
-  MIMO: "/brand-logos/mimo.svg",
+  // Magpie's own app mark (yetone/magpie), extracted from the installed
+  // magpie-windows-amd64.exe (256px RT_ICON): a black magpie bird on a white
+  // rounded tile, so the tile stays in both themes.
+  MAGPIE: "/brand-logos/magpie.png?v=1",
+  // Xiaomi MiMo's own app mark, extracted from the installed exe's embedded
+  // icon (256px RT_ICON, RGBA). A white glyph on a black rounded tile, so the
+  // tile stays in both themes — same call as AutoClaw.
+  MIMO: "/brand-logos/mimo.png?v=1",
   // oh-my-pi: multi-color brand mark (pi letterform + plugin connector). pi
   // itself publishes a white-only mark (pi.dev/logo.svg), so it gets the same
   // <img> luminance treatment as AnythingLLM in PROVIDER_LOGO_CLASS_MAP.

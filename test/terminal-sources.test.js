@@ -80,7 +80,7 @@ const KNOWN_SOURCE_KEYS = [
   "kiro-cli", "command-code", "joycode", "dumate", "grok", "omp", "omo", "pi",
   "prime-agent", "openclaw", "every-code", "craft-agents", "hermes-agent", "kilo",
   "kilo-code", "mimo", "droid", "goose", "zed", "cline", "roo", "acode", "anythingllm",
-  "lmstudio", "unsloth", "claudescience", "dots", "muse", "qwen-code",
+  "lmstudio", "unsloth", "claudescience", "dots", "muse", "qwen-code", "magpie",
 ];
 
 test("every collector-emitted source key is classified into one of the three layers", () => {

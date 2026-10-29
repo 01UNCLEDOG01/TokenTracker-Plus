@@ -15636,6 +15636,116 @@ async function parseDevinIncremental({
 
 const AGENT2API_SOURCE = "agent2api";
 
+// A gateway's per-request log and the client's own ledger describe the SAME
+// round trip, so crediting both double-counts it. A row whose client this
+// tracker parses on its own therefore stays with that client and is dropped
+// from the gateway card — unless that client cannot self-certify the input
+// side, in which case the row is credited to the client's card instead of
+// being lost. Measured on this box:
+//   · claude — 483 gateway-model transcript rows, input 0, output normal;
+//   · zcode  — model_usage for self-added providers (`new-provider*`) has
+//              input 0 and cache 0, only output (6,139 glm rows);
+//   · dsh    — bot/usage.sqlite `calls` records full input+cache for
+//              provider `agent2api-glm`, so DSH needs no credit.
+// Names are matched after lowercasing and stripping spaces/underscores/dashes,
+// because gateways derive them from User-Agent ("deepseek-harness" vs
+// "DeepSeek Harness"); a name not in this table keeps the gateway card.
+const GATEWAY_CLIENT_SOURCES = new Map([
+  ["claude", "claude"],
+  ["claudecode", "claude"],
+  ["codex", "codex"],
+  ["codexcli", "codex"],
+  ["zcode", "zcode"],
+  ["deepseekharness", "dsh"],
+  ["dsh", "dsh"],
+  ["gemini", "gemini"],
+  ["geminicli", "gemini"],
+  ["opencode", "opencode"],
+  ["qoder", "qoder"],
+  ["qodercn", "qoder-cn"],
+  ["kimi", "kimi"],
+  ["kimicode", "kimi-code"],
+  ["codebuddy", "codebuddy"],
+  ["cursor", "cursor"],
+  ["copilot", "copilot"],
+  ["githubcopilot", "copilot"],
+  ["trae", "trae"],
+  ["traecn", "trae-cn"],
+  ["cline", "cline"],
+  ["roo", "roocode"],
+  ["roocode", "roocode"],
+  ["kilocode", "kilocode"],
+  ["kilocli", "kilo-cli"],
+  ["zed", "zed"],
+  ["goose", "goose"],
+  ["droid", "droid"],
+  ["pi", "pi"],
+  ["omo", "omo"],
+  ["omp", "omp"],
+  ["ohmypi", "omp"],
+  ["mimo", "mimo"],
+  ["xiaomimimo", "mimo"],
+  ["acode", "acode"],
+  ["astudio", "acode"],
+  ["qwencode", "qwen-code"],
+  ["minimaxcode", "minimax-code"],
+  ["commandcode", "command-code"],
+  ["dumate", "dumate"],
+  ["workbuddy", "workbuddy"],
+  ["lmstudio", "lmstudio"],
+  ["unsloth", "unsloth"],
+  ["anythingllm", "anythingllm"],
+  ["craft", "craft"],
+  ["reasonix", "reasonix"],
+  ["muse", "muse"],
+  ["dots", "dots"],
+  ["primeagent", "prime-agent"],
+  ["loomy", "loomy"],
+  ["autoclaw", "autoclaw"],
+  ["cola", "cola"],
+  ["raccoon", "raccoon"],
+  ["joycode", "joycode"],
+  ["codearts", "codearts"],
+  ["kiro", "kiro"],
+  ["openclaw", "openclaw"],
+  ["everycode", "every-code"],
+  ["claudescience", "claude-science"],
+]);
+
+function gatewayClientSource(value) {
+  const key = String(value || "").toLowerCase().replace(/[\s_-]+/g, "");
+  return key ? GATEWAY_CLIENT_SOURCES.get(key) || null : null;
+}
+
+// Clients whose own ledger misses the input side of a gateway request (see the
+// measurements above). Their gateway rows are credited to the client card.
+const GATEWAY_CREDIT_SOURCES = new Set(["claude", "zcode"]);
+
+// What a credit adds to the client's card. ZCode already logs completion in
+// model_usage (only input/cache are missing), so it gets the input side alone.
+// Claude Code logs nothing usable for these turns (its parser emits a 0-token
+// `unknown` bucket), so its credit keeps the completion. Neither credit adds a
+// conversation: the client's own parser already counted it.
+function gatewayCreditTotals(clientSource, { input, cacheRead, cacheWrite, output }) {
+  const keepOutput = clientSource !== "zcode";
+  const outputTokens = keepOutput ? output : 0;
+  const total = input + cacheRead + cacheWrite + outputTokens;
+  return {
+    keepOutput,
+    totals: {
+      input_tokens: input,
+      cached_input_tokens: cacheRead,
+      cache_creation_input_tokens: cacheWrite,
+      output_tokens: outputTokens,
+      reasoning_output_tokens: 0,
+      total_tokens: total,
+      billable_total_tokens: total,
+      total_cost_usd: 0,
+      conversation_count: 0,
+    },
+  };
+}
+
 function resolveAgent2ApiDbPath(env = process.env) {
   const override =
     typeof env.TOKENTRACKER_AGENT2API_DB === "string" && env.TOKENTRACKER_AGENT2API_DB.trim();
@@ -15662,7 +15772,7 @@ function stageAgent2ApiBuckets(buckets) {
   for (const [key, bucket] of Object.entries(buckets || {})) {
     staged[key] =
       bucket && typeof bucket === "object" &&
-      ["agent2api", "claude"].includes(
+      ["agent2api", "claude", "zcode"].includes(
         normalizeSourceInput(parseBucketKey(key).source) || DEFAULT_SOURCE,
       )
         ? {
@@ -15684,6 +15794,7 @@ async function parseAgent2ApiIncremental({
   onProgress,
   env,
   sqliteOptions,
+  sourceAllowed,
 } = {}) {
   await ensureDir(path.dirname(queuePath));
   const resolvedDb = dbPath || resolveAgent2ApiDbPath(env || process.env);
@@ -15739,16 +15850,17 @@ async function parseAgent2ApiIncremental({
     }
     const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
     if (!bucketStart) continue;
-    // The gateway tags each request with the issuing client. Claude Code
-    // traffic belongs to the claude source (those sessions' own transcripts
-    // carry no input metering behind DeepSeek's Anthropic-compatible
-    // endpoint), so it is re-sourced here while every other client keeps the
-    // gateway card. (2026-10-16)
+    // A client this tracker parses keeps its own ledger, so its gateway row is
+    // dropped to avoid counting the same round trip twice. Clients that cannot
+    // self-certify the input side get the row credited to their own card; a
+    // disabled source cannot receive it, so the row stays on the gateway card.
     const client = String(row.client || "").trim();
-    const isClaudeCode = client.toLowerCase() === "claude code";
-    const source = isClaudeCode ? "claude" : AGENT2API_SOURCE;
+    const target = gatewayAttributionTarget(client, sourceAllowed);
+    if (target === "skip") continue;
+    const isCredit = target !== "gateway" && target !== "skip";
+    const source = isCredit ? target : AGENT2API_SOURCE;
     const model = String(
-      (isClaudeCode ? row.upstream_model || row.client_model : row.client_model || row.upstream_model) || "",
+      (isCredit ? row.upstream_model || row.client_model : row.client_model || row.upstream_model) || "",
     ).trim() || "unknown";
     const output = Number(row.completion_tokens) || 0;
     const cacheRead = Number(row.cache_read_tokens) || 0;
@@ -15759,17 +15871,22 @@ async function parseAgent2ApiIncremental({
     const input = Math.max(0, prompt - cacheRead);
     const total = prompt + output;
     const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
-    addTotals(bucket.totals, {
-      input_tokens: input,
-      cached_input_tokens: cacheRead,
-      cache_creation_input_tokens: 0,
-      output_tokens: output,
-      reasoning_output_tokens: 0,
-      total_tokens: total,
-      billable_total_tokens: total,
-      total_cost_usd: 0,
-      conversation_count: 1,
-    });
+    const credit = isCredit
+      ? gatewayCreditTotals(target, { input, cacheRead, cacheWrite: 0, output })
+      : null;
+    addTotals(bucket.totals, credit
+      ? credit.totals
+      : {
+          input_tokens: input,
+          cached_input_tokens: cacheRead,
+          cache_creation_input_tokens: 0,
+          output_tokens: output,
+          reasoning_output_tokens: 0,
+          total_tokens: total,
+          billable_total_tokens: total,
+          total_cost_usd: 0,
+          conversation_count: 1,
+        });
     touchedBuckets.add(bucketKey(source, model, bucketStart));
     eventsAggregated += 1;
     if (cb) {
@@ -15804,6 +15921,491 @@ async function parseAgent2ApiIncremental({
     updatedAt,
   };
   return { recordsProcessed: rows.length, eventsAggregated, bucketsQueued };
+}
+
+// Resolve who owns a gateway row. A client this tracker parses either keeps it
+// (skip) or receives a credit — but only when that source is actually enabled:
+// a disabled source cannot take the row, so it stays on the gateway card
+// instead of silently vanishing from both cards.
+function gatewayAttributionTarget(client, sourceAllowed) {
+  const clientSource = gatewayClientSource(client);
+  if (!clientSource) return "gateway";
+  if (typeof sourceAllowed === "function" && !sourceAllowed(clientSource)) return "gateway";
+  return GATEWAY_CREDIT_SOURCES.has(clientSource) ? clientSource : "skip";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Magpie (yetone/magpie) — local model gateway on 127.0.0.1:3425
+//
+// Every gateway round trip appends one JSON row to ~/.config/magpie/usage.jsonl
+// (Magpie keeps the XDG-style path on Windows too). The counters are disjoint:
+// `in` is fresh prompt tokens, `cache_read` / `cache_write` stay separate
+// (upstream wording: "neither is in Input"), `out` is the completion.
+// Control traffic in the same file carries a `kind` (model_list /
+// provider_test / api_detect) and must never become usage; non-2xx rows are
+// failures with no billed counters.
+//
+// Only this gateway ledger is ingested. Magpie's own panel also aggregates the
+// agent session logs it manages (internal/usage/ledger.go), which would
+// double-count every source this tracker already reads on its own.
+const MAGPIE_SOURCE = "magpie";
+
+function resolveMagpieUsageLogPath({ home = os.homedir(), env = process.env } = {}) {
+  const override =
+    typeof env.TOKENTRACKER_MAGPIE_LOG === "string" ? env.TOKENTRACKER_MAGPIE_LOG.trim() : "";
+  if (override) return path.resolve(override);
+  const candidates = [path.join(home, ".config", "magpie", "usage.jsonl")];
+  if (typeof env.APPDATA === "string" && env.APPDATA.trim()) {
+    candidates.push(path.join(env.APPDATA.trim(), "magpie", "usage.jsonl"));
+  }
+  return candidates.find((candidate) => fssync.existsSync(candidate)) || candidates[0];
+}
+
+// Same staging rule as Agent2API: only the buckets this parser can write —
+// its own source and the claude credit — get private copies (the enqueue
+// helper stamps queuedKey), every other provider stays shared.
+function stageMagpieBuckets(buckets) {
+  const staged = {};
+  for (const [key, bucket] of Object.entries(buckets || {})) {
+    staged[key] =
+      bucket && typeof bucket === "object" &&
+      ["magpie", "claude", "zcode"].includes(
+        normalizeSourceInput(parseBucketKey(key).source) || DEFAULT_SOURCE,
+      )
+        ? {
+            ...bucket,
+            totals:
+              bucket.totals && typeof bucket.totals === "object"
+                ? { ...bucket.totals }
+                : bucket.totals,
+          }
+        : bucket;
+  }
+  return staged;
+}
+
+function magpieFileEndsWithNewline(filePath, size) {
+  if (!(size > 0)) return false;
+  let fd;
+  try {
+    fd = fssync.openSync(filePath, "r");
+    const buf = Buffer.alloc(1);
+    const read = fssync.readSync(fd, buf, 0, 1, size - 1);
+    return read === 1 && buf[0] === 0x0a;
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fssync.closeSync(fd);
+      } catch {
+        /* ignore close failure */
+      }
+    }
+  }
+}
+
+async function parseMagpieIncremental({ logPath, cursors, queuePath, onProgress, sourceAllowed } = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const resolvedLog = logPath || resolveMagpieUsageLogPath();
+  const priorState =
+    cursors.magpie && typeof cursors.magpie === "object" ? cursors.magpie : {};
+  const touchEmpty = (size, stat) => {
+    cursors.magpie = {
+      version: 1,
+      size,
+      ...(stat ? { mtimeMs: stat.mtimeMs, ino: stat.ino } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  let stat = null;
+  try {
+    stat = fssync.statSync(resolvedLog);
+    if (!stat.isFile()) stat = null;
+  } catch {
+    stat = null;
+  }
+  if (!stat) {
+    touchEmpty(0, null);
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  // usage.jsonl is append-only; resume from the last committed byte and fall
+  // back to 0 on truncation or inode change. A tail without its trailing "\n"
+  // is a write in progress — leave its bytes unconsumed so the line is re-read
+  // once complete instead of being skipped forever.
+  const prevSize = Number(priorState.size) || 0;
+  const inodeChanged =
+    typeof priorState.ino === "number" && priorState.ino !== stat.ino;
+  const startOffset = stat.size < prevSize || inodeChanged ? 0 : prevSize;
+
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  hourlyState.buckets = stageMagpieBuckets(hourlyState.buckets);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+
+  if (stat.size > startOffset) {
+    const endsWithNewline = magpieFileEndsWithNewline(resolvedLog, stat.size);
+    let lastLine = "";
+    const input = fssync.createReadStream(resolvedLog, {
+      encoding: "utf8",
+      start: startOffset,
+      end: stat.size - 1,
+    });
+    const rl = readline.createInterface({ input, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        lastLine = line;
+        if (!line || !line.trim()) continue;
+        let record;
+        try {
+          record = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        recordsProcessed += 1;
+        if (!record || typeof record !== "object") continue;
+        // Probe/control rows (model_list, provider_test, api_detect) are not
+        // usage, whatever their status code says.
+        if (record.kind) continue;
+        const status = Number(record.status);
+        if (!(status >= 200 && status < 300)) continue;
+        const tsMs = Date.parse(String(record.t || ""));
+        if (!Number.isFinite(tsMs)) continue;
+        const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
+        if (!bucketStart) continue;
+        const inputTokens = toNonNegativeNumber(record.in);
+        const outputTokens = toNonNegativeNumber(record.out);
+        const cacheRead = toNonNegativeNumber(record.cache_read);
+        const cacheWrite = toNonNegativeNumber(record.cache_write);
+        const total = inputTokens + outputTokens + cacheRead + cacheWrite;
+        if (total <= 0) continue;
+        // The gateway logs the issuing client. A client this tracker parses
+        // keeps its own ledger, so its gateway row is dropped; clients that
+        // cannot self-certify input get the row credited to their card; a
+        // disabled source cannot receive it, so it stays on the gateway card.
+        const target = gatewayAttributionTarget(record.agent, sourceAllowed);
+        if (target === "skip") continue;
+        const isCredit = target !== "gateway" && target !== "skip";
+        const source = isCredit ? target : MAGPIE_SOURCE;
+        const model =
+          String(record.served || record.model || "").trim() || "unknown";
+        const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
+        const credit = isCredit
+          ? gatewayCreditTotals(target, {
+              input: inputTokens,
+              cacheRead,
+              cacheWrite,
+              output: outputTokens,
+            })
+          : null;
+        addTotals(bucket.totals, credit
+          ? credit.totals
+          : {
+              input_tokens: inputTokens,
+              cached_input_tokens: cacheRead,
+              cache_creation_input_tokens: cacheWrite,
+              output_tokens: outputTokens,
+              reasoning_output_tokens: 0,
+              total_tokens: total,
+              billable_total_tokens: total,
+              total_cost_usd: 0,
+              conversation_count: 1,
+            });
+        touchedBuckets.add(bucketKey(source, model, bucketStart));
+        eventsAggregated += 1;
+        if (cb) {
+          cb({
+            index: recordsProcessed,
+            total: recordsProcessed,
+            recordsProcessed,
+            eventsAggregated,
+            bucketsQueued: touchedBuckets.size,
+          });
+        }
+      }
+    } catch {
+      // Stream failure mid-read: drop this pass and keep the previous cursor so
+      // the same byte range is retried exactly once next sync.
+      cursors.magpie = { ...priorState, version: 1, updatedAt: new Date().toISOString() };
+      return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    }
+    const trailingPartialBytes = endsWithNewline ? 0 : Buffer.byteLength(lastLine, "utf8");
+    const committedSize = Math.max(startOffset, stat.size - trailingPartialBytes);
+    const bucketsQueued = await enqueueTouchedBuckets({
+      queuePath,
+      hourlyState,
+      touchedBuckets,
+    });
+    hourlyState.updatedAt = new Date().toISOString();
+    cursors.hourly = hourlyState;
+    touchEmpty(committedSize, stat);
+    return { recordsProcessed, eventsAggregated, bucketsQueued };
+  }
+
+  touchEmpty(startOffset, stat);
+  return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One-shot repair: move historical Agent2API gateway rows to the attribution
+// the live parsers use (2026-10-29). DSH rows leave the gateway card (its own
+// ledger has them), ZCode rows leave it and credit input+cache to zcode, and
+// the phantom conversation each Claude credit added is removed. Runs inside
+// sync so it shares the real cursor state (v2 store) and the sync lock; the
+// corrected bucket snapshots are appended to the queue, where the reader's
+// last-wins rule makes them authoritative.
+const GATEWAY_ATTRIBUTION_REPAIR_KEY = "gatewayClientAttribution_2026_10";
+
+async function repairGatewayClientAttribution({ cursors, queuePath, dbPath, maxRowId } = {}) {
+  // Only create `cursors.migrations` when there is something to record: sync
+  // state snapshots are asserted field-by-field elsewhere.
+  const alreadyMarked = () => Boolean(
+    cursors.migrations && typeof cursors.migrations === "object"
+    && cursors.migrations[GATEWAY_ATTRIBUTION_REPAIR_KEY],
+  );
+  const markDone = (reason, extra = {}) => {
+    if (!cursors.migrations || typeof cursors.migrations !== "object") cursors.migrations = {};
+    cursors.migrations[GATEWAY_ATTRIBUTION_REPAIR_KEY] = new Date().toISOString();
+    return { skipped: true, reason, ...extra };
+  };
+  if (alreadyMarked()) {
+    return { skipped: true, reason: "already-applied" };
+  }
+  if (!dbPath || !fssync.existsSync(dbPath)) return { skipped: true, reason: "no-database" };
+  // Only rows the OLD rule already consumed may be re-attributed. The live
+  // parser handles everything after that point correctly, so re-running the
+  // repair over its rows would credit zcode twice and strip real claude
+  // conversations. `maxRowId` is the cursor value captured before this sync's
+  // parsers ran; 0 means the database is new to this tracker.
+  const bound = Number(maxRowId);
+  if (!Number.isSafeInteger(bound) || bound <= 0) return markDone("no-legacy-rows");
+
+  const requests = await readSqliteJsonRowsAsync(
+    dbPath,
+    "SELECT ts, client, client_model, upstream_model, prompt_tokens, completion_tokens, "
+      + "cache_read_tokens, status FROM requests WHERE row_id <= " + String(bound) + " ORDER BY row_id",
+    {
+      label: "Agent2API attribution repair",
+      readOnly: true,
+      throwOnReadFailure: true,
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 60_000,
+    },
+  );
+
+  // Lazy require: this module requires rollout back for the shared gateway
+  // map/credit helpers, so the cycle only resolves at call time.
+  const {
+    planGatewayAttributionRepair,
+    applyGatewayAttributionRepair,
+  } = require("./gateway-attribution-repair");
+
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const bucketMap = new Map();
+  for (const [key, bucket] of Object.entries(hourlyState.buckets || {})) {
+    if (bucket && typeof bucket === "object" && bucket.totals && typeof bucket.totals === "object") {
+      bucketMap.set(key, bucket.totals);
+    }
+  }
+
+  const plan = planGatewayAttributionRepair({ requests, buckets: bucketMap });
+  if (!plan.removals.size && !plan.credits.size) return markDone("no-plan");
+
+  // The normalizers alias bucket/totals objects, and the enqueue helper stamps
+  // queuedKey — clone every totals object this repair will mutate.
+  for (const key of [...plan.removals.keys(), ...plan.credits.keys()]) {
+    const bucket = hourlyState.buckets[key];
+    if (bucket && typeof bucket === "object" && bucket.totals && typeof bucket.totals === "object") {
+      hourlyState.buckets[key] = { ...bucket, totals: { ...bucket.totals } };
+      bucketMap.set(key, hourlyState.buckets[key].totals);
+    }
+  }
+  for (const key of plan.credits.keys()) {
+    if (!hourlyState.buckets[key]) {
+      const parsed = parseBucketKey(key);
+      const bucket = getHourlyBucket(hourlyState, parsed.source, parsed.model, parsed.hourStart);
+      bucketMap.set(key, bucket.totals);
+    }
+  }
+
+  const { touched, warnings } = applyGatewayAttributionRepair({ buckets: bucketMap, plan });
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets: touched });
+  hourlyState.updatedAt = new Date().toISOString();
+  cursors.hourly = hourlyState;
+  if (!cursors.migrations || typeof cursors.migrations !== "object") cursors.migrations = {};
+  cursors.migrations[GATEWAY_ATTRIBUTION_REPAIR_KEY] = new Date().toISOString();
+
+  return {
+    skipped: false,
+    removals: plan.removals.size,
+    credits: plan.credits.size,
+    touched: touched.size,
+    bucketsQueued,
+    warnings: warnings.length,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Exact follow-up to the repair above: the delta pass can over-subtract a
+// bucket (the DB knows more known-client rows than the queue counted) and the
+// clamp then eats the unknown-client share in that same bucket. Rebuild the
+// agent2api card from the DB instead — every row whose client this tracker
+// cannot attribute is re-bucketed, and every historical agent2api row is
+// replaced, so the card is exactly the unattributable traffic (no zero-token
+// model rows left behind). The queue is rewritten with a backup, like the
+// mimo repair; the uploader offset is reset because the bytes moved.
+const AGENT2API_CARD_REBUILD_KEY = "gatewayAgent2ApiCardRebuild_2026_10";
+
+async function rebuildAgent2ApiCardFromUnknown({ cursors, queuePath, queueStatePath, dbPath } = {}) {
+  const alreadyMarked = () => Boolean(
+    cursors.migrations && typeof cursors.migrations === "object"
+    && cursors.migrations[AGENT2API_CARD_REBUILD_KEY],
+  );
+  const markDone = (reason) => {
+    if (!cursors.migrations || typeof cursors.migrations !== "object") cursors.migrations = {};
+    cursors.migrations[AGENT2API_CARD_REBUILD_KEY] = new Date().toISOString();
+    return { skipped: true, reason };
+  };
+  if (alreadyMarked()) return { skipped: true, reason: "already-applied" };
+  // No database → nothing to rebuild, but do NOT record the key: an install
+  // that adds Agent2API later must still get the exact rebuild.
+  if (!dbPath || !fssync.existsSync(dbPath)) return { skipped: true, reason: "no-database" };
+  // Rebuild only from rows the parser has already consumed. Including rows it
+  // has not seen yet would count them here and again on the next sync.
+  const consumedRowId = Number(cursors?.agent2api?.lastRowId);
+  if (!Number.isSafeInteger(consumedRowId) || consumedRowId <= 0) return markDone("no-consumed-rows");
+
+  const requests = await readSqliteJsonRowsAsync(
+    dbPath,
+    "SELECT ts, client, client_model, upstream_model, prompt_tokens, completion_tokens, "
+      + "cache_read_tokens, status FROM requests WHERE row_id <= " + String(consumedRowId) + " ORDER BY row_id",
+    {
+      label: "Agent2API card rebuild",
+      readOnly: true,
+      throwOnReadFailure: true,
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 60_000,
+    },
+  );
+
+  const desired = new Map();
+  let unknownRows = 0;
+  for (const row of requests) {
+    if (Number(row.status) !== 200) continue;
+    if (gatewayClientSource(row.client)) continue;
+    unknownRows += 1;
+    const hourStart = toUtcHalfHourStart(new Date(Number(row.ts)).toISOString());
+    if (!hourStart) continue;
+    const prompt = Math.max(0, Number(row.prompt_tokens) || 0);
+    const cache = Math.max(0, Number(row.cache_read_tokens) || 0);
+    const output = Math.max(0, Number(row.completion_tokens) || 0);
+    const input = Math.max(0, prompt - cache);
+    const model = normalizeModelInput(row.client_model || row.upstream_model) || DEFAULT_MODEL;
+    const key = bucketKey(AGENT2API_SOURCE, model, hourStart);
+    const totals = desired.get(key) || {
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+      billable_total_tokens: 0,
+      total_cost_usd: 0,
+      conversation_count: 0,
+    };
+    totals.input_tokens += input;
+    totals.cached_input_tokens += cache;
+    totals.output_tokens += output;
+    totals.total_tokens += prompt + output;
+    totals.billable_total_tokens += prompt + output;
+    totals.conversation_count += 1;
+    desired.set(key, totals);
+  }
+
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+$/, "").replace("T", "-");
+  const raw = fssync.existsSync(queuePath) ? fssync.readFileSync(queuePath, "utf8") : "";
+  const kept = [];
+  let removed = 0;
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    let row;
+    try {
+      row = JSON.parse(line);
+    } catch {
+      kept.push(line);
+      continue;
+    }
+    if (row && row.source === AGENT2API_SOURCE) {
+      removed += 1;
+      continue;
+    }
+    kept.push(line);
+  }
+  const rebuilt = [...desired.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, totals]) => {
+    const parsed = parseBucketKey(key);
+    return JSON.stringify({
+      source: AGENT2API_SOURCE,
+      model: parsed.model,
+      hour_start: parsed.hourStart,
+      input_tokens: totals.input_tokens,
+      cached_input_tokens: totals.cached_input_tokens,
+      cache_creation_input_tokens: totals.cache_creation_input_tokens,
+      output_tokens: totals.output_tokens,
+      reasoning_output_tokens: totals.reasoning_output_tokens,
+      total_tokens: totals.total_tokens,
+      billable_total_tokens: totals.billable_total_tokens,
+      total_cost_usd: totals.total_cost_usd,
+      conversation_count: totals.conversation_count,
+    });
+  });
+
+  if (removed || rebuilt.length) {
+    if (fssync.existsSync(queuePath)) {
+      fssync.copyFileSync(queuePath, `${queuePath}.bak-agent2api-rebuild-${stamp}`);
+    }
+    const tmp = `${queuePath}.agent2api-rebuild.${process.pid}.${Date.now()}`;
+    const body = [...kept, ...rebuilt];
+    fssync.writeFileSync(tmp, body.length ? `${body.join("\n")}\n` : "", "utf8");
+    fssync.renameSync(tmp, queuePath);
+  }
+
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const buckets = hourlyState.buckets;
+  for (const key of Object.keys(buckets)) {
+    if (key.startsWith(`${AGENT2API_SOURCE}${BUCKET_SEPARATOR}`)) delete buckets[key];
+  }
+  for (const [key, totals] of desired) {
+    buckets[key] = { totals: { ...totals }, queuedKey: null };
+  }
+  hourlyState.updatedAt = new Date().toISOString();
+  cursors.hourly = hourlyState;
+
+  // The queue was rewritten (new inode), so the uploader's byte offset no
+  // longer points at the end of what it consumed.
+  if (queueStatePath && fssync.existsSync(queueStatePath)) {
+    try {
+      const state = JSON.parse(fssync.readFileSync(queueStatePath, "utf8"));
+      state.offset = 0;
+      state.updatedAt = new Date().toISOString();
+      fssync.writeFileSync(queueStatePath, JSON.stringify(state));
+    } catch {
+      /* queue state is advisory; the next upload pass re-derives it */
+    }
+  }
+
+  if (!cursors.migrations || typeof cursors.migrations !== "object") cursors.migrations = {};
+  cursors.migrations[AGENT2API_CARD_REBUILD_KEY] = new Date().toISOString();
+  return {
+    skipped: false,
+    removed,
+    rebuilt: rebuilt.length,
+    unknownRows,
+    models: new Set([...desired.keys()].map((key) => parseBucketKey(key).model)).size,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27172,6 +27774,14 @@ module.exports = {
   resolveDevinDbPath,
   resolveAgent2ApiDbPath,
   parseAgent2ApiIncremental,
+  resolveMagpieUsageLogPath,
+  parseMagpieIncremental,
+  gatewayClientSource,
+  gatewayCreditTotals,
+  GATEWAY_ATTRIBUTION_REPAIR_KEY,
+  repairGatewayClientAttribution,
+  AGENT2API_CARD_REBUILD_KEY,
+  rebuildAgent2ApiCardFromUnknown,
   readDevinUsageRows,
   parseDevinIncremental,
   resolveGooseDbPath,

@@ -139,6 +139,10 @@ const {
 
   resolveAgent2ApiDbPath,
   parseAgent2ApiIncremental,
+  repairGatewayClientAttribution,
+  rebuildAgent2ApiCardFromUnknown,
+  resolveMagpieUsageLogPath,
+  parseMagpieIncremental,
   resolveDevinDbPath,
   parseDevinIncremental,
   resolveGooseDbPath,
@@ -384,6 +388,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "kimi-code",
   "lmstudio",
   "loomy",
+  "magpie",
   "mimo",
   "minimax-code",
   "muse",
@@ -2010,6 +2015,10 @@ async function cmdSync(argv, context = {}) {
     }
 
     // ── Agent2API — local multi-provider gateway (server-side usage truth) ──
+    // Ceiling of rows the OLD attribution rule already consumed; the one-time
+    // repair may only touch those, because this parser handles everything after
+    // it with the current rule.
+    const gatewayLegacyRowId = Number(cursors.agent2api?.lastRowId) || 0;
     let agent2apiResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     if (sourceAllowed("agent2api")) {
       const agent2apiDbPath = resolveAgent2ApiDbPath(process.env);
@@ -2021,9 +2030,30 @@ async function cmdSync(argv, context = {}) {
             cursors,
             queuePath,
             onProgress: makeProviderProgress("Agent2API"),
+            sourceAllowed,
           });
         } catch (err) {
           warnProviderParseFailure("Agent2API", err, opts);
+        }
+      }
+    }
+
+    // ── Magpie — local model gateway (127.0.0.1:3425) usage ledger ──
+    let magpieResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (sourceAllowed("magpie")) {
+      const magpieLogPath = resolveMagpieUsageLogPath();
+      if (magpieLogPath && fssync.existsSync(magpieLogPath)) {
+        if (progress?.enabled) progress.start(`Parsing Magpie ${renderBar(0)} | buckets 0`);
+        try {
+          magpieResult = await parseMagpieIncremental({
+            logPath: magpieLogPath,
+            cursors,
+            queuePath,
+            onProgress: makeProviderProgress("Magpie"),
+            sourceAllowed,
+          });
+        } catch (err) {
+          warnProviderParseFailure("Magpie", err, opts);
         }
       }
     }
@@ -3524,6 +3554,50 @@ async function cmdSync(argv, context = {}) {
       await applyCloudConversationsBackfill({ cursors, queueStatePath });
     }
 
+    // One-shot (2026-10-29): re-attribute historical Agent2API rows. Runs after
+    // every parser so the client buckets it credits already exist in state.
+    let gatewayRepairResult = { skipped: true, touched: 0, bucketsQueued: 0 };
+    let gatewayRepairFailed = false;
+    try {
+      gatewayRepairResult = await repairGatewayClientAttribution({
+        cursors,
+        queuePath,
+        dbPath: resolveAgent2ApiDbPath(process.env),
+        maxRowId: gatewayLegacyRowId,
+      });
+      if (!gatewayRepairResult.skipped && !opts.auto) {
+        console.log(`Gateway attribution repair: ${gatewayRepairResult.removals} removals, `
+          + `${gatewayRepairResult.credits} credits, ${gatewayRepairResult.touched} buckets, `
+          + `${gatewayRepairResult.warnings} clamps`);
+      }
+    } catch (err) {
+      gatewayRepairFailed = true;
+      warnProviderParseFailure("Gateway attribution repair", err, opts);
+    }
+
+    // Exact follow-up: rebuild the agent2api card from the DB so the delta
+    // pass's clamps cannot leave a wrong model split. Skipped when the repair
+    // failed: the rebuild records its own key, so running it without the
+    // repair would leave the zcode/claude side permanently uncorrected.
+    let gatewayRebuildResult = { skipped: true };
+    if (!gatewayRepairFailed) {
+      try {
+        gatewayRebuildResult = await rebuildAgent2ApiCardFromUnknown({
+          cursors,
+          queuePath,
+          queueStatePath,
+          dbPath: resolveAgent2ApiDbPath(process.env),
+        });
+        if (!gatewayRebuildResult.skipped && !opts.auto) {
+          console.log(`Agent2API card rebuild: ${gatewayRebuildResult.removed} rows replaced, `
+            + `${gatewayRebuildResult.rebuilt} buckets, ${gatewayRebuildResult.models} models, `
+            + `${gatewayRebuildResult.unknownRows} unattributed rows`);
+        }
+      } catch (err) {
+        warnProviderParseFailure("Agent2API card rebuild", err, opts);
+      }
+    }
+
     const totalParsed =
       parseResult.filesProcessed +
       openclawResult.filesProcessed +
@@ -3562,6 +3636,7 @@ async function cmdSync(argv, context = {}) {
 
       kiloResult.recordsProcessed +
       dumateResult.recordsProcessed +
+      magpieResult.recordsProcessed +
       mimoResult.recordsProcessed +
       zcodeResult.recordsProcessed +
       kilocodeResult.recordsProcessed +
@@ -3610,6 +3685,7 @@ async function cmdSync(argv, context = {}) {
       devinResult.bucketsQueued +
       kiloResult.bucketsQueued +
       dumateResult.bucketsQueued +
+      magpieResult.bucketsQueued +
       mimoResult.bucketsQueued +
       zcodeResult.bucketsQueued +
       kilocodeResult.bucketsQueued +
@@ -3619,7 +3695,8 @@ async function cmdSync(argv, context = {}) {
       gooseResult.bucketsQueued +
       dshResult.bucketsQueued +
       commandCodeResult.bucketsQueued +
-      droidResult.bucketsQueued;
+      droidResult.bucketsQueued +
+      (gatewayRepairResult.bucketsQueued || 0);
     const skipNoOpCursorCommit =
       opts.auto &&
       !isFullSourceScan &&
@@ -3627,6 +3704,8 @@ async function cmdSync(argv, context = {}) {
       cursorStore.requiresCommit !== true &&
       totalParsed === (commandCodeResult.cursorUnchanged ? commandCodeResult.recordsProcessed : 0) &&
       totalBuckets === 0 &&
+      !(gatewayRepairResult.touched > 0) &&
+      gatewayRebuildResult.skipped &&
       !(workbuddyResult.projectBucketsQueued > 0) &&
       !(workbuddyAiResult.projectBucketsQueued > 0) &&
       !workbuddyResult.projectCursorUpdated &&

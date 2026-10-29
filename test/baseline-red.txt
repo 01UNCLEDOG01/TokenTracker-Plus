@@ -1,4 +1,3 @@
-Claude Code client traffic is re-sourced to the claude source
 Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves
 an edition mismatch is rejected before opening its proxy
 china and international hosts stay on their own allowlists

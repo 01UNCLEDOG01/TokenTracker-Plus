@@ -108,7 +108,7 @@ test("agent2api parser tolerates a missing database", async () => {
 });
 
 
-test("Claude Code client traffic is re-sourced to the claude source", async () => {
+test("agent2api rows are attributed by client: credit claude/zcode, skip dsh, keep unknown", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tt-agent2api-cc-"));
   const dbPath = path.join(dir, "agent2api.db");
   const queuePath = path.join(dir, "queue.jsonl");
@@ -125,25 +125,36 @@ test("Claude Code client traffic is re-sourced to the claude source", async () =
   );
   // Claude Code client → claude source, upstream SKU as the model id.
   insert.run(base, "Claude Code", "deepseek-flash", "deepseek-v4-1-flash", 600_000, 20_000, 620_000, 500_000, 200);
-  // ZCode client → keeps the gateway card.
-  insert.run(base + 60_000, "ZCode", "sn-deepseek-v4-1-flash", "sn-deepseek-v4-1-flash", 300_000, 10_000, 310_000, 250_000, 200);
-  // A claude-code row with a client the parser does not know → gateway card.
+  // ZCode cannot self-certify input for self-added providers (input 0 in its
+  // model_usage), so its gateway row is credited to the zcode card.
+  insert.run(base + 60_000, "ZCode", "glm-5.3-flash", "glm-5.3-flash", 300_000, 10_000, 310_000, 250_000, 200);
+  // DeepSeek Harness records full input+cache in bot/usage.sqlite → dropped
+  // from the gateway card instead of credited.
+  insert.run(base + 90_000, "deepseek-harness", "glm-5.3-flash", "glm-5.3-flash", 50_000, 5_000, 55_000, 0, 200);
+  // A client the parser does not know → gateway card.
   insert.run(base + 120_000, "other", "deepseek-flash", "deepseek-v4-1-flash", 1_000, 100, 1_100, 0, 200);
   db.close();
 
   const cursors = {};
   const first = await parseAgent2ApiIncremental({ cursors, queuePath, dbPath, env: {} });
-  assert.equal(first.eventsAggregated, 3);
+  assert.equal(first.eventsAggregated, 3, "dsh is skipped; claude/zcode/other are counted");
 
   const rows = readQueueRows(queuePath);
   const byKey = Object.fromEntries(rows.map((r) => [`${r.source}|${r.model}`, r]));
-  const cc = byKey["claude|deepseek-v4-1-flash"];
+  const cc = byKey["claude|deepseek-v4.1-flash"];
   assert.ok(cc, "claude-sourced row for the Claude Code client");
-  assert.equal(cc.model, "deepseek-v4-1-flash", "claude rows carry the upstream SKU");
+  assert.equal(cc.model, "deepseek-v4.1-flash", "claude rows carry the canonical upstream SKU");
   assert.equal(cc.total_tokens, 620_000);
-  const gw = byKey["agent2api|sn-deepseek-v4-1-flash"];
-  assert.ok(gw, "non-claude-code clients keep the gateway card");
-  assert.equal(gw.total_tokens, 310_000);
+  assert.equal(cc.conversation_count, 0, "credit must not add a conversation the transcript already counted");
+  const zc = byKey["zcode|glm-5.3-flash"];
+  assert.ok(zc, "ZCode rows fill the zcode card, not the gateway card");
+  assert.equal(zc.total_tokens, 300_000, "input + cache only; ZCode already logs completion");
+  assert.equal(zc.output_tokens, 0, "credit must not duplicate ZCode's own output");
+  assert.equal(zc.conversation_count, 0, "the client's parser already counted the conversation");
+  assert.ok(
+    !byKey["agent2api|glm-5.3-flash"],
+    "deepseek-harness rows are dropped: its own ledger already meters input",
+  );
   const other = byKey["agent2api|deepseek-flash"];
   assert.ok(other, "unknown clients keep the gateway card (client_model first)");
   assert.equal(other.total_tokens, 1_100);

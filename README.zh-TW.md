@@ -1,13 +1,13 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>跨 53 款 AI 編碼工具與 IDE，看清你到底在 AI 上花了多少錢與即時 Token 速率</strong></p>
+  <p><strong>跨 54 款 AI 編碼工具與 IDE，看清你到底在 AI 上花了多少錢與即時 Token 速率</strong></p>
   <p>
     <a href="./README.md">简体中文</a> · <b>繁體中文</b> · <a href="./README.en.md">English</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.pt-BR.md">Português (BR)</a>
   </p>
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-    <a href="#-支援的-ai-工具列表53-款"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="53 Supported AI Tools" /></a>
+    <a href="#-支援的-ai-工具列表54-款"><img src="https://img.shields.io/badge/AI%20Tools-54%20Supported-brightgreen.svg" alt="54 Supported AI Tools" /></a>
     <a href="#-快速開始"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-數據與隱私準則"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
@@ -18,7 +18,7 @@
 
 > 💡 **關於本倉庫**：TT-plus 是基於原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT 許可）深度重構的單機與自託管增強版。核心目標是**100% 本地優先**、**真值計費**、**會話拓撲下鑽**與**全鏈路 Token 生成速率即時捕獲**。上游版權歸原作者所有，本改造同樣遵循 MIT 協議開源。上游官方不為此 fork 提供支援或背書。
 
-[✨ 核心特性](#-核心特性) · [🔌 支援的工具](#-支援的-ai-工具列表53-款) · [⚡ 快速開始](#-快速開始) · [💰 計費與熱力圖](#-費用口徑與熱力圖準則) · [🖼️ 介面預覽](#-介面預覽) · [🆚 三方對比](#-為什麼選-tokentracker-plus) · [🔒 數據與隱私](#-數據與隱私準則) · [📜 使用指南](./docs/getting-started.zh-CN.md) · [❤️ 支持本項目](./SPONSOR.md)
+[✨ 核心特性](#-核心特性) · [🔌 支援的工具](#-支援的-ai-工具列表54-款) · [⚡ 快速開始](#-快速開始) · [💰 計費與熱力圖](#-費用口徑與熱力圖準則) · [🖼️ 介面預覽](#-介面預覽) · [🆚 三方對比](#-為什麼選-tokentracker-plus) · [🔒 數據與隱私](#-數據與隱私準則) · [📜 使用指南](./docs/getting-started.zh-CN.md) · [❤️ 支持本項目](./SPONSOR.md)
 
 ---
 
@@ -39,7 +39,7 @@ node bin/tracker.js
 
 # 常用操作
 node bin/tracker.js sync       # 手動增量同步
-node bin/tracker.js status     # 查看 53 款工具 hook / 解析器掛接狀態
+node bin/tracker.js status     # 查看 54 款工具 hook / 解析器掛接狀態
 node bin/tracker.js status --json  # 機器可讀 JSON 輸出（供 AI Agent 管道處理）
 node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 ```
@@ -47,7 +47,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 **30 秒內你能看到什麼：**
 - 📊 **本地 Dashboard**（預設 `http://localhost:7680`）—— 總花費、每日趨勢、按模型明細、項目歸屬與會話拓撲。
 - ⚡ **毫秒級 Token 速率流** —— 自動接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客戶端的即時生成速率（`tok/s`）。
-- 🔌 **全自動掃描掛接** —— 自動識別掛接本地已安裝的 53 款 AI 編碼工具，零帳號綁定、零 API Key 洩漏風險。（可選：個別限額卡需自行重新整理本地憑證，如 Qoder 限額卡用倉庫根目錄的 `Qoder-*-刷新Cookie` 指令碼；核心用量統計零設定可用。）
+- 🔌 **全自動掃描掛接** —— 自動識別掛接本地已安裝的 54 款 AI 編碼工具，零帳號綁定、零 API Key 洩漏風險。（可選：個別限額卡需自行重新整理本地憑證，如 Qoder 限額卡用倉庫根目錄的 `Qoder-*-刷新Cookie` 指令碼；核心用量統計零設定可用。）
 - 🏆 **65 枚成就全量離線判定** —— 100% 按本機本地佇列解鎖，無需連接公網排行榜服務。
 
 > **想要原生桌面端？**
@@ -59,7 +59,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 ## ✨ 核心特性
 
-- 🔌 **專為多平台重度開發者打造（支援 53 款工具）** —— 專為日常混合使用多款 AI 客戶端的高強度極客設計。無論是終端 CLI、VS Code / Cursor 插件，還是原生桌面 IDE，一鍵免密掛接全部碎片化帳本，無需來回切換 10+ 網站查帳。
+- 🔌 **專為多平台重度開發者打造（支援 54 款工具）** —— 專為日常混合使用多款 AI 客戶端的高強度極客設計。無論是終端 CLI、VS Code / Cursor 插件，還是原生桌面 IDE，一鍵免密掛接全部碎片化帳本，無需來回切換 10+ 網站查帳。
 - 💰 **全網獨家：Free 模型真值計費（看清自己到底白嫖賺了多少）** —— 堅決拒絕上游將 -free 路由粗暴歸零！免費/限免模型一律按官方公開刊例價折算真實算力價值，清清楚楚量化自己薅到了多少真金白銀的算力，專屬解鎖【白嫖之光】勳章與【零元精算巨匠】極客稱號。
 - ⚡ **奈秒級 Token 生成速率捕獲** —— 自研多源速率解析與 SQLite WAL 無鎖感知，毫秒級流式分段，獨立核算思考模型推理 tokens，精準輸出會話級 	ok/s。
 - 🏠 **100% 本地優先與嚴格隱私保護** —— 跑在本地。直接讀取本機日誌與資料庫，程式碼正文、Prompt 絕不離開你的電腦，嚴禁收錄或洩漏任何個人敏感帳號資訊。
@@ -117,7 +117,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | 功能維度 | ⚡ **TokenTracker Plus (本分支)** | 📦 **原版 TokenTracker (上游)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **定位與架構** | **宏觀全局帳本 + 深度拓撲 + 即時速率** | 通用全能看板（含官方雲託管） | 極簡桌面即時懸浮窗 |
-| **支援的 AI 工具數** | **53 款**（覆蓋國內外全譜系工具與本地端） | 46 款 | ~15 款（主要覆蓋主流模型 API 與常見 CLI） |
+| **支援的 AI 工具數** | **54 款**（覆蓋國內外全譜系工具與本地端） | 46 款 | ~15 款（主要覆蓋主流模型 API 與常見 CLI） |
 | **限額追蹤** | **✅ 18 家 provider**（即時限額窗口與重置倒數計時） | 10 家 provider | ⚠️ 基礎限額展示 |
 | **主要交互方式** | **Windows 系統匣 + Web Dashboard + 小組件 + CLI** | macOS 選單列 + Web Dashboard + 小組件 + CLI | 桌面極簡懸浮窗 |
 | **數據隱私與存儲** | **100% 本地優先**（零強制外傳，多端 WAL 感知） | 本地 SQLite + 可選官方雲端同步 | 本地 SQLite WAL（無宏觀歷史報表） |
@@ -131,9 +131,9 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 ---
 
-## 🔌 支援的 AI 工具列表（53 款）
+## 🔌 支援的 AI 工具列表（54 款）
 
-本倉庫當前支援的 **53 款 AI 編碼工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 為準）：
+本倉庫當前支援的 **54 款 AI 編碼工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 為準）：
 
 | 工具名稱 | 識別方式 | 接入方式與機制 | Fork 增強說明 |
 |---|:---:|---|---|
@@ -169,7 +169,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | **Zed Agent** | ✅ 自動 | 被動讀取 SQLite（`threads.db`） | 僅統計託管模型與會話 |
 | **Goose** | ✅ 自動 | 被動會話日誌掃描 | 相容開源 Goose 會話格式 |
 | **Droid** (Factory) | ✅ 自動 | 被動讀取會話軌跡與事件流 | 準確提取模型與用量指標 |
-| **Mimo** | ✅ 自動 | 被動 SQLite 解析 | 支援本地資料庫提取 |
+| **Xiaomi MiMo** | ✅ 自動 | 被動 SQLite 解析 | 支援本地資料庫提取 |
 | **DuMate** (百度) | ✅ 自動 | 被動讀取會話日誌 | 支援 `TOKENTRACKER_DUMATE_HOME` 覆蓋 |
 | **ZCode** | ✅ 自動 | 被動讀取會話日誌 + 速率探針 | **會話層下鑽與毫秒級 tok/s 捕獲** |
 | **Qoder** | ✅ 自動 | 被動讀取 `~/.qoder[-cn]/projects/**/*.jsonl` | **支援國際版與國內版細化模型與積分對帳** |
@@ -189,6 +189,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | **Cola** | ✅ 自動 | 協作 Agent 日誌接入 | 本地安全同步 |
 | **Tuanjie Cowork** | ✅ 自動 | 協作工作流日誌接入 | 團隊端本地用量解析 |
 | **Agent2API** | ✅ 自動 | 本地閘道器與 Agent 映射用量歸集 | 面向多模型路由用量 |
+| **Magpie** | ✅ 自動 | 被動讀取本地閘道用量帳本（`~/.config/magpie/usage.jsonl`） | 只統計經它轉發的請求，不重複計客戶端會話 |
 | **商湯小浣熊** | ✅ 自動 | 被動讀取桌面端 agent 軌跡（`~/.office-raccoon/agent/log/sessions`） | 只取 `llm.response` 的 usage，不碰 agent2api |
 
 ---
@@ -197,7 +198,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 ```mermaid
 flowchart LR
-    A["53 款 AI 編碼工具<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder 等)"] -->|Hook 觸發 / 被動探測| B[TokenTracker Plus 核心引擎]
+    A["54 款 AI 編碼工具<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder 等)"] -->|Hook 觸發 / 被動探測| B[TokenTracker Plus 核心引擎]
     B -->|速率解析 & 思考Token拆分<br/>SQLite WAL 無鎖感知| C[(本地 SQLite & 佇列快照)]
     C --> D[Web Dashboard 介面]
     C --> E[Windows 系統匣 & 藥丸]
@@ -221,6 +222,7 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **堅決拒絕上游 `-free` 歸零規則**：上游將帶 `-free` 字尾的模型統一強制歸 $0，本 fork 永久拒絕該規則，所有模型嚴格按照廠商真實刊例單價計費，反映真實的 AI 生產力成本。
 - **價格數據源**：聚合 LiteLLM 全量官方價表 + `src/lib/pricing/curated-overrides.json` 本地精選校準；未公開價格的模型只記錄 token 數量，絕不胡亂捏造虛假金額。
 - **WorkBuddy 積分與雙源核算**：獨立支援 WorkBuddy 標準版與進階版，將消耗積分與官方代幣嚴格對帳，防止雙計。
+- **閘道（中轉）歸屬**：Agent2API / Magpie 這類本地閘道只保留「客戶端無法自證」的請求——呼叫方能對上已獨立解析的客戶端（DSH、Codex 等）就跳過；客戶端帳本記不了輸入的（Claude Code、ZCode）用閘道資料補進它自己的卡（ZCode 只補輸入與快取，Claude Code 保留輸出）。所以閘道卡上只剩無法歸屬的流量，不會與客戶端卡重複。
 
 ### 熱力圖色階與數據分析（Lv0 ~ Lv7 八階色階 · 含 Lv7 宇宙奇點）
 熱力圖採用全新 **8 階色階體系**，在 6 個關鍵分位點（`P30`, `P55`, `P75`, `P88`, `P95`, `P98.5`）基礎上拓展單日突破 30 億極限爆發的宇宙奇點色階：

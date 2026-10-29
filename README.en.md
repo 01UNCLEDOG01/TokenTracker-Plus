@@ -1,13 +1,13 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>Track real AI token costs, session topologies, and real-time generation speeds across 53 AI coding tools & IDEs</strong></p>
+  <p><strong>Track real AI token costs, session topologies, and real-time generation speeds across 54 AI coding tools & IDEs</strong></p>
   <p>
     <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <b>English</b> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.pt-BR.md">Português (BR)</a>
   </p>
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-    <a href="#-supported-ai-tools-53"><img src="https://img.shields.io/badge/AI%20Tools-53%20Supported-brightgreen.svg" alt="53 Supported AI Tools" /></a>
+    <a href="#-supported-ai-tools-54"><img src="https://img.shields.io/badge/AI%20Tools-54%20Supported-brightgreen.svg" alt="54 Supported AI Tools" /></a>
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
     <a href="#-data--privacy"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-key-features"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
@@ -18,7 +18,7 @@
 
 > 💡 **About this repository**: TT-plus is an enhanced standalone fork based on the original open-source project [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) (MIT License). Its core objectives are **100% local-first privacy**, **strict true-value billing**, **deep agent session topologies**, and **full-pipeline real-time token speed capture**. All original upstream design and copyrights belong to the upstream author. This fork is also open-sourced under the MIT License and is not officially supported or endorsed by the upstream project.
 
-[✨ Key Features](#-key-features) · [🔌 Supported Tools](#-supported-ai-tools-53) · [⚡ Quick Start](#-quick-start) · [💰 Billing & Heatmap](#-billing--heatmap-standards) · [🖼️ Preview](#-preview) · [🆚 Comparison](#-why-choose-tokentracker-plus) · [🔒 Privacy](#-data--privacy) · [📜 Beginner's Guide](./docs/getting-started.zh-CN.md) · [❤️ Support](./SPONSOR.md)
+[✨ Key Features](#-key-features) · [🔌 Supported Tools](#-supported-ai-tools-54) · [⚡ Quick Start](#-quick-start) · [💰 Billing & Heatmap](#-billing--heatmap-standards) · [🖼️ Preview](#-preview) · [🆚 Comparison](#-why-choose-tokentracker-plus) · [🔒 Privacy](#-data--privacy) · [📜 Beginner's Guide](./docs/getting-started.zh-CN.md) · [❤️ Support](./SPONSOR.md)
 
 ---
 
@@ -39,7 +39,7 @@ node bin/tracker.js
 
 # Daily operations
 node bin/tracker.js sync       # Trigger incremental sync
-node bin/tracker.js status     # Inspect hook / parser status for all 53 tools
+node bin/tracker.js status     # Inspect hook / parser status for all 54 tools
 node bin/tracker.js status --json  # Machine-readable JSON output for AI pipelines
 node bin/tracker.js doctor     # System diagnostics and health check
 ```
@@ -47,7 +47,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 **What you can see in 30 seconds:**
 - 📊 **Local Dashboard** (default: `http://localhost:7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
-- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 53 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
+- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 54 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
 - 🏆 **65 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
 
 > **Looking for native desktop apps?**
@@ -59,7 +59,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ## ✨ Key Features
 
-- 🔌 **Built for Multi-Platform Power Users (53 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
+- 🔌 **Built for Multi-Platform Power Users (54 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
 - 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
 - ⚡ **Nanosecond Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
 - 🏠 **100% Local-First & Zero Privacy Risk** — Runs strictly locally. Parses on-device logs and databases; code snippets, prompts, and personal account credentials never leave your computer.
@@ -117,7 +117,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 | Feature Dimension | ⚡ **TokenTracker Plus (This Fork)** | 📦 **Original TokenTracker (Upstream)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **Architecture & Focus** | **Macro Ledger + Deep Topology + Real-Time Speed** | General All-in-One Dashboard (optional hosted cloud) | Minimalist Desktop Floating Widget |
-| **AI tools supported** | **53** | 46 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
+| **AI tools supported** | **54** | 46 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
 | **Rate-limit tracking** | **✅ 18 providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
 | **Primary Interaction** | **Windows Tray + Web Dashboard + Widgets + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
 | **Data Privacy & Storage** | **100% Local-First** (Zero cloud requirement, WAL-aware) | Local SQLite + Optional official cloud sync | Local SQLite WAL (No macro historical reporting) |
@@ -131,9 +131,9 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ---
 
-## 🔌 Supported AI Tools (53)
+## 🔌 Supported AI Tools (54)
 
-Canonical list of the **53 supported AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`):
+Canonical list of the **54 supported AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`):
 
 | Tool | Detection | Integration Mechanism | Fork Enhancements |
 |---|:---:|---|---|
@@ -169,7 +169,7 @@ Canonical list of the **53 supported AI coding tools** (from `SUPPORTED_PROVIDER
 | **Zed Agent** | ✅ Auto | Passive SQLite reader (`threads.db`) | Tallies hosted zed.dev models only |
 | **Goose** | ✅ Auto | Passive session logs scanner | Compatible with open-source Goose format |
 | **Droid** (Factory) | ✅ Auto | Passive trajectory & event reader | Token and model extraction |
-| **Mimo** | ✅ Auto | Passive SQLite parser | Local database extraction |
+| **Xiaomi MiMo** | ✅ Auto | Passive SQLite parser | Local database extraction |
 | **DuMate** (Baidu) | ✅ Auto | Passive session logs reader | Supported via `TOKENTRACKER_DUMATE_HOME` |
 | **ZCode** | ✅ Auto | Passive session logs + speed probe | **Session drill-down & millisecond tok/s stream** |
 | **Qoder** | ✅ Auto | Passive `~/.qoder[-cn]/projects/**/*.jsonl` | **Model refinement & credit balance reconciliation** |
@@ -189,6 +189,7 @@ Canonical list of the **53 supported AI coding tools** (from `SUPPORTED_PROVIDER
 | **Cola** | ✅ Auto | Collaborative agent logs integration | Secure local sync |
 | **Tuanjie Cowork** | ✅ Auto | Team workflow logs integration | Team-level local usage parsing |
 | **Agent2API** | ✅ Auto | Local gateway & agent mapping integration | Multi-model routing usage |
+| **Magpie** | ✅ Auto | Passive local gateway usage ledger (`~/.config/magpie/usage.jsonl`) | Counts gateway round trips only, never client sessions |
 | **SenseTime Raccoon** | ✅ Auto | Reads the desktop agent trace (`~/.office-raccoon/agent/log/sessions`) | Usage from `llm.response` only; agent2api untouched |
 
 ---
@@ -197,7 +198,7 @@ Canonical list of the **53 supported AI coding tools** (from `SUPPORTED_PROVIDER
 
 ```mermaid
 flowchart LR
-    A["53 AI Coding Tools<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder etc.)"] -->|Hook / Passive Probe| B[TokenTracker Plus Core Engine]
+    A["54 AI Coding Tools<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder etc.)"] -->|Hook / Passive Probe| B[TokenTracker Plus Core Engine]
     B -->|Speed Parsing & Reasoning Tokens<br/>SQLite WAL Lock-free Probing| C[(Local SQLite & Queue Snapshot)]
     C --> D[Web Dashboard UI]
     C --> E[Windows System Tray & Pill]
@@ -221,6 +222,7 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **Strict Rejection of Upstream `-free` Rule**: Upstream forces all `-free` models to $0. This fork permanently rejects that behavior, valuing all tokens at true vendor list prices to reflect actual productivity investment.
 - **Pricing Sources**: Aggregates LiteLLM official rate sheets and local curated overrides (`src/lib/pricing/curated-overrides.json`). Unpriced models record token quantities without fabricating fictitious currency.
 - **WorkBuddy Credits Reconciliation**: Dual-track accounting separating Standard and High-Flyer editions, reconciling consumption points against tokens.
+- **Gateway (relay) attribution**: Local gateways (Agent2API / Magpie) keep only the requests their clients cannot self-certify. A caller this tracker already parses (DSH, Codex, …) is skipped; a client whose own ledger misses the input side (Claude Code, ZCode) gets the gateway row credited onto **its** card — ZCode receives input + cache only, Claude Code keeps the completion. The gateway card therefore holds unattributable traffic alone and never double-counts a client card.
 
 ### Heatmap Tiers & Data Analytics (Lv0 ~ Lv7 8-Tier Scale)
 The activity heatmap uses an **8-tier scale**: 6 dynamic quantiles (`P30`, `P55`, `P75`, `P88`, `P95`, `P98.5`) plus the Lv7 Singularity tier:

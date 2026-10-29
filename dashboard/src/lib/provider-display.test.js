@@ -27,6 +27,16 @@ describe("formatProviderDisplayName", () => {
     expect(formatProviderDisplayName("ACODE")).toBe("AStudio");
   });
 
+  it("uses the full Xiaomi MiMo product name", () => {
+    expect(formatProviderDisplayName("mimo")).toBe("Xiaomi MiMo");
+    expect(formatProviderDisplayName("MIMO")).toBe("Xiaomi MiMo");
+  });
+
+  it("uses the Magpie product name", () => {
+    expect(formatProviderDisplayName("magpie")).toBe("Magpie");
+    expect(formatProviderDisplayName("MAGPIE")).toBe("Magpie");
+  });
+
   it("uses the Muse Code product name", () => {
     expect(formatProviderDisplayName("muse")).toBe("Muse Code");
     expect(formatProviderDisplayName("MUSE")).toBe("Muse Code");

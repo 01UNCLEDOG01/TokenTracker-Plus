@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>53 の AI コーディングツール・IDE を横断して、トークン消費・コスト・リアルタイム生成速度を可視化</strong></p>
+  <p><strong>54 の AI コーディングツール・IDE を横断して、トークン消費・コスト・リアルタイム生成速度を可視化</strong></p>
   <p>
     <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a> · <b>日本語</b> · <a href="./README.ko.md">한국어</a> · <a href="./README.pt-BR.md">Português (BR)</a>
   </p>
@@ -13,7 +13,7 @@
 
 ## ✨ 主な特徴
 
-- 🔌 **ゼロ設定で 53 ツールに自動接続** —— Claude Code / Codex / Cursor / Qoder / Kimi など主要 53 ツールのローカルログを自動検出。ログイン不要、API キー不要、クラウド不要。
+- 🔌 **ゼロ設定で 54 ツールに自動接続** —— Claude Code / Codex / Cursor / Qoder / Kimi など主要 54 ツールのローカルログを自動検出。ログイン不要、API キー不要、クラウド不要。
 - 💰 **無料モデルも定価で計上** —— 上流の `-free` → 0 円ルールを拒否し、無料ルートも公式定価で評価。タダ乗りした価値がひと目でわかる。
 - ⚡ **ミリ秒の tok/s ストリーム** —— チャンク単位の継続時間と推論トークンを分離し、セッション単位の生成速度を正確に計測。
 - 🌲 **セッション階層を掘り下げ** —— メイン会話 / サブエージェント / ツール呼び出し単位で高コスト操作を特定。
@@ -31,11 +31,11 @@ git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
 cd TokenTracker-plus
 npm install
 node bin/tracker.js   # 初回起動：Hook 自動設置 + 同期 + Dashboard オープン
-node bin/tracker.js status   # 53 ツールの接続状態
+node bin/tracker.js status   # 54 ツールの接続状態
 node bin/tracker.js doctor   # 診断
 ```
 
-ローカル Dashboard は `http://localhost:7680`。対応ツールの全リストは[中国語版 README](./README.md#-支持的-ai-工具列表53-款)を参照（CLI / VS Code 拡張 / IDE の 53 種）。
+ローカル Dashboard は `http://localhost:7680`。対応ツールの全リストは[中国語版 README](./README.md#-支持的-ai-工具列表54-款)を参照（CLI / VS Code 拡張 / IDE の 54 種）。
 
 ## 💰 課金とヒートマップ
 
