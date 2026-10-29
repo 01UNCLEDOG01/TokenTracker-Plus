@@ -15,6 +15,13 @@ jobs:
   analyze:
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
+    # Code scanning has never been enabled in the repository settings, so the
+    # analyze step fails with "Code scanning is not enabled" on every push
+    # (config error, not a finding). The classic token used for automation
+    # cannot flip that toggle (the code-scanning admin endpoints 404), so the
+    # job stays non-blocking until the owner enables code scanning in
+    # Settings → Code security; after that this can go back to blocking.
+    continue-on-error: true
     permissions:
       security-events: write
       actions: read
