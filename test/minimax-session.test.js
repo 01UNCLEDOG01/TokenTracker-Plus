@@ -119,7 +119,10 @@ sqliteTest("discovers sessions under an explicit MINIMAX_DATA_DIR", () => {
   const { root, messagesPath } = createFixture();
   try {
     const files = discoverMinimaxSessionFiles({ MINIMAX_DATA_DIR: root });
-    assert.deepEqual(files, [path.resolve(messagesPath)]);
+    // `os.tmpdir()` hands back the 8.3 short form on some shells (`C:\Users\ADMINI~1\…`)
+    // while the scanner resolves the long form, so compare both after realpath.
+    const real = (p) => (fs.realpathSync.native ? fs.realpathSync.native(p) : fs.realpathSync(p));
+    assert.deepEqual(files.map(real), [real(path.resolve(messagesPath))]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

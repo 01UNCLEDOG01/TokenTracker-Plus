@@ -51,4 +51,21 @@ describe("PerksPage", () => {
     expect(screen.getByText(/WorkBuddy/)).toBeInTheDocument();
     expect(screen.queryByText(/DeepSeek 官方开放平台/)).not.toBeInTheDocument();
   });
+
+  it("每行卡片都标注核对日期与可回原文核对的来源链", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    // 31 家收录（B.AI 无可白嫖项已删），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(31);
+    const links = screen.getAllByText("来源").map((node) => node.closest("a"));
+    links.forEach((link) => {
+      expect(link.getAttribute("href")).toMatch(/^https:\/\//);
+      expect(link.getAttribute("rel")).toContain("noopener");
+      expect(link.getAttribute("target")).toBe("_blank");
+    });
+  });
 });

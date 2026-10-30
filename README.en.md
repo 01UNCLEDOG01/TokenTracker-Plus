@@ -69,7 +69,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
 - 🌍 **Global Model Board (zero setup)** — Reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models, side by side with your own usage. No API key, cached locally, self-updating.
-- 🎁 **Provider Perks Guide** — 32 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, each card offering both an invite link and a plain official link, filterable by category and searchable.
+- 🎁 **Provider Perks Guide** — 31 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, each card offering both an invite link and a plain official link plus the date the figures were checked and their source, filterable by category and searchable.
 
 ---
 
@@ -120,7 +120,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 <tr>
 <td colspan="2">
 
-**Provider Perks Guide** — free credits and starter grants across 32 providers, with invite and official links side by side
+**Provider Perks Guide** — free credits and starter grants across 31 providers, with invite and official links side by side
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -161,7 +161,7 @@ The repo supports **55 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 |---|:---:|---|
 | **Claude Code** | ✅ Auto | SessionEnd hook in `settings.json` |
 | **Codex CLI** | ✅ Auto | TOML notify hook in `config.toml` |
-| **AStudio** | ✅ Auto | TOML notify hook in `config.toml` |
+| **AStudio** | ✅ Auto | TOML notify hook in `config.toml`; directory override via `TOKENTRACKER_ACODE_HOME` |
 | **Cursor** | ✅ Auto | API + Auth token in local SQLite |
 | **Kiro** | ✅ Auto | Hybrid SQLite + JSONL reader |
 | **Gemini CLI** | ✅ Auto | SessionEnd hook |
@@ -178,19 +178,19 @@ The repo supports **55 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 | **Prime Agent** | ✅ Auto | Metadata-only passive reader |
 | **Craft Agents** | ✅ Auto | Passive session logs reader |
 | **Reasonix** | ✅ Auto | Passive telemetry reader |
-| **Muse Code** | ✅ Auto | Passive session logs (`session.jsonl`) |
+| **Muse Code** | ✅ Auto | Passive session logs (`session.jsonl`); override via `TOKENTRACKER_MUSE_HOME` |
 | **Kilo CLI** | ✅ Auto | Passive SQLite reader (`kilo.db`) |
 | **Kilo Code** | ✅ Auto | Passive reader on `ui_messages.json` |
 | **Roo Code** | ✅ Auto | Passive reader on `ui_messages.json` |
 | **Zed Agent** | ✅ Auto | Passive SQLite reader (`threads.db`) |
 | **Goose** | ✅ Auto | Passive session logs scanner |
 | **Droid** (Factory) | ✅ Auto | Passive trajectory & event reader |
-| **DuMate** (Baidu) | ✅ Auto | Passive session logs reader |
+| **DuMate** (Baidu) | ✅ Auto | Passive session logs reader; override via `TOKENTRACKER_DUMATE_HOME` |
 | **AnythingLLM Desktop** | ✅ Auto | Passive local SQLite reader |
 | **Claude Science** | ✅ Auto | Passive SQLite reader (`operon-cli.db`) |
-| **LM Studio** | ✅ Auto | Passive logs & activity state |
-| **Unsloth Studio** | ✅ Auto | Passive SQLite reader (`unsloth.db`) |
-| **Devin CLI** | ✅ Auto | Passive local Devin DB reader |
+| **LM Studio** | ✅ Auto | Passive logs & activity state; override via `TOKENTRACKER_LMSTUDIO_HOME` |
+| **Unsloth Studio** | ✅ Auto | Passive SQLite reader (`unsloth.db`); override via `TOKENTRACKER_UNSLOTH_DB` |
+| **Devin CLI** | ✅ Auto | Passive local Devin DB reader; override via `TOKENTRACKER_DEVIN_DB` |
 | **Cline** | ✅ Auto | Passive VS Code storage reader |
 | **MiniMax Code** | ✅ Auto | Passive local session logs |
 | **Command Code** | ✅ Auto | Passive session snapshot & logs |

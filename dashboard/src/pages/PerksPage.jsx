@@ -145,6 +145,22 @@ function PerkCard({ item }) {
             <span className="flex-1">{item.tips}</span>
           </div>
         )}
+
+        {/* Provenance: which date this card was checked and against which page */}
+        {item.checkedAt && item.sourceUrl && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
+            <span>{copy("perks.card.checked", { date: item.checkedAt })}</span>
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-0.5 underline decoration-dotted underline-offset-2 transition hover:text-oai-gray-600 dark:hover:text-oai-gray-300"
+            >
+              <span>{copy("perks.card.source")}</span>
+              <ArrowUpRight className="h-3 w-3" aria-hidden />
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Card Actions */}

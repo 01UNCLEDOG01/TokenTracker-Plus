@@ -68,7 +68,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 - 🔄 **高频持续维护承诺** —— 站长与开源社区紧跟国内外 AI 编码圈最新动态，高频持续更新热门 AI 工具解析与额度监控卡片，随出随接，常用常新。
 - 🐱 **动态桌宠与桌面小组件** —— 悬浮像素桌宠（多套动作轮换与鼠标注视）、4 种桌面小组件、置顶用量药丸。
 - 🌍 **全球模型榜（免配置）** —— 直读 Artificial Analysis 官方榜单，把 80+ 模型的智能分、输入/输出/缓存价、上下文与输出速度搬进本地侧栏；无需任何 API Key，本地缓存自动更新，与你的实际用量同屏对照。
-- 🎁 **服务商福利指南** —— 32 家可白嫖的 AI 服务商与客户端一览：新户赠送额度、每日免费、长期有效额度与签到福利，每张卡片同时提供「邀请注册」与「官网直达」双链接，按主力推荐/免费/大额额度/客户端分类并可搜索。
+- 🎁 **服务商福利指南** —— 31 家可白嫖的 AI 服务商与客户端一览：新户赠送额度、每日免费、长期有效额度与签到福利，每张卡片同时提供「邀请注册」与「官网直达」双链接，并逐行标注核对日期与来源页面，按主力推荐/免费/大额额度/客户端分类并可搜索。
 
 ---
 
@@ -119,7 +119,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 <tr>
 <td colspan="2">
 
-**服务商福利指南** —— 32 家服务商的免费额度与新手礼包，邀请注册 / 官网直达双链接
+**服务商福利指南** —— 31 家服务商的免费额度与新手礼包，邀请注册 / 官网直达双链接
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -160,7 +160,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 |---|:---:|---|
 | **Claude Code** | ✅ 自动 | 写入 `settings.json` 的 SessionEnd hook |
 | **Codex CLI** | ✅ 自动 | 写入 `config.toml` 的 TOML notify hook |
-| **AStudio** | ✅ 自动 | 写入 `config.toml` 的 TOML notify hook |
+| **AStudio** | ✅ 自动 | 写入 `config.toml` 的 TOML notify hook；支持 `TOKENTRACKER_ACODE_HOME` 目录覆盖 |
 | **Cursor** | ✅ 自动 | API + 本地 SQLite 中的 auth token |
 | **Kiro** | ✅ 自动 | SQLite + JSONL 混合读取 |
 | **Gemini CLI** | ✅ 自动 | SessionEnd hook |
@@ -177,19 +177,19 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **Prime Agent** | ✅ 自动 | 仅元数据被动用量读取 |
 | **Craft Agents** | ✅ 自动 | 被动读取 session 日志 |
 | **Reasonix** | ✅ 自动 | 被动读取 telemetry 遥测数据 |
-| **Muse Code** | ✅ 自动 | 被动读取会话日志（`session.jsonl`） |
+| **Muse Code** | ✅ 自动 | 被动读取会话日志（`session.jsonl`）；支持 `TOKENTRACKER_MUSE_HOME` 覆盖 |
 | **Kilo CLI** | ✅ 自动 | 被动读取 SQLite（`~/.local/share/kilo/kilo.db`） |
 | **Kilo Code** | ✅ 自动 | 被动读取 `ui_messages.json` |
 | **Roo Code** | ✅ 自动 | 被动读取 `ui_messages.json` |
 | **Zed Agent** | ✅ 自动 | 被动读取 SQLite（`threads.db`） |
 | **Goose** | ✅ 自动 | 被动会话日志扫描 |
 | **Droid** (Factory) | ✅ 自动 | 被动读取会话轨迹与事件流 |
-| **DuMate** (百度) | ✅ 自动 | 被动读取会话日志 |
+| **DuMate** (百度) | ✅ 自动 | 被动读取会话日志；支持 `TOKENTRACKER_DUMATE_HOME` 覆盖 |
 | **AnythingLLM Desktop** | ✅ 自动 | 被动读取本地 SQLite 数据库 |
 | **Claude Science** | ✅ 自动 | 被动读取 SQLite（`operon-cli.db`） |
-| **LM Studio** | ✅ 自动 | 被动读取本地日志与活动状态 |
-| **Unsloth Studio** | ✅ 自动 | 被动读取 SQLite（`unsloth.db`） |
-| **Devin CLI** | ✅ 自动 | 被动读取本地 Devin 数据库 |
+| **LM Studio** | ✅ 自动 | 被动读取本地日志与活动状态；支持 `TOKENTRACKER_LMSTUDIO_HOME` 覆盖 |
+| **Unsloth Studio** | ✅ 自动 | 被动读取 SQLite（`unsloth.db`）；支持 `TOKENTRACKER_UNSLOTH_DB` 覆盖 |
+| **Devin CLI** | ✅ 自动 | 被动读取本地 Devin 数据库；支持 `TOKENTRACKER_DEVIN_DB` 覆盖 |
 | **Cline** | ✅ 自动 | 被动读取 VS Code 全局存储与历史 |
 | **MiniMax Code** | ✅ 自动 | 被动读取本地会话日志 |
 | **Command Code** | ✅ 自动 | 被动读取会话快照与日志 |

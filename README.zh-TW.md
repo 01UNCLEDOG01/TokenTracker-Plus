@@ -69,7 +69,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 - 🔄 **高頻持續維護承諾** —— 站長與開源社群緊跟國內外 AI 編碼圈最新動態，高頻持續更新熱門 AI 工具解析與額度監控卡片，隨出隨接，常用常新。
 - 🐱 **動態桌寵與桌面小組件** —— 懸浮像素桌寵（多套動作輪換與滑鼠注視）、4 種桌面小組件、置頂用量藥丸。
 - 🌍 **全球模型榜（免設定）** —— 直讀 Artificial Analysis 官方榜單，把 80+ 模型的智能分、輸入/輸出/快取價、上下文與輸出速度搬進本地側欄；無需任何 API Key，本地快取自動更新，與你的實際用量同屏對照。
-- 🎁 **服務商福利指南** —— 32 家可白嫖的 AI 服務商與客戶端一覽：新戶贈送額度、每日免費、長期有效額度與簽到福利，每張卡片同時提供「邀請註冊」與「官網直達」雙鏈接，可按分類篩選並搜尋。
+- 🎁 **服務商福利指南** —— 31 家可白嫖的 AI 服務商與客戶端一覽：新戶贈送額度、每日免費、長期有效額度與簽到福利，每張卡片同時提供「邀請註冊」與「官網直達」雙鏈接，並逐行標註核對日期與來源頁面，可按分類篩選並搜尋。
 
 ---
 
@@ -120,7 +120,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 <tr>
 <td colspan="2">
 
-**服務商福利指南** —— 32 家服務商的免費額度與新手禮包，邀請註冊 / 官網直達雙鏈接
+**服務商福利指南** —— 31 家服務商的免費額度與新手禮包，邀請註冊 / 官網直達雙鏈接
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -161,7 +161,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 |---|:---:|---|
 | **Claude Code** | ✅ 自動 | 寫入 `settings.json` 的 SessionEnd hook |
 | **Codex CLI** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook |
-| **AStudio** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook |
+| **AStudio** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook；支援 `TOKENTRACKER_ACODE_HOME` 目錄覆蓋 |
 | **Cursor** | ✅ 自動 | API + 本地 SQLite 中的 auth token |
 | **Kiro** | ✅ 自動 | SQLite + JSONL 混合讀取 |
 | **Gemini CLI** | ✅ 自動 | SessionEnd hook |
@@ -185,12 +185,12 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 | **Zed Agent** | ✅ 自動 | 被動讀取 SQLite（`threads.db`） |
 | **Goose** | ✅ 自動 | 被動會話日誌掃描 |
 | **Droid** (Factory) | ✅ 自動 | 被動讀取會話軌跡與事件流 |
-| **DuMate** (百度) | ✅ 自動 | 被動讀取會話日誌 |
+| **DuMate** (百度) | ✅ 自動 | 被動讀取會話日誌；支援 `TOKENTRACKER_DUMATE_HOME` 覆蓋 |
 | **AnythingLLM Desktop** | ✅ 自動 | 被動讀取本地 SQLite 資料庫 |
 | **Claude Science** | ✅ 自動 | 被動讀取 SQLite（`operon-cli.db`） |
-| **LM Studio** | ✅ 自動 | 被動讀取本地日誌與活動狀態 |
-| **Unsloth Studio** | ✅ 自動 | 被動讀取 SQLite（`unsloth.db`） |
-| **Devin CLI** | ✅ 自動 | 被動讀取本地 Devin 資料庫 |
+| **LM Studio** | ✅ 自動 | 被動讀取本地日誌與活動狀態；支援 `TOKENTRACKER_LMSTUDIO_HOME` 覆蓋 |
+| **Unsloth Studio** | ✅ 自動 | 被動讀取 SQLite（`unsloth.db`）；支援 `TOKENTRACKER_UNSLOTH_DB` 覆蓋 |
+| **Devin CLI** | ✅ 自動 | 被動讀取本地 Devin 資料庫；支援 `TOKENTRACKER_DEVIN_DB` 覆蓋 |
 | **Cline** | ✅ 自動 | 被動讀取 VS Code 全域儲存與歷史 |
 | **MiniMax Code** | ✅ 自動 | 被動讀取本地會話日誌 |
 | **Command Code** | ✅ 自動 | 被動讀取會話快照與日誌 |
