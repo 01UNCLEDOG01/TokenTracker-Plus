@@ -262,6 +262,7 @@ export function LimitsPage() {
                 workbuddyAi={usageLimits?.workbuddyAi}
                 raccoon={usageLimits?.raccoon}
                 deepseek={usageLimits?.deepseek}
+                minimax={usageLimits?.minimax}
                 trae={usageLimits?.trae}
                 traeMain={usageLimits?.traeMain}
                 codearts={usageLimits?.codearts}

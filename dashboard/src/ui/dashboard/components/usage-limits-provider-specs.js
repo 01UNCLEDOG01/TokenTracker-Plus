@@ -347,6 +347,18 @@ export const PROVIDER_LIMIT_SPECS = {
       return [];
     },
   },
+  minimax: {
+    // MiniMax Coding Plan: 5h + weekly remaining-percent windows. In API
+    // billing mode the fetcher returns a balance instead, rendered by the
+    // minimax_balance status line.
+    extra: "minimax_balance",
+    windows(data) {
+      return [
+        { key: "5h", labelKey: "limits.label.minimax_5h", window: data.primary_window, windowSecondsField: "limit_window_seconds" },
+        { key: "weekly", labelKey: "limits.label.minimax_weekly", window: data.secondary_window, windowSecondsField: "limit_window_seconds" },
+      ];
+    },
+  },
   trae: {
     // TRAE SOLO secondary account: rolling check-in grants with individual
     // expiries — balance line plus the soonest expiry, no bars.

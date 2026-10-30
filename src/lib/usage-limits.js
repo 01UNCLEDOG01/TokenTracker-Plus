@@ -38,6 +38,7 @@ const { fetchApigotoLimits } = require("./apigoto-limits");
 const { fetchSensenovaLimits } = require("./sensenova-limits");
 const { fetchRaccoonLimits } = require("./raccoon-limits");
 const { fetchDeepSeekLimits } = require("./deepseek-limits");
+const { fetchMinimaxLimits } = require("./minimax-limits");
 const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
@@ -4104,7 +4105,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4252,6 +4253,9 @@ async function fetchUsageLimitsUncached({
     fetchRaccoonLimits({ home, env, nowMs }),
     // DeepSeek open-platform balance, keyed by the user's own API key.
     fetchDeepSeekLimits({ home, fetchImpl: providerFetch, nowMs }),
+    // MiniMax Token Plan 5h/weekly quota or API balance, keyed by the user's own
+    // MiniMax API key (see minimax-credentials.json / MINIMAX_CODING_API_KEY).
+    fetchMinimaxLimits({ home, fetchImpl: providerFetch, nowMs }),
     // Gateway-fed cards (Trae secondary account / CodeArts / Cline Pass) —
     // same local snapshot table the raccoon card reads.
     fetchTraeLimits({ home, nowMs }),
@@ -4534,6 +4538,7 @@ async function fetchUsageLimitsUncached({
     // falls back to the bare brand and the wallets render as the status line.
     raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),
     deepseek: withPlanLabel(deepseek, deepseek?.plan_name, "DeepSeek"),
+    minimax: withPlanLabel(minimax, minimax?.plan_name, "MiniMax"),
     trae: withPlanLabel(traeGateway, traeGateway?.plan_name, "Trae"),
     traeMain: withPlanLabel(traeMainGateway, traeMainGateway?.plan_name, "Trae"),
     codearts: withPlanLabel(codeartsGateway, codeartsGateway?.plan_name, "CodeArts"),

@@ -25,6 +25,7 @@ export const LIMIT_PROVIDER_IDS = [
   "workbuddyAi",
   "raccoon",
   "deepseek",
+  "minimax",
   "traeMain",
   "trae",
   "codearts",
@@ -72,6 +73,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   raccoon: "RACCOON",
   // DeepSeek open platform (api.deepseek.com) balance — official logo asset.
   deepseek: "DEEPSEEK-PLATFORM",
+  // MiniMax Coding Plan / API balance — inline mono brand mark.
+  minimax: "MINIMAX",
   // TRAE SOLO secondary account, fed by the gateway snapshot.
   trae: "TRAE",
   // TRAE main account — same white-plate asset as the alt card.
@@ -136,6 +139,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.raccoon");
     case "deepseek":
       return copy("limits.provider.deepseek");
+    case "minimax":
+      return copy("limits.provider.minimax");
     case "trae":
       return copy("limits.provider.trae");
     case "traeMain":

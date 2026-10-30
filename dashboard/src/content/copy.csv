@@ -2305,6 +2305,10 @@ limits.provider.trae_main,ui,LimitsPage,UsageLimitsPanel,provider_trae_main,"Tra
 limits.provider.codearts,ui,LimitsPage,UsageLimitsPanel,provider_codearts,"CodeArts",,active
 limits.provider.cline_pass,ui,LimitsPage,UsageLimitsPanel,provider_cline_pass,"Cline Pass",,active
 limits.label.deepseek_balance,ui,LimitsPage,UsageLimitsPanel,deepseek_balance,"{{currency}} {{total}} (granted {{granted}})",,active
+limits.provider.minimax,ui,LimitsPage,UsageLimitsPanel,provider_minimax,"MiniMax",,active
+limits.label.minimax_5h,ui,LimitsPage,UsageLimitsPanel,minimax_5h,"5h",,active
+limits.label.minimax_weekly,ui,LimitsPage,UsageLimitsPanel,minimax_weekly,"Weekly",,active
+limits.label.minimax_balance,ui,LimitsPage,UsageLimitsPanel,minimax_balance,"{{currency}} {{balance}}",,active
 limits.label.trae_balance,ui,LimitsPage,UsageLimitsPanel,trae_balance,"{{credits}} points available",,active
 limits.label.trae_nearest,ui,LimitsPage,UsageLimitsPanel,trae_nearest,"{{credits}} expire {{date}}",,active
 limits.label.trae_usage,ui,LimitsPage,UsageLimitsPanel,trae_usage,"{{total}} total · {{used}} used",,active

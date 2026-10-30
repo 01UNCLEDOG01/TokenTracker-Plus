@@ -974,6 +974,16 @@ function renderProviderExtra(kind, data) {
   if (kind === "agentrouter_balance" && Number.isFinite(Number(data.agentrouter_balance_usd))) {
     return <AgentRouterWalletExtra data={data} />;
   }
+  if (kind === "minimax_balance" && Number.isFinite(Number(data.minimax_balance))) {
+    return (
+      <StatusLine>
+        {copy("limits.label.minimax_balance", {
+          currency: typeof data.minimax_currency === "string" ? data.minimax_currency : "",
+          balance: formatCreditAmount(Number(data.minimax_balance), { maximumFractionDigits: 2 }),
+        })}
+      </StatusLine>
+    );
+  }
   if (kind === "deepseek_balance" && Number.isFinite(Number(data.deepseek_total_balance))) {
     return (
       <StatusLine>
@@ -1766,8 +1776,8 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true, onProviderKeySaved = null }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, trae, traeMain, codearts, clinePass, agentRouter };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true, onProviderKeySaved = null }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter };
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

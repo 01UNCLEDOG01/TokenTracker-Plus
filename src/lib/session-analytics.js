@@ -72,6 +72,7 @@ const { readTraeSessionRows, resolveTraeDbPaths, resolveTraeCnLocalDbPath } = re
 const { normalizeTraeUsage, normalizeTraeModel } = require("./trae-usage");
 const { discoverKimiWireFiles, kimiSessionDependencies, readKimiSessions } = require("./kimi-session");
 const { discoverOmpSessionFiles, ompSessionDependencies, readOmpSessions } = require("./omp-session");
+const { discoverMinimaxSessionFiles, readMinimaxCodeSession } = require("./minimax-session");
 const {
   appendUniqueDirs,
   dedupeDirsByRealpath,
@@ -154,7 +155,7 @@ const {
 // v44 extends the working-time denominator to WorkBuddy (usage-record gaps,
 // capped at five minutes — the qoder precedent) and Antigravity (usage-minute
 // gaps, same cap) so their wall-clock rates stop diluting with idle time.
-const SIDECAR_VERSION = 44;
+const SIDECAR_VERSION = 45;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -3669,6 +3670,19 @@ async function scanOmpSession(filePath) {
   return rows[0] || null;
 }
 
+async function scanMinimaxCodeSession(filePath) {
+  const row = await readMinimaxCodeSession(filePath);
+  if (!row) return null;
+  return finalizeRecord({
+    ...row,
+    version: SIDECAR_VERSION,
+    source: "minimax-code",
+    session_hash: sessionHash("minimax-code", row.session_id),
+    project_key: projectKey(row.project_ref, filePath),
+    ...sessionStorageUsage([filePath]),
+  });
+}
+
 // SenseTime Raccoon keeps one append-only trace per session and the file can
 // already be hundreds of MB, so the parse is incremental (see
 // raccoon-sessions.js) and this wrapper only supplies the shared primitives:
@@ -3851,6 +3865,13 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     ? { ...env, HOME: home }
     : { HOME: home, OMP_HOME: path.join(home, ".omp") };
   const omp = discoverOmpSessionFiles(ompEnv, incomplete);
+  const minimaxCode = (() => {
+    try {
+      return discoverMinimaxSessionFiles(usingMachineHome ? env : { ...env, HOME: home, USERPROFILE: home });
+    } catch {
+      return [];
+    }
+  })();
   // TRAE (intl + TRAE SOLO) and the merged Trae CN keep every conversation in
   // one SQLCipher-encrypted local database each — the same stores the usage
   // side reads. Absent installs simply drop out of the session page. The
@@ -3883,6 +3904,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     loomy,
     kimi,
     omp,
+    minimaxCode,
     trae,
     traeCn,
     incomplete,
@@ -4743,6 +4765,11 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       scan: (file) => scanQoderSession(file, "qoder-cn"),
     })),
     ...(discovered.omp?.length ? [{ source: "omp", filePath: discovered.omp, scan: scanOmpSessions }] : []),
+    ...((discovered.minimaxCode || []).map((filePath) => ({
+      source: "minimax-code",
+      filePath,
+      scan: scanMinimaxCodeSession,
+    }))),
   ];
   // Files we could not turn into a row (permission denied, half-written line,
   // vanished mid-scan). Swallowing these silently made sessions disappear with
@@ -5585,6 +5612,7 @@ module.exports = {
   scanKimiSessions,
   scanOmpSessions,
   scanOmpSession,
+  scanMinimaxCodeSession,
   scanRaccoonSession,
   buildSessionAnalytics,
   summarizeSessions,
