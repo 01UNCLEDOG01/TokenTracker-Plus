@@ -39,9 +39,9 @@ function ProviderLogo({ item }) {
   const initial = item.name.charAt(0).toUpperCase();
 
   return (
-    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-oai-gray-200/80 bg-oai-gray-50/80 text-base font-semibold shadow-xs transition-transform group-hover:scale-105 dark:border-oai-gray-800 dark:bg-oai-gray-900/90 dark:text-oai-white">
+    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-oai-gray-200/80 bg-white p-1 text-base font-semibold shadow-xs transition-transform group-hover:scale-105 dark:border-oai-gray-800 dark:bg-oai-gray-900/90 dark:text-oai-white">
       {hasIcon ? (
-        <ProviderIcon provider={item.provider} size={24} />
+        <ProviderIcon provider={item.provider} size={28} className="object-contain" />
       ) : (
         <span className="font-mono text-sm font-bold text-oai-gray-700 dark:text-oai-gray-300">
           {initial}
