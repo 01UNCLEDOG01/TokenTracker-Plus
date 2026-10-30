@@ -23,10 +23,10 @@ const SIGNAL_ROWS = [
   { key: "edit_turns", label: () => copy("sessions.col.edits") },
   { key: "retry_turns", label: () => copy("sessions.detail.retries") },
   { key: "subagent_calls", label: () => copy("sessions.card.subagents") },
-  { key: "tool_calls", grokOnly: true, label: () => copy("sessions.detail.tools") },
-  { key: "tool_failures", grokOnly: true, label: () => copy("sessions.detail.tool_failures") },
+  { key: "tool_calls", label: () => copy("sessions.detail.tools") },
+  { key: "tool_failures", label: () => copy("sessions.detail.tool_failures") },
   { key: "error_count", grokOnly: true, label: () => copy("sessions.detail.errors") },
-  { key: "model_calls", grokOnly: true, label: () => copy("sessions.detail.model_calls") },
+  { key: "model_calls", label: () => copy("sessions.detail.model_calls") },
   { key: "compaction_count", grokOnly: true, label: () => copy("sessions.detail.compactions") },
   // Only WorkBuddy meters in credits; every other product bills tokens or dollars.
   { key: "credits", workbuddyOnly: true, label: () => copy("sessions.detail.credits") },
@@ -92,7 +92,11 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
   const hasReasoning = Number(session.reasoning_output_tokens) > 0;
   const isGrok = session.source === "grok";
   const isWorkbuddy = String(session.source || "").startsWith("workbuddy");
-  const contextAvailable = isGrok && Number(session.context_window_tokens) > 0;
+  const contextAvailable = Number(session.context_window_tokens) > 0;
+  const cacheRead = Number(session.cached_input_tokens) || 0;
+  const cacheWrite = Number(session.cache_creation_input_tokens) || 0;
+  const cacheDenominator = (Number(session.input_tokens) || 0) + cacheRead + cacheWrite;
+  const cacheHitPercent = cacheDenominator > 0 ? Math.round((cacheRead / cacheDenominator) * 100) : null;
 
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -263,6 +267,7 @@ export function SessionDetailModal({ session, subagents = [], onClose }) {
               {SIGNAL_ROWS.map(({ key, label, grokOnly, workbuddyOnly }) => (
                 <Stat key={key} label={label()}>{typeof session[key] === "number" && (!grokOnly || isGrok) && (!workbuddyOnly || isWorkbuddy) ? formatCompactNumber(session[key]) : copy("sessions.detail.not_recorded")}</Stat>
               ))}
+              {cacheHitPercent !== null ? <Stat label={copy("sessions.detail.cache_hit")}>{copy("sessions.detail.cache_hit_value", { percent: cacheHitPercent })}</Stat> : null}
             </dl>
             {isGrok && session.usage_precision ? <p className="pb-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.grok.runtime_breakdown", { calls: formatCompactNumber(session.model_calls), seconds: (Number(session.api_duration_ms || 0) / 1000).toFixed(1), tools: formatCompactNumber(session.tool_calls), errors: formatCompactNumber(session.error_count) })}</p> : null}
             {contextAvailable ? <p className="pb-3 text-xs leading-5 text-oai-gray-500 dark:text-oai-gray-400">{copy("sessions.grok.context_breakdown", { used: formatTokens(session.context_tokens_used), window: formatTokens(session.context_window_tokens), percent: Number(session.context_usage_percent || 0).toFixed(0) })}</p> : null}

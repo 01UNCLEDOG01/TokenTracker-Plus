@@ -859,7 +859,7 @@ describe("SessionsPage", () => {
     expect(within(dialog).getByText(/No published rate/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Model pricing estimate/)).toBeInTheDocument();
     expect(within(dialog).getByText(/USD \/ million tokens.*Input 2/)).toBeInTheDocument();
-    expect(within(dialog).getByText("Tool calls").parentElement).toHaveTextContent("Not recorded");
+    expect(within(dialog).getByText("Tool calls").parentElement).toHaveTextContent("3");
     expect(screen.queryByText("private body must never render")).not.toBeInTheDocument();
     expect(document.body.style.overflow).toBe("hidden");
     const user = userEvent.setup();

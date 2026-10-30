@@ -179,6 +179,13 @@ const SessionRow = React.memo(function SessionRow({
   const creditsBadge = credits > 0
     ? copy("sessions.badge.credits", { credits: formatCompactNumber(credits) })
     : null;
+  const calls = Number(session.model_calls) || 0;
+  const cacheRead = Number(session.cached_input_tokens) || 0;
+  const cacheWrite = Number(session.cache_creation_input_tokens) || 0;
+  const cacheDenominator = (Number(session.input_tokens) || 0) + cacheRead + cacheWrite;
+  const cacheHitPercent = cacheDenominator > 0 ? Math.round((cacheRead / cacheDenominator) * 100) : null;
+  const contextWindow = Number(session.context_window_tokens) || 0;
+  const contextPercent = contextWindow > 0 ? Math.round(Number(session.context_usage_percent) || 0) : null;
   // The resume command only works from the session's own directory, so the full
   // local path has to stay reachable. Hover reveals it, click copies it — that
   // keeps a long absolute path out of every row while still being one click
@@ -254,6 +261,9 @@ const SessionRow = React.memo(function SessionRow({
             <span className="sessions-meta-item min-w-0 max-w-full truncate" title={modelUsageLabel(session, formatTokens)}>{modelUsageLabel(session, formatTokens)}</span>
             <span className="sessions-meta-item tabular-nums">{formatWhen(session.started_at, locale, { timeOnly: timeOnly && startsOnGroupDay(session) })}</span>
             {duration ? <span className="sessions-meta-item tabular-nums">{duration}</span> : null}
+            {calls ? <span className="sessions-meta-item tabular-nums">{copy("sessions.meta.calls", { count: calls.toLocaleString(locale) })}</span> : null}
+            {cacheHitPercent !== null ? <span className="sessions-meta-item tabular-nums">{copy("sessions.meta.cache_hit", { percent: cacheHitPercent })}</span> : null}
+            {contextPercent !== null ? <span className="sessions-meta-item tabular-nums">{copy("sessions.meta.context", { percent: contextPercent })}</span> : null}
             {Number.isFinite(session.session_store_bytes) ? (
               <span className="sessions-meta-item tabular-nums" title={copy("sessions.storage.tooltip", {
                 metric: copy(session.session_store_metric === "allocated" ? "sessions.storage.allocated" : "sessions.storage.logical"),

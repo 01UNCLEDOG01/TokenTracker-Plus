@@ -1620,6 +1620,9 @@ sessions.empty.body,ui,SessionsPage,SessionsPage,empty_body,"Run Claude Code, Co
 sessions.empty.filtered_title,ui,SessionsPage,SessionsPage,empty_filtered_title,"No matching sessions",,active
 sessions.empty.filtered_body,ui,SessionsPage,SessionsPage,empty_filtered_body,"Try a different search, or widen the date range.",,active
 sessions.col.turns,ui,SessionsPage,SessionsPage,col_turns,"Turns",,active
+sessions.meta.calls,ui,SessionsPage,SessionsPage,meta_calls,"{{count}} calls",,active
+sessions.meta.cache_hit,ui,SessionsPage,SessionsPage,meta_cache_hit,"cache {{percent}}%",,active
+sessions.meta.context,ui,SessionsPage,SessionsPage,meta_context,"ctx {{percent}}%",,active
 sessions.project.copy_hint,ui,SessionsPage,SessionsPage,project_copy_hint,"Click to copy this path",,active
 sessions.project.copy_aria,ui,SessionsPage,SessionsPage,project_copy_aria,"Copy the local path for {{project}}",,active
 sessions.project.copied,ui,SessionsPage,SessionsPage,project_copied,"Project path copied",,active
@@ -2179,6 +2182,8 @@ sessions.detail.tools,ui,SessionsPage,SessionInsights,tools,Tool calls,,active
 sessions.detail.tool_failures,ui,SessionsPage,SessionInsights,tool_failures,Tool failures,,active
 sessions.detail.errors,ui,SessionsPage,SessionInsights,errors,Errors,,active
 sessions.detail.model_calls,ui,SessionsPage,SessionInsights,model_calls,Model calls,,active
+sessions.detail.cache_hit,ui,SessionsPage,SessionInsights,cache_hit,Cache hit,,active
+sessions.detail.cache_hit_value,ui,SessionsPage,SessionInsights,cache_hit_value,"{{percent}}%",,active
 sessions.detail.compactions,ui,SessionsPage,SessionInsights,compactions,Compactions,,active
 sessions.detail.cost_source,ui,SessionsPage,SessionInsights,cost_source,Cost source,,active
 sessions.detail.cost_reported,ui,SessionsPage,SessionInsights,cost_reported,Reported by tool,,active
