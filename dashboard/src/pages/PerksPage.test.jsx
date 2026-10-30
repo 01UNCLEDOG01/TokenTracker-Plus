@@ -77,5 +77,22 @@ describe("PerksPage", () => {
     );
 
     expect(screen.getByText("31")).toBeInTheDocument();
+    expect(screen.getByText("永久免费")).toBeInTheDocument();
+    expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
+    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("16")).toBeInTheDocument();
+  });
+
+  it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const directLinks = screen.getAllByText("官网直达");
+    expect(directLinks).toHaveLength(31);
+    expect(screen.queryByText(/官方无邀请/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/官网直达通道/)).not.toBeInTheDocument();
   });
 });

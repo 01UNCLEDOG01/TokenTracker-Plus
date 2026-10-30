@@ -19,8 +19,12 @@ export const PERK_CATEGORIES = [
     "label": "主力推荐"
   },
   {
-    "id": "free_tier",
-    "label": "永久/每日免费"
+    "id": "permanent_free",
+    "label": "永久免费"
+  },
+  {
+    "id": "daily_claim",
+    "label": "每日可领取积分"
   },
   {
     "id": "big_quota",
@@ -38,8 +42,8 @@ export const PERK_PROVIDERS = [
     "name": "Agent Router",
     "provider": "agentrouter",
     "category": [
-      "big_quota",
-      "free_tier"
+          "big_quota",
+          "daily_claim"
     ],
     "badge": "⚠️ 近几天不可用：全模型无流量",
     "badgeType": "rose",
@@ -63,7 +67,7 @@ export const PERK_PROVIDERS = [
     "name": "agnes AI",
     "provider": "agnes",
     "category": [
-      "free_tier"
+          "permanent_free"
     ],
     "badge": "自研文本/图像/视频免费档",
     "badgeType": "success",
@@ -85,8 +89,8 @@ export const PERK_PROVIDERS = [
     "name": "阿里百炼 (通义千问 Qwen)",
     "provider": "alibaba",
     "category": [
-      "featured",
-      "big_quota"
+          "featured",
+          "big_quota"
     ],
     "badge": "各模型各送 100 万 Tokens（90天）",
     "badgeType": "amber",
@@ -108,7 +112,7 @@ export const PERK_PROVIDERS = [
     "name": "DeepSeek 官方开放平台",
     "provider": "deepseek",
     "category": [
-      "featured"
+          "featured"
     ],
     "badge": "官方极低资费（新户赠额未证实）",
     "badgeType": "blue",
@@ -130,8 +134,8 @@ export const PERK_PROVIDERS = [
     "name": "豆包工作 (Doubao Work)",
     "provider": "doubao",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "首次登录送30天体验包 + 签到领额度",
     "badgeType": "success",
@@ -154,8 +158,8 @@ export const PERK_PROVIDERS = [
     "name": "硅基流动 (SiliconFlow)",
     "provider": "siliconflow",
     "category": [
-      "featured",
-      "big_quota"
+          "featured",
+          "big_quota"
     ],
     "badge": "注册送 ¥14 额度 + 邀请送 ¥14",
     "badgeType": "amber",
@@ -179,8 +183,8 @@ export const PERK_PROVIDERS = [
     "name": "国家超算互联网 (SCNet)",
     "provider": "scnet",
     "category": [
-      "big_quota",
-      "free_tier"
+          "big_quota",
+          "permanent_free"
     ],
     "badge": "0.1 元购 5000 万 Tokens（注册赠额待核）",
     "badgeType": "purple",
@@ -202,8 +206,8 @@ export const PERK_PROVIDERS = [
     "name": "华为 CodeArts Agent (华为云码道)",
     "provider": "codearts",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "注册 4000 + 学生认证 4000 + 每日签到 100",
     "badgeType": "rose",
@@ -226,8 +230,9 @@ export const PERK_PROVIDERS = [
     "name": "火山方舟 (字节豆包大模型)",
     "provider": "volcengine",
     "category": [
-      "featured",
-      "big_quota"
+          "featured",
+          "big_quota",
+          "permanent_free"
     ],
     "badge": "每模型送 50 万 Tokens + 每日限免",
     "badgeType": "blue",
@@ -250,8 +255,8 @@ export const PERK_PROVIDERS = [
     "name": "基元律动 (TokenRhythm)",
     "provider": "tokenrhythm",
     "category": [
-      "featured",
-      "big_quota"
+          "featured",
+          "big_quota"
     ],
     "badge": "实名认证送 ¥18",
     "badgeType": "purple",
@@ -273,8 +278,8 @@ export const PERK_PROVIDERS = [
     "name": "JoyCode (京东智能编码)",
     "provider": "joycode",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "席位每月 10,000 免费积分",
     "badgeType": "amber",
@@ -296,7 +301,7 @@ export const PERK_PROVIDERS = [
     "name": "美团 LongCat",
     "provider": "longcat",
     "category": [
-      "big_quota"
+          "big_quota"
     ],
     "badge": "注册送 1000 万 + 邀请各 1000 万",
     "badgeType": "amber",
@@ -320,7 +325,7 @@ export const PERK_PROVIDERS = [
     "name": "MiniMax 开放平台",
     "provider": "minimax",
     "category": [
-      "big_quota"
+          "big_quota"
     ],
     "badge": "注册送 ¥15 代金券（30 天）",
     "badgeType": "amber",
@@ -341,8 +346,8 @@ export const PERK_PROVIDERS = [
     "name": "MiniMax Code (智能编程助手)",
     "provider": "minimax",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "每日登录送积分（第 4/7 天加码）",
     "badgeType": "amber",
@@ -364,7 +369,7 @@ export const PERK_PROVIDERS = [
     "name": "OpenCode Zen",
     "provider": "opencode",
     "category": [
-      "free_tier"
+          "permanent_free"
     ],
     "badge": "Zen 限免 API（需走客户端）",
     "badgeType": "neutral",
@@ -386,7 +391,7 @@ export const PERK_PROVIDERS = [
     "name": "OpenRouter",
     "provider": "openrouter",
     "category": [
-      "free_tier"
+          "permanent_free"
     ],
     "badge": "十余款 :free 免费模型",
     "badgeType": "neutral",
@@ -408,9 +413,9 @@ export const PERK_PROVIDERS = [
     "name": "七牛云 (Qiniu Cloud)",
     "provider": "qiniu",
     "category": [
-      "featured",
-      "free_tier",
-      "big_quota"
+          "featured",
+          "permanent_free",
+          "big_quota"
     ],
     "badge": "conatus-free 每日 1 亿（活动至 2026-11-30）",
     "badgeType": "success",
@@ -433,8 +438,8 @@ export const PERK_PROVIDERS = [
     "name": "千问办公 (QwenWork)",
     "provider": "qwenwork",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "首次注册送积分 + 每日登录 100",
     "badgeType": "amber",
@@ -456,8 +461,8 @@ export const PERK_PROVIDERS = [
     "name": "Qoder (国际版)",
     "provider": "qoder",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "每日 10:00 后主动领 100 Credits",
     "badgeType": "blue",
@@ -479,8 +484,8 @@ export const PERK_PROVIDERS = [
     "name": "Qoder CN (国内版)",
     "provider": "qoder-cn",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "每日 10:00 后主动领 100 Credits",
     "badgeType": "blue",
@@ -502,7 +507,7 @@ export const PERK_PROVIDERS = [
     "name": "商汤日日新 (SenseNova)",
     "provider": "sensenova",
     "category": [
-      "free_tier"
+          "permanent_free"
     ],
     "badge": "双池各 12 万/5h + 120 万/周",
     "badgeType": "amber",
@@ -524,8 +529,8 @@ export const PERK_PROVIDERS = [
     "name": "商汤小浣熊 (Raccoon)",
     "provider": "raccoon",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "新号首登任务最多 6000 积分",
     "badgeType": "purple",
@@ -547,7 +552,7 @@ export const PERK_PROVIDERS = [
     "name": "书生·端砚 (Intern InkStone)",
     "provider": "intern-inkstone",
     "category": [
-      "free_tier"
+          "daily_claim"
     ],
     "badge": "每月 10,000 墨点（现阶段仅 1 款模型）",
     "badgeType": "purple",
@@ -569,8 +574,8 @@ export const PERK_PROVIDERS = [
     "name": "TRAE CN",
     "provider": "trae",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "注册送 2500 + 签到 100~200",
     "badgeType": "blue",
@@ -593,8 +598,8 @@ export const PERK_PROVIDERS = [
     "name": "团结 Cowork (Tuanjie AI)",
     "provider": "tuanjie-cowork",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "每日签到 300 积分",
     "badgeType": "blue",
@@ -615,8 +620,9 @@ export const PERK_PROVIDERS = [
     "name": "WorkBuddy",
     "provider": "workbuddy",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "permanent_free",
+          "daily_claim"
     ],
     "badge": "注册送积分 + 国际版免额度 + 每日送30",
     "badgeType": "purple",
@@ -640,8 +646,8 @@ export const PERK_PROVIDERS = [
     "name": "讯飞星火 (iFlytek Spark)",
     "provider": "spark",
     "category": [
-      "free_tier",
-      "big_quota"
+          "permanent_free",
+          "big_quota"
     ],
     "badge": "Spark-X2.6 送 10 亿 Tokens + 端侧限免",
     "badgeType": "blue",
@@ -663,8 +669,8 @@ export const PERK_PROVIDERS = [
     "name": "讯飞 Loomy (桌面 AI 工作搭子)",
     "provider": "loomy",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "每日刷新5000 + 任务送1万 + 邀请送5000",
     "badgeType": "success",
@@ -689,9 +695,9 @@ export const PERK_PROVIDERS = [
     "name": "智谱开放平台 (BigModel / Z.AI)",
     "provider": "zhipu",
     "category": [
-      "featured",
-      "free_tier",
-      "big_quota"
+          "featured",
+          "permanent_free",
+          "big_quota"
     ],
     "badge": "全系 Flash 免费（至下架）+ 新户赠额",
     "badgeType": "success",
@@ -715,8 +721,8 @@ export const PERK_PROVIDERS = [
     "name": "智谱 AutoClaw (本地养龙虾)",
     "provider": "autoclaw",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "国际版每日签到 500 credits",
     "badgeType": "success",
@@ -738,8 +744,8 @@ export const PERK_PROVIDERS = [
     "name": "中国电信 TeleAgent (星辰智能体)",
     "provider": "teleagent",
     "category": [
-      "client",
-      "free_tier"
+          "client",
+          "daily_claim"
     ],
     "badge": "四重福利，月最多赠 39,000 积分",
     "badgeType": "blue",

@@ -903,7 +903,7 @@ perks.title,ui,PerksPage,PerksPage,title,Provider Perks Guide,,active
 perks.subtitle,ui,PerksPage,PerksPage,subtitle,"Curated free tokens, trial balances, and perks with direct and invite links",,active
 perks.action.invite,ui,PerksPage,PerksPage,action_invite,"Register with Invite",,active
 perks.action.official,ui,PerksPage,PerksPage,action_official,"Official Website",,active
-perks.action.official_direct,ui,PerksPage,PerksPage,action_official_direct,"Official Direct (No Referrals)",,active
+perks.action.official_direct,ui,PerksPage,PerksPage,action_official_direct,"Official Direct",,active
 perks.count,ui,PerksPage,PerksPage,count,"{{count}} providers curated",,active
 perks.search_placeholder,ui,PerksPage,PerksPage,search_placeholder,"Search providers, models, or tags...",,active
 perks.empty.title,ui,PerksPage,PerksPage,empty_title,"No matching providers found",,active
@@ -912,6 +912,8 @@ perks.notice.title,ui,PerksPage,PerksPage,notice_title,"💡 About Referral and 
 perks.notice.desc,ui,PerksPage,PerksPage,notice_desc,"This guide provides both invite and official links. Using invite links may give you extra bonus credits while supporting guide maintenance. You can always use direct links to register.",,active
 perks.cat.all,ui,PerksPage,PerksPage,cat_all,"All Providers",,active
 perks.cat.featured,ui,PerksPage,PerksPage,cat_featured,"Featured",,active
+perks.cat.permanent_free,ui,PerksPage,PerksPage,cat_permanent_free,"Permanent Free",,active
+perks.cat.daily_claim,ui,PerksPage,PerksPage,cat_daily_claim,"Daily Claim & Credits",,active
 perks.cat.free_tier,ui,PerksPage,PerksPage,cat_free_tier,"Daily / Permanent Free",,active
 perks.cat.big_quota,ui,PerksPage,PerksPage,cat_big_quota,"Large Trial Quota",,active
 perks.cat.client,ui,PerksPage,PerksPage,cat_client,"Clients & Apps",,active

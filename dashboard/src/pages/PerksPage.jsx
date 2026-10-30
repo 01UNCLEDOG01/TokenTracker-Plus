@@ -200,10 +200,10 @@ function PerkCard({ item }) {
               href={item.officialUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-oai-gray-200/90 bg-oai-gray-50/50 py-1.5 text-[11px] font-medium text-oai-gray-600 transition hover:bg-oai-gray-100 hover:text-oai-gray-900 active:scale-[0.98] dark:border-oai-gray-800 dark:bg-oai-gray-950/40 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-oai-gray-200/90 bg-oai-gray-50/50 py-1.5 text-[11px] font-medium text-oai-gray-600 transition hover:bg-oai-gray-100 hover:text-oai-gray-900 active:scale-[0.98] dark:border-oai-gray-800 dark:bg-oai-gray-950/40 dark:text-oai-gray-300 dark:hover:border-oai-gray-700 dark:hover:bg-oai-gray-800 dark:hover:text-white"
             >
               <span>{copy("perks.action.official")}</span>
-              <ExternalLink className="h-3 w-3 opacity-60" aria-hidden />
+              <ExternalLink className="h-3 w-3 opacity-70" aria-hidden />
             </a>
           </div>
         ) : (
@@ -212,10 +212,10 @@ function PerkCard({ item }) {
               href={item.officialUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-oai-gray-200 bg-white px-3.5 py-2 text-xs font-medium text-oai-gray-800 shadow-xs transition hover:bg-oai-gray-50 active:scale-[0.98] dark:border-oai-gray-700 dark:bg-oai-gray-800 dark:text-oai-gray-200 dark:hover:bg-oai-gray-750"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-oai-gray-900/10 bg-oai-gray-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-oai-black active:scale-[0.98] dark:border-white/10 dark:bg-white dark:text-oai-black dark:hover:bg-oai-gray-100 dark:shadow-sm"
             >
               <span>{copy("perks.action.official_direct")}</span>
-              <ExternalLink className="h-3.5 w-3.5 opacity-70" aria-hidden />
+              <ExternalLink className="h-3.5 w-3.5 opacity-80" aria-hidden />
             </a>
           </div>
         )}

@@ -13,6 +13,8 @@ const VALIDATOR = path.join(ROOT, "scripts", "validate-perks-data.cjs");
 const HEAD = `export const PERK_CATEGORIES = [
   { "id": "all", "label": "全部服务商" },
   { "id": "featured", "label": "主力推荐" },
+  { "id": "permanent_free", "label": "永久免费" },
+  { "id": "daily_claim", "label": "每日可领取积分" },
   { "id": "free_tier", "label": "永久/每日免费" },
   { "id": "big_quota", "label": "赠送大额额度" },
   { "id": "client", "label": "客户端/工作台" }
