@@ -5002,8 +5002,17 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     if (p === "/functions/tokentracker-pet-prefs") {
       const prefsFile = path.join(os.homedir(), ".tokentracker", "tracker", "pet-prefs.json");
       if (String(req.method || "GET").toUpperCase() === "POST") {
+        // A cross-site page can POST here as a simple request (no preflight),
+        // so gate on the loopback-origin rule instead of the local auth token:
+        // the dashboard's plain fetch() does not carry the token, and the only
+        // clients that should ever write pet prefs are the two local windows.
+        if (!hasAllowedLoopbackOrigin(req?.headers || {}) || req?.headers?.["sec-fetch-site"] === "cross-site") {
+          json(res, { error: "Forbidden" }, 403);
+          return true;
+        }
         try {
-          const body = await readJsonBody(req);
+          const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+          const body = raw.trim() ? JSON.parse(raw) : {};
           const rows = Array.isArray(body?.limitRows) ? body.limitRows : [];
           const clean = [];
           for (const item of rows) {
@@ -5013,21 +5022,29 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             if (clean.length >= 6) break;
           }
           fs.mkdirSync(path.dirname(prefsFile), { recursive: true });
-          fs.writeFileSync(prefsFile, JSON.stringify({ limitRows: clean, updated_at: new Date().toISOString() }));
+          const tmpFile = `${prefsFile}.tmp`;
+          fs.writeFileSync(tmpFile, JSON.stringify({ limitRows: clean, updated_at: new Date().toISOString() }));
+          fs.renameSync(tmpFile, prefsFile);
           json(res, { ok: true, limitRows: clean });
         } catch (error) {
           json(res, { error: error?.message || "invalid pet prefs body" }, 400);
         }
         return true;
       }
+      // Missing file = the user never picked anything (pet falls back to its
+      // default rows). An existing file with an empty array = the user
+      // unchecked everything — that must read back as [] so the pet drops the
+      // stale rows instead of keeping them forever.
       let limitRows = null;
+      let prefsExists = false;
       try {
         const parsed = JSON.parse(fs.readFileSync(prefsFile, "utf8"));
-        if (Array.isArray(parsed?.limitRows) && parsed.limitRows.length) limitRows = parsed.limitRows;
+        prefsExists = true;
+        if (Array.isArray(parsed?.limitRows)) limitRows = parsed.limitRows;
       } catch {
-        // Never written yet: the pet falls back to its default first-6 rows.
+        // Never written yet (or mid-rename, which the atomic write prevents).
       }
-      json(res, { limitRows });
+      json(res, { limitRows: prefsExists && limitRows === null ? [] : limitRows });
       return true;
     }
 

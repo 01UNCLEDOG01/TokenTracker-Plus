@@ -119,3 +119,48 @@ test(
     assert.deepEqual(after.body.limitRows, ["sensenova::general_5h"]);
   }),
 );
+
+test(
+  "pet prefs distinguishes 'never written' from 'user unchecked everything'",
+  withSandbox(async (handler) => {
+    await call(handler, "POST", JSON.stringify({ limitRows: ["sensenova::general-5h"] }));
+    await call(handler, "POST", JSON.stringify({ limitRows: [] }));
+    const after = await call(handler, "GET");
+    // An existing file must read back as [] (drop stale rows) so the pet does
+    // not keep serving a selection the user just cleared.
+    assert.deepEqual(after.body.limitRows, []);
+  }),
+);
+
+test(
+  "pet prefs rejects cross-site writes but accepts same-origin ones",
+  withSandbox(async (handler) => {
+    const chunks = [];
+    const url = new URL(`http://localhost${ENDPOINT}`);
+    const make = (headers) => {
+      const res = {
+        statusCode: 200, setHeader() {},
+        writeHead(status) { this.statusCode = status; },
+        end(body) { if (body) chunks.push(body); },
+      };
+      return res;
+    };
+    const body = JSON.stringify({ limitRows: ["sensenova::general-5h"] });
+    const foreign = Object.assign(Readable.from([Buffer.from(body)]), {
+      method: "POST", url: ENDPOINT,
+      headers: { host: "localhost:17680", origin: "https://evil.example", "content-type": "application/json" },
+    });
+    const resForeign = make(foreign);
+    await handler(foreign, resForeign, url);
+    assert.equal(resForeign.statusCode, 403);
+
+    const local = Object.assign(Readable.from([Buffer.from(body)]), {
+      method: "POST", url: ENDPOINT,
+      headers: { host: "localhost:17680", origin: "http://localhost:17680", "content-type": "application/json" },
+    });
+    const resLocal = make(local);
+    await handler(local, resLocal, url);
+    assert.equal(resLocal.statusCode, 200);
+    assert.deepEqual(JSON.parse(chunks.pop() || "{}").limitRows, ["sensenova::general-5h"]);
+  }),
+);

@@ -830,6 +830,48 @@ describe("UsageLimitsPanel", () => {
         qoder={{
           configured: true,
           error: null,
+          // An empty 0/0 plan bucket would be dropped by the spec; this plan
+          // has quota, so both the Credits and add-on rows render.
+          primary_window: {
+            used_percent: 0,
+            used_credits: 0,
+            limit_credits: 2100,
+            remaining_credits: 2100,
+            reset_at: null,
+          },
+          tertiary_window: {
+            used_percent: 40,
+            used_credits: 40,
+            limit_credits: 100,
+            remaining_credits: 60,
+            reset_at: null,
+          },
+          secondary_window: {
+            used_percent: 65.75,
+            used_credits: 789,
+            limit_credits: 1200,
+            remaining_credits: 411,
+            reset_at: "2026-07-30T13:19:00.000Z",
+            unit: "calls",
+          },
+        }}
+        order={["qoder"]}
+      />,
+    );
+
+    expect(screen.getByText("Credits")).toBeInTheDocument();
+    expect(screen.getByText("Add-on Credits")).toBeInTheDocument();
+    expect(screen.getByText("Ultimate Free Calls")).toBeInTheDocument();
+    expect(screen.getByText("66%")).toBeInTheDocument();
+    expect(screen.getAllByRole("tooltip").some((tip) => /789[\s\S]*1200[\s\S]*411/.test(tip.textContent))).toBe(true);
+  });
+
+  it("drops Qoder's empty 0/0 windows instead of drawing a full remaining bar", () => {
+    render(
+      <UsageLimitsPanel
+        qoder={{
+          configured: true,
+          error: null,
           primary_window: {
             used_percent: 0,
             used_credits: 0,
@@ -850,10 +892,9 @@ describe("UsageLimitsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Credits")).toBeInTheDocument();
+    expect(screen.queryByText("Credits")).not.toBeInTheDocument();
+    expect(screen.queryByText("Add-on Credits")).not.toBeInTheDocument();
     expect(screen.getByText("Ultimate Free Calls")).toBeInTheDocument();
-    expect(screen.getByText("66%")).toBeInTheDocument();
-    expect(screen.getAllByRole("tooltip").some((tip) => /789[\s\S]*1200[\s\S]*411/.test(tip.textContent))).toBe(true);
   });
 
   it("marks Qoder last-good limits as cached with their capture age", () => {

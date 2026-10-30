@@ -2335,6 +2335,7 @@ usage.overview.qoder_cn_details_toggle,ui,DashboardPage,LedgerNotices,qoder_cn_d
 usage.overview.qoder_cn_model_rows_generic,ui,DashboardPage,LedgerNotices,qoder_cn_model_rows_generic,"Model rows below = official per-model estimates (recent Qoder CN builds no longer record tokens locally).",,active
 usage.overview.qoder_intl_credits_note,ui,DashboardPage,LedgerNotices,qoder_intl_credits_note,"Token rows below are back-derived estimates - Qoder records no token counts locally. The money is not an estimate: credits are per-message figures Qoder itself records, converted at the published Pro rate ($0.01 per credit).",,active
 limits.label.qoder_cn_addon_credits,ui,LimitsPage,UsageLimitsPanel,qoder_cn_addon_credits,Add-on Credits,,active
+limits.label.qoder_addon_credits,ui,LimitsPage,UsageLimitsPanel,qoder_addon_credits,Add-on Credits,,active
 cloud.rebuild.action,cloud,SettingsPage,CloudRebuildControl,action,Rebuild this device's cloud data,,active
 cloud.rebuild.title,cloud,SettingsPage,CloudRebuildControl,title,Rebuild cloud data?,,active
 cloud.rebuild.description,cloud,SettingsPage,CloudRebuildControl,description,"This removes this device's cloud usage and uploads its current local history again. Cloud-only history from this device will be lost. Local data, other devices and account-shared usage are kept.",,active

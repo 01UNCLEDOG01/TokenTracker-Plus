@@ -107,7 +107,10 @@ function normalizeQuotaSummary(summary) {
   if (total === 0 && (used !== 0 || remaining !== 0)) {
     throw new Error("Qoder zero total quota must have zero usage and remaining.");
   }
-  const usagePercentage = providedPercentage ?? (total > 0 ? (used / total) * 100 : 100);
+  // An empty 0/0 quota (no active plan) renders as 0%, matching Qoder's own
+  // Credits UI and the desktop/CLI paths; a server-provided percentage still
+  // wins when present. (Absorbed from upstream fff445d.)
+  const usagePercentage = providedPercentage ?? (total > 0 ? (used / total) * 100 : 0);
   return {
     used,
     total,
@@ -162,7 +165,7 @@ function normalizeQoderUsageResponse(response) {
   const usedPercent = shared
     ? total > 0
       ? (used / total) * 100
-      : 100
+      : 0
     : base.usagePercentage;
 
   const pools = QODER_POOL_DEFS.map(([key, camel, snake]) => {
@@ -331,16 +334,17 @@ function normalizeQoderRpcUsage(response) {
   const used = quota ? finiteNumber(quota.used, "userQuota.used") : 0;
   const total = quota ? finiteNumber(quota.total, "userQuota.total") : 0;
   const remaining = quota ? finiteNumber(quota.remaining, "userQuota.remaining") : 0;
-  const reportedPercent = Number(response.totalUsagePercentage ?? quota?.percentage);
+  // totalUsagePercentage aggregates the plan and add-on buckets and reaches
+  // this function on mixed scales (the OpenAPI returns fractions, the desktop
+  // IPC returns percents), so the primary window always derives its percent
+  // from its own quota numbers. (Absorbed from upstream fff445d.)
   const usedPercent = total === 0
     ? 0
     : addOnWindow
       ? (used / total) * 100
       : response.isQuotaExceeded === true
         ? 100
-        : Number.isFinite(reportedPercent)
-          ? reportedPercent
-          : (used / total) * 100;
+        : (used / total) * 100;
   const normalizedExpiry = normalizeResetAt(response.expiresAt);
   const expiryMs = normalizedExpiry ? Date.parse(normalizedExpiry) : NaN;
   return {

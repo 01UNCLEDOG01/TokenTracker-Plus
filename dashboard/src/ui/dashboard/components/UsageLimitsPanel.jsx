@@ -866,6 +866,9 @@ const formatTraeCredit = (value) => formatCreditAmount(value, { maximumFractionD
 // Wallet rows are pet-pickable like window rows: the row key must match the
 // wallet row the pet side emits (pet-quips.js), or a picked wallet would never
 // reach the hover card.
+// Row keys of the pickable wallet rows (kept in step with pet-quips.js).
+const WALLET_ROW_KEYS = ["trae::credits", "traeMain::credits", "codearts::credits", "agentRouter::balance"];
+
 function walletRowPicker(picker, rowKey) {
   if (!picker) return null;
   return {
@@ -1825,6 +1828,30 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
 // (issue 837). The panel only ever sends the key to the loopback backend.
 export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true, onProviderKeySaved = null }) {
   const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter };
+  // Dead-key purge: a picked key that matches no rendered row (a legacy key we
+  // could not migrate, or a provider since unconfigured) still counts against
+  // the six-row cap and would lock the picker. Prune it and persist the
+  // pruned list — the pet then shows exactly what the checkboxes show.
+  useEffect(() => {
+    const known = new Set(WALLET_ROW_KEYS);
+    for (const [id, provider] of Object.entries(dataById)) {
+      if (provider?.configured !== true || provider?.error != null) continue;
+      const spec = PROVIDER_LIMIT_SPECS[id];
+      if (!spec?.windows) continue;
+      let rows = [];
+      try {
+        rows = spec.windows(provider).filter((s) => s.window);
+      } catch {
+        continue;
+      }
+      for (const s of rows) known.add(petLimitRowKey(id, s.key));
+    }
+    setPetLimitRows((prev) => {
+      const pruned = prev.filter((key) => known.has(key));
+      if (pruned.length === prev.length) return prev;
+      return writePetLimitSelection(pruned);
+    });
+  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter]);
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);
@@ -1838,7 +1865,9 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
     let alive = true;
     fetchPetLimitSelectionRemote().then((remote) => {
       if (!alive) return;
-      if (remote && remote.length > 0) {
+      if (remote !== null) {
+        // [] = the user unchecked everything: adopt it, do not resurrect the
+        // window's stale localStorage copy.
         setPetLimitRows((prev) => (JSON.stringify(prev) === JSON.stringify(remote) ? prev : remote));
         return;
       }

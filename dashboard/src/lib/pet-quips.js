@@ -17,6 +17,7 @@
  */
 
 import { copy } from "./copy";
+import { MAX_PET_LIMIT_ROWS } from "./pet-limit-selection.js";
 import { formatChineseNumber } from "./format";
 
 const QUIPS = {
@@ -333,6 +334,19 @@ const PET_LIMIT_PROVIDER_COPY_NAME_KEYS = {
   commandCode: "limits.provider.command_code",
   devin: "limits.provider.devin",
   workbuddy: "limits.provider.workbuddy",
+  workbuddyAi: "limits.provider.workbuddy_ai",
+  qoderCn: "limits.provider.qoder_cn",
+  minimax: "limits.provider.minimax",
+  traeMain: "limits.provider.trae_main",
+};
+
+// Qoder's three credit pools, named the way the official usage panel names
+// them (mirrors usage-limits-provider-specs.js — the pet cannot import from
+// the components tree without dragging the panel bundle into pet.html).
+const QODER_POOL_LABEL_KEYS = {
+  plan: "limits.label.qoder_pool_plan",
+  resourcePackage: "limits.label.qoder_pool_resource",
+  dedicated: "limits.label.qoder_pool_dedicated",
 };
 
 // Unix timestamps are normally seconds; values above this order of magnitude
@@ -394,9 +408,6 @@ const PET_PINNED_LIMIT_ROWS = [
   ["sensenova", "general-5h"],
   ["sensenova", "general-7d"],
 ];
-// The hover card holds six rows; the pinned dashboard takes them first and any
-// leftover slots go to the most-used windows below.
-const MAX_PET_LIMIT_ROWS = 6;
 const isPinnedPetLimitRow = (providerId, windowKey) =>
   PET_PINNED_LIMIT_ROWS.some(([p, k]) => p === providerId && k === windowKey);
 const petLimitProviderName = (providerId) =>
@@ -469,7 +480,8 @@ function collectPetLimitRows(limits) {
   if (claude?.configured === true && claude?.error == null && Array.isArray(claude.weekly_scoped)) {
     for (const window of claude.weekly_scoped) {
       const label = window?.label || "weekly";
-      addWindow("claude", label, claude, window, (w) => w?.utilization, (w) => w?.resets_at, `scoped-${label}`);
+      // Key template must match the panel spec (`scoped-${w.label}`) byte for byte.
+      addWindow("claude", label, claude, window, (w) => w?.utilization, (w) => w?.resets_at, `scoped-${window?.label}`);
     }
   }
 
@@ -483,7 +495,7 @@ function collectPetLimitRows(limits) {
   // Window keys below are the Limits page's spec keys (usage-limits-provider-specs.js):
   // the pet picker stores `<providerId>::<spec.key>`, so a label change can
   // never silently unmatch a picked row. Labels stay display-only.
-  addGeneric("cursor", limits.cursor, [["Plan", limits.cursor?.primary_window, "plan"], ["Auto", limits.cursor?.secondary_window, "auto"], ["API", limits.cursor?.tertiary_window, "api"]]);
+  addGeneric("cursor", limits.cursor, [["Plan", limits.cursor?.primary_window, "plan"], ["Auto", limits.cursor?.secondary_window, "auto"], ["API", limits.cursor?.tertiary_window, "api"], [copy("limits.label.cursor_grok_bot"), limits.cursor?.quaternary_window, "grok-bot"]]);
   addGeneric("gemini", limits.gemini, [["Pro", limits.gemini?.primary_window, "pro"], ["Flash", limits.gemini?.secondary_window, "flash"], ["Lite", limits.gemini?.tertiary_window, "lite"]]);
   addGeneric("kimi", limits.kimi, [["Weekly", limits.kimi?.primary_window, "weekly"], ["5h", limits.kimi?.secondary_window, "5h"], ["Total", limits.kimi?.tertiary_window, "total"]]);
   addGeneric("kiro", limits.kiro, [["Month", limits.kiro?.primary_window, "month"], ["Bonus", limits.kiro?.secondary_window, "bonus"]]);
@@ -522,13 +534,29 @@ function collectPetLimitRows(limits) {
   ]);
   addGeneric("zcode", limits.zcode, zcodeQuipWindows(limits.zcode));
   addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window, "5h"], ["Weekly", limits.opencodeGo?.secondary_window, "weekly"], ["Month", limits.opencodeGo?.tertiary_window, "monthly"]]);
-  addGeneric("qoder", limits.qoder, [["Credits", limits.qoder?.primary_window, "credits"], ["Ultimate Free Calls", limits.qoder?.secondary_window, "ultimate"]]);
+  // Same split as the panel spec: when the provider reports named pools
+  // (套餐内/资源包/SOTA) the rows are keyed by pool.key, otherwise by the
+  // summed windows — a picked row must match whichever shape arrived.
+  const qoderPools = Array.isArray(limits.qoder?.pools) ? limits.qoder.pools.filter((pool) => Number(pool.limit) > 0) : [];
+  if (qoderPools.length) {
+    for (const pool of qoderPools) {
+      addWindow("qoder", copy(QODER_POOL_LABEL_KEYS[pool.key] || "limits.label.qoder_credits"), limits.qoder, {
+        used_percent: pool.percent,
+        used_credits: pool.used,
+        limit_credits: pool.limit,
+        remaining_credits: pool.remaining,
+        unit: pool.unit,
+      }, (w) => w?.used_percent, (w) => w?.expires_at ?? null, pool.key);
+    }
+  } else {
+    addGeneric("qoder", limits.qoder, [["Credits", limits.qoder?.primary_window, "credits"], [copy("limits.label.qoder_addon_credits"), limits.qoder?.tertiary_window, "addon"], ["Ultimate Free Calls", limits.qoder?.secondary_window, "ultimate"]]);
+  }
   // Qoder CN mirrors the panel spec (credits / add-on / ultimate); pools with a
   // 0 limit are not drawn there either, so they are skipped here.
   addGeneric("qoderCn", limits.qoderCn, [
-    ["Credits", limits.qoderCn?.primary_window, "credits"],
-    ["Add-on", limits.qoderCn?.tertiary_window, "addon"],
-    ["Ultimate", limits.qoderCn?.secondary_window, "ultimate"],
+    [copy("limits.label.qoder_cn_credits"), limits.qoderCn?.primary_window, "credits"],
+    [copy("limits.label.qoder_cn_addon_credits"), limits.qoderCn?.tertiary_window, "addon"],
+    [copy("limits.label.qoder_cn_ultimate"), limits.qoderCn?.secondary_window, "ultimate"],
   ].filter(([, window]) => Number(window?.limit_credits) > 0));
   addGeneric("commandCode", limits.commandCode, [
     [copy("limits.label.command_code_5h"), limits.commandCode?.primary_window, "5h"],
@@ -605,8 +633,9 @@ function collectPetLimitRows(limits) {
     return total ? Math.max(0, Math.min(100, (available / total) * 100)) : null;
   }), "credits");
   pushWalletRow("agentRouter", copy("limits.label.wallet_balance"), walletRemaining("agentRouter", (data) => {
-    const balance = Number(data.agentrouter_balance_usd) || 0;
-    const used = Number(data.agentrouter_used_usd) || 0;
+    const balance = Number(data.agentrouter_balance_usd);
+    const used = Number(data.agentrouter_used_usd);
+    if (!Number.isFinite(balance) || !Number.isFinite(used)) return null;
     const total = balance + used;
     return total ? Math.max(0, Math.min(100, (balance / total) * 100)) : null;
   }), "balance");

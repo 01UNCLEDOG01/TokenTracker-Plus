@@ -99,7 +99,10 @@ test("normalizeQoderUsageResponse accepts snake case and exhausted zero quota", 
     },
     next_reset_at: 1_785_542_400_000,
   });
-  assert.equal(result.primary_window.used_percent, 100);
+  // An empty 0/0 bucket (no active plan) reads as 0%, matching Qoder's own
+  // Credits UI — a 100% red bar for "nothing configured" is a false alarm.
+  // (Absorbed from upstream fff445d; the panel drops the empty row entirely.)
+  assert.equal(result.primary_window.used_percent, 0);
   assert.equal(result.primary_window.reset_at, "2026-08-01T00:00:00.000Z");
 });
 

@@ -20,10 +20,48 @@ function normalize(list) {
   const seen = [];
   for (const item of list) {
     if (typeof item !== "string" || !item.includes("::")) continue;
-    if (seen.includes(item)) continue;
-    seen.push(item);
+    const migrated = migrateLegacyKey(item);
+    if (seen.includes(migrated)) continue;
+    seen.push(migrated);
   }
   return seen;
+}
+
+// Before the row keys were unified with the Limits page's spec keys, the pet
+// builder used its display labels as keys ("antigravity::Gemini weekly",
+// "codex::Credits", …). Without this map an upgraded selection would silently
+// match nothing — and with 6 stale keys the picker locks up (nothing checked,
+// everything disabled). Keys produced from localized labels have no stable
+// mapping; they are dropped and the user re-picks once.
+const LEGACY_PET_ROW_KEYS = {
+  claude: { Opus: "opus" },
+  codex: { Credits: "credits", "Spark 5h": "spark-5h", "Spark 7d": "spark-7d" },
+  cursor: { Plan: "plan", Auto: "auto", API: "api" },
+  gemini: { Pro: "pro", Flash: "flash", Lite: "lite" },
+  kimi: { Weekly: "weekly", Total: "total" },
+  kiro: { Month: "month", Bonus: "bonus" },
+  grok: { Month: "month", "On-demand": "ondemand" },
+  copilot: { Premium: "premium", Chat: "chat" },
+  antigravity: {
+    "Gemini weekly": "gemini-weekly",
+    "Gemini 5h": "gemini-5h",
+    "Claude weekly": "claude-weekly",
+    "Claude 5h": "claude-5h",
+  },
+  sensenova: { "general-weekly": "general-7d" },
+  zcode: { Weekly: "weekly", Tools: "tools", "GLM-5.2": "glm52", "GLM-5 Turbo": "glm5t" },
+  opencodeGo: { Weekly: "weekly", Month: "monthly" },
+  qoder: { Credits: "credits", "Ultimate Free Calls": "ultimate" },
+  codingPlan: { Week: "weekly", Month: "monthly" },
+};
+
+function migrateLegacyKey(item) {
+  const at = item.indexOf("::");
+  const providerId = item.slice(0, at);
+  const key = item.slice(at + 2);
+  const remap = LEGACY_PET_ROW_KEYS[providerId];
+  const nextKey = remap && Object.hasOwn(remap, key) ? remap[key] : key;
+  return `${providerId}::${nextKey}`;
 }
 
 /** `null` = 用户从没勾过，调用方走默认（前 6 行）。 */

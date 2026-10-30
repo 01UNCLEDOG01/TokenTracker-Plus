@@ -296,3 +296,56 @@ describe("formatCompactTokens unit system", () => {
     expect(pool.some((line) => line.includes("123.5M"))).toBe(false);
   });
 });
+
+describe("pet card picked-row semantics", () => {
+  const baseLimits = {
+    antigravity: {
+      configured: true,
+      error: null,
+      primary_window: { used_percent: 3 },
+      secondary_window: { used_percent: 0 },
+      tertiary_window: { used_percent: 43 },
+      quaternary_window: { used_percent: 7 },
+    },
+    sensenova: {
+      configured: true,
+      error: null,
+      primary_window: { used_percent: 0 },
+      secondary_window: { used_percent: 9 },
+      tertiary_window: { used_percent: 0 },
+      quaternary_window: { used_percent: 0 },
+    },
+  };
+
+  it("shows a picked 0% row and leads the card with it", () => {
+    const readings = buildPetLimitSummaries(baseLimits, ["sensenova::flash-lite-5h"]);
+    expect(readings[0]).toMatchObject({ providerId: "sensenova", windowKey: "flash-lite-5h", usedPercent: 0 });
+    // The remaining slots still follow pinned/urgency ordering after the pick.
+    expect(readings.map((r) => r.windowKey)).toContain("gemini-weekly");
+  });
+
+  it("keeps unpinned unpicked 0% rows off the card while pinned ones stay", () => {
+    const readings = buildPetLimitSummaries(baseLimits, ["antigravity::gemini-5h"]);
+    // flash-lite-5h is 0% and neither picked nor pinned -> hidden.
+    expect(readings.map((r) => r.windowKey)).not.toContain("flash-lite-5h");
+    // general-5h is 0% but pinned -> the owner's fixed dashboard keeps it.
+    expect(readings.map((r) => r.windowKey)).toContain("general-5h");
+  });
+
+  it("surfaces a wallet row only when it is picked", () => {
+    const limits = {
+      ...baseLimits,
+      trae: {
+        configured: true,
+        error: null,
+        trae_available_points: 3600,
+        trae_total_points: 10000,
+        trae_grants: [],
+      },
+    };
+    const unpicked = buildPetLimitSummaries(limits, ["antigravity::gemini-5h"]);
+    expect(unpicked.some((r) => r.wallet)).toBe(false);
+    const picked = buildPetLimitSummaries(limits, ["trae::credits", "antigravity::gemini-5h"]);
+    expect(picked[0]).toMatchObject({ providerId: "trae", windowKey: "credits", wallet: true, usedPercent: 36 });
+  });
+});

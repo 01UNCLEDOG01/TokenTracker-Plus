@@ -2,6 +2,15 @@ import { copy } from "../../../lib/copy";
 
 /** Window + optional extra metadata for UsageLimitsPanel (no JSX — keeps hardcode scan clean). */
 
+// Qoder reports an empty 0/0 bucket for a plan-less account or a missing
+// add-on pack. The row carries no quota to read and would render as a full
+// bar in remaining mode, so it is dropped like a missing window (the panel
+// already shows its no-data state when every row drops out).
+function dropEmptyQoderWindow(window) {
+  if (!window) return null;
+  return Number(window.limit_credits) === 0 ? null : window;
+}
+
 // Qoder's three credit pools, named the way the official usage panel names them.
 const QODER_POOL_LABEL_KEYS = {
   plan: "limits.label.qoder_pool_plan",
@@ -248,7 +257,8 @@ export const PROVIDER_LIMIT_SPECS = {
         }));
       }
       return [
-        { key: "credits", labelKey: "limits.label.qoder_credits", window: data.primary_window },
+        { key: "credits", labelKey: "limits.label.qoder_credits", window: dropEmptyQoderWindow(data.primary_window) },
+        { key: "addon", labelKey: "limits.label.qoder_addon_credits", window: dropEmptyQoderWindow(data.tertiary_window) },
         {
           key: "ultimate",
           labelKey: "limits.label.qoder_ultimate",
