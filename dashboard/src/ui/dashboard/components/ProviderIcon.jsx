@@ -532,6 +532,26 @@ const PROVIDER_LOGO_MAP = {
   "CLINE-PASS": "/brand-logos/cline.png",
   // AgentRouter.org (New API relay panel) — the site\u0027s own logo.png.
   AGENTROUTER: "/brand-logos/agentrouter.png?v=3",
+  // Model-lab marks for the global leaderboard's provider column, taken from
+  // Artificial Analysis' own logo set (they publish the official mark per lab).
+  // Registered here rather than page-locally so any future surface — a lab
+  // filter, a router card — resolves the same mark for the same brand.
+  OPENAI: "/brand-logos/openai.svg?v=1",
+  ANTHROPIC: "/brand-logos/anthropic.svg?v=1",
+  GOOGLE: "/brand-logos/google.svg?v=1",
+  NVIDIA: "/brand-logos/nvidia.svg?v=1",
+  META: "/brand-logos/meta.svg?v=1",
+  ALIBABA: "/brand-logos/alibaba.svg?v=1",
+  "Z-AI": "/brand-logos/z-ai.svg?v=1",
+  SPACEXAI: "/brand-logos/spacexai.svg?v=1",
+  MISTRAL: "/brand-logos/mistral.svg?v=1",
+  "THINKING-MACHINES": "/brand-logos/thinking-machines.svg?v=1",
+  XIAOMI: "/brand-logos/xiaomi.svg?v=1",
+  STEPFUN: "/brand-logos/stepfun.svg?v=1",
+  COHERE: "/brand-logos/cohere.svg?v=1",
+  REFLECTION: "/brand-logos/reflection.svg?v=1",
+  IFM: "/brand-logos/ifm.svg?v=1",
+  INCLUSIONAI: "/brand-logos/inclusionai.png?v=1",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

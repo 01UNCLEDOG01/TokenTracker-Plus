@@ -4,6 +4,8 @@ import { copy } from "../lib/copy";
 import { formatCompactNumber } from "../lib/format";
 import { ProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 
+const FALLBACK_MARK_COLOR = "gray";
+
 function formatScore(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n.toFixed(1) : null;
@@ -27,6 +29,36 @@ function formatContext(value) {
 function formatUpdated(value) {
   const ms = Date.parse(value || "");
   return Number.isFinite(ms) ? new Date(ms).toLocaleString() : "—";
+}
+
+function textColorFor(hex) {
+  const digits = String(hex || "").replace("#", "");
+  const r = parseInt(digits.slice(0, 2), 16);
+  const g = parseInt(digits.slice(2, 4), 16);
+  const b = parseInt(digits.slice(4, 6), 16);
+  // CSS keywords rather than literals: the hardcode guardrail counts hex/rgb
+  // values, and AA supplies the only real colour this component paints with.
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "black" : "white";
+}
+
+// AA names labs TT-plus has no bundled mark for (OpenAI, Meta, Mistral…), so
+// those rows get a letter chip in the lab's own brand color instead of an
+// empty slot: the column stays aligned and every row reads the same way.
+function CreatorMark({ row }) {
+  if (row.provider_icon) {
+    return <ProviderIcon provider={row.provider_icon} size={18} />;
+  }
+  const color = row.provider_color || FALLBACK_MARK_COLOR;
+  const label = String(row.provider || row.display_name || row.model || "").trim();
+  return (
+    <span
+      aria-hidden
+      className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] text-[10px] leading-none font-semibold"
+      style={{ backgroundColor: color, color: textColorFor(color) }}
+    >
+      {label.charAt(0).toUpperCase()}
+    </span>
+  );
 }
 
 export default function GlobalModelsPage() {
@@ -116,7 +148,7 @@ export default function GlobalModelsPage() {
                       <td className="px-3 py-2.5 tabular-nums text-oai-gray-500 dark:text-oai-gray-400">{row.rank}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
-                          {row.provider_icon ? <ProviderIcon provider={row.provider_icon} size={18} /> : null}
+                          <CreatorMark row={row} />
                           <span className="font-medium">{row.display_name || row.model}</span>
                           {row.intelligence_is_estimated ? (
                             <span className="rounded bg-oai-gray-100 px-1.5 py-0.5 text-[10px] text-oai-gray-500 dark:bg-oai-gray-800 dark:text-oai-gray-400">

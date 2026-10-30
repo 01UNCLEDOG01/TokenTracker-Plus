@@ -16,17 +16,35 @@ const { getTrackerRootDir } = require("./tracker-paths");
 
 const SOURCE_URL = "https://artificialanalysis.ai/leaderboards/models";
 const SOURCE_NAME = "Artificial Analysis Intelligence Index";
-const SCHEMA = 2;
+// Bumped when the row shape changes: a snapshot written by an older build must
+// never be served, or the new columns silently render from missing fields.
+const SCHEMA = 3;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_TIMEOUT_MS = 25_000;
 
-// Only labs TT-plus has a real brand mark for get an icon; everything else is
-// labelled by text alone rather than a dashed placeholder circle.
+// AA names the lab behind every model; each entry resolves to a mark TT-plus
+// ships under the same key the rest of the app uses. Labs not listed here (and
+// any lab AA adds later) fall back to a brand-coloured letter chip on the page.
 const CREATOR_ICON_KEYS = {
-  Google: "gemini",
-  DeepSeek: "deepseek",
-  Kimi: "kimi",
+  OpenAI: "openai",
+  Anthropic: "anthropic",
+  Google: "google",
+  "Z AI": "z-ai",
+  NVIDIA: "nvidia",
+  Meta: "meta",
+  Alibaba: "alibaba",
+  SpaceXAI: "spacexai",
+  Mistral: "mistral",
+  "Thinking Machines": "thinking-machines",
+  Xiaomi: "xiaomi",
   MiniMax: "minimax",
+  DeepSeek: "deepseek-platform",
+  StepFun: "stepfun",
+  Cohere: "cohere",
+  Reflection: "reflection",
+  "Institute of Foundation Models": "ifm",
+  InclusionAI: "inclusionai",
+  Kimi: "kimi",
 };
 
 function cachePath(home) {
@@ -122,13 +140,16 @@ function normalizeModel(model) {
   const name = typeof model.name === "string" && model.name.trim() ? model.name.trim() : String(model.slug || "");
   if (!name) return null;
   const creator = typeof model.modelCreatorName === "string" ? model.modelCreatorName : "";
-  let icon = CREATOR_ICON_KEYS[creator] || null;
-  if (!icon && /grok/i.test(name)) icon = "grok";
+  const icon = CREATOR_ICON_KEYS[creator] || null;
+  const color = typeof model.modelCreatorColor === "string" && /^#[0-9a-fA-F]{6}$/.test(model.modelCreatorColor.trim())
+    ? model.modelCreatorColor.trim().toLowerCase()
+    : null;
   return {
     model: String(model.slug || name),
     display_name: name,
     provider: creator,
     provider_icon: icon,
+    provider_color: color,
     intelligence,
     intelligence_is_estimated: model.intelligenceIndexIsEstimated === true,
     omniscience: finite(model.omniscience),

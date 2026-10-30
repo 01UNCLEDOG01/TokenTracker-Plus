@@ -922,3 +922,32 @@ test("fetchQoderCnLimits stays on the china site even when QODER_SITE points els
   assert.equal(result.site, "china");
   assert.equal(result.primary_window.remaining_credits, 75);
 });
+
+test("fetchQoderLimits blames the stale saved cookie, not the user's Qoder sign-in", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-stale-cookie-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const trackerDir = path.join(home, ".tokentracker", "tracker");
+  fs.mkdirSync(trackerDir, { recursive: true });
+  fs.writeFileSync(path.join(trackerDir, "qoder-usage-cookie.txt"), "qoder_session_cookie=stale\n");
+
+  const result = await fetchQoderLimits({
+    home,
+    platform: "darwin",
+    env: {},
+    rpcRequest: async () => {
+      throw new Error("Qoder local service is not running.");
+    },
+    fetchImpl: async () => ({ ok: false, status: 401, async json() { return {}; } }),
+  });
+
+  // The desktop client can be perfectly signed in while this cookie copy is
+  // dead, so the card must not claim the user's login expired: it drops to the
+  // panel's localized "not connected" state with the reason kept as a note.
+  assert.equal(result.configured, false);
+  assert.equal(result.error, undefined);
+  assert.equal(result.auth_action_required, undefined);
+  assert.equal(result.saved_session_expired, true);
+  assert.match(result.note, /qoder-usage-cookie\.txt/);
+  assert.match(result.note, /sign-in itself is unaffected/);
+  assert.doesNotMatch(result.note, /Sign in at qoder\.com again/);
+});

@@ -473,6 +473,28 @@ function readQoderCookieFile({ home = os.homedir(), namespace } = {}) {
   }
 }
 
+// A 401 on this route says nothing about the user's Qoder sign-in: the website
+// API is only ever called with a cookie TT-plus saved by hand, and that copy
+// goes stale on its own while the desktop client stays logged in. Name the
+// artifact that actually expired, or the panel sends the user to re-login for
+// nothing (they will come back and still see the error).
+function describeSavedSessionExpired({ sourceLabel, site, home, cacheNamespace }) {
+  const file = qoderCookieFilePath({ home, namespace: cacheNamespace });
+  let savedAt = "";
+  try {
+    savedAt = fs.statSync(file).mtime.toISOString().slice(0, 10);
+  } catch (_error) {}
+  const origin = sourceLabel === "cookie-file"
+    ? `${file}${savedAt ? ` (saved ${savedAt})` : ""}`
+    : `the ${sourceLabel} environment variable`;
+  const error = new Error(
+    `Saved ${site.origin} session no longer accepted: ${origin}. `
+    + "Your Qoder sign-in itself is unaffected - refresh that cookie, or delete the file to fall back to local data.",
+  );
+  error.code = "SAVED_SESSION_EXPIRED";
+  return error;
+}
+
 function qoderCachedWindow(window, { cachedAtMs, nowMs } = {}) {
   if (!window || typeof window !== "object") return null;
   const resetAtMs = Date.parse(window.reset_at || "");
@@ -1180,7 +1202,14 @@ async function fetchQoderLimits({
       writeQoderLimitsCache(liveResult, { home, nowMs, namespace: cacheNamespace });
       return liveResult;
     } catch (error) {
-      lastError = error;
+      lastError = error?.code === "AUTH_EXPIRED"
+        ? describeSavedSessionExpired({
+            sourceLabel: session.sourceLabel,
+            site: session.site,
+            home,
+            cacheNamespace,
+          })
+        : error;
     }
   }
 
@@ -1219,6 +1248,17 @@ async function fetchQoderLimits({
       primary_window: null,
       secondary_window: activityWindow,
       source: activitySource === "disk-cache" ? "cached-activity" : "local-ipc+provider-api",
+    };
+  }
+  if (lastError?.code === "SAVED_SESSION_EXPIRED") {
+    // Only TT-plus's own saved cookie copy failed - the user's Qoder account is
+    // signed in and nothing they do at qoder.com fixes this file. Render the
+    // standard localized "not connected" state and keep the reason as a note
+    // instead of a red error that sends them to re-login.
+    return {
+      configured: false,
+      saved_session_expired: true,
+      note: lastError.message,
     };
   }
   if (lastError) {

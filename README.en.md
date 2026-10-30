@@ -68,6 +68,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🏆 **65 Offline Achievements & 17 3D Synergy Title Crests (Steam Stacked Toasts)** — 100% local offline unlocking; authentic Steam unlock audio, concurrent multi-toast vertical stacking (up to 3 toasts with hover-pause), bespoke 3D relief crest medallions with real-time UI/Leaderboard equip display, and Canvas battle report export.
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
+- 🌍 **Global Model Board (zero setup)** — Reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models, side by side with your own usage. No API key, cached locally, self-updating.
 
 ---
 
@@ -100,9 +101,18 @@ node bin/tracker.js doctor     # System diagnostics and health check
 </td>
 <td width="50%">
 
-**Offline Achievements** — 57 offline achievements, 17 synergy titles & Steam popups
+**Offline Achievements** — 65 offline achievements, 17 synergy titles & Steam popups
 
 <img src="./docs/screenshots/achievements.png" alt="Achievements" />
+
+</td>
+</tr>
+<tr>
+<td colspan="2">
+
+**Global Model Board** — reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models. No setup, cached locally, self-updating.
+
+<img src="./docs/screenshots/global-models.png" alt="Global Models" />
 
 </td>
 </tr>

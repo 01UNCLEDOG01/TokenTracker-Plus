@@ -67,8 +67,8 @@ describe("ProviderIcon", () => {
 
   it("renders AStudio with its theme-aware brand assets", () => {
     const { container } = render(<ProviderIcon provider="acode" size={18} />);
-    const lightIcon = container.querySelector('img[src="/brand-logos/acode.png"]');
-    const darkIcon = container.querySelector('img[src="/brand-logos/acode-dark.png"]');
+    const lightIcon = container.querySelector('img[src^="/brand-logos/acode.png"]');
+    const darkIcon = container.querySelector('img[src^="/brand-logos/acode-dark.png"]');
 
     expect(lightIcon).toHaveAttribute("width", "18");
     expect(lightIcon).toHaveClass("block", "dark:hidden");
@@ -97,7 +97,7 @@ describe("ProviderIcon", () => {
   it("renders the Dots Studio sail brand logo for both the standalone and pi-routed sources", () => {
     for (const provider of ["dots", "pi-dots"]) {
       const { container } = render(<ProviderIcon provider={provider} size={18} />);
-      const icon = container.querySelector('img[src="/brand-logos/dots.png"]');
+      const icon = container.querySelector('img[src^="/brand-logos/dots.png"]');
       expect(icon, `${provider} maps to dots.png`).not.toBeNull();
       expect(icon).toHaveAttribute("width", "18");
       expect(icon).toHaveClass("dark:invert");
@@ -106,7 +106,7 @@ describe("ProviderIcon", () => {
 
   it("renders the Reasonix brand icon", () => {
     const { container } = render(<ProviderIcon provider="reasonix" size={20} />);
-    const icon = container.querySelector('img[src="/brand-logos/reasonix.png"]');
+    const icon = container.querySelector('img[src^="/brand-logos/reasonix.png"]');
 
     expect(icon).not.toBeNull();
     expect(icon).toHaveAttribute("width", "20");

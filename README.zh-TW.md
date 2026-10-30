@@ -68,6 +68,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 - 🏆 **65 枚成就與 17 大 3D 稱號殿堂（Steam 原生並發堆疊 Toast）** —— 100% 本地離線判定；搭載 Steam 解鎖音效與最多 3 張垂直懸浮並發堆疊 Toast、懸停獨立倒計時凍結（Hover-to-Pause）、17 枚極客專屬 3D 浮雕 Crest 紋章與全端佩戴點亮，支援一鍵匯出 AAA 級極客 Canvas 戰報。
 - 🔄 **高頻持續維護承諾** —— 站長與開源社群緊跟國內外 AI 編碼圈最新動態，高頻持續更新熱門 AI 工具解析與額度監控卡片，隨出隨接，常用常新。
 - 🐱 **動態桌寵與桌面小組件** —— 懸浮像素桌寵（多套動作輪換與滑鼠注視）、4 種桌面小組件、置頂用量藥丸。
+- 🌍 **全球模型榜（免設定）** —— 直讀 Artificial Analysis 官方榜單，把 80+ 模型的智能分、輸入/輸出/快取價、上下文與輸出速度搬進本地側欄；無需任何 API Key，本地快取自動更新，與你的實際用量同屏對照。
 
 ---
 
@@ -103,6 +104,15 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 **離線成就系統** —— 65 枚全量成就離線判定與 17 大稱號羈絆體系
 
 <img src="./docs/screenshots/achievements.png" alt="Achievements" />
+
+</td>
+</tr>
+<tr>
+<td colspan="2">
+
+**全球模型榜** —— 直讀 Artificial Analysis 官方榜單：80+ 模型的智能分、輸入/輸出/快取價、上下文與輸出速度，免設定、本地快取自動更新
+
+<img src="./docs/screenshots/global-models.png" alt="Global Models" />
 
 </td>
 </tr>

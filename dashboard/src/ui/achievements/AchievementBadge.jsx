@@ -64,7 +64,14 @@ export function AchievementBadge({
           src={entry.art}
           alt=""
           draggable={false}
-          loading="lazy"
+          // The grid scrolls inside the main pane, so lazy art only starts
+          // loading once a medallion enters that box: measured on the installed
+          // build, 44 of 67 tiles were still unfetched at first paint and the
+          // user sees empty discs while scrolling. These are 256px local PNGs
+          // (2.7 MB for the whole set), so eager + async decode costs less than
+          // the blank frames it removes.
+          loading="eager"
+          decoding="async"
           onError={() => setArtFailed(true)}
           className="h-full w-full rounded-full object-cover"
           style={isLocked ? { filter: "grayscale(1)", opacity: 0.55 } : undefined}
