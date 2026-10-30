@@ -158,6 +158,7 @@ describe("useLimitsDisplayPrefs", () => {
         "copilot",
         "cursor",
         "devin",
+        "minimax",
         "workbuddy",
         "workbuddyAi",
         "gemini",
