@@ -84,6 +84,7 @@ timestamps, never prompts, responses, or source code.
 - Four desktop widgets: usage, activity heatmap, top models, and usage limits
 - Achievement system with local and optional account-wide milestones
 - Global model board read from the Artificial Analysis leaderboard (intelligence index, pricing, context and output speed) with no API key and a local cache
+- Provider perks guide: 19 vendors with free credits, daily tiers and starter grants, each with invite and official links
 - Unified local usage dashboard and cost analysis across 2,200+ models
 - Project attribution, activity heatmap, trends, and usage-limit monitoring
 - Provider-aware deduplication for overlapping and mirrored session sources
