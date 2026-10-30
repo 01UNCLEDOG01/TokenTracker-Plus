@@ -473,6 +473,7 @@ const PROVIDER_LOGO_MAP = {
   OMP: "/brand-logos/omp.svg",
   OPENCLAW: "/brand-logos/openclaw.svg",
   OPENCODE: "/brand-logos/opencode.svg",
+  OPENSQUILLA: "/brand-logos/opensquilla.png?v=1",
   PI: "/brand-logos/pi.svg",
   // Dots Studio's sail mark (right triangle + hull bar), not the chat-app
   // droplet — Dots has its own recognizable brand mark, so it overrides the
