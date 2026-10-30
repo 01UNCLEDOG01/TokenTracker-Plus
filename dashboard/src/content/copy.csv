@@ -1533,10 +1533,6 @@ achievements.badge.dragon_heir.name,dashboard,*,AchievementsSection,dragon_heir_
 achievements.badge.dragon_heir.desc,dashboard,*,BadgeDetailModal,dragon_heir_desc,"Use domestic model families across DeepSeek, Qwen, Zhipu, Kimi, Hunyuan and more.",,active
 achievements.badge.kill_line.name,dashboard,*,AchievementsSection,kill_line_name,"Kill Line",,active
 achievements.badge.kill_line.desc,dashboard,*,BadgeDetailModal,kill_line_desc,"DeepSeek models pass half of all your tokens — that is the kill line. Next stop: a big bowl of plain rice!",,active
-achievements.action.test_unlock,dashboard,AchievementsPage,AchievementsPage,action_test_unlock,"Test Unlock",,active
-achievements.action.test_tier_up,dashboard,AchievementsPage,AchievementsPage,action_test_tier_up,"Test Promotion",,active
-achievements.action.test_resonance,dashboard,AchievementsPage,AchievementsPage,action_test_resonance,"Test Synergy",,active
-achievements.action.reset_real,dashboard,AchievementsPage,AchievementsPage,action_reset_real,"Reset Real Data",,active
 achievements.action.export_card,dashboard,AchievementsPage,AchievementsPage,action_export_card,"Export Card",,active
 achievements.filter.all,dashboard,AchievementsPage,AchievementsPage,filter_all,"All",,active
 achievements.filter.models,dashboard,AchievementsPage,AchievementsPage,filter_models,"AI Models",,active

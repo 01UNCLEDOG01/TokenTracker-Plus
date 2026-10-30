@@ -6,9 +6,7 @@ import { BADGE_CATALOG, BADGE_CATEGORIES, BADGE_CATEGORY_MAP, badgeCopyKey } fro
 import { BadgeSynergyBanner } from "../ui/achievements/BadgeSynergyBanner.jsx";
 import { TitleDetailModal } from "../ui/achievements/TitleDetailModal.jsx";
 import { AchievementShareModal } from "../ui/achievements/AchievementShareModal.jsx";
-import { triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
-import { Share2, Volume2, Sparkles, Layers, RotateCcw } from "lucide-react";
-import { TITLES_REGISTRY, getActiveTitleId } from "../ui/achievements/title-registry.js";
+import { Share2 } from "lucide-react";
 
 // Lazy: 3D coin + dialog ship only when a badge is clicked.
 const BadgeDetailModal = React.lazy(() => import("../ui/achievements/BadgeDetailModal.jsx"));
@@ -40,9 +38,6 @@ export default function AchievementsPage() {
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [selectedTitleInfo, setSelectedTitleInfo] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [tierTestIndex, setTierTestIndex] = useState(1);
-  const [tierTestBadgeIndex, setTierTestBadgeIndex] = useState(0);
-  const [resonanceTestMode, setResonanceTestMode] = useState(0);
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSortBy, setActiveSortBy] = useState("earned");
   const loading = local.status === "loading";
@@ -84,100 +79,12 @@ export default function AchievementsPage() {
                 <div className="mt-1 flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => {
-                      const allBadges = BADGE_CATALOG;
-                      const randomBadge = allBadges[Math.floor(Math.random() * allBadges.length)];
-                      const bName = copy(badgeCopyKey(randomBadge.id, "name"));
-                      const bDesc = copy(badgeCopyKey(randomBadge.id, "desc"));
-                      triggerAchievementNotification({
-                        badge: randomBadge,
-                        tier: 1,
-                        isTierUp: false,
-                        name: bName,
-                        desc: bDesc,
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
-                    title={copy("achievements.action.test_unlock")}
-                  >
-                    <Volume2 className="h-3 w-3 text-amber-500" />
-                    {copy("achievements.action.test_unlock")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextTier = (tierTestIndex % 4) + 1;
-                      setTierTestIndex(nextTier);
-                      const testBadge = BADGE_CATALOG[tierTestBadgeIndex % BADGE_CATALOG.length];
-                      if (nextTier === 4) {
-                        setTierTestBadgeIndex((prev) => prev + 1);
-                      }
-                      const bName = copy(badgeCopyKey(testBadge.id, "name"));
-                      const bDesc = copy(badgeCopyKey(testBadge.id, "desc"));
-                      triggerAchievementNotification({
-                        badge: testBadge,
-                        tier: nextTier,
-                        isTierUp: nextTier > 1,
-                        name: bName,
-                        desc: bDesc,
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
-                    title={copy("achievements.action.test_tier_up")}
-                  >
-                    <Sparkles className="h-3 w-3 text-cyan-500" />
-                    {copy("achievements.action.test_tier_up")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextMode = (resonanceTestMode + 1) % 6;
-                      setResonanceTestMode(nextMode);
-                      const currentActiveId = getActiveTitleId();
-                      const activeTitle = TITLES_REGISTRY.find((t) => t.id === currentActiveId) || TITLES_REGISTRY[0];
-                      const modeTier = nextMode === 5 ? 4 : Math.max(1, nextMode);
-                      triggerAchievementNotification({
-                        kind: "resonance",
-                        badge: {
-                          id: "synergy_resonance",
-                          art: activeTitle.art,
-                        },
-                        tier: modeTier,
-                        isTierUp: nextMode > 1,
-                        name: activeTitle.name,
-                        desc: activeTitle.desc,
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2 py-1 text-xs font-medium text-oai-gray-600 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
-                    title={copy("achievements.action.test_resonance")}
-                  >
-                    <Layers className="h-3 w-3 text-purple-400" />
-                    {copy("achievements.action.test_resonance")}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setShareOpen(true)}
                     className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-600 shadow-sm transition hover:bg-amber-500/20 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-400"
                   >
                     <Share2 className="h-3 w-3" />
                     {copy("achievements.action.export_card")}
                   </button>
-                  {resonanceTestMode !== 0 && (
-                    <>
-                      <span className="inline-flex items-center rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-600 dark:text-violet-300">
-                        {resonanceTestMode}/5
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setResonanceTestMode(0)}
-                        className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 shadow-sm transition hover:bg-emerald-500/20 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-400"
-                        title={copy("achievements.action.reset_real")}
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                        {copy("achievements.action.reset_real")}
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
             )}
@@ -187,7 +94,6 @@ export default function AchievementsPage() {
           {!loading && (
             <BadgeSynergyBanner
               badges={merged}
-              resonanceTestMode={resonanceTestMode}
               onSelectBadge={(id) => {
                 const badge = merged.find((b) => b.id === id);
                 if (badge) setSelectedBadge(badge);
@@ -285,7 +191,6 @@ export default function AchievementsPage() {
         <TitleDetailModal
           title={selectedTitleInfo.title}
           resonance={selectedTitleInfo.resonance}
-          testMode={resonanceTestMode}
           badgeMap={new Map(merged.map((b) => [b.id, b]))}
           onClose={() => setSelectedTitleInfo(null)}
           onSelectBadge={(id) => {
