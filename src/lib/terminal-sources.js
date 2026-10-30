@@ -82,6 +82,7 @@ const NON_TERMINAL_SOURCES = new Map([
   ["cola", "桌面应用：%APPDATA%/Cola + ~/.cola 的 chat-history.db/apps/bookmarks"],
   ["loomy", "桌面应用：%APPDATA%/Loomy，内嵌 OpenCode 数据库"],
   ["reasonix", "桌面应用：%APPDATA%/reasonix + reasonix-desktop.exe（~/.reasonix 只剩 locks）"],
+  ["opensquilla", "桌面应用：%APPDATA%/@opensquilla/desktop-electron（CLI 版另在 ~/.opensquilla/state）"],
   ["mimo", "桌面应用：%APPDATA%/Xiaomi MiMo"],
   ["dumate", "桌面应用（DuMate 客户端）"],
   ["lmstudio", "桌面应用（LM Studio 本地模型工作台）"],

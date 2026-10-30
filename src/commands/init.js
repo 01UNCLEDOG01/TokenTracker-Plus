@@ -131,6 +131,7 @@ const SUPPORTED_PROVIDERS = [
   "Antigravity",
   "Kiro",
 "OpenCode",
+  "OpenSquilla",
     "OpenClaw",
     "Loomy",
   "Every Code",

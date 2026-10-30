@@ -132,6 +132,8 @@ const {
   parseZedIncremental,
   resolveLmstudioLogFiles,
   parseLmstudioIncremental,
+  resolveOpenSquillaDbPaths,
+  parseOpenSquillaIncremental,
   resolveUnslothDbPath,
   parseUnslothIncremental,
   resolveAnythingllmDbPath,
@@ -395,6 +397,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "omo",
   "omp",
   "opencode",
+  "opensquilla",
   "openclaw",
   "pi",
   "qoder",
@@ -1992,6 +1995,25 @@ async function cmdSync(argv, context = {}) {
           });
         } catch (err) {
           warnProviderParseFailure("LM Studio", err, opts);
+        }
+      }
+    }
+
+    let opensquillaResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (sourceAllowed("opensquilla")) {
+      const opensquillaDbPaths = resolveOpenSquillaDbPaths(process.env)
+        .filter((dbPath) => fssync.existsSync(dbPath));
+      if (opensquillaDbPaths.length > 0) {
+        if (progress?.enabled) progress.start("Parsing OpenSquilla " + renderBar(0) + " | buckets 0");
+        try {
+          opensquillaResult = await parseOpenSquillaIncremental({
+            dbPaths: opensquillaDbPaths,
+            cursors,
+            queuePath,
+            onProgress: makeProviderProgress("OpenSquilla"),
+          });
+        } catch (err) {
+          warnProviderParseFailure("OpenSquilla", err, opts);
         }
       }
     }
@@ -3670,6 +3692,7 @@ async function cmdSync(argv, context = {}) {
       grokResult.recordsProcessed +
       copilotResult.recordsProcessed +
       lmstudioResult.recordsProcessed +
+      opensquillaResult.recordsProcessed +
       unslothResult.recordsProcessed +
       anythingllmResult.recordsProcessed +
 
@@ -3719,6 +3742,7 @@ async function cmdSync(argv, context = {}) {
       grokResult.bucketsQueued +
       copilotResult.bucketsQueued +
       lmstudioResult.bucketsQueued +
+      opensquillaResult.bucketsQueued +
       unslothResult.bucketsQueued +
       anythingllmResult.bucketsQueued +
       devinResult.bucketsQueued +

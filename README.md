@@ -1,13 +1,13 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>跨 54 款 AI 编码工具与 IDE，看清你到底在 AI 上花了多少钱与实时 Token 速率</strong></p>
+  <p><strong>跨 55 款 AI 编码工具与 IDE，看清你到底在 AI 上花了多少钱与实时 Token 速率</strong></p>
   <p>
     <b>简体中文</b> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.pt-BR.md">Português (BR)</a>
   </p>
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-    <a href="#-支持的-ai-工具列表54-款"><img src="https://img.shields.io/badge/AI%20Tools-54%20Supported-brightgreen.svg" alt="54 Supported AI Tools" /></a>
+    <a href="#-支持的-ai-工具列表55-款"><img src="https://img.shields.io/badge/AI%20Tools-55%20Supported-brightgreen.svg" alt="55 Supported AI Tools" /></a>
     <a href="#-快速开始"><img src="https://img.shields.io/badge/Desktop-Windows-9cf.svg" alt="Desktop" /></a>
     <a href="#-数据与隐私准则"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
@@ -18,7 +18,7 @@
 
 > 💡 **关于本仓库**：TT-plus 是基于原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT 许可）深度重构的单机与自托管增强版。核心目标是**100% 本地优先**、**真值计费**、**会话拓扑下钻**与**全链路 Token 生成速率实时捕获**。上游版权归原作者所有，本改造同样遵循 MIT 协议开源。上游官方不为此 fork 提供支持或背书。
 
-[✨ 核心特性](#-核心特性) · [🔌 支持的工具](#-支持的-ai-工具列表54-款) · [⚡ 快速开始](#-快速开始) · [💰 计费与热力图](#-费用口径与热力图准则) · [🖼️ 界面预览](#-界面预览) · [🆚 三方对比](#-为什么选-tokentracker-plus) · [🔒 数据与隐私](#-数据与隐私准则) · [📜 使用指南](./docs/getting-started.zh-CN.md) · [❤️ 支持本项目](./SPONSOR.md)
+[✨ 核心特性](#-核心特性) · [🔌 支持的工具](#-支持的-ai-工具列表55-款) · [⚡ 快速开始](#-快速开始) · [💰 计费与热力图](#-费用口径与热力图准则) · [🖼️ 界面预览](#-界面预览) · [🆚 三方对比](#-为什么选-tokentracker-plus) · [🔒 数据与隐私](#-数据与隐私准则) · [📜 使用指南](./docs/getting-started.zh-CN.md) · [❤️ 支持本项目](./SPONSOR.md)
 
 ---
 
@@ -39,7 +39,7 @@ node bin/tracker.js
 
 # 常用操作
 node bin/tracker.js sync       # 手动增量同步
-node bin/tracker.js status     # 查看 54 款工具 hook / 解析器挂接状态
+node bin/tracker.js status     # 查看 55 款工具 hook / 解析器挂接状态
 node bin/tracker.js status --json  # 机器可读 JSON 输出（供 AI Agent 管道处理）
 node bin/tracker.js doctor     # 运行系统诊断与健康检查
 ```
@@ -47,7 +47,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 **30 秒内你能看到什么：**
 - 📊 **本地 Dashboard**（默认 `http://localhost:7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
 - ⚡ **毫秒级 Token 速率流** —— 自动接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客户端的实时生成速率（`tok/s`）。
-- 🔌 **全自动扫描挂接** —— 自动识别挂接本地已安装的 54 款 AI 编码工具，零账号绑定、零 API Key 泄露风险。（可选：个别限额卡需要自行刷新本地凭据，如 Qoder 限额卡用仓库根目录的 `Qoder-*-刷新Cookie` 脚本；核心用量统计零配置可用。）
+- 🔌 **全自动扫描挂接** —— 自动识别挂接本地已安装的 55 款 AI 编码工具，零账号绑定、零 API Key 泄露风险。（可选：个别限额卡需要自行刷新本地凭据，如 Qoder 限额卡用仓库根目录的 `Qoder-*-刷新Cookie` 脚本；核心用量统计零配置可用。）
 - 🏆 **65 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。
 
 > **想要原生桌面端？**
@@ -58,7 +58,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 ## ✨ 核心特性
 
-- 🔌 **专为多平台重度开发者打造（支持 54 款工具）** —— 专为日常混合使用多款 AI 客户端的高强度极客设计。无论是终端 CLI、VS Code / Cursor 插件，还是原生桌面 IDE，一键免密挂接全部碎片化账本，无需来回切换 10+ 网站查账。
+- 🔌 **专为多平台重度开发者打造（支持 55 款工具）** —— 专为日常混合使用多款 AI 客户端的高强度极客设计。无论是终端 CLI、VS Code / Cursor 插件，还是原生桌面 IDE，一键免密挂接全部碎片化账本，无需来回切换 10+ 网站查账。
 - 💰 **全网独家：Free 模型真值计费（看清自己到底白嫖赚了多少）** —— 坚决拒绝上游将 `-free` 路由粗暴归零！免费/限免模型一律按官方公开刊例价折算真实算力价值，清清楚楚量化自己薅到了多少真金白银的算力，专属解锁【白嫖之光】勋章与【零元精算巨匠】极客称号。
 - ⚡ **纳秒级 Token 生成速率捕获** —— 自研多源速率解析与 SQLite WAL 无锁感知，毫秒级流式分段，独立核算思考模型推理 tokens，精准输出会话级 `tok/s`。
 - 🏠 **100% 本地优先与严格隐私保护** —— 跑在本地。直接读取本机日志与数据库，代码正文、Prompt 绝不离开你的电脑，严禁收录或泄漏任何个人敏感账号信息。
@@ -116,7 +116,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | 功能维度 | ⚡ **TokenTracker Plus (本分支)** | 📦 **原版 TokenTracker (上游)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **定位与架构** | **宏观全局账本 + 深度拓扑 + 实时速率** | 通用全能看板（含官方云托管） | 极简桌面实时悬浮窗 |
-| **支持的 AI 工具数** | **54** 款（覆盖国内外全谱系工具与本地端） | 46 款 | ~15 款（主要覆盖主流模型 API 与常见 CLI） |
+| **支持的 AI 工具数** | **55** 款（覆盖国内外全谱系工具与本地端） | 47 款 | ~15 款（主要覆盖主流模型 API 与常见 CLI） |
 | **限额追踪** | **✅ 18 家 provider**（实时限额窗口与重置倒计时） | 10 家 provider | ⚠️ 基础限额展示 |
 | **主要交互方式** | **Windows 托盘 + Web Dashboard + 小组件 + CLI** | macOS 菜单栏 + Web Dashboard + 小组件 + CLI | 桌面极简悬浮窗 |
 | **数据隐私与存储** | **100% 本地优先**（零强制外传，多端 WAL 感知） | 本地 SQLite + 可选官方云端同步 | 本地 SQLite WAL（无宏观历史报表） |
@@ -130,11 +130,11 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 ---
 
-## 🔌 支持的 AI 工具列表（54 款）
+## 🔌 支持的 AI 工具列表（55 款）
 
-本仓库当前支持 **54 款 AI 编码工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 为准）：**46 款为 TT 原版支持**（上游共 47 款，其中的 OpenSquilla 暂未接入），**8 款为本 fork 新增**（AutoClaw、Cola、Tuanjie Cowork、Agent2API、Loomy、CodeArts Agent、Magpie、商汤小浣熊），另有小米 MiMo 由原版 Mimo 正名。先列 TT 原版能力，fork 的新增与增强单独说明。
+本仓库当前支持 **55 款 AI 编码工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 为准）：**47 款为 TT 原版支持**（上游共 47 款），**8 款为本 fork 新增**（AutoClaw、Cola、Tuanjie Cowork、Agent2API、Loomy、CodeArts Agent、Magpie、商汤小浣熊），另有小米 MiMo 由原版 Mimo 正名。先列 TT 原版能力，fork 的新增与增强单独说明。
 
-### TT 原版支持（46 款）
+### TT 原版支持（47 款）
 
 | 工具名称 | 识别方式 | 接入方式与机制（TT 原版） |
 |---|:---:|---|
@@ -144,6 +144,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **Cursor** | ✅ 自动 | API + 本地 SQLite 中的 auth token |
 | **Kiro** | ✅ 自动 | SQLite + JSONL 混合读取 |
 | **Gemini CLI** | ✅ 自动 | SessionEnd hook |
+| **OpenSquilla** | ✅ 自动 | 被动读取本地 SQLite 中已完成的模型用量；只读时间戳、模型与 token 计数，不读对话正文。可用 `TOKENTRACKER_OPENSQUILLA_DB` 覆盖路径 |
 | **OpenClaw** | ✅ 自动 | Session 插件（`openclaw-session-sync`） |
 | **Every Code** | ✅ 自动 | TOML notify hook |
 | **Hermes Agent** | ✅ 自动 | 被动读取 SQLite（`~/.hermes/state.db`） |
@@ -211,7 +212,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 ```mermaid
 flowchart LR
-    A["54 款 AI 编码工具<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder 等)"] -->|Hook 触发 / 被动探测| B[TokenTracker Plus 核心引擎]
+    A["55 款 AI 编码工具<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder 等)"] -->|Hook 触发 / 被动探测| B[TokenTracker Plus 核心引擎]
     B -->|速率解析 & 思考Token拆分<br/>SQLite WAL 无锁感知| C[(本地 SQLite & 队列快照)]
     C --> D[Web Dashboard 界面]
     C --> E[Windows 系统托盘 & 药丸]

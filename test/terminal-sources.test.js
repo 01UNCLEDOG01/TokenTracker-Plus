@@ -59,7 +59,7 @@ test("desktop apps and IDEs never count, even with CLI lineage", () => {
   // autoclaw/cola/loomy 内嵌 OpenCode 运行时，但外壳是桌面应用 —— 用户点的是窗口。
   for (const key of ["autoclaw", "cola", "loomy", "reasonix", "raccoon", "mimo",
     "workbuddy", "workbuddy-ai", "cursor", "trae", "trae-cn", "qoder", "qoder-cn",
-    "codearts", "antigravity", "kilo-code", "agent2api"]) {
+    "codearts", "antigravity", "kilo-code", "agent2api", "opensquilla"]) {
     assert.equal(isTerminalSource(key), false, `${key} must not count as terminal`);
   }
 });
@@ -81,6 +81,7 @@ const KNOWN_SOURCE_KEYS = [
   "prime-agent", "openclaw", "every-code", "craft-agents", "hermes-agent", "kilo",
   "kilo-code", "mimo", "droid", "goose", "zed", "cline", "roo", "acode", "anythingllm",
   "lmstudio", "unsloth", "claudescience", "dots", "muse", "qwen-code", "magpie",
+  "opensquilla",
 ];
 
 test("every collector-emitted source key is classified into one of the three layers", () => {
