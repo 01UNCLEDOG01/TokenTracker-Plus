@@ -11,7 +11,6 @@ import {
 } from "./lib/pet-quips.js";
 import {
   fetchPetLimitSelectionRemote,
-  petLimitRowKey,
   readPetLimitSelection,
 } from "./lib/pet-limit-selection.js";
 import {
@@ -121,14 +120,11 @@ function readPetStats() {
 
 function readPetLimitSummaries() {
   const limits = typeof window !== "undefined" ? window.__ttPetLimits : null;
-  const rows = buildPetLimitSummaries(limits);
-  // 限额页勾选的行优先；没勾过（null / 空列表）就走默认前 6 行。
+  // 限额页勾选的行优先，勾过的 0% 行也显示；没勾过就走默认前 6 行。
   // 勾选的权威存储在本地 API（两个 WebView2 窗口是不同 profile，localStorage
   // 跨不过去），轮询到后缓存在这里；还没取到时退回本窗口 localStorage 兜底。
   const selection = remotePetLimitRows !== undefined ? remotePetLimitRows : readPetLimitSelection();
-  if (!selection || selection.length === 0) return rows;
-  const picked = new Set(selection);
-  return rows.filter((row) => picked.has(petLimitRowKey(row.providerId, row.windowKey)));
+  return buildPetLimitSummaries(limits, selection ?? null);
 }
 
 // undefined = 尚未从本地 API 取到过；null = 服务端也没存（走默认行）。

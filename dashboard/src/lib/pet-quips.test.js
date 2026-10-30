@@ -186,7 +186,8 @@ describe("desktop pet limit dialogue", () => {
         // models from the general pool). Fresh 5h window sits at 0%.
         primary_window: { used_percent: 0, reset_at: "2099-01-01T00:00:00Z" },
         secondary_window: { used_percent: 34, reset_at: "2099-01-02T00:00:00Z" },
-        // Flash-Lite pool stays off the card entirely.
+        // Flash-Lite rows exist for the picker now (the owner picks them);
+        // unpicked they follow normal urgency rules, so a used window shows.
         tertiary_window: { used_percent: 55, reset_at: "2099-01-01T00:00:00Z" },
         quaternary_window: null,
       },
@@ -196,6 +197,7 @@ describe("desktop pet limit dialogue", () => {
     expect(readings.map(({ provider, window, usedPercent }) => `${provider} ${window} ${usedPercent}`)).toEqual([
       "SenseNova General 5h 0",
       "SenseNova General weekly 34",
+      "SenseNova Flash-Lite 5h 55",
     ]);
   });
 

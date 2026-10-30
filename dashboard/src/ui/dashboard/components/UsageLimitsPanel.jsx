@@ -618,7 +618,7 @@ function StatusLine({ children, tone = "neutral" }) {
 // Wallet balances (Trae credits, CodeArts packages, AgentRouter cash) are not
 // window quotas, but their bars must sit on the same label/pct grid as the
 // quota rows — a full-bleed stripe reads as a different component.
-function WalletBar({ label, pct, title = null }) {
+function WalletBar({ label, pct, title = null, picker = null }) {
   const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
   const rounded = Math.round(clamped);
   const labelPct = clamped > 0 && rounded === 0 ? copy("limits.bar.sub_one_percent") : `${rounded}%`;
@@ -641,7 +641,19 @@ function WalletBar({ label, pct, title = null }) {
       <span className="text-[11px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400 w-9 text-right shrink-0 whitespace-nowrap">
         {labelPct}
       </span>
-      <span className="w-6 shrink-0" aria-hidden="true" />
+      {picker ? (
+        <input
+          type="checkbox"
+          checked={picker.checked}
+          disabled={!picker.checked && picker.full}
+          onChange={() => picker.onToggle(picker.providerId, picker.rowKey)}
+          aria-label={copy("limits.pet.toggle_aria", { label })}
+          title={copy("limits.pet.toggle_hint")}
+          className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-oai-gray-300 accent-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+        />
+      ) : (
+        <span className="w-6 shrink-0" aria-hidden="true" />
+      )}
     </div>
   );
 }
@@ -851,7 +863,21 @@ function traeAccountSummary(data) {
 
 const formatTraeCredit = (value) => formatCreditAmount(value, { maximumFractionDigits: 2 });
 
-function TraeWalletExtra({ data }) {
+// Wallet rows are pet-pickable like window rows: the row key must match the
+// wallet row the pet side emits (pet-quips.js), or a picked wallet would never
+// reach the hover card.
+function walletRowPicker(picker, rowKey) {
+  if (!picker) return null;
+  return {
+    providerId: picker.providerId,
+    rowKey,
+    checked: picker.selected.includes(petLimitRowKey(picker.providerId, rowKey)),
+    full: picker.selected.length >= MAX_PET_LIMIT_ROWS,
+    onToggle: picker.onToggle,
+  };
+}
+
+function TraeWalletExtra({ data, picker }) {
   const { available, total, used, remainingPct, nearestExpireAt } =
     traeAccountSummary(data);
 
@@ -861,6 +887,7 @@ function TraeWalletExtra({ data }) {
         <WalletBar
           label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
+          picker={walletRowPicker(picker, "credits")}
           title={[
             copy("limits.label.trae_balance", { credits: formatTraeCredit(available) }),
             copy("limits.label.trae_usage", {
@@ -880,7 +907,7 @@ function TraeWalletExtra({ data }) {
   );
 }
 
-function CodeArtsWalletExtra({ data }) {
+function CodeArtsWalletExtra({ data, picker }) {
   const available = Number(data.codearts_available_credits) || 0;
   const pkg = data.codearts_package;
   const total = Number(pkg?.total) || 0;
@@ -893,6 +920,7 @@ function CodeArtsWalletExtra({ data }) {
         <WalletBar
           label={copy("limits.label.wallet_credits")}
           pct={remainingPct}
+          picker={walletRowPicker(picker, "credits")}
           title={[
             copy("limits.label.codearts_wallets", {
               credits: formatCreditAmount(available, { maximumFractionDigits: 2 }),
@@ -909,7 +937,7 @@ function CodeArtsWalletExtra({ data }) {
   );
 }
 
-function AgentRouterWalletExtra({ data }) {
+function AgentRouterWalletExtra({ data, picker }) {
   const balance = Number(data.agentrouter_balance_usd) || 0;
   const used = Number(data.agentrouter_used_usd) || 0;
   const total = balance + used;
@@ -921,6 +949,7 @@ function AgentRouterWalletExtra({ data }) {
         <WalletBar
           label={copy("limits.label.wallet_balance")}
           pct={remainingPct}
+          picker={walletRowPicker(picker, "balance")}
           title={[
             copy("limits.label.agentrouter_balance", {
               balance: formatCreditAmount(balance, { maximumFractionDigits: 2 }),
@@ -939,7 +968,7 @@ function AgentRouterWalletExtra({ data }) {
   );
 }
 
-function renderProviderExtra(kind, data) {
+function renderProviderExtra(kind, data, picker = null) {
   if (kind === "zcode_reset_bank") {
     if (!data.reset_credits) return null;
     // A spent bank must pass a real null through so the no-data line renders
@@ -987,7 +1016,7 @@ function renderProviderExtra(kind, data) {
     );
   }
   if (kind === "agentrouter_balance" && Number.isFinite(Number(data.agentrouter_balance_usd))) {
-    return <AgentRouterWalletExtra data={data} />;
+    return <AgentRouterWalletExtra data={data} picker={picker} />;
   }
   if (kind === "minimax_balance" && Number.isFinite(Number(data.minimax_balance))) {
     return (
@@ -1014,10 +1043,10 @@ function renderProviderExtra(kind, data) {
     // Older cached payloads carry only the nearest-expiry summary; keep that
     // line until the next fetch supplies trae_grants (then the per-batch bars
     // replace it). An empty grants array means every batch already expired.
-    return <TraeWalletExtra data={data} />;
+    return <TraeWalletExtra data={data} picker={picker} />;
   }
   if (kind === "codearts_wallets" && Number.isFinite(Number(data.codearts_available_credits))) {
-    return <CodeArtsWalletExtra data={data} />;
+    return <CodeArtsWalletExtra data={data} picker={picker} />;
   }
   if (kind === "cline_wallets" && Array.isArray(data.cline_wallets) && data.cline_wallets.length) {
     const summary = data.cline_wallets
@@ -1115,7 +1144,7 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
     .windows(data)
     .filter((s) => s.window)
     .map((s) => ({ spec: s, pace: paceForSpec(s, mode, now) }));
-  const extra = renderProviderExtra(spec.extra, data);
+  const extra = renderProviderExtra(spec.extra, data, petPicker ? { providerId: id, ...petPicker } : null);
   return (
     <ToolGroup
       key={id}

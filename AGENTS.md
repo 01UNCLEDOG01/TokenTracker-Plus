@@ -16,7 +16,7 @@
 
 ## Fork-specific working rules
 
-- **Development happens only in `D:\TokenTrackerPlus\repo` on branch `usage-desk-135`.**
+- **Development happens only in `D:\TokenTrackerPlus\repo` on branch `standalone`**（推 `origin/main`；2026-10-29 起 `usage-desk-135` 已作废）。
 - **This fork ships the Windows package + source only** (owner decision 2026-10-28; earlier "keep macOS/Linux source consistent" rule is retired). `TokenTrackerBar/` (Swift) and `TokenTrackerLinux/` (Tauri) were **deleted** together with `release-dmg.yml`, the `linux-client`/`macos-tests` CI jobs, `scripts/gen-bot-frames.cjs` and the platform-only tests (`pet-parity`, `bot-parity`, `linux-*`, `gnome-extension`, `dynamic-island-*`, `limits-providers-parity`). Do not re-add cross-platform parity gates: there is no second implementation to compare against. `scripts/native-qa-server.cjs` + `native-qa-auth.cjs` were moved out of `TokenTrackerBar/scripts/` and must stay in `scripts/`.
 - **Do not widen the CI triggers.** `ci.yml` has `linux-client` (ubuntu) and `macos-tests` (macos-26) jobs but they fire only on push/PR to `main`; the repo is **private**, so macOS minutes are billed (Linux has a free monthly quota). Owner's standing call: zero spend — leave both jobs alone, and never propose enabling them on `usage-desk-135` as a convenience.
   - **2026-10-28 correction:** the "never fires" premise died when `main` was created (it had not existed before — the fork tracked `usage-desk`), so the two paid jobs went live on the first push. `macos-tests` and `windows-build` now carry an explicit `if: github.event.repository.private == false`, so they stay skipped while private and switch on by themselves at publication; the two ubuntu jobs remain unguarded on purpose. **Any future branch/renaming work must re-check this guard rather than assume a branch is inert.**
@@ -27,6 +27,8 @@
 - Merging upstream: any commit that changes pricing/billing semantics must be reconciled against local totals before and after. The upstream `-free` → zero-price rule is permanently rejected in this fork.
 - Before claiming a UI feature is delivered, read the rendered text/DOM, not only the server endpoint.
 - **新增 UI 必须复用原版组件与版式，不许自制一套**（2026-10-28 站主明确要求）。具体到限额页：行 = 标签列（`--tt-limits-label-w`）+ `h-1.5` 圆角轨道 + 右侧百分比列；配色只用 `barColor()` 的 emerald/amber/red；悬浮一律用 `HoverTooltip`（深色玻璃卡），**禁止原生 `title`**；行上要有 `cursor-pointer`；明细只放悬浮提示里，正文不重复；`limit_credits = 0` 的窗口不占行。新增卡片、行类型、图例都按这条走。
+- **上游吸收建议必须先逐条对照本仓已有能力**（2026-10-30 站主裁定；起因：WorkBuddy CN/AI 拆分本仓早已实现，AI 仍当作可吸收的新功能上报，且不是第一次）。流程：写上游动态报告前，先读 `FORK_STATUS.md` 的能力段与 `src/lib/*-limits.js`、`src/lib/rollout.js` 的来源/卡片清单，对每条上游改动标注「本仓已有 / 部分有（差什么）/ 没有」；没有这一列的报告不许交付。
+- **修复凡涉及客户端持久化状态（localStorage、WebView2 缓存、`~/.tokentracker` 下的缓存/快照文件），必须自带迁移或版本失效**（2026-10-30 站主裁定；起因：宠物勾选、榜单图标两次被旧缓存咬，"修好了"在用户端看不到）。验收标准：`mirror:installed` 重启后新行为立即可测，交付说明里不允许出现"请清缓存/请重装"。数据形状变更 → 升 schema/版本号并让旧数据被拒读；新增映射 → 映射放读取端，不许把判定结果烤进快照。
 
 ## 版本与发版规则（semver，2026-10-26 起所有接手 AI 必须遵守）
 

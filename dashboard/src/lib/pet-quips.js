@@ -373,25 +373,26 @@ function petLimitResetDistance(value) {
  */
 function zcodeQuipWindows(zcode) {
   if (zcode?.plan_kind === "coding-plan") {
-    return [["5h", zcode.primary_window], ["Weekly", zcode.secondary_window], ["Tools", zcode.tertiary_window]];
+    return [["5h", zcode.primary_window, "5h"], ["Weekly", zcode.secondary_window, "weekly"], ["Tools", zcode.tertiary_window, "tools"]];
   }
   const labeled = Array.isArray(zcode?.buckets) ? zcode.buckets.filter((b) => b?.label && b.window) : [];
-  if (labeled.length) return labeled.map((b) => [b.label, b.window]);
-  return [["GLM-5.2", zcode?.primary_window], ["GLM-5 Turbo", zcode?.secondary_window], ["Other", zcode?.tertiary_window]];
+  if (labeled.length) return labeled.map((b, i) => [b.label, b.window, `bucket-${b.entitlement_id || i}`]);
+  return [["GLM-5.2", zcode?.primary_window, "glm52"], ["GLM-5 Turbo", zcode?.secondary_window, "glm5t"]];
 }
 
-// The owner pins these four to the top of the hover card, in this exact order;
-// every other provider follows by urgency (most used first).
+// The owner pins these to the top of the hover card, in this exact order;
+// every other provider follows by urgency (most used first). Keys are the
+// Limits page's spec keys (usage-limits-provider-specs.js) — the pet picker
+// writes exactly these keys, so the picker and this card can never drift.
 const PET_PINNED_LIMIT_ROWS = [
-  ["antigravity", "Gemini weekly"],
-  ["antigravity", "Gemini 5h"],
-  ["antigravity", "Claude weekly"],
+  ["antigravity", "gemini-weekly"],
+  ["antigravity", "gemini-5h"],
+  ["antigravity", "claude-weekly"],
   ["apigoto", "weekly"],
-  // SenseNova's general-pool windows, keyed so the match survives a
-  // localized label (the card shows 商汤's own copy in Chinese). The owner
-  // runs SenseNova models from the general pool, not Flash-Lite.
+  // SenseNova's general-pool windows. Keyed by spec key, so a localized label
+  // can never unpin a row.
   ["sensenova", "general-5h"],
-  ["sensenova", "general-weekly"],
+  ["sensenova", "general-7d"],
 ];
 // The hover card holds six rows; the pinned dashboard takes them first and any
 // leftover slots go to the most-used windows below.
@@ -462,27 +463,38 @@ function collectPetLimitRows(limits) {
   };
 
   const claude = limits.claude;
-  addWindow("claude", "5h", claude, claude?.five_hour, (w) => w?.utilization, (w) => w?.resets_at);
-  addWindow("claude", "7d", claude, claude?.seven_day, (w) => w?.utilization, (w) => w?.resets_at);
-  addWindow("claude", "Opus", claude, claude?.seven_day_opus, (w) => w?.utilization, (w) => w?.resets_at);
+  addWindow("claude", "5h", claude, claude?.five_hour, (w) => w?.utilization, (w) => w?.resets_at, "5h");
+  addWindow("claude", "7d", claude, claude?.seven_day, (w) => w?.utilization, (w) => w?.resets_at, "7d");
+  addWindow("claude", "Opus", claude, claude?.seven_day_opus, (w) => w?.utilization, (w) => w?.resets_at, "opus");
   if (claude?.configured === true && claude?.error == null && Array.isArray(claude.weekly_scoped)) {
     for (const window of claude.weekly_scoped) {
-      addWindow("claude", window?.label || "weekly", claude, window, (w) => w?.utilization, (w) => w?.resets_at);
+      const label = window?.label || "weekly";
+      addWindow("claude", label, claude, window, (w) => w?.utilization, (w) => w?.resets_at, `scoped-${label}`);
     }
   }
 
   const codex = limits.codex;
-  addWindow("codex", "5h", codex, codex?.primary_window, (w) => w?.used_percent);
-  addWindow("codex", "7d", codex, codex?.secondary_window, (w) => w?.used_percent);
-  addWindow("codex", "Credits", codex, codex?.credit_window, (w) => w?.used_percent);
-  addWindow("codex", "Spark 5h", codex, codex?.spark_primary_window, (w) => w?.used_percent);
-  addWindow("codex", "Spark 7d", codex, codex?.spark_secondary_window, (w) => w?.used_percent);
+  addWindow("codex", "5h", codex, codex?.primary_window, (w) => w?.used_percent, undefined, "5h");
+  addWindow("codex", "7d", codex, codex?.secondary_window, (w) => w?.used_percent, undefined, "7d");
+  addWindow("codex", "Credits", codex, codex?.credit_window, (w) => w?.used_percent, undefined, "credits");
+  addWindow("codex", "Spark 5h", codex, codex?.spark_primary_window, (w) => w?.used_percent, undefined, "spark-5h");
+  addWindow("codex", "Spark 7d", codex, codex?.spark_secondary_window, (w) => w?.used_percent, undefined, "spark-7d");
 
-  addGeneric("cursor", limits.cursor, [["Plan", limits.cursor?.primary_window], ["Auto", limits.cursor?.secondary_window], ["API", limits.cursor?.tertiary_window]]);
-  addGeneric("gemini", limits.gemini, [["Pro", limits.gemini?.primary_window], ["Flash", limits.gemini?.secondary_window], ["Lite", limits.gemini?.tertiary_window]]);
-  addGeneric("kimi", limits.kimi, [["Weekly", limits.kimi?.primary_window], ["5h", limits.kimi?.secondary_window], ["Total", limits.kimi?.tertiary_window]]);
-  addGeneric("kiro", limits.kiro, [["Month", limits.kiro?.primary_window], ["Bonus", limits.kiro?.secondary_window]]);
-  addGeneric("grok", limits.grok, [["Month", limits.grok?.primary_window], ["On-demand", limits.grok?.secondary_window]]);
+  // Window keys below are the Limits page's spec keys (usage-limits-provider-specs.js):
+  // the pet picker stores `<providerId>::<spec.key>`, so a label change can
+  // never silently unmatch a picked row. Labels stay display-only.
+  addGeneric("cursor", limits.cursor, [["Plan", limits.cursor?.primary_window, "plan"], ["Auto", limits.cursor?.secondary_window, "auto"], ["API", limits.cursor?.tertiary_window, "api"]]);
+  addGeneric("gemini", limits.gemini, [["Pro", limits.gemini?.primary_window, "pro"], ["Flash", limits.gemini?.secondary_window, "flash"], ["Lite", limits.gemini?.tertiary_window, "lite"]]);
+  addGeneric("kimi", limits.kimi, [["Weekly", limits.kimi?.primary_window, "weekly"], ["5h", limits.kimi?.secondary_window, "5h"], ["Total", limits.kimi?.tertiary_window, "total"]]);
+  addGeneric("kiro", limits.kiro, [["Month", limits.kiro?.primary_window, "month"], ["Bonus", limits.kiro?.secondary_window, "bonus"]]);
+  // Grok's pool row key follows the billing period exactly like the panel spec
+  // (week/day/month); products are shares of that pool, not separate quotas.
+  if (limits.grok?.configured === true && limits.grok?.error == null) {
+    const grokPeriod = limits.grok?.period_type === "weekly" ? "week" : limits.grok?.period_type === "daily" ? "day" : "month";
+    const grokLabel = grokPeriod === "week" ? copy("limits.label.grok_week") : grokPeriod === "day" ? copy("limits.label.grok_day") : copy("limits.label.grok_month");
+    addWindow("grok", grokLabel, limits.grok, limits.grok?.primary_window, (w) => w?.used_percent, (w) => w?.reset_at, grokPeriod);
+  }
+  addGeneric("grok", limits.grok, [["On-demand", limits.grok?.secondary_window, "ondemand"]]);
   if (limits.grok?.configured === true && limits.grok?.error == null && Array.isArray(limits.grok.products)) {
     for (const entry of limits.grok.products) {
       const label = grokProductPetLabel(entry);
@@ -490,46 +502,114 @@ function collectPetLimitRows(limits) {
       addWindow("grok", label, limits.grok, entry?.window, (w) => w?.used_percent, (w) => w?.reset_at, undefined, { share: true });
     }
   }
-  addGeneric("copilot", limits.copilot, [["Premium", limits.copilot?.primary_window], ["Chat", limits.copilot?.secondary_window]]);
+  addGeneric("copilot", limits.copilot, [["Premium", limits.copilot?.primary_window, "premium"], ["Chat", limits.copilot?.secondary_window, "chat"]]);
   addGeneric("antigravity", limits.antigravity, [
-    ["Gemini weekly", limits.antigravity?.tertiary_window],
-    ["Gemini 5h", limits.antigravity?.quaternary_window],
-    ["Claude weekly", limits.antigravity?.primary_window],
-    ["Claude 5h", limits.antigravity?.secondary_window],
+    ["Gemini weekly", limits.antigravity?.tertiary_window, "gemini-weekly"],
+    ["Gemini 5h", limits.antigravity?.quaternary_window, "gemini-5h"],
+    ["Claude weekly", limits.antigravity?.primary_window, "claude-weekly"],
+    ["Claude 5h", limits.antigravity?.secondary_window, "claude-5h"],
   ]);
-  addGeneric("apigoto", limits.apigoto, [["weekly", limits.apigoto?.primary_window]]);
-  // SenseNova (商汤日日新) contributes its Flash-Lite pool to the card: those
-  // two windows are the ones the owner wants in sight (the general pool and
-  // the granted-credit balance stay on the Limits page).
+  addGeneric("apigoto", limits.apigoto, [
+    ["weekly", limits.apigoto?.primary_window, "weekly"],
+    [copy("limits.label.apigoto_subscription"), limits.apigoto?.secondary_window, "subscription"],
+  ]);
+  // SenseNova (商汤日日新): both pools, 5h + 7d each, mirroring the panel spec.
   addGeneric("sensenova", limits.sensenova, [
     [copy("limits.label.sensenova_general_5h"), limits.sensenova?.primary_window, "general-5h"],
-    [copy("limits.label.sensenova_general_weekly"), limits.sensenova?.secondary_window, "general-weekly"],
+    [copy("limits.label.sensenova_general_weekly"), limits.sensenova?.secondary_window, "general-7d"],
+    [copy("limits.label.sensenova_flash_lite_5h"), limits.sensenova?.tertiary_window, "flash-lite-5h"],
+    [copy("limits.label.sensenova_flash_lite_weekly"), limits.sensenova?.quaternary_window, "flash-lite-7d"],
   ]);
   addGeneric("zcode", limits.zcode, zcodeQuipWindows(limits.zcode));
-  addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window], ["Weekly", limits.opencodeGo?.secondary_window], ["Month", limits.opencodeGo?.tertiary_window]]);
-  addGeneric("qoder", limits.qoder, [["Credits", limits.qoder?.primary_window], ["Ultimate Free Calls", limits.qoder?.secondary_window]]);
+  addGeneric("opencodeGo", limits.opencodeGo, [["5h", limits.opencodeGo?.primary_window, "5h"], ["Weekly", limits.opencodeGo?.secondary_window, "weekly"], ["Month", limits.opencodeGo?.tertiary_window, "monthly"]]);
+  addGeneric("qoder", limits.qoder, [["Credits", limits.qoder?.primary_window, "credits"], ["Ultimate Free Calls", limits.qoder?.secondary_window, "ultimate"]]);
+  // Qoder CN mirrors the panel spec (credits / add-on / ultimate); pools with a
+  // 0 limit are not drawn there either, so they are skipped here.
+  addGeneric("qoderCn", limits.qoderCn, [
+    ["Credits", limits.qoderCn?.primary_window, "credits"],
+    ["Add-on", limits.qoderCn?.tertiary_window, "addon"],
+    ["Ultimate", limits.qoderCn?.secondary_window, "ultimate"],
+  ].filter(([, window]) => Number(window?.limit_credits) > 0));
   addGeneric("commandCode", limits.commandCode, [
-    [copy("limits.label.command_code_5h"), limits.commandCode?.primary_window],
-    [copy("limits.label.command_code_weekly"), limits.commandCode?.secondary_window],
+    [copy("limits.label.command_code_5h"), limits.commandCode?.primary_window, "5h"],
+    [copy("limits.label.command_code_weekly"), limits.commandCode?.secondary_window, "weekly"],
   ]);
-  addGeneric("codingPlan", limits.codingPlan, [["5h", limits.codingPlan?.primary_window], ["Week", limits.codingPlan?.secondary_window], ["Month", limits.codingPlan?.tertiary_window]]);
+  addGeneric("codingPlan", limits.codingPlan, [["5h", limits.codingPlan?.primary_window, "5h"], ["Week", limits.codingPlan?.secondary_window, "weekly"], ["Month", limits.codingPlan?.tertiary_window, "monthly"]]);
   addGeneric("agentPlan", limits.agentPlan, [
-    ["5h", limits.agentPlan?.primary_window],
-    [copy("limits.label.ark_agent_plan_weekly"), limits.agentPlan?.secondary_window],
-    [copy("limits.label.ark_agent_plan_monthly"), limits.agentPlan?.tertiary_window],
+    ["5h", limits.agentPlan?.primary_window, "5h"],
+    [copy("limits.label.ark_agent_plan_weekly"), limits.agentPlan?.secondary_window, "weekly"],
+    [copy("limits.label.ark_agent_plan_monthly"), limits.agentPlan?.tertiary_window, "monthly"],
   ]);
   addGeneric("devin", limits.devin, [
-    [copy("limits.label.devin_daily"), limits.devin?.primary_window],
-    [copy("limits.label.devin_weekly"), limits.devin?.secondary_window],
+    [copy("limits.label.devin_daily"), limits.devin?.primary_window, "daily"],
+    [copy("limits.label.devin_weekly"), limits.devin?.secondary_window, "weekly"],
+  ]);
+  addGeneric("minimax", limits.minimax, [
+    [copy("limits.label.minimax_5h"), limits.minimax?.primary_window, "5h"],
+    [copy("limits.label.minimax_weekly"), limits.minimax?.secondary_window, "weekly"],
   ]);
   addGeneric("workbuddy", limits.workbuddy, [
-    [copy("limits.label.workbuddy_plan"), limits.workbuddy?.primary_window],
-    [copy("limits.label.workbuddy_reward"), limits.workbuddy?.reward_window],
+    [copy("limits.label.workbuddy_plan"), limits.workbuddy?.primary_window, "plan"],
+    [copy("limits.label.workbuddy_reward"), limits.workbuddy?.reward_window, "reward"],
   ]);
   addGeneric("workbuddyAi", limits.workbuddyAi, [
-    [copy("limits.label.workbuddy_plan"), limits.workbuddyAi?.primary_window],
-    [copy("limits.label.workbuddy_reward"), limits.workbuddyAi?.reward_window],
+    [copy("limits.label.workbuddy_plan"), limits.workbuddyAi?.primary_window, "plan"],
+    [copy("limits.label.workbuddy_reward"), limits.workbuddyAi?.reward_window, "reward"],
   ]);
+
+  // Wallet rows (Trae/CodeArts credits, AgentRouter balance) carry the
+  // REMAINING percent — that is what the page's wallet bar shows — and only
+  // ever surface when picked on the Limits page: a nearly full wallet is not
+  // "urgent", so they stay out of the default pool. The math mirrors the
+  // panel's wallet summaries; keep the two in step.
+  const walletRemaining = (providerId, compute) => {
+    const provider = limits[providerId];
+    if (provider?.configured !== true || provider?.error != null) return null;
+    return compute(provider);
+  };
+  const pushWalletRow = (providerId, label, remainingPct, windowKey, resetAt = null) => {
+    if (remainingPct == null || !Number.isFinite(remainingPct)) return;
+    rows.push({
+      provider: petLimitProviderName(providerId),
+      providerId,
+      window: label,
+      windowKey,
+      usedPercent: Math.max(0, Math.min(100, remainingPct)),
+      resetAt,
+      wallet: true,
+    });
+  };
+  const traeWalletPct = (data) => {
+    const available = Number(data.trae_available_points);
+    const grants = Array.isArray(data.trae_grants) ? data.trae_grants : [];
+    const grantTotal = grants.reduce((sum, grant) => sum + Number(grant?.total || 0), 0);
+    const total = Number.isFinite(Number(data.trae_total_points)) ? Number(data.trae_total_points) : grantTotal;
+    return total > 0 && Number.isFinite(available)
+      ? Math.max(0, Math.min(100, (available / total) * 100))
+      : null;
+  };
+  for (const providerId of ["trae", "traeMain"]) {
+    const data = limits[providerId];
+    if (data?.configured !== true || data?.error != null) continue;
+    pushWalletRow(
+      providerId,
+      copy("limits.label.wallet_credits"),
+      walletRemaining(providerId, traeWalletPct),
+      "credits",
+      typeof data.trae_nearest_expire_at === "string" ? data.trae_nearest_expire_at : null,
+    );
+  }
+  pushWalletRow("codearts", copy("limits.label.wallet_credits"), walletRemaining("codearts", (data) => {
+    const available = Number(data.codearts_available_credits) || 0;
+    const total = Number(data.codearts_package?.total) || 0;
+    return total ? Math.max(0, Math.min(100, (available / total) * 100)) : null;
+  }), "credits");
+  pushWalletRow("agentRouter", copy("limits.label.wallet_balance"), walletRemaining("agentRouter", (data) => {
+    const balance = Number(data.agentrouter_balance_usd) || 0;
+    const used = Number(data.agentrouter_used_usd) || 0;
+    const total = balance + used;
+    return total ? Math.max(0, Math.min(100, (balance / total) * 100)) : null;
+  }), "balance");
 
   const rank = (row) => {
     const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, k]) => row.providerId === p && row.windowKey === k);
@@ -553,13 +633,42 @@ function collectPetLimitRows(limits) {
  * taking over the small conversation bubble. The card is capped at six rows:
  * the pinned dashboard takes them first, and urgency rows fill what is left.
  */
-export function buildPetLimitSummaries(limits) {
+export function buildPetLimitSummaries(limits, selection = null) {
   const rows = collectPetLimitRows(limits);
+  const picked = Array.isArray(selection) && selection.length > 0 ? selection : null;
+  const pickedAt = (row) => {
+    if (!picked) return -1;
+    return picked.indexOf(`${row.providerId}::${row.windowKey}`);
+  };
   // Pinned rows are the owner's fixed dashboard: show them even at 0% (a
   // freshly reset window is still worth watching), unlike the urgency rows.
-  const pinned = (row) => isPinnedPetLimitRow(row.providerId, row.windowKey);
-  return rows
-    .filter((row) => pinned(row) || (row.usedPercent > 0 && row.usedPercent < 100))
+  // A row picked on the Limits page always shows too — an explicitly chosen
+  // 0% window is a watching request, not noise — and picked rows lead the
+  // card in the order they were picked. Wallet rows (remaining-% based) only
+  // ever surface when picked: a nearly full wallet is not "urgent".
+  const kept = rows.filter((row) =>
+    pickedAt(row) !== -1
+    || (!row.wallet && (isPinnedPetLimitRow(row.providerId, row.windowKey)
+      || (row.usedPercent > 0 && row.usedPercent < 100))));
+  const rank = (row) => {
+    const i = PET_PINNED_LIMIT_ROWS.findIndex(([p, k]) => row.providerId === p && row.windowKey === k);
+    return i === -1 ? PET_PINNED_LIMIT_ROWS.length : i;
+  };
+  return kept
+    .sort((a, b) => {
+      const ia = pickedAt(a);
+      const ib = pickedAt(b);
+      if (ia !== -1 || ib !== -1) {
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        if (ia !== ib) return ia - ib;
+      }
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      if (b.usedPercent !== a.usedPercent) return b.usedPercent - a.usedPercent;
+      const aReset = petLimitResetDate(a.resetAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+      const bReset = petLimitResetDate(b.resetAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+      return aReset - bReset;
+    })
     .slice(0, MAX_PET_LIMIT_ROWS);
 }
 
@@ -577,7 +686,10 @@ export function buildPetLimitSummary(limits) {
 export function getPetLimitDisplay(locale, reading, displayMode = "used") {
   if (!reading) return null;
   const loc = normalizePetLocale(locale);
-  const raw = Math.min(100, Math.max(0, Number(reading.usedPercent) || 0));
+  // Wallet rows carry the REMAINING percent; invert here so every row on the
+  // card speaks "used" and the status words keep one meaning.
+  const usedPct = Number(reading.usedPercent) || 0;
+  const raw = Math.min(100, Math.max(0, reading.wallet ? 100 - usedPct : usedPct));
   // A product share stays the used percent. 13 points of the pool is not 87 left.
   const remaining = displayMode === "remaining" && reading.share !== true;
   const value = Math.round(remaining ? 100 - raw : raw);
