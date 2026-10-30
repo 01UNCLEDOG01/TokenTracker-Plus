@@ -101,7 +101,9 @@ test("the limits aggregation retains Free and cancels IPC when the provider budg
 });
 
 test("an edition mismatch is rejected before opening its proxy", async (t) => {
-  const broker = await createWorkbuddyBroker(t);
+  // f7b90a9b 起 AI 版的 official-product allowlist 同时携带 .ai 与 .cn 计费域，
+  // 所以 mismatch 要用 allowlist 之外的域来验证，而不是默认的 CN broker。
+  const broker = await createWorkbuddyBroker(t, { origin: "https://workbuddy.example.com" });
   await assert.rejects(fetchWorkbuddyAiLimits({ workbuddyHome: broker.home, env: { HOME: broker.root } }), /does not match this edition/);
   assert.equal(broker.packets.length, 0);
 });

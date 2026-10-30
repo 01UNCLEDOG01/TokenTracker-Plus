@@ -115,13 +115,16 @@ test("English names come from the response or the official desktop edition label
   assert.equal(selectWorkbuddyPlanQuota(unknownRows, { code, name: "Future Plan" }).plan_label, "Future Plan");
 });
 
-test("china and international hosts stay on their own allowlists", () => {
+test("edition allowlists gate hosts, with the AI edition carrying both billing domains", () => {
   assert.equal(originAllowed("https://www.workbuddy.cn", VARIANTS.workbuddy), true);
   assert.equal(originAllowed("https://copilot.tencent.com", VARIANTS.workbuddy), true);
   assert.equal(originAllowed("https://www.workbuddy.ai", VARIANTS.workbuddy), false);
   assert.equal(originAllowed("https://www.workbuddy.ai", VARIANTS.workbuddyAi), true);
-  assert.equal(originAllowed("https://www.workbuddy.cn", VARIANTS.workbuddyAi), false);
+  // f7b90a9b：AI 版额度走 CN 计费域（wb-product-config 记录 www.workbuddy.cn），
+  // official-product allowlist 双域（.ai + .cn）。
+  assert.equal(originAllowed("https://www.workbuddy.cn", VARIANTS.workbuddyAi), true);
   assert.equal(originAllowed("https://www.codebuddy.cn", VARIANTS.workbuddy), false);
+  assert.equal(originAllowed("https://workbuddy.example.com", VARIANTS.workbuddyAi), false);
 });
 
 test("china fetch uses only the china host and ignores reward rows", async () => {
@@ -161,7 +164,7 @@ test("china fetch uses only the china host and ignores reward rows", async () =>
   assert.equal(calls.some((call) => call.url.includes("workbuddy.ai")), false);
 });
 
-test("international fetch refuses a china host and a china session", async () => {
+test("international fetch adopts a desktop session on the CN billing domain", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wb-ai-"));
   const authPath = path.join(dir, "workbuddy-desktop.info");
   fs.writeFileSync(authPath, JSON.stringify({
@@ -176,8 +179,11 @@ test("international fetch refuses a china host and a china session", async () =>
       return { ok: true, status: 200, json: async () => ({ code: 0, data: {} }) };
     },
   });
-  assert.deepEqual(result, { configured: false });
-  assert.deepEqual(called, []);
+  // f7b90a9b：AI 版接纳 allowlist 内的 CN 域桌面会话（这正是 AI 额度卡的修复目标），
+  // 计费请求仍打本版默认域 workbuddy.ai；域外会话才拒绝。
+  assert.equal(result.configured, true);
+  assert.ok(called.length > 0);
+  assert.ok(called.every((url) => url.includes("workbuddy.ai")), called.join(","));
 });
 
 test("an encrypted session without a running proxy asks to start WorkBuddy", async () => {

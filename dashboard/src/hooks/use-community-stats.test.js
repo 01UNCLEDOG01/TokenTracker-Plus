@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCommunityModels, getLeaderboard } from "../lib/api";
 import {
@@ -31,7 +31,10 @@ describe("useCommunityStats", () => {
       vi.mocked(getLeaderboard).mockReturnValue(new Promise(() => {}));
       vi.mocked(getCommunityModels).mockReturnValue(new Promise(() => {}));
       const { unmount } = renderHook(() => useCommunityStats());
-      await Promise.resolve();
+      // vitest 3+ 的假时钟把 idle/超时回调挡在队列里：显式推进一格再断言。
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
       expect(getLeaderboard).toHaveBeenCalledTimes(1);
       unmount();
       expect(vi.getTimerCount()).toBe(0);

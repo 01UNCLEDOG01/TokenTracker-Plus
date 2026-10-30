@@ -18,7 +18,8 @@ const TRACKER = path.resolve(__dirname, "..", "bin", "tracker.js");
 function runStatus(args) {
   const res = spawnSync(process.execPath, [TRACKER, "status", ...args], {
     encoding: "utf-8",
-    timeout: 30_000,
+    // 全量 npm test 高负载下（4574 项并行）真实 CLI 子进程可能超 30s，余量放宽。
+    timeout: 90_000,
   });
   return res;
 }

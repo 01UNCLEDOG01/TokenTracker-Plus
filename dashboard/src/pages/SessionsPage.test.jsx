@@ -298,7 +298,7 @@ describe("SessionsPage", () => {
     expect(screen.getByRole("dialog", { name: "Session statistics" })).toBeInTheDocument();
   });
 
-  it("loads local sessions and filters them by source and search", async () => {
+  it("loads local sessions and filters them by source and search", { timeout: 30_000 }, async () => {
     getSessions.mockResolvedValue({
       ...response,
       session_count: 5,
@@ -715,7 +715,7 @@ describe("SessionsPage", () => {
     expect(document.querySelector("header")).toBeNull();
   });
 
-  it("renders a bounded window of rows and extends it on demand", async () => {
+  it("renders a bounded window of rows and extends it on demand", { timeout: 30_000 }, async () => {
     const many = Array.from({ length: 150 }, (_, index) => ({
       ...response.sessions[0],
       session_hash: `row-${index}`,

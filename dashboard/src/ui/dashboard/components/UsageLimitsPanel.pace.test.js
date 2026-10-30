@@ -42,12 +42,16 @@ describe("UsageLimitsPanel pace clock", () => {
 
   it("advances 5h and weekly markers once a minute without fetching usage or animating left", () => {
     vi.setSystemTime(new Date("2026-09-24T12:00:00.000Z"));
-    const fetchUsage = vi.fn();
+    const fetchUsage = vi.fn((...args) => Promise.resolve({ ok: true, json: async () => ({}) }));
     vi.stubGlobal("fetch", fetchUsage);
     render(panel({
       fiveHourReset: "2026-09-24T15:00:00.000Z",
       weeklyReset: "2026-09-28T00:00:00.000Z",
     }));
+    // 2026-10-30 起（fc5a7e9f）面板挂载时会同步拉一次宠物限额对齐
+    // （fetchPetLimitSelectionRemote），与分钟 tick 无关；以 render 完成后的
+    // 调用数为基线，断言后续 tick 不新增任何 fetch。
+    const mountFetchCalls = fetchUsage.mock.calls.length;
 
     const fiveHourLabel = copy("limits.label.claude_5h");
     const weeklyLabel = copy("limits.label.claude_7d");
@@ -60,7 +64,7 @@ describe("UsageLimitsPanel pace clock", () => {
     expect(markerPosition(fiveHourLabel)).toBeGreaterThan(40);
     expect(markerPosition(weeklyLabel)).toBeGreaterThan(50);
     expect(marker(fiveHourLabel)).not.toHaveClass("motion-safe:transition-[left]");
-    expect(fetchUsage).not.toHaveBeenCalled();
+    expect(fetchUsage).toHaveBeenCalledTimes(mountFetchCalls);
   });
 
   it("moves remaining-mode markers backward and hides an expired window", () => {
