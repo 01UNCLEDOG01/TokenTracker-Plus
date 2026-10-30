@@ -74,6 +74,7 @@ const DashboardPage = lazy(() =>
 const IpCheckPage = lazy(() => import("./pages/IpCheckPage.jsx"));
 const ServiceStatusPage = lazy(() => import("./pages/ServiceStatusPage.jsx"));
 const AchievementsPage = lazy(() => import("./pages/AchievementsPage.jsx"));
+const GlobalModelsPage = lazy(() => import("./pages/GlobalModelsPage.jsx"));
 const LandingPage = lazy(() =>
   import("./pages/LandingPage.jsx").then((m) => ({ default: m.LandingPage })),
 );
@@ -173,6 +174,7 @@ export default function App() {
   }, [insforge.signedIn, insforge.loading, normalizedPath, navigate]);
   const isDashboardDefaultPath = normalizedPath === "/" || normalizedPath === "/dashboard";
   const isLeaderboardPath = normalizedPath === "/leaderboard";
+  const isGlobalModelsPath = normalizedPath === "/global-models";
   // Standalone shareable profile page: /u/:userId (public, anonymous-visible).
   const profileMatch = normalizedPath.match(/^\/u\/([^/]+)$/i);
   const profileUserId = profileMatch ? profileMatch[1] : null;
@@ -250,7 +252,7 @@ export default function App() {
   let gate = isLocalMode || mockEnabled || screenshotMode ? "dashboard" : "landing";
   if (normalizedPath === "/landing") gate = "landing";
   if (normalizedPath === "/dashboard") gate = "dashboard";
-  if (isLeaderboardPath) gate = "dashboard";
+  if (isLeaderboardPath || isGlobalModelsPath) gate = "dashboard";
   if (profileUserId) gate = "dashboard";
 
   const isLimitsPath = normalizedPath === "/limits";
@@ -272,6 +274,8 @@ export default function App() {
     PageComponent = LeaderboardProfilePage;
   } else if (normalizedPath === "/leaderboard") {
     PageComponent = LeaderboardPage;
+  } else if (isGlobalModelsPath) {
+    PageComponent = GlobalModelsPage;
   } else if (isLimitsPath) {
     PageComponent = LimitsPage;
   } else if (isSettingsPath) {
@@ -304,6 +308,7 @@ export default function App() {
     (normalizedPath === "/dashboard" ||
       normalizedPath === "/" ||
       isLeaderboardPath ||
+      isGlobalModelsPath ||
       isLimitsPath ||
       isSettingsPath ||
       isCloudPath ||

@@ -353,6 +353,26 @@ nav.usage,shared,*,Sidebar,nav_usage,"Tokens",,active
 nav.limits,shared,*,Sidebar,nav_limits,"Limits",,active
 nav.widgets,shared,*,Sidebar,nav_widgets,"Menu Bar & Widgets",,active
 nav.leaderboard,shared,*,Sidebar,nav_leaderboard,"Leaderboard",,active
+nav.global_models,shared,*,Sidebar,nav_global_models,"Global Models",,active
+global_models.title,ui,GlobalModelsPage,GlobalModelsPage,title,"Global Models",,active
+global_models.subtitle,ui,GlobalModelsPage,GlobalModelsPage,subtitle,"Worldwide model rankings aggregated from LMArena, OpenRouter, SWE-bench and Artificial Analysis. Updated automatically.",,active
+global_models.stale,ui,GlobalModelsPage,GlobalModelsPage,stale,"Cached",,active
+global_models.updated,ui,GlobalModelsPage,GlobalModelsPage,updated,"Updated {{time}}",,active
+global_models.refresh,ui,GlobalModelsPage,GlobalModelsPage,refresh,"Refresh",,active
+global_models.col.rank,ui,GlobalModelsPage,GlobalModelsPage,col_rank,"Rank",,active
+global_models.col.model,ui,GlobalModelsPage,GlobalModelsPage,col_model,"Model",,active
+global_models.col.provider,ui,GlobalModelsPage,GlobalModelsPage,col_provider,"Provider",,active
+global_models.col.score,ui,GlobalModelsPage,GlobalModelsPage,col_score,"Score",,active
+global_models.col.aa,ui,GlobalModelsPage,GlobalModelsPage,col_aa,"AA",,active
+global_models.col.share,ui,GlobalModelsPage,GlobalModelsPage,col_share,"Share",,active
+global_models.col.price,ui,GlobalModelsPage,GlobalModelsPage,col_price,"Price",,active
+global_models.loading,ui,GlobalModelsPage,GlobalModelsPage,loading,"Loading…",,active
+global_models.empty,ui,GlobalModelsPage,GlobalModelsPage,empty,"No data",,active
+global_models.provisional,ui,GlobalModelsPage,GlobalModelsPage,provisional,"Provisional",,active
+global_models.price_value,ui,GlobalModelsPage,GlobalModelsPage,price_value,"{{input}} / {{output}}",,active
+global_models.source,ui,GlobalModelsPage,GlobalModelsPage,source,"Sources",,active
+global_models.percent,ui,GlobalModelsPage,GlobalModelsPage,percent,"{{value}}%",,active
+global_models.error,ui,GlobalModelsPage,GlobalModelsPage,error,"Load failed: {{error}}",,active
 nav.collapse,shared,*,Sidebar,nav_collapse,"Collapse sidebar",,active
 nav.expand,shared,*,Sidebar,nav_expand,"Expand sidebar",,active
 nav.menu,shared,*,Sidebar,nav_menu,"Open navigation menu",,active

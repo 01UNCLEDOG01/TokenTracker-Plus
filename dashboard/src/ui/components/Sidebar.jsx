@@ -46,6 +46,7 @@ export function getNavGroups({ localOnly = false } = {}) {
         { id: "sessions", to: "/sessions", icon: History, label: copy("nav.sessions") },
         { id: "limits", to: "/limits", icon: Gauge, label: copy("nav.limits") },
         { id: "leaderboard", to: "/leaderboard", icon: Trophy, label: copy("nav.leaderboard") },
+        { id: "global-models", to: "/global-models", icon: Globe, label: copy("nav.global_models") },
         { id: "achievements", to: "/achievements", icon: Award, label: copy("nav.achievements") },
       ],
     },

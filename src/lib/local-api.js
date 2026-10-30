@@ -4983,6 +4983,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- global model leaderboard (public aggregated source, cached locally) ---
+    if (p === "/functions/tokentracker-global-models") {
+      const { fetchGlobalModels } = require("./global-models");
+      json(res, await fetchGlobalModels({ home: os.homedir(), fetchImpl: fetch }));
+      return true;
+    }
+
     // --- usage-limits ---
     if (p === "/functions/tokentracker-usage-limits") {
       const { getUsageLimits, resetUsageLimitsCache } = require("./usage-limits");

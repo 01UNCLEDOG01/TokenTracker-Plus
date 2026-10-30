@@ -263,6 +263,19 @@
       "cache_read": 0.06,
       "cache_write": 0
     },
+    "minimax-m3.1-flash": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.03,
+      "cache_write": 0.3,
+      "note": "MiniMax M3.1 Flash official launch pricing: input $0.30 / output $1.20 / cache read $0.03 per MTok, cache write = input. Same source as the space-bunny alias note; the generic minimax-m3 entry (0.06/0) must not capture the 3.1 SKU."
+    },
+    "minimax-m3.1-flash-preview": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.03,
+      "cache_write": 0.3
+    },
     "deepseek-v4-flash": {
       "input": 0.3,
       "output": 1.2,
