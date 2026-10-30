@@ -45,7 +45,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 ```
 
 **What you can see in 30 seconds:**
-- 📊 **Local Dashboard** (default: `http://localhost:7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
+- 📊 **Local Dashboard** (Windows desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
 - 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 55 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
 - 🏆 **65 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.

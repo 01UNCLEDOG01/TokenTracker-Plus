@@ -92,7 +92,7 @@ timestamps, never prompts, responses, or source code.
 
 ## Post-install local views
 After installing the desktop app, the private dashboard is available at
-http://localhost:7680 on the user's own machine. It includes usage, cost,
+http://localhost:17680 on the user's own machine (the standalone CLI `serve` defaults to 7680). It includes usage, cost,
 limits, projects, heatmap, skills, achievements, widgets, and settings.
 
 ## Policy and discovery

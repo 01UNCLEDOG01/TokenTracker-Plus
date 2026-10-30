@@ -496,6 +496,16 @@ const PROVIDER_LOGO_MAP = {
   "SENSENOVA": "/brand-logos/sensenova.svg",
   // Volcano Ark (火山方舟) Coding Plan — the Volcengine 3-mountain mark.
   "VOLCANO-ARK": "/brand-logos/volcano-ark.svg",
+  // 七牛云 (Qiniu Cloud) — official site mark (blue bull head on a white plate),
+  // 180×180 pulled from the homepage's own asset (www-static.qbox.me/_next/static/
+  // media/logo.*.jpg) and re-encoded to PNG.
+  QINIU: "/brand-logos/qiniu.png?v=1",
+  // 书生·端砚 (Shanghai AI Lab 科研工作台) — the platform's own 32×32 tab SVG
+  // (white rounded plate + dark navy glyph) from static.intern-ai.org.cn.
+  "INTERN-INKSTONE": "/brand-logos/intern-inkstone.svg?v=1",
+  // 中国电信 TeleAgent — TeleAI's official shield mark, taken from
+  // teleai.com.cn/teleAI.ico (80×89; the bytes are PNG despite the extension).
+  TELEAGENT: "/brand-logos/teleagent.png?v=1",
   // Cline (CLI v3 / desktop app) — the official robot mark.
   CLINE: "/brand-logos/cline.png",
   // International TRAE mark from the installed app's resources/app/out/media/trae-logo.svg.
@@ -557,7 +567,6 @@ const PROVIDER_LOGO_MAP = {
   TOKENRHYTHM: "/brand-logos/tokenrhythm.png?v=1",
   VOLCENGINE: "/brand-logos/volcengine.png?v=1",
   LONGCAT: "/brand-logos/longcat.png?v=1",
-  BAI: "/brand-logos/bai.png?v=1",
   DOUBAO: "/brand-logos/doubao.png?v=1",
   OPENROUTER: "/brand-logos/openrouter.png?v=1",
   AGNES: "/brand-logos/agnes.png?v=1",
@@ -565,7 +574,11 @@ const PROVIDER_LOGO_MAP = {
   SCNET: "/brand-logos/scnet.png?v=1",
   BAILIAN: "/brand-logos/bailian.png?v=1",
   MINIMAX: "/brand-logos/minimax.svg?v=1",
-  DEEPSEEK: "/brand-logos/deepseek.svg",
+  // DEEPSEEK deliberately has NO logo entry: it falls through to the mono
+  // `DeepSeekHarnessIcon` in PROVIDER_ICON_MAP, which is theme-aware
+  // (`currentColor`). The blue `deepseek.svg` asset reads as a flat dark blob on
+  // the dark cards, so it stays mapped to DEEPSEEK-PLATFORM only. A 2026-10-30
+  // perks batch pointed DEEPSEEK at that blue asset and broke the fish test.
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset

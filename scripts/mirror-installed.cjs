@@ -19,7 +19,8 @@
  *   npm run mirror:installed -- --skip-build   # 只镜像现有 dist（调试用）
  *   npm run mirror:installed -- --purge-old    # 删掉旧 dist 而不是挪到暂存目录
  * 环境变量：TOKENTRACKER_APP_EXE 覆盖 exe 路径；MIRROR_TREES 用 ; 分隔覆盖安装树；
- * MIRROR_STASH_DIR 覆盖旧 dist 的暂存目录（默认 %TEMP%/tokentracker-mirror-stash）。
+ * MIRROR_STASH_DIR 覆盖旧 dist 的暂存目录（默认 %TEMP%/tokentracker-mirror-stash）；
+ * MIRROR_STASH_KEEP 覆盖每棵树保留的暂存份数（默认 3，0 = 每次热更后清空旧暂存）。
  */
 const fs = require("fs");
 const os = require("os");
@@ -33,6 +34,10 @@ const DEFAULT_TREES = [
   path.join(os.homedir(), ".tokentracker", "tracker", "app"),
 ];
 const DEFAULT_EXE = "D:\\TokenTrackerPlus\\app\\TokenTracker.exe";
+// 每棵树热更后保留几份旧 dist 暂存（回滚点）；MIRROR_STASH_KEEP 可覆盖，0 = 不留。
+const STASH_KEEP = Number.isFinite(Number(process.env.MIRROR_STASH_KEEP))
+  ? Number(process.env.MIRROR_STASH_KEEP)
+  : 3;
 const SMOKE_PATHS = ["/", "/pet.html", "/quota.html", "/app-icon.png?v=2", "/achievements/wishing-well.png?v=16"];
 
 function countFiles(dir) {
@@ -90,8 +95,45 @@ function verifyTree(treeDir, repoDistDir, repoRoot) {
   return errors;
 }
 
-function mirrorTree(treeDir, repoRoot, { purgeOld = false } = {}) {
+/**
+ * 暂存修剪：旧 dist 一份约 13 MB × 两棵树，只增不减会在几天内堆到 GB 级
+ * （2026-10-30 实测各 54 份、合计 1.41 GB）。热更后按时间保留最近 stashKeep 份，
+ * 其余删除；清理失败绝不升级成热更失败，只报 WARN 让人知道还剩多少。
+ */
+function pruneStash(stashRoot, stashKeep = STASH_KEEP) {
+  const removed = [];
+  const failed = [];
+  if (!fs.existsSync(stashRoot)) return { removed, failed };
+  const keep = Number.isFinite(stashKeep) && stashKeep >= 0 ? stashKeep : STASH_KEEP;
+  // 名字里的 ISO 时间戳定宽，字典序即时间序。
+  const stashes = fs.readdirSync(stashRoot, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && /^dist-2\d{3}-\d{2}-\d{2}T/.test(e.name))
+    .map((e) => e.name)
+    .sort()
+    .reverse();
+  for (const name of stashes.slice(keep)) {
+    try {
+      fs.rmSync(path.join(stashRoot, name), { recursive: true, force: true });
+      removed.push(name);
+    } catch (err) {
+      failed.push(`${name}（${err.message}）`);
+    }
+  }
+  if (removed.length) {
+    console.log(`[mirror] 暂存修剪：保留最近 ${keep} 份，删除 ${removed.length} 份（${removed[0]} … ${removed[removed.length - 1]}）`);
+  }
+  if (failed.length) {
+    console.warn(`[mirror] WARN 暂存修剪未完成 ${failed.length} 份（不影响本次热更）：${failed[0]}`);
+  }
+  return { removed, failed };
+}
+
+function mirrorTree(treeDir, repoRoot, { purgeOld = false, stashKeep = STASH_KEEP } = {}) {
   const distTarget = path.join(treeDir, "dashboard", "dist");
+  // 暂存目录必须与安装树同盘：跨盘 rename 会 EXDEV，而两棵树分别在 D: 与 C:。
+  // 默认取树的同级目录（同 parent ⇒ 同卷）。
+  const stashRoot = process.env.MIRROR_STASH_DIR
+    || path.join(path.dirname(treeDir), `${path.basename(treeDir)}-stash`);
   // 先挪后拷：只覆盖会把历史构建的 hashed chunk 永远留在原地。
   //
   // 2026-10-28: 这一步从「删掉旧 dist」改成「把旧 dist 挪到暂存目录」。
@@ -102,16 +144,12 @@ function mirrorTree(treeDir, repoRoot, { purgeOld = false } = {}) {
     fs.rmSync(distTarget, { recursive: true, force: true });
   } else if (fs.existsSync(distTarget)) {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    // The stash must live on the SAME volume as the tree: a rename across
-    // devices fails with EXDEV, and the install trees span D: and C:.
-    // Default to a sibling of the tree (same parent ⇒ same volume).
-    const stashRoot = process.env.MIRROR_STASH_DIR
-      || path.join(path.dirname(treeDir), `${path.basename(treeDir)}-stash`);
     const stash = path.join(stashRoot, `dist-${stamp}`);
     fs.mkdirSync(stashRoot, { recursive: true });
     fs.renameSync(distTarget, stash);
     console.log(`[mirror] 旧 dist 暂存 → ${stash}`);
   }
+  pruneStash(stashRoot, stashKeep);
   fs.mkdirSync(path.dirname(distTarget), { recursive: true });
   fs.cpSync(path.join(repoRoot, "dashboard", "dist"), distTarget, { recursive: true });
   for (const dir of ["src", "bin"]) {
@@ -294,7 +332,7 @@ async function main() {
   console.log(`[mirror] 完成：${trees.length} 棵树与仓库构建一致（${countFiles(REPO_DIST)} 个 dist 文件），冒烟 ${SMOKE_PATHS.length} 项 200。`);
 }
 
-module.exports = { verifyTree, mirrorTree, countFiles, listFiles, SMOKE_PATHS, waitForServer, awaitStartup };
+module.exports = { verifyTree, mirrorTree, pruneStash, countFiles, listFiles, SMOKE_PATHS, waitForServer, awaitStartup };
 
 if (require.main === module) {
   main().catch((err) => {

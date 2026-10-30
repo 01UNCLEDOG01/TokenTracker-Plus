@@ -545,7 +545,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "intern_inkstone",
     "name": "书生·端砚 (Intern InkStone)",
-    "provider": "intern_inkstone",
+    "provider": "intern-inkstone",
     "category": [
       "free_tier"
     ],

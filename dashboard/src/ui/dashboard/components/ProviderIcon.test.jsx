@@ -48,12 +48,15 @@ describe("ProviderIcon", () => {
 
   it("renders the MiniMax brand mark instead of the unknown-provider placeholder", () => {
     const { container } = render(<ProviderIcon provider="MINIMAX" size={18} />);
-    const icon = container.querySelector("svg");
+    // MiniMax has a real multi-color brand asset, so it renders through the
+    // image path (2026-10-30 perks batch); the mono component stays the fallback
+    // for ids without an asset, e.g. MiniMax Code below.
+    const icon = container.querySelector('img[src^="/brand-logos/minimax.svg"]');
 
+    expect(icon).not.toBeNull();
     expect(icon).toHaveAttribute("width", "18");
     expect(icon).toHaveAttribute("height", "18");
-    expect(icon?.querySelector("path")).not.toBeNull();
-    expect(icon?.querySelector("circle")).toBeNull();
+    expect(container.querySelector(".text-oai-gray-400")).toBeNull();
   });
 
   it("renders MiniMax Code with the MiniMax brand mark", () => {
@@ -195,6 +198,16 @@ describe("ProviderIcon", () => {
     expect(icon).toHaveAttribute("height", "16");
     expect(container.querySelector(".text-oai-gray-400")).toBeNull();
     expect(container.querySelector("circle")).toBeNull();
+  });
+
+  it.each([
+    ["qiniu", "/brand-logos/qiniu.png"],
+    ["intern-inkstone", "/brand-logos/intern-inkstone.svg"],
+    ["teleagent", "/brand-logos/teleagent.png"],
+  ])("renders the official %s brand mark on every surface, not a letter placeholder", (provider, src) => {
+    const { container } = render(<ProviderIcon provider={provider} size={28} />);
+    expect(container.querySelector(`img[src^="${src}"]`)).not.toBeNull();
+    expect(container.querySelector(".text-oai-gray-700")).toBeNull();
   });
 
 describe("ProviderIcon brand logo map hygiene", () => {

@@ -45,7 +45,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 ```
 
 **30 秒内你能看到什么：**
-- 📊 **本地 Dashboard**（默认 `http://localhost:7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
+- 📊 **本地 Dashboard**（Windows 桌面版默认 `http://localhost:17680`；CLI `node bin/tracker.js serve` 默认 `7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
 - ⚡ **毫秒级 Token 速率流** —— 自动接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客户端的实时生成速率（`tok/s`）。
 - 🔌 **全自动扫描挂接** —— 自动识别挂接本地已安装的 55 款 AI 编码工具，零账号绑定、零 API Key 泄露风险。（可选：个别限额卡需要自行刷新本地凭据，如 Qoder 限额卡用仓库根目录的 `Qoder-*-刷新Cookie` 脚本；核心用量统计零配置可用。）
 - 🏆 **65 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。
