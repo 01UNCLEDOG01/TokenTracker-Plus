@@ -203,9 +203,11 @@ test("Reset Bank fallback keeps Codex windows when list request never resolves",
 test("Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves", async () => {
   const result = await withCodexLimits({
     wham: whamBody({ available_count: 1, total_earned_count: 5, credits: [] }),
-    providerTimeoutMs: 180,
+    // 满负载下真实 setTimeout 会漂移，180ms 预算只给 fallback 留 20ms 必然偶发超支；
+    // 同比例放大（usage 吃 75%），绝对余量 20ms → 500ms，测试意图不变。
+    providerTimeoutMs: 2000,
     whamResponder: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 160));
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       return ok(whamBody({ available_count: 1, total_earned_count: 5, credits: [] }));
     },
     resetResponder: () => new Promise(() => {}),

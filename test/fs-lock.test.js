@@ -273,7 +273,14 @@ test("notify sync permits only one coalesced lock waiter", async () => {
       { auto: true, fromNotify: true },
       { notifyWaitMs: 200, notifyPollMs: 10 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Coalescing 注册完成 = firstWaiter 已持有 .notify-wait 文件锁；满负载下
+    // openLock(sync.lock) 失败本身可能慢于任何固定毫秒，轮询等锁文件出现再验证去重。
+    const waitPath = `${lockPath}.notify-wait`;
+    let registered = false;
+    for (let waited = 0; waited < 5000; waited += 5) {
+      try { await fs.access(waitPath); registered = true; break; } catch { await new Promise((r) => setTimeout(r, 5)); }
+    }
+    assert.ok(registered, "first waiter never registered its coalescing lock");
     const duplicateWaiter = await acquireSyncLock(
       lockPath,
       { auto: true, fromNotify: true },
