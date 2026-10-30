@@ -917,5 +917,6 @@
   "perks.cat.client": "用戶端/工作台",
   "perks.copy.success": "已複製 {{name}} 邀請碼：{{code}}",
   "perks.copy.failed": "複製失敗，請手動選取複製",
-  "perks.action.copy_code": "複製專屬邀請碼"
+  "perks.action.copy_code": "複製專屬邀請碼",
+  "perks.disclaimer": "📢 時效與免責聲明：本指南整理的福利政策與額度活動截止至 2026.10.30。各大廠商政策隨時可能發生變更，活動最終解釋權均歸各服務商所有；本軟體僅提供整理與推薦。卡片預設按首字母順序（A-Z）排列，不分先後。"
 }

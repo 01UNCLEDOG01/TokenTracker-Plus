@@ -918,6 +918,7 @@ perks.cat.client,ui,PerksPage,PerksPage,cat_client,"Clients & Apps",,active
 perks.copy.success,ui,PerksPage,PerksPage,copy_success,"Copied {{name}} invitation code: {{code}}",,active
 perks.copy.failed,ui,PerksPage,PerksPage,copy_failed,"Copy failed, please select and copy manually",,active
 perks.action.copy_code,ui,PerksPage,PerksPage,action_copy_code,"Copy invitation code",,active
+perks.disclaimer,ui,PerksPage,PerksPage,disclaimer,"📢 Notice & Disclaimer: Perks and trial quota information are current as of 2026.10.30. Vendor policies and promotions are subject to change without notice; final interpretation belongs to each respective vendor. This guide provides references only. Cards are sorted alphabetically (A-Z).",,active
 nav.sessions,shared,*,Sidebar,nav_sessions,Sessions,,active
 skills.page.title,ui,SkillsPage,SkillsPage,title,Skills,,active
 skills.tab.my,ui,SkillsPage,SkillsPage,tab_my,My Skills,,active

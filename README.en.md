@@ -69,7 +69,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
 - 🌍 **Global Model Board (zero setup)** — Reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models, side by side with your own usage. No API key, cached locally, self-updating.
-- 🎁 **Provider Perks Guide** — 19 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, each card offering both an invite link and a plain official link, filterable by category and searchable.
+- 🎁 **Provider Perks Guide** — 32 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, each card offering both an invite link and a plain official link, filterable by category and searchable.
 
 ---
 
@@ -120,7 +120,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 <tr>
 <td colspan="2">
 
-**Provider Perks Guide** — free credits and starter grants across 19 providers, with invite and official links side by side
+**Provider Perks Guide** — free credits and starter grants across 32 providers, with invite and official links side by side
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 

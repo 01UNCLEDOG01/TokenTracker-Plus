@@ -976,5 +976,6 @@
   "perks.cat.client": "客户端/工作台",
   "perks.copy.success": "已复制 {{name}} 邀请码：{{code}}",
   "perks.copy.failed": "复制失败，请手动选择复制",
-  "perks.action.copy_code": "复制专属邀请码"
+  "perks.action.copy_code": "复制专属邀请码",
+  "perks.disclaimer": "📢 时效与免责声明：本指南整理的福利政策与额度活动截止至 2026.10.30。各大厂商政策随时可能发生变更，活动最终解释权均归各服务商所有；本软件仅提供整理与推荐。卡片默认按首字母顺序（A-Z）排列，不分先后。"
 }

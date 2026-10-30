@@ -265,6 +265,14 @@ export function PerksPage() {
             </div>
           </div>
 
+          {/* Top Disclaimer / Notice Banner */}
+          <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-900/90 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-200">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+            <p className="flex-1">
+              {copy("perks.disclaimer")}
+            </p>
+          </div>
+
           {/* Filters & Search Toolbar */}
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Category Tabs */}
