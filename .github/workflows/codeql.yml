@@ -15,12 +15,13 @@ jobs:
   analyze:
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
-    # Code scanning has never been enabled in the repository settings, so the
-    # analyze step fails with "Code scanning is not enabled" on every push
-    # (config error, not a finding). The classic token used for automation
-    # cannot flip that toggle (the code-scanning admin endpoints 404), so the
-    # job stays non-blocking until the owner enables code scanning in
-    # Settings → Code security; after that this can go back to blocking.
+    # Code scanning cannot be enabled for this repository at all: personal-
+    # account repos get no Code scanning section in Settings, the Security and
+    # quality tab says "Advanced Security is only available for Organizations",
+    # and the admin API answers 422/403/404 (KI-048). The analyze step there-
+    # fore fails with "Code scanning is not enabled" on every push — a config
+    # error, not a finding. The job stays non-blocking until the repo moves to
+    # an organization or GitHub opens code scanning to personal accounts.
     continue-on-error: true
     permissions:
       security-events: write
