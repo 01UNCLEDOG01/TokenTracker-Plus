@@ -4,7 +4,8 @@
 //
 // Devin persists chat history in a SQLite database at
 // `$XDG_DATA_HOME/devin/cli/sessions.db` (default
-// `~/.local/share/devin/cli/sessions.db`). Token usage lives on assistant
+// `~/.local/share/devin/cli/sessions.db`; on Windows
+// `%APPDATA%\Devin\cli\sessions.db`, shared by Devin Desktop). Token usage lives on assistant
 // message nodes inside the `chat_message` JSON document. The SQL below is a
 // deliberately narrow projection: request identity, generation model, the
 // original generation timestamps, the numeric usage metrics, and the owning

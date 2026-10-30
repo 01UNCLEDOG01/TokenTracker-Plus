@@ -216,9 +216,21 @@ posixTest("Devin resolver resolves the POSIX data directory", () => {
   );
 });
 
-test("Devin resolver on win32 discovers only a WSL install", (t) => {
+test("Devin resolver on win32 prefers the Desktop DB and falls back to WSL", (t) => {
   mockPlatform(t, "win32");
   const env = { HOME: "C:\\Users\\tester", USERPROFILE: "C:\\Users\\tester" };
+  const appDataEnv = { ...env, APPDATA: "C:\\Users\\tester\\AppData\\Roaming" };
+  const nativeDb = path.join(appDataEnv.APPDATA, "Devin", "cli", "sessions.db");
+
+  // Devin Desktop stores its session history under %APPDATA%; that native DB
+  // must win over the WSL fallback when it exists.
+  assert.equal(
+    resolveDevinDbPath(appDataEnv, {
+      runWsl: () => "",
+      existsSync: (p) => p === nativeDb,
+    }),
+    nativeDb,
+  );
 
   // No native Devin data dir exists; with no WSL distros the answer is null
   // (never a guessed native path).
@@ -244,6 +256,16 @@ test("Devin resolver on win32 discovers only a WSL install", (t) => {
   assert.match(resolved, /^\\\\wsl\$\\Ubuntu-24\.04\\/);
 
   // native-only mode must not probe WSL at all.
+  wslCalls.length = 0;
+  assert.equal(
+    resolveDevinDbPath(
+      { ...appDataEnv, TOKENTRACKER_WSL_MODE: "native-only" },
+      { runWsl, existsSync: (p) => p === nativeDb },
+    ),
+    nativeDb,
+  );
+  assert.deepEqual(wslCalls, [], "native-only must not run any wsl.exe probe");
+
   wslCalls.length = 0;
   assert.equal(
     resolveDevinDbPath(

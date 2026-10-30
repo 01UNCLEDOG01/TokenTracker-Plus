@@ -7,10 +7,11 @@ TokenTracker reads retained **local** [Devin CLI](https://devin.ai) history as a
 | Location | Purpose |
 |---|---|
 | `$XDG_DATA_HOME/devin/cli/sessions.db` (default `~/.local/share/devin/cli/sessions.db`) | Devin CLI's local session history (SQLite) |
+| `%APPDATA%\Devin\cli\sessions.db` (Windows) | Local session history shared by Devin Desktop and its bundled CLI |
 
 Set `TOKENTRACKER_DEVIN_DB` to point at a different database file.
 
-On Windows there is no known native Devin data directory; a Devin install inside WSL is discovered through the `\\wsl$` bridge like other WSL-resident tools.
+On Windows the native `%APPDATA%` database is preferred; a Devin install inside WSL is still discovered through the `\\wsl$` bridge like other WSL-resident tools.
 
 The reader runs a narrow SQL projection over `message_nodes`: `role = 'assistant'` is a `WHERE` filter, and SQLite's `json_extract` pulls only `metadata.request_id`, `metadata.generation_model`, `metadata.started_generation_at` / `metadata.created_at`, and the scalar `metadata.metrics.*_tokens` counters out of `chat_message`, joined with `sessions.working_directory` for local project attribution. Only those projected scalars enter Node memory — the application never loads whole message documents.
 
@@ -30,4 +31,4 @@ Token counts are authoritative. Devin's observed models (`swe-2`, `swe-2-high`, 
 
 ## Scope
 
-This covers only the Devin CLI's local SQLite history. It does not include Devin Cloud sessions, Devin Desktop, Windsurf history, or Devin subscription/quota tracking (a separate, default-off limits concern).
+This covers the local SQLite history written by Devin Desktop and its bundled CLI (they share one database on Windows). It does not include Devin Cloud sessions, Windsurf history, or Devin subscription/quota tracking (a separate, default-off limits concern).

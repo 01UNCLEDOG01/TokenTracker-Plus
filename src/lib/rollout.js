@@ -15271,8 +15271,8 @@ async function parseAnythingllmIncremental({
 //
 // Data: SQLite at
 //   macOS/Linux: $XDG_DATA_HOME/devin/cli/sessions.db (~/.local/share)
-//   Windows:     no evidenced native location; the CLI's XDG data dir inside a
-//                WSL distro is probed via the \\wsl$ UNC bridge
+//   Windows:     %APPDATA%\Devin\cli\sessions.db (Devin Desktop and its bundled
+//                CLI share this file); a WSL install remains reachable via \\wsl$
 //   Override:    $TOKENTRACKER_DEVIN_DB
 //
 // Devin rewrites history aggressively: replay, compaction and forks copy
@@ -15309,13 +15309,19 @@ function resolveDevinDbPath(env = process.env, deps = {}) {
   if (process.platform !== "win32") {
     return path.join(xdgDataHome, "devin", "cli", "sessions.db");
   }
-  // Devin CLI is not known to write a native-Windows data dir; on Windows its
-  // sessions.db lives under the distro's XDG home, reachable over \\wsl$.
+  // Devin Desktop and the CLI bundled with it share one per-user data dir on
+  // Windows (verified against Devin Desktop 3.11.234). A CLI installed inside
+  // a WSL distro stays reachable as a fallback.
+  const appData =
+    typeof env.APPDATA === "string" && env.APPDATA.trim()
+      ? env.APPDATA.trim()
+      : path.join(home, "AppData", "Roaming");
+  const nativeValue = path.join(appData, "Devin", "cli", "sessions.db");
   const wslDir = wsl.shouldProbeWsl(env)
     ? wsl.discoverWslHome(".local/share/devin/cli", { ...deps, env })
     : null;
   const wslValue = wslDir ? path.join(wslDir, "sessions.db") : null;
-  const paths = resolveInstallPaths({ nativeValue: null, wslValue }, env, deps);
+  const paths = resolveInstallPaths({ nativeValue, wslValue }, env, deps);
   return paths.native || paths.wsl;
 }
 
