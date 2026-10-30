@@ -898,6 +898,26 @@ status.open_page,ui,ServiceStatusPage,StatusCard,open_page,"Open {{provider}} st
 status.refresh,ui,ServiceStatusPage,ServiceStatusPage,refresh,"Refresh",,active
 status.last_checked,ui,ServiceStatusPage,ServiceStatusPage,last_checked,"Checked at {{time}}",,active
 nav.skills,shared,*,Sidebar,nav_skills,Skills,,active
+nav.perks,shared,*,Sidebar,nav_perks,Perks,,active
+perks.title,ui,PerksPage,PerksPage,title,Provider Perks Guide,,active
+perks.subtitle,ui,PerksPage,PerksPage,subtitle,"Curated free tokens, trial balances, and perks with direct and invite links",,active
+perks.action.invite,ui,PerksPage,PerksPage,action_invite,"Register with Invite",,active
+perks.action.official,ui,PerksPage,PerksPage,action_official,"Official Website",,active
+perks.action.official_direct,ui,PerksPage,PerksPage,action_official_direct,"Official Direct (No Referrals)",,active
+perks.count,ui,PerksPage,PerksPage,count,"{{count}} providers curated",,active
+perks.search_placeholder,ui,PerksPage,PerksPage,search_placeholder,"Search providers, models, or tags...",,active
+perks.empty.title,ui,PerksPage,PerksPage,empty_title,"No matching providers found",,active
+perks.empty.desc,ui,PerksPage,PerksPage,empty_desc,"Try switching category or refining search keywords",,active
+perks.notice.title,ui,PerksPage,PerksPage,notice_title,"💡 About Referral and Direct Links",,active
+perks.notice.desc,ui,PerksPage,PerksPage,notice_desc,"This guide provides both invite and official links. Using invite links may give you extra bonus credits while supporting guide maintenance. You can always use direct links to register.",,active
+perks.cat.all,ui,PerksPage,PerksPage,cat_all,"All Providers",,active
+perks.cat.featured,ui,PerksPage,PerksPage,cat_featured,"Featured",,active
+perks.cat.free_tier,ui,PerksPage,PerksPage,cat_free_tier,"Daily / Permanent Free",,active
+perks.cat.big_quota,ui,PerksPage,PerksPage,cat_big_quota,"Large Trial Quota",,active
+perks.cat.client,ui,PerksPage,PerksPage,cat_client,"Clients & Apps",,active
+perks.copy.success,ui,PerksPage,PerksPage,copy_success,"Copied {{name}} invitation code: {{code}}",,active
+perks.copy.failed,ui,PerksPage,PerksPage,copy_failed,"Copy failed, please select and copy manually",,active
+perks.action.copy_code,ui,PerksPage,PerksPage,action_copy_code,"Copy invitation code",,active
 nav.sessions,shared,*,Sidebar,nav_sessions,Sessions,,active
 skills.page.title,ui,SkillsPage,SkillsPage,title,Skills,,active
 skills.tab.my,ui,SkillsPage,SkillsPage,tab_my,My Skills,,active

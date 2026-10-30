@@ -72,6 +72,7 @@ const DashboardPage = lazy(() =>
   import("./pages/DashboardPage.jsx").then((m) => ({ default: m.DashboardPage })),
 );
 const IpCheckPage = lazy(() => import("./pages/IpCheckPage.jsx"));
+const PerksPage = lazy(() => import("./pages/PerksPage.jsx"));
 const ServiceStatusPage = lazy(() => import("./pages/ServiceStatusPage.jsx"));
 const AchievementsPage = lazy(() => import("./pages/AchievementsPage.jsx"));
 const GlobalModelsPage = lazy(() => import("./pages/GlobalModelsPage.jsx"));
@@ -265,9 +266,10 @@ export default function App() {
   const isWidgetsPath = normalizedPath === "/widgets";
   const isPetPath = normalizedPath === "/pet-settings";
   const isIpCheckPath = normalizedPath === "/ip-check";
+  const isPerksPath = normalizedPath === "/perks";
   const isServiceStatusPath = normalizedPath === "/service-status";
   const isAchievementsPath = normalizedPath === "/achievements";
-  if (isLimitsPath || isSettingsPath || isCloudPath || isCheckoutPath || isSelfHostPath || isSkillsPath || isSessionsPath || isWidgetsPath || isPetPath || isIpCheckPath || isServiceStatusPath || isAchievementsPath) gate = "dashboard";
+  if (isLimitsPath || isSettingsPath || isCloudPath || isCheckoutPath || isSelfHostPath || isSkillsPath || isSessionsPath || isWidgetsPath || isPetPath || isIpCheckPath || isPerksPath || isServiceStatusPath || isAchievementsPath) gate = "dashboard";
 
   let PageComponent = DashboardPage;
   if (profileUserId) {
@@ -296,6 +298,8 @@ export default function App() {
     PageComponent = PetPage;
   } else if (isIpCheckPath) {
     PageComponent = IpCheckPage;
+  } else if (isPerksPath) {
+    PageComponent = PerksPage;
   } else if (isServiceStatusPath) {
     PageComponent = ServiceStatusPage;
   } else if (isAchievementsPath) {
@@ -319,6 +323,7 @@ export default function App() {
       isWidgetsPath ||
       isPetPath ||
       isIpCheckPath ||
+      isPerksPath ||
       isServiceStatusPath ||
       isAchievementsPath);
 
@@ -341,6 +346,7 @@ export default function App() {
     !isCheckoutPath &&
     !isSelfHostPath &&
     !profileUserId &&
+    normalizedPath !== "/perks" &&
     normalizedPath !== "/login" &&
     normalizedPath !== "/reset-password" &&
     normalizedPath !== "/landing" &&

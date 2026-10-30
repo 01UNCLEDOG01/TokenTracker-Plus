@@ -552,6 +552,11 @@ const PROVIDER_LOGO_MAP = {
   REFLECTION: "/brand-logos/reflection.svg?v=1",
   IFM: "/brand-logos/ifm.svg?v=1",
   INCLUSIONAI: "/brand-logos/inclusionai.png?v=1",
+  ZHIPU: "/brand-logos/z-ai.svg?v=1",
+  VOLCENGINE: "/brand-logos/volcano-ark.svg",
+  BAILIAN: "/brand-logos/alibaba.svg?v=1",
+  MINIMAX: "/brand-logos/minimax.svg?v=1",
+  DEEPSEEK: "/brand-logos/deepseek.svg",
 };
 
 // AnythingLLM publishes this compact mark in white. Keep the official asset
@@ -597,6 +602,13 @@ function PlaceholderIcon({ size = 16, className = "" }) {
       <circle cx="12" cy="12" r="7.5" strokeDasharray="3 3" />
     </svg>
   );
+}
+
+export function hasProviderIcon(provider) {
+  if (!provider) return false;
+  const normalized = String(provider).toUpperCase();
+  const logoKey = piAwareLogoKey(normalized);
+  return Boolean(PROVIDER_LOGO_MAP[logoKey] || PROVIDER_ICON_MAP[normalized]);
 }
 
 /**
