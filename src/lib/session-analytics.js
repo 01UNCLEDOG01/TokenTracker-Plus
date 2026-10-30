@@ -48,6 +48,7 @@ const {
   readZcodeDbMessages,
   readAgent2ApiGatewayRowsForClient,
   resolveDshSessionFiles,
+  resolveDevinDbPath,
   resolveWorkbuddyDefaultModel,
   resolveWorkbuddyHomes,
   resolveWorkbuddyProjectFiles,
@@ -73,6 +74,7 @@ const { normalizeTraeUsage, normalizeTraeModel } = require("./trae-usage");
 const { discoverKimiWireFiles, kimiSessionDependencies, readKimiSessions } = require("./kimi-session");
 const { discoverOmpSessionFiles, ompSessionDependencies, readOmpSessions } = require("./omp-session");
 const { discoverMinimaxSessionFiles, readMinimaxCodeSession } = require("./minimax-session");
+const { readDevinSessions } = require("./devin-session");
 const {
   appendUniqueDirs,
   dedupeDirsByRealpath,
@@ -155,7 +157,7 @@ const {
 // v44 extends the working-time denominator to WorkBuddy (usage-record gaps,
 // capped at five minutes — the qoder precedent) and Antigravity (usage-minute
 // gaps, same cap) so their wall-clock rates stop diluting with idle time.
-const SIDECAR_VERSION = 45;
+const SIDECAR_VERSION = 46;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -3683,6 +3685,18 @@ async function scanMinimaxCodeSession(filePath) {
   });
 }
 
+async function scanDevinSessions(dbPath) {
+  const rows = await readDevinSessions(dbPath);
+  return rows.map((row) => finalizeRecord({
+    ...row,
+    version: SIDECAR_VERSION,
+    source: "devin",
+    session_hash: sessionHash("devin", row.session_id),
+    project_key: projectKey(row.project_ref, dbPath),
+    ...sessionStorageUsage([dbPath]),
+  }));
+}
+
 // SenseTime Raccoon keeps one append-only trace per session and the file can
 // already be hundreds of MB, so the parse is incremental (see
 // raccoon-sessions.js) and this wrapper only supplies the shared primitives:
@@ -3872,6 +3886,16 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
       return [];
     }
   })();
+  const devin = (() => {
+    try {
+      const dbPath = resolveDevinDbPath(usingMachineHome
+        ? { ...env, HOME: home, USERPROFILE: home }
+        : { ...env, HOME: home, USERPROFILE: home, APPDATA: path.join(home, "AppData", "Roaming") });
+      return dbPath && fs.existsSync(dbPath) ? [dbPath] : [];
+    } catch {
+      return [];
+    }
+  })();
   // TRAE (intl + TRAE SOLO) and the merged Trae CN keep every conversation in
   // one SQLCipher-encrypted local database each — the same stores the usage
   // side reads. Absent installs simply drop out of the session page. The
@@ -3905,6 +3929,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     kimi,
     omp,
     minimaxCode,
+    devin,
     trae,
     traeCn,
     incomplete,
@@ -4019,7 +4044,7 @@ function analyticsEntryStatKey(source, filePath) {
     const primary = filePaths[0];
     return `${sessionStat}|summary:${sessionFileStatKey(grokSummaryPathFor(primary)) || "missing"}|signals:${sessionFileStatKey(grokSignalsPathFor(primary)) || "missing"}`;
   }
-  if (source === "zcode" || isOpencodeFamilySource(source)) {
+  if (source === "zcode" || source === "devin" || isOpencodeFamilySource(source)) {
     // A WAL-mode db can absorb writes without touching the main file's mtime,
     // so the sidecar files are part of the db's identity for cache checks.
     return `${sessionStat}|sidecars:${filePaths.map((filePath) =>
@@ -4536,7 +4561,7 @@ function fileStillReadable(filePaths) {
 // do not reuse rows on a forced refresh — there are only a handful of these
 // files, and their scan is what detects a held lock.
 function isDatabaseBackedSessionSource(source) {
-  return source === "zcode" || isOpencodeFamilySource(source) || source === "antigravity";
+  return source === "zcode" || source === "devin" || isOpencodeFamilySource(source) || source === "antigravity";
 }
 
 // ── incomplete-scan retry markers (KI-033) ──
@@ -4770,6 +4795,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       filePath,
       scan: scanMinimaxCodeSession,
     }))),
+    ...(discovered.devin?.length ? [{ source: "devin", filePath: discovered.devin, scan: scanDevinSessions }] : []),
   ];
   // Files we could not turn into a row (permission denied, half-written line,
   // vanished mid-scan). Swallowing these silently made sessions disappear with
@@ -4822,7 +4848,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     let rows = null;
     if (!sourceRetryDue(entry.source) && previousFiles[cacheKey]?.stat_key === statKey &&
         (!force || (!isDatabaseBackedSessionSource(entry.source) && await fileStillReadable(entry.filePath)))) {
-      if (entry.source === "zcode" || isOpencodeFamilySource(entry.source) || entry.source === "kimi" || entry.source === "omp") {
+      if (entry.source === "zcode" || entry.source === "devin" || isOpencodeFamilySource(entry.source) || entry.source === "kimi" || entry.source === "omp") {
         // One db scans to many cached rows; recover them all from the previous
         // pass. An empty recovery means the sidecar lost its rows — rescan.
         const cached = previousRows.filter((row) => row?.source === entry.source && !row.archived);
@@ -4865,7 +4891,7 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       // so key each by the db path plus its session id; a bare session id as a
       // separate path element would be path.resolve()d against the process cwd
       // and never match across runs.
-      row._cache_key = (entry.source === "zcode" || isOpencodeFamilySource(entry.source) || entry.source === "kimi" || entry.source === "omp") && (row.session_id || row.session_hash)
+      row._cache_key = (entry.source === "zcode" || entry.source === "devin" || isOpencodeFamilySource(entry.source) || entry.source === "kimi" || entry.source === "omp") && (row.session_id || row.session_hash)
         ? `${cacheKey}#${sessionHash(entry.source, row.session_id || row.session_hash)}`
         : cacheKey;
       sessions.push(row);
@@ -5613,6 +5639,7 @@ module.exports = {
   scanOmpSessions,
   scanOmpSession,
   scanMinimaxCodeSession,
+  scanDevinSessions,
   scanRaccoonSession,
   buildSessionAnalytics,
   summarizeSessions,
