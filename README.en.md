@@ -133,9 +133,9 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ## 🔌 Supported AI Tools (54)
 
-The repo supports **54 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`): **52 come from the TT original** (upstream 1.4.8 baseline), **2 are new in this fork** (Magpie, SenseTime Raccoon), and Xiaomi MiMo is the original Mimo renamed. TT's own capabilities first; the fork's additions and enhancements are listed separately.
+The repo supports **54 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`): **46 come from the TT original** (upstream ships 47; its OpenSquilla is not integrated yet), **8 are new in this fork** (AutoClaw, Cola, Tuanjie Cowork, Agent2API, Loomy, CodeArts Agent, Magpie, SenseTime Raccoon), and Xiaomi MiMo is the original Mimo renamed. TT's own capabilities first; the fork's additions and enhancements are listed separately.
 
-### TT Original Support (52)
+### TT Original Support (46)
 
 | Tool | Detection | Integration Mechanism (TT original) |
 |---|:---:|---|
@@ -146,7 +146,6 @@ The repo supports **54 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 | **Kiro** | ✅ Auto | Hybrid SQLite + JSONL reader |
 | **Gemini CLI** | ✅ Auto | SessionEnd hook |
 | **OpenClaw** | ✅ Auto | Session plugin (`openclaw-session-sync`) |
-| **Loomy** | ✅ Auto | Plugin system + session logs |
 | **Every Code** | ✅ Auto | TOML notify hook |
 | **Hermes Agent** | ✅ Auto | Passive SQLite reader (`~/.hermes/state.db`) |
 | **CodeBuddy** (Tencent) | ✅ Auto | SessionEnd hook in `~/.codebuddy/settings.json` |
@@ -173,19 +172,20 @@ The repo supports **54 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 | **Devin CLI** | ✅ Auto | Passive local Devin DB reader |
 | **Cline** | ✅ Auto | Passive VS Code storage reader |
 | **MiniMax Code** | ✅ Auto | Passive local session logs |
-| **CodeArts Agent** | ✅ Auto | Passive Huawei CodeArts session reader |
 | **Command Code** | ✅ Auto | Passive session snapshot & logs |
+
+### Fork Enhancements (This Fork)
+
+**New sources (8):**
+
+| Tool | Integration Mechanism | Notes |
+|---|:---:|---|
+| **Loomy** | ✅ Auto | Plugin system + session logs |
+| **CodeArts Agent** | ✅ Auto | Passive Huawei CodeArts session reader |
 | **AutoClaw** | ✅ Auto | Automated agent workflow log integration |
 | **Cola** | ✅ Auto | Collaborative agent logs integration |
 | **Tuanjie Cowork** | ✅ Auto | Team workflow logs integration |
 | **Agent2API** | ✅ Auto | Local gateway & agent mapping integration |
-
-### Fork Enhancements (This Fork)
-
-**New sources (2):**
-
-| Tool | Integration Mechanism | Notes |
-|---|:---:|---|
 | **Magpie** | Passive local gateway usage ledger (`~/.config/magpie/usage.jsonl`) | Counts gateway round trips only, never client sessions |
 | **SenseTime Raccoon** | Reads the desktop agent trace (`~/.office-raccoon/agent/log/sessions`) | Usage from `llm.response` only; agent2api untouched |
 

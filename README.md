@@ -132,9 +132,9 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 ## 🔌 支持的 AI 工具列表（54 款）
 
-本仓库当前支持 **54 款 AI 编码工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 为准）：**52 款为 TT 原版支持**（上游 1.4.8 基线），**2 款为本 fork 新增**（Magpie、商汤小浣熊），另有小米 MiMo 由原版 Mimo 正名。先列 TT 原版能力，fork 的新增与增强单独说明。
+本仓库当前支持 **54 款 AI 编码工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 为准）：**46 款为 TT 原版支持**（上游共 47 款，其中的 OpenSquilla 暂未接入），**8 款为本 fork 新增**（AutoClaw、Cola、Tuanjie Cowork、Agent2API、Loomy、CodeArts Agent、Magpie、商汤小浣熊），另有小米 MiMo 由原版 Mimo 正名。先列 TT 原版能力，fork 的新增与增强单独说明。
 
-### TT 原版支持（52 款）
+### TT 原版支持（46 款）
 
 | 工具名称 | 识别方式 | 接入方式与机制（TT 原版） |
 |---|:---:|---|
@@ -145,7 +145,6 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **Kiro** | ✅ 自动 | SQLite + JSONL 混合读取 |
 | **Gemini CLI** | ✅ 自动 | SessionEnd hook |
 | **OpenClaw** | ✅ 自动 | Session 插件（`openclaw-session-sync`） |
-| **Loomy** | ✅ 自动 | 插件系统 + 会话日志 |
 | **Every Code** | ✅ 自动 | TOML notify hook |
 | **Hermes Agent** | ✅ 自动 | 被动读取 SQLite（`~/.hermes/state.db`） |
 | **CodeBuddy** (腾讯) | ✅ 自动 | 写入 `~/.codebuddy/settings.json` SessionEnd hook |
@@ -172,19 +171,20 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **Devin CLI** | ✅ 自动 | 被动读取本地 Devin 数据库 |
 | **Cline** | ✅ 自动 | 被动读取 VS Code 全局存储与历史 |
 | **MiniMax Code** | ✅ 自动 | 被动读取本地会话日志 |
-| **CodeArts Agent** | ✅ 自动 | 被动读取华为 CodeArts 会话与日志 |
 | **Command Code** | ✅ 自动 | 被动读取会话快照与日志 |
+
+### Fork 增强（本分支）
+
+**新增来源（8 款）：**
+
+| 工具名称 | 接入方式与机制 | 说明 |
+|---|:---:|---|
+| **Loomy** | ✅ 自动 | 插件系统 + 会话日志 |
+| **CodeArts Agent** | ✅ 自动 | 被动读取华为 CodeArts 会话与日志 |
 | **AutoClaw** | ✅ 自动 | 自动化 Agent 工作流日志集成 |
 | **Cola** | ✅ 自动 | 协作 Agent 日志接入 |
 | **Tuanjie Cowork** | ✅ 自动 | 协作工作流日志接入 |
 | **Agent2API** | ✅ 自动 | 本地网关与 Agent 映射用量归集 |
-
-### Fork 增强（本分支）
-
-**新增来源（2 款）：**
-
-| 工具名称 | 接入方式与机制 | 说明 |
-|---|:---:|---|
 | **Magpie** | 被动读取本地网关用量账本（`~/.config/magpie/usage.jsonl`） | 只统计经它转发的请求，不重复计客户端会话 |
 | **商汤小浣熊** | 被动读取桌面端 agent 轨迹（`~/.office-raccoon/agent/log/sessions`） | 只取 `llm.response` 的 usage，不碰 agent2api |
 
