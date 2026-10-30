@@ -344,3 +344,22 @@ test("credits and per-conversation money reach the session browser payload", asy
   assert.equal(row.cost_usd > 0, true);
   assert.equal(row.title, null, "a conversation with no ai-title record stays untitled");
 });
+
+test("the wall-clock rate denominator excludes idle between usage records", async () => {
+  const home = tempHome("tt-wb-speed-");
+  const file = transcriptPath(home, ".workbuddy", "d-work-site", SESSION);
+  writeTranscript(file, [
+    userTurn("first"),
+    { ...assistantTurn({ text: "a", messageId: "r1", rawUsage: ANTHROPIC_USAGE }), timestamp: TS },
+    // Ten minutes later: the cap books five minutes of working time.
+    { ...assistantTurn({ text: "b", messageId: "r2", rawUsage: ANTHROPIC_USAGE }), timestamp: TS + 600_000 },
+    // One minute after that: the real gap counts in full.
+    { ...assistantTurn({ text: "c", messageId: "r3", rawUsage: ANTHROPIC_USAGE }), timestamp: TS + 660_000 },
+  ]);
+  const row = await scanWorkbuddySession([file]);
+  // qoder precedent: 1s seed for the first usage record, then each gap
+  // capped at five minutes — 1000 + 300000 + 60000.
+  assert.equal(row.speed_active_ms, 361_000);
+  // The display span keeps the wall clock (all gaps inside IDLE_GAP_MS).
+  assert.equal(row.active_ms, 660_000);
+});

@@ -151,7 +151,10 @@ const {
 // union (pure working time) as the wall-clock fallback's denominator, and a
 // span-less session falls back to its chat_session row's created→updated span
 // instead of reporting zero active time.
-const SIDECAR_VERSION = 43;
+// v44 extends the working-time denominator to WorkBuddy (usage-record gaps,
+// capped at five minutes — the qoder precedent) and Antigravity (usage-minute
+// gaps, same cap) so their wall-clock rates stop diluting with idle time.
+const SIDECAR_VERSION = 44;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -875,6 +878,13 @@ async function scanClaudeSession(filePath, options = {}) {
   let currentHadEdit = false;
   let currentTurnModel = null;
   let subagentCalls = 0;
+  // Working time for the wall-clock rate fallback (WorkBuddy sessions; claude
+  // itself never falls back): the qoder precedent — gaps between consecutive
+  // usage-bearing assistant records, each capped at five minutes, with a 1s
+  // seed for the first. Inter-turn idle (user away) drops out of the rate
+  // denominator; the display span keeps using bounds.active_ms.
+  let speedActiveMs = 0;
+  let lastUsageMs = null;
   const subagentTypes = new Map();
 
   function closeTurn() {
@@ -953,6 +963,12 @@ async function scanClaudeSession(filePath, options = {}) {
         // Called only for records that survived the response-id dedup, so an
         // adapter's extra per-record accounting matches the token totals exactly.
         if (onUsage) onUsage(obj, usage);
+        const usageTs = Date.parse(obj?.timestamp || obj?.message?.timestamp || "");
+        if (Number.isFinite(usageTs)) {
+          if (lastUsageMs === null) speedActiveMs += 1000;
+          else speedActiveMs += Math.min(300_000, Math.max(0, usageTs - lastUsageMs));
+          lastUsageMs = usageTs;
+        }
         addTotals(tokens, usage);
         if (usage.total_tokens > 0) {
           archiveUsageEvents.push({ hash: dedupKey || crypto.createHash("sha256").update(line).digest("hex"), model, timestamp: obj.timestamp || obj.message?.timestamp, ...usage });
@@ -1007,6 +1023,7 @@ async function scanClaudeSession(filePath, options = {}) {
     })),
     performance: performance.performance,
     ...bounds,
+    speed_active_ms: speedActiveMs,
     turns,
     edit_turns: editTurns,
     retry_turns: retryTurns,
@@ -4363,6 +4380,18 @@ async function scanAntigravitySession(dbPath) {
   const usageTimes = (result.usageBuckets || []).map((bucket) => Date.parse(bucket.timestamp)).filter(Number.isFinite);
   if (startedMs === null && usageTimes.length) startedMs = Math.min(...usageTimes);
   if (endedMs === null && usageTimes.length) endedMs = Math.max(...usageTimes);
+  // Working time for the wall-clock rate fallback: usage only happens in
+  // minutes the agent actually ran, so the qoder precedent applies — gaps
+  // between consecutive usage minutes capped at five minutes, 1s seed. Idle
+  // between turns drops out of the rate denominator; the display span keeps
+  // using active_ms.
+  let speedActiveMs = 0;
+  let lastUsageMinute = null;
+  for (const ts of [...new Set(usageTimes)].sort((a, b) => a - b)) {
+    if (lastUsageMinute === null) speedActiveMs += 1000;
+    else speedActiveMs += Math.min(300_000, Math.max(0, ts - lastUsageMinute));
+    lastUsageMinute = ts;
+  }
   const byModel = new Map();
   for (const contribution of contributions) {
     const model = contribution?.model || result.currentModel || "antigravity-unknown";
@@ -4440,6 +4469,7 @@ async function scanAntigravitySession(dbPath) {
     started_at: startedMs ? new Date(startedMs).toISOString() : null,
     ended_at: endedMs ? new Date(endedMs).toISOString() : null,
     active_ms: startedMs !== null && endedMs !== null ? Math.max(0, endedMs - startedMs) : 0,
+    speed_active_ms: speedActiveMs,
     turns,
     edit_turns: editTurns,
     retry_turns: 0,
