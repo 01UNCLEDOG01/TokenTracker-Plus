@@ -20,6 +20,7 @@
 - 📊 **Heatmap de 8 níveis (Lv0~Lv7)** —— incluindo o nível "Singularidade" para dias acima de 3 bilhões de tokens. 2D e 3D.
 - 🏆 **65 conquistas + 17 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas.
 - 🪟 **Integração no Windows** —— bandeja do sistema, pet e widgets de cota; o instalador já embute o Node (sem build).
+- 🌍 **Ranking global de modelos (zero configuração)** — lê direto o leaderboard oficial da Artificial Analysis: índice de inteligência, preços de entrada/saída/cache, contexto e velocidade de saída de 80+ modelos. Sem chave de API, cache local com atualização automática.
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 
 ## ⚡ Início rápido

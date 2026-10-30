@@ -10,6 +10,7 @@ import {
   petLabels,
 } from "./lib/pet-quips.js";
 import {
+  fetchPetLimitSelectionRemote,
   petLimitRowKey,
   readPetLimitSelection,
 } from "./lib/pet-limit-selection.js";
@@ -121,11 +122,23 @@ function readPetStats() {
 function readPetLimitSummaries() {
   const limits = typeof window !== "undefined" ? window.__ttPetLimits : null;
   const rows = buildPetLimitSummaries(limits);
-  // 用户在限额页勾选的行优先；没勾过（null / 空列表）就走默认前 6 行。
-  const selection = typeof window !== "undefined" ? readPetLimitSelection() : null;
+  // 限额页勾选的行优先；没勾过（null / 空列表）就走默认前 6 行。
+  // 勾选的权威存储在本地 API（两个 WebView2 窗口是不同 profile，localStorage
+  // 跨不过去），轮询到后缓存在这里；还没取到时退回本窗口 localStorage 兜底。
+  const selection = remotePetLimitRows !== undefined ? remotePetLimitRows : readPetLimitSelection();
   if (!selection || selection.length === 0) return rows;
   const picked = new Set(selection);
   return rows.filter((row) => picked.has(petLimitRowKey(row.providerId, row.windowKey)));
+}
+
+// undefined = 尚未从本地 API 取到过；null = 服务端也没存（走默认行）。
+let remotePetLimitRows;
+async function refreshRemotePetLimitRows() {
+  const next = await fetchPetLimitSelectionRemote();
+  if (next === null) return false;
+  const changed = JSON.stringify(next) !== JSON.stringify(remotePetLimitRows ?? null);
+  if (changed) remotePetLimitRows = next;
+  return changed;
 }
 
 function readPetConnected() {
@@ -655,6 +668,21 @@ function Pet() {
       window.removeEventListener("pet:limits", update);
       window.removeEventListener("storage", update);
       window.removeEventListener("tt:pet-limit-rows", update);
+    };
+  }, []);
+  // 勾选的权威存储在本地 API（见 pet-limit-selection.js），这里轮询它：
+  // 限额页一改，悬浮卡最迟 5 秒跟上。
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      const changed = await refreshRemotePetLimitRows();
+      if (alive && changed) setLimitSummaries(readPetLimitSummaries());
+    };
+    tick();
+    const timer = setInterval(tick, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
     };
   }, []);
   useEffect(() => {

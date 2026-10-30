@@ -18,34 +18,17 @@ const SOURCE_URL = "https://artificialanalysis.ai/leaderboards/models";
 const SOURCE_NAME = "Artificial Analysis Intelligence Index";
 // Bumped when the row shape changes: a snapshot written by an older build must
 // never be served, or the new columns silently render from missing fields.
-const SCHEMA = 3;
+// Note the lab→mark mapping deliberately lives in the dashboard, not here: it
+// changes with branding work, and baking its output into cached rows is what
+// made icon edits silently serve stale marks (twice).
+const SCHEMA = 4;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_TIMEOUT_MS = 25_000;
 
-// AA names the lab behind every model; each entry resolves to a mark TT-plus
-// ships under the same key the rest of the app uses. Labs not listed here (and
-// any lab AA adds later) fall back to a brand-coloured letter chip on the page.
-const CREATOR_ICON_KEYS = {
-  OpenAI: "openai",
-  Anthropic: "anthropic",
-  Google: "google",
-  "Z AI": "z-ai",
-  NVIDIA: "nvidia",
-  Meta: "meta",
-  Alibaba: "alibaba",
-  SpaceXAI: "spacexai",
-  Mistral: "mistral",
-  "Thinking Machines": "thinking-machines",
-  Xiaomi: "xiaomi",
-  MiniMax: "minimax",
-  DeepSeek: "deepseek-platform",
-  StepFun: "stepfun",
-  Cohere: "cohere",
-  Reflection: "reflection",
-  "Institute of Foundation Models": "ifm",
-  InclusionAI: "inclusionai",
-  Kimi: "kimi",
-};
+// AA names the lab behind every model (modelCreatorName) and ships a brand
+// colour per lab. Which mark renders for which lab is decided in the dashboard,
+// not here: baking that choice into cached rows is what twice served stale
+// marks after an icon-only edit.
 
 function cachePath(home) {
   return path.join(getTrackerRootDir({ home }), "global-models-cache.json");
@@ -140,7 +123,6 @@ function normalizeModel(model) {
   const name = typeof model.name === "string" && model.name.trim() ? model.name.trim() : String(model.slug || "");
   if (!name) return null;
   const creator = typeof model.modelCreatorName === "string" ? model.modelCreatorName : "";
-  const icon = CREATOR_ICON_KEYS[creator] || null;
   const color = typeof model.modelCreatorColor === "string" && /^#[0-9a-fA-F]{6}$/.test(model.modelCreatorColor.trim())
     ? model.modelCreatorColor.trim().toLowerCase()
     : null;
@@ -148,7 +130,6 @@ function normalizeModel(model) {
     model: String(model.slug || name),
     display_name: name,
     provider: creator,
-    provider_icon: icon,
     provider_color: color,
     intelligence,
     intelligence_is_estimated: model.intelligenceIndexIsEstimated === true,

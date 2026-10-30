@@ -1,9 +1,12 @@
 /**
  * 宠物悬浮窗要显示哪几行限额：用户在「限额」页逐行勾选。
  *
- * 存 localStorage 的 `tt.pet.limitRows`，形如 ["qoder::credits", "trae::wallet"]。
- * 与宠物页（pet.html）同源（同样的 origin），所以那边能直接读到，不用改宿主。
- * 没勾选过（键不存在）＝默认取限额页顺序的前 6 行；勾满了就不允许再勾。
+ * 权威存储是本地 API 的 `POST/GET /functions/tokentracker-pet-prefs`
+ * （`~/.tokentracker/tracker/pet-prefs.json`）：宠物窗口是独立的 WebView2
+ * 用户数据目录，localStorage 与 storage 事件都跨不过去（旧注释曾假设能跨，
+ * 导致勾选后悬浮卡永远不更新）。localStorage 只作同窗口快照与浏览器
+ * （非内嵌）环境的兜底。没勾选过＝默认取限额页顺序的前 6 行；勾满了
+ * 就不允许再勾。
  */
 export const PET_LIMIT_ROWS_KEY = "tt.pet.limitRows";
 export const MAX_PET_LIMIT_ROWS = 6;
@@ -39,10 +42,38 @@ export function writePetLimitSelection(list) {
   if (typeof window === "undefined" || !window.localStorage) return list;
   const next = normalize(list) || [];
   window.localStorage.setItem(PET_LIMIT_ROWS_KEY, JSON.stringify(next));
-  // 宠物窗口与设置页是不同 window，storage 事件会跨窗口派发；
-  // 同窗口消费者用自定义事件兜底。
+  // The pet window lives in a separate WebView2 profile: neither localStorage
+  // nor the storage event reaches it (this used to be assumed otherwise, which
+  // is why picked rows never showed up on the floating card). The local API is
+  // the meeting point both windows can reach; localStorage stays as the
+  // same-window fast path and browser (non-embed) fallback.
   window.dispatchEvent(new CustomEvent("tt:pet-limit-rows", { detail: next }));
+  void savePetLimitSelectionRemote(next);
   return next;
+}
+
+export async function savePetLimitSelectionRemote(list) {
+  try {
+    await fetch("/functions/tokentracker-pet-prefs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ limitRows: normalize(list) || [] }),
+    });
+  } catch {
+    // Best effort: the pet keeps its last known selection until the next save.
+  }
+}
+
+/** `null` = nothing stored yet; the pet then falls back to its default rows. */
+export async function fetchPetLimitSelectionRemote() {
+  try {
+    const res = await fetch("/functions/tokentracker-pet-prefs", { cache: "no-store" });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return normalize(body?.limitRows);
+  } catch {
+    return null;
+  }
 }
 
 /** 勾/取消。超过 6 条时返回原列表并带 `full: true`，调用方负责提示。 */

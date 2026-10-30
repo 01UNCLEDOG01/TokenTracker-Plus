@@ -7,7 +7,9 @@ import { LIMIT_DISPLAY_MODES } from "../../../hooks/use-limits-display-prefs.js"
 import {
   MAX_PET_LIMIT_ROWS,
   petLimitRowKey,
+  fetchPetLimitSelectionRemote,
   readPetLimitSelection,
+  savePetLimitSelectionRemote,
   togglePetLimitSelection,
   writePetLimitSelection,
 } from "../../../lib/pet-limit-selection.js";
@@ -390,6 +392,19 @@ const REAUTH_CLI_COMMANDS = {
   codex: "codex",
   antigravity: "agy",
 };
+
+// These cards have no zero-config source at all: their fetcher only reads a
+// credentials file the user creates by hand (API key or captured cookie), so
+// the "not connected" state must say that plainly instead of implying the tool
+// just isn't installed. Everything else reads the tool's own local state.
+const MANUAL_CREDENTIAL_IDS = new Set([
+  "minimax",
+  "agentrouter",
+  "apigoto",
+  "deepseek",
+  "sensenova",
+  "qoder",
+]);
 
 function StatusBadge({ label, age = null, tone = "live", tooltip = null }) {
   const colors = STATUS_BADGE_TONES[tone] || STATUS_BADGE_TONES.live;
@@ -1164,6 +1179,9 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       id,
       <>
         <StatusLine>{copy("limits.status.not_connected")}</StatusLine>
+        {MANUAL_CREDENTIAL_IDS.has(id) ? (
+          <StatusLine>{copy("limits.status.manual_credential")}</StatusLine>
+        ) : null}
         {id === "opencodeGo" ? <OpenCodeGoSetupHint /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
@@ -1784,6 +1802,24 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
   const [now, setNow] = useState(() => Date.now());
   // 宠物悬浮窗勾选：默认 null（走前 6 行），一旦勾过就按 localStorage 的列表来。
   const [petLimitRows, setPetLimitRows] = useState(() => readPetLimitSelection() || []);
+  // 勾选的权威存储在本地 API（宠物窗口是另一个 WebView2 profile，读不到本窗口
+  // localStorage），挂载时对齐一次：远端有值就采纳，远端为空且本窗口存过旧的
+  // 勾选就把它迁移上去——升级后第一次打开限额页，悬浮卡即可接上原选择。
+  useEffect(() => {
+    let alive = true;
+    fetchPetLimitSelectionRemote().then((remote) => {
+      if (!alive) return;
+      if (remote && remote.length > 0) {
+        setPetLimitRows((prev) => (JSON.stringify(prev) === JSON.stringify(remote) ? prev : remote));
+        return;
+      }
+      const local = readPetLimitSelection();
+      if (local && local.length > 0) void savePetLimitSelectionRemote(local);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const togglePetLimitRow = useCallback((providerId, rowKey) => {
     setPetLimitRows((prev) => {
       const { list } = togglePetLimitSelection(prev, petLimitRowKey(providerId, rowKey));

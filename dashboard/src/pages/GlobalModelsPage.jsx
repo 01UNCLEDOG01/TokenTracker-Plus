@@ -41,12 +41,38 @@ function textColorFor(hex) {
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "black" : "white";
 }
 
-// AA names labs TT-plus has no bundled mark for (OpenAI, Meta, Mistral…), so
-// those rows get a letter chip in the lab's own brand color instead of an
-// empty slot: the column stays aligned and every row reads the same way.
+// AA names the lab behind each model; this maps those names to marks TT-plus
+// ships (same keys the rest of the app resolves). It lives here rather than in
+// the API payload so a branding edit never invalidates the board's cache.
+const LAB_MARK_KEYS = {
+  OpenAI: "openai",
+  Anthropic: "anthropic",
+  Google: "google",
+  "Z AI": "z-ai",
+  NVIDIA: "nvidia",
+  Meta: "meta",
+  Alibaba: "alibaba",
+  SpaceXAI: "spacexai",
+  Mistral: "mistral",
+  "Thinking Machines": "thinking-machines",
+  Xiaomi: "xiaomi",
+  MiniMax: "minimax",
+  DeepSeek: "deepseek-platform",
+  StepFun: "stepfun",
+  Cohere: "cohere",
+  Reflection: "reflection",
+  "Institute of Foundation Models": "ifm",
+  InclusionAI: "inclusionai",
+  Kimi: "kimi",
+};
+
+// AA names labs TT-plus has no bundled mark for, so those rows get a letter
+// chip in the lab's own brand color instead of an empty slot: the column stays
+// aligned and every row reads the same way.
 function CreatorMark({ row }) {
-  if (row.provider_icon) {
-    return <ProviderIcon provider={row.provider_icon} size={18} />;
+  const icon = LAB_MARK_KEYS[row.provider] || null;
+  if (icon) {
+    return <ProviderIcon provider={icon} size={18} />;
   }
   const color = row.provider_color || FALLBACK_MARK_COLOR;
   const label = String(row.provider || row.display_name || row.model || "").trim();

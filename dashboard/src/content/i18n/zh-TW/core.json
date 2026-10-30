@@ -271,6 +271,7 @@
   "limits.tooltip.qoder_cached": "快取的額度。啟動 Qoder 以重新整理。",
   "limits.bar.sub_one_percent": "<1",
   "limits.status.not_connected": "未連線",
+  "limits.status.manual_credential": "這張卡需要你手動提供憑據（API Key 或 Cookie）後才會取數。",
   "limits.status.no_data": "未返回即時限額資料",
   "limits.opencodeGo.status.inactive": "OpenCode Go 訂閱已失效",
   "limits.status.all_hidden": "所有限額提供商都已隱藏。請開啟顯示設定重新顯示。",

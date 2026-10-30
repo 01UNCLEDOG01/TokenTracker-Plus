@@ -868,6 +868,7 @@ limits.tooltip.antigravity_cached,ui,LimitsPage,UsageLimitsPanel,antigravity_cac
 limits.tooltip.qoder_cached,ui,LimitsPage,UsageLimitsPanel,qoder_cached_tooltip,"Cached limits. Run Qoder to refresh.",,active
 limits.bar.sub_one_percent,ui,LimitsPage,UsageLimitsPanel,bar_sub_one_percent,"<1",,active
 limits.status.not_connected,ui,LimitsPage,UsageLimitsPanel,status_not_connected,"Not connected",,active
+limits.status.manual_credential,ui,LimitsPage,UsageLimitsPanel,status_manual_credential,"This card only reads data after you provide credentials by hand (API key or cookie).",,active
 limits.status.no_data,ui,LimitsPage,UsageLimitsPanel,status_no_data,"No live limit data returned",,active
 limits.status.client_not_running,ui,LimitsPage,UsageLimitsPanel,status_client_not_running,"{app} is not running — open it and sign in to read its quota.",,active
 limits.label.wallet_credits,ui,LimitsPage,UsageLimitsPanel,wallet_credits,"Credits",,active

@@ -4994,6 +4994,43 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- desktop-pet shared preferences ---
+    // The pet window runs in its own WebView2 profile, so localStorage (and the
+    // storage event) never cross between it and the dashboard; this endpoint is
+    // the meeting point that keeps the floating quota card in sync with the
+    // rows picked on the limits page.
+    if (p === "/functions/tokentracker-pet-prefs") {
+      const prefsFile = path.join(os.homedir(), ".tokentracker", "tracker", "pet-prefs.json");
+      if (String(req.method || "GET").toUpperCase() === "POST") {
+        try {
+          const body = await readJsonBody(req);
+          const rows = Array.isArray(body?.limitRows) ? body.limitRows : [];
+          const clean = [];
+          for (const item of rows) {
+            if (typeof item === "string" && item.includes("::") && item.length <= 120 && !clean.includes(item)) {
+              clean.push(item);
+            }
+            if (clean.length >= 6) break;
+          }
+          fs.mkdirSync(path.dirname(prefsFile), { recursive: true });
+          fs.writeFileSync(prefsFile, JSON.stringify({ limitRows: clean, updated_at: new Date().toISOString() }));
+          json(res, { ok: true, limitRows: clean });
+        } catch (error) {
+          json(res, { error: error?.message || "invalid pet prefs body" }, 400);
+        }
+        return true;
+      }
+      let limitRows = null;
+      try {
+        const parsed = JSON.parse(fs.readFileSync(prefsFile, "utf8"));
+        if (Array.isArray(parsed?.limitRows) && parsed.limitRows.length) limitRows = parsed.limitRows;
+      } catch {
+        // Never written yet: the pet falls back to its default first-6 rows.
+      }
+      json(res, { limitRows });
+      return true;
+    }
+
     // --- usage-limits ---
     if (p === "/functions/tokentracker-usage-limits") {
       const { getUsageLimits, resetUsageLimitsCache } = require("./usage-limits");

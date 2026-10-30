@@ -117,15 +117,15 @@ test("extracts, ranks and caches the Artificial Analysis board", async () => {
     assert.equal(first.items[0].rank, 1);
     assert.equal(first.items[0].intelligence, 59.4257);
     assert.equal(first.items[0].provider, "Google");
-    assert.equal(first.items[0].provider_icon, "google");
+    // Which mark renders for which lab is the dashboard's decision (kept out of
+    // cached rows on purpose); the API only carries the raw AA lab name/colour.
+    assert.equal(first.items[0].provider_icon, undefined);
     assert.equal(first.items[0].cache_hit_per_million_usd, 0.2);
     assert.equal(first.items[0].median_output_tokens_per_second, 82.5);
-    // Anthropic has a bundled mark; the letter-chip colour comes from AA and
-    // must survive only as a real hex value.
-    assert.equal(first.items[1].provider_icon, "anthropic");
+    assert.equal(first.items[1].provider, "Anthropic");
     assert.equal(first.items[1].provider_color, "#d4a373");
     assert.equal(first.items[2].intelligence_is_estimated, true);
-    assert.equal(first.items[2].provider_icon, "spacexai");
+    assert.equal(first.items[2].provider, "SpaceXAI");
     assert.equal(first.items[2].provider_color, null, "non-hex brand colour is dropped");
     // A model without published prices must not collapse to $0.
     assert.equal(first.items[2].input_per_million_usd, null);
