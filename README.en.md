@@ -84,7 +84,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 </td>
 <td width="50%">
 
-**Desktop Widgets** — Usage & limits on your desktop
+**Desktop Widgets** — Live previews of usage overview, heatmap, top models and quota cards
 
 <img src="./docs/screenshots/widgets-overview.png" alt="Desktop Widgets" />
 
@@ -93,7 +93,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 <tr>
 <td width="50%">
 
-**Desktop Pet** — Responsive companion reacting to token flow
+**Desktop Pet** — 7 companion characters (2 more than upstream) reacting to token flow
 
 <img src="./docs/screenshots/pet.png" alt="Desktop Pet" />
 
@@ -133,64 +133,78 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 ## 🔌 Supported AI Tools (54)
 
-Canonical list of the **54 supported AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`):
+The repo supports **54 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/commands/init.js`): **52 come from the TT original** (upstream 1.4.8 baseline), **2 are new in this fork** (Magpie, SenseTime Raccoon), and Xiaomi MiMo is the original Mimo renamed. TT's own capabilities first; the fork's additions and enhancements are listed separately.
 
-| Tool | Detection | Integration Mechanism | Fork Enhancements |
-|---|:---:|---|---|
-| **Claude Code** | ✅ Auto | SessionEnd hook in `settings.json` | Native subagent tree & project attribution |
-| **Codex CLI** | ✅ Auto | TOML notify hook in `config.toml` | Local workspace project metadata binding |
-| **AStudio** | ✅ Auto | TOML notify hook in `config.toml` | Supported via `TOKENTRACKER_ACODE_HOME` |
-| **Cursor** | ✅ Auto | API + Auth token in local SQLite | Deduplicated hourly snapshots |
-| **Kiro** | ✅ Auto | Hybrid SQLite + JSONL reader | Full event stream extraction |
-| **Gemini CLI** | ✅ Auto | SessionEnd hook | Input/output token extraction |
-| **Antigravity** | ✅ Auto | Passive `transcript.jsonl` reader + speed probe | **Real tok/s extraction with reasoning token support** |
-| **OpenCode** | ✅ Auto | Plugin system + SQLite database | **reasoning_output_tokens speed denominator fix** |
-| **OpenClaw** | ✅ Auto | Session plugin (`openclaw-session-sync`) | Independent process safe sync |
-| **Loomy** | ✅ Auto | Plugin system + session logs | Full OpenCode architectural parity |
-| **Every Code** | ✅ Auto | TOML notify hook | Session-level usage sync |
-| **Hermes Agent** | ✅ Auto | Passive SQLite reader (`~/.hermes/state.db`) | Automated sessions table extraction |
-| **GitHub Copilot** | ✅ Auto | Per-request SQLite reader (`session-store.db`) | Reconciles multi-source data to avoid double-counting |
-| **Kimi Code** | ✅ Auto | Passive `wire.jsonl` reader + speed stream | **Live chunk speed and output tok/s metrics** |
-| **CodeBuddy** (Tencent) | ✅ Auto | SessionEnd hook in `~/.codebuddy/settings.json` | Tencent Cloud coding assistant support |
-| **WorkBuddy** (Tencent) | ✅ Auto | Hook + passive scanner in `projects/**/*.jsonl` | **Dual-source split: Standard Edition; quota card reads the desktop app over IPC (plan + reward pool), requires the client running** |
-| **WorkBuddy AI** (Tencent) | ✅ Auto | Hook + passive scanner | **Dual-source split: High-Flyer Edition & points audit; quota card also via desktop IPC (the intl client may bill through the CN domain — auto-compat)** |
-| **Grok Build** (xAI) | ✅ Auto | Hook + passive scan on `updates.jsonl` | Shared quota cards with product breakdown |
-| **oh-my-pi** | ✅ Auto | Passive session logs + managed notify extension | Near real-time change synchronization |
-| **OmO** | ✅ Auto | Passive session logs reader | Fine-grained model mappings |
-| **pi** | ✅ Auto | Passive reader (`~/.pi/agent/sessions/**/*.jsonl`) | Zero-intrusion passive parsing |
-| **Dots** | ✅ Auto | Routed via pi provider split | Zero additional hooks required |
-| **Prime Agent** | ✅ Auto | Metadata-only passive reader | Never reads prompts or assistant output |
-| **Craft Agents** | ✅ Auto | Passive session logs reader | Multi-workspace aggregation |
-| **Reasonix** | ✅ Auto | Passive telemetry reader | Session metadata tracking |
-| **Muse Code** | ✅ Auto | Passive session logs (`session.jsonl`) | Supported via `TOKENTRACKER_MUSE_HOME` |
-| **Kilo CLI** | ✅ Auto | Passive SQLite reader (`kilo.db`) | OpenCode-fork schema adaptation |
-| **Kilo Code** | ✅ Auto | Passive reader on `ui_messages.json` | VS Code extension global storage parsing |
-| **Roo Code** | ✅ Auto | Passive reader on `ui_messages.json` | Model & token extraction |
-| **Zed Agent** | ✅ Auto | Passive SQLite reader (`threads.db`) | Tallies hosted zed.dev models only |
-| **Goose** | ✅ Auto | Passive session logs scanner | Compatible with open-source Goose format |
-| **Droid** (Factory) | ✅ Auto | Passive trajectory & event reader | Token and model extraction |
-| **Xiaomi MiMo** | ✅ Auto | Passive SQLite parser | Local database extraction |
-| **DuMate** (Baidu) | ✅ Auto | Passive session logs reader | Supported via `TOKENTRACKER_DUMATE_HOME` |
-| **ZCode** | ✅ Auto | Passive session logs + speed probe | **Session drill-down & millisecond tok/s stream** |
-| **Qoder** | ✅ Auto | Passive `~/.qoder[-cn]/projects/**/*.jsonl` | **Model refinement & credit balance reconciliation** |
-| **AnythingLLM Desktop** | ✅ Auto | Passive local SQLite reader | Desktop workspace usage aggregation |
-| **Claude Science** | ✅ Auto | Passive SQLite reader (`operon-cli.db`) | Frame token extraction |
-| **DeepSeek Harness** | ✅ Auto | Passive session logs (`.jsonl[.zstd]`) + probe | **Multi-frame zstd decompression & live tok/s** |
-| **TRAE CN** | ✅ Auto | Unified merger of legacy Trae Work CN and modern Trae CN databases | **Supports unified merged architecture & session drill-down** |
-| **TRAE** (Intl) | ✅ Auto | Reads local SQLCipher with shared key | Secure local parsing without vendor API calls |
-| **LM Studio** | ✅ Auto | Passive logs & activity state | Supported via `TOKENTRACKER_LMSTUDIO_HOME` |
-| **Unsloth Studio** | ✅ Auto | Passive SQLite reader (`unsloth.db`) | Supported via `TOKENTRACKER_UNSLOTH_DB` |
-| **Devin CLI** | ✅ Auto | Passive local Devin DB reader | Supported via `TOKENTRACKER_DEVIN_DB` |
-| **Cline** | ✅ Auto | Passive VS Code storage reader | Task-level usage extraction |
-| **MiniMax Code** | ✅ Auto | Passive local session logs | Model & token counters |
-| **CodeArts Agent** | ✅ Auto | Passive Huawei CodeArts session reader | Huawei Cloud coding assistant support |
-| **Command Code** | ✅ Auto | Passive session snapshot & logs | Unified model price estimate |
-| **AutoClaw** | ✅ Auto | Automated agent workflow log integration | Task-level usage collection |
-| **Cola** | ✅ Auto | Collaborative agent logs integration | Secure local sync |
-| **Tuanjie Cowork** | ✅ Auto | Team workflow logs integration | Team-level local usage parsing |
-| **Agent2API** | ✅ Auto | Local gateway & agent mapping integration | Multi-model routing usage |
-| **Magpie** | ✅ Auto | Passive local gateway usage ledger (`~/.config/magpie/usage.jsonl`) | Counts gateway round trips only, never client sessions |
-| **SenseTime Raccoon** | ✅ Auto | Reads the desktop agent trace (`~/.office-raccoon/agent/log/sessions`) | Usage from `llm.response` only; agent2api untouched |
+### TT Original Support (52)
+
+| Tool | Detection | Integration Mechanism (TT original) |
+|---|:---:|---|
+| **Claude Code** | ✅ Auto | SessionEnd hook in `settings.json` |
+| **Codex CLI** | ✅ Auto | TOML notify hook in `config.toml` |
+| **AStudio** | ✅ Auto | TOML notify hook in `config.toml` |
+| **Cursor** | ✅ Auto | API + Auth token in local SQLite |
+| **Kiro** | ✅ Auto | Hybrid SQLite + JSONL reader |
+| **Gemini CLI** | ✅ Auto | SessionEnd hook |
+| **OpenClaw** | ✅ Auto | Session plugin (`openclaw-session-sync`) |
+| **Loomy** | ✅ Auto | Plugin system + session logs |
+| **Every Code** | ✅ Auto | TOML notify hook |
+| **Hermes Agent** | ✅ Auto | Passive SQLite reader (`~/.hermes/state.db`) |
+| **CodeBuddy** (Tencent) | ✅ Auto | SessionEnd hook in `~/.codebuddy/settings.json` |
+| **Grok Build** (xAI) | ✅ Auto | Hook + passive scan on `updates.jsonl` |
+| **oh-my-pi** | ✅ Auto | Passive session logs + managed notify extension |
+| **OmO** | ✅ Auto | Passive session logs reader |
+| **pi** | ✅ Auto | Passive reader (`~/.pi/agent/sessions/**/*.jsonl`) |
+| **Dots** | ✅ Auto | Routed via pi provider split |
+| **Prime Agent** | ✅ Auto | Metadata-only passive reader |
+| **Craft Agents** | ✅ Auto | Passive session logs reader |
+| **Reasonix** | ✅ Auto | Passive telemetry reader |
+| **Muse Code** | ✅ Auto | Passive session logs (`session.jsonl`) |
+| **Kilo CLI** | ✅ Auto | Passive SQLite reader (`kilo.db`) |
+| **Kilo Code** | ✅ Auto | Passive reader on `ui_messages.json` |
+| **Roo Code** | ✅ Auto | Passive reader on `ui_messages.json` |
+| **Zed Agent** | ✅ Auto | Passive SQLite reader (`threads.db`) |
+| **Goose** | ✅ Auto | Passive session logs scanner |
+| **Droid** (Factory) | ✅ Auto | Passive trajectory & event reader |
+| **DuMate** (Baidu) | ✅ Auto | Passive session logs reader |
+| **AnythingLLM Desktop** | ✅ Auto | Passive local SQLite reader |
+| **Claude Science** | ✅ Auto | Passive SQLite reader (`operon-cli.db`) |
+| **LM Studio** | ✅ Auto | Passive logs & activity state |
+| **Unsloth Studio** | ✅ Auto | Passive SQLite reader (`unsloth.db`) |
+| **Devin CLI** | ✅ Auto | Passive local Devin DB reader |
+| **Cline** | ✅ Auto | Passive VS Code storage reader |
+| **MiniMax Code** | ✅ Auto | Passive local session logs |
+| **CodeArts Agent** | ✅ Auto | Passive Huawei CodeArts session reader |
+| **Command Code** | ✅ Auto | Passive session snapshot & logs |
+| **AutoClaw** | ✅ Auto | Automated agent workflow log integration |
+| **Cola** | ✅ Auto | Collaborative agent logs integration |
+| **Tuanjie Cowork** | ✅ Auto | Team workflow logs integration |
+| **Agent2API** | ✅ Auto | Local gateway & agent mapping integration |
+
+### Fork Enhancements (This Fork)
+
+**New sources (2):**
+
+| Tool | Integration Mechanism | Notes |
+|---|:---:|---|
+| **Magpie** | Passive local gateway usage ledger (`~/.config/magpie/usage.jsonl`) | Counts gateway round trips only, never client sessions |
+| **SenseTime Raccoon** | Reads the desktop agent trace (`~/.office-raccoon/agent/log/sessions`) | Usage from `llm.response` only; agent2api untouched |
+
+**Enhancements to original sources:**
+
+| Tool | Fork Enhancement (this fork) |
+|---|---|
+| **Antigravity** | Real tok/s extraction with reasoning token support |
+| **OpenCode** | reasoning_output_tokens speed denominator fix |
+| **GitHub Copilot** | Reconciles multi-source data to avoid double-counting |
+| **Kimi Code** | Live chunk speed and output tok/s metrics |
+| **WorkBuddy** (Tencent) | Dual-source split: Standard Edition; quota card reads the desktop app over IPC (plan + reward pool), requires the client running |
+| **WorkBuddy AI** (Tencent) | Dual-source split: High-Flyer Edition & points audit; quota card also via desktop IPC (the intl client may bill through the CN domain — auto-compat) |
+| **Xiaomi MiMo** | Third-party models count too (direct-vendor blocklist detection); renamed from the original Mimo |
+| **ZCode** | Session drill-down with millisecond tok/s capture; per-request gateway reconciliation restores the input side for self-added providers |
+| **Qoder** | Model refinement & credit balance reconciliation |
+| **DeepSeek Harness** | Multi-frame zstd decompression & live tok/s |
+| **TRAE CN** | Supports unified merged architecture & session drill-down |
+| **TRAE** (Intl) | Session layer added; early-step costs inferred at list price |
 
 ---
 

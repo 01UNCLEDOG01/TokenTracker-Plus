@@ -84,7 +84,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 </td>
 <td width="50%">
 
-**桌面小組件** —— 把用量與限額釘在桌面
+**桌面小組件** —— 用量概覽、熱力圖、熱門模型與限額卡的即時預覽
 
 <img src="./docs/screenshots/widgets-overview.png" alt="Desktop Widgets" />
 
@@ -93,7 +93,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 <tr>
 <td width="50%">
 
-**桌面桌寵** —— 響應 Token 消耗與動作輪換的桌寵
+**桌面桌寵** —— 7 隻陪伴角色（比原版多 2 隻），響應 Token 消耗與動作輪換
 
 <img src="./docs/screenshots/pet.png" alt="Desktop Pet" />
 
@@ -133,64 +133,78 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 ## 🔌 支援的 AI 工具列表（54 款）
 
-本倉庫當前支援的 **54 款 AI 編碼工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 為準）：
+本倉庫當前支援 **54 款 AI 編碼工具**（以 `src/commands/init.js` 的 `SUPPORTED_PROVIDERS` 為準）：**52 款為 TT 原版支援**（上游 1.4.8 基線），**2 款為本 fork 新增**（Magpie、商湯小浣熊），另有小米 MiMo 由原版 Mimo 正名。先列 TT 原版能力，fork 的新增與增強單獨說明。
 
-| 工具名稱 | 識別方式 | 接入方式與機制 | Fork 增強說明 |
-|---|:---:|---|---|
-| **Claude Code** | ✅ 自動 | 寫入 `settings.json` 的 SessionEnd hook | 原生支援子代理鏈路與專案歸屬 |
-| **Codex CLI** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook | 自動關聯本地 workspace 專案元數據 |
-| **AStudio** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook | 支援 `TOKENTRACKER_ACODE_HOME` 目錄覆蓋 |
-| **Cursor** | ✅ 自動 | API + 本地 SQLite 中的 auth token | 自動去重與小時級快照 |
-| **Kiro** | ✅ 自動 | SQLite + JSONL 混合讀取 | 完整解析會話事件流 |
-| **Gemini CLI** | ✅ 自動 | SessionEnd hook | 自動捕獲各模型輸入輸出 |
-| **Antigravity** | ✅ 自動 | 被動讀取 `transcript.jsonl` + 速率探針 | **新增 tok/s 速率解析與思考 tokens 獨立核算** |
-| **OpenCode** | ✅ 自動 | 外掛系統 + SQLite 資料庫 | **支援 reasoning_output_tokens 速率修正** |
-| **OpenClaw** | ✅ 自動 | Session 外掛（`openclaw-session-sync`） | 獨立行程安全同步 |
-| **Loomy** | ✅ 自動 | 外掛系統 + 會話日誌 | 完美相容 OpenCode 架構 |
-| **Every Code** | ✅ 自動 | TOML notify hook | 會話級用量同步 |
-| **Hermes Agent** | ✅ 自動 | 被動讀取 SQLite（`~/.hermes/state.db`） | 自動解析 sessions 表 |
-| **GitHub Copilot** | ✅ 自動 | 逐請求 SQLite 讀取（`~/.copilot/session-store.db`） | 協調多源數據，防止重疊請求雙計 |
-| **Kimi Code** | ✅ 自動 | 被動讀取 `wire.jsonl` + 速率流 | **即時計算輸出與分段 tok/s 生成速率** |
-| **CodeBuddy** (騰訊) | ✅ 自動 | 寫入 `~/.codebuddy/settings.json` SessionEnd hook | 騰訊雲體系編碼助手支援 |
-| **WorkBuddy** (騰訊) | ✅ 自動 | SessionEnd hook + 被動掃描 `projects/**/*.jsonl` | **雙源拆分：國內標準版；配額卡經桌面端 IPC 讀取（套餐 + 獎勵額度），需桌面客戶端運行** |
-| **WorkBuddy AI** (騰訊) | ✅ 自動 | SessionEnd hook + 被動掃描 | **雙源拆分：進階版與積分對帳；配額卡同走桌面端 IPC（國際版客戶端賬單域可能為 CN 域，已自動兼容）** |
-| **Grok Build** (xAI) | ✅ 自動 | SessionEnd hook + 被動掃描 `updates.jsonl` | 共享限額卡與多產品佔比拆分 |
-| **oh-my-pi** | ✅ 自動 | 被動讀取會話日誌 + 託管 notify 擴展 | 支援近即時變更同步 |
-| **OmO** | ✅ 自動 | 被動讀取會話日誌 | 細化模型映射 |
-| **pi** | ✅ 自動 | 被動讀取（`~/.pi/agent/sessions/**/*.jsonl`） | 零侵入被動解析 |
-| **Dots** | ✅ 自動 | 透過 pi provider 拆分路由 | 無需額外 hook |
-| **Prime Agent** | ✅ 自動 | 僅元數據被動用量讀取 | 絕不讀取提示詞與回覆正文 |
-| **Craft Agents** | ✅ 自動 | 被動讀取 session 日誌 | 多工作區會話聚合 |
-| **Reasonix** | ✅ 自動 | 被動讀取 telemetry 遙測數據 | 會話元數據追蹤 |
-| **Muse Code** | ✅ 自動 | 被动讀取會話日誌（`session.jsonl`） | 支援 `TOKENTRACKER_MUSE_HOME` 覆蓋 |
-| **Kilo CLI** | ✅ 自動 | 被動讀取 SQLite（`~/.local/share/kilo/kilo.db`） | OpenCode-fork 架構適配 |
-| **Kilo Code** | ✅ 自動 | 被動讀取 `ui_messages.json` | VS Code 外掛全域儲存解析 |
-| **Roo Code** | ✅ 自動 | 被動讀取 `ui_messages.json` | 自動提取模型與 token 計數 |
-| **Zed Agent** | ✅ 自動 | 被動讀取 SQLite（`threads.db`） | 僅統計託管模型與會話 |
-| **Goose** | ✅ 自動 | 被動會話日誌掃描 | 相容開源 Goose 會話格式 |
-| **Droid** (Factory) | ✅ 自動 | 被動讀取會話軌跡與事件流 | 準確提取模型與用量指標 |
-| **Xiaomi MiMo** | ✅ 自動 | 被動 SQLite 解析 | 支援本地資料庫提取 |
-| **DuMate** (百度) | ✅ 自動 | 被動讀取會話日誌 | 支援 `TOKENTRACKER_DUMATE_HOME` 覆蓋 |
-| **ZCode** | ✅ 自動 | 被動讀取會話日誌 + 速率探針 | **會話層下鑽與毫秒級 tok/s 捕獲** |
-| **Qoder** | ✅ 自動 | 被動讀取 `~/.qoder[-cn]/projects/**/*.jsonl` | **支援國際版與國內版細化模型與積分對帳** |
-| **AnythingLLM Desktop** | ✅ 自動 | 被動讀取本地 SQLite 資料庫 | 桌面端工作區用量歸集 |
-| **Claude Science** | ✅ 自動 | 被動讀取 SQLite（`operon-cli.db`） | 只讀取 frames token 計數 |
-| **DeepSeek Harness** | ✅ 自動 | 被動讀取會話日誌（`.jsonl[.zstd]`） + 速率探針 | **多幀 zstd 解壓與即時 tok/s 流式計算** |
-| **TRAE CN** (字節跳動) | ✅ 自動 | 整合早期 Trae Work 與 Trae CN 國內版合併後的全新統一架構，自動適配本地會話存儲與 SQLite | **支援國內版最新合併架構解析與會話拓撲下鑽** |
-| **TRAE** (國際版) | ✅ 自動 | 使用共享應用密鑰讀取 SQLCipher 資料庫 | 本地安全解析，不調用外部 API |
-| **LM Studio** | ✅ 自動 | 被動讀取本地日誌與活動狀態 | 支援 `TOKENTRACKER_LMSTUDIO_HOME` 覆蓋 |
-| **Unsloth Studio** | ✅ 自動 | 被動讀取 SQLite（`unsloth.db`） | 支援 `TOKENTRACKER_UNSLOTH_DB` 覆蓋 |
-| **Devin CLI** | ✅ 自動 | 被動讀取本地 Devin 資料庫 | 支援 `TOKENTRACKER_DEVIN_DB` 覆蓋 |
-| **Cline** | ✅ 自動 | 被動讀取 VS Code 全域儲存與歷史 | 自動提取任務級用量 |
-| **MiniMax Code** | ✅ 自動 | 被動讀取本地會話日誌 | 提取模型與 Token 統計 |
-| **CodeArts Agent** | ✅ 自動 | 被動讀取華為 CodeArts 會話與日誌 | 華為雲編碼助手適配 |
-| **Command Code** | ✅ 自動 | 被動讀取會話快照與日誌 | 統一按模型價目表估算 |
-| **AutoClaw** | ✅ 自動 | 自動化 Agent 工作流日誌整合 | 任務級用量歸集 |
-| **Cola** | ✅ 自動 | 協作 Agent 日誌接入 | 本地安全同步 |
-| **Tuanjie Cowork** | ✅ 自動 | 協作工作流日誌接入 | 團隊端本地用量解析 |
-| **Agent2API** | ✅ 自動 | 本地閘道器與 Agent 映射用量歸集 | 面向多模型路由用量 |
-| **Magpie** | ✅ 自動 | 被動讀取本地閘道用量帳本（`~/.config/magpie/usage.jsonl`） | 只統計經它轉發的請求，不重複計客戶端會話 |
-| **商湯小浣熊** | ✅ 自動 | 被動讀取桌面端 agent 軌跡（`~/.office-raccoon/agent/log/sessions`） | 只取 `llm.response` 的 usage，不碰 agent2api |
+### TT 原版支援（52 款）
+
+| 工具名稱 | 識別方式 | 接入方式與機制（TT 原版） |
+|---|:---:|---|
+| **Claude Code** | ✅ 自動 | 寫入 `settings.json` 的 SessionEnd hook |
+| **Codex CLI** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook |
+| **AStudio** | ✅ 自動 | 寫入 `config.toml` 的 TOML notify hook |
+| **Cursor** | ✅ 自動 | API + 本地 SQLite 中的 auth token |
+| **Kiro** | ✅ 自動 | SQLite + JSONL 混合讀取 |
+| **Gemini CLI** | ✅ 自動 | SessionEnd hook |
+| **OpenClaw** | ✅ 自動 | Session 外掛（`openclaw-session-sync`） |
+| **Loomy** | ✅ 自動 | 外掛系統 + 會話日誌 |
+| **Every Code** | ✅ 自動 | TOML notify hook |
+| **Hermes Agent** | ✅ 自動 | 被動讀取 SQLite（`~/.hermes/state.db`） |
+| **CodeBuddy** (騰訊) | ✅ 自動 | 寫入 `~/.codebuddy/settings.json` SessionEnd hook |
+| **Grok Build** (xAI) | ✅ 自動 | SessionEnd hook + 被動掃描 `updates.jsonl` |
+| **oh-my-pi** | ✅ 自動 | 被動讀取會話日誌 + 託管 notify 擴展 |
+| **OmO** | ✅ 自動 | 被動讀取會話日誌 |
+| **pi** | ✅ 自動 | 被動讀取（`~/.pi/agent/sessions/**/*.jsonl`） |
+| **Dots** | ✅ 自動 | 透過 pi provider 拆分路由 |
+| **Prime Agent** | ✅ 自動 | 僅元數據被動用量讀取 |
+| **Craft Agents** | ✅ 自動 | 被動讀取 session 日誌 |
+| **Reasonix** | ✅ 自動 | 被動讀取 telemetry 遙測數據 |
+| **Muse Code** | ✅ 自動 | 被动讀取會話日誌（`session.jsonl`） |
+| **Kilo CLI** | ✅ 自動 | 被動讀取 SQLite（`~/.local/share/kilo/kilo.db`） |
+| **Kilo Code** | ✅ 自動 | 被動讀取 `ui_messages.json` |
+| **Roo Code** | ✅ 自動 | 被動讀取 `ui_messages.json` |
+| **Zed Agent** | ✅ 自動 | 被動讀取 SQLite（`threads.db`） |
+| **Goose** | ✅ 自動 | 被動會話日誌掃描 |
+| **Droid** (Factory) | ✅ 自動 | 被動讀取會話軌跡與事件流 |
+| **DuMate** (百度) | ✅ 自動 | 被動讀取會話日誌 |
+| **AnythingLLM Desktop** | ✅ 自動 | 被動讀取本地 SQLite 資料庫 |
+| **Claude Science** | ✅ 自動 | 被動讀取 SQLite（`operon-cli.db`） |
+| **LM Studio** | ✅ 自動 | 被動讀取本地日誌與活動狀態 |
+| **Unsloth Studio** | ✅ 自動 | 被動讀取 SQLite（`unsloth.db`） |
+| **Devin CLI** | ✅ 自動 | 被動讀取本地 Devin 資料庫 |
+| **Cline** | ✅ 自動 | 被動讀取 VS Code 全域儲存與歷史 |
+| **MiniMax Code** | ✅ 自動 | 被動讀取本地會話日誌 |
+| **CodeArts Agent** | ✅ 自動 | 被動讀取華為 CodeArts 會話與日誌 |
+| **Command Code** | ✅ 自動 | 被動讀取會話快照與日誌 |
+| **AutoClaw** | ✅ 自動 | 自動化 Agent 工作流日誌整合 |
+| **Cola** | ✅ 自動 | 協作 Agent 日誌接入 |
+| **Tuanjie Cowork** | ✅ 自動 | 協作工作流日誌接入 |
+| **Agent2API** | ✅ 自動 | 本地閘道器與 Agent 映射用量歸集 |
+
+### Fork 增强（本分支）
+
+**新增來源（2 款）：**
+
+| 工具名稱 | 接入方式與機制 | 說明 |
+|---|:---:|---|
+| **Magpie** | 被動讀取本地閘道用量帳本（`~/.config/magpie/usage.jsonl`） | 只統計經它轉發的請求，不重複計客戶端會話 |
+| **商湯小浣熊** | 被動讀取桌面端 agent 軌跡（`~/.office-raccoon/agent/log/sessions`） | 只取 `llm.response` 的 usage，不碰 agent2api |
+
+**對原版來源的增強：**
+
+| 工具名稱 | Fork 增强（本分支） |
+|---|---|
+| **Antigravity** | 新增 tok/s 速率解析與思考 tokens 獨立核算 |
+| **OpenCode** | 支援 reasoning_output_tokens 速率修正 |
+| **GitHub Copilot** | 協調多源數據，防止重疊請求雙計 |
+| **Kimi Code** | 即時計算輸出與分段 tok/s 生成速率 |
+| **WorkBuddy** (騰訊) | 雙源拆分：國內標準版；配額卡經桌面端 IPC 讀取（套餐 + 獎勵額度），需桌面客戶端運行 |
+| **WorkBuddy AI** (騰訊) | 雙源拆分：進階版與積分對帳；配額卡同走桌面端 IPC（國際版客戶端賬單域可能為 CN 域，已自動兼容） |
+| **Xiaomi MiMo** | 接第三方模型也計入（直連廠商黑名單判定）；由原版 Mimo 正名 |
+| **ZCode** | 會話層下鑽與毫秒級 tok/s 擷取；自加渠道只記 output，按逐請求對帳從網關補回輸入與快取 |
+| **Qoder** | 支援國際版與國內版細化模型與積分對帳 |
+| **DeepSeek Harness** | 多幀 zstd 解壓與即時 tok/s 流式計算 |
+| **TRAE CN** (字節跳動) | 支援國內版最新合併架構解析與會話拓撲下鑽 |
+| **TRAE** (國際版) | 會話層接入；早期步驟費用按牌價推算 |
 
 ---
 

@@ -16,12 +16,8 @@ TokenTracker Plus 完全免费、开源（MIT）：没有会员，也没有付�
 
 赞赏完全自愿，不解锁任何功能，也不影响项目的任何使用。
 
-<!-- 使用方法：把你自己的微信/支付宝收款码图片放到 docs/sponsor/ 目录，
-     替换下面两行的文件名（建议 256×256 以上 PNG），然后删除本注释。 -->
 <p align="center">
-  <img src="./docs/sponsor/wechat-qr.png" width="220" alt="微信赞赏码" />
-  &nbsp;&nbsp;
-  <img src="./docs/sponsor/alipay-qr.png" width="220" alt="支付宝收款码" />
+  <img src="./docs/sponsor/wechat-qr.png" width="260" alt="微信赞赏码" />
 </p>
 
 **同样有用的支持**：给仓库点一个 Star · 在 Issues 里反馈问题与建议 · 提交 Pull Request · 把它分享给需要的朋友。
