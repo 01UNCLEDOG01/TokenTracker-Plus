@@ -157,7 +157,13 @@ const {
 // v44 extends the working-time denominator to WorkBuddy (usage-record gaps,
 // capped at five minutes — the qoder precedent) and Antigravity (usage-minute
 // gaps, same cap) so their wall-clock rates stop diluting with idle time.
-const SIDECAR_VERSION = 46;
+// v47 retires v44's Antigravity "usage-minute" assumption: those buckets are
+// UTC half-hour granules, so any session inside one bucket collapsed to the
+// 1s seed and divided its whole output by one second (20k+ tok/s absurdities,
+// 30 of 77 sessions here). A single distinct bucket timestamp now means "no
+// interval information" — speed_active_ms stays 0 and the wall-clock fallback
+// uses the measured active_ms span instead.
+const SIDECAR_VERSION = 47;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -4428,17 +4434,25 @@ async function scanAntigravitySession(dbPath) {
   const usageTimes = (result.usageBuckets || []).map((bucket) => Date.parse(bucket.timestamp)).filter(Number.isFinite);
   if (startedMs === null && usageTimes.length) startedMs = Math.min(...usageTimes);
   if (endedMs === null && usageTimes.length) endedMs = Math.max(...usageTimes);
-  // Working time for the wall-clock rate fallback: usage only happens in
-  // minutes the agent actually ran, so the qoder precedent applies — gaps
-  // between consecutive usage minutes capped at five minutes, 1s seed. Idle
-  // between turns drops out of the rate denominator; the display span keeps
+  // Working time for the wall-clock rate fallback. Antigravity usage buckets
+  // are UTC half-hour granules (toUtcHalfHourStart), so a session that never
+  // crosses a bucket boundary yields a single distinct timestamp and the
+  // interval sum carries no information — the 1s seed alone would divide the
+  // session's whole output by one second (20k+ tok/s absurdities). Such a
+  // session keeps speed_active_ms at 0, and applyWallClockSpeed falls through
+  // to the measured active_ms span. Two or more distinct buckets keep the
+  // qoder precedent: bucket gaps capped at five minutes, 1s seed. Idle between
+  // turns still drops out of the rate denominator; the display span keeps
   // using active_ms.
+  const distinctUsageTimes = [...new Set(usageTimes)].sort((a, b) => a - b);
   let speedActiveMs = 0;
-  let lastUsageMinute = null;
-  for (const ts of [...new Set(usageTimes)].sort((a, b) => a - b)) {
-    if (lastUsageMinute === null) speedActiveMs += 1000;
-    else speedActiveMs += Math.min(300_000, Math.max(0, ts - lastUsageMinute));
-    lastUsageMinute = ts;
+  if (distinctUsageTimes.length >= 2) {
+    let lastUsageMinute = null;
+    for (const ts of distinctUsageTimes) {
+      if (lastUsageMinute === null) speedActiveMs += 1000;
+      else speedActiveMs += Math.min(300_000, Math.max(0, ts - lastUsageMinute));
+      lastUsageMinute = ts;
+    }
   }
   const byModel = new Map();
   for (const contribution of contributions) {
