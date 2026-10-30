@@ -93,11 +93,11 @@ export const PERK_PROVIDERS = [
     "tags": [
       "阿里大厂",
       "多模型独立送",
-      "用完即停安心模式",
-      "全系覆盖"
+      "三方生态支持",
+      "用完即停安心模式"
     ],
-    "description": "阿里云大模型一站式服务平台。新用户首次开通后，针对 Qwen 各个不同版本规格（Max、Plus、Flash 等）均独立赠送 100 万 Tokens 免费体验额度（自开通起 90 天有效）。",
-    "tips": "免费额度默认在华北2（北京）地域实时推理生效；建议在控制台开启「免费额度用完即停」开关，避免额度耗尽后产生按量扣费。",
+    "description": "阿里云大模型一站式服务平台。新用户首次开通后，不仅通义千问（Qwen）各规格独立赠送 100 万 Tokens，对平台上百余款第三方生态大模型（包括 DeepSeek 系列如 DeepSeek-V3/R1、月之暗面 Kimi 系列、智谱 GLM 系列等）亦独立配置新人免费体验额度（各模型大多独立赠送 100 万 Tokens，累计新人免费额度超 7,000 万 Tokens，自开通起 90 天有效）。",
+    "tips": "免费额度默认在华北2（北京）地域实时推理生效；各模型额度相互独立不混用，建议在控制台开启「免费额度用完即停」开关，避免额度耗尽后产生按量扣费。",
     "officialUrl": "https://bailian.console.aliyun.com",
     "hasInvite": false,
     "checkedAt": "2026-10-31",
@@ -213,7 +213,7 @@ export const PERK_PROVIDERS = [
       "每日签到100",
       "学生认证4000"
     ],
-    "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。本机累计领取 14,600 积分、已消耗 2,763.8。",
+    "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。",
     "tips": "支持 IDE 插件与桌面客户端，多模型智能调度（DeepSeek、Kimi、GLM 等）；积分自发放起有效期有限，签到入口在成长中心，随取随用。",
     "inviteUrl": "https://devcloud.cn-north-4.huaweicloud.com/chat?source=dmzntgwlb&sourcead=dmzntgwlb1&invitecode=INV-taWTH2T2JcL8d0esH15UMseSLiQN99qbfeb5Gp50u21Mt01_mokNPORaI_CxM_LrKuoTZOJThp9prEXpEqLKxJIQWyMC6hxkWSbV1qmMNFT6eQVyw-81VuMzAonD1G1z-NMbHhOWdDYCrxKsgZHxDHIuFrDivfsf0lorAf7go8L-Ug",
     "officialUrl": "https://www.huaweicloud.com/product/codearts.html",
@@ -431,7 +431,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "qwen_work",
     "name": "千问办公 (QwenWork)",
-    "provider": "alibaba",
+    "provider": "qwenwork",
     "category": [
       "client",
       "free_tier"
@@ -557,7 +557,7 @@ export const PERK_PROVIDERS = [
       "每月领墨点",
       "OpenAI兼容"
     ],
-    "description": "上海人工智能实验室打造的端到端科研工作台，「墨点计划」每月可免费领取 10,000 墨点。实测现阶段可白嫖的模型仅 deepseek-v4.1-flash-1017 一款；按本机用量（132 次调用消耗 9,532.749 墨点对应 4,910 万 Token）折算，10,000 墨点约等于 5,000 万 Token 量级——额度就这么点。",
+    "description": "上海人工智能实验室打造的端到端科研工作台，「墨点计划」每月可免费领取 10,000 墨点。实测现阶段可白嫖的模型仅 deepseek-v4.1-flash-1017 一款；实测全程只使用deepseek-v4.1-flash-1017模型，大概有 5,000 万 Token。",
     "tips": "支持兼容 OpenAI / Anthropic 规范的 API 接口，登录控制台领取当月墨点；可用模型清单会扩充，届时同一份墨点能换更多额度。",
     "officialUrl": "https://discovery.intern-ai.org.cn",
     "hasInvite": false,
@@ -618,15 +618,16 @@ export const PERK_PROVIDERS = [
       "client",
       "free_tier"
     ],
-    "badge": "注册送积分 + 每日活跃与月度发放",
+    "badge": "注册送积分 + 国际版免额度 + 每日送30",
     "badgeType": "purple",
     "tags": [
       "AI客户端",
       "每日活跃积分",
+      "国际版免额度",
       "邀请返利"
     ],
-    "description": "全能 AI 工作台。官方公告口径：新用户注册送 250 积分，每月发放 100 基础积分，每日活跃再得 30 积分；邀请返利与连续签到加码以端内活动页为准。积分可直接在客户端内消耗多款主流模型。",
-    "tips": "客户端/工作台形态，适合日常桌面交互；历史流传的「注册 5000、第 7 天送 1000」官方公告查无，登录端内积分页核对当期档位。",
+    "description": "全能 AI 工作台。国内版：新用户注册送 250 积分，每月发放 100 基础积分，每日完成对话次日赠送 30 积分。国际版（WorkBuddy AI）：每日可免费调用上限 1 亿额度的 deepseek-v4.1-flash 模型（活动截止至 2026-10-31）。",
+    "tips": "客户端/工作台形态，适合日常桌面交互；积分直接在客户端内抵扣模型消耗，邀请返利与连续签到加码以端内活动页为准。",
     "inviteUrl": "https://www.workbuddy.cn/events/invite?inviteCode=8li3k29hyh",
     "officialUrl": "https://www.workbuddy.cn",
     "inviteCode": "8li3k29hyh",
@@ -665,18 +666,21 @@ export const PERK_PROVIDERS = [
       "client",
       "free_tier"
     ],
-    "badge": "每日登录后积分刷新为 5000",
+    "badge": "每日刷新5000 + 任务送1万 + 邀请送5000",
     "badgeType": "success",
     "tags": [
       "科大讯飞",
       "桌面Agent",
-      "每日5000积分",
-      "本地办公安全"
+      "任务1万积分",
+      "邀请送5000",
+      "每日5000积分"
     ],
-    "description": "科大讯飞打造的桌面级 AI 工作搭子，主打本地化执行式智能体。实测每日登录客户端即可获得 5,000 积分；官方规则原文：「每日赠送积分会在你每日登录后自动刷新为 5000。消耗长期积分时，会优先使用活动或兑换码获得的积分，再使用普通长期积分。」",
-    "tips": "客户端支持目录级隔离与本地数据隐私保障，可接微信/飞书/钉钉远程下发任务；赠送积分每日刷新，别指望跨日累积。",
+    "description": "科大讯飞打造的桌面级 AI 工作搭子。实测新用户注册并完成任务可获得 10,000 积分，每日登录客户端自动刷新为 5,000 算力池（优先消耗）；支持邀请机制，官方规则原文：「每个邀请码限 1 人使用，邀请好友您与好友同时获得 5000 积分」，站主专属邀请码为 E5UZR8（限 20 人使用）。",
+    "tips": "客户端支持目录级隔离与本地数据隐私保障；复制邀请码后在客户端「设置 -> 邀请码」处兑换生效；每日登录赠送积分次日刷新，不跨日累积。",
+    "inviteUrl": "https://loomy.xunfei.cn",
     "officialUrl": "https://loomy.xunfei.cn",
-    "hasInvite": false,
+    "inviteCode": "E5UZR8",
+    "hasInvite": true,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://loomy.xunfei.cn"
   },

@@ -48,7 +48,7 @@ describe("PerksPage", () => {
     const clientTab = screen.getByText("客户端/工作台");
     fireEvent.click(clientTab);
 
-    expect(screen.getByText(/WorkBuddy/)).toBeInTheDocument();
+    expect(screen.getAllByText(/WorkBuddy/)[0]).toBeInTheDocument();
     expect(screen.queryByText(/DeepSeek 官方开放平台/)).not.toBeInTheDocument();
   });
 
@@ -67,5 +67,15 @@ describe("PerksPage", () => {
       expect(link.getAttribute("rel")).toContain("noopener");
       expect(link.getAttribute("target")).toBe("_blank");
     });
+  });
+
+  it("每个分类标签均带上数量徽标，与服务商实际统计对齐", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    expect(screen.getByText("31")).toBeInTheDocument();
   });
 });

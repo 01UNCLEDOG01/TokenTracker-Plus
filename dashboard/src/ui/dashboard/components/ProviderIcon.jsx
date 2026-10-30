@@ -574,6 +574,9 @@ const PROVIDER_LOGO_MAP = {
   SCNET: "/brand-logos/scnet.png?v=1",
   BAILIAN: "/brand-logos/bailian.png?v=1",
   MINIMAX: "/brand-logos/minimax.svg?v=1",
+  // 千问办公 (QwenWork) — official desktop app window icon extracted from
+  // the installed D:\QwenWorkCN\...\resources\window-icon.ico (256×256 PNG).
+  QWENWORK: "/brand-logos/qwenwork.png?v=1",
   // DEEPSEEK deliberately has NO logo entry: it falls through to the mono
   // `DeepSeekHarnessIcon` in PROVIDER_ICON_MAP, which is theme-aware
   // (`currentColor`). The blue `deepseek.svg` asset reads as a flat dark blob on

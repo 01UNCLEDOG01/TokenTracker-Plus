@@ -204,6 +204,7 @@ describe("ProviderIcon", () => {
     ["qiniu", "/brand-logos/qiniu.png"],
     ["intern-inkstone", "/brand-logos/intern-inkstone.svg"],
     ["teleagent", "/brand-logos/teleagent.png"],
+    ["qwenwork", "/brand-logos/qwenwork.png"],
   ])("renders the official %s brand mark on every surface, not a letter placeholder", (provider, src) => {
     const { container } = render(<ProviderIcon provider={provider} size={28} />);
     expect(container.querySelector(`img[src^="${src}"]`)).not.toBeNull();

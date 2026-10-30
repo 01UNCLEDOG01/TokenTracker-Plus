@@ -232,6 +232,15 @@ export function PerksPage() {
     document.title = `${copy("perks.title")} | TokenTracker`;
   }, []);
 
+  const categoryCounts = useMemo(() => {
+    const counts = { all: PERK_PROVIDERS.length };
+    for (const cat of PERK_CATEGORIES) {
+      if (cat.id === "all") continue;
+      counts[cat.id] = PERK_PROVIDERS.filter((item) => item.category?.includes(cat.id)).length;
+    }
+    return counts;
+  }, []);
+
   const filteredItems = useMemo(() => {
     return PERK_PROVIDERS.filter((item) => {
       // Category Filter
@@ -296,19 +305,28 @@ export function PerksPage() {
               {PERK_CATEGORIES.map((cat) => {
                 const active = selectedCategory === cat.id;
                 const label = copy(`perks.cat.${cat.id}`) || cat.label;
+                const count = categoryCounts[cat.id] ?? 0;
                 return (
                   <button
                     key={cat.id}
                     type="button"
                     onClick={() => setSelectedCategory(cat.id)}
                     className={cn(
-                      "rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
                       active
                         ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
                         : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
                     )}
                   >
-                    {label}
+                    <span>{label}</span>
+                    <span
+                      className={cn(
+                        "text-[10px] tabular-nums",
+                        active ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"
+                      )}
+                    >
+                      {count}
+                    </span>
                   </button>
                 );
               })}
