@@ -3686,14 +3686,15 @@ async function scanMinimaxCodeSession(filePath) {
 }
 
 async function scanDevinSessions(dbPath) {
-  const rows = await readDevinSessions(dbPath);
+  const effectivePath = Array.isArray(dbPath) ? dbPath[0] : dbPath;
+  const rows = await readDevinSessions(effectivePath);
   return rows.map((row) => finalizeRecord({
     ...row,
     version: SIDECAR_VERSION,
     source: "devin",
     session_hash: sessionHash("devin", row.session_id),
-    project_key: projectKey(row.project_ref, dbPath),
-    ...sessionStorageUsage([dbPath]),
+    project_key: projectKey(row.project_ref, effectivePath),
+    ...sessionStorageUsage([effectivePath]),
   }));
 }
 
