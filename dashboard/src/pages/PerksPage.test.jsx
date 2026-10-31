@@ -59,8 +59,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 31 家收录（B.AI 无可白嫖项已删），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(31);
+    // 37 家收录（2026-10-31：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(37);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -76,11 +76,12 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    expect(screen.getByText("31")).toBeInTheDocument();
+    expect(screen.getByText("37")).toBeInTheDocument();
     expect(screen.getByText("永久免费")).toBeInTheDocument();
+    expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
-    expect(screen.getByText("10")).toBeInTheDocument();
-    expect(screen.getByText("16")).toBeInTheDocument();
+    expect(screen.getByText("永久免费").closest("button")).toHaveTextContent("11");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("15");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
@@ -91,8 +92,25 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(31);
+    expect(directLinks).toHaveLength(37);
     expect(screen.queryByText(/官方无邀请/)).not.toBeInTheDocument();
     expect(screen.queryByText(/官网直达通道/)).not.toBeInTheDocument();
+  });
+
+  it("支持把卡片标记为已领取并写入 localStorage，再次点击取消", () => {
+    localStorage.clear();
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    fireEvent.click(screen.getAllByText("标记已领取")[0]);
+    expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
+    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agentrouter"]);
+
+    fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
+    expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
+    expect(localStorage.getItem("tokentracker.perks.claims.v1")).toBe("{}");
   });
 });

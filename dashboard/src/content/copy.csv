@@ -914,9 +914,12 @@ perks.cat.all,ui,PerksPage,PerksPage,cat_all,"All Providers",,active
 perks.cat.featured,ui,PerksPage,PerksPage,cat_featured,"Featured",,active
 perks.cat.permanent_free,ui,PerksPage,PerksPage,cat_permanent_free,"Permanent Free",,active
 perks.cat.daily_claim,ui,PerksPage,PerksPage,cat_daily_claim,"Daily Claim & Credits",,active
+perks.cat.monthly_claim,ui,PerksPage,PerksPage,cat_monthly_claim,"Monthly Perks",,active
 perks.cat.free_tier,ui,PerksPage,PerksPage,cat_free_tier,"Daily / Permanent Free",,active
 perks.cat.big_quota,ui,PerksPage,PerksPage,cat_big_quota,"Large Trial Quota",,active
 perks.cat.client,ui,PerksPage,PerksPage,cat_client,"Clients & Apps",,active
+perks.claim.mark,ui,PerksPage,PerksPage,claim_mark,"Mark as claimed",,active
+perks.claim.claimed,ui,PerksPage,PerksPage,claim_claimed,"Claimed on {{date}}",,active
 perks.copy.success,ui,PerksPage,PerksPage,copy_success,"Copied {{name}} invitation code: {{code}}",,active
 perks.copy.failed,ui,PerksPage,PerksPage,copy_failed,"Copy failed, please select and copy manually",,active
 perks.action.copy_code,ui,PerksPage,PerksPage,action_copy_code,"Copy invitation code",,active

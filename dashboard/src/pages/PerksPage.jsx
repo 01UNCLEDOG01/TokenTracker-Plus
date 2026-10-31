@@ -17,6 +17,26 @@ import { showToast } from "../ui/components/Toast.jsx";
 import { ProviderIcon, hasProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 import { PERK_CATEGORIES, PERK_PROVIDERS } from "../data/perksData.js";
 
+const PERKS_CLAIMS_KEY = "tokentracker.perks.claims.v1";
+
+function readPerksClaims() {
+  try {
+    const raw = window?.localStorage?.getItem(PERKS_CLAIMS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePerksClaims(claims) {
+  try {
+    window?.localStorage?.setItem(PERKS_CLAIMS_KEY, JSON.stringify(claims));
+  } catch {
+    // 私密模式等存储不可用时静默降级：标记仅本次会话生效
+  }
+}
+
 function fallbackCopy(text) {
   try {
     const el = document.createElement("textarea");
@@ -51,7 +71,7 @@ function ProviderLogo({ item }) {
   );
 }
 
-function PerkCard({ item }) {
+function PerkCard({ item, claimedAt, onToggleClaim }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = (e) => {
@@ -219,6 +239,29 @@ function PerkCard({ item }) {
             </a>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => onToggleClaim(item.id)}
+          aria-pressed={Boolean(claimedAt)}
+          className={cn(
+            "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
+            claimedAt
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+              : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-800 dark:bg-transparent dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
+          )}
+        >
+          {claimedAt ? (
+            <Check className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+          )}
+          <span>
+            {claimedAt
+              ? copy("perks.claim.claimed", { date: claimedAt })
+              : copy("perks.claim.mark")}
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -227,10 +270,24 @@ function PerkCard({ item }) {
 export function PerksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [claims, setClaims] = useState(readPerksClaims);
 
   useEffect(() => {
     document.title = `${copy("perks.title")} | TokenTracker`;
   }, []);
+
+  const toggleClaim = (id) => {
+    setClaims((prev) => {
+      const next = { ...prev };
+      if (next[id]) {
+        delete next[id];
+      } else {
+        next[id] = new Date().toISOString().slice(0, 10);
+      }
+      writePerksClaims(next);
+      return next;
+    });
+  };
 
   const categoryCounts = useMemo(() => {
     const counts = { all: PERK_PROVIDERS.length };
@@ -362,7 +419,12 @@ export function PerksPage() {
           ) : (
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => (
-                <PerkCard key={item.id} item={item} />
+                <PerkCard
+                  key={item.id}
+                  item={item}
+                  claimedAt={claims[item.id]}
+                  onToggleClaim={toggleClaim}
+                />
               ))}
             </div>
           )}
