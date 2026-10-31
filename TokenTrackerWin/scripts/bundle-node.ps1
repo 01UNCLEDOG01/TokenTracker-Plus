@@ -69,7 +69,7 @@ if (Test-Path $zipPath) {
     $sumsPath = Join-Path $tmp 'SHASUMS256.txt'
     try {
         if (-not (Test-Path $sumsPath)) {
-            Invoke-WebRequest -Uri "https://nodejs.org/dist/v$NodeVersion/SHASUMS256.txt" -OutFile $sumsPath
+            Invoke-WebRequest -UseBasicParsing -Uri "https://nodejs.org/dist/v$NodeVersion/SHASUMS256.txt" -OutFile $sumsPath
         }
         $expectedHash = (Select-String -Path $sumsPath -Pattern ([regex]::Escape($zipName)) |
             Select-Object -First 1).Line.Split(' ')[0]
@@ -89,9 +89,9 @@ if (Test-Path $zipPath) {
 for ($attempt = 1; $attempt -le $maxAttempts -and (-not $verified); $attempt++) {
     try {
         Write-Host "Downloading Node.js v$NodeVersion (win-x64)... (attempt $attempt/$maxAttempts)"
-        Invoke-WebRequest -Uri $url -OutFile $zipPath
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zipPath
         $sumsPath = Join-Path $tmp 'SHASUMS256.txt'
-        Invoke-WebRequest -Uri "https://nodejs.org/dist/v$NodeVersion/SHASUMS256.txt" -OutFile $sumsPath
+        Invoke-WebRequest -UseBasicParsing -Uri "https://nodejs.org/dist/v$NodeVersion/SHASUMS256.txt" -OutFile $sumsPath
         $expectedHash = (Select-String -Path $sumsPath -Pattern ([regex]::Escape($zipName)) |
             Select-Object -First 1).Line.Split(' ')[0]
         if (-not $expectedHash) { throw "No checksum found for $zipName in SHASUMS256.txt" }
