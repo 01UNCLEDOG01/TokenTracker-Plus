@@ -102,7 +102,7 @@ for (const [index, row] of rows.entries()) {
   if (seenIds.has(row.id)) fail(`${id}: id 与第 ${seenIds.get(row.id) + 1} 行重复`);
   seenIds.set(row.id, index);
 
-  for (const key of ["officialUrl", "sourceUrl"]) {
+  for (const key of ["officialUrl", "officialUrlAlt", "sourceUrl"]) {
     if (typeof row[key] !== "string" || !row[key]) continue;
     let url;
     try {

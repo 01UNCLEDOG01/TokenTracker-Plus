@@ -60,6 +60,9 @@ export const PERK_PROVIDERS = [
     "description": "自研免费档模型换代：文本 agnes-2.5-flash、agnes-3-flash；生图 agnes-image-2.0 / 2.1 / 2.5-flash；视频 Agnes Video 2.5 Flash（720p）。官方 2026-09-23 公告把免费档与企业档速率各下调 50%，现为免费 10 RPM、企业 20 RPM。网页版（app.agnes-ai.com）每日登录免费领 600 时效积分（2026-11-01 实测，时效积分与永久积分分账核算）；国际站 www.agnes-ai.com 与中国站 agnes-ai.cn 双站可用，均无邀请活动。",
     "tips": "早期注册赠送 $0.10 余额，现行是否仍赠未核实，以站内额度为准；选自定义服务商填端点即可接入。",
     "officialUrl": "https://agnes-ai.com",
+    "officialUrlAlt": "https://agnes-ai.cn",
+    "officialUrlLabel": "国际站直达",
+    "officialUrlAltLabel": "中国站直达",
     "hasInvite": false,
     "checkedAt": "2026-11-01",
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
@@ -296,8 +299,8 @@ export const PERK_PROVIDERS = [
       "OpenCode接入",
       "邀请返利"
     ],
-    "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10；Promotional Allowance 提供 10M/Day 统一免费配额（GLM 5.3 Flash、Beam 1.0、Nemotron 等，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。",
-    "tips": "免费配额与代金券的适用范围/使用期限以站内为准；付费模型另有 Claude Sonnet 4.6、GPT 6 Luna 等档位；模型列表实时变动，接入前先看「模型列表」页。",
+    "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10。免费用户可用 4 款：Claude Sonnet 4.6、GPT 6 Luna（日限额 50M）、DeepSeek V4.1 Flash、Agnes 3.0 Flash（按牌价计费，消耗注册金/签到金）；另 Promotional Allowance 每日 10M 统一配额（GLM 5.3 Flash、Beam 1.0、Nemotron，$0，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。",
+    "tips": "免费档按牌价计费、消耗注册金与签到金；付费 Lite/Pro 解锁 DeepSeek 4.1 Flash 1017、GPT 5.6 Sol/Terra、GPT 6 Astra（维护中）、Claude Sonnet 4.6 Pro；模型列表实时变动，接入前先看「模型列表」页。",
     "inviteUrl": "https://vyceai.com/signup?ref=VYCE_868RV5",
     "officialUrl": "https://vyceai.com",
     "inviteCode": "VYCE_868RV5",

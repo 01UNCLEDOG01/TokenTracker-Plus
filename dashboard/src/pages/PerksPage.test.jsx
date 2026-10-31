@@ -92,7 +92,10 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(41);
+    expect(directLinks).toHaveLength(40);
+    // Agnes 双站：主按钮改国际站直达，另有中国站直达按钮
+    expect(screen.getByText("国际站直达")).toBeInTheDocument();
+    expect(screen.getByText("中国站直达")).toBeInTheDocument();
     expect(screen.queryByText(/官方无邀请/)).not.toBeInTheDocument();
     expect(screen.queryByText(/官网直达通道/)).not.toBeInTheDocument();
   });
