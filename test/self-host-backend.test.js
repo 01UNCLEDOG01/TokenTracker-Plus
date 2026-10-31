@@ -90,9 +90,6 @@ test("free self-host policy does not bypass signatures, expiry, token revocation
   assert.equal((await instance.request("tokentracker-account-summary?from=2026-10-01&to=2026-10-01",undefined,forged)).response.status,401);
   assert.equal((await instance.request("tokentracker-account-summary?from=2026-10-01&to=2026-10-01",undefined,instance.token(owner,"authenticated",1))).response.status,401);
   assert.equal((await upload("unknown-token",[row(100)])).response.status,401);
-  const removed=await instance.request("tokentracker-billing?action=remove-device",{machine_id:device.machine_id},owner);
-  assert.equal(removed.response.status,200);
-  assert.equal((await upload(device.token,[row(100)])).response.status,401);
   const permissions=(await instance.db.query(`SELECT
     has_table_privilege('anon','tokentracker_hourly','SELECT') AS anon_read,
     has_table_privilege('authenticated','tokentracker_hourly','SELECT') AS user_read,
@@ -165,7 +162,7 @@ test("installation and function manifests exclude production data repairs and me
     "tokentracker-device-token-issue","tokentracker-device-rename","tokentracker-ingest",
     "tokentracker-account-summary","tokentracker-account-daily","tokentracker-account-hourly",
     "tokentracker-account-monthly","tokentracker-account-heatmap","tokentracker-account-model-breakdown",
-    "tokentracker-account-devices","tokentracker-billing",
+    "tokentracker-account-devices",
     "tokentracker-leaderboard","tokentracker-leaderboard-profile","tokentracker-public-visibility",
     "tokentracker-profile-likes","tokentracker-telemetry","tokentracker-embed-svg","tokentracker-community-models"];
   assert.deepEqual(instance.manifest.functions.map(f=>f.slug).sort(),[...expected].sort());
@@ -243,22 +240,4 @@ test("the CommonJS self-host wrapper uses reserved internal routing and leaves t
     instance.env.INSFORGE_BASE_URL=previousUrl;instance.env.INSFORGE_SERVICE_ROLE_KEY=previousKey;
     delete instance.env.INSFORGE_INTERNAL_URL;delete instance.env.API_KEY;
   }
-});
-
-test("self-host billing preserves the installed payment dependency locks and the official CommonJS export",async()=>{
-  const directory=await fs.mkdtemp(path.join(os.tmpdir(),"self-host-runtime-contract-"));
-  try {
-    await buildFunctions(directory);
-    const code=await fs.readFile(path.join(directory,"tokentracker-billing.js"),"utf8");
-    assert.ok(code.startsWith("module.exports = async function(req)"));
-    assert.ok(!code.includes('await import("npm:(removed)@'));
-    assert.ok(!code.includes('await import("npm:urllib@'));
-    const lock=JSON.parse(await fs.readFile(path.join(__dirname,"../package-lock.json"),"utf8"));
-    const undici=lock.packages["node_modules/urllib/node_modules/undici"].version;
-    assert.ok(code.includes('await import("npm:undici@'+undici+'")'));
-    assert.ok(code.includes("File: mod.File || globalThis.File"));
-    assert.ok(code.includes('const Buffer = __selfHostModules["node:buffer"].Buffer'));
-    await buildFunctions(directory);
-    assert.equal(await fs.readFile(path.join(directory,"tokentracker-billing.js"),"utf8"),code);
-  } finally {await fs.rm(directory,{recursive:true,force:true});}
 });

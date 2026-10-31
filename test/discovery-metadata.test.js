@@ -168,7 +168,7 @@ test("dashboard JSON-LD scripts parse as valid JSON", () => {
   const faq = graph.find((node) => node["@type"] === "FAQPage");
   assert.ok(faq, "JSON-LD includes an FAQPage");
   const supportedClis = (faq.mainEntity || []).find((entity) =>
-    entity.name === "Which AI coding CLIs does Token Tracker support?",
+    entity.name === "Which AI coding CLIs does TokenTracker Plus support?",
   );
   assert.ok(supportedClis, "FAQ includes the supported-CLIs question");
   assert.equal(supportedClis["@type"], "Question");

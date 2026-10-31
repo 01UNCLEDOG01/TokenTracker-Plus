@@ -26,8 +26,8 @@ export function LoginModal() {
               <X className="h-5 w-5" aria-hidden />
             </button>
             {enabled ? (
-              <LoginCard key={requestId} title={request?.nextPath ? copy("login.title") : undefined}
-                hideTitle subtitle={request?.subtitle} oauthReturnPath={request?.nextPath}
+              <LoginCard key={requestId}
+                hideTitle subtitle={request?.subtitle}
                 onSuccess={handleSuccess} className="p-6 bg-transparent" />
             ) : (
               <p role={configurationError ? "alert" : "status"} className="p-6 pt-14 text-sm leading-6 text-oai-gray-700 dark:text-oai-gray-300">

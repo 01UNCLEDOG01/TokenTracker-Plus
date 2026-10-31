@@ -1,19 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-
-export function cloudLoginNextPath(value) {
-  if (typeof value !== "string" || !/^\/(cloud|billing\/checkout)(\?|$)/.test(value) || value.includes("\\") ||
-    Array.from(value).some((char) => { return char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127; })) return null;
-  return value;
-}
-
-function clearModalReturn(request) {
-  if (!request?.nextPath) return;
-  try {
-    if (window.sessionStorage.getItem("tt.cloud.return") === request.nextPath)
-      window.sessionStorage.removeItem("tt.cloud.return");
-  } catch { /* Closing still invalidates the in-memory request. */ }
-}
+import { useLocation } from "react-router-dom";
 
 const LoginModalContext = createContext({
   isOpen: false,
@@ -24,7 +10,6 @@ const LoginModalContext = createContext({
 });
 
 export function LoginModalProvider({ children }) {
-  const navigate = useNavigate();
   const location = useLocation();
   const locationKey = useRef(location.key);
   locationKey.current = location.key;
@@ -33,15 +18,12 @@ export function LoginModalProvider({ children }) {
   const pending = useRef(null);
   const requestSequence = useRef(0);
   const openLoginModal = useCallback((options) => {
-    clearModalReturn(pending.current);
     // Existing callers pass this callback directly to onClick. A MouseEvent
     // has none of these explicit options and opens the ordinary login dialog.
     const next = {
       id: ++requestSequence.current,
       locationKey: locationKey.current,
-      nextPath: cloudLoginNextPath(options?.nextPath),
       subtitle: typeof options?.subtitle === "string" ? options.subtitle : undefined,
-      closePath: options?.closePath === "/cloud" ? "/cloud" : null,
     };
     pending.current = next;
     setRequest(next);
@@ -52,10 +34,8 @@ export function LoginModalProvider({ children }) {
     if (!current || (typeof requestId === "number" && current.id !== requestId)) return;
     // Invalidate before the closing animation or a late auth result can run.
     pending.current = null;
-    clearModalReturn(current);
     setIsOpen(false);
-    if (current.closePath && current.locationKey === locationKey.current) navigate(current.closePath, { replace: true });
-  }, [navigate]);
+  }, []);
   const completeLoginModal = useCallback((requestId) => {
     const current = pending.current;
     if (!current || current.id !== requestId) return;
@@ -64,10 +44,8 @@ export function LoginModalProvider({ children }) {
       return;
     }
     pending.current = null;
-    clearModalReturn(current);
     setIsOpen(false);
-    if (current.nextPath) navigate(current.nextPath, { replace: true });
-  }, [navigate, closeLoginModal]);
+  }, [closeLoginModal]);
   useEffect(() => {
     const current = pending.current;
     if (current && current.locationKey !== location.key) closeLoginModal(current.id);

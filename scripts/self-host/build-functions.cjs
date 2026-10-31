@@ -11,13 +11,20 @@ async function buildFunctions(directory) {
   const (removed)=path.join(root,"node_modules/(removed)pancake-ts");
   const urllibRoot=path.join(root,"node_modules/urllib");
   const urllib=JSON.parse(await fs.readFile(path.join(urllibRoot,"package.json"),"utf8"));
-  const waffo=JSON.parse(await fs.readFile(path.join((removed),"package.json"),"utf8"));
-  const alipay=JSON.parse(await fs.readFile(path.join(alipayRoot,"package.json"),"utf8"));
-  if(alipay.version!=="4.14.0"||urllib.version!=="4.9.1"||lock.packages["node_modules/urllib"]?.version!=="4.9.1"||
-    waffo.version!=="0.25.0"||lock.packages["node_modules/(removed)pancake-ts"]?.version!=="0.25.0")throw Error("Self-host builds require Alipay SDK 4.14.0, urllib 4.9.1 and Waffo SDK 0.25.0");
-  const licenses="/*! Alipay SDK 4.14.0\n"+(await fs.readFile(path.join(alipayRoot,"LICENSE.txt"),"utf8")).replace(/\*\//g,"* /")+"*/\n"+
+  // Payment gateways were removed from this fork, so no self-host function
+  // imports the Alipay/Waffo SDKs any more. Validate them only when they are
+  // actually installed, and drop their licence banners otherwise — requiring
+  // them unconditionally made every self-host build fail on a clean checkout.
+  const optionalSdk=async dir=>{try{return JSON.parse(await fs.readFile(path.join(dir,"package.json"),"utf8"))}catch{return null}};
+  const waffo=await optionalSdk((removed));
+  const alipay=await optionalSdk(alipayRoot);
+  if(urllib.version!=="4.9.1"||lock.packages["node_modules/urllib"]?.version!=="4.9.1")throw Error("Self-host builds require urllib 4.9.1");
+  if(alipay&&alipay.version!=="4.14.0")throw Error("Self-host builds require Alipay SDK 4.14.0 when it is installed");
+  if(waffo&&waffo.version!=="0.25.0")throw Error("Self-host builds require Waffo SDK 0.25.0 when it is installed");
+  const licenses=
+    (alipay?"/*! Alipay SDK 4.14.0\n"+(await fs.readFile(path.join(alipayRoot,"LICENSE.txt"),"utf8")).replace(/\*\//g,"* /")+"*/\n":"")+
     "/*! urllib 4.9.1\n"+(await fs.readFile(path.join(urllibRoot,"LICENSE"),"utf8")).replace(/\*\//g,"* /")+"*/\n"+
-    "/*! Waffo SDK 0.25.0\n"+(await fs.readFile(path.join((removed),"LICENSE"),"utf8")).replace(/\*\//g,"* /")+"*/\n";
+    (waffo?"/*! Waffo SDK 0.25.0\n"+(await fs.readFile(path.join((removed),"LICENSE"),"utf8")).replace(/\*\//g,"* /")+"*/\n":"");
   const entries=[];
   for(const slug of privateFunctions) {
     const source=path.join(root,"dashboard/edge-patches",slug+".ts");

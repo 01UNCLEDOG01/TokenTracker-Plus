@@ -16,8 +16,8 @@ function read(relativePath) {
 // routes into the homepage and drops them from the index — which is exactly the
 // organic traffic these tests protect.
 const ROUTE_PAGES = [
-  { route: "/ip-check", file: "/ip-check.html", canonical: "https://(removed)/ip-check" },
-  { route: "/leaderboard", file: "/leaderboard.html", canonical: "https://(removed)/leaderboard" },
+  { route: "/ip-check", file: "/ip-check.html", canonical: "/ip-check" },
+  { route: "/leaderboard", file: "/leaderboard.html", canonical: "/leaderboard" },
 ];
 
 test("vercel.json rewrites map route SEO pages before the SPA catch-all", () => {

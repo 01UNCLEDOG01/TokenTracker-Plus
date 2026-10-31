@@ -5,7 +5,6 @@ import { getNativeOAuthBridge } from "../lib/native-bridge.js";
 import { useLocale } from "../hooks/useLocale.js";
 import { copy } from "../lib/copy";
 import { cn } from "../lib/cn";
-import { cloudLoginNextPath } from "../contexts/LoginModalContext.jsx";
 
 const GOOGLE_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -158,10 +157,6 @@ export function LoginCard({
     setError(null);
     setBusy(true);
     try {
-      const next = cloudLoginNextPath(oauthReturnPath);
-      if (next) {
-        try { window.sessionStorage.setItem("tt.cloud.return", next); } catch { /* Sign-in can still finish without a saved return. */ }
-      }
       const { error: err } = await signInWithOAuth(provider, oauthRedirectUrl());
       if (err) setError(err.message || String(err));
     } finally {

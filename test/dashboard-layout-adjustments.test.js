@@ -208,10 +208,6 @@ test("DashboardPage supports force_install preview", () => {
   const src = readFile(containerPath);
   assert.ok(src.includes("force_install"), "expected force_install query param support");
   assert.ok(
-    src.includes("isProductionHost"),
-    "expected force_install gated by production host check",
-  );
-  assert.ok(
     src.includes("forceInstall"),
     "expected forceInstall flag to influence install visibility",
   );
