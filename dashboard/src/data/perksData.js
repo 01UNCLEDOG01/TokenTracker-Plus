@@ -277,7 +277,33 @@ export const PERK_PROVIDERS = [
     "inviteCode": "97QSJU7A",
     "hasInvite": true,
     "checkedAt": "2026-10-31",
-    "sourceUrl": "https://www.volcengine.com/product/doubao"
+        "sourceUrl": "https://www.volcengine.com/product/doubao"
+  },
+  {
+    "id": "vyceai",
+    "name": "Vyce AI",
+    "provider": "vyceai",
+    "category": [
+          "featured",
+          "big_quota",
+          "daily_claim"
+    ],
+    "badge": "注册送 $50 · 每日签到 $10 · 邀请双方各 $10",
+    "badgeType": "success",
+    "tags": [
+      "海外平台",
+      "双协议兼容",
+      "OpenCode接入",
+      "邀请返利"
+    ],
+    "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10；Promotional Allowance 提供 10M/Day 统一免费配额（GLM 5.3 Flash、Beam 1.0、Nemotron 等，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。",
+    "tips": "免费配额与代金券的适用范围/使用期限以站内为准；付费模型另有 Claude Sonnet 4.6、GPT 6 Luna 等档位；模型列表实时变动，接入前先看「模型列表」页。",
+    "inviteUrl": "https://vyceai.com/signup?ref=VYCE_868RV5",
+    "officialUrl": "https://vyceai.com",
+    "inviteCode": "VYCE_868RV5",
+    "hasInvite": true,
+    "checkedAt": "2026-11-01",
+    "sourceUrl": "https://vyceai.com"
   },
   {
     "id": "tokenrhythm",

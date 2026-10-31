@@ -496,6 +496,8 @@ const PROVIDER_LOGO_MAP = {
   "QODER-CN": "/brand-logos/qoder-cn.svg",
   // APIGOTO 的品牌图抓自面板自身的 favicon.svg。
   "APIGOTO": "/brand-logos/apigoto.svg",
+  // Vyce AI — 官网 vyce-mark.svg（48×48 vector mark）。
+  VYCEAI: "/brand-logos/vyceai.svg",
   // SenseNova (商汤日日新) — mark taken from the console's own page asset.
   "SENSENOVA": "/brand-logos/sensenova.svg",
   // Volcano Ark (火山方舟) Coding Plan — the Volcengine 3-mountain mark.
@@ -570,6 +572,7 @@ const PROVIDER_LOGO_MAP = {
   SILICONFLOW: "/brand-logos/siliconflow.png?v=1",
   TOKENRHYTHM: "/brand-logos/tokenrhythm.png?v=1",
   VOLCENGINE: "/brand-logos/volcengine.png?v=1",
+  VYCEAI: "/brand-logos/vyceai.svg",
   LONGCAT: "/brand-logos/longcat.png?v=1",
   DOUBAO: "/brand-logos/doubao.png?v=1",
   OPENROUTER: "/brand-logos/openrouter.png?v=1",
