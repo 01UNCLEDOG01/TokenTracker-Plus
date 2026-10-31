@@ -2373,6 +2373,8 @@ limits.label.trae_usage,ui,LimitsPage,UsageLimitsPanel,trae_usage,"{{total}} tot
 limits.label.codearts_wallets,ui,LimitsPage,UsageLimitsPanel,codearts_wallets,"{{credits}} credits, resets {{date}}",,active
 limits.label.cline_wallets,ui,LimitsPage,UsageLimitsPanel,cline_wallets,"{{wallets}}",,active
 limits.provider.agentrouter,ui,LimitsPage,UsageLimitsPanel,provider_agentrouter,"AgentRouter",,active
+usage.overview.vyceai_summary,ui,UsageOverview,UsageOverview,vyceai_summary,"Vyce AI — balance ${{balance}} · spent ${{spent}} ({{requests}} requests)",,active
+usage.overview.vyceai_model,ui,UsageOverview,UsageOverview,vyceai_model,"{{model}}: {{input}} in / {{output}} out · ${{cost}}",,active
 limits.label.agentrouter_balance,ui,LimitsPage,UsageLimitsPanel,agentrouter_balance,"${{balance}} left, ${{used}} used in total",,active
 localProfile.defaultName,shared,*,LocalProfileIdentity,default_name,"This device",,active
 localProfile.openSettings,shared,*,LocalProfileIdentity,open_settings,"Open local account settings: {{name}}",,active

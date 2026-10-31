@@ -216,6 +216,39 @@ export function QoderCnOfficialSpend({ from, to }) {
 // in a local SQLite file, so this is measured rather than estimated. Domestic
 // (WorkBuddy) and international (WorkBuddy AI) are separate products with
 // separate plans, so each gets its own line and its own currency.
+export function VyceAiSpend() {
+  const data = useLimitsField("vyceai");
+  if (!data || data.configured === false || data.error) return null;
+  const balance = Number(data.vyceai_balance_usd);
+  const spent = Number(data.vyceai_total_spent_usd);
+  if (!Number.isFinite(balance) && !Number.isFinite(spent)) return null;
+  const models =
+    data.vyceai_model_usage && typeof data.vyceai_model_usage === "object"
+      ? Object.entries(data.vyceai_model_usage)
+      : [];
+  return (
+    <div className="mt-2 rounded-lg border border-oai-gray-200 p-3 dark:border-oai-gray-700">
+      <p className={LINE_CLASS}>
+        {copy("usage.overview.vyceai_summary", {
+          balance: number(balance, 2),
+          spent: Number.isFinite(spent) ? number(spent, 2) : "--",
+          requests: Number.isFinite(Number(data.vyceai_requests)) ? String(Number(data.vyceai_requests)) : "--",
+        })}
+      </p>
+      {models.map(([model, usage]) => (
+        <p key={model} className={LINE_CLASS}>
+          {copy("usage.overview.vyceai_model", {
+            model,
+            input: number(Number(usage?.inputTokens), 0),
+            output: number(Number(usage?.outputTokens), 0),
+            cost: number(Number(usage?.cost), 2),
+          })}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function WorkbuddyCreditSpend({ from, to, edition }) {
   const ledger = useLimitsField("workbuddyCredits");
   if (!ledger || !Array.isArray(ledger.editions) || ledger.editions.length === 0) return null;

@@ -1,0 +1,165 @@
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
+
+// Vyce AI (vyceai.com) account-level spend, read with the user's own API key.
+// Recon verified live 2026-11-01:
+//
+//   GET https://vyceai.com/v1/me
+//       Authorization: Bearer <api_key>
+//       → { name, balance, totalSpent, totalRequests, modelUsage:
+//           { "<model>": { inputTokens, outputTokens, cost } }, rateLimit, … }
+//
+// The dashboard's 用量统计 page renders exactly this payload (verified
+// field-by-field against the signed-in /user/dashboard, whose `stats` block
+// is identical), and the site keeps NO per-day history anywhere — so this
+// card is account-level only: balance, lifetime spend, per-model totals.
+// Client-side logs don't help either: proxied Codex sessions carry no usage
+// in Vyce's responses, so the local rollout ledger stays empty for it.
+
+const VYCEAI_ME_URL = "https://vyceai.com/v1/me";
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+
+function credentialsPath(home) {
+  return path.join(getTrackerRootDir({ home }), "vyceai-credentials.json");
+}
+
+function lastGoodPath(home) {
+  return path.join(getTrackerRootDir({ home }), "vyceai-last-good.json");
+}
+
+function readLastGood(home) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(lastGoodPath(home), "utf8"));
+    if (!raw || typeof raw !== "object" || !Number.isFinite(Number(raw.vyceai_balance_usd))) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastGood(home, value) {
+  try {
+    const file = lastGoodPath(home);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(value, null, 2));
+  } catch {
+    // Best effort: a failed write just means the next blip shows an error.
+  }
+}
+
+function readManualCredentials(home) {
+  try {
+    const creds = JSON.parse(fs.readFileSync(credentialsPath(home), "utf8"));
+    const apiKey = typeof creds?.api_key === "string" ? creds.api_key.trim() : "";
+    return apiKey || null;
+  } catch {
+    return null;
+  }
+}
+
+// Auto-discovery: Codex pointed at Vyce carries the key inline as
+// `experimental_bearer_token` inside the [model_providers.*] section whose
+// base_url names vyceai.com. A focused line parser instead of a TOML
+// dependency — the file is small and the shape is stable.
+function discoverCodexApiKey(home, env = process.env) {
+  const configPath = path.join(
+    env.CODEX_HOME || path.join(home || os.homedir(), ".codex"),
+    "config.toml",
+  );
+  let text;
+  try {
+    text = fs.readFileSync(configPath, "utf8");
+  } catch {
+    return null;
+  }
+  const lines = text.split(/\r?\n/);
+  let baseUrl = "";
+  let bearer = "";
+  let inMatchingSection = false;
+  for (const line of lines) {
+    const header = line.match(/^\s*\[model_providers\.([^\]]+)\]\s*$/);
+    if (header) {
+      // A new section starts: flush the previous one only when it matched.
+      if (inMatchingSection && bearer) return bearer;
+      inMatchingSection = false;
+      baseUrl = "";
+      bearer = "";
+      continue;
+    }
+    const urlMatch = line.match(/^\s*base_url\s*=\s*"([^"]+)"/);
+    if (urlMatch) {
+      baseUrl = urlMatch[1];
+      if (/vyceai\.com/i.test(baseUrl)) inMatchingSection = true;
+      continue;
+    }
+    const tokenMatch = line.match(/^\s*experimental_bearer_token\s*=\s*"([^"]+)"/);
+    if (tokenMatch) bearer = tokenMatch[1].trim();
+  }
+  return inMatchingSection && bearer ? bearer : null;
+}
+
+function resolveApiKey(home, env) {
+  return readManualCredentials(home) || discoverCodexApiKey(home, env);
+}
+
+// Returns the shared usage-limits shape (_flat_), or {configured:false} when
+// no key exists anywhere (the provider stays invisible rather than erroring).
+async function fetchVyceAiLimits({
+  home,
+  fetchImpl = fetch,
+  nowMs = Date.now(),
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  env = process.env,
+} = {}) {
+  const apiKey = resolveApiKey(home, env);
+  if (!apiKey) return { configured: false, error: null };
+
+  let payload;
+  try {
+    const res = await fetchImpl(VYCEAI_ME_URL, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw new Error(`Vyce AI HTTP ${res.status} for /v1/me`);
+    payload = await res.json();
+  } catch (error) {
+    const lastGood = readLastGood(home);
+    if (lastGood) return { configured: true, ...lastGood, stale: true };
+    return { configured: true, error: error?.message || "fetch failed" };
+  }
+
+  const balance = Number(payload?.balance);
+  if (!Number.isFinite(balance)) {
+    return { configured: true, error: "Vyce AI /v1/me carries no balance" };
+  }
+  const totalSpent = Number(payload?.totalSpent);
+  const totalRequests = Number(payload?.totalRequests);
+  const modelUsage =
+    payload?.modelUsage && typeof payload?.modelUsage === "object" && !Array.isArray(payload.modelUsage)
+      ? payload.modelUsage
+      : null;
+
+  const result = {
+    configured: true,
+    error: null,
+    plan_name: null,
+    // Account-level aggregates, never window quotas — status lines, no bars.
+    vyceai_balance_usd: balance,
+    vyceai_total_spent_usd: Number.isFinite(totalSpent) ? totalSpent : null,
+    vyceai_requests: Number.isFinite(totalRequests) ? totalRequests : null,
+    vyceai_model_usage: modelUsage,
+    source: "provider-api",
+  };
+  writeLastGood(home, {
+    vyceai_balance_usd: result.vyceai_balance_usd,
+    vyceai_total_spent_usd: result.vyceai_total_spent_usd,
+    vyceai_requests: result.vyceai_requests,
+    vyceai_model_usage: result.vyceai_model_usage,
+    captured_at: new Date(nowMs).toISOString(),
+  });
+  return result;
+}
+
+module.exports = { fetchVyceAiLimits };

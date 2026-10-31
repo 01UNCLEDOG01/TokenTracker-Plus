@@ -203,6 +203,8 @@
   "limits.provider.trae_main": "Trae CN（主账号）",
   "limits.provider.codearts": "CodeArts",
   "limits.provider.agentrouter": "AgentRouter",
+  "usage.overview.vyceai_summary": "Vyce AI：余额 ${{balance}} · 累计消耗 ${{spent}}（{{requests}} 次调用）",
+  "usage.overview.vyceai_model": "{{model}}：输入 {{input}} / 输出 {{output}} · ${{cost}}",
   "limits.label.agentrouter_balance": "余额 ${{balance}}（累计已用 ${{used}}）",
   "limits.provider.cline_pass": "Cline Pass",
   "limits.label.deepseek_balance": "{{currency}} {{total}}（赠送 {{granted}}）",

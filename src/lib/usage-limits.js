@@ -40,6 +40,7 @@ const { fetchRaccoonLimits } = require("./raccoon-limits");
 const { fetchDeepSeekLimits } = require("./deepseek-limits");
 const { fetchMinimaxLimits } = require("./minimax-limits");
 const { fetchAgentRouterLimits } = require("./agentrouter-limits");
+const { fetchVyceAiLimits } = require("./vyceai-limits");
 const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
@@ -4105,7 +4106,7 @@ async function fetchUsageLimitsUncached({
     : null;
 
   const providerFetch = withFetchTimeout(fetchImpl, providerTimeoutMs);
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -4264,6 +4265,7 @@ async function fetchUsageLimitsUncached({
     fetchClinePassLimits({ home, nowMs }),
     // AgentRouter.org panel balance (New API access token + user id).
     fetchAgentRouterLimits({ home, fetchImpl: providerFetch, nowMs }),
+    fetchVyceAiLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;
@@ -4544,6 +4546,7 @@ async function fetchUsageLimitsUncached({
     codearts: withPlanLabel(codeartsGateway, codeartsGateway?.plan_name, "CodeArts"),
     clinePass: withPlanLabel(clinePassGateway, clinePassGateway?.plan_name, "Cline Pass"),
     agentRouter: withPlanLabel(agentRouter, agentRouter?.plan_name, "AgentRouter"),
+    vyceai,
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

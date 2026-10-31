@@ -28,7 +28,7 @@ import { useTheme } from "../../../hooks/useTheme.js";
 import { useCurrency } from "../../../hooks/useCurrency.js";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 import { copy, getCopyLocale } from "../../../lib/copy";
-import { QoderCnOfficialSpend, QoderIntlCreditsNote, WorkbuddyCreditSpend } from "./LedgerNotices.jsx";
+import { QoderCnOfficialSpend, QoderIntlCreditsNote, VyceAiSpend, WorkbuddyCreditSpend } from "./LedgerNotices.jsx";
 import { CURRENCY_USD, getCurrencySymbol } from "../../../lib/currency";
 import { formatProviderDisplayName } from "../../../lib/provider-display";
 import { DateRangePopover, formatDateShort, getDateFnsLocale } from "./DateRangePopover.jsx";
@@ -650,6 +650,8 @@ export function UsageOverview({
                 );
               })}
             </div>
+
+            <VyceAiSpend />
 
             {/* A card toggles its details region; collapsed by default. (Two
                 sibling && guards, not a nested ternary — the ui-hardcode
