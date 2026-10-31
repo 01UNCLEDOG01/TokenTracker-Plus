@@ -91,7 +91,7 @@ Unit tests do not satisfy these public VPS checks. A later official v2.3.3 local
 
 Back up the database, persistent file storage, deployment configuration and encryption/signing keys to a private recovery location. Use a separate destination from the VPS and test recovery. Keep database and storage backups consistent with the chosen schema and application version.
 
-Install only reviewed schedules, with bounded work and observable failures. Usage archival must pass its separate parity, concurrency and recovery gates before a retention job can move data. A running container is not proof that rollups, repair jobs or backups are executing. [Archive activation checks](cloud-usage-archive.md)
+Install only reviewed schedules, with bounded work and observable failures. Usage archival must pass its separate parity, concurrency and recovery gates before a retention job can move data. A running container is not proof that rollups, repair jobs or backups are executing.
 
 Before upgrades, record the application commit, InsForge version/image digests, schema version and function sources. Back up first, apply the explicit upgrade manifest, verify the client/API contract, and keep a compatible rollback path. Review authentication, storage and function-runtime changes when upgrading InsForge.
 
