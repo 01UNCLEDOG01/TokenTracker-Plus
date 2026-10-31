@@ -1,4 +1,1 @@
-Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves
-an edition mismatch is rejected before opening its proxy
-china and international hosts stay on their own allowlists
-international fetch refuses a china host and a china session
+
