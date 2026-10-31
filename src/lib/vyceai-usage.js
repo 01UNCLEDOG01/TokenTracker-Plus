@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { getTrackerRootDir } = require("./tracker-paths");
-const { resolveConnection, connectionFetchOptions } = require("./vyceai-limits");
+const { resolveConnection, connectionFetchOptions, readJsonOrChallenge } = require("./vyceai-limits");
 
 // Vyce AI usage ingestion — turn the account-level modelUsage totals from
 // /v1/me into real source rows, so Vyce gets the same usage-page card as
@@ -26,7 +26,7 @@ const { resolveConnection, connectionFetchOptions } = require("./vyceai-limits")
 // tokens the user really spent, landing once at "now").
 
 const VYCEAI_ME_URL = "https://vyceai.com/v1/me";
-const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 function defaultStatePath(home) {
   return path.join(getTrackerRootDir({ home }), "tracker", "vyceai-usage-state.json");
@@ -56,12 +56,23 @@ async function persistVyceaiUsageRows({
 
   let payload;
   try {
-    const res = await fetchImpl(VYCEAI_ME_URL, {
-      headers: { Authorization: `Bearer ${connection.apiKey}` },
-      ...connectionFetchOptions(connection.proxy, timeoutMs),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    payload = await res.json();
+    let lastError = null;
+    payload = null;
+    for (let attempt = 1; attempt <= 2 && !payload; attempt += 1) {
+      try {
+        if (attempt > 1) await new Promise((r) => setTimeout(r, 2000));
+        const res = await fetchImpl(VYCEAI_ME_URL, connectionFetchOptions(
+          connection.proxy,
+          timeoutMs,
+          { Authorization: `Bearer ${connection.apiKey}` },
+        ));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        payload = await readJsonOrChallenge(res);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!payload) throw lastError;
   } catch {
     // Ingestion is best-effort: a blip just skips this cycle, state untouched.
     return { appended: 0, reason: "fetch-failed" };

@@ -34,7 +34,7 @@ async function run(home, payload, nowMs = 1793600000000) {
     queuePath,
     home,
     env: {},
-    fetchImpl: async () => ({ ok: true, status: 200, json: async () => payload }),
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => payload, text: async () => JSON.stringify(payload) }),
     nowMs,
   });
 }

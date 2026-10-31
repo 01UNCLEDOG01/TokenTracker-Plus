@@ -47,7 +47,7 @@ test("manual credentials fetch the account aggregate and persist last-good", asy
     env: {},
     fetchImpl: async (url, options) => {
       calls.push({ url, auth: options.headers.Authorization });
-      return { ok: true, status: 200, json: async () => ME_PAYLOAD };
+      return { ok: true, status: 200, json: async () => ME_PAYLOAD, text: async () => JSON.stringify(ME_PAYLOAD) };
     },
   });
   assert.equal(calls.length, 1);
@@ -71,7 +71,7 @@ test("a failed fetch serves the last-good snapshot marked stale", async () => {
   await fetchVyceAiLimits({
     home,
     env: {},
-    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ME_PAYLOAD }),
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ME_PAYLOAD, text: async () => JSON.stringify(ME_PAYLOAD) }),
   });
   const stale = await fetchVyceAiLimits({
     home,
@@ -91,7 +91,7 @@ test("an HTTP error without last-good reads as a configured error", async () => 
   const result = await fetchVyceAiLimits({
     home,
     env: {},
-    fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({}) }),
+    fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({}), text: async () => JSON.stringify(({})) }),
   });
   assert.equal(result.configured, true);
   assert.match(result.error, /HTTP 401/);
@@ -111,7 +111,7 @@ test("a credentials-file proxy pins the request dispatcher", async () => {
     env: {},
     fetchImpl: async (url, options) => {
       seen.push(options);
-      return { ok: true, status: 200, json: async () => ME_PAYLOAD };
+      return { ok: true, status: 200, json: async () => ME_PAYLOAD, text: async () => JSON.stringify(ME_PAYLOAD) };
     },
   });
   assert.equal(result.configured, true);
@@ -143,7 +143,7 @@ test("the codex config auto-discovery finds the vyceai bearer token", async () =
     env: { CODEX_HOME: codexHome },
     fetchImpl: async (url, options) => {
       calls.push(options.headers.Authorization);
-      return { ok: true, status: 200, json: async () => ME_PAYLOAD };
+      return { ok: true, status: 200, json: async () => ME_PAYLOAD, text: async () => JSON.stringify(ME_PAYLOAD) };
     },
   });
   assert.equal(result.configured, true);

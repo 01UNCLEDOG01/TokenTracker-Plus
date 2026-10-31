@@ -20,7 +20,7 @@ const { getTrackerRootDir } = require("./tracker-paths");
 // in Vyce's responses, so the local rollout ledger stays empty for it.
 
 const VYCEAI_ME_URL = "https://vyceai.com/v1/me";
-const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 function credentialsPath(home) {
   return path.join(getTrackerRootDir({ home }), "vyceai-credentials.json");
@@ -79,10 +79,29 @@ function resolveProxy(home, env, manualProxy) {
 // fetch options with an optional undici dispatcher; the shared module tests
 // keep passing plain option objects, so the dispatcher key is undefined when
 // no proxy applies.
-function connectionFetchOptions(proxy, timeoutMs) {
-  const options = { signal: AbortSignal.timeout(timeoutMs) };
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+// Unified wire options: browser UA (Vyce sits behind Cloudflare and
+// challenges bare-UA API hits with an HTML page), optional proxy
+// dispatcher, caller headers last so Authorization wins.
+function connectionFetchOptions(proxy, timeoutMs, headers = {}) {
+  const options = {
+    headers: { "User-Agent": BROWSER_UA, ...headers },
+    signal: AbortSignal.timeout(timeoutMs),
+  };
   if (proxy) options.dispatcher = new ProxyAgent(proxy);
   return options;
+}
+
+// A Cloudflare challenge arrives as a 200/403 HTML page; detect it by body
+// shape so the caller sees "challenge" instead of a JSON parse error.
+async function readJsonOrChallenge(res) {
+  const text = await res.text();
+  if (text.trimStart().startsWith("<")) {
+    throw new Error("Vyce AI returned a Cloudflare challenge page (retry later)");
+  }
+  return JSON.parse(text);
 }
 
 // Auto-discovery: Codex pointed at Vyce carries the key inline as
@@ -147,12 +166,23 @@ async function fetchVyceAiLimits({
 
   let payload;
   try {
-    const res = await fetchImpl(VYCEAI_ME_URL, {
-      headers: { Authorization: `Bearer ${connection.apiKey}` },
-      ...connectionFetchOptions(connection.proxy, timeoutMs),
-    });
-    if (!res.ok) throw new Error(`Vyce AI HTTP ${res.status} for /v1/me`);
-    payload = await res.json();
+    let lastError = null;
+    payload = null;
+    for (let attempt = 1; attempt <= 2 && !payload; attempt += 1) {
+      try {
+        if (attempt > 1) await new Promise((r) => setTimeout(r, 2000));
+        const res = await fetchImpl(VYCEAI_ME_URL, connectionFetchOptions(
+          connection.proxy,
+          timeoutMs,
+          { Authorization: `Bearer ${connection.apiKey}` },
+        ));
+        if (!res.ok) throw new Error(`Vyce AI HTTP ${res.status} for /v1/me`);
+        payload = await readJsonOrChallenge(res);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!payload) throw lastError;
   } catch (error) {
     const lastGood = readLastGood(home);
     if (lastGood) return { configured: true, ...lastGood, stale: true };
@@ -191,4 +221,4 @@ async function fetchVyceAiLimits({
   return result;
 }
 
-module.exports = { fetchVyceAiLimits, resolveConnection, connectionFetchOptions };
+module.exports = { fetchVyceAiLimits, resolveConnection, connectionFetchOptions, readJsonOrChallenge };
