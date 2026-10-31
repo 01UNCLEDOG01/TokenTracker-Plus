@@ -111,6 +111,31 @@ export const PERK_PROVIDERS = [
     "sourceUrl": "https://developer.ant-ling.com/zh-CN/docs/models/price"
   },
   {
+    "id": "apigoto",
+    "name": "APIGOTO",
+    "provider": "apigoto",
+    "category": [
+          "featured",
+          "big_quota"
+    ],
+    "badge": "实名注册领一个月 RouterCode PLUS",
+    "badgeType": "success",
+    "tags": [
+      "聚合网关",
+      "DeepSeek官方token",
+      "RouterCode PLUS",
+      "邀请返利"
+    ],
+    "description": "模型聚合网关平台，RouterCode PLUS 套餐走 DeepSeek 官方 token 直连，实测速度快、量大。新用户实名注册后免费领取一个月 RouterCode PLUS 套餐。邀请计划：日结佣金 8%（被邀请人每日资金消费折算）+ 每日返利 TCredits 消费 1% / Credits 消费 10%（次日自动发放），推广积分 1,000,000 = ¥1，收益有效期自绑定起一年。",
+    "tips": "TokenTracker 已内置 APIGOTO 额度卡实时对照；实名认证在站内「实名认证」页完成，推广收益与提现细则以站内「推广信息」页为准。",
+    "inviteUrl": "https://www.apigoto.com/UNCLEDOG",
+    "officialUrl": "https://www.apigoto.com",
+    "inviteCode": "UNCLEDOG",
+    "hasInvite": true,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://www.apigoto.com/user/promo/info"
+  },
+  {
     "id": "qwen",
     "name": "阿里百炼 (通义千问 Qwen)",
     "provider": "alibaba",
@@ -300,6 +325,30 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://tokenrhythm.studio/"
+  },
+  {
+    "id": "juflowai",
+    "name": "飓流AI (JULIU AI)",
+    "provider": "juflowai",
+    "category": [
+          "featured"
+    ],
+    "badge": "注册送 5 元体验额度 · 官方模型 6 折起",
+    "badgeType": "success",
+    "tags": [
+      "国产大模型",
+      "阿里云/腾讯云合作",
+      "双协议兼容",
+      "DeepSeek-Harness教程"
+    ],
+    "description": "国产大模型调用平台，一站式接入满血版国产大模型：阿里云/腾讯云模型合作伙伴，模型来源均调用自官方合作商，质量满血；OpenAI 与 Claude 双协议兼容，一分钟完成第一次调用。注册即送 5 元体验额度，官方模型站内价 6 折起；站内提供 DeepSeek-harness 一键接入教程、保姆级教程与工单客服。",
+    "tips": "选自定义服务商填端点即可接入 TokenTracker；体验额度到账与各模型站内价以控制台实时为准。",
+    "inviteUrl": "https://juflowai.com/sign-up?aff=UUlZ",
+    "officialUrl": "https://juflowai.com",
+    "inviteCode": "UUlZ",
+    "hasInvite": true,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://juflowai.com"
   },
   {
     "id": "joycode",
@@ -929,54 +978,5 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://z.ai"
-  },
-  {
-    "id": "juflowai",
-    "name": "飓流AI (JULIU AI)",
-    "provider": "juflowai",
-    "category": [
-          "featured"
-    ],
-    "badge": "注册送 5 元体验额度 · 官方模型 6 折起",
-    "badgeType": "success",
-    "tags": [
-      "国产大模型",
-      "阿里云/腾讯云合作",
-      "双协议兼容",
-      "DeepSeek-Harness教程"
-    ],
-    "description": "国产大模型调用平台，一站式接入满血版国产大模型：阿里云/腾讯云模型合作伙伴，模型来源均调用自官方合作商，质量满血；OpenAI 与 Claude 双协议兼容，一分钟完成第一次调用。注册即送 5 元体验额度，官方模型站内价 6 折起；站内提供 DeepSeek-harness 一键接入教程、保姆级教程与工单客服。",
-    "tips": "选自定义服务商填端点即可接入 TokenTracker；体验额度到账与各模型站内价以控制台实时为准。",
-    "inviteUrl": "https://juflowai.com/sign-up?aff=UUlZ",
-    "officialUrl": "https://juflowai.com",
-    "inviteCode": "UUlZ",
-    "hasInvite": true,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://juflowai.com"
-  },
-  {
-    "id": "apigoto",
-    "name": "APIGOTO (RouterCode)",
-    "provider": "apigoto",
-    "category": [
-          "featured",
-          "big_quota"
-    ],
-    "badge": "实名注册领一个月 RouterCode PLUS",
-    "badgeType": "success",
-    "tags": [
-      "聚合网关",
-      "DeepSeek官方token",
-      "RouterCode PLUS",
-      "邀请返利"
-    ],
-    "description": "模型聚合网关平台，RouterCode PLUS 套餐走 DeepSeek 官方 token 直连，实测速度快、量大。新用户实名注册后免费领取一个月 RouterCode PLUS 套餐。邀请计划：日结佣金 8%（被邀请人每日资金消费折算）+ 每日返利 TCredits 消费 1% / Credits 消费 10%（次日自动发放），推广积分 1,000,000 = ¥1，收益有效期自绑定起一年。",
-    "tips": "TokenTracker 已内置 APIGOTO 额度卡实时对照；实名认证在站内「实名认证」页完成，推广收益与提现细则以站内「推广信息」页为准。",
-    "inviteUrl": "https://www.apigoto.com/UNCLEDOG",
-    "officialUrl": "https://www.apigoto.com",
-    "inviteCode": "UNCLEDOG",
-    "hasInvite": true,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://www.apigoto.com/user/promo/info"
   }
 ];
