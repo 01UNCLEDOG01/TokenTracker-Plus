@@ -486,6 +486,10 @@ const PROVIDER_LOGO_MAP = {
   DEVIN: "/brand-logos/devin.svg",
   REASONIX: "/brand-logos/reasonix.png?v=3",
   UNSLOTH: "/brand-logos/unsloth.svg",
+  // 蚂蚁百灵 — 官网 www.ant-ling.com 的多尺寸 favicon.ico（42KB）。
+  "ANT-LING": "/brand-logos/ant-ling.ico",
+  // 飓流AI — 官网 juflowai.com 的 logo.png（512×512）。
+  JUFLOWAI: "/brand-logos/juflowai.png",
   // Qoder CN ships its own brand mark — the domestic edition's icon (a green
   // crescent) differs from the international black double-crescent, so it gets
   // its own traced asset instead of reusing qoder.svg.

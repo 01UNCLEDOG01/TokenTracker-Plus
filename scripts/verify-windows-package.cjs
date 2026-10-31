@@ -41,6 +41,10 @@ for (const file of packageFiles) {
   assert.ok(!/^(?:\.env(?:\..*)?|project\.json|credentials\.json|.*private.*\.pem)$/i.test(path.basename(file)),
     `Private configuration in package: ${path.relative(publish, file)}`);
 }
+// 陈旧 dist 门禁（站主令 2026-10-31）：dist 必须携带与当前 dashboard/src 一致的树指纹，
+// 否则 dashboard 侧改动（福利卡/宠物/文案…）会以旧包静默过门禁——不准进 ISCC。
+const { assertFresh } = require("./ops/dashboard-fingerprint.cjs");
+assertFresh(path.join(runtime, "dashboard", "dist"));
 const report = {
   sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
   version: JSON.parse(fs.readFileSync(path.join(runtime, "package.json"), "utf8")).version,

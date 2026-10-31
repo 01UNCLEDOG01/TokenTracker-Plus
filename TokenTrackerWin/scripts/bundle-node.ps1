@@ -37,6 +37,19 @@ if ($NodeVersion -ne $ExpectedNodeVersion) {
 if (Test-Path $EmbedDir) { Remove-Item -Recurse -Force $EmbedDir }
 New-Item -ItemType Directory -Force -Path $EmbedDir | Out-Null
 
+# Never bundle a stale dist (owner order 2026-10-31: stale-dist incidents 5+ times).
+# This script builds the dashboard itself (PET forced on); verify also enforces the
+# dist fingerprint as a second net. Keep this file ASCII-only: PowerShell 5.1 reads
+# BOM-less .ps1 as ANSI/GBK and Chinese comments corrupt the parse.
+$env:TOKENTRACKER_BUILD_PET = "1"
+Push-Location $RepoRoot
+try {
+    Write-Host "[bundle-node] PET env before build: $env:TOKENTRACKER_BUILD_PET"
+    npm run dashboard:build
+    if ($LASTEXITCODE -ne 0) { throw "dashboard build failed - refusing to bundle" }
+    Write-Host ("[bundle-node] pet.html emitted: " + (Test-Path (Join-Path $RepoRoot 'dashboard\dist\pet.html')))
+} finally { Pop-Location }
+
 # 1. Download Node.js win-x64
 $zipName = "node-v$NodeVersion-win-x64.zip"
 $url = "https://nodejs.org/dist/v$NodeVersion/$zipName"
@@ -138,7 +151,7 @@ if (Test-Path $dashDist) {
     New-Item -ItemType Directory -Force -Path (Join-Path $ttDir 'dashboard') | Out-Null
     Copy-Item $dashDist (Join-Path $ttDir 'dashboard\dist') -Recurse
 } else {
-    Write-Warning "dashboard\dist not found - run 'npm run dashboard:build' first. Continuing without dashboard assets."
+    throw "dashboard\dist not found after dashboard build - refusing to bundle without dashboard assets"
 }
 
 # 3. Install production dependencies
