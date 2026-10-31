@@ -538,9 +538,19 @@ async function fetchVariant(variantId, opts = {}) {
     if (productEndpoint && !originAllowed(productEndpoint, variant)) {
       throw new Error("WorkBuddy quota host does not match this edition.");
     }
-    const client = await openWorkbuddyIpc({
-      discovery, signal: opts.signal, timeoutMs: opts.timeoutMs, connectImpl: opts.connectImpl,
-    });
+    let client;
+    try {
+      client = await openWorkbuddyIpc({
+        discovery, signal: opts.signal, timeoutMs: opts.timeoutMs, connectImpl: opts.connectImpl,
+      });
+    } catch (error) {
+      if (error && error.message === UNAVAILABLE) {
+        // Daemon not running: same idle shape as the no-session path below so
+        // the dashboard renders 未连接 instead of a red failure.
+        return { configured: true, error: UNAVAILABLE, reason: "client_not_running" };
+      }
+      throw error;
+    }
     try {
       return { ...await fetchPlanQuota((apiPath, body) => client.postBilling(apiPath, body), variantId), source: "ipc" };
     } finally {

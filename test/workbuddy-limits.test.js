@@ -234,3 +234,23 @@ test("a plaintext china session is sent only to the china host", async () => {
   assert.equal(result.error, null);
   assert.ok(urls.every((url) => url.startsWith("https://www.workbuddy.cn/")));
 });
+
+// 守卫：wbipc 命名管道校验只在 Windows 走 win32 分支，Linux CI 跳过。
+(process.platform === "win32" ? test : test.skip)("an unreachable daemon reads as client_not_running, not a red failure", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wb-ipc-"));
+  fs.mkdirSync(path.join(dir, "wbipc"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "wbipc", "endpoint.json"), JSON.stringify({
+    ticket: "A".repeat(43),
+    endpoint: "\\\\.\\pipe\\wbipc-test-not-running",
+  }));
+  const result = await fetchWorkbuddyAiLimits({
+    env: { HOME: dir },
+    workbuddyHome: dir,
+    connectImpl: () => {
+      throw new Error("Start WorkBuddy and sign in to read its subscription quota.");
+    },
+  });
+  assert.equal(result.configured, true);
+  assert.equal(result.reason, "client_not_running");
+  assert.match(result.error, /Start WorkBuddy and sign in/);
+});
