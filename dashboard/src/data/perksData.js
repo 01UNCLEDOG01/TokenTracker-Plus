@@ -95,7 +95,7 @@ export const PERK_PROVIDERS = [
     "category": [
           "monthly_claim"
     ],
-    "badge": "每月 1 日自动发 10 元 Token 抵扣券",
+    "badge": "每月 1 日自动发 10 元券（实测已到账）",
     "badgeType": "blue",
     "tags": [
       "蚂蚁集团",
@@ -103,11 +103,11 @@ export const PERK_PROVIDERS = [
       "月度抵扣券",
       "按量计费"
     ],
-    "description": "蚂蚁集团百灵大模型开放平台，OpenAI 兼容地址 api.ant-ling.com/v1，API 按量计费。原每日 50 万 Token 免费额度已于 2026-10-31 23:59:59 停止按日发放；按官方《计量计费服务升级说明》「免费权益升级」口径，改为每月 1 日向新计费平台账户自动发放 1 张 10 元 Token 抵扣券（完成计费开通即含，到账以账内为准），历史计费账户升级时另有一次 20 元消费券（60 天有效）。",
-    "tips": "额度改为按金额抵扣、与原 Token 数量口径不可直接换算；官方 FAQ 页可能仍显示旧的每日额度（滞后），以升级说明与账内实际到账为准；未绑定支付方式时额度耗尽会暂停调用。",
+    "description": "蚂蚁集团百灵大模型开放平台，OpenAI 兼容地址 api.ant-ling.com/v1，API 按量计费。原每日 50 万 Token 免费额度已于 2026-10-31 停止按日发放；改为每月 1 日向新计费平台账户自动发放 1 张 10 元 Token 抵扣券（适用于全部模型，2026-11-01 实测到账，账内显示有效期至 2026-11-30）；历史计费账户完成升级另得一次 20 元 Token 消费券（自实际到账之日起 60 天内有效，适用于全部模型）；券仅可抵扣模型调用消费，不可提现或转让。",
+    "tips": "到账查看：百灵计费平台 → 财务管理 → 账户充值 → 赠送额度（悬停可见每张券的适用模型/剩余/有效期）；额度按金额抵扣、与原 Token 数量口径不可直接换算；旧模型 Ling-2.6-1T / Ring-2.6-1T / Ling-2.6-flash 将于 2026-11-15 下线，请切换新版模型。",
     "officialUrl": "https://developer.ant-ling.com",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-01",
     "sourceUrl": "https://developer.ant-ling.com/zh-CN/docs/models/price"
   },
   {
