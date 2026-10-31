@@ -6,10 +6,15 @@
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 505,
+    "colors": 507,
     "rawText": 177
   },
   "files": {
+    "dashboard/src/lib/pet-appearance.js": {
+      "colors": 2,
+      "rawText": 0,
+      "rawTextTokens": []
+    },
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
       "colors": 0,
       "rawText": 3,

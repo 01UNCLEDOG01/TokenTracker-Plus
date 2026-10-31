@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLAWD_VISUAL_SCALE, petVisualScale } from "./pet-appearance.js";
+import { CLAWD_VISUAL_SCALE, petPillDotColor, petVisualScale } from "./pet-appearance.js";
 
 describe("petVisualScale", () => {
   it("normalizes tightly cropped Clawd without shrinking atlas pets", () => {
@@ -8,5 +8,15 @@ describe("petVisualScale", () => {
     expect(petVisualScale("sprout")).toBe(1);
     expect(petVisualScale("byte")).toBe(1);
     expect(petVisualScale("ember")).toBe(1);
+  });
+});
+
+describe("petPillDotColor", () => {
+  it("themes atlas pets by their body colour and falls back to null elsewhere", () => {
+    expect(petPillDotColor("byte")).toMatch(/^#[0-9a-f]{6}$/);
+    expect(petPillDotColor("yeacat")).toMatch(/^#[0-9a-f]{6}$/);
+    expect(petPillDotColor("bot")).toBe(null);
+    expect(petPillDotColor("clawd")).toBe(null);
+    expect(petPillDotColor("not-a-pet")).toBe(null);
   });
 });

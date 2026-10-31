@@ -16,6 +16,8 @@ export const BOT_DEFAULT_EXPRESSION = "neutre";
  * on light surfaces, cream on dark, so the silhouette never sinks into its own
  * background. Users can pin any palette entry instead — see BOT_COLOR_CHOICES.
  */
+import { COLOR_BY_ID } from "./bot/skins";
+
 export const BOT_DEFAULT_COLOR_LIGHT = "encre";
 export const BOT_DEFAULT_COLOR_DARK = "creme";
 
@@ -144,4 +146,13 @@ export function botReachableStates() {
 /** Every pet state we map, so parity tests can assert the hosts agree. */
 export function botMappedPetStates() {
   return Object.keys(SCENES);
+}
+
+/**
+ * 悬浮药丸圆点跟随 bot 当前身体色：auto→主题默认（暗面 creme≈白），钉选→对应调色板 hex。
+ * 与 lib/bot/skins.ts 的 COLOR_BY_ID 同源；vendor 目录本身保持不改。
+ * 取不到（理论不可达）时返回 undefined，调用方回落到原白色点。
+ */
+export function botPillDotHex(preference, dark = true) {
+  return COLOR_BY_ID.get(resolveBotColor(preference, dark))?.hex;
 }

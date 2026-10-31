@@ -21,8 +21,8 @@ import {
   restrictPetStateToActions,
   resolvePetState,
 } from "./lib/pet-personality.js";
-import { BOT_COLOR_CHOICES } from "./lib/bot-appearance.js";
-import { petVisualScale } from "./lib/pet-appearance.js";
+import { BOT_COLOR_CHOICES, botPillDotHex } from "./lib/bot-appearance.js";
+import { petPillDotColor, petVisualScale } from "./lib/pet-appearance.js";
 import { BotAnimated } from "./ui/foundation/BotAnimated.jsx";
 import { PetAtlasAnimated } from "./ui/foundation/PetAtlasAnimated.jsx";
 import { usePetCatalog } from "./hooks/use-pet-catalog.js";
@@ -372,7 +372,7 @@ const PET_STATUS_COLORS = {
 
 /** Transparent glass speech bubble shown in the top band. Hover usage gets a
     compact token row plus one progress row for every active, non-full limit. */
-function Bubble({ text, usage = null, onHeightChange }) {
+function Bubble({ text, usage = null, onHeightChange, dotColor = null }) {
   const bubbleRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -509,7 +509,7 @@ function Bubble({ text, usage = null, onHeightChange }) {
                 flex: "0 0 auto",
                 marginTop: 4,
                 borderRadius: "50%",
-                background: "rgba(255,255,255,0.9)",
+                background: dotColor || "rgba(255,255,255,0.9)",
                 boxShadow: "0 0 0 3px rgba(255,255,255,0.08)",
               }}
             />
@@ -1055,7 +1055,12 @@ function Pet() {
         }}
       >
         {bubbleText && (
-          <Bubble text={bubbleText} usage={hoverUsage} onHeightChange={reportBubbleHeight} />
+          <Bubble
+            text={bubbleText}
+            usage={hoverUsage}
+            onHeightChange={reportBubbleHeight}
+            dotColor={character === "bot" ? botPillDotHex(botColor, true) : petPillDotColor(character)}
+          />
         )}
       </div>
       <div

@@ -23,3 +23,14 @@ const SCALES = Object.assign(Object.create(null), {
 export function petVisualScale(character) {
   return SCALES[normalizePetCharacter(character)] ?? 1;
 }
+
+// 悬浮药丸圆点的宠物主题色：byte 取机身深蓝、yeacat 取毛色橘黄；bot 不在此表
+// （走 botPillDotHex 随当前身体色），未知/自定义宠物回落 null（沿用原白色点）。
+export const PET_PILL_DOT_COLORS = Object.assign(Object.create(null), {
+  byte: "#2b3a8c",
+  yeacat: "#f0993f",
+});
+
+export function petPillDotColor(character) {
+  return PET_PILL_DOT_COLORS[normalizePetCharacter(character)] || null;
+}
