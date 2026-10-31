@@ -5,8 +5,8 @@ Thanks for considering a contribution! TokenTracker is a small project, so the p
 ## Setup
 
 ```bash
-git clone https://github.com/xiufengsun/TokenTracker.git
-cd TokenTracker
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 
 # Build the dashboard once so the CLI can serve it
@@ -25,7 +25,8 @@ node bin/tracker.js doctor       # Health check
 ## Tests
 
 ```bash
-npm test                                     # Full suite (96 test files, node --test)
+npm test                                     # Full suite (400+ test files, node --test)
+npm run test:fast                            # Fast local test gate (~80s)
 node --test test/rollout-parser.test.js      # A single test file
 npm run ci:local                             # Tests + validations + builds (everything CI runs)
 ```
@@ -42,7 +43,6 @@ npm run validate:copy                        # Validate copy registry completene
 
 - [ ] Tests pass (`npm test`)
 - [ ] If you added user-facing strings, add them to `dashboard/src/content/copy.csv`
-- [ ] If you changed Swift, run `xcodegen generate` after editing `TokenTrackerBar/project.yml`
 - [ ] Conventional commit style: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`
 - [ ] PR description explains *why*, not just *what*
 
@@ -62,7 +62,7 @@ Look at how Claude Code, Codex, or Gemini are wired in for reference — they're
 
 - **CLI (`src/`)**: CommonJS, Node 20+, no transpilation. Match the existing style.
 - **Dashboard (`dashboard/`)**: TypeScript strict, React 18, ESM, Tailwind. Match the existing style.
-- **macOS (`TokenTrackerBar/`)**: Swift 5.9, SwiftUI + AppKit. Match the existing style.
+- **Windows Desktop (`TokenTrackerWin/`)**: C# .NET 8 (WPF / WinForms), WebView2. Match the existing style.
 - No linter wars. Be reasonable.
 
 ## Privacy Rule (non-negotiable)

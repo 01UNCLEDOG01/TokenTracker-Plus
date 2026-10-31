@@ -21,16 +21,16 @@
 - 🏆 **実績 65 種 + 称号 17 種を完全オフライン判定** —— Steam 風トースト、3D メダル、Canvas 戦績エクスポート。
 - 🪟 **Windows デスクトップ統合** —— トレイ常駐・ペット・クォータ浮窗。インストーラーに Node 同梱でビルド不要。
 - 🌍 **グローバルモデルボード（設定不要）** —— Artificial Analysis の公式ランキングを直接取得：80+ モデルの知能スコア・入出力/キャッシュ価格・コンテキスト・生成速度。API キー不要、ローカルキャッシュで自動更新。
-- 🎁 **プロバイダー特典ガイド** —— 無料で使える 31 の AI サービスを一目で確認：新規付与額・毎日無料・長期有効額度・チェックイン特典をカテゴリ別／検索で一覧化。各カードに招待リンクと公式リンクの両方を搭載し、確認日と出典ページも明記。
+- 🎁 **プロバイダー特典ガイド** —— 無料で使える 37 の AI サービスを一目で確認：新規付与額・毎日無料・長期有効額度・チェックイン特典をカテゴリ別／検索で一覧化。各カードに招待リンクと公式リンクの両方を搭載し、確認日と出典ページも明記。
 - 🔒 **100% ローカル** —— 記録するのは数値だけ。コードやプロンプトは保存も送信もされません。
 
 ## ⚡ クイックスタート
 
-**Windows はビルド不要**：[Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) から `TokenTracker-plus-Setup-v*.exe` をダウンロードしてインストールするだけです。初めての方は[はじめてのガイド](./docs/getting-started.zh-CN.md)（中国語）へ。
+**Windows はビルド不要**：[Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) から `TokenTracker-plus-Setup-v*.exe` をダウンロードしてインストールするだけです。初めての方は[はじめてのガイド](./docs/getting-started.zh-CN.md)（中国語）へ。
 
 ```bash
-git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
-cd TokenTracker-plus
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 node bin/tracker.js   # 初回起動：Hook 自動設置 + 同期 + Dashboard オープン
 node bin/tracker.js status   # 55 ツールの接続状態

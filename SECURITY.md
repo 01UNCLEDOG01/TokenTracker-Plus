@@ -10,7 +10,7 @@ Only the **latest minor release** is supported with security fixes. This is a sm
 
 Instead, use one of these private channels:
 
-- **GitHub Private Vulnerability Reporting**: [Report a vulnerability](https://github.com/xiufengsun/TokenTracker/security/advisories/new)
+- **GitHub Private Vulnerability Reporting**: [Report a vulnerability](https://github.com/01UNCLEDOG01/TokenTracker-Plus/security/advisories/new)
 - **Email**: open a GitHub issue asking the maintainer to enable an alternative private channel if you can't use GitHub Security Advisories
 
 When reporting, please include:
@@ -27,11 +27,10 @@ You can expect an initial response within a few days. Once a fix is ready, it wi
 
 TokenTracker is a local-first tool that reads AI CLI tool logs from your home directory. The most sensitive areas to consider when reviewing security:
 
-- **`src/lib/rollout.js`** — parses logs from 8 different AI CLI tools. Privacy rule: only token counts and timestamps may be extracted, never prompt or response content.
+- **`src/lib/rollout.js`** — parses logs from 55 different AI CLI tools and desktop clients. Privacy rule: only token counts and timestamps may be extracted, never prompt or response content.
 - **`src/lib/cursor-config.js`** — reads Cursor's local SQLite to extract auth tokens for the Cursor usage API. Tokens must never leave the user's machine.
-- **`src/lib/local-api.js`** — local HTTP server bound to `127.0.0.1`. Should not accept connections from other hosts.
-- **`TokenTrackerBar/`** — macOS app, ad-hoc signed. Has filesystem access via macOS TCC permissions; should never write outside its own data directories or the documented snapshot/queue paths.
-- **`insforge/`** — optional cloud edge functions. Only used if the user opts into the leaderboard.
+- **`src/lib/local-api.js`** — local HTTP server bound strictly to loopback (`127.0.0.1`). Protected by a Host header allowlist and authenticated snapshot import/export.
+- **`TokenTrackerWin/`** — Windows desktop host (C# .NET 8 WPF/WinForms + WebView2). Loopback-only (preferred port 17680) and never accepts remote network connections.
 
 ## Out of Scope
 

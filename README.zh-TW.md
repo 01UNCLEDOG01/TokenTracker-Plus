@@ -8,11 +8,11 @@
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
     <a href="#-支援的-ai-工具列表55-款"><img src="https://img.shields.io/badge/AI%20Tools-55%20Supported-brightgreen.svg" alt="55 Supported AI Tools" /></a>
-    <a href="#-快速開始"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
+    <a href="#-快速開始"><img src="https://img.shields.io/badge/Desktop-Windows-9cf.svg" alt="Desktop" /></a>
     <a href="#-數據與隱私準則"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
     <a href="#-熱力圖色階與數據分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
-    <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-plus?style=social" alt="GitHub stars" /></a>
+    <a href="https://github.com/01UNCLEDOG01/TokenTracker-Plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-Plus?style=social" alt="GitHub stars" /></a>
   </p>
 </div>
 
@@ -26,12 +26,14 @@
 
 > **環境要求**：Node.js **20+**（CLI 支援 Windows / macOS / Linux；Windows 桌面端另需 .NET 8 SDK 與 WebView2 Runtime）。
 
-**Windows 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) 下載 `TokenTracker-plus-Setup-v*.exe` 安裝即可——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
+**Windows 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下載 `TokenTracker-plus-Setup-v*.exe` 安裝即可——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
+
+> 💡 **關於 Windows Defender / SmartScreen 提示**：本軟體為個人開源作品，尚未購買企業數位簽章憑證，初次安裝時 Windows SmartScreen 可能會提示「已保護你的電腦（未知發佈者）」。此為正常安全機制，點擊「更多資訊」→「仍要執行」即可完成安裝；程式碼 100% 開源，資料 100% 留在本機，請放心使用。
 
 ```bash
 # 1. 複製代碼倉庫並安裝依賴
-git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
-cd TokenTracker-plus
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 
 # 2. 首次運行：自動掛接所有 Hook、同步本機用量並開啟 Dashboard
@@ -52,8 +54,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 > **想要原生桌面端？**
 > - **Windows** —— 運行 `TokenTrackerWin`（C# .NET 8 + WebView2 系統匣 App），附帶動態桌寵、桌面額度小組件與置頂用量藥丸。構建方式見 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **macOS** —— 運行 `TokenTrackerBar`（選單列狀態圖示 + 原生 WKWebView Dashboard）。
-> - **Linux** —— 運行 `TokenTrackerLinux`（Tauri / AppImage 系統匣版）。
+> - **其他平台** —— 僅提供源碼運行（`git clone` 後執行 `node bin/tracker.js`），不提供安裝包，也不做相容性保證；桌面端目前只有 Windows 版本。
 
 ---
 
@@ -69,7 +70,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 - 🔄 **高頻持續維護承諾** —— 站長與開源社群緊跟國內外 AI 編碼圈最新動態，高頻持續更新熱門 AI 工具解析與額度監控卡片，隨出隨接，常用常新。
 - 🐱 **動態桌寵與桌面小組件** —— 懸浮像素桌寵（多套動作輪換與滑鼠注視）、4 種桌面小組件、置頂用量藥丸。
 - 🌍 **全球模型榜（免設定）** —— 直讀 Artificial Analysis 官方榜單，把 80+ 模型的智能分、輸入/輸出/快取價、上下文與輸出速度搬進本地側欄；無需任何 API Key，本地快取自動更新，與你的實際用量同屏對照。
-- 🎁 **服務商福利指南** —— 31 家可白嫖的 AI 服務商與客戶端一覽：新戶贈送額度、每日免費、長期有效額度與簽到福利，每張卡片同時提供「邀請註冊」與「官網直達」雙鏈接，並逐行標註核對日期與來源頁面，可按分類篩選並搜尋。
+- 🎁 **服務商福利指南** —— 37 家可白嫖的 AI 服務商與客戶端一覽：新戶贈送額度、每日免費、長期有效額度與簽到福利，每張卡片同時提供「邀請註冊」與「官網直達」雙鏈接，並逐行標註核對日期與來源頁面，可按分類篩選並搜尋。
 
 ---
 
@@ -120,7 +121,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 <tr>
 <td colspan="2">
 
-**服務商福利指南** —— 31 家服務商的免費額度與新手禮包，邀請註冊 / 官網直達雙鏈接
+**服務商福利指南** —— 37 家服務商的免費額度與新手禮包，邀請註冊 / 官網直達雙鏈接
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -302,3 +303,4 @@ cp .env.example .env.local
 - **License**：本專案遵循 [MIT 許可證](./LICENSE)。
 - **上游專案**：致敬並感謝原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) 的傑出工作與開源貢獻。
 - **第三方聲明**：詳見 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。Clawd 角色形象歸 Anthropic 所有，本專案與 Anthropic 官方無關聯。
+- **商標免責**：本專案提及的所有產品名稱、商標與廠商標識（包括 `dashboard/public/brand-logos/` 中的品牌圖示）均歸其各自所有者所有，僅用於識別與相容性說明，不代表任何官方贊助、從屬或背書。

@@ -21,16 +21,16 @@
 - 🏆 **업적 65종 + 칭호 17종 완전 오프라인 판정** —— Steam 스타일 토스트, 3D 메달, Canvas 전투 보고서 내보내기.
 - 🪟 **Windows 데스크톱 통합** —— 트레이 상주, 펫, 쿼터 위젯. 설치 프로그램에 Node 동봉(빌드 불필요).
 - 🌍 **글로벌 모델 보드(설정 불필요)** — Artificial Analysis 공식 리더보드를 직접 가져옵니다: 80+ 모델의 지능 점수, 입력/출력/캐시 가격, 컨텍스트, 출력 속도. API 키 불필요, 로컬 캐시 자동 갱신.
-- 🎁 **프로바이더 특전 가이드** — 무료 활용이 가능한 31개 AI 서비스 총정리: 신규 가입 적립금·매일 무료·장기 유효 터·출석 특전가 카테고리/검색으로 정리되고, 각 카드에 초대 링크와 공식 링크, 확인 날짜와 출처 페이지를 함께 제공합니다.
+- 🎁 **프로바이더 특전 가이드** — 무료 활용이 가능한 37개 AI 서비스 총정리: 신규 가입 적립금·매일 무료·장기 유효 터·출석 특전가 카테고리/검색으로 정리되고, 각 카드에 초대 링크와 공식 링크, 확인 날짜와 출처 페이지를 함께 제공합니다.
 - 🔒 **100% 로컬** —— 기록하는 것은 수치뿐. 코드와 프롬프트는 저장·전송되지 않습니다.
 
 ## ⚡ 빠른 시작
 
-**Windows는 빌드 불필요**: [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases)에서 `TokenTracker-plus-Setup-v*.exe`를 내려받아 설치하세요. 처음이라면 [입문 가이드](./docs/getting-started.zh-CN.md)(중국어)를 먼저 읽어보세요.
+**Windows는 빌드 불필요**: [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases)에서 `TokenTracker-plus-Setup-v*.exe`를 내려받아 설치하세요. 처음이라면 [입문 가이드](./docs/getting-started.zh-CN.md)(중국어)를 먼저 읽어보세요.
 
 ```bash
-git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
-cd TokenTracker-plus
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 node bin/tracker.js   # 첫 실행: 훅 자동 설치 + 동기화 + Dashboard 열기
 node bin/tracker.js status   # 55개 도구 연결 상태

@@ -8,11 +8,11 @@
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
     <a href="#-supported-ai-tools-55"><img src="https://img.shields.io/badge/AI%20Tools-55%20Supported-brightgreen.svg" alt="55 Supported AI Tools" /></a>
-    <a href="#-quick-start"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-9cf.svg" alt="Platform" /></a>
+    <a href="#-quick-start"><img src="https://img.shields.io/badge/Desktop-Windows-9cf.svg" alt="Desktop" /></a>
     <a href="#-data--privacy"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-key-features"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
     <a href="#-heatmap-tiers--data-analytics"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
-    <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-plus?style=social" alt="GitHub stars" /></a>
+    <a href="https://github.com/01UNCLEDOG01/TokenTracker-Plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-Plus?style=social" alt="GitHub stars" /></a>
   </p>
 </div>
 
@@ -26,12 +26,14 @@
 
 > **Prerequisites**: Node.js **20+** (CLI supports Windows / macOS / Linux; Windows desktop app requires .NET 8 SDK and WebView2 Runtime).
 
-**Windows users — no build needed**: download `TokenTracker-plus-Setup-v*.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+**Windows users — no build needed**: download `TokenTracker-plus-Setup-v*.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+
+> 💡 **About the Windows SmartScreen prompt**: This is an individual open-source project without a paid code-signing certificate, so Windows SmartScreen may show an "Unknown publisher" warning on first install. This is normal — click "More info" → "Run anyway" to proceed. The code is 100% open source and all data stays on your machine.
 
 ```bash
 # 1. Clone the repository and install dependencies
-git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
-cd TokenTracker-plus
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 
 # 2. First launch: automatically installs hooks, synchronizes local usage, and opens Dashboard
@@ -52,8 +54,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 > **Looking for native desktop apps?**
 > - **Windows** — Run `TokenTrackerWin` (C# .NET 8 + WebView2 system tray app), bundled with desktop pets, quota cards, and an always-on-top usage pill. See [TokenTrackerWin/README.md](./TokenTrackerWin/README.md).
-> - **macOS** — Run `TokenTrackerBar` (menu bar status item + native WKWebView dashboard).
-> - **Linux** — Run `TokenTrackerLinux` (Tauri / AppImage tray app).
+> - **Other Platforms** — Run from source (`git clone` then `node bin/tracker.js`); no installers and no compatibility guarantee; the desktop application is currently Windows-only.
 
 ---
 
@@ -69,7 +70,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
 - 🌍 **Global Model Board (zero setup)** — Reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models, side by side with your own usage. No API key, cached locally, self-updating.
-- 🎁 **Provider Perks Guide** — 31 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, each card offering both an invite link and a plain official link plus the date the figures were checked and their source, filterable by category and searchable.
+- 🎁 **Provider Perks Guide** — 37 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, each card offering both an invite link and a plain official link plus the date the figures were checked and their source, filterable by category and searchable.
 
 ---
 
@@ -120,7 +121,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 <tr>
 <td colspan="2">
 
-**Provider Perks Guide** — free credits and starter grants across 31 providers, with invite and official links side by side
+**Provider Perks Guide** — free credits and starter grants across 37 providers, with invite and official links side by side
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -302,3 +303,4 @@ If you have multiple devices and want an aggregated view, deploy `scripts/self-h
 - **License**: Released under the [MIT License](./LICENSE).
 - **Upstream Project**: Grateful acknowledgement to [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) for the foundational architecture and open-source contributions.
 - **Third-Party Notices**: See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Clawd mascot design is copyright Anthropic; this project has no official affiliation with Anthropic.
+- **Trademark Disclaimer**: All product names, trademarks, and brand marks mentioned in this project (including the brand icons in `dashboard/public/brand-logos/`) are property of their respective owners; they are used for identification and compatibility reference only and do not imply any sponsorship, affiliation, or endorsement.

@@ -129,3 +129,7 @@ SOFTWARE.
 The ElectricLogo renderer uses OGL 1.0.11 by Nathan Gordon.
 Source: https://github.com/oframe/ogl
 License: Unlicense (public domain dedication), as declared in the OGL package metadata.
+
+## Trademark Disclaimer
+
+All product names, logos, brands, and registered trademarks displayed in this project (including brand icons in `dashboard/public/brand-logos/`) are property of their respective owners. Their use in TokenTracker Plus is for identification and reference purposes only, and does not imply any affiliation, sponsorship, or endorsement by the trademark holders.

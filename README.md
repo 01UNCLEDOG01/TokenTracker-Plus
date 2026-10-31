@@ -12,7 +12,7 @@
     <a href="#-数据与隐私准则"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
     <a href="#-热力图色阶与数据分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
-    <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-plus?style=social" alt="GitHub stars" /></a>
+    <a href="https://github.com/01UNCLEDOG01/TokenTracker-Plus"><img src="https://img.shields.io/github/stars/01UNCLEDOG01/TokenTracker-Plus?style=social" alt="GitHub stars" /></a>
   </p>
 </div>
 
@@ -26,12 +26,14 @@
 
 > **环境要求**：Node.js **20+**（CLI 为跨平台源码，Windows 上可直接使用；桌面端只提供 Windows 安装包，另需 .NET 8 SDK 与 WebView2 Runtime）。
 
-**Windows 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) 下载 `TokenTracker-plus-Setup-v*.exe` 安装即可——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
+**Windows 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载 `TokenTracker-plus-Setup-v*.exe` 安装即可——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
+
+> 💡 **关于 Windows Defender / SmartScreen 提示**：本软件为个人开源作品，尚未购买企业数字签名证书，初次安装时 Windows SmartScreen 可能会提示「已保护你的电脑（未知发布者）」。此为正常安全机制，点击「更多信息」→「仍要运行」即可完成安装；代码 100% 开源，数据 100% 留在本机，请放心使用。
 
 ```bash
 # 1. 克隆代码仓库并安装依赖
-git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
-cd TokenTracker-plus
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 
 # 2. 首次运行：自动挂接所有 Hook、同步本机用量并打开 Dashboard
@@ -52,7 +54,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **其他平台** —— 只提供源码与 CLI（`npx tokentracker`），不提供安装包，也不做兼容性保证；桌面端目前只有 Windows 版本。
+> - **其他平台** —— 仅提供源码运行（`git clone` 后执行 `node bin/tracker.js`），不提供安装包，也不做兼容性保证；桌面端目前只有 Windows 版本。
 
 ---
 
@@ -68,7 +70,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 - 🔄 **高频持续维护承诺** —— 站长与开源社区紧跟国内外 AI 编码圈最新动态，高频持续更新热门 AI 工具解析与额度监控卡片，随出随接，常用常新。
 - 🐱 **动态桌宠与桌面小组件** —— 悬浮像素桌宠（多套动作轮换与鼠标注视）、4 种桌面小组件、置顶用量药丸。
 - 🌍 **全球模型榜（免配置）** —— 直读 Artificial Analysis 官方榜单，把 80+ 模型的智能分、输入/输出/缓存价、上下文与输出速度搬进本地侧栏；无需任何 API Key，本地缓存自动更新，与你的实际用量同屏对照。
-- 🎁 **服务商福利指南** —— 31 家可白嫖的 AI 服务商与客户端一览：新户赠送额度、每日免费、长期有效额度与签到福利，每张卡片同时提供「邀请注册」与「官网直达」双链接，并逐行标注核对日期与来源页面，按主力推荐/免费/大额额度/客户端分类并可搜索。
+- 🎁 **服务商福利指南** —— 37 家可白嫖的 AI 服务商与客户端一览：新户赠送额度、每日免费、长期有效额度与签到福利，每张卡片同时提供「邀请注册」与「官网直达」双链接，并逐行标注核对日期与来源页面，按主力推荐/每日领取/每月福利/永久免费/大额额度/客户端分类并可搜索。
 
 ---
 
@@ -119,7 +121,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 <tr>
 <td colspan="2">
 
-**服务商福利指南** —— 31 家服务商的免费额度与新手礼包，邀请注册 / 官网直达双链接
+**服务商福利指南** —— 37 家服务商的免费额度与新手礼包，邀请注册 / 官网直达双链接
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -301,3 +303,4 @@ cp .env.example .env.local
 - **License**：本项目遵循 [MIT 许可证](./LICENSE)。
 - **上游项目**：致敬并感谢原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) 的杰出工作与开源贡献。
 - **第三方声明**：详见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。Clawd 角色形象归 Anthropic 所有，本项目与 Anthropic 官方无关联。
+- **商标免责**：本项目提及的所有产品名称、商标与厂商标识（包括 `dashboard/public/brand-logos/` 中的品牌图标）均归其各自所有者所有，仅用于识别与兼容性说明，不代表任何官方赞助、从属或背书。

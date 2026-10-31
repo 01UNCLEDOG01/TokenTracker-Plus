@@ -8,7 +8,7 @@ TokenTracker reads the local logs that AI coding tools already write to your dis
 
 Cloud billing is being developed. The billing entries below describe the planned flow and do not mean paid checkout or Cloud history retention is already active in production. See the [Cloud guide](cloud-guide.md) for the proposed limits and transition rules.
 
-This document lists **every** network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please [open an issue](https://github.com/01UNCLEDOG01/TokenTracker-plus/issues).
+This document lists **every** network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please [open an issue](https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues).
 
 ---
 
@@ -116,7 +116,7 @@ Signing in is **entirely optional**. TokenTracker is fully functional without an
 
 **Public visibility:** your profile appears on the public leaderboard only while `Settings → Account → Public profile` is on. Turning it off removes you from the leaderboard and turns badges into a "private" placeholder.
 
-**Deleting cloud data:** contact us via [GitHub](https://github.com/01UNCLEDOG01/TokenTracker-plus) and we will remove the account and its usage rows. Deleting `~/.tokentracker/` removes the local copy immediately. Do not include receipts or other billing information in a public issue.
+**Deleting cloud data:** contact us via [GitHub](https://github.com/01UNCLEDOG01/TokenTracker-Plus) and we will remove the account and its usage rows. Deleting `~/.tokentracker/` removes the local copy immediately. Do not include receipts or other billing information in a public issue.
 
 ### 4.1 Cloud billing and retention (planned)
 

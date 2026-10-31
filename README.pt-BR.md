@@ -21,16 +21,16 @@
 - 🏆 **65 conquistas + 17 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas.
 - 🪟 **Integração no Windows** —— bandeja do sistema, pet e widgets de cota; o instalador já embute o Node (sem build).
 - 🌍 **Ranking global de modelos (zero configuração)** — lê direto o leaderboard oficial da Artificial Analysis: índice de inteligência, preços de entrada/saída/cache, contexto e velocidade de saída de 80+ modelos. Sem chave de API, cache local com atualização automática.
-- 🎁 **Guia de benefícios dos provedores** — 31 serviços e clientes aproveitáveis de graça: créditos de boas-vindas, tiers gratuitos diários, cotas de longa duração e perks de check-in, com link de convite e link oficial lado a lado, além da data de verificação e da página de origem em cada cartão, filtrável e pesquisável.
+- 🎁 **Guia de benefícios dos provedores** — 37 serviços e clientes aproveitáveis de graça: créditos de boas-vindas, tiers gratuitos diários, cotas de longa duração e perks de check-in, com link de convite e link oficial lado a lado, além da data de verificação e da página de origem em cada cartão, filtrável e pesquisável.
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 
 ## ⚡ Início rápido
 
-**No Windows, sem build**: baixe o `TokenTracker-plus-Setup-v*.exe` em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-plus/releases) e instale. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
+**No Windows, sem build**: baixe o `TokenTracker-plus-Setup-v*.exe` em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) e instale. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
 
 ```bash
-git clone https://github.com/01UNCLEDOG01/TokenTracker-plus.git
-cd TokenTracker-plus
+git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
+cd TokenTracker-Plus
 npm install
 node bin/tracker.js   # 1ª execução: instala hooks, sincroniza e abre o Dashboard
 node bin/tracker.js status   # estado das 55 ferramentas
