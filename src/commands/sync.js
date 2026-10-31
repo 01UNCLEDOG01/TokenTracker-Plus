@@ -419,7 +419,9 @@ const BACKGROUND_AUTO_SYNC_SOURCES = new Set([
   "codex",
   "cola",
   "every-code",
+  "minimax-code",
   "muse",
+  "prime-agent",
   "reasonix",
 ]);
 

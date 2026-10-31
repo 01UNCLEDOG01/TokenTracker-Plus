@@ -1068,6 +1068,7 @@ internal sealed class PetWindow : Window
     public const string CharacterSprout = "sprout";
     public const string CharacterByte = "byte";
     public const string CharacterEmber = "ember";
+    public const string CharacterYeacat = "yeacat";
 
     /// <summary>Not pinned — the companion switches actions from usage context.</summary>
     public const string ActionLockAuto = "auto";

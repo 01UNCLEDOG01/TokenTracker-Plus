@@ -86,6 +86,8 @@ internal sealed class MonitorWidgetWindow : Window
 
     public MonitorWidgetWindow(Action openDashboard)
     {
+        // 像素画位图被放大时默认双线性必糊——精灵帧一律最近邻取锐利。
+        RenderOptions.SetBitmapScalingMode(_petImage, System.Windows.Media.BitmapScalingMode.NearestNeighbor);
         _openDashboard = openDashboard;
         _settings = MonitorWidgetSettings.Load();
         _light = NativeTheme.ResolveIsLight(NativeTheme.CurrentPreference);
@@ -305,10 +307,14 @@ internal sealed class MonitorWidgetWindow : Window
             switch (_currentCharacter)
             {
                 case PetWindow.CharacterClawd: color = System.Windows.Media.Color.FromRgb(217, 119, 87); break;
-                case PetWindow.CharacterBot: color = System.Windows.Media.Color.FromRgb(59, 130, 246); break;
+                // bot 的身体色跟随主题（暗面 creme/亮面 encre），圆点同频。
+                case PetWindow.CharacterBot: color = _light
+                    ? System.Windows.Media.Color.FromRgb(10, 10, 12)
+                    : System.Windows.Media.Color.FromRgb(241, 239, 233); break;
                 case PetWindow.CharacterSprout: color = System.Windows.Media.Color.FromRgb(34, 197, 94); break;
-                case PetWindow.CharacterByte: color = System.Windows.Media.Color.FromRgb(168, 85, 247); break;
+                case PetWindow.CharacterByte: color = System.Windows.Media.Color.FromRgb(43, 58, 140); break;
                 case PetWindow.CharacterEmber: color = System.Windows.Media.Color.FromRgb(239, 108, 77); break;
+                case PetWindow.CharacterYeacat: color = System.Windows.Media.Color.FromRgb(240, 153, 63); break;
             }
             _accent.Fill = new SolidColorBrush(color);
         }
