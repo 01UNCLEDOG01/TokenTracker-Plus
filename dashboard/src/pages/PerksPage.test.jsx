@@ -59,8 +59,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 37 家收录（2026-10-31：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(37);
+    // 38 家收录（2026-10-31：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor、蚂蚁百灵），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(38);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -76,7 +76,7 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    expect(screen.getByText("37")).toBeInTheDocument();
+    expect(screen.getByText("38")).toBeInTheDocument();
     expect(screen.getByText("永久免费")).toBeInTheDocument();
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(37);
+    expect(directLinks).toHaveLength(38);
     expect(screen.queryByText(/官方无邀请/)).not.toBeInTheDocument();
     expect(screen.queryByText(/官网直达通道/)).not.toBeInTheDocument();
   });

@@ -89,6 +89,28 @@ export const PERK_PROVIDERS = [
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
   },
   {
+    "id": "ant_ling",
+    "name": "蚂蚁百灵 (Ant Ling)",
+    "provider": "ant-ling",
+    "category": [
+          "monthly_claim"
+    ],
+    "badge": "每月 1 日自动发 10 元 Token 抵扣券",
+    "badgeType": "blue",
+    "tags": [
+      "蚂蚁集团",
+      "OpenAI兼容",
+      "月度抵扣券",
+      "按量计费"
+    ],
+    "description": "蚂蚁集团百灵大模型开放平台，OpenAI 兼容地址 api.ant-ling.com/v1，API 按量计费。原每日 50 万 Token 免费额度已于 2026-10-31 23:59:59 停止按日发放；按官方《计量计费服务升级说明》「免费权益升级」口径，改为每月 1 日向新计费平台账户自动发放 1 张 10 元 Token 抵扣券（完成计费开通即含，到账以账内为准），历史计费账户升级时另有一次 20 元消费券（60 天有效）。",
+    "tips": "额度改为按金额抵扣、与原 Token 数量口径不可直接换算；官方 FAQ 页可能仍显示旧的每日额度（滞后），以升级说明与账内实际到账为准；未绑定支付方式时额度耗尽会暂停调用。",
+    "officialUrl": "https://developer.ant-ling.com",
+    "hasInvite": false,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://developer.ant-ling.com/zh-CN/docs/models/price"
+  },
+  {
     "id": "qwen",
     "name": "阿里百炼 (通义千问 Qwen)",
     "provider": "alibaba",
