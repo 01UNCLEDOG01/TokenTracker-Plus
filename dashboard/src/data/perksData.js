@@ -190,7 +190,7 @@ export const PERK_PROVIDERS = [
           "featured",
           "big_quota"
     ],
-    "badge": "注册送 ¥14 额度 + 邀请送 ¥14",
+    "badge": "推荐官计划：每邀 1 人实名得 ¥16 代金券",
     "badgeType": "amber",
     "tags": [
       "主流聚合",
@@ -198,13 +198,13 @@ export const PERK_PROVIDERS = [
       "极速推理",
       "小模型免费"
     ],
-    "description": "注册即送 ¥14 平台配额，填邀请码双方再各得 ¥14。官方口径的「2000 万 Tokens」按早期小参数模型单价折算，实际到账以站内余额为准。聚合 DeepSeek、Qwen 等主流开源大模型，部分小参数模型长期免费开放并发调用。",
-    "tips": "额度支持各类第三方客户端接入；新注册建议填写邀请码获得双倍额度，充值亦常设阶梯返赠（活动档位以站内公告为准）。",
+    "description": "聚合 DeepSeek、Qwen 等主流开源大模型，部分小参数模型长期免费开放并发调用。推荐官计划（2026-11-01 实测）：已完成实名认证的用户可作推荐官，被邀请人完成注册及实名认证后，邀请人每邀 1 名得面值 ¥16 的全平台通用代金券 1 张，邀请人数与奖励次数不设上限、极速到账可追踪；注册端新户赠额的现行口径未核实（早期为注册送 ¥14），以站内余额为准。",
+    "tips": "代金券全平台模型与服务均可使用；注意使用期限，领取后尽快在有效期内消耗（剩余/有效期以站内「费用明细」为准）；额度支持各类第三方客户端接入，充值亦常设阶梯返赠（活动档位以站内公告为准）。",
     "inviteUrl": "https://cloud.siliconflow.cn/i/667oBtc0",
     "officialUrl": "https://cloud.siliconflow.cn",
     "inviteCode": "667oBtc0",
     "hasInvite": true,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-01",
     "sourceUrl": "https://www.siliconflow.cn/"
   },
   {
