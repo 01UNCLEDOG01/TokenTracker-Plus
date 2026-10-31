@@ -20,7 +20,10 @@
  * private data is exposed.
  */
 import { createClient } from "npm:@insforge/sdk";
-import { readProBadges } from "./cloud/pro.ts";
+// Cloud billing was removed from this fork, so no account can be "Pro".
+// `pro_active` stays in the payload as a constant false to keep the public
+// leaderboard response shape stable for existing clients.
+
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -214,7 +217,6 @@ export default async function (req: Request): Promise<Response> {
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const proBadgesPromise = readProBadges(client, badgeUserIds);
   if (badgeUserIds.length > 0) {
     try {
       const { data: badgeData, error: badgeErr } = await client.database.rpc(
@@ -232,7 +234,6 @@ export default async function (req: Request): Promise<Response> {
     badges: (e?.user_id && badgeMap[e.user_id]?.badges) || [],
     badge_count: (e?.user_id && badgeMap[e.user_id]?.badge_count) || 0,
   });
-  const proBadges = await proBadgesPromise;
   // `generated_at` belongs to the persisted snapshot, not to this read
   // request. Returning the request time made stale month/total snapshots look
   // fresh to both the dashboard and the freshness watchdog. Include `me` as a
@@ -248,11 +249,11 @@ export default async function (req: Request): Promise<Response> {
     entries: visibleEntries.map((e: { user_id?: string }) => ({
       ...e,
       ...badgesFor(e),
-      pro_active: Boolean(e.user_id && proBadges[e.user_id] === true),
+      pro_active: false,
       is_me: (visibleMe as { user_id?: string } | null)?.user_id === e.user_id,
     })),
     me: visibleMe ? { ...(visibleMe as Record<string, unknown>), ...badgesFor(visibleMe as { user_id?: string }),
-      pro_active: proBadges[(visibleMe as { user_id: string }).user_id] === true } : null,
+      pro_active: false } : null,
     total_entries: count || 0,
     total_pages: Math.ceil((count || 0) / limit),
     from: from_day,

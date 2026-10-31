@@ -79,7 +79,7 @@ export function MarketingLanding({
             >
               <img src="/app-icon.png?v=2" alt="" width={24} height={24} className="rounded-md" />
               <span className="whitespace-nowrap text-sm font-semibold uppercase tracking-wide text-white">
-                Token Tracker
+                TokenTracker Plus
               </span>
             </Link>
             <div className="hidden sm:block">

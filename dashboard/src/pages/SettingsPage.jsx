@@ -1,12 +1,11 @@
 import React from "react";
-import { Cloud, Database, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
+import { Database, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LimitsSettingsPanel } from "../components/LimitsSettingsPanel.jsx";
 import { AccountSection } from "../components/settings/AccountSection.jsx";
 import { LocalProfileSection } from "../components/settings/LocalProfileSection.jsx";
 import { LocalDataSection } from "../components/settings/LocalDataSection.jsx";
 import { isLocalOnlyDeployment } from "../lib/insforge-config";
-import { CloudSection } from "../components/settings/CloudSection.jsx";
 import { useAccountProfileSettings } from "../components/settings/useAccountProfileSettings.js";
 import { AppearanceSection } from "../components/settings/AppearanceSection.jsx";
 import { LabsSection } from "../components/settings/LabsSection.jsx";
@@ -32,7 +31,6 @@ const SETTINGS_SECTION_IDS = {
   NETWORK: "network",
   ACCOUNT: "account",
   LOCAL_DATA: "local-data",
-  CLOUD: "cloud",
   LIMITS: "limits",
   LABS: "labs",
 };
@@ -141,14 +139,6 @@ export function SettingsPage() {
       Icon: Database,
       content: <LocalDataSection />,
     }] : []),
-    ...(localOnly ? [] : [{
-      id: SETTINGS_SECTION_IDS.CLOUD,
-      label: copy("settings.section.cloud"),
-      description: copy("settings.section.cloud.description"),
-      group: SETTINGS_GROUP_IDS.PERSONAL,
-      Icon: Cloud,
-      content: <CloudSection settings={accountSettings} active={activeSection === SETTINGS_SECTION_IDS.CLOUD} />,
-    }]),
     {
       id: SETTINGS_SECTION_IDS.LIMITS,
       label: copy("settings.section.limits"),
@@ -255,7 +245,7 @@ export function SettingsPage() {
 
 
   return (
-    <div className={cn("flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white", activeSection === SETTINGS_SECTION_IDS.CLOUD && "tt-cloud-settings")}>
+    <div className={cn("flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white")}>
       <main className="flex-1 pb-12 pt-8 sm:pb-16 sm:pt-10">
         <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
           <div className="mb-7 max-w-2xl">

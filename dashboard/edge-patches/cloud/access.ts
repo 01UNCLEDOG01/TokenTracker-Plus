@@ -35,7 +35,7 @@ export async function cloudReadAccess(client: Client, userId: string, kind: stri
 }
 
 export function cloudHistoryFailure(access: CloudAccess, to: string): CloudAccess | null {
+  // No recovery_url: this fork has no upgrade page to send the user to.
   return access.available_from && to < access.available_from
-    ? { ...access, ok: false, code: "cloud_history_window_exceeded", status: 400,
-      recovery_url: "https://(removed)/cloud" } : null;
+    ? { ...access, ok: false, code: "cloud_history_window_exceeded", status: 400 } : null;
 }

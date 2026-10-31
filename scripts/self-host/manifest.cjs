@@ -18,7 +18,7 @@ const privateFunctions = [
   "tokentracker-device-token-issue","tokentracker-device-rename","tokentracker-ingest",
   "tokentracker-account-summary","tokentracker-account-daily","tokentracker-account-hourly",
   "tokentracker-account-monthly","tokentracker-account-heatmap","tokentracker-account-model-breakdown",
-  "tokentracker-account-devices","tokentracker-billing",
+  "tokentracker-account-devices",
   // Public face: leaderboard + profile + visibility + likes + the pet/embed
   // SVGs and the CLI telemetry heartbeat. The signed refresh pipeline
   // (tokentracker-leaderboard-refresh) stays hosted-only; on a private

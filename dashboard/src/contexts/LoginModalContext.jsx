@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { clearCloudAction } from "../lib/cloud-action-intent.js";
 
 export function cloudLoginNextPath(value) {
   if (typeof value !== "string" || !/^\/(cloud|billing\/checkout)(\?|$)/.test(value) || value.includes("\\") ||
@@ -34,7 +33,6 @@ export function LoginModalProvider({ children }) {
   const pending = useRef(null);
   const requestSequence = useRef(0);
   const openLoginModal = useCallback((options) => {
-    clearCloudAction(pending.current?.nextPath);
     clearModalReturn(pending.current);
     // Existing callers pass this callback directly to onClick. A MouseEvent
     // has none of these explicit options and opens the ordinary login dialog.
@@ -54,7 +52,6 @@ export function LoginModalProvider({ children }) {
     if (!current || (typeof requestId === "number" && current.id !== requestId)) return;
     // Invalidate before the closing animation or a late auth result can run.
     pending.current = null;
-    clearCloudAction(current.nextPath);
     clearModalReturn(current);
     setIsOpen(false);
     if (current.closePath && current.locationKey === locationKey.current) navigate(current.closePath, { replace: true });

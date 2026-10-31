@@ -93,7 +93,7 @@ export function BroadsheetCard({ data }) {
               background: VERMILLION,
             }}
           />
-          The Token Tracker
+          The TokenTracker Plus
         </div>
         <div
           style={{
@@ -423,7 +423,7 @@ export function BroadsheetCard({ data }) {
         </div>
         <div>
           {copy("share.card.broadsheet.track_yours")}{" "}
-          <span style={{ color: VERMILLION }}>→ (removed)</span>
+          <span style={{ color: VERMILLION }}>→ TokenTracker-Plus</span>
         </div>
       </footer>
     </div>

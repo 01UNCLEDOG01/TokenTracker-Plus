@@ -19,7 +19,8 @@
  * MUST be mirrored to refresh.ts and src/lib/local-api.js.
  */
 import { createClient } from "npm:@insforge/sdk";
-import { readProBadges } from "./cloud/pro.ts";
+// Cloud billing was removed from this fork, so `pro_active` below is always
+// false; the field stays in the payload to keep the response shape stable.
 
 const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline", "qoder"]);
 
@@ -1022,7 +1023,7 @@ export default async function (req: Request): Promise<Response> {
   // anonymous/github flags + url from settings. Badges ride along in the same
   // round-trip: unearned (tier-0 progress) rows are included ONLY for the
   // verified owner. Fail-soft — a badges hiccup must not 500 the profile.
-  const [settingsRes, profileRes, badgesRes, proBadges] = await Promise.all([
+  const [settingsRes, profileRes, badgesRes] = await Promise.all([
     client.database
       .from("tokentracker_user_settings")
       .select("leaderboard_anonymous, github_url, show_github_url")
@@ -1039,7 +1040,6 @@ export default async function (req: Request): Promise<Response> {
         (res: { data?: unknown; error?: unknown }) => res,
         () => ({ data: null, error: true }),
       ),
-    readProBadges(client, [userId]),
   ]);
   const badges = Array.isArray((badgesRes as { data?: unknown }).data)
     ? ((badgesRes as { data?: unknown }).data as Array<Record<string, unknown>>)
@@ -1249,7 +1249,7 @@ export default async function (req: Request): Promise<Response> {
       avatar_url: avatarUrl,
       github_url: githubUrl,
       is_anonymous: isAnonymous,
-      pro_active: !isAnonymous && proBadges[userId] === true,
+      pro_active: false,
       rank: snap?.rank ?? null,
     },
     period: {

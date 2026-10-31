@@ -475,9 +475,14 @@ export function ProfileContent({ data, currency, rate, onClose, variant = "modal
   // leaderboard user_id matches the signed-in InsForge auth user id.
   const auth = useInsforgeAuth();
   const isOwnProfile = Boolean(auth?.user?.id && user?.user_id && auth.user.id === user.user_id);
-  const profileUrl = user?.user_id ? `https://(removed)/u/${user.user_id}` : null;
-  const badgeSnippet = user?.user_id
-    ? `[![My AI coding usage](${getInsforgeRemoteUrl()}/functions/tokentracker-embed-svg?user_id=${user.user_id}&theme=dark)](${profileUrl}?ref=readme)`
+  // This fork ships no official host: public profile links and the README badge
+  // must point at whatever instance the operator configured. With no instance
+  // there is no public URL, so both stay null instead of leaking a hardcoded
+  // domain that nobody runs.
+  const instanceUrl = getInsforgeRemoteUrl();
+  const profileUrl = user?.user_id && instanceUrl ? `${instanceUrl}/u/${user.user_id}` : null;
+  const badgeSnippet = user?.user_id && instanceUrl
+    ? `[![My AI coding usage](${instanceUrl}/functions/tokentracker-embed-svg?user_id=${user.user_id}&theme=dark)](${profileUrl}?ref=readme)`
     : null;
 
   return (
@@ -648,7 +653,7 @@ export function ProfileContent({ data, currency, rate, onClose, variant = "modal
                   <ArrowUpRight size={13} strokeWidth={2} aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </Link>
               ))}
-            {isOwnProfile && (
+            {isOwnProfile && profileUrl && (
               <div className="flex items-center gap-2">
                 <CopyAction icon={Link2} label={copy("leaderboard.profile_modal.badge.copy_url")} value={profileUrl} />
                 <CopyAction icon={Code2} label={copy("leaderboard.profile_modal.badge.copy")} value={badgeSnippet} />

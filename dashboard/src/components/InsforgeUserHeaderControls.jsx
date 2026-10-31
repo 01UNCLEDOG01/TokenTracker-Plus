@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useInsforgeAuth } from "../contexts/InsforgeAuthContext.jsx";
 import { useLoginModal } from "../contexts/LoginModalContext.jsx";
 import { useLocale } from "../hooks/useLocale.js";
-import { useCloudAccount } from "../hooks/use-cloud-billing.js";
-import { isOfficialInsforgeInstance } from "../lib/insforge-config";
 import { isNativeApp } from "../lib/native-bridge.js";
 import { copy } from "../lib/copy";
 import { cn } from "../lib/cn";
@@ -57,8 +55,10 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
   useLocale();
   const isSidebar = variant === "sidebar";
   const { enabled, loading, signedIn, user, displayName } = useInsforgeAuth();
-  const billing = useCloudAccount({ enabled: isSidebar && enabled && !loading && signedIn && isOfficialInsforgeInstance() });
-  const proActive = isSidebar && !billing.error && isCurrentProAccount(billing.account);
+  // Cloud billing was removed from this fork: no subscription state is fetched,
+  // so the Pro badge never renders. isCurrentProAccount stays exported as the
+  // account-shape contract its tests pin.
+  const proActive = false;
   const { openLoginModal } = useLoginModal();
   const navigate = useNavigate();
   const avatarUrl = useMemo(() => pickAvatarUrl(user), [user]);

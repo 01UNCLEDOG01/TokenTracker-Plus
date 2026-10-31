@@ -341,7 +341,7 @@
   "local_only.body": "このページはお使いの端末上のデータを読み込むため、Mac アプリまたはコマンドラインの dashboard でのみ表示できます。",
   "local_only.open_app": "Mac アプリ内で開く",
   "local_only.download": "Mac アプリをダウンロード",
-  "dashboard.auth_gate.title": "Token Tracker にサインイン",
+  "dashboard.auth_gate.title": "TokenTracker Plus にサインイン",
   "dashboard.auth_gate.subtitle": "サインインして、クラウドでの API 使用量、コスト、トークン消費の傾向を同期および表示します。",
   "dashboard.auth_gate.button": "今すぐサインイン",
   "dashboard.expired_gate.title": "セッションの有効期限切れ",

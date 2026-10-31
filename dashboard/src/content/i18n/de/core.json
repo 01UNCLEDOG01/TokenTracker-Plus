@@ -164,7 +164,7 @@
   "settings.section.limits": "Limit-Anzeige",
   "settings.section.network": "Netzwerk",
   "settings.network.mode.label": "Ausgehender Proxy",
-  "settings.network.mode.hint": "Lege fest, wie Token Tracker für Cloud-Sync ins Internet geht. App-Updates folgen immer dem System-Proxy.",
+  "settings.network.mode.hint": "Lege fest, wie TokenTracker Plus für Cloud-Sync ins Internet geht. App-Updates folgen immer dem System-Proxy.",
   "settings.network.mode.system": "System",
   "settings.network.mode.manual": "Manuell",
   "settings.network.mode.off": "Aus",

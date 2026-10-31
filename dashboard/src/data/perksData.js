@@ -43,10 +43,11 @@ export const PERK_CATEGORIES = [
 export const PERK_PROVIDERS = [
   {
     "id": "agnes",
-    "name": "agnes AI",
+    "name": "Agnes AI",
     "provider": "agnes",
     "category": [
-          "permanent_free"
+          "permanent_free",
+          "daily_claim"
     ],
     "badge": "自研文本/图像/视频免费档",
     "badgeType": "success",
@@ -56,11 +57,11 @@ export const PERK_PROVIDERS = [
       "长上下文",
       "多模态"
     ],
-    "description": "自研免费档模型换代：文本 agnes-2.5-flash、agnes-3-flash；生图 agnes-image-2.0 / 2.1 / 2.5-flash；视频 Agnes Video 2.5 Flash（720p）。官方 2026-09-23 公告把免费档与企业档速率各下调 50%，现为免费 10 RPM、企业 20 RPM。",
+    "description": "自研免费档模型换代：文本 agnes-2.5-flash、agnes-3-flash；生图 agnes-image-2.0 / 2.1 / 2.5-flash；视频 Agnes Video 2.5 Flash（720p）。官方 2026-09-23 公告把免费档与企业档速率各下调 50%，现为免费 10 RPM、企业 20 RPM。网页版（app.agnes-ai.com）每日登录免费领 600 时效积分（2026-11-01 实测，时效积分与永久积分分账核算）；国际站 www.agnes-ai.com 与中国站 agnes-ai.cn 双站可用，均无邀请活动。",
     "tips": "早期注册赠送 $0.10 余额，现行是否仍赠未核实，以站内额度为准；选自定义服务商填端点即可接入。",
     "officialUrl": "https://agnes-ai.com",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-01",
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
   },
   {
@@ -126,7 +127,7 @@ export const PERK_PROVIDERS = [
       "三方生态支持",
       "用完即停安心模式"
     ],
-    "description": "阿里云大模型一站式服务平台。新用户首次开通后，不仅通义千问（Qwen）各规格独立赠送 100 万 Tokens，对平台上百余款第三方生态大模型（包括 DeepSeek 系列如 DeepSeek-V3/R1、月之暗面 Kimi 系列、智谱 GLM 系列等）亦独立配置新人免费体验额度（各模型大多独立赠送 100 万 Tokens，累计新人免费额度超 7,000 万 Tokens，自开通起 90 天有效）。",
+    "description": "阿里云大模型一站式服务平台。新用户首次开通后，不仅通义千问（Qwen）各规格独立赠送 100 万 Tokens，对平台上百余款第三方生态大模型（包括 DeepSeek 系列、月之暗面 Kimi 系列、智谱 GLM 系列等）亦独立配置新人免费体验额度（各模型大多独立赠送 100 万 Tokens，累计新人免费额度超 7,000 万 Tokens，自开通起 90 天有效）。",
     "tips": "免费额度默认在华北2（北京）地域实时推理生效；各模型额度相互独立不混用，建议在控制台开启「免费额度用完即停」开关，避免额度耗尽后产生按量扣费。",
     "officialUrl": "https://bailian.console.aliyun.com",
     "hasInvite": false,
@@ -286,19 +287,19 @@ export const PERK_PROVIDERS = [
           "featured",
           "big_quota"
     ],
-    "badge": "实名认证送 ¥18",
+    "badge": "实名送 ¥18 · 充值买一送一",
     "badgeType": "purple",
     "tags": [
       "实名送18元",
-      "长期有效",
-      "模型特惠",
-      "邀请活动已结束"
+      "有效期一个月",
+      "充值买一送一",
+      "模型特惠"
     ],
-    "description": "实名认证即可获得 ¥18 额度（原口径标注永久有效，到账与有效期以站内为准）。此前的邀请有礼（受邀方 ¥18）、充值买一送一、千问系列半价与 DeepSeek 全天谷价调用均已随 2026-10-30 活动期结束而下线，邀请活动现行是否重开以站内公告为准。",
-    "tips": "登录后在「我的额度」查看实名赠额是否到账；后续促销档期变动频繁，下单前先看首页横幅的当期截止时间。",
+    "description": "实名认证即可获得 ¥18 额度（有效期一个月）。限时充值买一送一回归：2026-11-13 截止，充值 ¥50 档及以上本金一比一赠送（¥10 档仅赠 ¥2.50），活动期可多次充值，本金与赠额均永久有效，付费后可体验专属模型。此前的千问系列半价与 DeepSeek 全天谷价调用已随 2026-10-30 档期结束下线，邀请活动现行是否重开以站内公告为准。",
+    "tips": "登录后在「我的额度」查看实名赠额是否到账（有效期一个月）；充值买一送一档位与截止以首页横幅当期规则为准。",
     "officialUrl": "https://tokenrhythm.studio",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-01",
     "sourceUrl": "https://tokenrhythm.studio/"
   },
   {
@@ -431,7 +432,7 @@ export const PERK_PROVIDERS = [
       "OpenAI兼容",
       "客户端接入"
     ],
-    "description": "面向终端的 AI 编程平台。通过 Zen 计划开放限时免费 API，兼容 OpenAI 接口规范并轮换开放多款编程强化开源模型；官方口径是免费模型需经 OpenCode 客户端接入，直接当通用 API 用可能不被支持。",
+    "description": "面向终端的 AI 编程平台。通过 Zen 计划开放限时免费 API，兼容 OpenAI 接口规范并轮换开放多款编程强化开源模型；官方口径是免费模型需经 OpenCode 客户端接入，直接当通用 API 用可能不被支持；免费档另有用量与速率限制，以官方档期与端内提示为准。",
     "tips": "使用 GitHub 或 Google 账号直接登录即可获取 Key，免费模型会定期轮换，接入前先确认当前档期。",
     "officialUrl": "https://opencode.ai",
     "hasInvite": false,
@@ -722,20 +723,21 @@ export const PERK_PROVIDERS = [
     "name": "WorkBuddy AI (国际版)",
     "provider": "workbuddy",
     "category": [
-          "client"
+          "client",
+          "daily_claim"
     ],
-    "badge": "国际版独立站点 · 免费活动以端内为准",
+    "badge": "每月 1 日送 100 积分 + 每日对话次日送 30",
     "badgeType": "blue",
     "tags": [
       "AI客户端",
       "国际版",
       "独立账号体系"
     ],
-    "description": "WorkBuddy 国际版（workbuddy.ai），与国内版（workbuddy.cn）账号体系相互独立。曾以「每日免费调用上限 1 亿额度的 deepseek-v4.1-flash 模型」为核心福利，官方口径活动截止 2026-10-31，是否延续或加码以端内活动页为准。",
-    "tips": "与国内版（workbuddy.cn）互不共享账号与积分；免费调用活动的现况、额度与模型范围以国际版端内公告为准。",
+    "description": "WorkBuddy 国际版（workbuddy.ai），与国内版（workbuddy.cn）账号体系相互独立。现行福利：每月 1 日发放 100 积分，当日完成对话次日 30 积分自动到账（2026-11-01 实测）；此前「每日免费调用上限 1 亿额度 deepseek-v4.1-flash」的活动已于 2026-10-31 截止。",
+    "tips": "与国内版（workbuddy.cn）互不共享账号与积分；积分有效期以端内为准，用量与发放记录在站内「余额及用量」页查看。",
     "officialUrl": "https://www.workbuddy.ai",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-01",
     "sourceUrl": "https://www.workbuddy.ai"
   },
   {
@@ -778,10 +780,12 @@ export const PERK_PROVIDERS = [
       "邀请送5000",
       "每日5000积分"
     ],
-    "description": "科大讯飞打造的桌面级 AI 工作搭子。实测新用户注册并完成任务可获得 10,000 积分，每日登录客户端自动刷新为 5,000 算力池（优先消耗）；官方支持邀请机制，每成功邀请好友双方各得 5000 积分。",
-    "tips": "客户端支持目录级隔离与本地数据隐私保障；每日登录赠送积分次日刷新，不跨日累积。",
+    "description": "科大讯飞打造的桌面级 AI 工作搭子。实测新用户注册并完成任务可获得 10,000 积分，每日登录客户端自动刷新为 5,000 算力池（优先消耗）；官方支持邀请机制，官方规则原文：「每个邀请码限 1 人使用，邀请好友您与好友同时获得 5000 积分」，站主专属邀请码为 E5UZR8（限 20 人使用）。",
+    "tips": "客户端支持目录级隔离与本地数据隐私保障；复制邀请码后在客户端「设置 → 邀请码」处兑换生效；每日登录赠送积分次日刷新，不跨日累积。",
+    "inviteUrl": "https://loomy.xunfei.cn",
     "officialUrl": "https://loomy.xunfei.cn",
-    "hasInvite": false,
+    "inviteCode": "E5UZR8",
+    "hasInvite": true,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://loomy.xunfei.cn"
   },
@@ -969,7 +973,7 @@ export const PERK_PROVIDERS = [
       "多模型路由",
       "海外网络"
     ],
-    "description": "⚠️ 2026-10-31 站内实测：模型列表 3/3 显示「无流量」，近几天无法正常调用，官方仍在排查恢复；签到入口仍可用，每日签到得 $25（站内计价口径、非官方美元价，实际可用量以站内为准）。历史注册与签到额度按官方说法保留，恢复前建议改用其他高可用路由。",
+    "description": "⚠️ 2026-10-31 站内实测：模型列表 3/3 显示「无流量」，近几天无法正常调用，官方仍在排查恢复；签到入口仍可用，每日签到得 $25（站内计价口径、非官方美元价，实际可用量以站内为准；签到积分有效期以端内为准）。历史注册与签到额度按官方说法保留，恢复前建议改用其他高可用路由。",
     "tips": "此前流传的「注册送 $125 / 每日签到 $25」每日签到 $25 实测可得（站内计价口径、非官方美元价，实际可用量以站内为准）；不可用来源在列表中沉底展示，恢复后回 A 桶；恢复后一律以官方公告与站内额度页为准。",
     "inviteUrl": "https://agentrouter.org/register?aff=tt0I",
     "officialUrl": "https://agentrouter.org",

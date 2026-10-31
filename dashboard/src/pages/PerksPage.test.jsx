@@ -81,7 +81,7 @@ describe("PerksPage", () => {
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
     expect(screen.getByText("永久免费").closest("button")).toHaveTextContent("11");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("15");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("17");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
@@ -107,7 +107,8 @@ describe("PerksPage", () => {
 
     fireEvent.click(screen.getAllByText("标记已领取")[0]);
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
-    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agentrouter"]);
+    // agnes 为沉底 agentrouter 后的首卡（文件序即展示序）
+    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agnes"]);
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();

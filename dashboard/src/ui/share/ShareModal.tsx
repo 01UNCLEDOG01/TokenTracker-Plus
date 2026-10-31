@@ -211,7 +211,14 @@ export function ShareModal({ open, onClose, data, twitterText }: any) {
     // Without `url` the X intent only carries the pasted image.
     const shareUserId = (insforge?.user as any)?.id;
     const sharePath = typeof shareUserId === "string" && shareUserId ? `/u/${shareUserId}` : "/";
-    intentUrl.searchParams.set("url", `https://(removed)${sharePath}?ref=share`);
+    // This fork ships no official hosted domain. Share the deployment the user
+    // is actually on; on a localhost dashboard the profile path does not exist
+    // publicly, so fall back to the repo instead of leaking a local address.
+    const onLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+    const shareUrl = onLocalHost
+      ? "https://github.com/01UNCLEDOG01/TokenTracker-Plus"
+      : `${window.location.origin}${sharePath}?ref=share`;
+    intentUrl.searchParams.set("url", shareUrl);
     // Use location.href in native embed so WKUIDelegate.createWebView
     // (which intercepts window.open and opens in system browser) fires.
     // window.open with _blank sometimes navigates the WKWebView itself.

@@ -109,17 +109,13 @@ function getHeatmapValue(cell) {
   return cell?.billable_total_tokens ?? cell?.value ?? cell?.total_tokens;
 }
 
-function isProductionHost(hostname) {
-  if (!hostname) return false;
-  return hostname === "(removed)" || hostname === "(removed)";
-}
-
+// This fork ships no official hosted domain, so there is no production host to
+// special-case: the force_install debug flag stays available everywhere.
 function isForceInstallEnabled() {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
   const raw = String(params.get("force_install") || "").toLowerCase();
-  if (raw !== "1" && raw !== "true") return false;
-  return !isProductionHost(window.location.hostname);
+  return raw === "1" || raw === "true";
 }
 
 export function DashboardPage({

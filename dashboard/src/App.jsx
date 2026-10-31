@@ -11,9 +11,6 @@ import { isMockEnabled } from "./lib/mock-mode";
 import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
 import { useCloudUsageSync } from "./hooks/use-cloud-usage-sync";
 import { useAchievementWatcher } from "./hooks/use-achievements.js";
-import { CloudContextualPrompt } from "./components/cloud/CloudContextualPrompt.jsx";
-import { clearCloudPromptIntent } from "./lib/cloud-prompt-policy.js";
-import { setCloudSyncEnabled } from "./lib/cloud-sync-prefs";
 import { AppLayout } from "./ui/components/Sidebar.jsx";
 import { LegalLinks } from "./ui/components/LegalLinks.jsx";
 import { ToastProvider } from "./ui/components/Toast.jsx";
@@ -99,12 +96,6 @@ const WrappedPage = lazy(() => import("./pages/WrappedPage.jsx"));
 const SettingsPage = lazy(() =>
   import("./pages/SettingsPage.jsx").then((m) => ({ default: m.SettingsPage })),
 );
-const CloudPage = lazy(() =>
-  import("./pages/CloudPage.jsx").then((m) => ({ default: m.CloudPage })),
-);
-const CloudCheckoutPage = lazy(() =>
-  import("./pages/CloudCheckoutPage.jsx").then((m) => ({ default: m.CloudCheckoutPage })),
-);
 const SelfHostPage = lazy(() =>
   import("./pages/SelfHostPage.jsx").then((m) => ({ default: m.SelfHostPage })),
 );
@@ -130,14 +121,6 @@ export default function App() {
   const navigate = useNavigate();
   const insforge = useInsforgeAuth();
   useCloudUsageSync();
-  const lastPromptOwnerRef = useRef(null);
-  useEffect(() => {
-    const owner = insforge.enabled && insforge.signedIn ? insforge.user?.id : null;
-    if (lastPromptOwnerRef.current === owner) return;
-    if (lastPromptOwnerRef.current) clearCloudPromptIntent(lastPromptOwnerRef.current);
-    if (owner) clearCloudPromptIntent(owner);
-    lastPromptOwnerRef.current = owner;
-  }, [insforge.enabled, insforge.signedIn, insforge.user?.id]);
   const dashboardMainContentVisibleRef = useRef(false);
   const dashboardResourcePreloadStartedRef = useRef(false);
   const leaderboardStatePreloadContextKeysRef = useRef(new Set());
@@ -164,15 +147,6 @@ export default function App() {
   useAchievementWatcher({ enabled: isLocalMode });
 
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
-  useEffect(() => {
-    if (!insforge.signedIn || insforge.loading || !["/", "/dashboard"].includes(normalizedPath)) return;
-    try {
-      const next = window.sessionStorage.getItem("tt.cloud.return");
-      if (!/^\/(cloud|billing\/checkout)(\?|$)/.test(next || "")) return;
-      window.sessionStorage.removeItem("tt.cloud.return");
-      navigate(next, { replace: true });
-    } catch { /* Account settings retains server-side order recovery. */ }
-  }, [insforge.signedIn, insforge.loading, normalizedPath, navigate]);
   const isDashboardDefaultPath = normalizedPath === "/" || normalizedPath === "/dashboard";
   const isLeaderboardPath = normalizedPath === "/leaderboard";
   const isGlobalModelsPath = normalizedPath === "/global-models";
@@ -258,8 +232,6 @@ export default function App() {
 
   const isLimitsPath = normalizedPath === "/limits";
   const isSettingsPath = normalizedPath === "/settings";
-  const isCloudPath = normalizedPath === "/cloud";
-  const isCheckoutPath = normalizedPath === "/billing/checkout";
   const isSelfHostPath = normalizedPath === "/self-host";
   const isSkillsPath = normalizedPath === "/skills";
   const isSessionsPath = normalizedPath === "/sessions";
@@ -269,7 +241,7 @@ export default function App() {
   const isPerksPath = normalizedPath === "/perks";
   const isServiceStatusPath = normalizedPath === "/service-status";
   const isAchievementsPath = normalizedPath === "/achievements";
-  if (isLimitsPath || isSettingsPath || isCloudPath || isCheckoutPath || isSelfHostPath || isSkillsPath || isSessionsPath || isWidgetsPath || isPetPath || isIpCheckPath || isPerksPath || isServiceStatusPath || isAchievementsPath) gate = "dashboard";
+  if (isLimitsPath || isSettingsPath || isSelfHostPath || isSkillsPath || isSessionsPath || isWidgetsPath || isPetPath || isIpCheckPath || isPerksPath || isServiceStatusPath || isAchievementsPath) gate = "dashboard";
 
   let PageComponent = DashboardPage;
   if (profileUserId) {
@@ -282,10 +254,6 @@ export default function App() {
     PageComponent = LimitsPage;
   } else if (isSettingsPath) {
     PageComponent = SettingsPage;
-  } else if (isCloudPath) {
-    PageComponent = CloudPage;
-  } else if (isCheckoutPath) {
-    PageComponent = CloudCheckoutPage;
   } else if (isSelfHostPath) {
     PageComponent = SelfHostPage;
   } else if (isSkillsPath) {
@@ -308,15 +276,13 @@ export default function App() {
 
   const showSidebar =
     !publicMode &&
-    (!isAuthGateTriggered || isCloudPath || isCheckoutPath || isSelfHostPath) &&
+    (!isAuthGateTriggered || isSelfHostPath) &&
     (normalizedPath === "/dashboard" ||
       normalizedPath === "/" ||
       isLeaderboardPath ||
       isGlobalModelsPath ||
       isLimitsPath ||
       isSettingsPath ||
-      isCloudPath ||
-      isCheckoutPath ||
       isSelfHostPath ||
       isSkillsPath ||
       isSessionsPath ||
@@ -327,8 +293,8 @@ export default function App() {
       isServiceStatusPath ||
       isAchievementsPath);
 
-  // Public-host gating: on (removed) et al. there is no local
-  // CLI :7680 to fall back to, so dashboard / settings / etc. require a
+  // Public-host gating: when the dashboard is served from a host with no local
+  // CLI :7680 to fall back to, dashboard / settings / etc. require a
   // signed-in user. publicMode (shared link) and the loading state are
   // exceptions that handle themselves.
   const publicHostNeedsLogin =
@@ -342,8 +308,6 @@ export default function App() {
     // (see api.ts getLeaderboard + LeaderboardProfilePage). Without these
     // exclusions the gate would bounce anonymous share-link traffic to /login.
     !isLeaderboardPath &&
-    !isCloudPath &&
-    !isCheckoutPath &&
     !isSelfHostPath &&
     !profileUserId &&
     normalizedPath !== "/perks" &&
@@ -386,13 +350,6 @@ export default function App() {
         <p role="alert" className="mx-auto w-full max-w-7xl px-4 py-4 text-sm leading-6 text-oai-gray-700 dark:text-oai-gray-300 sm:px-6">
           {copy("instance.configuration.invalid")}
         </p>
-      ) : null}
-      {isDashboardDefaultPath && !publicMode && cloudAuthSignedIn ? (
-          <CloudContextualPrompt userId={insforge.user?.id} localHost={isLocalMode} className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6"
-            onContinueLocal={() => {
-              clearCloudPromptIntent(insforge.user?.id);
-              setCloudSyncEnabled(false);
-            }} />
       ) : null}
       <PageComponent
         key={resolvedLocale}

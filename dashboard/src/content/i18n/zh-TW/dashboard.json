@@ -327,7 +327,7 @@
   "local_only.body": "這個頁面讀取的是你本機上的資料，所以只能在 Mac App 或命令列儀表板中檢視。",
   "local_only.open_app": "在 Mac App 中開啟",
   "local_only.download": "下載 Mac App",
-  "dashboard.auth_gate.title": "登入 Token Tracker",
+  "dashboard.auth_gate.title": "登入 TokenTracker Plus",
   "dashboard.auth_gate.subtitle": "登入以在雲端同步並檢視您的 API 使用量、成本與 Token 消耗趨勢。",
   "dashboard.auth_gate.button": "立即登入",
   "dashboard.expired_gate.title": "會話已過期",

@@ -231,7 +231,7 @@ function richLinkMetaPlugin() {
 const ROUTE_SEO_PAGES = [
   {
     file: "ip-check.html",
-    url: "https://(removed)/ip-check",
+    url: "/ip-check",
     title: "Claude IP Check — Exit IP Reputation, Geo & Risk Score",
     description:
       "Free Claude IP check: see the exit IP used to reach Claude Code plus reputation, geo and cleanliness/risk (纯净度/风险) signals that can trigger sign-in blocks or rate limits.",
@@ -240,24 +240,24 @@ const ROUTE_SEO_PAGES = [
       "@graph": [
         {
           "@type": "Organization",
-          "@id": "https://(removed)/#organization",
+          "@id": "/#organization",
           name: "Token Tracker",
-          url: "https://(removed)/",
+          url: "/",
         },
         {
           "@type": "WebPage",
-          "@id": "https://(removed)/ip-check#webpage",
-          url: "https://(removed)/ip-check",
+          "@id": "/ip-check#webpage",
+          url: "/ip-check",
           name: "Claude IP Check — Exit IP Reputation, Geo & Risk Score",
-          isPartOf: { "@id": "https://(removed)/#website" },
+          isPartOf: { "@id": "/#website" },
           description:
             "Check the exit IP used to reach Claude Code, with reputation, geolocation and cleanliness/risk (纯净度/风险) signals.",
         },
         {
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Home", item: "https://(removed)/" },
-            { "@type": "ListItem", position: 2, name: "Claude IP Check", item: "https://(removed)/ip-check" },
+            { "@type": "ListItem", position: 1, name: "Home", item: "/" },
+            { "@type": "ListItem", position: 2, name: "Claude IP Check", item: "/ip-check" },
           ],
         },
         {
@@ -321,7 +321,7 @@ const ROUTE_SEO_PAGES = [
   },
   {
     file: "leaderboard.html",
-    url: "https://(removed)/leaderboard",
+    url: "/leaderboard",
     title: "AI Coding Token Usage Leaderboard — Claude, Codex, Cursor",
     description:
       "Public Token Tracker leaderboard ranking AI coding token usage across Claude Code, Codex, Cursor, Gemini and 27 tools. Opt-in, privacy-first — token counts only, never prompts.",
@@ -330,24 +330,24 @@ const ROUTE_SEO_PAGES = [
       "@graph": [
         {
           "@type": "Organization",
-          "@id": "https://(removed)/#organization",
+          "@id": "/#organization",
           name: "Token Tracker",
-          url: "https://(removed)/",
+          url: "/",
         },
         {
           "@type": "WebPage",
-          "@id": "https://(removed)/leaderboard#webpage",
-          url: "https://(removed)/leaderboard",
+          "@id": "/leaderboard#webpage",
+          url: "/leaderboard",
           name: "AI Coding Token Usage Leaderboard",
-          isPartOf: { "@id": "https://(removed)/#website" },
+          isPartOf: { "@id": "/#website" },
           description:
             "Public leaderboard ranking opt-in AI coding token usage across Claude Code, Codex, Cursor, Gemini and 27 tools.",
         },
         {
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Home", item: "https://(removed)/" },
-            { "@type": "ListItem", position: 2, name: "Leaderboard", item: "https://(removed)/leaderboard" },
+            { "@type": "ListItem", position: 1, name: "Home", item: "/" },
+            { "@type": "ListItem", position: 2, name: "Leaderboard", item: "/leaderboard" },
           ],
         },
       ],

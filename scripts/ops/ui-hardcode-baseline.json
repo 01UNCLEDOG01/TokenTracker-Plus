@@ -141,7 +141,7 @@
       "rawText": 2,
       "rawTextTokens": [
         ") : realSignedIn ? (",
-        "Token Tracker"
+        "TokenTracker Plus"
       ]
     },
     "dashboard/src/pages/SessionsPage.jsx": {
@@ -542,7 +542,7 @@
       "rawTextTokens": [
         ") : ( // 未登录：Sign In 展示为主行动实色按钮，点击唤起 Modal",
         ") : signedIn ? ( // 已登录：Open Dashboard 升级为主行动实色按钮",
-        "Token Tracker"
+        "TokenTracker Plus"
       ]
     },
     "dashboard/src/ui/marketing/v3/CapabilitiesSection.jsx": {
@@ -606,8 +606,8 @@
       "rawText": 4,
       "rawTextTokens": [
         "!v||v",
-        "Token Tracker",
-        "(removed)"
+        "TokenTracker Plus",
+        "github.com/01UNCLEDOG01/TokenTracker-Plus"
       ]
     },
     "dashboard/src/ui/share/variants/BroadsheetCard.jsx": {
@@ -615,8 +615,8 @@
       "rawText": 3,
       "rawTextTokens": [
         "0; return (",
-        "The Token Tracker",
-        "→ (removed)"
+        "The TokenTracker Plus",
+        "→ TokenTracker-Plus"
       ]
     }
   }

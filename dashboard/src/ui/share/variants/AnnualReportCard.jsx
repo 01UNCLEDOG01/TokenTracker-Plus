@@ -165,7 +165,7 @@ export function AnnualReportCard({ data }) {
           <div style={{display:"flex",alignItems:"center",gap:16}}>
             <img src="/app-icon.png?v=2" alt="" width={64} height={64} style={{width:64,height:64,borderRadius:16,display:"block"}}/>
             <div>
-              <div style={{fontSize:20,fontWeight:500,color:DIM,lineHeight:1.2}}>Token Tracker</div>
+              <div style={{fontSize:20,fontWeight:500,color:DIM,lineHeight:1.2}}>TokenTracker Plus</div>
               <div style={{fontSize:36,fontWeight:700,lineHeight:1.15,color:WHITE}}>{copy("share.card.annual.report_title")}</div>
             </div>
           </div>
@@ -229,9 +229,9 @@ export function AnnualReportCard({ data }) {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"auto"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <img src="/app-icon.png?v=2" alt="" width={44} height={44} style={{width:44,height:44,borderRadius:8,display:"block"}}/>
-            <span style={{fontSize:22,fontWeight:600,color:WHITE}}>Token Tracker</span>
+            <span style={{fontSize:22,fontWeight:600,color:WHITE}}>TokenTracker Plus</span>
           </div>
-          <span style={{fontSize:22,fontWeight:600,color:ACCENT}}>(removed)</span>
+          <span style={{fontSize:15,fontWeight:600,color:ACCENT}}>github.com/01UNCLEDOG01/TokenTracker-Plus</span>
         </div>
 
       </div>

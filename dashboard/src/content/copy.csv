@@ -60,15 +60,15 @@ landing.meta.title,landing,LandingPage,Meta,title,"TokenTracker Plus — AI Toke
 landing.meta.description,landing,LandingPage,Meta,description,"Free, open-source, local-first tracker that monitors AI token usage and cost across Claude Code, Codex, Cursor, Gemini and 27 CLIs. One-command install, privacy-first.",,active
 landing.meta.og_site_name,landing,LandingPage,Meta,og_site_name,"TokenTracker Plus",,active
 landing.meta.og_type,landing,LandingPage,Meta,og_type,"website",,active
-landing.meta.og_image,landing,LandingPage,Meta,og_image,"https://(removed)/dashboard-dark.png",,active
-landing.meta.og_url,landing,LandingPage,Meta,og_url,"https://(removed)/",,active
+landing.meta.og_image,landing,LandingPage,Meta,og_image,"https://opengraph.githubassets.com/1/01UNCLEDOG01/TokenTracker-Plus",,active
+landing.meta.og_url,landing,LandingPage,Meta,og_url,"https://github.com/01UNCLEDOG01/TokenTracker-Plus",,active
 landing.meta.twitter_card,landing,LandingPage,Meta,twitter_card,"summary_large_image",,active
-share.meta.title,share,SharePage,Meta,title,"Token Tracker Share",,active
-share.meta.description,share,SharePage,Meta,description,"Share a Token Tracker dashboard snapshot with token usage insights across models, projects, and time windows.",,active
-share.meta.og_site_name,share,SharePage,Meta,og_site_name,"Token Tracker",,active
+share.meta.title,share,SharePage,Meta,title,"TokenTracker Plus Share",,active
+share.meta.description,share,SharePage,Meta,description,"Share a TokenTracker Plus dashboard snapshot with token usage insights across models, projects, and time windows.",,active
+share.meta.og_site_name,share,SharePage,Meta,og_site_name,"TokenTracker Plus",,active
 share.meta.og_type,share,SharePage,Meta,og_type,"website",,active
-share.meta.og_image,share,SharePage,Meta,og_image,"https://(removed)/dashboard-dark.png",,active
-share.meta.og_url,share,SharePage,Meta,og_url,"https://(removed)/share",,active
+share.meta.og_image,share,SharePage,Meta,og_image,"https://opengraph.githubassets.com/1/01UNCLEDOG01/TokenTracker-Plus",,active
+share.meta.og_url,share,SharePage,Meta,og_url,"https://github.com/01UNCLEDOG01/TokenTracker-Plus",,active
 share.meta.twitter_card,share,SharePage,Meta,twitter_card,"summary_large_image",,active
 landing.cta.primary,landing,LandingPage,LandingPage,cta_primary,"View Dashboard",,active
 landing.cta.secondary,landing,LandingPage,LandingPage,cta_secondary,"GitHub",,active
@@ -477,7 +477,7 @@ settings.section.limits.description,ui,SettingsPage,SettingsPage,sec_limits_desc
 settings.section.network,ui,SettingsPage,NetworkSection,sec_network,"Network",,active
 settings.section.network.description,ui,SettingsPage,NetworkSection,sec_network_description,"Control the proxy used for cloud sync and diagnostics.",,active
 settings.network.mode.label,ui,SettingsPage,NetworkSection,mode_label,"Outbound proxy",,active
-settings.network.mode.hint,ui,SettingsPage,NetworkSection,mode_hint,"Choose how Token Tracker reaches the internet for cloud sync. App updates always follow the system proxy.",,active
+settings.network.mode.hint,ui,SettingsPage,NetworkSection,mode_hint,"Choose how TokenTracker Plus reaches the internet for cloud sync. App updates always follow the system proxy.",,active
 settings.network.mode.system,ui,SettingsPage,NetworkSection,mode_system,"System",,active
 settings.network.mode.manual,ui,SettingsPage,NetworkSection,mode_manual,"Manual",,active
 settings.network.mode.off,ui,SettingsPage,NetworkSection,mode_off,"Off",,active
@@ -550,7 +550,7 @@ qpd.card.et,ui,DashboardView,QualityPerDollarCard,et,"Effective: {{tokens}} ({{r
 qpd.card.et_tooltip,ui,DashboardView,QualityPerDollarCard,et_tooltip,"Effective Tokens — the share of tokens that produced accepted work vs rework",,active
 qpd.card.sparse_notice,ui,DashboardView,QualityPerDollarCard,sparse_notice,"Tip: Sparse outcomes dataset might skew ratios. For precise metrics, select a narrower time window.",,active
 settings.appearance.theme.label,ui,SettingsPage,SettingsPage,theme_label,"Theme",,active
-settings.appearance.theme.hint,ui,SettingsPage,SettingsPage,theme_hint,"Choose how Token Tracker looks across the dashboard.",,active
+settings.appearance.theme.hint,ui,SettingsPage,SettingsPage,theme_hint,"Choose how TokenTracker Plus looks across the dashboard.",,active
 settings.appearance.theme.light,ui,SettingsPage,SettingsPage,theme_light,"Light",,active
 settings.appearance.theme.dark,ui,SettingsPage,SettingsPage,theme_dark,"Dark",,active
 settings.appearance.theme.system,ui,SettingsPage,SettingsPage,theme_system,"System",,active
@@ -1241,7 +1241,7 @@ local_only.open_app,dashboard,LocalOnlyNotice,LocalOnlyNotice,open_app,"Open in 
 local_only.download,dashboard,LocalOnlyNotice,LocalOnlyNotice,download,"Get the Mac app",,active
 leaderboard.profile.like.aria_like,dashboard,LeaderboardProfileModal,LikeButton,aria_like,"Like profile",,active
 leaderboard.profile.like.aria_unlike,dashboard,LeaderboardProfileModal,LikeButton,aria_unlike,"Unlike profile",,active
-dashboard.auth_gate.title,dashboard,DashboardPage,DashboardView,auth_gate_title,"Sign in to Token Tracker",,active
+dashboard.auth_gate.title,dashboard,DashboardPage,DashboardView,auth_gate_title,"Sign in to TokenTracker Plus",,active
 dashboard.auth_gate.subtitle,dashboard,DashboardPage,DashboardView,auth_gate_subtitle,"Sign in to sync and view your API usage, cost, and token consumption trends in the cloud.",,active
 dashboard.auth_gate.button,dashboard,DashboardPage,DashboardView,auth_gate_button,"Sign In",,active
 dashboard.expired_gate.title,dashboard,DashboardPage,DashboardView,expired_gate_title,"Session Expired",,active
@@ -1328,7 +1328,7 @@ skills.inventory.plugin,ui,SkillsPage,InstalledSkillRow,inventory_plugin,"Plugin
 skills.inventory.remote,ui,SkillsPage,InstalledSkillRow,inventory_remote,"Other device",,active
 skills.inventory.on_devices,ui,SkillsPage,InstalledSkillRow,inventory_on_devices,"Also on {{devices}}",,active
 skills.inventory.read_only_remote,ui,SkillsPage,SkillDetailPanel,inventory_read_only_remote,"This skill is installed on another device and is shown here as read-only.",,active
-skills.inventory.read_only_managed,ui,SkillsPage,SkillDetailPanel,inventory_read_only_managed,"This plugin skill is managed by its tool and cannot be changed or removed from Token Tracker.",,active
+skills.inventory.read_only_managed,ui,SkillsPage,SkillDetailPanel,inventory_read_only_managed,"This plugin skill is managed by its tool and cannot be changed or removed from TokenTracker Plus.",,active
 skills.inventory.source,ui,SkillsPage,SkillDetailPanel,inventory_source,"Source: {{source}}",,active
 skills.inventory.devices_title,ui,SkillsPage,SkillDetailPanel,inventory_devices_title,"Installed on other devices",,active
 dashboard.device_filter.all,dashboard,DashboardPage,UsageOverview,option_all,"All devices",,active
@@ -1860,7 +1860,7 @@ limits.apiKey.env_unset_note,ui,LimitsPage,UsageLimitsPanel,api_key_env_unset_no
 limits.commandCode.setupHint.snippet_env_windows,ui,LimitsPage,UsageLimitsPanel,command_code_hint_snippet_env_windows,"$token = Read-Host -AsSecureString\n$env:COMMAND_CODE_API_KEY = [System.Net.NetworkCredential]::new('', $token).Password\n[Environment]::SetEnvironmentVariable('COMMAND_CODE_API_KEY', $env:COMMAND_CODE_API_KEY, 'User')",,active
 limits.commandCode.setupHint.note_windows,ui,LimitsPage,UsageLimitsPanel,command_code_hint_note_windows,"Windows: run in PowerShell, then restart TokenTracker.",,active
 limits.commandCode.setupHint.note_linux,ui,LimitsPage,UsageLimitsPanel,command_code_hint_note_linux,"Linux: start TokenTracker from this terminal to inherit the environment variable.",,active
-landing.discovery.tracked_usage,landing,LandingPage,index.html,tracked_usage,"Token Tracker tracks input, output, cached, and cache-creation tokens per model, project, and time window. It also detects usage limits for 18 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, Devin, and WorkBuddy.",Build-time static discovery copy,active
+landing.discovery.tracked_usage,landing,LandingPage,index.html,tracked_usage,"TokenTracker Plus tracks input, output, cached, and cache-creation tokens per model, project, and time window. It also detects usage limits for 18 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, Devin, and WorkBuddy.",Build-time static discovery copy,active
 landing.discovery.limits_summary,landing,LandingPage,index.html,limits_summary,"live quota and subscription status for 18 providers, with last-good caching for local providers such as Antigravity and Qoder.",Build-time static discovery copy,active
 landing.discovery.faq_usage,landing,LandingPage,index.html,faq_usage,"Input, output, cached, and cache-creation tokens per model, project, and time window. It also surfaces usage limits for 18 providers, including Claude, Codex, Cursor, Gemini, Antigravity, Qoder, Qoder CN, Command Code, Devin, and WorkBuddy.",Build-time static discovery copy,active
 limits.provider.devin,ui,LimitsPage,UsageLimitsPanel,provider_devin,"Devin",,active
