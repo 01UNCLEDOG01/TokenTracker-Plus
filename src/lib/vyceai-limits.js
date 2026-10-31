@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const { ProxyAgent } = require("undici");
 const os = require("node:os");
 const path = require("node:path");
 const { getTrackerRootDir } = require("./tracker-paths");
@@ -53,10 +54,35 @@ function readManualCredentials(home) {
   try {
     const creds = JSON.parse(fs.readFileSync(credentialsPath(home), "utf8"));
     const apiKey = typeof creds?.api_key === "string" ? creds.api_key.trim() : "";
-    return apiKey || null;
+    if (!apiKey) return null;
+    // vyceai.com is unreachable from some networks without an egress proxy
+    // (TLS disconnected mid-handshake); the credentials file may pin one.
+    const proxy = typeof creds?.proxy === "string" && creds.proxy.trim() ? creds.proxy.trim() : null;
+    return { apiKey, proxy };
   } catch {
     return null;
   }
+}
+
+// Proxy resolution order: credentials file → standard env vars → direct.
+function resolveProxy(home, env, manualProxy) {
+  return (
+    manualProxy ||
+    env.HTTPS_PROXY ||
+    env.https_proxy ||
+    env.ALL_PROXY ||
+    env.all_proxy ||
+    null
+  );
+}
+
+// fetch options with an optional undici dispatcher; the shared module tests
+// keep passing plain option objects, so the dispatcher key is undefined when
+// no proxy applies.
+function connectionFetchOptions(proxy, timeoutMs) {
+  const options = { signal: AbortSignal.timeout(timeoutMs) };
+  if (proxy) options.dispatcher = new ProxyAgent(proxy);
+  return options;
 }
 
 // Auto-discovery: Codex pointed at Vyce carries the key inline as
@@ -100,8 +126,11 @@ function discoverCodexApiKey(home, env = process.env) {
   return inMatchingSection && bearer ? bearer : null;
 }
 
-function resolveApiKey(home, env) {
-  return readManualCredentials(home) || discoverCodexApiKey(home, env);
+function resolveConnection(home, env) {
+  const manual = readManualCredentials(home);
+  if (manual) return { apiKey: manual.apiKey, proxy: resolveProxy(home, env, manual.proxy) };
+  const apiKey = discoverCodexApiKey(home, env);
+  return apiKey ? { apiKey, proxy: resolveProxy(home, env, null) } : null;
 }
 
 // Returns the shared usage-limits shape (_flat_), or {configured:false} when
@@ -113,14 +142,14 @@ async function fetchVyceAiLimits({
   timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
   env = process.env,
 } = {}) {
-  const apiKey = resolveApiKey(home, env);
-  if (!apiKey) return { configured: false, error: null };
+  const connection = resolveConnection(home, env);
+  if (!connection) return { configured: false, error: null };
 
   let payload;
   try {
     const res = await fetchImpl(VYCEAI_ME_URL, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(timeoutMs),
+      headers: { Authorization: `Bearer ${connection.apiKey}` },
+      ...connectionFetchOptions(connection.proxy, timeoutMs),
     });
     if (!res.ok) throw new Error(`Vyce AI HTTP ${res.status} for /v1/me`);
     payload = await res.json();
@@ -162,4 +191,4 @@ async function fetchVyceAiLimits({
   return result;
 }
 
-module.exports = { fetchVyceAiLimits };
+module.exports = { fetchVyceAiLimits, resolveConnection, connectionFetchOptions };

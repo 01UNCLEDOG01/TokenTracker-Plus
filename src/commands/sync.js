@@ -181,6 +181,7 @@ const {
 } = require("../lib/upload-throttle");
 const { compactPendingQueue, iterateQueueLines, sessionSnapshotMs } = require("../lib/upload-queue");
 const { persistQoderEstimateRows } = require("../lib/qoder-estimate-upload");
+const { persistVyceaiUsageRows } = require("../lib/vyceai-usage");
 const AUTO_UPLOAD_CONFIG = {
   intervalMs: 15 * 60_000,
   batchSize: 200,
@@ -3904,6 +3905,21 @@ async function cmdSync(argv, context = {}) {
         }
       } catch (estimateError) {
         console.error(`[qoder] estimate persistence failed (non-fatal): ${estimateError?.message || estimateError}`);
+      }
+      // Land the vyceai differential rows into the queue the same way: the
+      // site keeps cumulative per-model totals only, so deltas become real
+      // source rows and the aggregate prices them at list price (never $0).
+      try {
+        const persistedVyceai = await persistVyceaiUsageRows({
+          queuePath,
+          statePath: path.join(trackerDir, "vyceai-usage-state.json"),
+          home: os.homedir(),
+        });
+        if (persistedVyceai.appended > 0) {
+          console.log(`[vyceai] persisted ${persistedVyceai.appended} usage rows to the upload queue`);
+        }
+      } catch (vyceaiError) {
+        console.error(`[vyceai] usage persistence failed (non-fatal): ${vyceaiError?.message || vyceaiError}`);
       }
       await compactPendingQueue({ queuePath, offset: Number(state.offset || 0) });
       uploadAttempted = true;

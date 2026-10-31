@@ -97,6 +97,28 @@ test("an HTTP error without last-good reads as a configured error", async () => 
   assert.match(result.error, /HTTP 401/);
 });
 
+test("a credentials-file proxy pins the request dispatcher", async () => {
+  const home = tempHome();
+  const trackerDir = path.join(home, ".tokentracker");
+  fs.mkdirSync(trackerDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(trackerDir, "vyceai-credentials.json"),
+    JSON.stringify({ api_key: "sk-test", proxy: "http://127.0.0.1:7890" }),
+  );
+  const seen = [];
+  const result = await fetchVyceAiLimits({
+    home,
+    env: {},
+    fetchImpl: async (url, options) => {
+      seen.push(options);
+      return { ok: true, status: 200, json: async () => ME_PAYLOAD };
+    },
+  });
+  assert.equal(result.configured, true);
+  assert.equal(seen.length, 1);
+  assert.ok(seen[0].dispatcher, "expected a ProxyAgent dispatcher on the wire");
+});
+
 test("the codex config auto-discovery finds the vyceai bearer token", async () => {
   const home = tempHome();
   const codexHome = path.join(home, ".codex");

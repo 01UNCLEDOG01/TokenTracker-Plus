@@ -651,8 +651,6 @@ export function UsageOverview({
               })}
             </div>
 
-            <VyceAiSpend />
-
             {/* A card toggles its details region; collapsed by default. (Two
                 sibling && guards, not a nested ternary — the ui-hardcode
                 scanner reads `) : x ? (` fragments as raw JSX text.) */}
@@ -939,6 +937,10 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
   const isQoder = providerSource === "qoder";
   const isWorkbuddy = providerSource === "workbuddy";
   const isWorkbuddyAi = providerSource === "workbuddy-ai";
+  // Vyce AI bills on its own site (the proxy responses carry no usage), so
+  // the card's token rows come from the differential ledger while the
+  // account-level balance / lifetime spend render as the extra below.
+  const isVyceai = providerSource === "vyceai";
   // Each card filters to its own ledger edition ("cn" / "intl"): the WorkBuddy
   // AI card carries the international credits, so filtering the domestic card
   // no longer hides them anywhere on the panel.
@@ -971,6 +973,7 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
                         {(isWorkbuddy || isWorkbuddyAi) && (
                           <WorkbuddyCreditSpend from={from} to={to} edition={workbuddyEdition} />
                         )}
+                        {isVyceai && <VyceAiSpend />}
 
                         {/* Input-side cache hit rate for this provider. Omitted
                             entirely when the source does no prompt caching (rate
