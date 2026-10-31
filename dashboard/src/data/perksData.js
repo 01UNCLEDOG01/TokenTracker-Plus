@@ -42,31 +42,6 @@ export const PERK_CATEGORIES = [
 
 export const PERK_PROVIDERS = [
   {
-    "id": "agentrouter",
-    "name": "Agent Router",
-    "provider": "agentrouter",
-    "category": [
-          "big_quota",
-          "daily_claim"
-    ],
-    "badge": "⚠️ 近几天不可用：全模型无流量",
-    "badgeType": "rose",
-    "tags": [
-      "暂不可用",
-      "美元赠额",
-      "多模型路由",
-      "海外网络"
-    ],
-    "description": "⚠️ 2026-10-31 站内实测：模型列表 3/3 显示「无流量」，近几天无法正常调用，官方仍在排查恢复。历史注册与签到额度按官方说法保留，恢复前建议改用其他高可用路由。",
-    "tips": "此前流传的「注册送 $125 / 每日签到 $25」未获官方公告确认（官方邀请公告为每成功邀请 1 人奖 $100）；恢复后一律以官方公告与站内额度页为准。",
-    "inviteUrl": "https://agentrouter.org/register?aff=tt0I",
-    "officialUrl": "https://agentrouter.org",
-    "inviteCode": "tt0I",
-    "hasInvite": true,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://agentrouter.org/api/status"
-  },
-  {
     "id": "agnes",
     "name": "agnes AI",
     "provider": "agnes",
@@ -197,8 +172,8 @@ export const PERK_PROVIDERS = [
       "活动领100额度",
       "邀请得重置"
     ],
-    "description": "首次登录豆包电脑版或豆包工作电脑版的新用户，可直接领取 30 天免费体验套餐（除生视频、Pro 模型外全功能可用，30 天内有效且优先消耗）。新老用户还可参与每日签到：每天 200 额度、周一翻倍，累计 500 / 2000 / 5000 额度里程碑再额外奖 200 / 500 / 1300 额度。「豆包来了·免费领额度」活动：人人可领 100 额度，每用户限领 1 次，登录「豆包电脑版」激活，先输入活动口令可升级额度；邀请好友使用豆包电脑版，双方各得 1 次额度重置机会，最多可邀请 20 人。",
-    "tips": "活动口令经 AI Agent 公益实训营等官方活动渠道发放，以活动页与官方社群为准；下载客户端后通过左下角签到弹窗或头像侧边栏「免费用豆包」参与签到，签到额度立即生效且优先消耗。",
+    "description": "首次登录豆包电脑版或豆包工作电脑版的新用户，可直接领取 30 天免费体验套餐（除生视频、Pro 模型外全功能可用，30 天内有效且优先消耗）。新老用户还可参与每日签到：每天 200 额度、周一翻倍，累计 500 / 2000 / 5000 额度里程碑再额外奖 200 / 500 / 1300 额度。「豆包来了·免费领额度」活动：人人可领 100 额度，每用户限领 1 次，登录「豆包电脑版」激活，先输入活动口令可升级额度；连续签到 30 天合计可得 8,800 额度；邀请好友使用豆包电脑版，双方各得 1 次额度重置机会，最多可邀请 20 人。",
+    "tips": "活动口令经 AI Agent 公益实训营等官方活动渠道发放，以活动页与官方社群为准；下载客户端后通过左下角签到弹窗或头像侧边栏「免费用豆包」参与签到，签到额度立即生效且优先消耗，签到额度的有效期以端内签到页规则为准。",
     "inviteUrl": "https://www.doubao.com/pc/desktop-fission/pro-trial/invited?inviteCode=WIbgDM5zbX",
     "officialUrl": "https://doubao.com/work",
     "inviteCode": "WIbgDM5zbX",
@@ -271,7 +246,7 @@ export const PERK_PROVIDERS = [
       "学生认证4000"
     ],
     "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。",
-    "tips": "支持 IDE 插件与桌面客户端，多模型智能调度（DeepSeek、Kimi、GLM 等）；积分自发放起有效期有限，签到入口在成长中心，随取随用。",
+    "tips": "支持 IDE 插件与桌面客户端，多模型智能调度（DeepSeek、Kimi、GLM 等）；官方两页口径不一：签到活动页写「当日领取当日有效」，个人订阅计费说明写「自发放之日起 30 天内有效」（签到活动期至 2026-12-31），以端内积分明细实际到期为准、积分按到期先后优先消耗；签到入口在成长中心，随取随用。",
     "inviteUrl": "https://devcloud.cn-north-4.huaweicloud.com/chat?source=dmzntgwlb&sourcead=dmzntgwlb1&invitecode=INV-taWTH2T2JcL8d0esH15UMseSLiQN99qbfeb5Gp50u21Mt01_mokNPORaI_CxM_LrKuoTZOJThp9prEXpEqLKxJIQWyMC6hxkWSbV1qmMNFT6eQVyw-81VuMzAonD1G1z-NMbHhOWdDYCrxKsgZHxDHIuFrDivfsf0lorAf7go8L-Ug",
     "officialUrl": "https://www.huaweicloud.com/product/codearts.html",
     "hasInvite": true,
@@ -734,7 +709,7 @@ export const PERK_PROVIDERS = [
       "邀请返利"
     ],
     "description": "全能 AI 工作台国内版：新用户注册送 250 积分，每月发放 100 基础积分，每日完成对话次日赠送 30 积分；积分直接在客户端内抵扣模型消耗。",
-    "tips": "客户端/工作台形态，适合日常桌面交互；邀请返利与连续签到加码以端内活动页为准。国际版 WorkBuddy AI（workbuddy.ai）与本版账号体系相互独立，另见其卡片。",
+    "tips": "客户端/工作台形态，适合日常桌面交互；官方订阅政策口径：每日奖励积分约 30 天过期清零、按到期先后优先消耗短有效期积分（以端内显示为准）；邀请返利与连续签到加码以端内活动页为准。国际版 WorkBuddy AI（workbuddy.ai）与本版账号体系相互独立，另见其卡片。",
     "inviteUrl": "https://www.workbuddy.cn/events/invite?inviteCode=hppwvxg4sgqw",
     "officialUrl": "https://www.workbuddy.cn",
     "inviteCode": "hppwvxg4sgqw",
@@ -899,7 +874,7 @@ export const PERK_PROVIDERS = [
       "每日登录200",
       "邀请积分风暴"
     ],
-    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端（国内版），内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日登录得 200 积分，并经常有限时积分活动加码。邀请活动（2026年7月28日至2026年11月12日）：每成功邀请 1 位好友注册并发起成功任务得 1000 积分，活动期内最多 15 位、累计上限 15000 积分；好友付费月卡双方另按购买积分（不含日积分）得 8%（100 元以下档）～12%（100 元及以上档）奖励，可累积无上限；邀请奖励积分 7 天有效、购买奖励积分 30 天有效。",
+    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端（国内版），内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日登录得 200 积分（有效期 7 天），并经常有限时积分活动加码。邀请活动（2026年7月28日至2026年11月12日）：每成功邀请 1 位好友注册并发起成功任务得 1000 积分，活动期内最多 15 位、累计上限 15000 积分；好友付费月卡双方另按购买积分（不含日积分）得 8%（100 元以下档）～12%（100 元及以上档）奖励，可累积无上限；邀请奖励积分 7 天有效、购买奖励积分 30 天有效。",
     "tips": "国内版 autoclaw.zhipuai.cn、国际版 autoclaw.z.ai 两套安装互斥，只装一个；新用户绑定邀请码须在 AutoClaw 桌面端完成，移动端暂不开放绑定入口；活动下线后邀请码即失效。",
     "inviteUrl": "https://autoglm.zhipuai.cn/misc/autoclaw-invite?activity_id=autoclaw_fission&channel=fission&source_location=sidebar&target_app=autoclaw&target_app_version=2.1.0&os=win&IC=GX4HHVHS",
     "officialUrl": "https://autoclaw.zhipuai.cn",
@@ -924,7 +899,7 @@ export const PERK_PROVIDERS = [
       "每日签到500",
       "国际版独立站"
     ],
-    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端的国际版，内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日正常签到得 500 credits，且经常叠加活动；新户初始体验额度以端内提示为准。国内版与国际版无法共存，只装一个。",
+    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端的国际版，内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日正常签到得 500 credits（有效期 7 天），且经常叠加活动；新户初始体验额度以端内提示为准。国内版与国际版无法共存，只装一个。",
     "tips": "国际版站点 autoclaw.z.ai 与国内版 autoclaw.zhipuai.cn 账号体系独立、安装互斥；国际版暂未核实有邀请活动，积分福利以端内为准。",
     "officialUrl": "https://autoclaw.z.ai",
     "hasInvite": false,
@@ -977,6 +952,30 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://z.ai",
     "hasInvite": false,
     "checkedAt": "2026-10-31",
-    "sourceUrl": "https://z.ai"
+    "sourceUrl": "https://z.ai"  },
+  {
+    "id": "agentrouter",
+    "name": "Agent Router",
+    "provider": "agentrouter",
+    "category": [
+          "big_quota",
+          "daily_claim"
+    ],
+    "badge": "⚠️ 近几天不可用：全模型无流量",
+    "badgeType": "rose",
+    "tags": [
+      "暂不可用",
+      "美元赠额",
+      "多模型路由",
+      "海外网络"
+    ],
+    "description": "⚠️ 2026-10-31 站内实测：模型列表 3/3 显示「无流量」，近几天无法正常调用，官方仍在排查恢复；签到入口仍可用，每日签到得 $25（站内计价口径、非官方美元价，实际可用量以站内为准）。历史注册与签到额度按官方说法保留，恢复前建议改用其他高可用路由。",
+    "tips": "此前流传的「注册送 $125 / 每日签到 $25」每日签到 $25 实测可得（站内计价口径、非官方美元价，实际可用量以站内为准）；不可用来源在列表中沉底展示，恢复后回 A 桶；恢复后一律以官方公告与站内额度页为准。",
+    "inviteUrl": "https://agentrouter.org/register?aff=tt0I",
+    "officialUrl": "https://agentrouter.org",
+    "inviteCode": "tt0I",
+    "hasInvite": true,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://agentrouter.org/api/status"
   }
 ];
