@@ -6,7 +6,7 @@ This build ships **no first-party cloud service**. There is no TokenTracker-oper
 
 TokenTracker reads the local logs that AI coding tools already write to your disk, and turns them into token counts and cost estimates. It is local-first: the dashboard, the parsers and the database all run on your machine.
 
-Cloud billing is being developed. The billing entries below describe the planned flow and do not mean paid checkout or Cloud history retention is already active in production. See the [Cloud guide](cloud-guide.md) for the proposed limits and transition rules.
+Cloud billing is being developed. The billing entries below describe the planned flow and do not mean paid checkout or Cloud history retention is already active in production.
 
 This document lists **every** network request the software can make, what each one sends, and how to switch it off. If you find a request that is not listed here, that is a bug — please [open an issue](https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues).
 

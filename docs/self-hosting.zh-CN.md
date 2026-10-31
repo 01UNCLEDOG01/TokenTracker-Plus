@@ -22,7 +22,7 @@
 
 历史迁移是现有数据库上的增量改动，部分文件还包含特定用户群的运营处理或数据修复。**不要在新数据库上直接执行全部历史迁移。** 使用[干净的私有后端安装器](self-hosting-backend.md)。`--sql` 输出带 PostgreSQL 事务的独立文件；`--migration` 由已连接 InsForge 实例的迁移 API 提供事务。
 
-订阅、设备权限、赠送和归档工作保存在 `feat/cloud-subscriptions`，尚未作为收费 Pro 正式发布。干净的私有基础 schema、官方本地 Linux 平台和标准 Dashboard A→C→A 切换已有验收记录；公网 VPS HTTPS 和受支持的原生路由仍需验证。[源码清单与缺口](internal-status.md) · [上线前交接总表](cloud-release-readiness.md)
+订阅、设备权限、赠送和归档工作保存在 `feat/cloud-subscriptions`，尚未作为收费 Pro 正式发布。干净的私有基础 schema、官方本地 Linux 平台和标准 Dashboard A→C→A 切换已有验收记录；公网 VPS HTTPS 和受支持的原生路由仍需验证。[源码清单与缺口](internal-status.md)
 
 ## 准备 VPS
 

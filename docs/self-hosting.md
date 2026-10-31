@@ -22,7 +22,7 @@ The public repository includes the application and backend TypeScript/SQL source
 
 The historical migrations are incremental changes to an existing database. Some files are operator-specific moderation or repair operations. **Do not apply every historical migration to a fresh database.** Use the [clean private-backend installer](self-hosting-backend.md). Its `--sql` mode owns a PostgreSQL transaction; `--migration` uses the linked InsForge migration API's transaction.
 
-Subscription, device-access, gift and archive work is tracked on `feat/cloud-subscriptions`; it has not been released as paid Pro. The clean private baseline, official local Linux platform and standard Dashboard A→C→A switching have recorded acceptance. Public VPS HTTPS and supported native routes remain pending. [Current inventory and gaps](internal-status.md) · [Release handoff](cloud-release-readiness.md)
+Subscription, device-access, gift and archive work is tracked on `feat/cloud-subscriptions`; it has not been released as paid Pro. The clean private baseline, official local Linux platform and standard Dashboard A→C→A switching have recorded acceptance. Public VPS HTTPS and supported native routes remain pending. [Current inventory and gaps](internal-status.md)
 
 ## Prepare the VPS
 

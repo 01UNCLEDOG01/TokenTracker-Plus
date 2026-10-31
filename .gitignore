@@ -150,3 +150,11 @@ script/
 *.zip
 TokenTrackerWin/installer/Output/
 TokenTrackerWin/publish/
+
+# ── 商业文档（站主指令 2026-10-31）：云定价/收款/结算/订阅运营不入库，仅本机留存 ──
+# 注意：历史提交里仍有这些文件的旧版本，HEAD 退库≠历史抹除（彻底抹除需 filter-repo）
+docs/cloud-*.md
+docs/windows-cloud-acceptance.md
+docs/waffo-production-readiness.md
+docs/(removed)-compatibility-20261012.md
+docs/pro-gift-codes.md
