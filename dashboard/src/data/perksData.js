@@ -57,7 +57,7 @@ export const PERK_PROVIDERS = [
       "长上下文",
       "多模态"
     ],
-    "description": "自研免费档模型换代：文本 agnes-2.5-flash、agnes-3-flash；生图 agnes-image-2.0 / 2.1 / 2.5-flash；视频 Agnes Video 2.5 Flash（720p）。官方 2026-09-23 公告把免费档与企业档速率各下调 50%，现为免费 10 RPM、企业 20 RPM。网页版（app.agnes-ai.com）每日登录免费领 600 时效积分（2026-11-01 实测，时效积分与永久积分分账核算）；国际站 www.agnes-ai.com 与中国站 agnes-ai.cn 双站可用，均无邀请活动。",
+    "description": "自研免费档模型换代：文本 agnes-2.5-flash、agnes-3-flash；生图 agnes-image-2.0 / 2.1 / 2.5-flash；视频 Agnes Video 2.5 Flash（720p）。官方 2026-09-23 公告把免费档与企业档速率各下调 50%，现为免费 10 RPM、企业 20 RPM。国际站 www.agnes-ai.com 与中国站 agnes-ai.cn 双站可用，均无邀请活动；每日登录领积分的网页版另见「Agnes AI 网页版」卡片。",
     "tips": "早期注册赠送 $0.10 余额，现行是否仍赠未核实，以站内额度为准；选自定义服务商填端点即可接入。",
     "officialUrl": "https://agnes-ai.com",
     "officialUrlAlt": "https://agnes-ai.cn",
@@ -66,6 +66,28 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-11-01",
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
+  },
+  {
+    "id": "agnes_web",
+    "name": "Agnes AI 网页版",
+    "provider": "agnes-web",
+    "category": [
+          "daily_claim"
+    ],
+    "badge": "每日登录领 600 时效积分",
+    "badgeType": "success",
+    "tags": [
+      "网页版",
+      "每日600时效积分",
+      "谷歌/苹果登录",
+      "时效/永久分账"
+    ],
+    "description": "Agnes AI 的网页版对话工作台（app.agnes-ai.com），需谷歌或苹果账号登录。实测每日登录免费领 600 时效积分（2026-11-01 到账，时效积分与永久积分分账核算）；无邀请活动。",
+    "tips": "时效积分与永久积分分开核算，消耗顺序以站内为准；网页版与 API 平台（另见「Agnes AI」卡）账号互通、福利互不相干。",
+    "officialUrl": "https://app.agnes-ai.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-01",
+    "sourceUrl": "https://app.agnes-ai.com"
   },
   {
     "id": "ant_ling",
@@ -426,7 +448,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "minimax_code",
     "name": "MiniMax Code (智能编程助手)",
-    "provider": "minimax",
+    "provider": "minimax-code",
     "category": [
           "client",
           "daily_claim"

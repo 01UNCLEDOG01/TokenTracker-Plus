@@ -59,8 +59,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 40 家收录（2026-10-31：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor、蚂蚁百灵、飓流AI、APIGOTO、Vyce AI），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(41);
+    // 40 家收录（2026-10-31：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor、蚂蚁百灵、飓流AI、APIGOTO、Vyce AI、Agnes 网页版），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(42);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -76,12 +76,12 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    expect(screen.getByText("41")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
     expect(screen.getByText("永久免费")).toBeInTheDocument();
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
     expect(screen.getByText("永久免费").closest("button")).toHaveTextContent("11");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("18");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("19");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
@@ -92,7 +92,7 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(40);
+    expect(directLinks).toHaveLength(41);
     // Agnes 双站：主按钮改国际站直达，另有中国站直达按钮
     expect(screen.getByText("国际站直达")).toBeInTheDocument();
     expect(screen.getByText("中国站直达")).toBeInTheDocument();

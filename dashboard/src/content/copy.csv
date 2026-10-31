@@ -909,7 +909,7 @@ perks.search_placeholder,ui,PerksPage,PerksPage,search_placeholder,"Search provi
 perks.empty.title,ui,PerksPage,PerksPage,empty_title,"No matching providers found",,active
 perks.empty.desc,ui,PerksPage,PerksPage,empty_desc,"Try switching category or refining search keywords",,active
 perks.notice.title,ui,PerksPage,PerksPage,notice_title,"💡 About Referral and Direct Links",,active
-perks.notice.desc,ui,PerksPage,PerksPage,notice_desc,"This guide provides both invite and official links. Using invite links may give you extra bonus credits while supporting guide maintenance. You can always use direct links to register.",,active
+perks.notice.desc,ui,PerksPage,PerksPage,notice_desc,"This guide provides both invite and official links. Using invite links may give you extra bonus credits while supporting guide maintenance. You can always use direct links to register. More providers are being added continuously.",,active
 perks.cat.all,ui,PerksPage,PerksPage,cat_all,"All Providers",,active
 perks.cat.featured,ui,PerksPage,PerksPage,cat_featured,"Featured",,active
 perks.cat.permanent_free,ui,PerksPage,PerksPage,cat_permanent_free,"Permanent Free",,active

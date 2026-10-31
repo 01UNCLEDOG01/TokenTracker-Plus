@@ -367,6 +367,18 @@ export function PerksPage() {
             </p>
           </div>
 
+          {/* Invite / Official-link transparency notice — kept at the top so
+              it is actually read (owner call 2026-11-01: a footer notice
+              scrolls out of sight). */}
+          <div className="mb-6 rounded-2xl border border-oai-gray-200/70 bg-oai-gray-50/60 p-5 text-xs text-oai-gray-500 dark:border-oai-gray-800/60 dark:bg-oai-gray-950/40 dark:text-oai-gray-400">
+            <h4 className="font-semibold text-oai-black dark:text-white">
+              {copy("perks.notice.title")}
+            </h4>
+            <p className="mt-1 leading-relaxed">
+              {copy("perks.notice.desc")}
+            </p>
+          </div>
+
           {/* Filters & Search Toolbar */}
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Category Tabs */}
@@ -441,15 +453,6 @@ export function PerksPage() {
             </div>
           )}
 
-          {/* Footer Transparency Notice */}
-          <div className="mt-12 rounded-2xl border border-oai-gray-200/70 bg-oai-gray-50/60 p-5 text-xs text-oai-gray-500 dark:border-oai-gray-800/60 dark:bg-oai-gray-950/40 dark:text-oai-gray-400">
-            <h4 className="font-semibold text-oai-black dark:text-white">
-              {copy("perks.notice.title")}
-            </h4>
-            <p className="mt-1 leading-relaxed">
-              {copy("perks.notice.desc")}
-            </p>
-          </div>
         </div>
       </main>
     </div>

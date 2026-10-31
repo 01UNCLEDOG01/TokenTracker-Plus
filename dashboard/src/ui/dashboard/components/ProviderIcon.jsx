@@ -488,6 +488,10 @@ const PROVIDER_LOGO_MAP = {
   UNSLOTH: "/brand-logos/unsloth.svg",
   // 蚂蚁百灵 — 官网 www.ant-ling.com 的多尺寸 favicon.ico（42KB）。
   "ANT-LING": "/brand-logos/ant-ling.ico",
+  // Agnes 网页版 — app.agnes-ai.com 的 agnes-icon.png（80×80）。
+  "AGNES-WEB": "/brand-logos/agnes-web.png",
+  // MiniMax Code 桌面客户端 — 本机安装目录 resources/icon.ico。
+  "MINIMAX-CODE": "/brand-logos/minimax-code.ico",
   // 飓流AI — 官网 juflowai.com 的 logo.png（512×512）。
   JUFLOWAI: "/brand-logos/juflowai.png",
   // Qoder CN ships its own brand mark — the domestic edition's icon (a green

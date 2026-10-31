@@ -21,7 +21,7 @@
 - 🏆 **65 conquistas + 17 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas.
 - 🪟 **Integração no Windows** —— bandeja do sistema, pet e widgets de cota; o instalador já embute o Node (sem build).
 - 🌍 **Ranking global de modelos (zero configuração)** — lê direto o leaderboard oficial da Artificial Analysis: índice de inteligência, preços de entrada/saída/cache, contexto e velocidade de saída de 80+ modelos. Sem chave de API, cache local com atualização automática.
-- 🎁 **Guia de benefícios dos provedores** — 41 serviços e clientes aproveitáveis de graça: créditos de boas-vindas, tiers gratuitos diários, cotas de longa duração e perks de check-in, com link de convite e link oficial lado a lado, além da data de verificação e da página de origem em cada cartão, filtrável e pesquisável.
+- 🎁 **Guia de benefícios dos provedores** — 42 serviços e clientes aproveitáveis de graça: créditos de boas-vindas, tiers gratuitos diários, cotas de longa duração e perks de check-in, com link de convite e link oficial lado a lado, além da data de verificação e da página de origem em cada cartão, filtrável e pesquisável.
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 
 ## ⚡ Início rápido
