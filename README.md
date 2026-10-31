@@ -304,3 +304,4 @@ cp .env.example .env.local
 - **上游项目**：致敬并感谢原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) 的杰出工作与开源贡献。
 - **第三方声明**：详见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。Clawd 角色形象归 Anthropic 所有，本项目与 Anthropic 官方无关联。
 - **商标免责**：本项目提及的所有产品名称、商标与厂商标识（包括 `dashboard/public/brand-logos/` 中的品牌图标）均归其各自所有者所有，仅用于识别与兼容性说明，不代表任何官方赞助、从属或背书。
+- **原创宠物资产**：猫也（Yeacat）与庚戌（Gengxu）为站主原创品牌资产，不随 MIT 许可授权——随软件正常使用不受影响，未经书面授权不得提取、再分发或二次创作，详见 [LICENSE-ASSETS.md](./LICENSE-ASSETS.md)。
