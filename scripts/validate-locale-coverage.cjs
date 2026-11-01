@@ -20,6 +20,10 @@ const SOURCE_IDENTICAL_KEY_ALLOWLIST = [
   // window label (2026-10-16).
   /^provider[.]display[.]trae_work_cn$/,
   /^limits[.]label[.]sensenova_flash_lite_5h$/,
+  // ZCode dual-region labels: region names are brand identities, the
+  // other-region title is a formatting-only pattern (2026-11-01, upstream #942).
+  /^limits[.]zcode[.]region[.](?:zai|bigmodel)$/,
+  /^limits[.]zcode[.]other_region[.]title$/,
   /^landing[.]install[.]command$/,
   // macOS shell commands are intentionally not localized (2026-10-26).
   /^limits[.]apiKey[.]env_unset_command$/,

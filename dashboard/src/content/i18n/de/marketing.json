@@ -161,5 +161,9 @@
   "share.card.annual.longest_streak": "Längste Serie",
   "share.card.annual.days_count": "{{days}} Tage",
   "share.card.annual.top_model": "Top-Modell",
-  "leaderboard.profile.nav.download": "Herunterladen"
+  "leaderboard.profile.nav.download": "Herunterladen",
+  "limits.zcode.other_region.title": "{{region}} · {{plan}}",
+  "limits.zcode.region.zai": "Z.ai",
+  "limits.zcode.region.bigmodel": "BigModel",
+  "limits.zcode.other_region.snapshot": "Snapshot vom {{time}}"
 }

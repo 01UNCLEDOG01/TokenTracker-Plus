@@ -161,5 +161,9 @@
   "share.card.annual.estimated_cost": "推定コスト",
   "share.card.annual.longest_streak": "最長連続",
   "share.card.annual.days_count": "{{days}} 日",
-  "share.card.annual.top_model": "人気モデル"
+  "share.card.annual.top_model": "人気モデル",
+  "limits.zcode.other_region.title": "{{region}} · {{plan}}",
+  "limits.zcode.region.zai": "Z.ai",
+  "limits.zcode.region.bigmodel": "BigModel",
+  "limits.zcode.other_region.snapshot": "{{time}} のスナップショット"
 }

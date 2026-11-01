@@ -181,5 +181,9 @@
   "landing.v3.how.scene.files_changed": "已修改 {{count}} 個檔案",
   "landing.v3.how.scene.session_title": "工作階段日誌 · 上一輪",
   "landing.v3.how.scene.appended": "已在本機附加",
-  "landing.v3.how.scene.total_tokens": "Token 總量"
+  "landing.v3.how.scene.total_tokens": "Token 總量",
+  "limits.zcode.other_region.title": "{{region}} · {{plan}}",
+  "limits.zcode.region.zai": "Z.ai",
+  "limits.zcode.region.bigmodel": "BigModel",
+  "limits.zcode.other_region.snapshot": "快照時間 {{time}}"
 }

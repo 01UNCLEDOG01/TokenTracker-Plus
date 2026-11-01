@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, Gift, Clock as ClockIcon, Infinity as InfinityIcon } from "lucide-react";
+import { ChevronDown, Gift, Clock as ClockIcon, Globe, Infinity as InfinityIcon } from "lucide-react";
 import { Card } from "../../components";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
 import { copy, getCopyLocale } from "../../../lib/copy";
@@ -1136,6 +1136,60 @@ function ZcodeStartPlanSection({ data, mode, now }) {
   );
 }
 
+/**
+ * ZCode queries both regions' balances while running, so the other region's
+ * plan snapshot exists in the usage logs even without on-disk credentials for
+ * it (absorbed from upstream PR 942). Renders collapsed behind a header toggle;
+ * the snapshot line states how old the borrowed numbers are.
+ */
+function ZcodeOtherRegionSection({ data, mode, now }) {
+  const other = data.other_region;
+  const [expanded, setExpanded] = useState(false);
+  if (!other || !Array.isArray(other.buckets) || !other.buckets.length) return null;
+  const regionName = copy(other.region === "zai" ? "limits.zcode.region.zai" : "limits.zcode.region.bigmodel");
+  const planLabel = other.plan_label || regionName;
+  const rows = other.buckets
+    .filter((bucket) => bucket?.window)
+    .map((bucket, index) => {
+      const spec = {
+        key: `other_region_${bucket.entitlement_id || index}`,
+        label: bucket.label || bucket.show_name || regionName,
+        window: bucket.window,
+      };
+      return { spec, pace: paceForSpec(spec, mode, now) };
+    });
+  const snapshotAt = Date.parse(other.log_timestamp);
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        data-limit-other-region-toggle=""
+        aria-expanded={expanded}
+        onClick={(event) => {
+          event.stopPropagation();
+          setExpanded((value) => !value);
+        }}
+        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] font-medium text-oai-gray-500 transition-colors hover:text-oai-gray-700 dark:text-oai-gray-400 dark:hover:text-oai-gray-200"
+      >
+        <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
+        <span className="truncate">
+          {copy("limits.zcode.other_region.title", { region: regionName, plan: planLabel })}
+        </span>
+      </button>
+      {expanded ? (
+        <div className="mt-1 flex flex-col gap-1.5">
+          <LimitWindowSection rows={rows} mode={mode} />
+          <div className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+            {Number.isFinite(snapshotAt)
+              ? copy("limits.zcode.other_region.snapshot", { time: formatExactReset(snapshotAt) })
+              : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, subscription = null, now = Date.now(), onKeySaved = null, petPicker = null) {
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
@@ -1172,6 +1226,9 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       ) : null}
       {id === "zcode" && data.start_plan?.configured ? (
         <ZcodeStartPlanSection data={data.start_plan} mode={mode} now={now} />
+      ) : null}
+      {id === "zcode" && data.other_region ? (
+        <ZcodeOtherRegionSection data={data} mode={mode} now={now} />
       ) : null}
     </ToolGroup>
   );

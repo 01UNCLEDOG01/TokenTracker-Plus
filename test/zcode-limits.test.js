@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { describe, it } = require("node:test");
+const { describe, it, test } = require("node:test");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -19,6 +19,10 @@ const {
   resolveZcodeProviderBillingBaseUrl,
   resolveZcodeProviderQuotaUrl,
   loadZcodeSelectedPlanProviderKeys,
+  writeZcodeLimitsCache,
+  readZcodeLimitsCache,
+  zcodeCacheIdentity,
+  withZcodeOtherRegion,
 } = require("../src/lib/zcode-limits");
 
 // Real billing/balance payload shape captured from ZCode's own logs.
@@ -1980,4 +1984,150 @@ describe("ZCode start-plan promotional grants", () => {
     const out = normalizeZcodeBalanceResponse(body);
     assert.deepEqual(out.buckets.map((b) => b.label), ["GLM-5.2", "GLM-5-Turbo"]);
   });
+});
+
+
+// --- last-good disk cache + other_region（absorbed from upstream #942/#950） ---
+const CACHE_RESULT = {
+  configured: true,
+  error: null,
+  provider_key: "builtin:zai-coding-plan",
+  plan_kind: "coding-plan",
+  buckets: [{ show_name: "5h", window: { used_percent: 20, reset_at: "2026-11-02T00:00:00.000Z" } }],
+  primary_window: { used_percent: 20, reset_at: "2026-11-02T00:00:00.000Z" },
+  secondary_window: null,
+  tertiary_window: null,
+};
+
+test("writeZcodeLimitsCache / readZcodeLimitsCache round-trips per provider partition", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tt-zcode-cache-"));
+  try {
+    const home = path.join(tmp, "home");
+    writeZcodeLimitsCache(CACHE_RESULT, { home, nowMs: 1000, providerKey: "builtin:zai-coding-plan", identity: "login-1|" });
+    writeZcodeLimitsCache({ ...CACHE_RESULT, provider_key: "builtin:bigmodel-coding-plan" }, { home, nowMs: 2000, providerKey: "builtin:bigmodel-coding-plan", identity: "login-2|" });
+    const hit = readZcodeLimitsCache({
+      home,
+      providerKeys: ["builtin:bigmodel-coding-plan", "builtin:zai-coding-plan"],
+      loginIdByFamily: { zai: "login-1", bigmodel: "login-2" },
+      nowMs: 5000,
+    });
+    assert.equal(hit.result.provider_key, "builtin:bigmodel-coding-plan");
+    assert.equal(hit.cachedAtMs, 2000);
+    const zaiOnly = readZcodeLimitsCache({
+      home,
+      providerKeys: ["builtin:zai-coding-plan"],
+      loginIdByFamily: { zai: "login-1" },
+      nowMs: 5000,
+    });
+    assert.equal(zaiOnly.result.provider_key, "builtin:zai-coding-plan");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("readZcodeLimitsCache skips partitions whose identity no longer matches", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tt-zcode-cache-"));
+  try {
+    const home = path.join(tmp, "home");
+    writeZcodeLimitsCache(CACHE_RESULT, { home, nowMs: 1000, providerKey: "builtin:zai-coding-plan", identity: "old-login|" });
+    assert.equal(readZcodeLimitsCache({
+      home, providerKeys: ["builtin:zai-coding-plan"], loginIdByFamily: { zai: "new-login" }, nowMs: 5000,
+    }), null);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("team-plan write→read wiring: teamContext object survives the partition", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tt-zcode-cache-"));
+  try {
+    const home = path.join(tmp, "home");
+    const teamContext = { organizationId: "org-7", projectId: "proj-9" };
+    // 写侧按 fetchZcodeLimits 的真实形态传 teamContext 对象；
+    // 读侧用同一登录身份——分区必须命中（上游把 teamContext 丢了，团队分区永不可读）。
+    writeZcodeLimitsCache(CACHE_RESULT, {
+      home,
+      nowMs: 1000,
+      providerKey: "builtin:zai-coding-plan",
+      identity: zcodeCacheIdentity("login-team", teamContext),
+      teamContext,
+    });
+    const hit = readZcodeLimitsCache({
+      home,
+      providerKeys: ["builtin:zai-coding-plan"],
+      loginIdByFamily: { zai: "login-team" },
+      nowMs: 5000,
+    });
+    assert.equal(hit.result.provider_key, "builtin:zai-coding-plan");
+    assert.equal(hit.result.primary_window.used_percent, 20);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("zcodeCacheIdentity normalizes object team contexts (upstream bug avoided)", () => {
+  assert.equal(zcodeCacheIdentity("a", { organizationId: "org", projectId: "proj" }), "a|org:proj");
+  assert.equal(zcodeCacheIdentity("a", "team-str"), "a|team-str");
+  assert.equal(zcodeCacheIdentity(null, null), "unknown|");
+});
+
+test("readZcodeLimitsCache withholds partitions that ended in auth errors", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tt-zcode-cache-"));
+  try {
+    const home = path.join(tmp, "home");
+    writeZcodeLimitsCache(CACHE_RESULT, { home, nowMs: 1000, providerKey: "builtin:zai-coding-plan", identity: "login-1|" });
+    assert.equal(readZcodeLimitsCache({
+      home,
+      providerKeys: ["builtin:zai-coding-plan"],
+      authErrorKeys: new Set(["builtin:zai-coding-plan"]),
+      loginIdByFamily: { zai: "login-1" },
+      nowMs: 5000,
+    }), null);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("zcodeCachedResult drops windows whose reset has passed and serves undated ones on a 12h TTL", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tt-zcode-cache-"));
+  try {
+    const home = path.join(tmp, "home");
+    const nowMs = Date.parse("2026-11-01T12:00:00Z");
+    writeZcodeLimitsCache({
+      ...CACHE_RESULT,
+      primary_window: { used_percent: 20, reset_at: "2026-11-01T00:00:00Z" },
+      buckets: [{ show_name: "expired", window: { used_percent: 99, reset_at: "2026-11-01T00:00:00Z" } }],
+    }, { home, nowMs: nowMs - 60_000, providerKey: "builtin:zai-coding-plan", identity: "login-1|" });
+    assert.equal(readZcodeLimitsCache({
+      home, providerKeys: ["builtin:zai-coding-plan"], loginIdByFamily: { zai: "login-1" }, nowMs,
+    }), null);
+    // Undated window: served while the cache is under 12h old.
+    writeZcodeLimitsCache({
+      ...CACHE_RESULT,
+      primary_window: { used_percent: 20, reset_at: null },
+    }, { home, nowMs: nowMs - 60_000, providerKey: "builtin:zai-coding-plan", identity: "login-1|" });
+    const hit = readZcodeLimitsCache({
+      home, providerKeys: ["builtin:zai-coding-plan"], loginIdByFamily: { zai: "login-1" }, nowMs,
+    });
+    assert.equal(hit.result.primary_window.reset_at, null);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("withZcodeOtherRegion attaches the other region's snapshot and skips same-region records", () => {
+  const served = { ...CACHE_RESULT, provider_key: "builtin:zai-coding-plan" };
+  const otherRecord = {
+    providerKey: "builtin:bigmodel-start-plan",
+    timestampMs: 1000,
+    log_timestamp: "2026-11-01T01:00:00.000Z",
+    body: { code: 0, data: { server_time: 1000, balances: [{ show_name: "GLM", total_units: 100, used_units: 10, remaining_units: 90, plan_id: "bigmodel-start-plan-01" }], plans: [] } },
+  };
+  const attached = withZcodeOtherRegion(served, { bigmodel: otherRecord });
+  assert.equal(attached.other_region.region, "bigmodel");
+  assert.equal(attached.other_region.plan_kind, "start-plan");
+  assert.equal(attached.other_region.primary_window.used_percent, 10);
+  assert.equal(withZcodeOtherRegion(served, { zai: otherRecord }), served);
+  const emptyBuckets = { ...served, buckets: [] };
+  assert.equal(withZcodeOtherRegion(emptyBuckets, { bigmodel: otherRecord }), emptyBuckets);
 });

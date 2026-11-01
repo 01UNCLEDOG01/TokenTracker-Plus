@@ -161,5 +161,9 @@
   "share.card.annual.estimated_cost": "예상 비용",
   "share.card.annual.longest_streak": "최장 연속",
   "share.card.annual.days_count": "{{days}}일",
-  "share.card.annual.top_model": "인기 모델"
+  "share.card.annual.top_model": "인기 모델",
+  "limits.zcode.other_region.title": "{{region}} · {{plan}}",
+  "limits.zcode.region.zai": "Z.ai",
+  "limits.zcode.region.bigmodel": "BigModel",
+  "limits.zcode.other_region.snapshot": "{{time}} 스냅샷"
 }

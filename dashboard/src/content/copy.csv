@@ -2054,3 +2054,7 @@ pet.state.run_hint,dashboard,PetPage,PetPage,state_run_hint,"Plays only while dr
 pet.state.wave,dashboard,PetPage,PetPage,state_wave,"Waving (summoned / wake / offline / error)",,active
 pet.state.run_right,dashboard,PetPage,PetPage,state_run_right,"Moving right (while dragging)",,active
 pet.state.run_left,dashboard,PetPage,PetPage,state_run_left,"Moving left (while dragging)",,active
+limits.zcode.other_region.title,dashboard,LimitsPage,UsageLimitsPanel,label,"{{region}} · {{plan}}",,active
+limits.zcode.region.zai,dashboard,LimitsPage,UsageLimitsPanel,label,Z.ai,,active
+limits.zcode.region.bigmodel,dashboard,LimitsPage,UsageLimitsPanel,label,BigModel,,active
+limits.zcode.other_region.snapshot,dashboard,LimitsPage,UsageLimitsPanel,detail,"Snapshot taken {{time}}",,active

@@ -22,6 +22,11 @@ function formatAmount(value) {
   }).format(value);
 }
 
+function unmountPanel() {
+  const { cleanup } = require("@testing-library/react");
+  cleanup();
+}
+
 function credit(granted_at, expires_at) {
   return { status: "available", reset_type: "weekly", granted_at, expires_at };
 }
@@ -1395,5 +1400,50 @@ describe("UsageLimitsPanel", () => {
     expect(screen.getByText("Not connected")).toBeInTheDocument();
     expect(screen.getByText("Connect Devin")).toBeInTheDocument();
     expect(screen.getByText("devin auth login")).toBeInTheDocument();
+  });
+});
+
+describe("ZcodeOtherRegionSection (absorbed from upstream PR 942)", () => {
+  const otherRegionData = {
+    configured: true,
+    error: null,
+    provider_key: "builtin:zai-coding-plan",
+    primary_window: { used_percent: 20, reset_at: "2026-11-02T00:00:00.000Z" },
+    secondary_window: null,
+    tertiary_window: null,
+    other_region: {
+      source: "zcode-log",
+      region: "bigmodel",
+      provider_key: "builtin:bigmodel-start-plan",
+      plan_kind: "start-plan",
+      plan_label: "Start",
+      log_timestamp: "2026-11-01T01:08:30.077Z",
+      buckets: [
+        { show_name: "GLM Coding", label: "GLM Coding", entitlement_id: "ent-1",
+          window: { used_percent: 20, reset_at: "2026-11-02T00:00:00.000Z" } },
+      ],
+      primary_window: { used_percent: 20, reset_at: "2026-11-02T00:00:00.000Z" },
+    },
+  };
+
+  it("renders the other-region section collapsed behind a toggle and hides without a snapshot", () => {
+    setCopyLocale(EN_LOCALE);
+    const view = render(<UsageLimitsPanel zcode={otherRegionData} order={["zcode"]} displayMode="used" />);
+    expect(screen.getByText("BigModel · Start")).toBeTruthy();
+    expect(view.queryByText(/Snapshot taken/)).toBeNull();
+    fireEvent.click(screen.getByText("BigModel · Start"));
+    expect(screen.getByText(/Snapshot taken/)).toBeTruthy();
+    unmountPanel();
+    const bare = render(<UsageLimitsPanel zcode={{ ...otherRegionData, other_region: undefined }} order={["zcode"]} displayMode="used" />);
+    expect(bare.queryByText("BigModel · Start")).toBeNull();
+  });
+
+  it("renders the region title with localized snapshot text", () => {
+    setCopyLocale(ZH_CN_LOCALE);
+    render(<UsageLimitsPanel zcode={otherRegionData} order={["zcode"]} displayMode="used" />);
+    expect(screen.getByText("BigModel · Start")).toBeTruthy();
+    fireEvent.click(screen.getByText("BigModel · Start"));
+    expect(screen.getByText(/快照时间/)).toBeTruthy();
+    unmountPanel();
   });
 });

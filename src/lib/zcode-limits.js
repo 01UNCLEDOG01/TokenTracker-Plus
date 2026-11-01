@@ -14,6 +14,119 @@ const DEFAULT_ZCODE_LOG_FALLBACK_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 // "not entitled" long after a new Start Plan grant was issued. Ignore it once
 // it is older than a day so live credentials still get a chance.
 const DEFAULT_ZCODE_AVAILABILITY_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Last-good disk cache (absorbed from upstream PR 950): when both the live chain
+// and the log fallback fail, previously known-good quota windows are served
+// from disk instead of leaving the card empty.
+const ZCODE_LIMITS_CACHE_FILE = "zcode-usage-limits-cache.json";
+const ZCODE_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS = 12 * 60 * 60 * 1000;
+
+function zcodeLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", ZCODE_LIMITS_CACHE_FILE);
+}
+
+/**
+ * Cache partitions are scoped to `${loginId}|${teamContext}` so an account
+ * switch can never inherit the previous login's bars. teamContext arrives as
+ * an object from team selections; normalize both shapes here (upstream shipped
+ * a typeof-string check that never matched its own object form).
+ */
+function zcodeCacheIdentity(loginAccountId, teamContext) {
+  let team = "";
+  if (typeof teamContext === "string") {
+    team = teamContext.trim();
+  } else if (teamContext && typeof teamContext === "object") {
+    team = `${teamContext.organizationId || ""}:${teamContext.projectId || ""}`;
+  }
+  const login = typeof loginAccountId === "string" && loginAccountId.trim() ? loginAccountId.trim() : "unknown";
+  return `${login}|${team}`;
+}
+
+/** Best-effort cache write; never throws, atomic tmp+rename, mode 0600. */
+function writeZcodeLimitsCache(result, { home, nowMs = Date.now(), providerKey, identity, teamContext } = {}) {
+  try {
+    // An empty-success (shape drift / maintenance) must never clobber the last
+    // known-good partition: only results with a servable primary window are
+    // worth caching at all.
+    if (!providerKey || !result || typeof result !== "object" || result.configured !== true) return;
+    if (!result.primary_window) return;
+    const cachePath = zcodeLimitsCachePath({ home });
+    let cache = { version: 1, partitions: {} };
+    try {
+      const raw = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+      if (raw && typeof raw === "object" && raw.partitions && typeof raw.partitions === "object") cache = raw;
+    } catch (_error) {}
+    cache.version = 1;
+    // start_plan / reset_credits are live-only login extras: their grant
+    // windows would freeze on a cache hit, so they are not persisted.
+    cache.partitions[providerKey] = { identity, teamContext, cached_at: new Date(nowMs).toISOString(), result };
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    const tmp = `${cachePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(cache), { mode: 0o600 });
+    fs.renameSync(tmp, cachePath);
+  } catch (_error) {}
+}
+
+/** Windows whose reset_at has passed are dropped; undated windows ride a 12h TTL. */
+function zcodeCachedWindow(window, { cachedAtMs, nowMs }) {
+  if (!window || typeof window !== "object") return null;
+  const resetAt = typeof window.reset_at === "string" && window.reset_at ? Date.parse(window.reset_at) : NaN;
+  if (Number.isFinite(resetAt)) return resetAt > nowMs ? window : null;
+  return nowMs - cachedAtMs <= ZCODE_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS ? window : null;
+}
+
+/** Drop a cached result entirely once no servable window remains. */
+function zcodeCachedResult(result, { cachedAtMs, nowMs }) {
+  const pick = (window) => zcodeCachedWindow(window, { cachedAtMs, nowMs });
+  const primary = pick(result.primary_window);
+  if (!primary) return null;
+  const out = {
+    ...result,
+    primary_window: primary,
+    secondary_window: pick(result.secondary_window),
+    tertiary_window: pick(result.tertiary_window),
+  };
+  if (Array.isArray(result.buckets)) {
+    out.buckets = result.buckets
+      .map((bucket) => (bucket && typeof bucket === "object" ? { ...bucket, window: pick(bucket.window) } : null))
+      .filter((bucket) => bucket && bucket.window);
+  }
+  // Live-only login extras: their grant windows would freeze past expiry.
+  delete out.start_plan;
+  delete out.reset_credits;
+  return out;
+}
+
+/**
+ * Read the last-good cache in live-candidate priority order. Partitions whose
+ * attempts all ended in auth errors are withheld so re-login stays actionable;
+ * an identity mismatch (account switch) skips the partition entirely.
+ */
+function readZcodeLimitsCache({ home, providerKeys = [], authErrorKeys = new Set(), loginIdByFamily = {}, nowMs = Date.now() } = {}) {
+  let cache;
+  try {
+    cache = JSON.parse(fs.readFileSync(zcodeLimitsCachePath({ home }), "utf8"));
+  } catch (_error) {
+    return null;
+  }
+  const partitions = cache && typeof cache === "object" && cache.partitions && typeof cache.partitions === "object"
+    ? cache.partitions
+    : null;
+  if (!partitions) return null;
+  for (const providerKey of providerKeys) {
+    if (authErrorKeys.has(providerKey)) continue;
+    const entry = partitions[providerKey];
+    if (!entry || typeof entry !== "object" || !entry.result) continue;
+    // entry.teamContext is persisted at write time — dropping it (as upstream
+    // did) would make every team-plan partition permanently unreadable.
+    const acceptable = zcodeCacheIdentity(loginIdByFamily[zcodeProviderFamily(providerKey)], entry.teamContext);
+    if (entry.identity !== acceptable) continue;
+    const cachedAtMs = Date.parse(entry.cached_at || "") || 0;
+    const result = zcodeCachedResult(entry.result, { cachedAtMs, nowMs });
+    if (!result) continue;
+    return { result, cachedAtMs };
+  }
+  return null;
+}
 
 function resolveZcodeHome({ home, env = process.env } = {}) {
   if (typeof env.TOKENTRACKER_ZCODE_HOME === "string" && env.TOKENTRACKER_ZCODE_HOME.trim()) {
@@ -965,18 +1078,11 @@ function extractZcodeBalanceLogRecord(line) {
   }
 }
 
-function loadLatestZcodeBalanceFromLogs({
-  home,
-  env = process.env,
-  providerKeys = [],
-  nowMs = Date.now(),
-  requireProviderMatch = false,
-} = {}) {
-  if (env.TOKENTRACKER_ZCODE_DISABLE_LOG_FALLBACK === "1") return null;
+/** All valid, in-age balance records across the recent log files, oldest first. */
+function scanZcodeBalanceLogRecords({ home, env = process.env, nowMs = Date.now() } = {}) {
+  if (env.TOKENTRACKER_ZCODE_DISABLE_LOG_FALLBACK === "1") return [];
   const maxAgeMs = parsePositiveInteger(env.TOKENTRACKER_ZCODE_LOG_MAX_AGE_MS, DEFAULT_ZCODE_LOG_FALLBACK_MAX_AGE_MS);
-  const preferredProviders = new Set(providerKeys.filter(Boolean));
-  let preferred = null;
-  let fallback = null;
+  const records = [];
   for (const logPath of recentZcodeLogPaths({ home, env, nowMs })) {
     if (!fs.existsSync(logPath)) continue;
     let text = "";
@@ -991,14 +1097,86 @@ function loadLatestZcodeBalanceFromLogs({
       if (!record) continue;
       const ageMs = nowMs - record.timestampMs;
       if (ageMs < 0 || ageMs > maxAgeMs) continue;
-      if (!fallback || record.timestampMs > fallback.timestampMs) fallback = record;
-      if (preferredProviders.has(record.providerKey) && (!preferred || record.timestampMs > preferred.timestampMs)) {
-        preferred = record;
-      }
+      records.push(record);
+    }
+  }
+  return records;
+}
+
+function loadLatestZcodeBalanceFromLogs({
+  home,
+  env = process.env,
+  providerKeys = [],
+  nowMs = Date.now(),
+  requireProviderMatch = false,
+} = {}) {
+  const preferredProviders = new Set(providerKeys.filter(Boolean));
+  let preferred = null;
+  let fallback = null;
+  for (const record of scanZcodeBalanceLogRecords({ home, env, nowMs })) {
+    if (!fallback || record.timestampMs > fallback.timestampMs) fallback = record;
+    if (preferredProviders.has(record.providerKey) && (!preferred || record.timestampMs > preferred.timestampMs)) {
+      preferred = record;
     }
   }
   if (preferred) return preferred;
   return requireProviderMatch && preferredProviders.size > 0 ? null : fallback;
+}
+
+/**
+ * Newest balance record per region (zai / bigmodel). Used to surface the
+ * OTHER region's plan: ZCode queries both regions' balances while running,
+ * so the snapshot exists in logs even without on-disk credentials for that
+ * region (absorbed from upstream PR 942).
+ */
+function scanZcodeBalanceLogsByRegion({ home, env = process.env, nowMs = Date.now() } = {}) {
+  const byRegion = {};
+  for (const record of scanZcodeBalanceLogRecords({ home, env, nowMs })) {
+    if (!record.providerKey) continue;
+    const family = zcodeProviderFamily(record.providerKey);
+    if (family !== "zai" && family !== "bigmodel") continue;
+    if (!byRegion[family] || record.timestampMs > byRegion[family].timestampMs) byRegion[family] = record;
+  }
+  return byRegion;
+}
+
+/**
+ * Attach the other region's latest log snapshot (when it differs from the
+ * served provider) as `result.other_region` (absorbed from upstream PR 942).
+ */
+function withZcodeOtherRegion(result, byRegion = {}) {
+  if (!result || !result.provider_key || !Array.isArray(result.buckets) || !result.buckets.length) return result;
+  const servedFamily = zcodeProviderFamily(result.provider_key);
+  const otherFamily = servedFamily === "zai" ? "bigmodel" : "zai";
+  const record = byRegion[otherFamily];
+  if (!record || record.providerKey === result.provider_key) return result;
+  let normalized;
+  try {
+    normalized = normalizeZcodeBalanceResponse(record.body);
+  } catch (_error) {
+    return result;
+  }
+  const nowMs = Date.now();
+  const liveBuckets = (Array.isArray(normalized.buckets) ? normalized.buckets : []).filter((bucket) => {
+    const resetAt = bucket?.window?.reset_at ? Date.parse(bucket.window.reset_at) : NaN;
+    // A window whose reset has passed renders as "resets now" — drop it.
+    return !(Number.isFinite(resetAt) && resetAt <= nowMs);
+  });
+  if (!liveBuckets.length) return result;
+  normalized = { ...normalized, buckets: liveBuckets, primary_window: liveBuckets[0]?.window || null };
+  return {
+    ...result,
+    other_region: {
+      source: "zcode-log",
+      region: otherFamily,
+      provider_key: record.providerKey,
+      plan_kind: normalized.plan_kind,
+      plan_label: normalized.plan_label,
+      log_timestamp: record.log_timestamp,
+      buckets: normalized.buckets,
+      primary_window: normalized.primary_window,
+    },
+  };
 }
 
 function zcodeLogFallbackResult(logRecord, errors = []) {
@@ -1051,9 +1229,15 @@ async function fetchZcodeLimits({ home, env, fetchImpl = fetch, nowMs = Date.now
     return { configured: false };
   }
   const authCandidates = loadZcodeAuthCandidates({ home, env });
+  const logByRegion = scanZcodeBalanceLogsByRegion({ home, env, nowMs });
+  const authErrorKeys = new Set();
+  const loginIdByFamily = {
+    zai: loadZcodeLoginAccountId("zai", { home, env }),
+    bigmodel: loadZcodeLoginAccountId("bigmodel", { home, env }),
+  };
   if (!authCandidates.length) {
     const logFallback = loadLatestZcodeBalanceFromLogs({ home, env, nowMs });
-    if (logFallback) return zcodeLogFallbackResult(logFallback, []);
+    if (logFallback) return withZcodeOtherRegion(zcodeLogFallbackResult(logFallback, []), logByRegion);
     return { configured: false };
   }
   const errors = [];
@@ -1089,6 +1273,13 @@ async function fetchZcodeLimits({ home, env, fetchImpl = fetch, nowMs = Date.now
       };
       if (Array.isArray(normalized.buckets) && normalized.buckets.length === 0 && authCandidates.length > 1) {
         emptySuccess = emptySuccess || result;
+        writeZcodeLimitsCache(result, {
+          home,
+          nowMs,
+          providerKey: auth.providerKey,
+          identity: zcodeCacheIdentity(loadZcodeLoginAccountId(zcodeProviderFamily(auth.providerKey), { home, env }), auth.teamContext),
+          teamContext: auth.teamContext,
+        });
         continue;
       }
       if (auth.planKind === "coding-plan") {
@@ -1147,12 +1338,21 @@ async function fetchZcodeLimits({ home, env, fetchImpl = fetch, nowMs = Date.now
           }
         }
       }
-      return result;
+      writeZcodeLimitsCache(result, {
+        home,
+        nowMs,
+        providerKey: auth.providerKey,
+        identity: zcodeCacheIdentity(loadZcodeLoginAccountId(zcodeProviderFamily(auth.providerKey), { home, env }), auth.teamContext),
+        teamContext: auth.teamContext,
+      });
+      return withZcodeOtherRegion(result, logByRegion);
     } catch (error) {
-      errors.push(`${auth.providerKey}: ${error?.message || "Unknown error"}`);
+      const message = error?.message || "Unknown error";
+      if (/Not authenticated/i.test(message)) authErrorKeys.add(auth.providerKey);
+      errors.push(`${auth.providerKey}: ${message}`);
     }
   }
-  if (emptySuccess) return emptySuccess;
+  if (emptySuccess) return withZcodeOtherRegion(emptySuccess, logByRegion);
   const logFallback = loadLatestZcodeBalanceFromLogs({
     home,
     env,
@@ -1160,7 +1360,28 @@ async function fetchZcodeLimits({ home, env, fetchImpl = fetch, nowMs = Date.now
     nowMs,
     requireProviderMatch: authCandidates.some((auth) => auth.planKind === "coding-plan"),
   });
-  if (logFallback) return zcodeLogFallbackResult(logFallback, errors);
+  if (logFallback) return withZcodeOtherRegion(zcodeLogFallbackResult(logFallback, errors), logByRegion);
+  // Live chain and log fallback both failed: serve the last known-good quota
+  // windows from disk (absorbed from upstream PR 950). Auth-error partitions are
+  // withheld so a re-login stays actionable instead of being masked by stale
+  // bars.
+  const cached = readZcodeLimitsCache({
+    home,
+    providerKeys: authCandidates.map((auth) => auth.providerKey),
+    authErrorKeys,
+    loginIdByFamily,
+    nowMs,
+  });
+  if (cached) {
+    return withZcodeOtherRegion({
+      ...cached.result,
+      stale: true,
+      cached: true,
+      source: "disk-cache",
+      cached_at: new Date(cached.cachedAtMs).toISOString(),
+      provider_errors: errors,
+    }, logByRegion);
+  }
   return {
     configured: true,
     error: errors[0] || "Unknown error",
@@ -1183,6 +1404,12 @@ module.exports = {
   resolveZcodeProviderQuotaUrl,
   loadZcodeAuthCandidates,
   loadZcodeApiKey,
+  writeZcodeLimitsCache,
+  readZcodeLimitsCache,
+  zcodeCacheIdentity,
+  zcodeLimitsCachePath,
+  scanZcodeBalanceLogsByRegion,
+  withZcodeOtherRegion,
   deriveZcodePlanLabel,
   normalizeZcodeBalanceResponse,
   normalizeZcodeCodingPlanQuotaResponse,
