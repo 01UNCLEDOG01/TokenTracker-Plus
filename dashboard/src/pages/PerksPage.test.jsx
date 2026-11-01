@@ -110,8 +110,8 @@ describe("PerksPage", () => {
 
     fireEvent.click(screen.getAllByText("标记已领取")[0]);
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
-    // agnes 为沉底 agentrouter 后的首卡（文件序即展示序）
-    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agnes"]);
+    // 公平排序（中英文名取较前）下首卡为阿里百炼（中文拼音 rank 0）
+    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["qwen"]);
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();

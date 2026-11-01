@@ -15,6 +15,7 @@ const SPECIAL_PROVIDER_NAMES = {
   unsloth: "Unsloth Studio",
   workbuddyai: "WorkBuddy AI",
   agent2api: "Agent2API",
+  vyceai: "Vyce AI",
   magpie: "Magpie",
   raccoon: "商汤小浣熊",
   codearts: "CodeArts Agent",
