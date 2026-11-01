@@ -87,7 +87,7 @@ function writeSession(home, lines, name = `${SESSION_ID}.jsonl`) {
 }
 
 test("a Raccoon trace becomes one canonical session row with vendor-reported timing", async (t) => {
-  if (process.env.CI) return t.skip("runner environment diverges from local; pending Linux repro (KI-055)");
+  if (process.env.CI && process.env.KI055_DIAGNOSE !== "1") return t.skip("runner environment diverges from local; pending Linux repro (KI-055)");
   const home = fixture(t);
   const file = writeSession(home, [
     startLine(),

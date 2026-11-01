@@ -1,0 +1,96 @@
+# KI-055 diagnostic workflow.
+#
+# Temporary: reproduces the three runner-only divergences recorded in
+# KNOWN_ISSUES.md (KI-055) on a real ubuntu-latest runner. Disabled from
+# push/PR triggers on purpose: it exists only to be dispatched by hand.
+# Delete together with the KI055_DIAGNOSE guards once the root cause is fixed.
+name: KI-055 diagnose
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ki055-diagnose-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Linux runner diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Node 24 matches ci.yml: the suite needs native type stripping and
+          # undici 8, so Node 20 cannot run it.
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            dashboard/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install dashboard dependencies
+        run: npm ci --prefix dashboard
+
+      - name: Runner diagnostics
+        run: |
+          set -x
+          git rev-parse HEAD
+          uname -a
+          id
+          node -v
+          npm -v
+          getent passwd "$(id -u)" || true
+          echo "TMPDIR=${TMPDIR:-<unset>} os.tmpdir probe:"
+          node -p "require('node:os').tmpdir()"
+          df -h /tmp | tail -n 1 || true
+          mount | grep -E ' /tmp ' || echo "/tmp is not a separate mount"
+          echo "--- tool availability ---"
+          for tool in sqlite3 lsof ss fuser netstat pkill ps; do
+            printf '%s: ' "$tool"
+            command -v "$tool" || echo "MISSING"
+          done
+          sqlite3 --version 2>&1 || true
+          lsof -v 2>&1 | head -n 3 || true
+
+      # POSIX permission bits are the assumption behind the scan-roots test.
+      # Prove what this runner's user actually sees for a 000 directory.
+      - name: chmod 000 read probe
+        run: |
+          probe="$(mktemp -d)"
+          mkdir -p "$probe/secret"
+          echo x > "$probe/secret/file.txt"
+          chmod 000 "$probe/secret"
+          ls -ld "$probe/secret"
+          node -e '
+            const fs = require("node:fs");
+            const dir = process.argv[1];
+            console.log("uid=" + (typeof process.getuid === "function" ? process.getuid() : "n/a"));
+            const probes = [
+              ["readdirSync", () => fs.readdirSync(dir)],
+              ["readdirSync+withFileTypes", () => fs.readdirSync(dir, { withFileTypes: true })],
+              ["opendirSync", () => { fs.opendirSync(dir).close(); }],
+              ["readFileSync(child)", () => fs.readFileSync(dir + "/file.txt")],
+              ["statSync(dir)", () => fs.statSync(dir)],
+              ["accessSync(R_OK)", () => fs.accessSync(dir, fs.constants.R_OK)],
+            ];
+            for (const [label, run] of probes) {
+              try { run(); console.log(label + ": NO ERROR"); }
+              catch (error) { console.log(label + ": " + error.code + " (errno " + error.errno + ")"); }
+            }
+          ' "$probe/secret"
+          chmod 755 "$probe/secret"
+          rm -rf "$probe"
+
+      # Guards now honour KI055_DIAGNOSE=1, so these three previously skipped
+      # tests actually execute. CI is already "true" on Actions.
+      - name: Run KI-055 tests unskipped
+        run: env KI055_DIAGNOSE=1 node --test --test-timeout=120000 test/session-analytics-raccoon.test.js test/session-analytics-scan-roots.test.js test/serve-port-hint.test.js
