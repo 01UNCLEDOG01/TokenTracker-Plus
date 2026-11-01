@@ -20,7 +20,11 @@ const {
 } = require("../src/lib/raccoon-sessions");
 
 const SESSION_ID = "a9b717e3-79ab-46cc-b68f-2522aa95b553";
-const WORKSPACE = "D:\\TokenTrackerPlus";
+// Vendor-reported workspace path. projectKey() takes path.basename(), and a
+// backslash only separates path components on Windows: the hardcoded
+// "D:\\TokenTrackerPlus" made the whole string the project key (and title) on
+// POSIX runners (KI-055). A native path keeps the fixture meaningful on both.
+const WORKSPACE = process.platform === "win32" ? "D:\\TokenTrackerPlus" : "/home/dev/TokenTrackerPlus";
 const SECRET = "私密提示词：把 KI-033 的现场核实一遍，别凭空编标题";
 
 function fixture(t) {

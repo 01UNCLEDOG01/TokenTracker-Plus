@@ -21,6 +21,7 @@ const {
   providerRoots,
   resolveSessionSidecarPath,
 } = require("../src/lib/session-analytics");
+const { sessionArchivePath } = require("../src/lib/session-archive");
 
 function writeClaudeSession(root, project, sessionId) {
   const dir = path.join(root, "projects", project);
@@ -129,6 +130,10 @@ test("an unreadable configured projects/ marks discovery incomplete and never ca
     // Forced with no cache: build from what is readable, but persist nothing.
     fs.rmSync(sidecarPath, { force: true });
     fs.rmSync(metaPath, { force: true });
+    // The session archive is a cache too: reconcileSessionArchive() retains a
+    // snapshot of a session that a partial build cannot see, so "no cache" has
+    // to clear it or the partial build still returns two rows (KI-055).
+    fs.rmSync(sessionArchivePath(home), { force: true });
     const partial = await buildSessionAnalytics({ home, force: true });
     assert.equal(partial.length, 1);
     assert.equal(partial.incompleteDirs.length, 1);

@@ -4,6 +4,15 @@
 # KNOWN_ISSUES.md (KI-055) on a real ubuntu-latest runner. Disabled from
 # push/PR triggers on purpose: it exists only to be dispatched by hand.
 # Delete together with the KI055_DIAGNOSE guards once the root cause is fixed.
+#
+# Iteration 2 (run 1 red: 3/3 failed). Changes vs iteration 1:
+#  - build the dashboard before the tests, exactly like ci.yml does (the first
+#    run omitted it, and `serve` exits 1 with "Dashboard not found." when
+#    dashboard/dist is absent -- the serve duplicate test then never gets a
+#    listener, which is an artifact of this workflow, not necessarily a runner
+#    divergence);
+#  - probe that startup failure explicitly so the log proves it;
+#  - keep the three tests unskipped via KI055_DIAGNOSE=1.
 name: KI-055 diagnose
 
 on:
@@ -20,7 +29,7 @@ jobs:
   diagnose:
     name: Linux runner diagnostics
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -89,6 +98,38 @@ jobs:
           ' "$probe/secret"
           chmod 755 "$probe/secret"
           rm -rf "$probe"
+
+      # Direct proof of the iteration-1 serve failure: with no dashboard build,
+      # serve writes "Dashboard not found." to stderr, sets exitCode 1 and
+      # returns before listening. The duplicate-exit test then times out in
+      # waitForLocalAuth() with ECONNREFUSED -- an environment artifact.
+      - name: serve startup probe without dashboard/dist
+        run: |
+          set +e
+          port="$(node -e 'const n=require("node:net");const s=n.createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close();})')"
+          home="$(mktemp -d)"
+          mkdir -p "$home/.tokentracker/tracker"
+          echo '{}' > "$home/.tokentracker/tracker/cursors.json"
+          echo '{"proxy":{"mode":"off"},"telemetry":false}' > "$home/.tokentracker/tracker/config.json"
+          out="$(mktemp)"
+          HOME="$home" USERPROFILE="$home" TOKENTRACKER_SKIP_LOCAL_RUNTIME_COPY=1 TOKENTRACKER_PROXY_ENV_APPLIED=1             timeout 30 node bin/tracker.js serve --port "$port" --no-sync --no-open >"$out" 2>&1
+          status=$?
+          set -e
+          echo "serve exit status: $status"
+          echo "serve output:"
+          sed -n '1,30p' "$out"
+          echo "dashboard/dist present: $([ -f dashboard/dist/index.html ] && echo yes || echo no)"
+          rm -rf "$home"
+
+      # Same prerequisite as ci.yml: the local-runtime/serve paths resolve
+      # dashboard/dist, and a fresh checkout has none.
+      - name: Build dashboard
+        run: npm run dashboard:build
+
+      - name: dashboard/dist after build
+        run: |
+          ls -la dashboard/dist | head -n 20
+          node -p "require('node:fs').existsSync('dashboard/dist/index.html')"
 
       # Guards now honour KI055_DIAGNOSE=1, so these three previously skipped
       # tests actually execute. CI is already "true" on Actions.
