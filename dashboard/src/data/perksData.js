@@ -248,7 +248,7 @@ export const PERK_PROVIDERS = [  {
       "月度抵扣券",
       "按量计费"
     ],
-    "description": "蚂蚁集团百灵大模型开放平台，OpenAI 兼容地址 api.ant-ling.com/v1，API 按量计费。原每日 50 万 Token 免费额度已于 2026-10-31 停止按日发放；改为每月 1 日向新计费平台账户自动发放 1 张 10 元 Token 抵扣券（适用于全部模型，2026-11-01 实测到账，账内显示有效期至 2026-11-30）；历史计费账户完成升级另得一次 20 元 Token 消费券（自实际到账之日起 60 天内有效，适用于全部模型）；券仅可抵扣模型调用消费，不可提现或转让。",
+    "description": "蚂蚁集团百灵大模型开放平台，OpenAI 兼容地址 api.ant-ling.com/v1，API 按量计费。原每日 50 万 Tokens 免费额度已于 2026-10-31 停止按日发放；改为每月 1 日向新计费平台账户自动发放 1 张 10 元 Token 抵扣券（适用于全部模型，2026-11-01 实测到账，账内显示有效期至 2026-11-30）；历史计费账户完成升级另得一次 20 元 Token 消费券（自实际到账之日起 60 天内有效，适用于全部模型）；券仅可抵扣模型调用消费，不可提现或转让。",
     "tips": "到账查看：百灵计费平台 → 财务管理 → 账户充值 → 赠送额度（悬停可见每张券的适用模型/剩余/有效期）；额度按金额抵扣、与原 Token 数量口径不可直接换算；旧模型 Ling-2.6-1T / Ring-2.6-1T / Ling-2.6-flash 将于 2026-11-15 下线，请切换新版模型。",
     "officialUrl": "https://developer.ant-ling.com",
     "hasInvite": false,
@@ -264,14 +264,14 @@ export const PERK_PROVIDERS = [  {
           "big_quota",
           "permanent_free"
     ],
-    "badge": "每模型送 50 万 Tokens + 每日限免",
+    "badge": "新户每模型 50 万 · 个人每日单模型 200 万",
     "badgeType": "blue",
     "tags": [
       "字节大厂",
       "多模型赠送",
       "每日限免额度"
     ],
-    "description": "新用户注册火山引擎即获赠每个模型 50 万 Tokens 推理额度；现行活动另按「单模型每日最高 500 万免费 Tokens」发放限免额度，具体模型清单与有效期以控制台额度页实时为准。Coding Plan 可叠加折扣。",
+    "description": "新用户注册火山引擎即获赠每个模型 50 万 Tokens 推理额度。协作奖励计划分级（2026-11-01 官方页核对）：领取个人权益 = 每日单模型 200 万免费 tokens；领取企业权益 = 完成认证后升级每日单模型 500 万免费 tokens。安心体验模式开启后仅消耗赠送额度、按量付费不产生额外费用，额度耗尽对应模型自动暂停；具体模型清单与有效期以控制台额度页实时为准。Coding Plan 可叠加折扣。",
     "tips": "在控制台创建推理接入点 (ep-xxx) 即可使用；赠额有效期与协作奖励档位变动频繁，领取前先看控制台「免费额度」页。",
     "inviteUrl": "https://volcengine.com/L/YPDTLsCOn8k/",
     "officialUrl": "https://www.volcengine.com/product/doubao",
