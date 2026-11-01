@@ -576,7 +576,6 @@ const PROVIDER_LOGO_MAP = {
   SILICONFLOW: "/brand-logos/siliconflow.png?v=1",
   TOKENRHYTHM: "/brand-logos/tokenrhythm.png?v=1",
   VOLCENGINE: "/brand-logos/volcengine.png?v=1",
-  VYCEAI: "/brand-logos/vyceai.svg",
   LONGCAT: "/brand-logos/longcat.png?v=1",
   DOUBAO: "/brand-logos/doubao.png?v=1",
   OPENROUTER: "/brand-logos/openrouter.png?v=1",
@@ -647,11 +646,22 @@ export function hasProviderIcon(provider) {
   return Boolean(PROVIDER_LOGO_MAP[logoKey] || PROVIDER_ICON_MAP[normalized]);
 }
 
+// One retry with a cache-busting query when the first request fails (e.g. a
+// burst of ~40 first-load brand requests hitting a busy local server) — a
+// plain <img> would otherwise stay broken forever with no way to recover.
+function handleLogoError(e) {
+  const img = e.currentTarget;
+  if (img.dataset.retried) return;
+  img.dataset.retried = "1";
+  const sep = img.src.includes("?") ? "&" : "?";
+  img.src = `${img.src}${sep}r=1`;
+}
+
 /**
  * Renders a provider's brand icon. Prefers the original multi-color logo from
  * /brand-logos/ when available, otherwise falls back to a mono SVG (currentColor).
  */
-export function ProviderIcon({ provider, size = 16, color, className = "" }) {
+export function ProviderIcon({ provider, size = 16, color, className = "", loading }) {
   const normalized = provider?.toUpperCase?.() || "";
   const logoKey = piAwareLogoKey(normalized);
   const logoSrc = PROVIDER_LOGO_MAP[logoKey];
@@ -666,6 +676,9 @@ export function ProviderIcon({ provider, size = 16, color, className = "" }) {
         height={size}
         className={logoClassName}
         style={{ width: size, height: size, objectFit: "contain" }}
+        loading={loading}
+        decoding="async"
+        onError={handleLogoError}
         aria-hidden
       />
     );

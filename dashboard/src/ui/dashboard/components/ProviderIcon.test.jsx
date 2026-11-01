@@ -59,13 +59,14 @@ describe("ProviderIcon", () => {
     expect(container.querySelector(".text-oai-gray-400")).toBeNull();
   });
 
-  it("renders MiniMax Code with the MiniMax brand mark", () => {
+  it("renders MiniMax Code with its own installed-client icon", () => {
     const { container } = render(<ProviderIcon provider="minimax-code" size={18} />);
-    const icon = container.querySelector("svg");
+    const icon = container.querySelector('img[src^="/brand-logos/minimax-code.ico"]');
 
+    expect(icon).not.toBeNull();
     expect(icon).toHaveAttribute("width", "18");
-    expect(icon?.querySelector("path")).not.toBeNull();
-    expect(icon?.querySelector("circle")).toBeNull();
+    expect(icon).toHaveAttribute("height", "18");
+    expect(container.querySelector(".text-oai-gray-400")).toBeNull();
   });
 
   it("renders AStudio with its theme-aware brand assets", () => {
