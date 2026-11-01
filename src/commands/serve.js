@@ -22,6 +22,13 @@ const DEFAULT_PORT = 7680;
 const WSL_DEFAULT_PORT = 7681;
 const DEFAULT_MAX_PORT_ATTEMPTS = 20;
 const NPM_PACKAGE_NAME = "tokentracker-cli";
+// 2d4dea2 renamed this fork's manifest to "tokentracker-plus-cli" and kept the
+// published-npm alias above: a server is ours when its package.json carries
+// either identity (repo checkout / bundled desktop runtime vs npm install).
+const OWN_PACKAGE_NAME = (() => {
+  try { return require(path.resolve(__dirname, "..", "..", "package.json")).name || ""; } catch (_e) { return ""; }
+})();
+const TRACKER_PACKAGE_NAMES = new Set([NPM_PACKAGE_NAME, OWN_PACKAGE_NAME].filter(Boolean));
 const CURRENT_PACKAGE_VERSION = (() => {
   try {
     const manifest = JSON.parse(
@@ -471,7 +478,7 @@ const TRACKER_PACKAGE_SEARCH_DEPTH = 3;
 function isTrackerPackageRoot(dir) {
   try {
     const manifest = JSON.parse(fssync.readFileSync(path.join(dir, "package.json"), "utf8"));
-    return manifest?.name === NPM_PACKAGE_NAME;
+    return TRACKER_PACKAGE_NAMES.has(manifest?.name);
   } catch (_e) {
     return false;
   }

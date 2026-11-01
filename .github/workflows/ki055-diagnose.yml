@@ -3,16 +3,17 @@
 # Temporary: reproduces the three runner-only divergences recorded in
 # KNOWN_ISSUES.md (KI-055) on a real ubuntu-latest runner. Disabled from
 # push/PR triggers on purpose: it exists only to be dispatched by hand.
-# Delete together with the KI055_DIAGNOSE guards once the root cause is fixed.
 #
-# Iteration 2 (run 1 red: 3/3 failed). Changes vs iteration 1:
-#  - build the dashboard before the tests, exactly like ci.yml does (the first
-#    run omitted it, and `serve` exits 1 with "Dashboard not found." when
-#    dashboard/dist is absent -- the serve duplicate test then never gets a
-#    listener, which is an artifact of this workflow, not necessarily a runner
-#    divergence);
-#  - probe that startup failure explicitly so the log proves it;
-#  - keep the three tests unskipped via KI055_DIAGNOSE=1.
+# Iteration 2. Iteration 1 (run 41358818575) failed all three tests, with:
+#  - raccoon: fixture hardcodes "D:\\TokenTrackerPlus" -> projectKey() sees the
+#    whole string on POSIX (test bug);
+#  - scan-roots: "no cache" did not delete the session archive, so
+#    reconcileSessionArchive() resurrected the unreadable root's session
+#    (2 !== 1) -- test setup bug;
+#  - serve: iteration 1 never built dashboard/dist, so serve exited before
+#    listening ("Dashboard not found.") and the test timed out instead of
+#    reaching its real assertion. This iteration builds the dashboard first
+#    (like ci.yml) and probes the duplicate-identity path directly.
 name: KI-055 diagnose
 
 on:
@@ -63,7 +64,7 @@ jobs:
           df -h /tmp | tail -n 1 || true
           mount | grep -E ' /tmp ' || echo "/tmp is not a separate mount"
           echo "--- tool availability ---"
-          for tool in sqlite3 lsof ss fuser netstat pkill ps; do
+          for tool in sqlite3 lsof ss fuser netstat pkill ps curl; do
             printf '%s: ' "$tool"
             command -v "$tool" || echo "MISSING"
           done
@@ -71,7 +72,6 @@ jobs:
           lsof -v 2>&1 | head -n 3 || true
 
       # POSIX permission bits are the assumption behind the scan-roots test.
-      # Prove what this runner's user actually sees for a 000 directory.
       - name: chmod 000 read probe
         run: |
           probe="$(mktemp -d)"
@@ -99,39 +99,63 @@ jobs:
           chmod 755 "$probe/secret"
           rm -rf "$probe"
 
-      # Direct proof of the iteration-1 serve failure: with no dashboard build,
-      # serve writes "Dashboard not found." to stderr, sets exitCode 1 and
-      # returns before listening. The duplicate-exit test then times out in
-      # waitForLocalAuth() with ECONNREFUSED -- an environment artifact.
-      - name: serve startup probe without dashboard/dist
-        run: |
-          set +e
-          port="$(node -e 'const n=require("node:net");const s=n.createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close();})')"
-          home="$(mktemp -d)"
-          mkdir -p "$home/.tokentracker/tracker"
-          echo '{}' > "$home/.tokentracker/tracker/cursors.json"
-          echo '{"proxy":{"mode":"off"},"telemetry":false}' > "$home/.tokentracker/tracker/config.json"
-          out="$(mktemp)"
-          HOME="$home" USERPROFILE="$home" TOKENTRACKER_SKIP_LOCAL_RUNTIME_COPY=1 TOKENTRACKER_PROXY_ENV_APPLIED=1             timeout 30 node bin/tracker.js serve --port "$port" --no-sync --no-open >"$out" 2>&1
-          status=$?
-          set -e
-          echo "serve exit status: $status"
-          echo "serve output:"
-          sed -n '1,30p' "$out"
-          echo "dashboard/dist present: $([ -f dashboard/dist/index.html ] && echo yes || echo no)"
-          rm -rf "$home"
-
-      # Same prerequisite as ci.yml: the local-runtime/serve paths resolve
-      # dashboard/dist, and a fresh checkout has none.
+      # ci.yml builds the dashboard before running the suite; without
+      # dashboard/dist, `serve` exits with "Dashboard not found." before it
+      # ever listens (that is what masked the real serve failure in iteration 1).
       - name: Build dashboard
         run: npm run dashboard:build
 
       - name: dashboard/dist after build
         run: |
-          ls -la dashboard/dist | head -n 20
           node -p "require('node:fs').existsSync('dashboard/dist/index.html')"
 
-      # Guards now honour KI055_DIAGNOSE=1, so these three previously skipped
-      # tests actually execute. CI is already "true" on Actions.
+      # Direct probe of the duplicate-server identity path. The test only says
+      # "exited 1"; this prints why: parseServeScriptPath() must succeed and
+      # isTrackerPackageRoot() must accept the running package's manifest name.
+      - name: serve duplicate identity probe
+        run: |
+          port="$(node -e 'const n=require("node:net");const s=n.createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close();})')"
+          home="$(mktemp -d)"
+          mkdir -p "$home/.tokentracker/tracker"
+          echo '{}' > "$home/.tokentracker/tracker/cursors.json"
+          echo '{"proxy":{"mode":"off"},"telemetry":false}' > "$home/.tokentracker/tracker/config.json"
+          serve_env() {
+            env HOME="$home" USERPROFILE="$home" TOKENTRACKER_SKIP_LOCAL_RUNTIME_COPY=1 TOKENTRACKER_PROXY_ENV_APPLIED=1 \
+              node bin/tracker.js serve --port "$port" --no-sync --no-open
+          }
+          serve_env >"$home/first.out" 2>&1 &
+          first_pid=$!
+          healthy=0
+          for i in $(seq 1 100); do
+            if curl -sf -m 1 "http://127.0.0.1:$port/api/local-auth" >/dev/null 2>&1; then healthy=1; break; fi
+            if ! kill -0 "$first_pid" 2>/dev/null; then break; fi
+            sleep 0.2
+          done
+          echo "first serve healthy: $healthy (pid $first_pid, port $port)"
+          ps -ww -p "$first_pid" -o command= >"$home/cmd.txt" 2>/dev/null || true
+          echo "cmdline: $(cat "$home/cmd.txt")"
+          echo "cmdline bytes: $(wc -c <"$home/cmd.txt")"
+          node -e '
+            const fs = require("node:fs");
+            const serve = require("./src/commands/serve");
+            const cmd = fs.readFileSync(process.argv[1], "utf8").trim();
+            console.log("repo package.json name:", require("./package.json").name);
+            console.log("NPM_PACKAGE_NAME (identity constant):", serve.NPM_PACKAGE_NAME);
+            console.log("parseServeScriptPath:", serve.parseServeScriptPath(cmd));
+            console.log("isTokenTrackerServeCommand:", serve.isTokenTrackerServeCommand(cmd));
+          ' "$home/cmd.txt"
+          set +e
+          serve_env >"$home/second.out" 2>&1
+          second_status=$?
+          set -e
+          echo "duplicate serve exit: $second_status"
+          echo "duplicate serve output:"
+          sed -n '1,10p' "$home/second.out"
+          kill "$first_pid" 2>/dev/null || true
+          wait "$first_pid" 2>/dev/null || true
+          rm -rf "$home"
+
+      # Guards honour KI055_DIAGNOSE=1, so these three previously skipped tests
+      # actually execute. CI is already "true" on Actions.
       - name: Run KI-055 tests unskipped
         run: env KI055_DIAGNOSE=1 node --test --test-timeout=120000 test/session-analytics-raccoon.test.js test/session-analytics-scan-roots.test.js test/serve-port-hint.test.js

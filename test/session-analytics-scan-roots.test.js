@@ -93,7 +93,6 @@ test("providerRoots / discoverSessionFiles anchor a relative CODEX_HOME and CLAU
 });
 
 test("an unreadable configured projects/ marks discovery incomplete and never caches a partial inventory", async (t) => {
-  if (process.env.CI && process.env.KI055_DIAGNOSE !== "1") return t.skip("runner chmod semantics diverge; pending Linux repro (KI-055)");
   if (process.platform === "win32" || (typeof process.getuid === "function" && process.getuid() === 0)) {
     t.skip("permission bits are not enforced for this user/platform");
     return;

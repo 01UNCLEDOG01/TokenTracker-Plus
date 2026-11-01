@@ -395,7 +395,6 @@ function collectChildOutput(child) {
 }
 
 test("real serve entry exits duplicate cleanly without replacing the first process", async (t) => {
-  if (process.env.CI && process.env.KI055_DIAGNOSE !== "1") return t.skip("port cleanup timing diverges on runners; pending Linux repro (KI-055)");
   if (!hasLsof()) return t.skip("requires lsof");
 
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-real-serve-duplicate-"));
