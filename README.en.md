@@ -24,7 +24,7 @@
 
 ## ⚡ Quick Start
 
-> **Prerequisites**: Node.js **20+** (CLI supports Windows / macOS / Linux; Windows desktop app requires .NET 8 SDK and WebView2 Runtime).
+> **Prerequisites**: Node.js **20+** (the CLI is cross-platform source code, used directly on Windows; the desktop app ships as a Windows installer only, which additionally requires the .NET 8 SDK and WebView2 Runtime).
 
 **Windows users — no build needed**: download `TokenTracker-plus-Setup-v*.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
 

@@ -24,7 +24,7 @@
 
 ## ⚡ 快速開始
 
-> **環境要求**：Node.js **20+**（CLI 支援 Windows / macOS / Linux；Windows 桌面端另需 .NET 8 SDK 與 WebView2 Runtime）。
+> **環境要求**：Node.js **20+**（CLI 為跨平台原始碼，Windows 上可直接使用；桌面端僅提供 Windows 安裝包，另需 .NET 8 SDK 與 WebView2 Runtime）。
 
 **Windows 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下載 `TokenTracker-plus-Setup-v*.exe` 安裝即可——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
 
