@@ -31,7 +31,7 @@ import { GITHUB_REPO } from "../../lib/brand";
 import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderControls.jsx";
 import { LocalProfileIdentity } from "../../components/LocalProfileIdentity.jsx";
 import { isLocalOnlyDeployment } from "../../lib/insforge-config";
-import { isNativeApp, isNativeEmbed, isNativeLinuxApp, isNativeWindowsApp } from "../../lib/native-bridge.js";
+import { isNativeApp, isNativeEmbed, isNativeWindowsApp } from "../../lib/native-bridge.js";
 
 const STORAGE_KEY = "tt.sidebarCollapsed";
 
@@ -401,7 +401,7 @@ function SidebarBody({
               {group.items
                 // Widgets is a macOS-only feature (system widget gallery); hide it in
                 // the Windows and Linux apps.
-                .filter((item) => !(item.to === "/widgets" && (isNativeWindowsApp() || isNativeLinuxApp())))
+                .filter((item) => !(item.to === "/widgets" && isNativeWindowsApp()))
                 .map((item) => (
                   <NavItem
                     key={item.id}

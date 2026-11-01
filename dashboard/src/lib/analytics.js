@@ -2,7 +2,7 @@ import { isNativeEmbed, isNativeWindowsApp } from "./native-bridge.js";
 
 /**
  * Anonymous product analytics (PostHog), covering all four dashboard
- * surfaces: the hosted site, localhost (npm CLI users), and the macOS /
+ * surfaces: the hosted site, localhost (npm CLI users), and the desktop
  * Windows app WebViews. Every event carries a `shell` property so the
  * surfaces can be split apart in PostHog.
  *

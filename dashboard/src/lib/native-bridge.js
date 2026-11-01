@@ -1,6 +1,6 @@
 /**
- * Bridge helpers for talking to the macOS TokenTrackerBar host via WKWebView's
- * `window.webkit.messageHandlers.nativeBridge` or the Windows WebView2 host via
+ * Bridge helpers for talking to the Windows WebView2 host via
+ * the Windows WebView2 host via
  * `window.chrome.webview`. The native side dispatches a `native:settings`
  * CustomEvent on `window` whenever state changes.
  *
@@ -60,7 +60,7 @@ export function isNativeApp() {
   }
 }
 
-/** True when running inside TokenTrackerBar WKWebView (bridge is always present). */
+/** True when running inside a WKWebView embed whose native bridge is always present. */
 export function isNativeEmbed() {
   if (typeof window === "undefined") return false;
   return Boolean(window.webkit?.messageHandlers?.nativeBridge);
@@ -77,37 +77,13 @@ export function isNativeWindowsApp() {
 }
 
 /**
- * True when running inside the Linux Tauri app. Tauri injects
- * `__TAURI_INTERNALS__` into every webview it hosts, and the Linux app loads
- * the dashboard without `?app=1`, so this can't key off `isNativeApp()`.
- */
-export function isNativeLinuxApp() {
-  if (typeof window === "undefined") return false;
-  return Boolean(window.__TAURI_INTERNALS__);
-}
-
-/**
- * Set by the Linux app (`desktop.rs`) on GNOME Shell when the top-bar
- * extension is installed but not turned on.
- */
-export function canOfferTopBarExtension() {
-  if (typeof window === "undefined") return false;
-  return window.__TOKENTRACKER_OFFER_TOP_BAR__ === true;
-}
-
-/**
  * The handler that opens OAuth in the system browser, or null in a normal
- * browser. macOS and Windows expose `webkit.messageHandlers.nativeOAuth`. The
- * Linux shell's copy of it may never attach to WebKitGTK's host object, so
- * there the Tauri command is called directly.
+ * browser. Windows exposes it via the WebView2 host bridge.
  */
 export function getNativeOAuthBridge() {
   if (typeof window === "undefined") return null;
   const handler = window.webkit?.messageHandlers?.nativeOAuth;
-  if (handler) return handler;
-  const invoke = window.__TAURI_INTERNALS__?.invoke;
-  if (typeof invoke !== "function") return null;
-  return { postMessage: (url) => invoke("open_oauth", { url }) };
+  return handler ? handler : null;
 }
 
 function getHandler() {
@@ -164,7 +140,7 @@ function cloudExportError(code) {
 /** Native saves acknowledge the actual write. Browser callers use their Blob fallback. */
 export function saveCloudUsageExport({ filename, content, format, signal }) {
   const native = typeof window !== "undefined" && (
-    isNativeEmbed() || isNativeWindowsApp() || isNativeLinuxApp() || isNativeApp()
+    isNativeEmbed() || isNativeWindowsApp() || isNativeApp()
   );
   if (!native) return Promise.resolve(null);
   if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
@@ -175,12 +151,9 @@ export function saveCloudUsageExport({ filename, content, format, signal }) {
     return Promise.reject(cloudExportError("invalid_export"));
   }
 
-  const mac = window.webkit?.messageHandlers?.nativeBridge;
   const win = window.chrome?.webview;
-  const invoke = window.__TAURI_INTERNALS__?.invoke;
   if (window.__TOKENTRACKER_CLOUD_EXPORT__ !== true
-    || !(typeof mac?.postMessage === "function" || typeof win?.postMessage === "function"
-      || typeof invoke === "function")) {
+    || typeof win?.postMessage !== "function") {
     return Promise.reject(cloudExportError("unsupported"));
   }
   const requestId = crypto.randomUUID();
@@ -218,10 +191,8 @@ export function saveCloudUsageExport({ filename, content, format, signal }) {
     timer = setTimeout(() => finish(cloudExportError("save_timeout")), 15000);
     if (signal?.aborted) { abort(); return; }
     try {
-      if (typeof mac?.postMessage === "function") mac.postMessage(payload);
-      else if (typeof win?.postMessage === "function") win.postMessage(JSON.stringify(payload));
-      else Promise.resolve(invoke("save_cloud_usage_export", { message: payload }))
-        .then(acknowledge, () => finish(cloudExportError("save_failed")));
+      if (typeof win?.postMessage === "function") win.postMessage(JSON.stringify(payload));
+      else finish(cloudExportError("unsupported"));
     } catch {
       finish(cloudExportError("save_failed"));
     }
@@ -290,33 +261,17 @@ export function onNativeSettings(handler) {
   return () => window.removeEventListener("native:settings", listener);
 }
 
-/** Desktop-pet settings are supported by the macOS, Windows and Linux native hosts. */
+/** Desktop-pet settings are supported by the Windows native host. */
 export function isPetBridgeAvailable() {
   if (typeof window === "undefined") return false;
-  return Boolean(
-    window.webkit?.messageHandlers?.nativeBridge || window.chrome?.webview || isNativeLinuxApp(),
-  );
+  return Boolean(window.chrome?.webview);
 }
 
 function postPetMessage(message) {
   if (typeof window === "undefined") return false;
-  const macHandler = window.webkit?.messageHandlers?.nativeBridge;
-  if (macHandler) {
-    try {
-      macHandler.postMessage(message);
-      return true;
-    } catch { return false; }
-  }
   if (window.chrome?.webview) {
     try {
       window.chrome.webview.postMessage(JSON.stringify(message));
-      return true;
-    } catch { return false; }
-  }
-  // Linux Tauri host: replies arrive as `native:petSettings` events, same as the others.
-  if (isNativeLinuxApp()) {
-    try {
-      window.__TAURI_INTERNALS__.invoke("pet_bridge", { message })?.catch?.(() => {});
       return true;
     } catch { return false; }
   }

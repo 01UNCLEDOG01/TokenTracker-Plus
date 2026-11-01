@@ -20,7 +20,7 @@ const isNativeApp = (() => {
 })();
 
 /**
- * Promotes the macOS desktop widgets bundled with TokenTrackerBar 0.5.38+.
+ * Promotes the desktop widgets bundled with the desktop app.
  * Only renders inside the native app — widgets are macOS-only.
  * Dismissible; remembers the choice via localStorage.
  */

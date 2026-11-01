@@ -1,17 +1,16 @@
 # CLAUDE.md
 
-> **Fork note:** for TT-plus workflow, docs, gates, deployment and worktree rules, [AGENTS.md](./AGENTS.md) is authoritative. This file documents upstream architecture, conventions and release mechanics.
+> **Fork note:** for TT-plus workflow, docs, gates, deployment and worktree rules, [AGENTS.md](./AGENTS.md) is authoritative. This file documents architecture, conventions and release mechanics.
 
 Guidance for Claude Code working in this repository. Every line here is loaded into every conversation turn — keep it lean and current.
 
 ## Project shape
 
-Token Tracker is a local-first AI token usage tracker.
+Token Tracker is a local-first AI token usage tracker. **This fork ships Windows + source only** — there is no macOS or Linux client (the upstream `TokenTrackerBar/` and `TokenTrackerLinux/` were deleted 2026-10-28; do not re-add cross-platform surfaces).
 
 - **CLI** (`src/`, CommonJS, Node ≥20) — entry `bin/tracker.js` → `src/cli.js`. `serve` runs a local HTTP server on `:7680`, `sync` parses logs into `~/.tokentracker/queue.jsonl`.
 - **Dashboard** (`dashboard/`, React 18 + Vite 7 + TS strict + Tailwind) — built to `dashboard/dist/`, served by the CLI locally.
-- **macOS app** (`TokenTrackerBar/`) — **deleted 2026-10-28: this fork ships Windows + source only** (see AGENTS.md). Historical notes below describe the pre-trim layout.
-- **Windows app** (`TokenTrackerWin/`, .NET 8 WinForms + WPF + WebView2) — system-tray counterpart of the macOS app. Launches the bundled CLI `serve` on a dynamic loopback port (avoids the DoSvc-held `:7680`), hosts the dashboard in WebView2, registers the `tokentracker://` deep-link for OAuth. Built `EmbeddedServer/` (Node + CLI + dashboard) is bundled by `scripts/bundle-node.ps1` so the `.exe` is self-contained. Dashboard adaptations are gated behind `isNativeWindowsApp()` (`dashboard/src/lib/native-bridge.js`) so macOS/web paths are untouched.
+- **Windows app** (`TokenTrackerWin/`, .NET 8 WinForms + WPF + WebView2) — launches the bundled CLI `serve` on a dynamic loopback port (avoids the DoSvc-held `:7680`), hosts the dashboard in WebView2, registers the `tokentracker://` deep-link for OAuth. Built `EmbeddedServer/` (Node + CLI + dashboard) is bundled by `scripts/bundle-node.ps1` so the `.exe` is self-contained. Dashboard adaptations are gated behind `isNativeWindowsApp()` (`dashboard/src/lib/native-bridge.js`).
 
 Data flow: AI CLI runs → hook fires → `rollout.js` parses → `queue.jsonl` → local API → dashboard.
 
@@ -20,7 +19,7 @@ For the canonical list of supported providers, grep `parse*Incremental` in `src/
 ## Frequently used commands
 
 ```bash
-npm test                                  # node --test test/*.test.js  (209 files)
+npm test                                  # node --test test/*.test.js
 node --test test/<name>.test.js           # single test file
 npm run ci:local                          # tests + validations + builds
 npm run dashboard:dev                     # Vite dev server with local API mock (port 5173)
@@ -48,8 +47,7 @@ node bin/tracker.js serve --no-sync       # local dashboard server on :7680
 | Add UI components | `dashboard/src/ui/dashboard/components/` |
 | Add a provider icon | `dashboard/src/ui/dashboard/components/ProviderIcon.jsx` (`PROVIDER_ICON_MAP` keyed by `source.toUpperCase()`) |
 | Add user-facing text | `dashboard/src/content/copy.csv` — never hardcode |
-| Modify menu bar UI | `TokenTrackerBar/Services/` (controllers) + `Views/` (SwiftUI) |
-| Bridge native ↔ web | `TokenTrackerBar/Services/NativeBridge.swift` + `dashboard/src/lib/native-bridge.js` |
+| Bridge native ↔ web | `TokenTrackerWin/` WebView2 host + `dashboard/src/lib/native-bridge.js` |
 
 ## Load-bearing conventions
 
@@ -87,62 +85,33 @@ UTC, half-hour buckets, append-only — readers take the latest entry per `(sour
 - Env-var prefixes: `TOKENTRACKER_` for CLI, `VITE_` for dashboard.
 - Git commits in **English**, conventional style (`feat:` / `fix:` / `refactor:` / `chore:` / `docs:` / `test:` / `ci:`).
 - **Privacy**: token counts only — never prompts, messages, or conversation bodies.
-- `TokenTrackerBar/EmbeddedServer/` is gitignored; built on demand by `TokenTrackerBar/scripts/bundle-node.sh`.
-- After editing `TokenTrackerBar/project.yml`: `(cd TokenTrackerBar && xcodegen generate && ruby scripts/patch-pbxproj-icon.rb)`.
+- `TokenTrackerWin/EmbeddedServer/` is a build product; mirror and verify via `npm run mirror:installed`.
 
 ## Release workflow
 
-**Any change under `src/` or `dashboard/` ships npm + DMG + Windows + Linux**, because `TokenTrackerBar/EmbeddedServer/` (macOS), `TokenTrackerWin/EmbeddedServer/` (Windows) and `TokenTrackerLinux/EmbeddedServer/` (Linux AppImage + `.deb` + `.rpm`) all bundle the CLI runtime and built dashboard. Bumping only `package.json` leaves desktop-app users on the stale embedded copy.
+This fork ships **source + a Windows installer built locally** (the fixed chain lives in `AGENTS.md` 「发版链固定顺序」 and `GATE_REGISTRY.md` §4): `bundle-node.ps1` (自带 PET dashboard 构建) → `dotnet publish` → delete-then-copy `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → stop app → silent install → hash/version smoke → record size + SHA-256. Upload the exe to a **draft** GitHub Release as `TokenTracker-Setup.exe` and Publish only after the owner approves. Hot-updates (no installer) go through `npm run mirror:installed` into both installed copies with a five-endpoint smoke.
 
-> **Fork scope note (2026-10-28)**: the three-platform release chain described below is upstream's design and is retained only as reference. This fork ships **source + a Windows installer built locally** (see `AGENTS.md` 发版链); the macOS/Linux jobs exist in `ci.yml` but are guarded off while private, and `npm-publish.yml` has been deleted. Do not act on the paragraph below as if it were this project's release procedure.
+`TokenTrackerWin/EmbeddedServer/` bundles the CLI runtime and built dashboard — bumping only `package.json` leaves desktop-app users on the stale embedded copy.
 
-The macOS + Windows + Linux release is **one workflow**: `release-dmg.yml` (display name **`release (macOS + Windows + Linux)`**). A `create-release` job validates every version file (via the shared `scripts/version-files.cjs` registry) and makes the `vX.Y.Z` release as a **draft** pinned to the workflow commit, then a macOS `build` job, a `windows` job (which calls the reusable `release-windows.yml` via `workflow_call`) and a `linux` job all `needs: create-release` and run **in parallel**, each checking out that immutable version tag and uploading its assets to the draft with `--clobber`. The `linux` job bundles the embedded runtime (**must** precede `tauri build` — `tauri-build` hard-fails on the missing `EmbeddedServer` resource path), builds **all three Linux packages from one `tauri build`** (AppImage, `.deb`, `.rpm` — the target set is pinned in `tauri.conf.json` and by `bundle_produces_the_three_supported_linux_targets` in `src-tauri/tests/capabilities.rs`), and verifies each package's extracted payload actually contains the runtime before uploading — every format ships from its own bundler and can fail alone, so none is trusted as a proxy for the others. A final `publish` job (`needs: [build, windows, linux]`) verifies all six assets, flips the draft live (`gh release edit --draft=false`), and notifies the Homebrew tap. The draft stays invisible until then, so `releases/latest` never serves a half-published release (and a failed platform leaves it unpublished rather than half-public). Published releases are immutable: a same-version dispatch fails instead of replacing public assets; only a draft pointing to the exact same commit may be resumed. A **single** `gh workflow run "release (macOS + Windows + Linux)" -f version=X.Y.Z` ships **all three** platforms. `release-windows.yml` can still be dispatched standalone to rebuild Windows assets, but only into an existing matching draft created by the combined workflow.
-
-| Change scope | Bump `package.json` (→ `npm run sync-versions` propagates the rest) | Trigger release workflow (→ builds macOS + Windows + Linux) |
+| Change scope | Bump `package.json` (→ `npm run sync-versions` propagates the rest) | Installer / hot-update needed |
 |---|---|---|
 | `src/` or `dashboard/` | ✅ | ✅ |
-| `TokenTrackerBar/` Swift only | ✅ | ✅ |
 | `TokenTrackerWin/` only | ✅ | ✅ |
-| `TokenTrackerLinux/` only | ✅ | ✅ |
 | `dashboard/edge-patches/`, scripts, docs, CI | — | — |
 
-**All nine** managed version locations must match or the workflows' "Verify version" steps fail. The authoritative list lives in `scripts/version-files.cjs` (`VERSION_FILES`) — that registry is what `sync-versions` writes, `validate:versions` checks, and the release workflow's `create-release` job verifies, so adding a platform means editing one array rather than several workflows. Beyond `package.json` it covers `TokenTrackerBar/project.yml` (×2 `MARKETING_VERSION`), `TokenTrackerWin/TokenTrackerWin.csproj`, and the six Linux files (`TokenTrackerLinux/package.json`, its `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`, `packaging/arch/.../PKGBUILD`). The root `package-lock.json` is not in the registry because `npm version` maintains it, but the release workflow verifies it too.
-
-**Release asset inventory** — the `publish` job refuses to flip the draft live unless all six are present (it checks for each by name; it does not reject extras), and any change to the list must land in the workflow's upload + required-asset steps and in `test/linux-client-workflow.test.js` together:
-
-| Platform | Assets |
-|---|---|
-| macOS | `TokenTrackerBar.dmg` |
-| Windows | `TokenTracker-win-x64.zip`, `TokenTracker-Setup.exe` |
-| Linux | `TokenTracker-linux-x86_64.AppImage`, `TokenTracker-linux-x86_64.deb`, `TokenTracker-linux-x86_64.rpm` |
+Every managed version location must match or `validate:versions` fails. The authoritative list lives in `scripts/version-files.cjs` (`VERSION_FILES`) — that registry is what `sync-versions` writes and `validate:versions` checks; edit one array rather than several workflows.
 
 When the user says "release" or "发 release", that is explicit approval for the release commit(s) + push — do not ask again for commit/push permission within that scope.
 
 ### Steps
 
-1. Bump the version in **one** place — `package.json` is the single source of truth. Run `npm version <X.Y.Z|patch|minor>` (or, if you edited `package.json` by hand, `npm run sync-versions`): the `version` npm-lifecycle hook runs `scripts/sync-versions.cjs`, which syncs the version into every file listed in `scripts/version-files.cjs` (`project.yml`'s two `MARKETING_VERSION` entries, the Windows `<Version>`, and the Linux `package.json` / `package-lock.json` / `Cargo.toml` / `Cargo.lock` / `tauri.conf.json` / `PKGBUILD`), then `git add`s them so they land in the version commit. They all stay in lockstep automatically — don't hand-edit any of them. (`npm version` also creates a local `vX.Y.Z` tag and a `vX.Y.Z`-style commit message rather than `chore(release): vX.Y.Z`; CI triggers on the package.json version change, not the message.)
-2. `git commit && git push mine main` — **this fork's only pushable remote is `mine`** (`01UNCLEDOG01/TokenTracker-plus`); there is no `origin`. The canonical `CI` workflow runs on `main`, but while the repo is private the macOS/Windows/`linux-client` jobs are skipped by an `if: github.event.repository.private == false` guard, so only the ubuntu `ci` job executes and nothing is billed. There is **no npm publish path**: `npm-publish.yml` was removed and `package.json` no longer carries `publishConfig`/`bugs` — this project ships source plus a Windows installer only (owner's standing call, reaffirmed 2026-10-27).
-3. The Windows package is built **locally, not by CI** — follow the fixed chain in `AGENTS.md` ("发版链固定顺序"): `TOKENTRACKER_BUILD_PET=1` dashboard build → `bundle-node.ps1` → `dotnet publish` → delete-then-copy `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → stop app → silent install → hash/version smoke → record size + SHA-256. Then upload the exe to a **draft** GitHub Release as `TokenTracker-Setup.exe` (the landing page's stable deep link expects that exact name) and Publish only after the owner approves.
-4. Not applicable to this fork: the macOS DMG dispatch and the Homebrew tap `xiufengsun/homebrew-tokentracker` — that tap belongs to upstream and serves upstream builds. The owner has only a Windows machine, so macOS/Linux artifacts are out of scope until he says otherwise.
+1. Bump the version in **one** place — `package.json` is the single source of truth. Run `npm version <X.Y.Z|patch|minor>` (or `npm run sync-versions` after hand edits): the `version` npm-lifecycle hook runs `scripts/sync-versions.cjs`, which syncs the version into every file listed in `scripts/version-files.cjs` and `git add`s them so they land in the version commit. They all stay in lockstep automatically — don't hand-edit any of them.
+2. `git commit` with pathspec and `git push origin standalone:main` (development happens on the `standalone` branch; `origin` = this repo). While the repo is private the paid CI jobs stay skipped by an `if: github.event.repository.private == false` guard, so only ubuntu jobs execute and nothing is billed. There is **no npm publish path**: this project ships source plus a Windows installer only (owner's standing call).
+3. The Windows package is built **locally, not by CI** — follow the fixed chain above, then record size + SHA-256 in the ledger.
+
 Release notes: one English line, no markdown sections (`Fix token stats inflation caused by duplicate queue entries`).
 
-### Local DMG build (testing only — CI is authoritative)
-
-```bash
-cd TokenTrackerBar && npm run dashboard:build && ./scripts/bundle-node.sh
-xcodegen generate && ruby scripts/patch-pbxproj-icon.rb
-xcodebuild -scheme TokenTrackerBar -configuration Release clean build
-APP="$(find ~/Library/Developer/Xcode/DerivedData/TokenTrackerBar-*/Build/Products/Release -name 'TokenTracker.app' -maxdepth 1)"
-bash scripts/create-dmg.sh "$APP"
-```
-
 ## Lessons learned (read before touching)
-
-### macOS build & release
-
-- **Icon Composer (`.icon`) needs Xcode 26+**. CI uses `macos-26` runners but a static `TokenTrackerBar/TokenTrackerBar/AppIcon.icns` is committed as fallback for older Xcode. If you update `AppIcon.icon`, regenerate `.icns` from a local Xcode 26 build and commit both.
-- **DMG layout on CI needs Homebrew `create-dmg`**. `TokenTrackerBar/scripts/create-dmg.sh` uses AppleScript locally but delegates to `create-dmg` on headless runners. Don't reintroduce a "skip Finder customization on CI" shortcut — produces bare DMGs.
-- **CI must ad-hoc sign the `.app` before DMG packaging.** Build flags strip signing entirely; without ad-hoc signing the `.app` + `com.apple.quarantine` xattr triggers Gatekeeper "damaged" rejection (unfixable without Terminal). The workflow signs inner Mach-O (`Resources/EmbeddedServer/node`) first, then the outer bundle with `--entitlements TokenTrackerBar/TokenTrackerBar.entitlements --sign -`. **Never** remove this step without replacing it with Developer ID + notarization.
 
 ### Dashboard layout
 
@@ -153,13 +122,12 @@ bash scripts/create-dmg.sh "$APP"
 ### Native ↔ web bridge
 
 ```
-JS → window.webkit.messageHandlers.nativeBridge.postMessage({ type, key?, value?, name? })
-Swift → NativeBridge.shared.handle(message:) via WKScriptMessageHandler
-Swift → JS: webView.evaluateJavaScript("window.dispatchEvent(new CustomEvent('native:settings', { detail }))")
+JS → window.chrome.webview.postMessage(JSON.stringify({ type, key?, value?, name? }))
+C# host → JS: WebView2 → window.dispatchEvent(new CustomEvent('native:settings', { detail }))
 React → useNativeSettings() subscribes
 ```
 
-After `SMAppService.mainApp.register/unregister` from the bridge (not via `LaunchAtLoginManager.toggle`), call `launchAtLoginManager.refresh()` so the popover menu reflects `@Published isEnabled`.
+See `dashboard/src/lib/native-bridge.js` — `isNativeWindowsApp()` gates all native behaviors; the desktop pet bridge uses `isPetBridgeAvailable()`.
 
 ### Parser correctness
 

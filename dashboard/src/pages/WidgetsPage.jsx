@@ -27,7 +27,7 @@ const WIDGET_H = 124;
 const ROUNDED_FONT = "ui-rounded, -apple-system, system-ui";
 
 // Model accent palette — mirrors WidgetTheme.modelDot in
-// TokenTrackerBar/TokenTrackerWidget/Views/WidgetTheme.swift
+// Theme palette follows the original macOS widget theme design.
 const MODEL_COLORS = ["#5A8CF2", "#9973E6", "#4DB8A6", "#E68C59"];
 
 // Source accent palette — mirrors WidgetTheme.sourceColor (SwiftUI system

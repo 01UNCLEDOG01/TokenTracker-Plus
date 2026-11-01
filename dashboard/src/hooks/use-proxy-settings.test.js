@@ -70,7 +70,7 @@ describe("useProxySettings", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("probes and becomes available on 127.0.0.1 (native Windows/macOS app loopback)", async () => {
+  it("probes and becomes available on 127.0.0.1 (native Windows app loopback)", async () => {
     setHostname("127.0.0.1");
     const fetchSpy = vi.fn(async () =>
       jsonResponse(200, {

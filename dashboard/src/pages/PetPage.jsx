@@ -8,7 +8,7 @@ import { usePetCatalog } from "../hooks/use-pet-catalog.js";
 import { useNativeSettings } from "../hooks/use-native-settings.js";
 import { normalizePetActionLock } from "../lib/pet-personality";
 import { petCardTintHex } from "../lib/pet-appearance.js";
-import { isNativeLinuxApp, isNativeWindowsApp, refreshNativePetCatalog } from "../lib/native-bridge.js";
+import { isNativeWindowsApp, refreshNativePetCatalog } from "../lib/native-bridge.js";
 import {
   importCodexPets,
   importPetPackage,
@@ -535,7 +535,7 @@ export function PetPage() {
                       />
                     ))}
                   </div>
-                  {nativeSettings.available && !isNativeWindowsApp() && !isNativeLinuxApp() ? (
+                  {nativeSettings.available && !isNativeWindowsApp() ? (
                     <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-oai-gray-200/70 bg-oai-gray-50/60 px-3 py-2.5 dark:border-oai-gray-800 dark:bg-oai-gray-900/40">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold">{copy("pet.menubar.title")}</p>

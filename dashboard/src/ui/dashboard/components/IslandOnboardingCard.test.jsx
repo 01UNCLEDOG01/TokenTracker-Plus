@@ -13,7 +13,6 @@ const native = vi.hoisted(() => ({
   },
   setSetting: vi.fn(),
   windows: false,
-  linux: false,
   toast: vi.fn(),
 }));
 
@@ -27,7 +26,6 @@ vi.mock("../../../hooks/use-native-settings.js", () => ({
 
 vi.mock("../../../lib/native-bridge.js", () => ({
   isNativeWindowsApp: () => native.windows,
-  isNativeLinuxApp: () => native.linux,
 }));
 
 vi.mock("../../components/Toast.jsx", () => ({
@@ -70,7 +68,6 @@ describe("IslandOnboardingCard", () => {
       dynamicIslandEnabled: false,
     };
     native.windows = false;
-    native.linux = false;
     native.setSetting.mockReset();
     native.toast.mockReset();
   });
@@ -127,15 +124,6 @@ describe("IslandOnboardingCard", () => {
   it("stays hidden in the Windows native host", () => {
     native.available = false;
     native.windows = true;
-
-    const { container } = render(<IslandOnboardingCard />);
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("stays hidden in the Linux native host", () => {
-    native.available = false;
-    native.linux = true;
 
     const { container } = render(<IslandOnboardingCard />);
 

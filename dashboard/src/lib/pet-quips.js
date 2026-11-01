@@ -1,6 +1,6 @@
 /**
  * Localized "quip" pools for the floating desktop pet's speak-on-tap bubble,
- * ported 1:1 from the macOS app (TokenTrackerBar/Utilities/Strings.swift). Kept as
+ * ported 1:1 from the original macOS app's quip table. Kept as
  * a standalone data module — like Strings.swift — rather than the dashboard copy
  * registry, because the pet is a minimal standalone entry without the i18n provider.
  * (Exception, review 563: the new Ark Agent Plan rows resolve their provider name

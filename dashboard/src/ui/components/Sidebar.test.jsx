@@ -45,7 +45,6 @@ vi.mock("../../lib/native-bridge.js", () => ({
   isNativeApp: () => false,
   isNativeEmbed: () => false,
   isNativeWindowsApp: () => false,
-  isNativeLinuxApp: () => false,
 }));
 
 vi.mock("../dashboard/util/should-fetch-github-stars.js", () => ({

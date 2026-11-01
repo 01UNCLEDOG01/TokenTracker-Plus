@@ -5,7 +5,7 @@
  * Kept OUT of `lib/bot/` so that directory stays an unmodified vendor copy
  * (see lib/bot/README.md). This module is the single source of truth shared by
  * the web renderer and `scripts/gen-bot-frames.cjs`, which pre-renders the same
- * scenes for macOS — so a change here must be followed by re-running that script.
+ * scenes for the desktop pre-render — so a change here must be followed by re-running that script.
  */
 
 export const BOT_DEFAULT_SHAPE = "cercle";
@@ -135,7 +135,7 @@ export const BOT_MENUBAR_CLIPS = {
   disconnected: "alert",
 };
 
-/** Every engine state we actually reference, for the macOS pre-render to enumerate. */
+/** Every engine state we actually reference, for the desktop pre-render to enumerate. */
 export function botReachableStates() {
   const ids = new Set([FALLBACK_SCENE.state]);
   for (const scene of Object.values(SCENES)) ids.add(scene.state);

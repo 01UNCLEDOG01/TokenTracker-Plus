@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   isNativeApp,
-  isNativeLinuxApp,
   isPetBridgeAvailable,
   onNativePetSettings,
   requestNativePetSettings,
@@ -20,7 +19,7 @@ const DEFAULTS = {
 
 export function usePetSettings() {
   // The Linux app loads the dashboard without `?app=1`, so it can't pass isNativeApp().
-  const available = (isNativeApp() || isNativeLinuxApp()) && isPetBridgeAvailable();
+  const available = isNativeApp() && isPetBridgeAvailable();
   const [settings, setSettings] = useState(DEFAULTS);
   // False until the host's first reply; `settings` is only DEFAULTS until then.
   const [loaded, setLoaded] = useState(false);

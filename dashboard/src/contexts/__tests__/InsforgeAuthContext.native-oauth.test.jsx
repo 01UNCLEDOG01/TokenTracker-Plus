@@ -59,23 +59,10 @@ describe("native OAuth sign-in", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete window.webkit;
-    delete window.__TAURI_INTERNALS__;
     window.localStorage.clear();
   });
 
-  it("uses the exact scheme and keeps PKCE in the Linux WebView without a local marker", async () => {
-    const invoke = vi.fn(async () => undefined);
-    window.__TAURI_INTERNALS__ = { invoke };
-    const outcome = await signIn(await renderAuth());
-    expect(outcome.error).toBeFalsy();
-    expect(client.auth.signInWithOAuth).toHaveBeenCalledWith({
-      provider: "github", redirectTo: "tokentracker://auth/callback", skipBrowserRedirect: true,
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(invoke).toHaveBeenCalledWith("open_oauth", { url: AUTH_URL });
-  });
-
-  it("uses the same native scheme on macOS and Windows regardless of redirect override", async () => {
+  it("uses the same native scheme on WKWebView embeds regardless of redirect override", async () => {
     const postMessage = vi.fn();
     window.webkit = { messageHandlers: { nativeOAuth: { postMessage } } };
     const result = await renderAuth();
@@ -84,20 +71,6 @@ describe("native OAuth sign-in", () => {
       provider: "github", redirectTo: "tokentracker://auth/callback", skipBrowserRedirect: true,
     });
     expect(postMessage).toHaveBeenCalledWith(AUTH_URL);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("reports a missing native opener without starting OAuth", async () => {
-    window.__TAURI_INTERNALS__ = {};
-    const outcome = await signIn(await renderAuth());
-    expect(outcome.error.message).toBe("Could not start desktop sign-in. Please try again.");
-    expect(client.auth.signInWithOAuth).not.toHaveBeenCalled();
-  });
-
-  it("reports a system browser failure without leaving a native marker", async () => {
-    window.__TAURI_INTERNALS__ = { invoke: vi.fn(async () => { throw new Error("browser unavailable"); }) };
-    const outcome = await signIn(await renderAuth());
-    expect(outcome.error.message).toBe("browser unavailable");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

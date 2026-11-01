@@ -26,7 +26,6 @@ import { petPillDotColor, petVisualScale } from "./lib/pet-appearance.js";
 import { BotAnimated } from "./ui/foundation/BotAnimated.jsx";
 import { PetAtlasAnimated } from "./ui/foundation/PetAtlasAnimated.jsx";
 import { usePetCatalog } from "./hooks/use-pet-catalog.js";
-import { startLinuxPetHost } from "./lib/pet-linux-host.js";
 
 /**
  * Standalone floating-pet entry for the Windows tray app (PetWindow.cs loads
@@ -34,7 +33,7 @@ import { startLinuxPetHost } from "./lib/pet-linux-host.js";
  * companion on a fully transparent surface — no router, providers, sidebar or
  * global styles.
  *
- * Behaviour mirrors the macOS popover companion (ClawdCompanionView.swift):
+ * Behaviour mirrors the desktop popover companion design:
  *   • Auto state: live sync/typing/errors win; usage volume, streak and model variety
  *     feed short ambient scenes (thinking/juggling/wizard) every 12–25s.
  *   • tap (click in place) → cycles the "fun" animations in order, 2.5s each.
@@ -178,8 +177,6 @@ function post(type) {
       window.chrome.webview.postMessage(type);
       return;
     }
-    // Linux Tauri host (TokenTrackerLinux/src-tauri/src/pet.rs).
-    window.__TAURI_INTERNALS__?.invoke("pet_bridge", { message: type })?.catch?.(() => {});
   } catch { /* no native host */ }
 }
 
@@ -1100,7 +1097,6 @@ function Pet() {
 }
 
 // The Linux app has no native poller: the page feeds itself from the local API.
-if (window.__TAURI_INTERNALS__ && !window.chrome?.webview) startLinuxPetHost();
 
 createRoot(document.getElementById("pet-root")).render(
   <React.StrictMode>

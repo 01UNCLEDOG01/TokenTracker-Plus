@@ -15,7 +15,7 @@ import { isLikelyExpiredAccessToken } from "../lib/auth-token";
 import { getPublicVisibility, invalidateAccountResponseCache } from "../lib/api";
 import { clearLocalApiAuthToken } from "../lib/local-api-auth";
 import { copy } from "../lib/copy";
-import { getNativeOAuthBridge, isNativeApp, isNativeEmbed, isNativeLinuxApp, isNativeWindowsApp } from "../lib/native-bridge.js";
+import { getNativeOAuthBridge, isNativeApp, isNativeEmbed, isNativeWindowsApp } from "../lib/native-bridge.js";
 import { restoreInsforgeUser } from "../lib/insforge-session-recovery.mjs";
 import { clearCloudPromptBackendState, cloudPromptOwnerFromToken } from "../lib/cloud-prompt-policy.js";
 
@@ -164,7 +164,7 @@ export function InsforgeAuthProvider({ children }) {
       if (!client || !isCurrentInsforgeClient(client)) return { error: new Error(copy("instance.configuration.changed")) };
       const nativeBridge = getNativeOAuthBridge();
       if (typeof nativeBridge?.postMessage !== "function"
-        && (isNativeApp() || isNativeEmbed() || isNativeWindowsApp() || isNativeLinuxApp())) {
+        && (isNativeApp() || isNativeEmbed() || isNativeWindowsApp())) {
         return { error: new Error(copy("login.oauth.desktop_start_failed")) };
       }
       if (nativeBridge) {

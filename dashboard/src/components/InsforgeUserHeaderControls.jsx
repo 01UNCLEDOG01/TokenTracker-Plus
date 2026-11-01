@@ -15,7 +15,7 @@ function pickAvatarUrl(user) {
   return typeof u === "string" && u.trim() ? u.trim() : null;
 }
 
-// In TokenTrackerBar WKWebView, third-party avatar CDNs (lh3.googleusercontent.com,
+// In WKWebView embeds, third-party avatar CDNs (lh3.googleusercontent.com,
 // avatars.githubusercontent.com) intermittently fail to load even when they
 // render fine in Safari. Route them through the local CLI server, which fetches
 // via Node and serves the bytes as same-origin — that path is reliable.

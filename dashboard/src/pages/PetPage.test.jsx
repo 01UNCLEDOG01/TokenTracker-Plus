@@ -39,10 +39,8 @@ vi.mock("../hooks/use-pet-catalog.js", () => ({
 function installNativeBridge() {
   const messages = [];
   window.history.pushState({}, "", "/pet-settings?app=1");
-  window.webkit = {
-    messageHandlers: {
-      nativeBridge: { postMessage: (message) => messages.push(message) },
-    },
+  window.chrome = {
+    webview: { postMessage: (message) => messages.push(JSON.parse(message)) },
   };
   return messages;
 }
@@ -290,14 +288,4 @@ describe("PetPage", () => {
     expect(messages).not.toContainEqual(expect.objectContaining({ key: "actionLock" }));
   });
 
-  it("renders menu bar toggle on macOS native bridge and hides on Windows", async () => {
-    installNativeBridge();
-    const { unmount } = render(<PetPage />);
-    expect(screen.getByRole("switch", { name: copy("pet.menubar.title") })).toBeInTheDocument();
-    unmount();
-
-    installWindowsBridge();
-    render(<PetPage />);
-    expect(screen.queryByRole("switch", { name: copy("pet.menubar.title") })).not.toBeInTheDocument();
-  });
 });

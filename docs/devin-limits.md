@@ -74,11 +74,11 @@ Every failure surfaces through owned, fixed messages — the provider never forw
 
 ## Brand asset
 
-`dashboard/public/brand-logos/devin.svg` is a monochrome `currentColor` trace of the official Devin "nodes" mark published at `https://app.devin.ai/assets/pwa/apple-touch-icon.png` (see `THIRD_PARTY_NOTICES.md`). The macOS app loads the same bundled SVG.
+`dashboard/public/brand-logos/devin.svg` is a monochrome `currentColor` trace of the official Devin "nodes" mark published at `https://app.devin.ai/assets/pwa/apple-touch-icon.png` (see `THIRD_PARTY_NOTICES.md`). The desktop app loads the same bundled SVG.
 
 ## Implementation boundaries
 
-The implementation lives in `src/lib/devin-limits.js`, whose only export is `fetchDevinLimits({ home, env, fetchImpl, enabled })` — `enabled` is the request-scoped opt-in threaded from `GET /functions/tokentracker-usage-limits?devin=1` through `getUsageLimits`; an explicit `devin=1` or `devin=true` without local authentication is rejected with `401` before any cache reset or provider work runs; when it is false the provider returns the not-configured shape without touching the credentials file or the network. It is wired into the shared provider poll in `src/lib/usage-limits.js`, which owns freshness (`stale`, `cached_at`) and reuses the existing timeout, single-flight, two-minute cache and provenance machinery — the aggregate cache and in-flight slots are partitioned by the Devin selection so a disabled caller can never receive an enabled result. The provider shares the generic `primary_window` / `secondary_window` schema, so dashboard, macOS and widget surfaces consume it like any other two-window provider.
+The implementation lives in `src/lib/devin-limits.js`, whose only export is `fetchDevinLimits({ home, env, fetchImpl, enabled })` — `enabled` is the request-scoped opt-in threaded from `GET /functions/tokentracker-usage-limits?devin=1` through `getUsageLimits`; an explicit `devin=1` or `devin=true` without local authentication is rejected with `401` before any cache reset or provider work runs; when it is false the provider returns the not-configured shape without touching the credentials file or the network. It is wired into the shared provider poll in `src/lib/usage-limits.js`, which owns freshness (`stale`, `cached_at`) and reuses the existing timeout, single-flight, two-minute cache and provenance machinery — the aggregate cache and in-flight slots are partitioned by the Devin selection so a disabled caller can never receive an enabled result. The provider shares the generic `primary_window` / `secondary_window` schema, so dashboard and widget surfaces consume it like any other two-window provider.
 
 ## Tests and validation
 

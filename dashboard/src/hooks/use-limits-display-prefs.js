@@ -10,7 +10,7 @@ import {
  * Display preferences for the Usage Limits panel.
  *
  * Uses Dashboard localStorage as the persistence entry point, then mirrors the
- * full limitsPreferences snapshot through the macOS NativeBridge so the
+ * full limitsPreferences snapshot through the native bridge so the
  * Dashboard and menu bar converge on the same preferences.
  */
 

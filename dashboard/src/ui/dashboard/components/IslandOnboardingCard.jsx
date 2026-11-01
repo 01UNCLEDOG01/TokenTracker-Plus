@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUpRight } from "lucide-react";
 import { copy } from "../../../lib/copy.ts";
 import { useNativeSettings } from "../../../hooks/use-native-settings.js";
-import { isNativeLinuxApp, isNativeWindowsApp } from "../../../lib/native-bridge.js";
+import { isNativeWindowsApp } from "../../../lib/native-bridge.js";
 import { showToast } from "../../components/Toast.jsx";
 import { ToggleSwitch } from "../../../components/settings/Controls.jsx";
 
@@ -168,7 +168,7 @@ export function IslandOnboardingCard({ enterDelay = 0 }) {
     available && Boolean(settings?.dynamicIslandSupported) && !settings?.dynamicIslandEnabled;
   // Browser preview gate: no bridge at all (excludes the Windows and Linux
   // apps, which have no macOS bridge but must not see mac-only promos).
-  const showAsBrowserPreview = !available && !isNativeWindowsApp() && !isNativeLinuxApp();
+  const showAsBrowserPreview = !available && !isNativeWindowsApp();
   const show = !dismissed && (showInNativeApp || showAsBrowserPreview);
 
   return (
