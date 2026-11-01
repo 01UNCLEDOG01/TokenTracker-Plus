@@ -60,11 +60,11 @@
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
-    "@sourcegraph/scip-typescript": "^0.4.0",
+    "@electric-sql/pglite": "^0.5.13",
+    "@sourcegraph/scip-typescript": "^0.5.2",
     "esbuild": "0.28.2",
     "pngjs": "^7.0.0",
-    "sql.js": "1.14.2",
+    "sql.js": "1.15.2",
     "urllib": "4.9.1"
   },
   "repository": {
