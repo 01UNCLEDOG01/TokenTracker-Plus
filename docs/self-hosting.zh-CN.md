@@ -49,7 +49,7 @@ API 和管理入口通过 HTTPS 代理与访问控制提供服务，不直接对
 
 私人用量和计划中的归档使用 PostgreSQL。头像等文件上传还需要持久化 InsForge 存储和 bucket 权限，使用默认文件系统或合适的 S3 兼容存储，并纳入备份。[官方存储配置](https://github.com/InsForge/InsForge#5-storage-backends-optional)
 
-个人自部署不需要注册 Stripe、Paddle、微信支付或支付宝商户。若另外向他人销售托管服务，则需要自己的支付配置和验证。
+个人自部署不需要注册任何第三方支付商户。若另外向他人销售托管服务，则需要自己的支付配置和验证。
 
 ## 客户端配置
 

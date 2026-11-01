@@ -48,7 +48,7 @@
 
 This project uses [InsForge](https://insforge.dev): an all-in-one, open-source Postgres-based backend (BaaS) that gives this app a database, authentication, file storage, edge functions, realtime, an AI model gateway, and payments through one platform.
 
-- **Project:** **tokentracker** (API base `https://srctyff5.us-east.insforge.app`)
+- **No project backend exists.** The fork is local-first: cloud features require the user to self-host an InsForge instance and configure it explicitly. The upstream instance (`srctyff5`) is retired and hard-blocked in `src/lib/runtime-config.js` (`LEGACY_INSFORGE_HOSTS`) — persisted installs pointing at it fall back to "no cloud".
 - **Skills:** these InsForge skills are installed for supported coding agents. Reach for them before implementing any InsForge feature instead of guessing the API:
   - `insforge`: app code with the `@insforge/sdk` client (database CRUD, auth, storage, edge functions, realtime, AI, email, and Stripe payments).
   - `insforge-cli`: backend and infrastructure via the `insforge` CLI (projects, SQL, migrations, RLS policies, storage buckets, functions, secrets, payment setup, schedules, deploys).
