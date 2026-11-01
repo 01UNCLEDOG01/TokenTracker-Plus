@@ -122,7 +122,10 @@ test("CN CLI keeps add-on credits separate from plan credits for both API shapes
     assert.equal(result.tertiary_window.reset_at, null);
     const cached = await fetchQoderCnLimits({ home, env: {}, rpcRequest: unavailableRpc,
       fetchImpl: async () => ({ ok: false, status: 401 }) });
-    assert.equal(cached.source, "disk-cache");
+    // Fresh TTL inherits the written cli-api source (PR 955); last-good still
+    // preserves add-on credits when the live CLI call expires.
+    assert.equal(cached.source, "cli-api");
+    assert.equal(cached.stale, false);
     assert.deepEqual(cached.tertiary_window, result.tertiary_window);
   }
 });
@@ -163,8 +166,10 @@ test("CN CLI unauthorized responses prompt reauthentication and preserve a bound
   assert.equal(result.auth_action_required, "reauth");
   assert.doesNotMatch(result.error, /fixture-secret/);
   await fetchQoderCnLimits({ ...options, fetchImpl: async () => response(USAGE) });
+  // Within the fresh TTL the last-good re-serve keeps cli-api provenance
+  // (PR 955) rather than forcing a degraded disk-cache/stale partial UI.
   const cached = await fetchQoderCnLimits({ ...options, fetchImpl: expired });
-  assert.equal(cached.source, "disk-cache");
-  assert.equal(cached.stale, true);
+  assert.equal(cached.source, "cli-api");
+  assert.equal(cached.stale, false);
   assert.equal(cached.primary_window.used_percent, 25);
 });

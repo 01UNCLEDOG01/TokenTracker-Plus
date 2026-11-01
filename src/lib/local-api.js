@@ -21,6 +21,7 @@ const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 const { createCloudDeviceTokenStore } = require("./cloud-device-token");
 const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
+const { fetchProviderServiceStatus } = require("./provider-status");
 
 const SYNC_TIMEOUT_MS = 120_000;
 // A failed account-view request should not stall every dashboard refresh
@@ -2787,6 +2788,32 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
 
   return async function handleLocalApi(req, res, url) {
     const p = url.pathname;
+    // status.deepseek.com has no public JSON API or CORS, so the dashboard
+    // cannot probe it like the other providers. Relay it through the local app:
+    // fetchProviderServiceStatus("deepseek") fetches + parses the server-rendered
+    // page (with a 5-minute cache and 6s timeout in provider-status.js) and we
+    // return a Statuspage.io-shaped payload the existing dashboard parser reads.
+    if (p === "/api/deepseek-status") {
+      const method = String(req.method || "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      try {
+        const reading = await fetchProviderServiceStatus("deepseek");
+        if (!reading) {
+          json(res, { error: "DeepSeek status unavailable" }, 502);
+          return true;
+        }
+        json(res, {
+          page: { updated_at: reading.updated_at },
+          status: { indicator: reading.indicator, description: reading.description || "" },
+        });
+      } catch (error) {
+        json(res, { error: `DeepSeek status probe error: ${error?.message || error}` }, 502);
+      }
+      return true;
+    }
     // Session recovery and the one-time native callback marker belong to local
     // clients. Reject foreign requests before consuming either, including preflights.
     const nativeMarkerRead = p === "/api/auth-bridge/verifier" && String(req.method).toUpperCase() === "GET";

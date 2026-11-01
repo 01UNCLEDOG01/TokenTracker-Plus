@@ -39,6 +39,9 @@ const QODER_ACTIVITY_CACHE_FILE = "qoder-activity-cache.json";
 const QODER_ACTIVITY_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const QODER_LIMITS_CACHE_FILE = "qoder-usage-limits-cache.json";
 const QODER_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Align with usage-limits provenance aging (10 min): a cache hit fresher than
+// this inherits its written source and is not flagged stale (PR 955 self-lock).
+const QODER_LIMITS_CACHE_FRESH_TTL_MS = 10 * 60 * 1000;
 const QODER_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS = 12 * 60 * 60 * 1000;
 // Desktop 0.4.x moved its Electron profile to a bundle-id directory and the
 // quota summary now arrives as [Auth] [AccountUsage] JSON lines in main.log.
@@ -533,6 +536,13 @@ function readQoderLimitsCache({
     if (nowMs - cachedAtMs > QODER_LIMITS_CACHE_MAX_AGE_MS && !hasUnexpiredDatedWindow) {
       return null;
     }
+    // Provenance must describe the data's age, not the transport (PR 955): a
+    // successful refresh writes this cache and immediately floors later log
+    // reads, so a fresh hit stays honest about where the numbers came from.
+    const fresh = nowMs - cachedAtMs <= QODER_LIMITS_CACHE_FRESH_TTL_MS;
+    const writtenSource = typeof raw.source === "string" && raw.source.trim()
+      ? raw.source.trim()
+      : null;
     return {
       configured: true,
       error: null,
@@ -542,12 +552,12 @@ function readQoderLimitsCache({
       secondary_window: secondaryWindow,
       ...(tertiaryWindow ? { tertiary_window: tertiaryWindow } : {}),
       cached: true,
-      stale: true,
+      stale: !fresh,
       cached_at: raw.cached_at,
       spend: raw.spend && typeof raw.spend === "object" ? raw.spend : null,
       spend_stale: raw.spend_stale === true,
       spend_cached_at: typeof raw.spend_cached_at === "string" ? raw.spend_cached_at : null,
-      source: "disk-cache",
+      source: fresh && writtenSource ? writtenSource : "disk-cache",
     };
   } catch (_error) {
     return null;
@@ -602,6 +612,9 @@ function writeQoderLimitsCache(limits, {
       spend_stale: limits.spend_stale === true,
       spend_cached_at: limits.spend_cached_at || null,
       ...(limits.tertiary_window ? { tertiary_window: limits.tertiary_window } : {}),
+      // Remember the winning source so a fresh re-serve keeps honest
+      // provenance instead of always claiming "disk-cache" (PR 955).
+      source: typeof limits.source === "string" ? limits.source : null,
       cached_at: new Date(nowMs).toISOString(),
     },
   };

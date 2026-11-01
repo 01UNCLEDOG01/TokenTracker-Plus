@@ -593,8 +593,43 @@ test("fetchQoderLimits persists a provider-level last-good cache for app restart
   assert.equal(cached.primary_window.remaining_credits, 75);
   assert.equal(cached.secondary_window.remaining_credits, 300);
   assert.equal(cached.cached, true);
-  assert.equal(cached.stale, true);
-  assert.equal(cached.source, "disk-cache");
+  // Still inside the fresh TTL: inherit the live write's source (PR 955).
+  assert.equal(cached.stale, false);
+  assert.match(cached.source, /local-ipc/);
+});
+
+test("readQoderLimitsCache fresh TTL keeps written provenance then ages honestly (PR 955)", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-fresh-ttl-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const nowMs = Date.parse("2030-07-29T12:00:00.000Z");
+  const limits = {
+    configured: true,
+    error: null,
+    plan_label: "personal_standard",
+    quota_exceeded: false,
+    primary_window: {
+      used_percent: 25,
+      reset_at: null,
+      used_credits: 25,
+      limit_credits: 100,
+      remaining_credits: 75,
+      unit: "credits",
+    },
+    source: "local-ipc",
+  };
+  writeQoderLimitsCache(limits, { home, nowMs });
+
+  // Two minutes later: still fresh — provenance stays the written source and
+  // the hit is not flagged stale (no self-lock into permanent disk-cache).
+  const fresh = readQoderLimitsCache({ home, nowMs: nowMs + 2 * 60_000 });
+  assert.equal(fresh.source, "local-ipc");
+  assert.equal(fresh.stale, false);
+  assert.equal(fresh.cached, true);
+
+  // Past the fresh TTL the same payload is honest about its age.
+  const aged = readQoderLimitsCache({ home, nowMs: nowMs + 11 * 60_000 });
+  assert.equal(aged.source, "disk-cache");
+  assert.equal(aged.stale, true);
 });
 
 test("fetchQoderLimits returns last-good before explicit provider fallback", async (t) => {

@@ -979,13 +979,14 @@ export const PERK_PROVIDERS = [  {
     "tags": [
       "AI客户端",
       "国际版",
-      "独立账号体系"
+      "独立账号体系",
+      "DeepSeek免费调用"
     ],
-    "description": "WorkBuddy 国际版（workbuddy.ai），与国内版（workbuddy.cn）账号体系相互独立。现行福利：每月 1 日发放 100 积分，当日完成对话次日 30 积分自动到账（2026-11-01 实测）；此前「每日免费调用上限 1 亿额度 deepseek-v4.1-flash」的活动已于 2026-10-31 截止。",
+    "description": "WorkBuddy 国际版（workbuddy.ai），与国内版（workbuddy.cn）账号体系相互独立。现行福利：每月 1 日发放 100 积分，当日完成对话次日 30 积分自动到账（2026-11-01 实测）；DeepSeek-V4.1-Flash 仍可免费调用（2026-11-02 实测仍在，此前记录的 2026-10-31 截止时间未生效；每日额度上限与活动档期以端内为准）。",
     "tips": "与国内版（workbuddy.cn）互不共享账号与积分；积分有效期以端内为准，用量与发放记录在站内「余额及用量」页查看。",
     "officialUrl": "https://www.workbuddy.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-01",
+    "checkedAt": "2026-11-02",
     "sourceUrl": "https://www.workbuddy.ai"
   },
   {

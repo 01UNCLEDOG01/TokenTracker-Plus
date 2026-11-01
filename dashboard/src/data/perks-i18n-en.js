@@ -109,10 +109,10 @@ export const PERKS_EN = {
     name: "WorkBuddy AI (International)",
     badge: "100 points on the 1st monthly + 30 the day after each chat day",
     description:
-      "WorkBuddy international (workbuddy.ai), with accounts fully separate from the China edition (workbuddy.cn). Current perks: 100 points granted on the 1st of each month, and 30 points auto-credited the next day for each day you chat (verified 2026-11-01); the earlier \u201c100M daily free deepseek-v4.1-flash quota\u201d campaign ended 2026-10-31.",
+      "WorkBuddy international (workbuddy.ai), with accounts fully separate from the China edition (workbuddy.cn). Current perks: 100 points granted on the 1st of each month, and 30 points auto-credited the next day for each day you chat (verified 2026-11-01); DeepSeek-V4.1-Flash remains free to use (still live as of 2026-11-02 — the previously recorded 2026-10-31 end date did not take effect; daily caps and campaign windows follow the in-app terms).",
     tips:
       "Accounts and points are not shared with the China edition (workbuddy.cn); points validity follows the in-app terms, with usage and grant history on the in-site balance & usage page.",
-    tags: ["AI client", "International", "Separate accounts"],
+    tags: ["AI client", "International", "Separate accounts", "Free DeepSeek"],
   },
   zcode: {
     name: "ZCode (Z.AI Coding Agent)",
