@@ -88,7 +88,10 @@ test("resolveWorkbuddyHomes", async (t) => {
 
   // The \\wsl.localhost UNC recognition is Windows path semantics; on Linux
   // backslashes are ordinary filename characters and the pairing diverges.
-  const winTest = process.platform === "win32" ? t.test : t.skip;
+  // (Bind through arrows — lifting t.skip/t.test off the context loses `this`.)
+  const winTest = process.platform === "win32"
+    ? (name, fn) => t.test(name, fn)
+    : (name, fn) => t.skip(name);
   await winTest("a non-native primary does not pick up the native sibling", () => {
     // Under a wsl-only pass the primary is a \\wsl.localhost path; adding the
     // native sibling there would make the "both" merge read it twice.
