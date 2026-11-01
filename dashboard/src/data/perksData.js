@@ -861,11 +861,11 @@ export const PERK_PROVIDERS = [  {
       "每日主动领取",
       "CLI 可查额度"
     ],
-    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn，openapi.qoder.com.cn）。每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效），与国际版同为「手动领、不自动到账」的规则；无邀请活动；新用户注册赠额以站内为准。",
+    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn，openapi.qoder.com.cn）。每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效），与国际版同为「手动领、不自动到账」的规则；无邀请活动；新用户注册赠额以站内为准；新客首次订阅低至 19.9 元，档位以端内为准。",
     "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效。",
     "officialUrl": "https://qoder.cn",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-01",
     "sourceUrl": "https://docs.qoder.cn/zh/events/100credits"
   },
   {

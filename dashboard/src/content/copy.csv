@@ -51,8 +51,6 @@ error.boundary.hint,shared,*,ErrorBoundary,hint,"Open the console, then reload t
 error.boundary.no_details,shared,*,ErrorBoundary,details,"No error details",,active
 error.boundary.action.reload,shared,*,ErrorBoundary,action_reload,"Reload",,active
 landing.screenshot.alt,landing,LandingPage,LandingPage,screenshot_alt,"TokenTracker dashboard screenshot",,active
-landing.nav.login,landing,LandingPage,LandingPage,nav_login,"LOGIN",,active
-landing.nav.signup,landing,LandingPage,LandingPage,nav_signup,"SIGN UP",,active
 landing.install.command,landing,LandingPage,LandingPage,install_command,"npx --yes tokentracker-cli",,active
 landing.install.action.copy,landing,LandingPage,LandingPage,install_copy,"COPY COMMAND",,active
 landing.install.action.copied,landing,LandingPage,LandingPage,install_copied,"COPIED",,active
@@ -63,13 +61,6 @@ landing.meta.og_type,landing,LandingPage,Meta,og_type,"website",,active
 landing.meta.og_image,landing,LandingPage,Meta,og_image,"https://opengraph.githubassets.com/1/01UNCLEDOG01/TokenTracker-Plus",,active
 landing.meta.og_url,landing,LandingPage,Meta,og_url,"https://github.com/01UNCLEDOG01/TokenTracker-Plus",,active
 landing.meta.twitter_card,landing,LandingPage,Meta,twitter_card,"summary_large_image",,active
-share.meta.title,share,SharePage,Meta,title,"TokenTracker Plus Share",,active
-share.meta.description,share,SharePage,Meta,description,"Share a TokenTracker Plus dashboard snapshot with token usage insights across models, projects, and time windows.",,active
-share.meta.og_site_name,share,SharePage,Meta,og_site_name,"TokenTracker Plus",,active
-share.meta.og_type,share,SharePage,Meta,og_type,"website",,active
-share.meta.og_image,share,SharePage,Meta,og_image,"https://opengraph.githubassets.com/1/01UNCLEDOG01/TokenTracker-Plus",,active
-share.meta.og_url,share,SharePage,Meta,og_url,"https://github.com/01UNCLEDOG01/TokenTracker-Plus",,active
-share.meta.twitter_card,share,SharePage,Meta,twitter_card,"summary_large_image",,active
 landing.cta.primary,landing,LandingPage,LandingPage,cta_primary,"View Dashboard",,active
 landing.cta.secondary,landing,LandingPage,LandingPage,cta_secondary,"GitHub",,active
 landing.v2.hero.title_line1,landing,LandingPage,MarketingLanding,hero_title_1,"TRACK EVERY",,active
@@ -185,11 +176,6 @@ dashboard.projects.detail.source_conv,ui,DataDetails,ProjectDetailModal,source_c
 dashboard.widgets.title,dashboard,DashboardPage,WidgetOnboardingCard,title,"Desktop Widgets",,active
 dashboard.widgets.hint,dashboard,DashboardPage,WidgetOnboardingCard,hint,"Right-click your desktop → Edit Widgets → search ""TokenTracker""",,active
 dashboard.widgets.dismiss_aria,dashboard,DashboardPage,WidgetOnboardingCard,dismiss_aria,"Dismiss widget intro",,active
-dashboard.linux_topbar.title,dashboard,DashboardPage,LinuxTopBarCard,title,"Track usage in your top bar",,active
-dashboard.linux_topbar.hint,dashboard,DashboardPage,LinuxTopBarCard,hint,"On GNOME, the TokenTracker extension puts today's tokens and spend next to Clawd in the top bar, with a dropdown for limits and trends.",,active
-dashboard.linux_topbar.setup,dashboard,DashboardPage,LinuxTopBarCard,setup,"Set up",,active
-dashboard.linux_topbar.dismiss_aria,dashboard,DashboardPage,LinuxTopBarCard,dismiss_aria,"Dismiss top bar tip",,active
-dashboard.linux_topbar.preview_readout,dashboard,DashboardPage,LinuxTopBarCard,preview_readout,"8.2M · $12.40",Illustrative figures,active
 widgets.page.title,dashboard,WidgetsPage,WidgetsPage,title,"Menu Bar & Widgets",,active
 widgets.cta.open_gallery,dashboard,WidgetsPage,WidgetsPage,cta_open_gallery,"Open Widget Gallery",,active
 widgets.cta.download,dashboard,WidgetsPage,WidgetsPage,cta_download,"Download Mac App",,active
@@ -339,8 +325,6 @@ dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cm
 dashboard.install.copy,dashboard,DashboardPage,AsciiBox,install_copy,"Copy install command",,active
 dashboard.install.copy_base,dashboard,DashboardPage,AsciiBox,install_copy,"Copy init command",,active
 dashboard.install.copied,dashboard,DashboardPage,AsciiBox,install_copy,"Copied to clipboard",,active
-dashboard.install.link_code.loading,dashboard,DashboardPage,AsciiBox,install_status,"Generating private code...",,active
-dashboard.install.link_code.failed,dashboard,DashboardPage,AsciiBox,install_status,"Private code unavailable",,active
 dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes tokentracker-cli sync",,active
 dashboard.daily.title,dashboard,DashboardPage,AsciiBox,title,"Daily Breakdown",,active
 dashboard.daily.empty,dashboard,DashboardPage,AsciiBox,empty_state,"No data yet. Use your AI CLI then run {{cmd}}.",,active
@@ -521,11 +505,6 @@ dashboard.island.enable,ui,DashboardPage,IslandOnboardingCard,island_enable,"Tur
 dashboard.island.settings_link,ui,DashboardPage,IslandOnboardingCard,island_settings,"View in Settings",,active
 dashboard.island.enabled_toast,ui,DashboardPage,IslandOnboardingCard,island_toast,"Dynamic Island is on — look up at the notch",,active
 dashboard.island.dismiss_aria,ui,DashboardPage,IslandOnboardingCard,island_dismiss,"Dismiss Dynamic Island tip",,active
-dashboard.linux_pet.title,ui,DashboardPage,LinuxPetCard,linux_pet_title,"Meet your desktop pet",,active
-dashboard.linux_pet.hint,ui,DashboardPage,LinuxPetCard,linux_pet_hint,"A small companion on your desktop — hover it for today's tokens, spend and limits, and drag it anywhere.",,active
-dashboard.linux_pet.show,ui,DashboardPage,LinuxPetCard,linux_pet_show,"Show pet",,active
-dashboard.linux_pet.settings_link,ui,DashboardPage,LinuxPetCard,linux_pet_settings,"Pet settings",,active
-dashboard.linux_pet.dismiss_aria,ui,DashboardPage,LinuxPetCard,linux_pet_dismiss,"Dismiss desktop pet tip",,active
 settings.labs.qpd.label,ui,SettingsPage,LabsSection,qpd_label,"Analyze PR cost-efficiency",,active
 settings.labs.qpd.hint,ui,SettingsPage,LabsSection,qpd_hint,"Analyze average delivery costs and effective Tokens per model from merged PRs and AI-attributed commits.",,active
 settings.labs.qpd.aria,ui,SettingsPage,LabsSection,qpd_aria,"Toggle PR cost-efficiency analysis",,active
@@ -1786,7 +1765,6 @@ subscriptions.countdown,ui,LimitsPage,SubscriptionSettingsCard,countdown,"in {{d
 subscriptions.expired,ui,LimitsPage,SubscriptionSettingsCard,expired,"Expired",,active
 subscriptions.empty.title,ui,LimitsPage,SubscriptionSettingsCard,empty_title,"No subscriptions yet",,active
 subscriptions.empty.body,ui,LimitsPage,SubscriptionSettingsCard,empty_body,"Add a plan to keep an eye on its next renewal or expiry date.",,active
-subscriptions.load_error,ui,LimitsPage,LimitsPage,load_error,"Failed to load subscriptions.",,active
 subscriptions.inline.label,ui,LimitsPage,UsageLimitsPanel,inline_label,"Subscription",,active
 subscriptions.badge.auto_renew,ui,LimitsPage,UsageLimitsPanel,badge_auto_renew,"Auto-renew",,active
 subscriptions.badge.stops,ui,LimitsPage,UsageLimitsPanel,badge_stops,"Stops at expiry",,active
@@ -1934,8 +1912,6 @@ instance.configuration.invalid,cloud,*,Cloud,text,"This instance connection is n
 instance.configuration.changed,cloud,*,Cloud,text,The backend instance changed. Reload and sign in to the selected instance.,,active
 instance.connection.destination,cloud,*,Cloud,text,Sign in to {{host}}. Your credentials will be sent to this instance.,,active
 cloud.self_host.public_profile_disabled,cloud,*,Cloud,text,Public profiles are not enabled on this private instance. Nothing is published to the official leaderboard.,,active
-legal.nav.pricing,ui,*,LegalLinks,pricing,"Cloud pricing",,active
-legal.nav.terms,ui,*,LegalLinks,terms,Terms of Service,,active
 legal.nav.support,ui,*,LegalLinks,support,Support,,active
 cloud.prompt.deadline_gift,cloud,*,RedeemProCode,text,"Your gifted Cloud access ends {{date}}. The gift creates no auto-renewal. Your local data stays available afterward.",,active
 sessions.filter.model_all,ui,SessionsPage,SessionInsights,model_all,All models,,active
@@ -2174,7 +2150,6 @@ achievements.badge.sensenova_daily.name,dashboard,*,AchievementsSection,sensenov
 achievements.badge.sensenova_daily.desc,dashboard,*,BadgeDetailModal,sensenova_daily_desc,"Lifetime tokens through SenseTime SenseNova models — renew today, renew again tomorrow.",,active
 achievements.badge.xiaomi_mimo.name,dashboard,*,AchievementsSection,xiaomi_mimo_name,MiMo Core,,active
 achievements.badge.xiaomi_mimo.desc,dashboard,*,BadgeDetailModal,xiaomi_mimo_desc,Lifetime tokens through Xiaomi MiMo models — the phone maker builds the chip and the model.,,active
-pet.state.run,dashboard,PetPage,PetPage,state_run,"Moving (while dragging)",,active
 pet.state.run_hint,dashboard,PetPage,PetPage,state_run_hint,"Plays only while dragging the pet",,active
 pet.state.wave,dashboard,PetPage,PetPage,state_wave,"Waving (summoned / wake / offline / error)",,active
 pet.state.run_right,dashboard,PetPage,PetPage,state_run_right,"Moving right (while dragging)",,active

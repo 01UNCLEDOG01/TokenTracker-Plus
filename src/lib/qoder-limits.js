@@ -40,6 +40,15 @@ const QODER_ACTIVITY_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const QODER_LIMITS_CACHE_FILE = "qoder-usage-limits-cache.json";
 const QODER_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const QODER_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS = 12 * 60 * 60 * 1000;
+// Desktop 0.4.x moved its Electron profile to a bundle-id directory and the
+// quota summary now arrives as [Auth] [AccountUsage] JSON lines in main.log.
+// Absorbed from upstream #921: scan both log names across the legacy and
+// bundle-id roots, tail-first in bounded chunks, newest eligible line wins.
+const QODER_LOG_SCAN_MAX_BYTES = 8 * 1024 * 1024;
+const QODER_LOG_CHUNK_BYTES = 512 * 1024;
+const QODER_LOG_OVERLAP_BYTES = 64 * 1024;
+const QODER_LOG_MAX_FILES = 8;
+const QODER_LOG_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // Qoder CN spend: the cost-center daily trend caps one call at a 90-day
 // span, so the spend walk pages backward until two consecutive windows
 // are empty (or the window budget runs out).
@@ -902,7 +911,7 @@ async function fetchQoderCnSpend(cookieHeader, site, fetchImpl, { userId, nowMs 
   };
 }
 
-function listRecentQoderRendererLogs(logRoot, maxFiles = 12) {
+function listRecentQoderLogs(logRoot, maxFiles = QODER_LOG_MAX_FILES) {
   if (!fs.existsSync(logRoot)) return [];
   const files = [];
   const stack = [{ dir: logRoot, depth: 0 }];
@@ -918,19 +927,123 @@ function listRecentQoderRendererLogs(logRoot, maxFiles = 12) {
       const full = path.join(current.dir, entry.name);
       if (entry.isDirectory() && current.depth < 4) {
         stack.push({ dir: full, depth: current.depth + 1 });
-      } else if (entry.isFile() && entry.name === "renderer.log") {
-        let mtimeMs = 0;
+      } else if (entry.isFile() && (entry.name === "main.log" || entry.name === "renderer.log")) {
+        let stat;
         try {
-          mtimeMs = fs.statSync(full).mtimeMs;
+          stat = fs.statSync(full);
         } catch (_error) {}
-        files.push({ full, mtimeMs });
+        if (stat) files.push({ full, mtimeMs: stat.mtimeMs, size: stat.size });
       }
     }
   }
   return files
     .sort((a, b) => b.mtimeMs - a.mtimeMs)
-    .slice(0, maxFiles)
-    .map((entry) => entry.full);
+    .slice(0, maxFiles);
+}
+
+function qoderLogRoots({ home, platform = process.platform, env = process.env, appDir = "Qoder", envPrefix = "QODER" } = {}) {
+  const logRootKey = `${envPrefix}_LOG_ROOT`;
+  const homeKey = `${envPrefix}_HOME`;
+  const explicitLogRoot =
+    typeof env[logRootKey] === "string" && env[logRootKey].trim()
+      ? path.resolve(env[logRootKey].trim())
+      : null;
+  if (explicitLogRoot) return [explicitLogRoot];
+  const configuredRoot =
+    typeof env[homeKey] === "string" && env[homeKey].trim()
+      ? path.resolve(env[homeKey].trim())
+      : null;
+  if (configuredRoot) return [path.join(configuredRoot, "logs")];
+  const base = platform === "darwin"
+    ? path.join(home, "Library", "Application Support")
+    : platform === "win32"
+      ? path.join(env.APPDATA || path.join(home, "AppData", "Roaming"))
+      : path.join(home, ".config");
+  // Desktop 0.4.x moved the Electron profile to a bundle-id directory; the
+  // legacy app-dir layout still hosts renderer.log on older installs.
+  const bundleId = appDir === "QoderCN" || envPrefix === "QODER_CN"
+    ? "com.qodercn.app.stable"
+    : "com.qoder.app.stable";
+  return [
+    path.join(base, appDir, "logs"),
+    path.join(base, bundleId, "logs"),
+  ];
+}
+
+/** Backward chunked scan; parse returns a hit, null for no hit, undefined when the file is unreadable. */
+function scanQoderLogFromEnd(logPath, parse) {
+  let fd;
+  try {
+    fd = fs.openSync(logPath, "r");
+  } catch (_error) {
+    return undefined;
+  }
+  try {
+    const stat = fs.fstatSync(fd);
+    const floor = Math.max(0, stat.size - QODER_LOG_SCAN_MAX_BYTES);
+    let end = stat.size;
+    let carry = "";
+    while (end > floor) {
+      const start = Math.max(floor, end - QODER_LOG_CHUNK_BYTES);
+      const length = end - start;
+      const buffer = Buffer.alloc(length);
+      fs.readSync(fd, buffer, 0, length, start);
+      const text = buffer.toString("utf8") + carry;
+      const hit = parse(text);
+      if (hit !== null && hit !== undefined) return hit;
+      carry = text.slice(0, Math.min(text.length, QODER_LOG_OVERLAP_BYTES));
+      end = start;
+    }
+    return null;
+  } catch (_error) {
+    return undefined;
+  } finally {
+    try { fs.closeSync(fd); } catch (_error) {}
+  }
+}
+
+/** [Auth] [AccountUsage] JSON lines (desktop 0.4.x main.log). Returns { limits, observedAtMs, lineObservedAtMs } or null. */
+function parseQoderAccountUsageLog(text, mtimeMs = 0) {
+  if (typeof text !== "string" || !text.includes("qoderUsage")) return null;
+  const lines = text.split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const line = lines[i];
+    if (!line.includes("qoderUsage")) continue;
+    const jsonStart = line.indexOf("{\"");
+    const start = jsonStart >= 0 ? jsonStart : line.indexOf("{");
+    if (start < 0) continue;
+    let payload = null;
+    try {
+      payload = JSON.parse(line.slice(start));
+    } catch (_error) {
+      const last = line.lastIndexOf("}");
+      if (last <= start) continue;
+      try {
+        payload = JSON.parse(line.slice(start, last + 1));
+      } catch (_error) {
+        continue;
+      }
+    }
+    const usage = payload && typeof payload === "object" ? payload.qoderUsage : null;
+    if (!usage || typeof usage !== "object") continue;
+    const limits = normalizeQoderRpcUsage({
+      userType: payload.userType ?? usage.userType,
+      expiresAt: usage.expiresAt ?? payload.expiresAt,
+      isQuotaExceeded: usage.isQuotaExceeded ?? payload.isQuotaExceeded,
+      userQuota: usage.userQuota,
+      addOnQuota: usage.addOnQuota,
+    });
+    if (!limits) continue;
+    limits.source = "local-log";
+    const stamp = /^\[([^\]]+)\]/.exec(line);
+    const lineObservedAtMs = stamp ? Date.parse(stamp[1]) : NaN;
+    return {
+      limits,
+      observedAtMs: Number.isFinite(lineObservedAtMs) ? lineObservedAtMs : mtimeMs,
+      lineObservedAtMs: Number.isFinite(lineObservedAtMs) ? lineObservedAtMs : null,
+    };
+  }
+  return null;
 }
 
 function parseQoderQuotaLog(text) {
@@ -967,46 +1080,55 @@ function parseQoderQuotaLog(text) {
   };
 }
 
+function readQoderLocalQuotaWithAge({
+  home = os.homedir(),
+  platform = process.platform,
+  env = process.env,
+  appDir = "Qoder",
+  envPrefix = "QODER",
+  nowMs = Date.now(),
+  olderThanMs = 0,
+} = {}) {
+  const maxAgeMs = QODER_LOG_MAX_AGE_MS;
+  const candidates = [];
+  const seen = new Set();
+  for (const root of qoderLogRoots({ home, platform, env, appDir, envPrefix })) {
+    for (const entry of listRecentQoderLogs(root)) {
+      if (seen.has(entry.full)) continue;
+      seen.add(entry.full);
+      if (nowMs - entry.mtimeMs > maxAgeMs) continue;
+      if (entry.mtimeMs <= olderThanMs) continue;
+      candidates.push(entry);
+    }
+  }
+  candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  // mtime order needn't match summary-line order: keep the newest eligible
+  // line across every candidate instead of returning the first hit.
+  let best = null;
+  for (const entry of candidates) {
+    const hit = scanQoderLogFromEnd(entry.full, (text) => {
+      const accountUsage = parseQoderAccountUsageLog(text, entry.mtimeMs);
+      if (accountUsage) return accountUsage;
+      const legacy = parseQoderQuotaLog(text);
+      return legacy ? { limits: legacy, observedAtMs: entry.mtimeMs, lineObservedAtMs: null } : null;
+    });
+    if (!hit || typeof hit !== "object") continue;
+    if (nowMs - hit.observedAtMs > maxAgeMs) continue;
+    if (!best || hit.observedAtMs > best.observedAtMs) best = hit;
+  }
+  return best;
+}
+
+/** Compatibility wrapper: limits only (no age metadata). */
 function readQoderLocalQuota({
   home = os.homedir(),
   platform = process.platform,
   env = process.env,
   appDir = "Qoder",
   envPrefix = "QODER",
+  nowMs = Date.now(),
 } = {}) {
-  const logRootKey = `${envPrefix}_LOG_ROOT`;
-  const homeKey = `${envPrefix}_HOME`;
-  const explicitLogRoot =
-    typeof env[logRootKey] === "string" && env[logRootKey].trim()
-      ? path.resolve(env[logRootKey].trim())
-      : null;
-  const configuredRoot =
-    typeof env[homeKey] === "string" && env[homeKey].trim()
-      ? path.resolve(env[homeKey].trim())
-      : null;
-  const logRoot = explicitLogRoot || (configuredRoot
-    ? path.join(configuredRoot, "logs")
-    : platform === "darwin"
-      ? path.join(home, "Library", "Application Support", appDir, "logs")
-      : platform === "win32"
-        ? path.join(env.APPDATA || path.join(home, "AppData", "Roaming"), appDir, "logs")
-        : path.join(home, ".config", appDir, "logs"));
-  for (const logPath of listRecentQoderRendererLogs(logRoot)) {
-    try {
-      const fd = fs.openSync(logPath, "r");
-      try {
-        const stat = fs.fstatSync(fd);
-        const length = Math.min(stat.size, 512 * 1024);
-        const buffer = Buffer.alloc(length);
-        fs.readSync(fd, buffer, 0, length, Math.max(0, stat.size - length));
-        const parsed = parseQoderQuotaLog(buffer.toString("utf8"));
-        if (parsed) return parsed;
-      } finally {
-        fs.closeSync(fd);
-      }
-    } catch (_error) {}
-  }
-  return null;
+  return readQoderLocalQuotaWithAge({ home, platform, env, appDir, envPrefix, nowMs })?.limits ?? null;
 }
 
 function siteFromEnv(value) {
@@ -1304,6 +1426,8 @@ module.exports = {
   readQoderLimitsCache,
   writeQoderLimitsCache,
   parseQoderQuotaLog,
+  parseQoderAccountUsageLog,
+  readQoderLocalQuotaWithAge,
   readQoderLocalQuota,
   fetchQoderLimits,
   fetchQoderCnLimits,

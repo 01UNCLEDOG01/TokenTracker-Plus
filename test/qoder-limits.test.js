@@ -20,6 +20,7 @@ const {
   readQoderLimitsCache,
   writeQoderLimitsCache,
   parseQoderQuotaLog,
+  parseQoderAccountUsageLog,
   fetchQoderCnLimits,
 } = require("../src/lib/qoder-limits");
 
@@ -953,4 +954,21 @@ test("fetchQoderLimits blames the stale saved cookie, not the user's Qoder sign-
   assert.match(result.note, /qoder-usage-cookie\.txt/);
   assert.match(result.note, /sign-in itself is unaffected/);
   assert.doesNotMatch(result.note, /Sign in at qoder\.com again/);
+});
+
+test("parseQoderAccountUsageLog maps the 0.4.x JSON line via normalizeQoderRpcUsage (absorbed from upstream #921)", () => {
+  const line = '[2026-11-01T03:00:00.000Z] [Auth] [AccountUsage] {"userType":"Pro","expiresAt":"9999-12-31T00:00:00.000Z","isQuotaExceeded":false,"qoderUsage":{"userQuota":{"used":120,"total":1000,"remaining":880,"unit":"credits"},"addOnQuota":{"used":5,"total":100,"remaining":95}}}';
+  const observed = Date.parse("2026-11-01T03:00:01Z");
+  const hit = parseQoderAccountUsageLog(line, observed);
+  assert.equal(hit.limits.primary_window.used_credits, 120);
+  assert.equal(hit.limits.primary_window.limit_credits, 1000);
+  // 9999-12-31 = no-expiry sentinel -> reset_at stays null.
+  assert.equal(hit.limits.primary_window.reset_at, null);
+  assert.equal(hit.limits.tertiary_window.remaining_credits, 95);
+  assert.equal(hit.limits.source, "local-log");
+  assert.equal(hit.observedAtMs, Date.parse("2026-11-01T03:00:00.000Z"));
+});
+
+test("parseQoderAccountUsageLog ignores lines without qoderUsage", () => {
+  assert.equal(parseQoderAccountUsageLog("plain log line", 0), null);
 });
