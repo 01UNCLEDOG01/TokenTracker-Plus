@@ -15,14 +15,12 @@ jobs:
   analyze:
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
-    # Code scanning cannot be enabled for this repository at all: personal-
-    # account repos get no Code scanning section in Settings, the Security and
-    # quality tab says "Advanced Security is only available for Organizations",
-    # and the admin API answers 422/403/404 (KI-048). The analyze step there-
-    # fore fails with "Code scanning is not enabled" on every push — a config
-    # error, not a finding. The job stays non-blocking until the repo moves to
-    # an organization or GitHub opens code scanning to personal accounts.
-    continue-on-error: true
+    # Code scanning now works here (the first public scan produced 95 alerts,
+    # triaged in KI-048): the SARIF upload lands and the alerts UI/API reads
+    # them. This job used to carry `continue-on-error: true` while KI-048
+    # recorded that personal-account repos could not enable code scanning; that
+    # limitation is gone, so an analysis or upload failure now fails the run
+    # like any other config error instead of staying invisible.
     permissions:
       security-events: write
       actions: read
