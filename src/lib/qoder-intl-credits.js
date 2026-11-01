@@ -44,10 +44,17 @@ const QODER_INTL_SHAPE_FIELD_RATE = {
 const QODER_INTL_CREDIT_SUFFIX = "（积分）";
 // Fallback for when Qoder's own client texts are unreadable. The live source
 // of truth is ~/.qoder/.auth/dynamic-texts.json, which names every router id
-// the client can pick (see qoderIntlRouterNames).
+// the client can pick (see qoderIntlRouterNames). The entries below are a
+// snapshot of that table taken 2026-11-02 — they keep family badges (and the
+// achievements math that reads them) working on machines without a Qoder
+// install, where the dynamic read comes up empty. The dynamic table still
+// wins whenever it is readable, so a client-side rename outranks this list.
 const QODER_INTL_ROUTER_MODEL_NAMES = new Map([
   ["qfmodel", "Qwen3.8-Flash"],
   ["dfmodel", "DeepSeek-Flash"],
+  ["gfmodel", "GLM-5.3-Flash"],
+  ["mmodel", "MiniMax-M3.1-Flash"],
+  ["kmodel_latest", "Kimi-K3.1-Pro"],
 ]);
 // Bumped whenever the rows this module derives change shape or meaning, so an
 // existing mirror is rebuilt instead of replayed. The version is the only thing
