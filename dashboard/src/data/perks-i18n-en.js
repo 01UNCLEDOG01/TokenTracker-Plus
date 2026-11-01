@@ -118,10 +118,10 @@ export const PERKS_EN = {
     name: "ZCode (Z.AI Coding Agent)",
     badge: "Friday evenings often grant a 300M GLM-5.3-Flash quota",
     description:
-      "Z.ai's official coding agent client — direct GLM model access, ready on login. Long-term observation: Friday-evening logins often surface a limited-time 300M-token GLM-5.3-Flash quota drop; exact amounts and windows follow in-app announcements.",
+      "Z.ai's official coding agent client — direct GLM model access, ready on login. Long-term observation: Friday-evening logins often surface a limited-time 300M-token GLM-5.3-Flash quota drop; exact amounts and windows follow in-app announcements. An invite program is live: inviting new users, plus weekly tiers at 2 and 10 invites, grants login-card rewards (card types follow the in-app rewards center).",
     tips:
-      "These limited-time drops come and go — check the client every Friday evening; TokenTracker Plus's ZCode usage card cross-checks granted quotas and generation rates in real time.",
-    tags: ["By Zhipu", "Coding agent", "Friday-evening perks", "Limited 300M quota"],
+      "These limited-time drops come and go — check the client every Friday evening; TokenTracker Plus's ZCode usage card cross-checks granted quotas and generation rates in real time. Invite progress lives in the in-app rewards center.",
+    tags: ["By Zhipu", "Coding agent", "Friday-evening perks", "Limited 300M quota", "Invite rewards"],
   },
 };
 

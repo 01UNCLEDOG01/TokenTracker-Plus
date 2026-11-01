@@ -1002,13 +1002,16 @@ export const PERK_PROVIDERS = [  {
       "智谱出品",
       "编程智能体",
       "周五晚间福利",
-      "限时3亿额度"
+      "限时3亿额度",
+      "邀请有礼"
     ],
-    "description": "Z.ai 官方编程智能体客户端，GLM 系列模型直连、登录即用。长期观察每逢周五晚间登录，客户端经常有限时 GLM-5.3-Flash 3 亿 Token 大额额度放送；额度数值与活动档期以端内公告为准。",
-    "tips": "限时额度类活动不定期出现，建议每周五晚上登录客户端查看；配合 TokenTracker Plus 的 ZCode 用量卡片可实时核对到账额度与生成速率。",
+    "description": "Z.ai 官方编程智能体客户端，GLM 系列模型直连、登录即用。长期观察每逢周五晚间登录，客户端经常有限时 GLM-5.3-Flash 3 亿 Token 大额额度放送；额度数值与活动档期以端内公告为准。邀请活动进行中：邀请新用户及每周邀请满 2 位、10 位均有登录卡类梯度奖励（卡型与到账以端内奖励中心为准）。",
+    "tips": "限时额度类活动不定期出现，建议每周五晚上登录客户端查看；配合 TokenTracker Plus 的 ZCode 用量卡片可实时核对到账额度与生成速率。邀请奖励在端内「奖励中心」查看进度。",
     "officialUrl": "https://z.ai",
-    "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "inviteUrl": "https://zcode.z.ai/invite/DU7JA29Y",
+    "inviteCode": "DU7JA29Y",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
     "sourceUrl": "https://z.ai"  },
   {
     "id": "agentrouter",
