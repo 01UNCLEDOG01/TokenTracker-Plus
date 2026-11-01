@@ -11,7 +11,13 @@ const reportPath = process.argv[3];
 const runtime = path.join(publish, "EmbeddedServer", "tokentracker");
 const required = ["TokenTracker.exe", "TokenTracker.dll", "EmbeddedServer/node.exe",
   "EmbeddedServer/tokentracker/bin/tracker.js", "EmbeddedServer/tokentracker/package-lock.json",
-  ...["index.html", "pet.html", "quota.html", "pricing.html", "terms.html", "privacy.html"]
+  // dist pages that the build actually emits (2026-11-01 alignment): 4 multi-page
+  // inputs (index/pet/quota/share) + 2 route-SEO pages (ip-check/leaderboard)
+  // emitted by vite.config.js, plus privacy.html. "pricing.html"/"terms.html"
+  // were listed here since day one but were never build outputs of this repo
+  // (no source page, no SEO route) — the gate simply never ran between 1.10.5
+  // and 1.12.0 because hot updates skip packaging.
+  ...["index.html", "pet.html", "quota.html", "share.html", "privacy.html", "ip-check.html", "leaderboard.html"]
     .map(name => `EmbeddedServer/tokentracker/dashboard/dist/${name}`)];
 for (const name of required) assert.ok(fs.statSync(path.join(publish, name)).isFile(), `Missing ${name}`);
 
