@@ -83,10 +83,12 @@ function CharacterCard({ character, selected, onSelect, onRemove, removeDisabled
             : "border-oai-gray-200/80 bg-white/55 hover:border-oai-gray-400 dark:border-oai-gray-800 dark:bg-oai-gray-950/55 dark:hover:border-oai-gray-600",
         )}
       >
-        {/* 底色 = 悬浮窗圆点的宠物主题色（petCardTintHex），与 C# 药丸同频同源。 */}
+        {/* 底色 = 悬浮窗圆点的宠物主题色（petCardTintHex），与 C# 药丸同频同源。
+            浓度按站主验收拉高（0x4d≈30%）：两模式都要一眼认出主题色；深色模式
+            若沿用低不透明度，暗底上会糊成一片——dark:opacity-80 保住显色。 */}
         <div
-          className="absolute inset-0 opacity-80 dark:opacity-55"
-          style={{ backgroundImage: `linear-gradient(to bottom right, ${petCardTintHex(character.id)}2e, transparent)` }}
+          className="absolute inset-0 opacity-90 dark:opacity-80"
+          style={{ backgroundImage: `linear-gradient(to bottom right, ${petCardTintHex(character.id)}4d, transparent)` }}
         />
         <div className="relative flex items-center gap-2.5">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center">
