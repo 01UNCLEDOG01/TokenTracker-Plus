@@ -1,20 +1,15 @@
 {
-  "generatedAt": "2026-10-28T14:11:02.486Z",
+  "generatedAt": "2026-11-01T01:46:33.324Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 507,
+    "colors": 511,
     "rawText": 177
   },
   "files": {
-    "dashboard/src/lib/pet-appearance.js": {
-      "colors": 2,
-      "rawText": 0,
-      "rawTextTokens": []
-    },
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
       "colors": 0,
       "rawText": 3,
@@ -90,6 +85,11 @@
     },
     "dashboard/src/lib/bot-appearance.js": {
       "colors": 2,
+      "rawText": 0,
+      "rawTextTokens": []
+    },
+    "dashboard/src/lib/pet-appearance.js": {
+      "colors": 6,
       "rawText": 0,
       "rawTextTokens": []
     },

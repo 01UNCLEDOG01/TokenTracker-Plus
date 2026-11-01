@@ -7,6 +7,7 @@ import { usePetSettings } from "../hooks/use-pet-settings.js";
 import { usePetCatalog } from "../hooks/use-pet-catalog.js";
 import { useNativeSettings } from "../hooks/use-native-settings.js";
 import { normalizePetActionLock } from "../lib/pet-personality";
+import { petCardTintHex } from "../lib/pet-appearance.js";
 import { isNativeLinuxApp, isNativeWindowsApp, refreshNativePetCatalog } from "../lib/native-bridge.js";
 import {
   importCodexPets,
@@ -27,14 +28,6 @@ import { petRenderer } from "../lib/pet-personality.js";
 import { ClawdAnimated } from "../ui/foundation/ClawdAnimated.jsx";
 import { FadeIn } from "../ui/foundation/FadeIn.jsx";
 import { showToast } from "../ui/components/Toast.jsx";
-
-const CHARACTER_TINTS = {
-  clawd: "from-oai-amber-50 dark:from-orange-950/70",
-  bot: "from-oai-brand-50 dark:from-teal-950/70",
-  sprout: "from-oai-brand-100 dark:from-emerald-950/70",
-  byte: "from-oai-gray-200 dark:from-slate-800/70",
-  ember: "from-orange-100 dark:from-orange-950/80",
-};
 
 /** Renders localized copy with the literal "codex-pets.net" turned into a link. */
 function ImportSubtitle() {
@@ -90,7 +83,11 @@ function CharacterCard({ character, selected, onSelect, onRemove, removeDisabled
             : "border-oai-gray-200/80 bg-white/55 hover:border-oai-gray-400 dark:border-oai-gray-800 dark:bg-oai-gray-950/55 dark:hover:border-oai-gray-600",
         )}
       >
-        <div className={cn("absolute inset-0 bg-gradient-to-br to-transparent opacity-80 dark:opacity-55", CHARACTER_TINTS[character.id] || "from-oai-gray-200/80 dark:from-oai-gray-800/70")} />
+        {/* 底色 = 悬浮窗圆点的宠物主题色（petCardTintHex），与 C# 药丸同频同源。 */}
+        <div
+          className="absolute inset-0 opacity-80 dark:opacity-55"
+          style={{ backgroundImage: `linear-gradient(to bottom right, ${petCardTintHex(character.id)}2e, transparent)` }}
+        />
         <div className="relative flex items-center gap-2.5">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center">
             <ClawdAnimated state="idle-living" character={character.id} pet={character} size={44} />
