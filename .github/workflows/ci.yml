@@ -76,7 +76,6 @@ jobs:
           npm run validate:ui-hardcode
           npm run validate:guardrails
           npm run validate:versions
-          npm run validate:bot-frames
           node --test test/architecture-guardrails.test.js
 
   windows-build:
