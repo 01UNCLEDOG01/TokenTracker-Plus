@@ -6,8 +6,8 @@ ALTER TABLE public.tokentracker_cloud_orders
   ADD CONSTRAINT tokentracker_cloud_orders_retry_successor_unique UNIQUE (retry_order_id),
   ADD CONSTRAINT tokentracker_cloud_orders_retry_not_self CHECK (retry_order_id IS DISTINCT FROM id);
 
-CREATE OR REPLACE FUNCTION public.cloud_restart_(removed)(
-  p_user_id uuid, p_environment text, p_order_id uuid, p_request_id uuid, p_(removed)_id text
+CREATE OR REPLACE FUNCTION public.cloud_restart_waffo_order(
+  p_user_id uuid, p_environment text, p_order_id uuid, p_request_id uuid, p_waffo_order_id text
 ) RETURNS jsonb LANGUAGE plpgsql
 SET search_path = public, pg_temp AS $fn$
 DECLARE v_order public.tokentracker_cloud_orders%ROWTYPE; v_next public.tokentracker_cloud_orders%ROWTYPE; v_next_id uuid;
@@ -16,10 +16,10 @@ BEGIN
   SELECT * INTO STRICT v_order FROM public.tokentracker_cloud_orders
     WHERE id = p_order_id AND user_id = p_user_id AND environment = p_environment FOR UPDATE;
   IF v_order.provider <> 'waffo' OR v_order.status NOT IN ('pending','ready','closed') OR
-    p_request_id IS NULL OR p_(removed)_id IS NULL OR
-    p_(removed)_id !~ '^ORD_[A-Za-z0-9]+$' OR length(p_(removed)_id) > 200 OR
+    p_request_id IS NULL OR p_waffo_order_id IS NULL OR
+    p_waffo_order_id !~ '^ORD_[A-Za-z0-9]+$' OR length(p_waffo_order_id) > 200 OR
     v_order.provider_price_id IS NULL OR
-    (v_order.(removed)_id IS NOT NULL AND v_order.(removed)_id <> p_(removed)_id) THEN
+    (v_order.waffo_order_id IS NOT NULL AND v_order.waffo_order_id <> p_waffo_order_id) THEN
     RAISE EXCEPTION 'Waffo restart does not match the unpaid bound order';
   END IF;
   IF EXISTS (
@@ -31,7 +31,7 @@ BEGIN
     )
     SELECT 1 FROM public.tokentracker_cloud_payments WHERE order_id IN (SELECT id FROM predecessors)
   ) THEN
-    RAISE EXCEPTION 'a (removed) order cannot be restarted';
+    RAISE EXCEPTION 'a paid Waffo order cannot be restarted';
   END IF;
   IF v_order.retry_order_id IS NOT NULL THEN
     SELECT * INTO STRICT v_next FROM public.tokentracker_cloud_orders
@@ -43,7 +43,7 @@ BEGIN
     RAISE EXCEPTION 'retry request already belongs to another order';
   END IF;
   UPDATE public.tokentracker_cloud_orders SET status = 'closed',
-    (removed)_id = coalesce((removed)_id,p_(removed)_id) WHERE id = p_order_id;
+    waffo_order_id = coalesce(waffo_order_id,p_waffo_order_id) WHERE id = p_order_id;
   v_next_id := (public.cloud_create_order(p_user_id,p_environment,'waffo',v_order.sku,p_request_id)->>'id')::uuid;
   SELECT * INTO STRICT v_next FROM public.tokentracker_cloud_orders WHERE id = v_next_id;
   UPDATE public.tokentracker_cloud_orders SET retry_order_id = v_next.id WHERE id = p_order_id;
@@ -51,8 +51,8 @@ BEGIN
 END;
 $fn$;
 
-REVOKE ALL ON FUNCTION public.cloud_restart_(removed)(uuid,text,uuid,uuid,text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.cloud_restart_(removed)(uuid,text,uuid,uuid,text) TO project_admin;
+REVOKE ALL ON FUNCTION public.cloud_restart_waffo_order(uuid,text,uuid,uuid,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cloud_restart_waffo_order(uuid,text,uuid,uuid,text) TO project_admin;
 
 CREATE OR REPLACE FUNCTION public.cloud_claim_checkout(p_user_id uuid, p_order_id uuid)
 RETURNS jsonb LANGUAGE plpgsql
@@ -124,7 +124,7 @@ DECLARE
   v_status text := 'applied';
   v_amount integer;
   v_refund_total integer;
-  v_(removed)_id text := nullif(p_event->>'(removed)_id', '');
+  v_waffo_order_id text := nullif(p_event->>'waffo_order_id', '');
   v_recurring boolean;
 BEGIN
   IF v_event_id IS NULL OR v_event_id = '' OR length(v_event_id) > 200 OR
@@ -144,12 +144,12 @@ BEGIN
   END IF;
   v_recurring := v_order.billing_mode = 'recurring';
   IF p_provider = 'waffo' THEN
-    IF v_(removed)_id IS NULL OR v_(removed)_id !~ '^ORD_[A-Za-z0-9]+$' OR length(v_(removed)_id) > 200 OR
+    IF v_waffo_order_id IS NULL OR v_waffo_order_id !~ '^ORD_[A-Za-z0-9]+$' OR length(v_waffo_order_id) > 200 OR
       v_order.provider_price_id IS NULL OR p_event->>'provider_price_id' IS DISTINCT FROM v_order.provider_price_id OR
-      (v_order.(removed)_id IS NOT NULL AND v_order.(removed)_id <> v_(removed)_id) THEN
+      (v_order.waffo_order_id IS NOT NULL AND v_order.waffo_order_id <> v_waffo_order_id) THEN
       RAISE EXCEPTION 'Waffo event does not match the bound order or product';
     END IF;
-    IF (v_recurring AND v_subscription_id IS DISTINCT FROM v_(removed)_id) OR
+    IF (v_recurring AND v_subscription_id IS DISTINCT FROM v_waffo_order_id) OR
       (NOT v_recurring AND (v_subscription_id IS NOT NULL OR v_kind = 'subscription')) THEN
       RAISE EXCEPTION 'Waffo subscription does not match the order billing mode';
     END IF;
@@ -158,7 +158,7 @@ BEGIN
         coalesce(p_event->>'transaction_id', '') !~ '^PAY_[A-Za-z0-9]+$')) THEN
       RAISE EXCEPTION 'invalid Waffo payment or refund identity';
     END IF;
-    UPDATE public.tokentracker_cloud_orders SET (removed)_id = coalesce((removed)_id, v_(removed)_id)
+    UPDATE public.tokentracker_cloud_orders SET waffo_order_id = coalesce(waffo_order_id, v_waffo_order_id)
       WHERE id = v_order.id;
   END IF;
   IF EXISTS (SELECT 1 FROM public.tokentracker_cloud_events
@@ -212,7 +212,7 @@ BEGIN
       END IF;
       IF p_provider = 'waffo' AND NOT EXISTS (
         SELECT 1 FROM public.tokentracker_cloud_waffo_periods
-        WHERE order_id = v_order.id AND environment = p_environment AND (removed)_id = v_(removed)_id
+        WHERE order_id = v_order.id AND environment = p_environment AND waffo_order_id = v_waffo_order_id
           AND period_number = (p_event->>'period_number')::integer AND starts_at = v_start AND ends_at = v_end
       ) THEN
         RAISE EXCEPTION 'Waffo payment does not match a verified subscription billing period';

@@ -87,7 +87,7 @@ BEGIN
   IF NOT (v_state->>'can_read_cloud')::boolean THEN
     RETURN jsonb_build_object('ok',false,'status',402,'code',CASE WHEN v_state->>'status'='expired'
       THEN 'cloud_read_only_expired' ELSE 'cloud_membership_required' END,
-      'membership',v_state,'recovery_url','https://(removed)/cloud');
+      'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
   END IF;
   IF v_state->>'phase'='active' AND v_state->>'status'<>'self_hosted' THEN
     v_from:=CASE WHEN p_kind='hourly' THEN (now() AT TIME ZONE 'UTC')::date - 89

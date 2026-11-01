@@ -2,7 +2,7 @@
 -- Preserve its exact dates for sandbox accounting. Live purchased periods retain the full-term lower bound.
 -- This does not turn collection grace or an authorization into a paid period.
 CREATE OR REPLACE FUNCTION public.cloud_record_waffo_period(
-  p_order_id uuid, p_environment text, p_(removed)_id text, p_provider_price_id text,
+  p_order_id uuid, p_environment text, p_waffo_order_id text, p_provider_price_id text,
   p_period_number integer, p_starts_at timestamptz, p_ends_at timestamptz
 ) RETURNS jsonb LANGUAGE plpgsql
 SET search_path = public, pg_temp AS $fn$
@@ -12,10 +12,10 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended(v_order.user_id::text || ':' || p_environment, 0));
   SELECT * INTO STRICT v_order FROM public.tokentracker_cloud_orders WHERE id = p_order_id FOR UPDATE;
   IF v_order.provider <> 'waffo' OR v_order.environment <> p_environment OR v_order.billing_mode <> 'recurring' OR
-    p_(removed)_id IS NULL OR p_(removed)_id !~ '^ORD_[A-Za-z0-9]+$' OR length(p_(removed)_id) > 200 OR
+    p_waffo_order_id IS NULL OR p_waffo_order_id !~ '^ORD_[A-Za-z0-9]+$' OR length(p_waffo_order_id) > 200 OR
     v_order.provider_price_id IS NULL OR p_provider_price_id IS DISTINCT FROM v_order.provider_price_id OR
     NOT EXISTS (SELECT 1 FROM public.tokentracker_cloud_waffo_attempts
-      WHERE order_id = p_order_id AND environment = p_environment AND (removed)_id = p_(removed)_id
+      WHERE order_id = p_order_id AND environment = p_environment AND waffo_order_id = p_waffo_order_id
         AND provider_price_id = p_provider_price_id AND billing_mode = 'recurring') THEN
     RAISE EXCEPTION 'Waffo billing period does not match the bound order or product';
   END IF;
@@ -26,16 +26,16 @@ BEGIN
     RAISE EXCEPTION 'invalid Waffo subscription billing period';
   END IF;
   SELECT * INTO v_period FROM public.tokentracker_cloud_waffo_periods
-    WHERE order_id = p_order_id AND (removed)_id = p_(removed)_id AND period_number = p_period_number FOR UPDATE;
+    WHERE order_id = p_order_id AND waffo_order_id = p_waffo_order_id AND period_number = p_period_number FOR UPDATE;
   IF FOUND THEN
-    IF v_period.environment <> p_environment OR v_period.(removed)_id <> p_(removed)_id OR
+    IF v_period.environment <> p_environment OR v_period.waffo_order_id <> p_waffo_order_id OR
       v_period.starts_at <> p_starts_at OR v_period.ends_at <> p_ends_at THEN
       RAISE EXCEPTION 'Waffo billing period is already bound to different dates';
     END IF;
   ELSE
     INSERT INTO public.tokentracker_cloud_waffo_periods
-      (order_id, environment, (removed)_id, period_number, starts_at, ends_at)
-      VALUES (p_order_id, p_environment, p_(removed)_id, p_period_number, p_starts_at, p_ends_at)
+      (order_id, environment, waffo_order_id, period_number, starts_at, ends_at)
+      VALUES (p_order_id, p_environment, p_waffo_order_id, p_period_number, p_starts_at, p_ends_at)
       RETURNING * INTO v_period;
   END IF;
   -- A verified lifecycle period is evidence for future payments, never paid access.
@@ -61,7 +61,7 @@ DECLARE
   v_status text := 'applied';
   v_amount integer;
   v_refund_total integer;
-  v_(removed)_id text := nullif(p_event->>'(removed)_id', '');
+  v_waffo_order_id text := nullif(p_event->>'waffo_order_id', '');
   v_recurring boolean;
 BEGIN
   IF v_event_id IS NULL OR v_event_id = '' OR length(v_event_id) > 200 OR
@@ -81,14 +81,14 @@ BEGIN
   END IF;
   v_recurring := v_order.billing_mode = 'recurring';
   IF p_provider = 'waffo' THEN
-    IF v_(removed)_id IS NULL OR v_(removed)_id !~ '^ORD_[A-Za-z0-9]+$' OR length(v_(removed)_id) > 200 OR
+    IF v_waffo_order_id IS NULL OR v_waffo_order_id !~ '^ORD_[A-Za-z0-9]+$' OR length(v_waffo_order_id) > 200 OR
       v_order.provider_price_id IS NULL OR p_event->>'provider_price_id' IS DISTINCT FROM v_order.provider_price_id OR
       NOT EXISTS (SELECT 1 FROM public.tokentracker_cloud_waffo_attempts
-        WHERE order_id = v_order.id AND environment = p_environment AND (removed)_id = v_(removed)_id
+        WHERE order_id = v_order.id AND environment = p_environment AND waffo_order_id = v_waffo_order_id
           AND provider_price_id = v_order.provider_price_id AND billing_mode = v_order.billing_mode) THEN
       RAISE EXCEPTION 'Waffo event does not match the bound order or product';
     END IF;
-    IF (v_recurring AND v_subscription_id IS DISTINCT FROM v_(removed)_id) OR
+    IF (v_recurring AND v_subscription_id IS DISTINCT FROM v_waffo_order_id) OR
       (NOT v_recurring AND (v_subscription_id IS NOT NULL OR v_kind = 'subscription')) THEN
       RAISE EXCEPTION 'Waffo subscription does not match the order billing mode';
     END IF;
@@ -149,7 +149,7 @@ BEGIN
       END IF;
       IF p_provider = 'waffo' AND NOT EXISTS (
         SELECT 1 FROM public.tokentracker_cloud_waffo_periods
-        WHERE order_id = v_order.id AND environment = p_environment AND (removed)_id = v_(removed)_id
+        WHERE order_id = v_order.id AND environment = p_environment AND waffo_order_id = v_waffo_order_id
           AND period_number = (p_event->>'period_number')::integer AND starts_at = v_start AND ends_at = v_end
       ) THEN
         RAISE EXCEPTION 'Waffo payment does not match a verified subscription billing period';
@@ -179,12 +179,12 @@ BEGIN
     END IF;
     INSERT INTO public.tokentracker_cloud_payments
       (order_id, user_id, provider, environment, transaction_id, subscription_id,
-        currency, amount_cents, starts_at, ends_at, paid_at, (removed)_id)
+        currency, amount_cents, starts_at, ends_at, paid_at, waffo_order_id)
       VALUES (v_order.id, v_order.user_id, p_provider, p_environment, v_action_id, v_subscription_id,
-        v_order.currency, v_amount, v_start, v_end, v_occurred, CASE WHEN p_provider = 'waffo' THEN v_(removed)_id END);
+        v_order.currency, v_amount, v_start, v_end, v_occurred, CASE WHEN p_provider = 'waffo' THEN v_waffo_order_id END);
     UPDATE public.tokentracker_cloud_orders SET status = 'paid',
       provider_order_id = coalesce(provider_order_id, v_action_id),
-      (removed)_id = CASE WHEN p_provider = 'waffo' THEN coalesce((removed)_id,v_(removed)_id) ELSE (removed)_id END
+      waffo_order_id = CASE WHEN p_provider = 'waffo' THEN coalesce(waffo_order_id,v_waffo_order_id) ELSE waffo_order_id END
       WHERE id = v_order.id;
   ELSIF v_kind = 'refund' THEN
     SELECT * INTO STRICT v_payment FROM public.tokentracker_cloud_payments
@@ -192,7 +192,7 @@ BEGIN
         AND transaction_id = p_event->>'transaction_id' FOR UPDATE;
     IF v_payment.order_id <> v_order.id OR v_payment.user_id <> v_order.user_id OR
       p_event->>'currency' IS DISTINCT FROM v_payment.currency OR
-      (p_provider = 'waffo' AND v_payment.(removed)_id IS DISTINCT FROM v_(removed)_id) THEN
+      (p_provider = 'waffo' AND v_payment.waffo_order_id IS DISTINCT FROM v_waffo_order_id) THEN
       RAISE EXCEPTION 'refund does not match the paid order';
     END IF;
     IF p_event ? 'refund_total_cents' THEN

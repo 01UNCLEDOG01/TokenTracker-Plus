@@ -61,7 +61,7 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     {id:"04e-achievement-badges",sql:read("migrations/20261014030000_achievement-badges.sql")},
     {id:"04f-user-settings-name",sql:read("migrations/20261014040000_self-host-user-settings-name.sql")},    ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql",
       "20261007120000_cloud-waffo.sql","20261007130000_cloud-waffo-retry.sql","20261007140000_cloud-waffo-attempts.sql",
-      "20261007150000_cloud-(removed).sql","20261007160000_cloud-(removed)-periods.sql"]
+      "20261007150000_cloud-waffo-authorizations.sql","20261007160000_cloud-waffo-sandbox-periods.sql"]
       .map(name=>({id:name.slice(0,-4),sql:read("migrations/"+name)})),
     {id:"10-self-hosted-policy",sql:read("migrations/20261008120000_self-hosted-access.sql")},
     {id:"11-token-environment-validation",sql:read("migrations/20261008120001_validate-cloud-token-environment.sql")},

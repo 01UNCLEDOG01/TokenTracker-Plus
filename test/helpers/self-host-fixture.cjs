@@ -29,8 +29,7 @@ async function fixture() {
   for(const slug of privateFunctions) {
     const filename=path.join(directory,slug+".js");
     const output=await build({entryPoints:[filename],bundle:true,write:false,format:"cjs",platform:"node",target:"node20",logLevel:"silent",
-      alias:{"npm:@insforge/sdk":sdk,"npm:@insforge/sdk@1.4.5":sdk,
-        "npm:(removed)pancake-ts@0.25.0":require.resolve("(removed)pancake-ts"),"npm:(removed)@4.14.0":require.resolve("(removed)")},
+      alias:{"npm:@insforge/sdk":sdk,"npm:@insforge/sdk@1.4.5":sdk},
       plugins:[{name:"locked-self-host-fixture-imports",setup(builder){
         builder.onResolve({filter:/^npm:/},args=>{
           const match=args.path.match(/^npm:((?:@[^/]+\/)?[^@/]+)@([^/]+)(\/.*)?$/);

@@ -31,7 +31,7 @@ test.before(async () => {
   await db.exec(functionSql(migration('20260719152022_harden-backend-concurrency.sql'),'refresh_tokentracker_device_identity'));
   for (const name of ['20261003120000_cloud-subscriptions.sql', '20261004120000_cloud-machine-access.sql', '20261007120000_cloud-waffo.sql',
     '20261007130000_cloud-waffo-retry.sql', '20261007140000_cloud-waffo-attempts.sql',
-    '20261007150000_cloud-(removed).sql', '20261007160000_cloud-(removed)-periods.sql',
+    '20261007150000_cloud-waffo-authorizations.sql', '20261007160000_cloud-waffo-sandbox-periods.sql',
     '20261008120000_self-hosted-access.sql', '20261008150000_cloud-pro-badges.sql',
     '20261009120000_cloud-gifts.sql', '20261010225755_cloud-device-safety-cap.sql']) await db.exec(migration(name));
   await db.exec("UPDATE tokentracker_cloud_policy SET phase='active',launch_at=now()-interval '1 hour'");
@@ -74,7 +74,7 @@ async function pay(id, { environment = 'sandbox', days = 30, future = false } = 
   const start = new Date(Date.now() + (future ? 86400000 : -1000)), end = new Date(start.getTime() + days * 86400000);
   const event = { event_id: randomUUID(), kind: 'payment', action_id: 'PAY_' + randomBytes(12).toString('hex'),
     order_id: order.id, occurred_at: new Date().toISOString(), currency: 'USD', amount_cents: order.amount_cents,
-    base_amount_cents: order.amount_cents, provider_price_id: 'PRD_gift_test', (removed)_id: binding,
+    base_amount_cents: order.amount_cents, provider_price_id: 'PRD_gift_test', waffo_id: binding,
     billing_mode: 'fixed', starts_at: start.toISOString(), ends_at: end.toISOString() };
   await rpc('cloud_apply_waffo_events', [environment,JSON.stringify([event])]);
   const period = (await db.query('SELECT starts_at::text,ends_at::text FROM tokentracker_cloud_payments WHERE order_id=$1',[order.id])).rows[0];
@@ -170,7 +170,7 @@ test('a later refund leaves gift dates unchanged and cannot bridge the refunded 
   const id = await user(), paid = await pay(id), gift = await redeem(id,(await batch()).codes[0]);
   await rpc('cloud_apply_waffo_events',['sandbox',JSON.stringify([{event_id:randomUUID(),kind:'refund',action_id:'REF_'+randomBytes(12).toString('hex'),
     order_id:paid.order.id,occurred_at:new Date().toISOString(),transaction_id:paid.event.action_id,
-    currency:'USD',amount_cents:paid.order.amount_cents,(removed)_id:paid.event.(removed)_id,provider_price_id:'PRD_gift_test'}])]);
+    currency:'USD',amount_cents:paid.order.amount_cents,waffo_id:paid.event.waffo_id,provider_price_id:'PRD_gift_test'}])]);
   const after = await member(id); assert.equal(after.status,'expired'); assert.equal(after.can_upload_cloud,false);
   assert.equal(after.has_gift,true); assert.equal(after.access_source,'none');
   const record = (await account(id)).gifts[0]; assert.equal(record.starts_at,gift.gift.starts_at); assert.equal(record.ends_at,gift.gift.ends_at);

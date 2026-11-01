@@ -30,7 +30,7 @@ test.before(async () => {
   db = await setup();
   for (const name of ["20261003120000_cloud-subscriptions.sql", "20261004120000_cloud-machine-access.sql",
     "20261007120000_cloud-waffo.sql", "20261007130000_cloud-waffo-retry.sql", "20261007140000_cloud-waffo-attempts.sql",
-    "20261007150000_cloud-(removed).sql", "20261007160000_cloud-(removed)-periods.sql", "20261008120000_self-hosted-access.sql"]) await db.exec(migration(name));
+    "20261007150000_cloud-waffo-authorizations.sql", "20261007160000_cloud-waffo-sandbox-periods.sql", "20261008120000_self-hosted-access.sql"]) await db.exec(migration(name));
   const files = ["20260918041500_fold-account-summary-and-heatmap-aggregation.sql", "20260918043000_fold-account-model-breakdown-aggregation.sql",
     "20260918050000_fold-account-daily-aggregation.sql", "20261002090000_compact-account-model-wire.sql", "20261003093000_compact-account-summary-model-wire.sql"];
   for (const name of files) {
@@ -47,7 +47,7 @@ test.before(async () => {
   await publicRpc("cloud_attach_waffo_checkout", [a, order.id, null, product, null]);
   await publicRpc("cloud_register_waffo_attempt", [order.id, "sandbox", ord, product, "fixed"]);
   await publicRpc("cloud_apply_event", ["waffo", "sandbox", JSON.stringify({ event_id: randomUUID(), action_id: "PAY_" + "T".repeat(22),
-    kind: "payment", order_id: order.id, (removed)_id: ord, provider_price_id: product, currency: "USD", amount_cents: 499,
+    kind: "payment", order_id: order.id, waffo_id: ord, provider_price_id: product, currency: "USD", amount_cents: 499,
     base_amount_cents: 499, occurred_at: new Date().toISOString() })]);
   snapshot = (await originals()).map(row => row.definition.trimEnd() + ";").join("\n\n");
   sql = qa.buildSql({ allowedUsers: [a, c], baselineSql: snapshot });
