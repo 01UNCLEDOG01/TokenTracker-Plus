@@ -22,6 +22,13 @@ const path = require("node:path");
 const { resolveWorkbuddyHome } = require("./rollout");
 const { UNAVAILABLE, readWorkbuddyIpcDiscovery, openWorkbuddyIpc } = require("./workbuddy-ipc");
 
+const WORKBUDDY_LIMITS_CACHE_FILE = "workbuddy-usage-limits-cache.json";
+// Windows without a usable reset_at — the pooled resource window by design,
+// plus a plan row whose cycle end never parsed — cannot be checked against a
+// quota rollover, so they are only served while the snapshot is young enough
+// to trust.
+const WORKBUDDY_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS = 12 * 60 * 60 * 1000;
+
 const PLAN_PRIORITY = Object.freeze({
   TCACA_code_027_0FCGVA6vSa: 4, // flagship
   TCACA_code_026_BaESVICNoi: 3, // advanced
@@ -392,12 +399,16 @@ function readAuthFile(filePath) {
   const auth = parsed?.auth;
   if (!auth || typeof auth !== "object") return null;
   const domain = isNonEmptyString(auth.domain) ? auth.domain.trim() : "";
+  // The app records the signed-in account next to its (often encrypted)
+  // session. The uid stays readable while the app is closed, so it is the
+  // one account signal that survives into the UNAVAILABLE state.
+  const uid = isNonEmptyString(parsed.account?.uid) ? parsed.account.uid.trim() : "";
   const token = auth.accessToken;
-  if (isNonEmptyString(token)) return { token: token.trim(), domain, encrypted: false };
+  if (isNonEmptyString(token)) return { token: token.trim(), domain, encrypted: false, uid };
   if (token && typeof token === "object" && token.$wbEncrypted === 1) {
-    return { token: null, domain, encrypted: true };
+    return { token: null, domain, encrypted: true, uid };
   }
-  return { token: null, domain, encrypted: false };
+  return { token: null, domain, encrypted: false, uid };
 }
 
 function resolveSession(variant, { env, authFiles, workbuddyHome }) {
@@ -405,15 +416,110 @@ function resolveSession(variant, { env, authFiles, workbuddyHome }) {
     ? authFiles
     : authSearchDirs(env, workbuddyHome).flatMap((dir) => variant.authFileNames.map((name) => path.join(dir, name)));
   let encryptedForVariant = false;
+  let encryptedUid = "";
   for (const filePath of files) {
     if (!filePath) continue;
     const session = readAuthFile(filePath);
     if (!session) continue;
     if (!hostAllowed(hostOf(session.domain), variant.allowedHostSuffixes)) continue;
-    if (session.token) return { token: session.token, encrypted: false, matched: true };
-    if (session.encrypted) encryptedForVariant = true;
+    if (session.token) return { token: session.token, encrypted: false, matched: true, uid: session.uid };
+    if (session.encrypted) {
+      encryptedForVariant = true;
+      // First encrypted candidate wins: when the app is closed this record is
+      // what a live read would authenticate with, so its account is the one
+      // the cached windows must match.
+      encryptedUid = encryptedUid || session.uid;
+    }
   }
-  return { token: null, encrypted: encryptedForVariant, matched: encryptedForVariant };
+  return { token: null, encrypted: encryptedForVariant, matched: encryptedForVariant, uid: encryptedUid };
+}
+
+// — the live read. It is the app's own account uid, readable after the app
+// closes when the encrypted session token is not, and it is an account id,
+// not a credential: nothing secret is persisted or hashed. An account the
+// records do not name ("unknown") matches only its own entries.
+//
+// Editions never borrow each other's data: workbuddy CN and workbuddyAi are
+// separate partitions of one file, matching the edition-local socket
+// discipline. Partitions are also scoped to the login that produced the
+// windows, so an account switch followed by a live failure cannot serve the
+// previous account's bars.
+
+function workbuddyLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", WORKBUDDY_LIMITS_CACHE_FILE);
+}
+
+// A window whose reset_at has already passed is stale data, not a usable
+// fallback — the quota has rolled over, so drop it. Undated windows (the
+// resource pool, or a plan row without a readable cycle end) cannot be
+// checked against a reset and are bounded by the snapshot-age TTL instead.
+function workbuddyCachedWindow(window, { cachedAtMs, nowMs } = {}) {
+  if (!window || typeof window !== "object") return null;
+  const resetAtMs = Date.parse(window.reset_at || "");
+  if (Number.isFinite(resetAtMs)) return resetAtMs > nowMs ? window : null;
+  return nowMs - cachedAtMs <= WORKBUDDY_LIMITS_CACHE_UNKNOWN_RESET_TTL_MS ? window : null;
+}
+
+/** Read the last-good windows for one edition, scoped to the login that wrote them. */
+function readWorkbuddyLimitsCache({ home, nowMs = Date.now(), variantId, identity } = {}) {
+  // An explicit home keeps the cache hermetic: callers that never said where
+  // the user's tracker state lives (tests, odd embedders) must not touch the
+  // developer's real cache file.
+  if (!home || !variantId || !identity) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(workbuddyLimitsCachePath({ home }), "utf8"));
+  } catch (_error) {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const raw = parsed[variantId];
+  if (!raw || typeof raw !== "object") return null;
+  if (raw.identity !== identity) return null;
+  const cachedAtMs = Date.parse(raw.cached_at || "");
+  if (!Number.isFinite(cachedAtMs) || cachedAtMs > nowMs + 60_000) return null;
+  const context = { cachedAtMs, nowMs };
+  const primaryWindow = workbuddyCachedWindow(raw.primary_window, context);
+  const secondaryWindow = workbuddyCachedWindow(raw.secondary_window, context);
+  // A partition whose windows all rolled or expired no longer describes the
+  // account's quota — withholding it lets the live error stay visible.
+  if (!primaryWindow && !secondaryWindow) return null;
+  return {
+    configured: true,
+    error: null,
+    plan_label: typeof raw.plan_label === "string" ? raw.plan_label : null,
+    primary_window: primaryWindow,
+    secondary_window: secondaryWindow,
+    cached: true,
+    stale: true,
+    cached_at: raw.cached_at,
+    source: "disk-cache",
+  };
+}
+
+/** Merge one edition's partition into the disk cache; best-effort, never throws. */
+function writeWorkbuddyLimitsCache(limits, { home, nowMs = Date.now(), variantId, identity } = {}) {
+  if (!home || !variantId || !identity || !limits?.configured || limits.error) return;
+  if (!limits.primary_window && !limits.secondary_window) return;
+  const cachePath = workbuddyLimitsCachePath({ home });
+  let payload = {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+    if (parsed && typeof parsed === "object") payload = parsed;
+  } catch (_error) {}
+  payload[variantId] = {
+    identity,
+    plan_label: typeof limits.plan_label === "string" ? limits.plan_label : null,
+    primary_window: limits.primary_window || null,
+    secondary_window: limits.secondary_window || null,
+    cached_at: new Date(nowMs).toISOString(),
+  };
+  try {
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    const tmpPath = `${cachePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(payload, null, 2), { encoding: "utf8", mode: 0o600 });
+    fs.renameSync(tmpPath, cachePath);
+  } catch (_error) {}
 }
 
 function readProductEndpoint(workbuddyHome) {
@@ -530,6 +636,11 @@ async function fetchVariant(variantId, opts = {}) {
   const env = scopedEnv(opts.env || process.env, opts.home);
   const workbuddyHome = opts.workbuddyHome || resolveWorkbuddyHome(env, variant.source);
   const installed = directoryExists(workbuddyHome);
+  // Sampled when used, not when the fetch starts: the live attempt can spend
+  // the whole provider budget before a cache read or write happens, and a
+  // window whose reset rolled in that span must not be served. An injected
+  // clock (tests) keeps every use on the same instant.
+  const nowMs = () => (Number.isFinite(opts.nowMs) ? opts.nowMs : Date.now());
   const discovery = readWorkbuddyIpcDiscovery(workbuddyHome);
   if (discovery) {
     // Discovery is edition-local. Never fall back to the other edition's
@@ -538,6 +649,14 @@ async function fetchVariant(variantId, opts = {}) {
     if (productEndpoint && !originAllowed(productEndpoint, variant)) {
       throw new Error("WorkBuddy quota host does not match this edition.");
     }
+    // One identity source for both the IPC live read and the disk cache: the
+    // auth record that supplies — or, while the app is closed, would supply —
+    // the session token (PR 954). An env-token session names no record.
+    const explicitToken = resolveToken(variant, env);
+    const identitySession = explicitToken
+      ? { uid: "" }
+      : resolveSession(variant, { env, authFiles: opts.authFiles, workbuddyHome });
+    const identity = identitySession?.uid || "unknown";
     let client;
     try {
       client = await openWorkbuddyIpc({
@@ -545,26 +664,54 @@ async function fetchVariant(variantId, opts = {}) {
       });
     } catch (error) {
       if (error && error.message === UNAVAILABLE) {
-        // Daemon not running: same idle shape as the no-session path below so
-        // the dashboard renders 未连接 instead of a red failure.
+        // Daemon not running: last-good windows keep the card alive instead of
+        // a vanished row (PR 954); without them keep the idle shape so the
+        // dashboard renders 未连接 instead of a red failure.
+        const cached = readWorkbuddyLimitsCache({ home: opts.home, nowMs: nowMs(), variantId, identity });
+        if (cached) return cached;
         return { configured: true, error: UNAVAILABLE, reason: "client_not_running" };
       }
       throw error;
     }
     try {
-      return { ...await fetchPlanQuota((apiPath, body) => client.postBilling(apiPath, body), variantId), source: "ipc" };
+      let live;
+      try {
+        live = { ...await fetchPlanQuota((apiPath, body) => client.postBilling(apiPath, body), variantId), source: "ipc" };
+      } catch (error) {
+        // A mid-read IPC failure falls back to the last-good snapshot; with no
+        // usable snapshot the original error keeps its shape.
+        const cached = readWorkbuddyLimitsCache({ home: opts.home, nowMs: nowMs(), variantId, identity });
+        if (cached) return cached;
+        throw error;
+      }
+      if (live.configured === true && !live.error) {
+        // Live read is current as of now: persist it so a later failure serves
+        // stale bars instead of a vanished card.
+        writeWorkbuddyLimitsCache(live, { home: opts.home, nowMs: nowMs(), variantId, identity });
+        return live;
+      }
+      if (live.configured === true && live.error) {
+        const cached = readWorkbuddyLimitsCache({ home: opts.home, nowMs: nowMs(), variantId, identity });
+        if (cached) return cached;
+      }
+      return live;
     } finally {
       client.close();
     }
   }
   const explicitToken = resolveToken(variant, env);
   const session = explicitToken
-    ? { token: explicitToken, encrypted: false, matched: true }
+    ? { token: explicitToken, encrypted: false, matched: true, uid: "" }
     : resolveSession(variant, { env, authFiles: opts.authFiles, workbuddyHome });
+  const identity = session.uid || "unknown";
   if (!session.token) {
     // `reason` lets the dashboard show this as an idle state (client closed)
     // rather than a red failure; the message stays for CLI/log consumers.
-    if (session.encrypted || installed) return { configured: true, error: UNAVAILABLE, reason: "client_not_running" };
+    if (session.encrypted || installed) {
+      const cached = readWorkbuddyLimitsCache({ home: opts.home, nowMs: nowMs(), variantId, identity });
+      if (cached) return cached;
+      return { configured: true, error: UNAVAILABLE, reason: "client_not_running" };
+    }
     if (!installed) return { configured: false };
     return { configured: false };
   }
@@ -579,8 +726,25 @@ async function fetchVariant(variantId, opts = {}) {
   if (!originAllowed(origin, variant)) {
     throw new Error("WorkBuddy quota host does not match this edition.");
   }
-  return { ...await fetchPlanQuota((apiPath, body) => postBilling(fetchImpl,
-    `${origin}${apiPath}`, session.token, body, opts.signal), variantId), source: "api" };
+  let live;
+  try {
+    live = { ...await fetchPlanQuota((apiPath, body) => postBilling(fetchImpl,
+      `${origin}${apiPath}`, session.token, body, opts.signal), variantId), source: "api" };
+  } catch (error) {
+    // Re-login stays actionable (auth expiry is a configuration fault, not
+    // transient data loss): it may not be masked by stale bars (PR 954).
+    if (error?.code === "AUTH_EXPIRED") throw error;
+    const cached = readWorkbuddyLimitsCache({ home: opts.home, nowMs: nowMs(), variantId, identity });
+    if (cached) return cached;
+    throw error;
+  }
+  if (live.configured === true && !live.error) {
+    writeWorkbuddyLimitsCache(live, { home: opts.home, nowMs: nowMs(), variantId, identity });
+  } else if (live.configured === true && live.error) {
+    const cached = readWorkbuddyLimitsCache({ home: opts.home, nowMs: nowMs(), variantId, identity });
+    if (cached) return cached;
+  }
+  return live;
 }
 
 function fetchWorkbuddyLimits(opts) {
@@ -602,6 +766,9 @@ module.exports = {
   readSubscriptionIdentity,
   originAllowed,
   hostAllowed,
+  readWorkbuddyLimitsCache,
+  writeWorkbuddyLimitsCache,
+  workbuddyLimitsCachePath,
   fetchWorkbuddyLimits,
   fetchWorkbuddyAiLimits,
 };

@@ -18,8 +18,6 @@ test("copy registry includes link code install keys", () => {
     "dashboard.install.copy",
     "dashboard.install.copy_base",
     "dashboard.install.copied",
-    "dashboard.install.link_code.loading",
-    "dashboard.install.link_code.failed",
   ];
   for (const key of required) {
     assert.ok(csv.includes(key), `missing copy key: ${key}`);

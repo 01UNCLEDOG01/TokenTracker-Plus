@@ -9,10 +9,14 @@ const {
   fetchWorkbuddyAiLimits,
   fetchWorkbuddyLimits,
   originAllowed,
+  readWorkbuddyLimitsCache,
   selectWorkbuddyPlanQuota,
   selectWorkbuddyLimits,
   VARIANTS,
+  workbuddyLimitsCachePath,
+  writeWorkbuddyLimitsCache,
 } = require("../src/lib/workbuddy-limits");
+const { withWorkbuddyProviderTimeout } = require("../src/lib/usage-limits");
 
 const TRIAL = "TCACA_code_008_cfWoLwvjU4";
 const REWARD = "TCACA_code_007_nzdH5h4Nl0";
@@ -253,4 +257,325 @@ test("a plaintext china session is sent only to the china host", async () => {
   assert.equal(result.configured, true);
   assert.equal(result.reason, "client_not_running");
   assert.match(result.error, /Start WorkBuddy and sign in/);
+});
+
+// ── Last-good disk cache（PR 954 移植）────────────────────────────
+// 活体读成功按版本+账号分区落盘；此后「应用关闭」稳态（加密会话不可读）
+// 用最后好数据续供，并如实标注 stale/cached_at。跨版本、跨账号永不互借。
+
+const WB_CACHE_T0 = Date.parse("2026-07-08T00:00:00Z");
+
+function wbCacheSummary(summary) {
+  return async (url) => (
+    url.endsWith("get-user-resource-summary")
+      ? { ok: true, status: 200, json: async () => summary }
+      : { ok: true, status: 200, json: async () => ({ code: 0, data: { Accounts: [] } }) }
+  );
+}
+
+function wbCachePlanWindow(resetAt) {
+  return {
+    used_percent: 49.658,
+    reset_at: resetAt,
+    used_credits: 248.29,
+    limit_credits: 500,
+    remaining_credits: 251.71,
+  };
+}
+
+// 桌面应用写出的 auth 记录：会话令牌（默认加密）+ 登录账号 uid
+// ——应用关闭后 uid 仍然可读。
+function wbCacheAuthInfo({ domain = "www.workbuddy.cn", token, uid } = {}) {
+  return JSON.stringify({
+    ...(uid ? { account: { uid } } : {}),
+    auth: {
+      domain,
+      accessToken: token ?? { $wbEncrypted: 1, envelope: "ciphertext" },
+    },
+  });
+}
+
+const WB_CACHE_CN_SUMMARY = {
+  code: 0,
+  data: {
+    SubscriptionPackageName: "体验版",
+    Packages: [trialRow({ CycleTotalCapacity: 500, CycleRemainCapacity: 0, CycleUsedCapacity: 500 })],
+    CreditGroups: [
+      { Kind: "plan_base", CycleTotalCapacity: "500", CycleRemainCapacity: "0", CycleUsedCapacity: "500" },
+      { Kind: "benefit", CycleTotalCapacity: "0", CycleRemainCapacity: "0", CycleUsedCapacity: "0" },
+    ],
+  },
+};
+
+test("a live read persists last-good windows per edition without crossing editions", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ token: "cn-token", uid: "uid-cn" }));
+  const cn = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn", fetchImpl: wbCacheSummary(WB_CACHE_CN_SUMMARY),
+  });
+  assert.equal(cn.error, null);
+  const ai = await fetchWorkbuddyAiLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home, WORKBUDDY_AI_ACCESS_TOKEN: "ai-token" },
+    origin: "https://www.workbuddy.ai",
+    fetchImpl: wbCacheSummary({
+      code: 0,
+      data: {
+        SubscriptionPackageName: "Free",
+        Packages: [trialRow({ PackageCode: "TCACA_code_035_ArVxJcGDsm", CycleTotalCapacity: 100, CycleRemainCapacity: 100, CycleUsedCapacity: 0 })],
+        CreditGroups: [
+          { Kind: "plan_base", CycleTotalCapacity: "100", CycleRemainCapacity: "100", CycleUsedCapacity: "0" },
+          { Kind: "benefit", CycleTotalCapacity: "0", CycleRemainCapacity: "0", CycleUsedCapacity: "0" },
+        ],
+      },
+    }),
+  });
+  assert.equal(ai.error, null);
+
+  const stored = JSON.parse(fs.readFileSync(workbuddyLimitsCachePath({ home }), "utf8"));
+  assert.deepEqual(Object.keys(stored).sort(), ["workbuddy", "workbuddyAi"]);
+  assert.equal(stored.workbuddy.identity, "uid-cn");
+  assert.equal(stored.workbuddyAi.identity, "unknown");
+  assert.ok(Number.isFinite(Date.parse(stored.workbuddy.cached_at)));
+});
+
+test("a closed app serves the last-good windows with stale markers", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ token: "cn-token", uid: "uid-cn" }));
+  const live = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn", fetchImpl: wbCacheSummary(WB_CACHE_CN_SUMMARY),
+  });
+  assert.equal(live.error, null);
+
+  // App closed: the session token is encrypted and unreadable, but the same
+  // auth record still names the account that produced the cached windows.
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ uid: "uid-cn" }));
+  const calls = [];
+  const cached = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: async (url) => { calls.push(url); throw new Error("no network in this test"); },
+  });
+  assert.deepEqual(calls, []);
+  assert.equal(cached.configured, true);
+  assert.equal(cached.error, null);
+  assert.equal(cached.stale, true);
+  assert.equal(cached.cached, true);
+  assert.equal(cached.source, "disk-cache");
+  assert.equal(cached.primary_window.limit_credits, 500);
+  const stored = JSON.parse(fs.readFileSync(workbuddyLimitsCachePath({ home }), "utf8"));
+  assert.equal(cached.cached_at, stored.workbuddy.cached_at);
+});
+
+test("an account switch keeps the previous login's windows out of the fallback", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ token: "cn-token", uid: "uid-cn" }));
+  await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn", fetchImpl: wbCacheSummary(WB_CACHE_CN_SUMMARY),
+  });
+
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ uid: "uid-other" }));
+  const switched = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: async () => { throw new Error("no network in this test"); },
+  });
+  assert.equal(switched.configured, true);
+  assert.match(switched.error, /Start WorkBuddy and sign in/);
+
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ uid: "uid-cn" }));
+  const restored = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: async () => { throw new Error("no network in this test"); },
+  });
+  assert.equal(restored.error, null);
+  assert.equal(restored.source, "disk-cache");
+});
+
+test("an edition never falls back to the other edition's cached windows", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ token: "cn-token", uid: "uid-cn" }));
+  await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn", fetchImpl: wbCacheSummary(WB_CACHE_CN_SUMMARY),
+  });
+
+  const aiAuth = path.join(home, "workbuddy-ai.info");
+  fs.writeFileSync(aiAuth, wbCacheAuthInfo({ domain: "www.workbuddy.ai", uid: "uid-ai" }));
+  const calls = [];
+  const ai = await fetchWorkbuddyAiLimits({
+    home, env: { HOME: home }, authFiles: [aiAuth],
+    fetchImpl: async (url) => { calls.push(url); throw new Error("no network in this test"); },
+  });
+  assert.deepEqual(calls, []);
+  assert.equal(ai.configured, true);
+  assert.match(ai.error, /Start WorkBuddy and sign in/);
+});
+
+test("auth expiry bypasses the cache so re-login stays visible", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ token: "cn-token", uid: "uid-cn" }));
+  await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn", fetchImpl: wbCacheSummary(WB_CACHE_CN_SUMMARY),
+  });
+  await assert.rejects(
+    fetchWorkbuddyLimits({
+      home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+      origin: "https://www.workbuddy.cn",
+      fetchImpl: async () => ({ ok: false, status: 401 }),
+    }),
+    /sign-in expired/,
+  );
+});
+
+test("a never-signed-in install stays unconfigured even with cache on disk", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  writeWorkbuddyLimitsCache(
+    { configured: true, error: null, plan_label: "Free", primary_window: wbCachePlanWindow("2027-01-01T00:00:00Z"), secondary_window: null },
+    { home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "unknown" },
+  );
+  const result = await fetchWorkbuddyLimits({ home, env: { HOME: home } });
+  assert.deepEqual(result, { configured: false });
+});
+
+test("an unreadable account matches only its own cache entries", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home, WORKBUDDY_ACCESS_TOKEN: "cn-token" },
+    origin: "https://www.workbuddy.cn", fetchImpl: wbCacheSummary(WB_CACHE_CN_SUMMARY),
+  });
+
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ uid: "uid-cn" }));
+  const named = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: async () => { throw new Error("no network in this test"); },
+  });
+  assert.match(named.error, /Start WorkBuddy and sign in/);
+
+  fs.unlinkSync(authPath);
+  fs.mkdirSync(path.join(home, ".workbuddy"), { recursive: true });
+  const unnamed = await fetchWorkbuddyLimits({
+    home, nowMs: WB_CACHE_T0, env: { HOME: home },
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: async () => { throw new Error("no network in this test"); },
+  });
+  assert.equal(unnamed.error, null);
+  assert.equal(unnamed.source, "disk-cache");
+});
+
+test("cache windows expire by rollover and by the undated snapshot TTL", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const write = (windows) => writeWorkbuddyLimitsCache(
+    { configured: true, error: null, plan_label: "Free", primary_window: windows.primary ?? null, secondary_window: windows.secondary ?? null },
+    { home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "uid" },
+  );
+  const read = (nowMs = WB_CACHE_T0) => readWorkbuddyLimitsCache({ home, nowMs, variantId: "workbuddy", identity: "uid" });
+
+  write({ primary: wbCachePlanWindow("2026-07-01T00:00:00Z"), secondary: { used_percent: 10, reset_at: null, used_credits: 1, limit_credits: 10, remaining_credits: 9 } });
+  let cached = read();
+  assert.equal(cached.primary_window, null);
+  assert.equal(cached.secondary_window.limit_credits, 10);
+
+  write({ primary: wbCachePlanWindow("2027-01-01T00:00:00Z") });
+  cached = read();
+  assert.equal(cached.primary_window.limit_credits, 500);
+  assert.equal(cached.secondary_window, null);
+
+  write({ primary: wbCachePlanWindow("2026-07-01T00:00:00Z") });
+  assert.equal(read(), null);
+
+  write({ primary: wbCachePlanWindow(null), secondary: { used_percent: 10, reset_at: null, used_credits: 1, limit_credits: 10, remaining_credits: 9 } });
+  assert.ok(read(WB_CACHE_T0 + 11 * 60 * 60 * 1000));
+  assert.equal(read(WB_CACHE_T0 + 13 * 60 * 60 * 1000), null);
+});
+
+test("cache entries are scoped to the identity that wrote them", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  writeWorkbuddyLimitsCache(
+    { configured: true, error: null, plan_label: "Free", primary_window: wbCachePlanWindow("2027-01-01T00:00:00Z"), secondary_window: null },
+    { home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "uid-a" },
+  );
+  assert.equal(readWorkbuddyLimitsCache({ home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "uid-b" }), null);
+  assert.ok(readWorkbuddyLimitsCache({ home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "uid-a" }));
+  assert.equal(readWorkbuddyLimitsCache({ home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "unknown" }), null);
+});
+
+test("a cached_at in the future beyond the skew guard is not trusted", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  writeWorkbuddyLimitsCache(
+    { configured: true, error: null, plan_label: "Free", primary_window: wbCachePlanWindow("2027-01-01T00:00:00Z"), secondary_window: null },
+    { home, nowMs: WB_CACHE_T0 + 10 * 60 * 60 * 1000, variantId: "workbuddy", identity: "uid" },
+  );
+  assert.equal(readWorkbuddyLimitsCache({ home, nowMs: WB_CACHE_T0, variantId: "workbuddy", identity: "uid" }), null);
+  assert.ok(readWorkbuddyLimitsCache({ home, nowMs: WB_CACHE_T0 + 10 * 60 * 60 * 1000 - 30_000, variantId: "workbuddy", identity: "uid" }));
+});
+
+test("a window that rolls while the live attempt runs is not served", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "wb-cache-"));
+  const authPath = path.join(home, "workbuddy-desktop.info");
+  fs.writeFileSync(authPath, wbCacheAuthInfo({ token: "cn-token", uid: "uid-cn" }));
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: WB_CACHE_T0 });
+  const live = await fetchWorkbuddyLimits({
+    home, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: wbCacheSummary({
+      code: 0,
+      data: { SubscriptionPackageName: "体验版", Packages: [trialRow({ CycleEndTime: "2026-07-08T00:00:05.000Z" })] },
+    }),
+  });
+  assert.equal(live.error, null);
+
+  const pending = fetchWorkbuddyLimits({
+    home, env: { HOME: home }, authFiles: [authPath],
+    origin: "https://www.workbuddy.cn",
+    fetchImpl: () => new Promise((_, reject) => { setTimeout(() => reject(new Error("offline")), 30_000); }),
+  });
+  t.mock.timers.tick(60_000);
+  await assert.rejects(pending, /offline/);
+});
+
+test("the workbuddy budget lets the post-abort cache fallback win", async () => {
+  const result = await withWorkbuddyProviderTimeout((signal) => new Promise((resolve, reject) => {
+    signal.addEventListener("abort", () => { setTimeout(() => resolve("cache-hit"), 10); });
+  }), "WorkBuddy", 20);
+  assert.equal(result, "cache-hit");
+});
+
+test("the workbuddy budget still enforces its hard bound", async () => {
+  await assert.rejects(
+    withWorkbuddyProviderTimeout(() => new Promise(() => {}), "WorkBuddy", 20, 20),
+    /timed out/,
+  );
+});
+
+test("a rejection the budget's abort caused reports the timeout, not the symptom", async () => {
+  await assert.rejects(
+    withWorkbuddyProviderTimeout((signal) => new Promise((_, reject) => {
+      signal.addEventListener("abort", () => { setTimeout(() => reject(new Error("WorkBuddy quota request was cancelled.")), 10); });
+    }), "WorkBuddy", 20),
+    /timed out/,
+  );
+});
+
+test("an attempt that settles inside the workbuddy budget is served as-is", async () => {
+  const result = await withWorkbuddyProviderTimeout(async () => "live", "WorkBuddy", 30_000);
+  assert.equal(result, "live");
+});
+
+test("an attempt that rejects inside the workbuddy budget keeps its own error", async () => {
+  await assert.rejects(
+    withWorkbuddyProviderTimeout(async () => { throw new Error("WorkBuddy quota request failed."); }, "WorkBuddy", 30_000),
+    /quota request failed/,
+  );
 });

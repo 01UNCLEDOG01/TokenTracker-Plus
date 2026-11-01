@@ -1429,7 +1429,7 @@ test("the brand lockup's tile centres on its own two-line block", () => {
   const y = (re) => Number(svg.match(re)?.[1]);
   const nameCapTop = y(/<text x="[\d.]+" y="([\d.]+)"[^>]*font-size="21"/) - 21 * 0.72;
   const brandBaseline = y(/<text x="550" y="([\d.]+)"[^>]*font-size="9"[^>]*>TOKENTRACKER/);
-  const brandSubBaseline = y(/<text x="550" y="([\d.]+)"[^>]*font-size="9"[^>]*>tokentracker\.cc/);
+  const brandSubBaseline = y(/<text x="550" y="([\d.]+)"[^>]*font-size="9"[^>]*>TokenTracker Plus/);
   const tileCentre = y(/<rect x="555\.00" y="([\d.]+)"/) + 11;
   const blockCentre = (nameCapTop + brandSubBaseline) / 2;
 
