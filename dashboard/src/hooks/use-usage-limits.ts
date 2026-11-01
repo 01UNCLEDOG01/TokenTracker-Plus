@@ -156,10 +156,10 @@ interface UseUsageLimitsOptions {
   publishToPreloadCache?: boolean;
   /**
    * Overrides the prefs-derived hidden set with the effective one (issue 956).
-   * A caller whose panel renders rows visibility alone would hide (a
-   * hand-entered subscription) can subtract those providers so their data
-   * keeps flowing. Consulted at request time; the hook still tracks the
-   * prefs-derived set itself so a toggle refetches.
+   * A caller whose panel renders rows that visibility alone would hide can
+   * subtract those providers so their data keeps flowing. Consulted at request
+   * time; the hook still tracks the prefs-derived set itself so a toggle
+   * refetches.
    */
   getHiddenProviders?: () => readonly string[];
 }

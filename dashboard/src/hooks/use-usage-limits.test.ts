@@ -415,9 +415,8 @@ describe("useUsageLimits visibility gating (issue 956)", () => {
     window.localStorage.setItem(VISIBILITY_KEY, JSON.stringify({ claude: false, zcode: false }));
     vi.mocked(getUsageLimits).mockResolvedValue(existingLimits);
 
-    // A panel that renders a row visibility alone would hide (for example a
-    // hand-entered subscription) subtracts it from the gate, so the row keeps
-    // receiving data.
+    // A panel that renders a row visibility alone would hide subtracts it from
+    // the gate, so the row keeps receiving data.
     const { result } = renderHook(() => useUsageLimits({
       initialRefresh: true,
       getHiddenProviders: () => ["claude"],

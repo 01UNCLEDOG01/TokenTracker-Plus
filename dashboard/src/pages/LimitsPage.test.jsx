@@ -9,8 +9,6 @@ import { LimitsPage } from "./LimitsPage.jsx";
 
 const useUsageLimitsMock = vi.hoisted(() => vi.fn());
 const useLimitsDisplayPrefsMock = vi.hoisted(() => vi.fn());
-const listSubscriptionsMock = vi.hoisted(() => vi.fn());
-const createSubscriptionMock = vi.hoisted(() => vi.fn());
 const refreshLimitsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../hooks/use-usage-limits", () => ({
@@ -21,17 +19,11 @@ vi.mock("../hooks/use-limits-display-prefs.js", () => ({
   useLimitsDisplayPrefs: useLimitsDisplayPrefsMock,
 }));
 
-vi.mock("../lib/subscription-manager-api", () => ({
-  listSubscriptions: listSubscriptionsMock,
-  createSubscription: createSubscriptionMock,
-}));
-
 vi.mock("../ui/dashboard/components/UsageLimitsPanel.jsx", () => ({
-  UsageLimitsPanel: ({ kimi, codex, subscriptions, displayMode }) => (
+  UsageLimitsPanel: ({ kimi, codex, displayMode }) => (
     <div data-testid="limits-panel" data-display-mode={displayMode ?? "absent"}>
       {kimi?.configured ? "Kimi connected" : "Kimi missing"}
       {codex?.configured ? " Codex connected" : ""}
-      {subscriptions?.map((subscription) => subscription.service).join(",")}
     </div>
   ),
 }));
@@ -72,10 +64,6 @@ describe("LimitsPage", () => {
       visibility: { kimi: true },
       displayMode: "used",
     }));
-    listSubscriptionsMock.mockReset();
-    listSubscriptionsMock.mockResolvedValue([]);
-    createSubscriptionMock.mockReset();
-    createSubscriptionMock.mockResolvedValue({ id: "sub-new" });
     refreshLimitsMock.mockReset();
     refreshLimitsMock.mockResolvedValue(null);
   });

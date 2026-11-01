@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T22:50:27.819Z",
+  "generatedAt": "2026-11-01T23:34:26.208Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
@@ -7,7 +7,7 @@
   },
   "totals": {
     "colors": 511,
-    "rawText": 180
+    "rawText": 179
   },
   "files": {
     "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
@@ -413,13 +413,6 @@
       "rawText": 2,
       "rawTextTokens": [
         "0 && ("
-      ]
-    },
-    "dashboard/src/ui/dashboard/components/SubscriptionSettingsCard.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "item.id === editingId) : null; const editingView = editingSub ? cycleView(editingSub, now) : null; return ("
       ]
     },
     "dashboard/src/ui/dashboard/components/TrendMonitor.jsx": {

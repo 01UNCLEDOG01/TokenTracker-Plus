@@ -12,7 +12,6 @@ import {
 const DISPLAY_MODE_KEY = "tt.limits.displayMode";
 const ORDER_KEY = "tt.limits.providerOrder";
 const VISIBILITY_KEY = "tt.limits.providerVisibility";
-const SHOW_SUBSCRIPTIONS_KEY = "tt.limits.showSubscriptions";
 const UPDATED_AT_KEY = "tt.limits.updatedAt";
 
 // Devin is the opt-in provider: it defaults OFF because its selection is also
@@ -28,7 +27,6 @@ function defaultSnapshot(updatedAt = null) {
     displayMode: LIMIT_DISPLAY_MODES.USED,
     providerOrder: [...LIMIT_PROVIDER_IDS],
     providerVisibility: defaultVisibility(),
-    showSubscriptions: true,
     updatedAt,
   };
 }
@@ -63,12 +61,6 @@ function setStoredSnapshot(snapshot) {
   if (snapshot.displayMode) {
     window.localStorage.setItem(DISPLAY_MODE_KEY, snapshot.displayMode);
   }
-  if (Object.hasOwn(snapshot, "showSubscriptions")) {
-    window.localStorage.setItem(
-      SHOW_SUBSCRIPTIONS_KEY,
-      JSON.stringify(snapshot.showSubscriptions),
-    );
-  }
   if (Object.hasOwn(snapshot, "updatedAt")) {
     if (snapshot.updatedAt === null || snapshot.updatedAt === undefined) {
       window.localStorage.removeItem(UPDATED_AT_KEY);
@@ -83,7 +75,6 @@ function readStoredSnapshot() {
     displayMode: window.localStorage.getItem(DISPLAY_MODE_KEY),
     providerOrder: JSON.parse(window.localStorage.getItem(ORDER_KEY)),
     providerVisibility: JSON.parse(window.localStorage.getItem(VISIBILITY_KEY)),
-    showSubscriptions: JSON.parse(window.localStorage.getItem(SHOW_SUBSCRIPTIONS_KEY)),
     updatedAt: window.localStorage.getItem(UPDATED_AT_KEY),
   };
 }
@@ -259,7 +250,6 @@ describe("useLimitsDisplayPrefs", () => {
       ...defaultSnapshot(100),
       displayMode: LIMIT_DISPLAY_MODES.REMAINING,
       providerOrder: [...LIMIT_PROVIDER_IDS].reverse(),
-      showSubscriptions: false,
     };
     setStoredSnapshot(initial);
     const { result } = renderHook(() => useLimitsDisplayPrefs());
@@ -272,7 +262,6 @@ describe("useLimitsDisplayPrefs", () => {
       expect(readStoredSnapshot().providerVisibility).toEqual(expectedVisibility);
       expect(result.current.order).toEqual(initial.providerOrder);
       expect(result.current.displayMode).toBe(initial.displayMode);
-      expect(result.current.showSubscriptions).toBe(false);
       expect(bridgeWrites(messages)).toHaveLength(1);
       expect(bridgeWrites(messages)[0].value.providerVisibility).toEqual(expectedVisibility);
       messages.length = 0;
@@ -415,7 +404,6 @@ describe("useLimitsDisplayPrefs", () => {
         ...defaultVisibility(),
         claude: false,
       },
-      showSubscriptions: true,
       updatedAt: "20",
     });
     expect(bridgeWrites(messages)).toHaveLength(0);
@@ -455,7 +443,6 @@ describe("useLimitsDisplayPrefs", () => {
       displayMode: LIMIT_DISPLAY_MODES.USED,
       providerOrder,
       providerVisibility,
-      showSubscriptions: true,
       updatedAt: null,
     });
     expect(bridgeWrites(messages)).toHaveLength(0);
@@ -814,7 +801,6 @@ describe("useLimitsDisplayPrefs", () => {
       ORDER_KEY,
       VISIBILITY_KEY,
       DISPLAY_MODE_KEY,
-      SHOW_SUBSCRIPTIONS_KEY,
       UPDATED_AT_KEY,
     ]) {
       act(() => {

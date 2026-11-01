@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, Gift, Clock as ClockIcon, Globe, Infinity as InfinityIcon } from "lucide-react";
+import { ChevronDown, Gift, Globe } from "lucide-react";
 import { Card } from "../../components";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
 import { copy, getCopyLocale } from "../../../lib/copy";
@@ -23,7 +23,6 @@ import { ProviderIcon } from "./ProviderIcon.jsx";
 import { buildResetBankRows } from "./usage-limits-reset-bank.js";
 import { PROVIDER_LIMIT_SPECS } from "./usage-limits-provider-specs.js";
 import { HoverTooltip } from "../../components/HoverTooltip.jsx";
-import { cycleView, countdownText, remainingLabel } from "../../../lib/subscription-display.js";
 
 const LIMITS_PROVIDER_ICON_CLASS = "shrink-0 text-oai-black dark:text-oai-white";
 
@@ -489,118 +488,6 @@ function ToolGroup({ name, providerId, children, expandable = false, expanded = 
     >
       {header}
       {children}
-    </div>
-  );
-}
-
-// Top-right auto-renew / stops-at-expiry badge. Distinct from the left-aligned
-// data-status badge so antigravity/qoder cache state and subscription state can
-// both show on the same row.
-// Icon-only state badge: shape and color carry the state (infinity = keeps
-// renewing, clock = ends at expiry), so the pill's text is no longer needed.
-// The original wording stays available through the hover tooltip and
-// aria-label, and the two shapes remain distinguishable without color.
-function SubscriptionRightBadge({ subscription }) {
-  const label = subscription.autoRenew
-    ? copy("subscriptions.badge.auto_renew")
-    : copy("subscriptions.badge.stops");
-  const Icon = subscription.autoRenew ? InfinityIcon : ClockIcon;
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className={`inline-flex translate-y-px ${
-        subscription.autoRenew
-          ? "text-oai-brand-600 dark:text-oai-brand-400"
-          : "text-blue-600 dark:text-blue-400"
-      }`}
-    >
-      <Icon size={14} strokeWidth={2} aria-hidden />
-    </span>
-  );
-}
-
-// Inline subscription progress bar, rendered under the limit bars of a linked
-// provider. Reuses the same label column width as the limit bars so their
-// tracks line up, and mirrors the limit bar's pct + reset columns on the right.
-// When displayMode is "remaining", the bar flips to show remaining cycle time
-// (100 - elapsed), matching the limits panel's remaining mode.
-function SubscriptionBar({ subscription, now, mode = LIMIT_DISPLAY_MODES.USED }) {
-  const view = cycleView(subscription, now);
-  if (!view) return null;
-  const { endMs, expired } = view;
-  const nearExpiry = !expired && endMs - now <= 3 * 86400000;
-  const rawPct = expired ? 100 : view.progress * 100;
-  const displayPct = mode === LIMIT_DISPLAY_MODES.REMAINING ? 100 - rawPct : rawPct;
-  // Clamp and keep the bar visible for <1% remaining/used
-  const renderWidth = expired ? 100 : Math.max(0, Math.min(100, displayPct));
-  const rounded = Math.round(renderWidth);
-  const labelPct =
-    renderWidth > 0 && rounded === 0 ? copy("limits.bar.sub_one_percent") : `${rounded}%`;
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400 shrink-0 whitespace-nowrap"
-        style={{ width: "var(--tt-limits-label-w)" }}
-      >
-        {copy("subscriptions.inline.label")}
-      </span>
-      <div className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden">
-        <div
-          className={`${
-            expired ? "bg-red-500" : nearExpiry ? "bg-amber-500" : "bg-blue-500"
-          } rounded-full h-full block motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none`}
-          style={{ width: `${renderWidth}%`, minWidth: renderWidth > 0 ? "3px" : 0 }}
-        />
-      </div>
-      <span className="text-[11px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400 w-9 text-right shrink-0 whitespace-nowrap">
-        {labelPct}
-      </span>
-      <span
-        className={`text-[10px] tabular-nums shrink-0 whitespace-nowrap w-6 text-right ${
-          expired ? "text-oai-error" : "text-oai-gray-400 dark:text-oai-gray-500"
-        }`}
-      >
-        {remainingLabel(endMs, now)}
-      </span>
-    </div>
-  );
-}
-
-function SubscriptionDetail({ subscription, now }) {
-  const view = cycleView(subscription, now);
-  if (!view) return null;
-  const dateFormat = new Intl.DateTimeFormat(getCopyLocale(), {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return (
-    <div className="text-[11px] leading-snug text-oai-gray-500 dark:text-oai-gray-400">
-      <span>{copy("subscriptions.inline.label")}</span>
-      <span className="text-oai-gray-300 dark:text-oai-gray-600">：</span>
-      <span>
-        {subscription.autoRenew
-          ? copy("subscriptions.label.renews_at")
-          : copy("subscriptions.label.expires_at")}
-      </span>
-      <span> </span>
-      <span className="font-mono tabular-nums">
-        {dateFormat.format(new Date(view.endMs))}
-      </span>
-      <span className="text-oai-gray-300 dark:text-oai-gray-600"> · </span>
-      <span className={view.expired ? "text-oai-error" : undefined}>
-        {countdownText(view.endMs, now)}
-      </span>
-      <span className="text-oai-gray-300 dark:text-oai-gray-600"> · </span>
-      <span>
-        {subscription.autoRenew
-          ? copy("subscriptions.status.auto_renew")
-          : copy("subscriptions.status.manual")}
-      </span>
     </div>
   );
 }
@@ -1190,7 +1077,7 @@ function ZcodeOtherRegionSection({ data, mode, now }) {
   );
 }
 
-function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, subscription = null, now = Date.now(), onKeySaved = null, petPicker = null) {
+function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, now = Date.now(), onKeySaved = null, petPicker = null) {
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
   // Pace is computed once per window here and shared by the bar + the detail.
@@ -1207,11 +1094,10 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       key={id}
       name={title}
       providerId={id}
-      expandable={rows.length > 0 || Boolean(subscription)}
+      expandable={rows.length > 0}
       expanded={expanded}
       onToggle={onToggle}
       badge={badge}
-      rightAdornment={subscription ? <SubscriptionRightBadge subscription={subscription} /> : null}
       toggleOnHeader={id === "zcode"}
     >
       <LimitWindowSection mode={mode} rows={rows} extra={extra} expanded={expanded}
@@ -1219,11 +1105,7 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       {id === "opencodeGo" || id === "commandCode" ? (
         <EnvCredentialNotice providerId={id} data={data} onSaved={onKeySaved} />
       ) : null}
-      {subscription ? <SubscriptionBar subscription={subscription} now={now} mode={mode} /> : null}
       {expanded ? <LimitDetail rows={rows} mode={mode} now={now} /> : null}
-      {expanded && subscription ? (
-        <SubscriptionDetail subscription={subscription} now={now} />
-      ) : null}
       {id === "zcode" && data.start_plan?.configured ? (
         <ZcodeStartPlanSection data={data.start_plan} mode={mode} now={now} />
       ) : null}
@@ -1235,33 +1117,23 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
 }
 
 // Provider row for states without usable limit data (not connected, inactive,
-// fetch error). A linked subscription still belongs to this row: it is
-// user-entered data, so its badge/progress stay visible regardless of the
-// tool's own configuration state.
-function renderUnlinkedProvider(id, statusNodes, expanded, onToggle, subscription = null, now = Date.now(), mode = LIMIT_DISPLAY_MODES.USED) {
-  const hasSubscription = Boolean(subscription);
+// fetch error).
+function renderUnlinkedProvider(id, statusNodes, expanded, onToggle) {
   return (
     <ToolGroup
       key={id}
       name={limitProviderName(id)}
       providerId={id}
-      expandable={hasSubscription}
+      expandable={false}
       expanded={expanded}
       onToggle={onToggle}
-      rightAdornment={hasSubscription ? <SubscriptionRightBadge subscription={subscription} /> : null}
     >
       {statusNodes}
-      {hasSubscription ? <SubscriptionBar subscription={subscription} now={now} mode={mode} /> : null}
-      {hasSubscription && expanded ? (
-        <div className="mt-1">
-          <SubscriptionDetail subscription={subscription} now={now} />
-        </div>
-      ) : null}
     </ToolGroup>
   );
 }
 
-function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = null, now = Date.now(), onKeySaved = null, petPicker = null) {
+function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(), onKeySaved = null, petPicker = null) {
   if (!PROVIDER_LIMIT_SPECS[id]) return null;
   if (!data?.configured) {
     return renderUnlinkedProvider(
@@ -1279,9 +1151,6 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       </>,
       expanded,
       onToggle,
-      subscription,
-      now,
-      mode,
     );
   }
   if (id === "opencodeGo" && data.subscription_status === "inactive") {
@@ -1290,9 +1159,6 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       <StatusLine>{copy("limits.opencodeGo.status.inactive")}</StatusLine>,
       expanded,
       onToggle,
-      subscription,
-      now,
-      mode,
     );
   }
   // WorkBuddy deletes its IPC endpoint when the desktop client quits, so
@@ -1304,9 +1170,6 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       <StatusLine>{copy("limits.status.client_not_running", { app: limitProviderName(id) })}</StatusLine>,
       expanded,
       onToggle,
-      subscription,
-      now,
-      mode,
     );
   }
   if (data.error) {
@@ -1325,9 +1188,6 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       </>,
       expanded,
       onToggle,
-      subscription,
-      now,
-      mode,
     );
   }
 
@@ -1397,7 +1257,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, subscription = 
       tooltip={copy("limits.provenance.tooltip", { source: provenance.source, confidence: provenance.confidence })}
     />;
   }
-  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, subscription, now, onKeySaved, petPicker);
+  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, now, onKeySaved, petPicker);
 }
 
 function CopilotOtelHint({ defaultDir }) {
@@ -1883,7 +1743,7 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, subscriptions = [], showSubscriptions = true, onProviderKeySaved = null }) {
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, onProviderKeySaved = null }) {
   const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
@@ -1956,39 +1816,8 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
     return () => clearInterval(timer);
   }, []);
 
-  // One inline row per linked provider. Prefer the soonest still-active
-  // record; only when every record for a provider is past its date does the
-  // most recently expired one show (an expired history record must not mask a
-  // live renewal). Extra records stay manageable in the settings popover.
-  // When the user disables subscription display, skip the mapping entirely so
-  // inline badges/bars/details all disappear.
-  const subscriptionByProvider = new Map();
-  if (showSubscriptions) {
-    for (const subscription of subscriptions || []) {
-      if (!subscription?.provider) continue;
-      const endMs = new Date(subscription.nextBillingAt).getTime();
-      if (!Number.isFinite(endMs)) continue;
-      const existing = subscriptionByProvider.get(subscription.provider);
-      if (!existing) {
-        subscriptionByProvider.set(subscription.provider, subscription);
-        continue;
-      }
-      const existingMs = new Date(existing.nextBillingAt).getTime();
-      const upcoming = endMs > now;
-      const existingUpcoming = existingMs > now;
-      if (
-        (upcoming && (!existingUpcoming || existingMs > endMs)) ||
-        (!upcoming && !existingUpcoming && endMs > existingMs)
-      ) {
-        subscriptionByProvider.set(subscription.provider, subscription);
-      }
-    }
-  }
-
-  // Hiding a tool hides its limits row, but not a subscription the user
-  // entered by hand — that data keeps its row regardless of visibility prefs.
   const groups = effectiveOrder
-    .filter((id) => !visibility || visibility[id] !== false || subscriptionByProvider.has(id))
+    .filter((id) => !visibility || visibility[id] !== false)
     .map((id) => {
       return renderProviderGroup(
         id,
@@ -1996,7 +1825,6 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
         effectiveMode,
         expandedId === id,
         () => setExpandedId((prev) => (prev === id ? null : id)),
-        subscriptionByProvider.get(id) || null,
         now,
         null,
         { selected: petLimitRows, onToggle: togglePetLimitRow },

@@ -15,6 +15,11 @@
 - **重复启动的端口清理修复**：本仓 2d4dea2 改了包名后，服务端身份识别仍只认旧 npm 包名，导致第二次 `serve` 无法清理占用端口、直接 EADDRINUSE；现在同时识别本仓与 npm 别名。
 - MiniMax 会话 id 解析中的无效替换（CodeQL `js/identity-replacement`）已移除。
 
+### 移除
+
+- **移除订阅管理功能**：本仓不做订阅与商业化——删除订阅设置卡、订阅展示组件、「限额页显示订阅」偏好项、本地订阅管理端点及其文案（该功能自 `de0244f` 摘除入口后已不可达）。
+- **清理云商业死代码**：删除 `scripts/cloud-sandbox/` 五个无人引用的脚本、`dashboard/edge-patches/cloud/runtime.ts` 与孤儿 migration `20261008150000_cloud-pro-badges.sql`；自建后端仍需要的云迁移/edge 函数保留不动。
+
 ## [1.13.0] - 2026-11-02
 
 ### 新增

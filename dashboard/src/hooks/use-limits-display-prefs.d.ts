@@ -16,10 +16,8 @@ export interface LimitsDisplayPrefs {
   order: string[];
   visibility: Record<string, boolean>;
   displayMode: string;
-  showSubscriptions: boolean;
   visibleOrdered: string[];
   setDisplayMode(mode: string): void;
-  setShowSubscriptions(value: boolean): void;
   toggle(id: string): void;
   setAllVisible(visible: boolean): void;
   moveUp(id: string): void;

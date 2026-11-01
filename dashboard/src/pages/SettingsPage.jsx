@@ -1,6 +1,6 @@
 import React from "react";
-import { Database, FlaskConical, Gauge, Globe, Monitor, Palette, Settings, UserRound } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Database, FlaskConical, Gauge, Globe, Monitor, Palette, UserRound } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { LimitsSettingsPanel } from "../components/LimitsSettingsPanel.jsx";
 import { AccountSection } from "../components/settings/AccountSection.jsx";
 import { LocalProfileSection } from "../components/settings/LocalProfileSection.jsx";
@@ -23,7 +23,6 @@ import { useProxySettings } from "../hooks/use-proxy-settings.js";
 import { cn } from "../lib/cn";
 import { copy } from "../lib/copy";
 import { isNativeWindowsApp } from "../lib/native-bridge.js";
-import { Button } from "../ui/components/Button.jsx";
 
 const SETTINGS_SECTION_IDS = {
   APPEARANCE: "appearance",
@@ -70,7 +69,6 @@ export function SettingsPage() {
   const windowsNativeSettings =
     isNativeWindowsApp() || nativeSettings?.platform === "windows";
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const requestedSection = searchParams.get("section");
   const requestedSectionAvailable =
     Object.values(SETTINGS_SECTION_IDS).includes(requestedSection) &&
@@ -180,29 +178,6 @@ export function SettingsPage() {
                 />
               </>
             ) : null}
-            <SettingsRow
-              label={copy("settings.limits.showSubscriptions")}
-              hint={copy("settings.limits.showSubscriptionsHint")}
-              control={
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate("/limits?openSubscriptions=1")}
-                    aria-label={copy("limits.page.openSubscriptions")}
-                    title={copy("limits.page.openSubscriptions")}
-                    className="!h-7 !w-7 !p-0 text-oai-gray-500 hover:text-oai-black dark:text-oai-gray-400 dark:hover:text-white"
-                  >
-                    <Settings size={14} aria-hidden />
-                  </Button>
-                  <ToggleSwitch
-                    checked={limitsPrefs.showSubscriptions !== false}
-                    onChange={() => limitsPrefs.setShowSubscriptions(!limitsPrefs.showSubscriptions)}
-                    ariaLabel={copy("settings.limits.showSubscriptions")}
-                  />
-                </div>
-              }
-            />
           </SectionCard>
           <SectionCard title={copy("settings.limits.providers")}>
             <LimitsSettingsPanel prefs={limitsPrefs} />
