@@ -77,12 +77,12 @@ test("stays invisible when the owner's account row is absent", async () => {
 test("reads the owner's wallets from the gateway snapshot", async () => {
   const home = sandbox();
   try {
-    // Pool accounts must not leak into the card: only the owner row is read.
+    // Pool accounts must not leak into the card: only the configured row is read.
     writeGatewayDb(home, [
       { account_id: "user-848338", usage: JSON.stringify({ available: 700, wallets: [{ type: "reward_points", displayName: "奖励积分", balance: 700 }] }) },
       { account_id: OWNER_ID, usage: ownerUsage(), updated_at: Date.now() - 60_000 },
     ]);
-    const result = await fetchRaccoonLimits({ home });
+    const result = await fetchRaccoonLimits({ home, env: { TOKENTRACKER_RACCOON_ACCOUNT_ID: OWNER_ID } });
     assert.equal(result.configured, true);
     assert.equal(result.error, undefined);
     assert.equal(result.plan_name, null);
@@ -119,14 +119,12 @@ test("honours the account id override for a migrated owner", async () => {
   }
 });
 
-test("falls back to the default account when the override is blank", async () => {
+test("shows an unconfigured card when the override is blank (no built-in account ships)", async () => {
   const home = sandbox();
   try {
     writeGatewayDb(home, [{ account_id: OWNER_ID, usage: ownerUsage() }]);
     const result = await fetchRaccoonLimits({ home, env: { TOKENTRACKER_RACCOON_ACCOUNT_ID: "   " } });
-    assert.equal(result.configured, true);
-    assert.equal(result.raccoon_available_credits, 10300);
-    assert.equal(DEFAULT_RACCOON_ACCOUNT_ID, "user-sample");
+    assert.deepEqual(result, { configured: false, error: null }); // 默认不内置任何账号 id：实名关联的网关账号由每台机器自行配置
   } finally {
     cleanup(home);
   }
@@ -136,7 +134,7 @@ test("reports an error instead of zero when the snapshot is not JSON", async () 
   const home = sandbox();
   try {
     writeGatewayDb(home, [{ account_id: OWNER_ID, usage: "{not json" }]);
-    const result = await fetchRaccoonLimits({ home });
+    const result = await fetchRaccoonLimits({ home, env: { TOKENTRACKER_RACCOON_ACCOUNT_ID: OWNER_ID } });
     assert.equal(result.configured, true);
     assert.match(result.error, /not valid JSON/);
   } finally {
@@ -148,7 +146,7 @@ test("reports an error when the snapshot carries no balances", async () => {
   const home = sandbox();
   try {
     writeGatewayDb(home, [{ account_id: OWNER_ID, usage: JSON.stringify({ foo: "bar" }) }]);
-    const result = await fetchRaccoonLimits({ home });
+    const result = await fetchRaccoonLimits({ home, env: { TOKENTRACKER_RACCOON_ACCOUNT_ID: OWNER_ID } });
     assert.equal(result.configured, true);
     assert.match(result.error, /no wallet balances/);
   } finally {
@@ -161,7 +159,7 @@ test("marks the card stale once the snapshot outlives the freshness window", asy
   try {
     const old = Date.now() - 7 * 3600 * 1000;
     writeGatewayDb(home, [{ account_id: OWNER_ID, usage: ownerUsage(), updated_at: old, last_success_at: old }]);
-    const result = await fetchRaccoonLimits({ home });
+    const result = await fetchRaccoonLimits({ home, env: { TOKENTRACKER_RACCOON_ACCOUNT_ID: OWNER_ID } });
     assert.equal(result.configured, true);
     assert.equal(result.stale, true);
     assert.equal(new Date(result.raccoon_updated_at).getTime(), old);

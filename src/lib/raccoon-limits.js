@@ -11,16 +11,14 @@ const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 // no extra network round, and the snapshot is minutes old whenever the gateway
 // is healthy. This mirrors the gateway's own "wallets" view:
 //
-//   SELECT usage FROM account_usage_records WHERE account_id = 'user-sample'
+//   SELECT usage FROM account_usage_records WHERE account_id = ?
 //     → { available: 10300, unit: "积分", wallets: [{type: "daily_points",
 //         displayName: "每日积分", balance: 1358}, {type: "reward_points",
 //         displayName: "奖励积分", balance: 8942}, ...], raw.points: {...} }
 //
-// The owner's own account is user-sample (verified against the gateway's
-// requests table: account_name=UNCLEDOG, provider=raccoon). The gateway also
-// pools other raccoon-shaped accounts (user-848338, intl-user-* …) whose
-// balances are NOT this user's quota — they are skipped deliberately.
-// TOKENTRACKER_RACCOON_ACCOUNT_ID overrides the account for a migrated owner.
+// The gateway pools several raccoon-shaped accounts; only the account set via
+// TOKENTRACKER_RACCOON_ACCOUNT_ID (per-machine env, never committed) is this
+// product's quota — every other raccoon-shaped row is skipped deliberately.
 //
 // Wallet balances refill on their own schedules (the daily wallet accumulates
 // +300 per check-in rather than resetting against a fixed grant), so there is
@@ -30,7 +28,10 @@ const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 // No daily balances are held here beyond the last-good file; the gateway's db
 // is the single source of truth and is re-read on every usage-limits poll.
 
-const DEFAULT_RACCOON_ACCOUNT_ID = "user-sample";
+// No default account: an identifier on someone else's gateway is personal
+// data and must not ship in the repo. Set TOKENTRACKER_RACCOON_ACCOUNT_ID
+// per machine (user-level env) to enable the card.
+const DEFAULT_RACCOON_ACCOUNT_ID = "";
 // The gateway refreshes snapshots every few minutes; a row older than this
 // means the gateway stopped polling (or was uninstalled) and the card should
 // say so instead of presenting a stale balance as live.
