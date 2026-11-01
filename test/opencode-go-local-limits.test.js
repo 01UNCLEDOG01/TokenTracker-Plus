@@ -101,8 +101,8 @@ describe("opencode-go local helpers (pure)", () => {
     assert.equal(resolveOpencodeDataDir({ env: {} }), null);
   });
 
-  it("goDollarLimits defaults to $12/$30/$60 and parses a valid override", () => {
-    assert.deepEqual(goDollarLimits({}), { session: 12, weekly: 30, monthly: 60 });
+  it("goDollarLimits defaults to $20/$50/$100 and parses a valid override", () => {
+    assert.deepEqual(goDollarLimits({}), { session: 20, weekly: 50, monthly: 100 });
     assert.deepEqual(goDollarLimits({ TOKENTRACKER_OPENCODE_GO_LIMITS: "5, 15, 40" }), {
       session: 5,
       weekly: 15,
@@ -110,9 +110,9 @@ describe("opencode-go local helpers (pure)", () => {
     });
     // Malformed → fall back to defaults.
     assert.deepEqual(goDollarLimits({ TOKENTRACKER_OPENCODE_GO_LIMITS: "5,bad" }), {
-      session: 12,
-      weekly: 30,
-      monthly: 60,
+      session: 20,
+      weekly: 50,
+      monthly: 100,
     });
   });
 
@@ -165,12 +165,12 @@ describe("collectOpencodeGoLocal (real fixture DB)", { skip: !sqlite }, () => {
     const out = await collectOpencodeGoLocal({ env: { OPENCODE_HOME: tmpDir }, nowMs: NOW_MS });
     assert.ok(out, "expected a local result");
     assert.equal(out.source, "local");
-    // session: A ($6) / $12 = 50%
-    assert.equal(out.primary_window.used_percent, 50);
-    // weekly: A+B ($9) / $30 = 30%
-    assert.equal(out.secondary_window.used_percent, 30);
-    // monthly: A+B+C ($21) / $60 = 35%  (D excluded: previous month)
-    assert.equal(out.tertiary_window.used_percent, 35);
+    // session: A ($6) / $20 = 30%
+    assert.equal(out.primary_window.used_percent, 30);
+    // weekly: A+B ($9) / $50 = 18%
+    assert.equal(out.secondary_window.used_percent, 18);
+    // monthly: A+B+C ($21) / $100 = 21%  (D excluded: previous month)
+    assert.equal(out.tertiary_window.used_percent, 21);
     // session reset = oldest in-session row (A) + 5h
     assert.equal(
       out.primary_window.reset_at,
@@ -261,9 +261,9 @@ describe("collectOpencodeGoLocal (opencode2 session_message fixture)", { skip: !
     assert.ok(out, "expected a local result");
     assert.equal(out.source, "local");
     // Same expectations as the v1 fixture: A / A+B / A+B+C.
-    assert.equal(out.primary_window.used_percent, 50);
-    assert.equal(out.secondary_window.used_percent, 30);
-    assert.equal(out.tertiary_window.used_percent, 35);
+    assert.equal(out.primary_window.used_percent, 30);
+    assert.equal(out.secondary_window.used_percent, 18);
+    assert.equal(out.tertiary_window.used_percent, 21);
   });
 });
 
@@ -324,9 +324,9 @@ describe("collectOpencodeGoLocal (type A: empty session_message → v1 path)", {
     const out = await collectOpencodeGoLocal({ env: { OPENCODE_HOME: tmpDir }, nowMs: NOW_MS });
     assert.ok(out, "expected a local result from the v1 message table");
     assert.equal(out.source, "local");
-    assert.equal(out.primary_window.used_percent, 50);
-    assert.equal(out.secondary_window.used_percent, 30);
-    assert.equal(out.tertiary_window.used_percent, 35);
+    assert.equal(out.primary_window.used_percent, 30);
+    assert.equal(out.secondary_window.used_percent, 18);
+    assert.equal(out.tertiary_window.used_percent, 21);
   });
 });
 
@@ -367,7 +367,7 @@ describe("fetchOpencodeGoLimits source selection (real fixture DB)", { skip: !sq
     assert.equal(out.error, null);
     assert.equal(out.source, "local-estimate");
     assert.equal(out.subscription_status, "unknown");
-    assert.equal(out.primary_window.used_percent, 50);
+    assert.equal(out.primary_window.used_percent, 30);
   });
 
   it("does not fall back to local history when the authenticated page says Go is inactive", async () => {

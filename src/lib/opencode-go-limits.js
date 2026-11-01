@@ -317,11 +317,14 @@ function looksSignedOut(text) {
 
 const SESSION_MS = 5 * 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-// OpenCode Go's official dollar caps — https://opencode.ai/docs/go
-// ($12 per 5h, $30 per week, $60 per month). The limits are not stored in the
-// local DB, so they are hardcoded; env-overridable in case opencode changes
-// them (TOKENTRACKER_OPENCODE_GO_LIMITS="12,30,60").
-const DEFAULT_GO_LIMITS = { session: 12, weekly: 30, monthly: 60 };
+// OpenCode Go's official dollar caps — https://opencode.ai/docs/go. Caps are
+// PER MODEL now: each model gets its own monthly dollar limit, split 20%/50%/
+// 100% across the 5h/weekly/monthly windows. Defaults follow the DeepSeek
+// V4.1 Flash row ($20 per 5h, $50 per week, $100 per month), the highest
+// flash tier as of 2026-11-02. The limits are not stored in the local DB, so
+// they are hardcoded; env-overridable per model in case the row you use
+// differs (TOKENTRACKER_OPENCODE_GO_LIMITS="20,50,100").
+const DEFAULT_GO_LIMITS = { session: 20, weekly: 50, monthly: 100 };
 
 function goDollarLimits(env = process.env) {
   const raw = String((env && env.TOKENTRACKER_OPENCODE_GO_LIMITS) || "").trim();

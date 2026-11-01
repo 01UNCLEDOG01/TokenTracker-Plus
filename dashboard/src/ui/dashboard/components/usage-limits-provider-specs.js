@@ -220,7 +220,9 @@ export const PROVIDER_LIMIT_SPECS = {
     },
   },
   opencodeGo: {
-    // OpenCode Go: $12/5h + $30/week + $60/month rolling windows. Window
+    // OpenCode Go: $20/5h + $50/week + $100/month rolling windows (DeepSeek
+    // V4.1 Flash row — official caps are per model, see opencode-go-limits.js).
+    // Window
     // lengths are server-defined (no client-trusted window length to pace
     // against), so we leave `windowSeconds` unset — paceForSpec reads
     // `expectedPercent` and skips the projection copy.
