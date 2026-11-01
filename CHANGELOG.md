@@ -6,6 +6,15 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随下一个 MINOR 安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.13.1] - 2026-11-02
+
+### 修复
+
+- **「只有请求、没有 token」的服务商不再隐身**（移植上游 #968 / issue #948）：Usage Overview 与模型明细现在会列出 `0 tokens / N 次请求` 的来源（典型如仅记 credits 的 Qoder 新版会话），不再被 `totalTokens > 0` 过滤整片丢弃；Qoder 国际版的积分成本卡语义保持不变。
+- **设置里「关闭」服务商真正生效**（移植上游 #970 / issue #956）：被关闭的服务商不再拉取限额、不读取本机凭证，其错误与缓存告警不再出现在刷新提示里；隐藏名单经本机回环鉴权参数下传。
+- **重复启动的端口清理修复**：本仓 2d4dea2 改了包名后，服务端身份识别仍只认旧 npm 包名，导致第二次 `serve` 无法清理占用端口、直接 EADDRINUSE；现在同时识别本仓与 npm 别名。
+- MiniMax 会话 id 解析中的无效替换（CodeQL `js/identity-replacement`）已移除。
+
 ## [1.13.0] - 2026-11-02
 
 ### 新增
