@@ -5,7 +5,7 @@ const { performance } = require("node:perf_hooks");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "../..");
-const DIR = path.join(ROOT, ".tmp/waffo/hosted");
+const DIR = path.join(ROOT, ".tmp/cloud-qa/hosted");
 // The target InsForge instance is an explicit input, not a bundled default:
 // the local-first fork ships no cloud origin, so running this acceptance tool
 // requires naming the backend under test via TT_SANDBOX_ORIGIN.

@@ -39,7 +39,7 @@ describe("useProxySettings", () => {
   });
 
   it("does not fetch and stays unavailable on a non-loopback host", async () => {
-    setHostname("(removed)");
+    setHostname("www.example-dashboard.com");
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 

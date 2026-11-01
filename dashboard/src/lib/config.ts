@@ -26,7 +26,7 @@ export function getBackendBaseUrl() {
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
   if (isLocalhost) return "";
 
-  // Non-localhost ((removed)): dashboard usage data comes from the
+  // Non-localhost (a hosted deployment): dashboard usage data comes from the
   // cloud. Delegate to getInsforgeRemoteUrl so the hardcoded prod fallback
   // applies when VITE_* env wasn't injected at build time — otherwise this
   // returned "" and usage API calls hit the Vercel host (no edge functions

@@ -150,23 +150,6 @@ async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, own
           if (broker.sessionEpoch() !== verified.epoch || broker.actorID() !== verified.userID) throw Error("native_qa_session_changed");
           return json(res, 200, { ...identity(), allowed: true, order: value.order, actor: verified.userID, actorEpoch: verified.epoch });
         }
-        if (url.pathname === "/__native-qa/validate-external" && req.method === "POST") {
-          const value = await body(req);
-          if (value.realm !== REALM || typeof value.url !== "string" || Object.keys(value).length !== 2) throw Error("native_qa_external_rejected");
-          const target = new URL(value.url);
-          if (target.origin !== "https://pancake.(removed)" || target.username || target.password || target.port || target.hash ||
-              !/^\/store\/[0-9A-Za-z_-]+\/checkout\/cs_[0-9A-Za-z_-]+$/.test(target.pathname) ||
-              target.searchParams.getAll("test").length !== 1 || target.searchParams.get("test") !== "true" ||
-              target.searchParams.has("csId") || target.searchParams.has("cs_id")) throw Error("native_qa_external_rejected");
-          const capturedEpoch = broker.sessionEpoch(); const actor = broker.actorID();
-          let matched = false;
-          for (const order of ownedOrderIDs) {
-            const verified = await broker.ownedOrder(order);
-            if (verified.order.checkout_url === value.url) { matched = true; break; }
-          }
-          if (!matched || broker.sessionEpoch() !== capturedEpoch || broker.actorID() !== actor) throw Error("native_qa_external_rejected");
-          return json(res, 200, { ...identity(), allowed: true, urlSHA256: digest(value.url), actor, actorEpoch: capturedEpoch });
-        }
         if (url.pathname === "/__native-qa/transport" && req.method === "POST") {
           const value = await body(req);
           if (typeof value.url !== "string" || typeof value.method !== "string" || !value.headers ||

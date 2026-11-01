@@ -12,9 +12,9 @@ body:
         - README translations (zh-CN / ja / ko)
         - CONTRIBUTING.md
         - SECURITY.md
-        - Website ((removed))
+        - docs/ directory guides
         - CLI help / output
-        - In-app text (macOS / Windows)
+        - In-app text (Windows desktop / web)
         - Other
     validations:
       required: true

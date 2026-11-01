@@ -1170,7 +1170,7 @@ function renderProfileCard(opts: {
 
     ${brandMarkSvg(566, brandBlockCentre, BRAND_TILE, p)}
     <text x="550" y="${brandBaseline.toFixed(2)}" font-size="${BRAND_FONT}" font-weight="600" letter-spacing="2.2" fill="${p.accent}" text-anchor="end">TOKENTRACKER</text>
-    <text x="550" y="${brandSubBaseline.toFixed(2)}" font-size="${BRAND_FONT}" fill="${p.faint}" text-anchor="end">(removed)</text>
+    <text x="550" y="${brandSubBaseline.toFixed(2)}" font-size="${BRAND_FONT}" fill="${p.faint}" text-anchor="end">TokenTracker Plus</text>
 
     ${stat(TEXT_X, "TOKENS", tokens, tokFont, 700, p.fg, Number(row.total_tokens ?? 0), "tok")}
     <line x1="${div1.toFixed(2)}" y1="106" x2="${div1.toFixed(2)}" y2="152" stroke="${p.divider}"/>

@@ -4,8 +4,9 @@ let policy;
 let sequence = 0;
 const now = Date.parse("2026-10-08T08:00:00Z");
 const day = 86_400_000;
-const catalog = { environment: "live", policy: { phase: "active", launch_at: "2026-10-01T00:00:00Z" },
-  providers: { waffo: true }, checkout_verified: true };
+// TT-plus 自建云不售卖订阅：目录里不再有支付通道与结账校验字段，
+// 上下文提醒只剩 learn-more 解释路径（见 canOfferCloud 退役注释）。
+const catalog = { environment: "live", policy: { phase: "active", launch_at: "2026-10-01T00:00:00Z" } };
 const free = { status: "free", environment: "live", phase: "active", trial_available: true,
   can_read_cloud: false, can_upload_cloud: false };
 function storage() {
@@ -27,14 +28,14 @@ describe("Cloud reminder eligibility", () => {
     for (const extra of [{ intentional: false }, { scene: "leaderboard" }, { scene: "local" }, { userId: null }])
       expect(policy.cloudContextualPromptDecision(input(extra))).toBeNull();
   });
-  it("offers the no-card trial only for multi-device accounts after a deliberate sync action and confirmed live availability", () => {
+  it("retired commerce: multi-device accounts get learn-more, never a trial or purchase CTA", () => {
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 2 }))).toMatchObject({
-      kind: "promotion", reason: "multi_device", scene: "sync", href: "/billing/checkout?intent=trial",
+      kind: "explanation", bodyKey: "cloud.prompt.unconfirmed", ctaKey: "cloud.prompt.learn", href: "/cloud",
     });
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 2, membership: { ...free, trial_available: false } })))
-      .toMatchObject({ kind: "promotion", reason: "multi_device", href: "/cloud", ctaKey: "cloud.action.view_plans" });
+      .toMatchObject({ kind: "explanation", ctaKey: "cloud.prompt.learn" });
   });
-  it("keeps single-device free sync/view as learn-more, not trial or purchase", () => {
+  it("keeps single-device free sync/view as learn-more", () => {
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 1 }))).toMatchObject({
       kind: "explanation", ctaKey: "cloud.prompt.learn", href: "/cloud",
     });
@@ -43,38 +44,30 @@ describe("Cloud reminder eligibility", () => {
       failure: { code: "cloud_membership_required" } }))).toMatchObject({
       kind: "explanation", ctaKey: "cloud.prompt.learn",
     });
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 1 })).reason).toBeUndefined();
   });
-  it("promotes inside the shared seven-day deadline window even with one device", () => {
+  it("keeps the shared seven-day deadline window non-promotional", () => {
     const membership = { ...free, status: "trial", trial_ends_at: new Date(now + 7 * day).toISOString(),
       trial_available: false, can_read_cloud: false, can_upload_cloud: false };
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 1, membership }))).toMatchObject({
-      kind: "promotion", reason: "deadline", ctaKey: "cloud.action.view_plans",
+      kind: "explanation", ctaKey: "cloud.prompt.learn",
     });
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 1,
       membership: { ...membership, trial_ends_at: new Date(now + 7 * day + 1).toISOString() } }))).toMatchObject({
       kind: "explanation", ctaKey: "cloud.prompt.learn",
     });
   });
-  it.each([
-    { environment: "sandbox" }, { policy: { phase: "preview", launch_at: "2026-10-01" } },
-    { policy: { phase: "active", launch_at: "2026-10-09" } }, { providers: { waffo: false } },
-    { checkout_verified: false }, { checkout_verified: undefined },
-  ])("does not promise a purchase or trial from unavailable configuration %j", (change) => {
-    expect(policy.cloudContextualPromptDecision(input({ catalog: { ...catalog, ...change } })))
-      .toMatchObject({ kind: "explanation", href: "/cloud", ctaKey: "cloud.prompt.learn" });
-  });
-  it("does not reuse a stale, future-dated, or different-environment availability snapshot", () => {
-    for (const extra of [{ catalogObservedAt: now - 10 * 60_000 - 1 }, { catalogObservedAt: now + 1 },
-      { membership: { ...free, environment: "sandbox" } }])
-      expect(policy.cloudContextualPromptDecision(input(extra)).kind).toBe("explanation");
+  it("ignores catalog environment/phase entirely — no purchase to promise", () => {
+    for (const change of [{ environment: "sandbox" }, { policy: { phase: "preview", launch_at: "2026-10-01" } },
+      { policy: { phase: "active", launch_at: "2026-10-09" } }])
+      expect(policy.cloudContextualPromptDecision(input({ catalog: { ...catalog, ...change } })))
+        .toMatchObject({ kind: "explanation", href: "/cloud", ctaKey: "cloud.prompt.learn" });
   });
   it("waits for an actual cloud limit when a user explores history or devices", () => {
     expect(policy.cloudContextualPromptDecision(input({ scene: "history" }))).toBeNull();
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 2, scene: "view", failure: { code: "cloud_membership_required" } })))
-      .toMatchObject({ kind: "promotion", reason: "multi_device", scene: "view" });
+      .toMatchObject({ kind: "explanation", scene: "view" });
   });
-  it("never sells to an active paid user or an account with a payment conflict", () => {
+  it("never prompts an active paid user or an account with a payment conflict", () => {
     expect(policy.cloudContextualPromptDecision(input({ membership: { ...free, status: "active" } }))).toBeNull();
     expect(policy.cloudContextualPromptDecision(input({ paymentConflict: true }))).toBeNull();
   });
@@ -86,9 +79,9 @@ describe("Cloud reminder eligibility", () => {
     expect(policy.cloudContextualPromptDecision({ ...value, scene: "view", failure: { code: "cloud_membership_required" } }))
       .toMatchObject({ kind: "operation", href: "/settings?section=cloud" });
   });
-  it.each([{ status: "canceled" }, { status: "expired" }, { status: "active", cancel_at_period_end: true }])("keeps plan discovery available after the renewal contract ends or is canceled %j", (subscription) => {
+  it.each([{ status: "canceled" }, { status: "expired" }, { status: "active", cancel_at_period_end: true }])("keeps learn-more available after the renewal contract ends or is canceled %j", (subscription) => {
     expect(policy.cloudContextualPromptDecision(input({ machineCount: 2, membership: { ...free, status: "expired", trial_available: false },
-      subscriptions: [subscription] }))).toMatchObject({ kind: "promotion", reason: "multi_device", ctaKey: "cloud.action.view_plans", href: "/cloud" });
+      subscriptions: [subscription] }))).toMatchObject({ kind: "explanation", ctaKey: "cloud.prompt.learn", href: "/cloud" });
   });
   it("never shows a paid-service reminder on an explicitly free self-hosted instance", () => {
     expect(policy.cloudContextualPromptDecision(input({ membership: { ...free, status: "self_hosted" }, failure: { code: "cloud_machine_limit" } }))).toBeNull();
@@ -104,13 +97,13 @@ describe("Cloud reminder eligibility", () => {
 });
 
 describe("seven-day reminder dismissal", () => {
-  it("cools every promotional scene for seven days and isolates accounts", () => {
+  it("cools every reminder scene for seven days and isolates accounts", () => {
     const value = input({ machineCount: 2 });
     policy.dismissCloudPrompt(value.userId, "sync", now, value.storage);
     const otherScene = { ...value, scene: "view", failure: { code: "cloud_membership_required" } };
     expect(policy.cloudContextualPromptDecision({ ...otherScene, now: now + 7 * day - 1, catalogObservedAt: now + 7 * day - 1 })).toBeNull();
-    expect(policy.cloudContextualPromptDecision({ ...otherScene, now: now + 7 * day, catalogObservedAt: now + 7 * day }).kind).toBe("promotion");
-    expect(policy.cloudContextualPromptDecision({ ...value, userId: "another-account" }).kind).toBe("promotion");
+    expect(policy.cloudContextualPromptDecision({ ...otherScene, now: now + 7 * day, catalogObservedAt: now + 7 * day }).kind).toBe("explanation");
+    expect(policy.cloudContextualPromptDecision({ ...value, userId: "another-account" }).kind).toBe("explanation");
   });
   it("restores a persisted dismissal after a page module reload", async () => {
     const value = input();
@@ -119,14 +112,14 @@ describe("seven-day reminder dismissal", () => {
     policy = await import("./cloud-prompt-policy.js");
     expect(policy.cloudContextualPromptDecision(value)).toBeNull();
   });
-  it.each(["getItem", "setItem"])("fails closed for sales when storage %s fails and remembers dismissal in memory", (method) => {
+  it.each(["getItem", "setItem"])("fails closed when storage %s fails and remembers dismissal in memory", (method) => {
     const value = input();
     value.storage[method].mockImplementation(() => { throw new Error("storage disabled"); });
     expect(policy.cloudContextualPromptDecision(value).kind).toBe("explanation");
     policy.dismissCloudPrompt(value.userId, "sync", now, value.storage);
     expect(policy.cloudContextualPromptDecision(value)).toBeNull();
   });
-  it("treats corrupt storage as unavailable rather than repeatedly offering a trial", () => {
+  it("treats corrupt storage as unavailable rather than repeatedly prompting", () => {
     const value = input();
     value.storage.getItem.mockReturnValue("not-json");
     expect(policy.cloudContextualPromptDecision(value).kind).toBe("explanation");
@@ -144,7 +137,7 @@ describe("account date reminders", () => {
     expect(policy.cloudDeadlinePromptDecision(value)).toBeNull();
     expect(policy.cloudDeadlinePromptDecision({ ...value, now: now + 7 * day })).toBeNull();
   });
-  it("never promotes another payment to gifted Pro and leaves an ongoing recurring contract alone", () => {
+  it("does not re-prompt gifted access and leaves an ongoing recurring contract alone", () => {
     const value = input({ membership: { ...free, status: "active", access_source: "gift",
       expires_at: new Date(now + day).toISOString(), can_read_cloud: true, can_upload_cloud: true } });
     expect(policy.cloudContextualPromptDecision(value)).toBeNull();
@@ -209,14 +202,14 @@ describe("passive response and intent reuse", () => {
     expect(listener).toHaveBeenCalled();
   });
 
-  it("uses machine_count from the ordinary account billing response for multi-device targeting", () => {
+  it("still observes machine_count from the ordinary account response for future prompts", () => {
     const value = input({ machineCount: undefined });
     policy.publishCloudPromptBilling("catalog", catalog, null, now);
     policy.publishCloudPromptBilling("account", { membership: free, machine_count: 2 }, value.userId, now);
     const state = policy.readCloudPromptState(value.userId);
     expect(state.machineCount).toBe(2);
     expect(policy.cloudContextualPromptDecision({ ...value, ...state, intentional: true, scene: "sync" })).toMatchObject({
-      kind: "promotion", reason: "multi_device",
+      kind: "explanation",
     });
   });
 });

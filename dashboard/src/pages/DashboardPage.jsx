@@ -170,7 +170,7 @@ export function DashboardPage({
   const guestAllowed = signedIn && sessionSoftExpired && !publicMode;
 
   // Cloud (cross-device account view) — driven by Settings → Cloud sync toggle
-  // on localhost, mandatory on public hosts ((removed) et al.).
+  // on localhost, mandatory on public hosts (a hosted deployment et al.).
   // publicMode (shared link) opts out of account view entirely.
   const {
     accountView: accountViewBase,

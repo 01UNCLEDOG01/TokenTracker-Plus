@@ -553,7 +553,7 @@ describe("useUsageData device scope", () => {
   it("forwards deviceId to the cloud daily fetcher", async () => {
     renderHook(() =>
       useUsageData({
-        baseUrl: "https://(removed)",
+        baseUrl: "https://app.example-dashboard.com",
         from: "2026-06-01",
         to: "2026-06-30",
         includeDaily: true,
@@ -571,7 +571,7 @@ describe("useUsageData device scope", () => {
   it("writes a device-scoped cache key (no collision with all-devices)", async () => {
     renderHook(() =>
       useUsageData({
-        baseUrl: "https://(removed)",
+        baseUrl: "https://app.example-dashboard.com",
         from: "2026-06-01", to: "2026-06-30", includeDaily: false,
         cacheKey: "u1", timeZone: "UTC",
         accountView: true, accountAccessToken: "jwt-token", deviceId: "dev-7",

@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-/** @vitest-environment-options {"url":"https://(removed)"} */
+/** @vitest-environment-options {"url":"https://www.example-dashboard.com"} */
 import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter, Navigate, useLocation } from "react-router-dom";

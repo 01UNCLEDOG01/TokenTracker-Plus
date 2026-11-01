@@ -35,7 +35,7 @@ describe("useActivityHeatmap request ordering", () => {
     const { result, rerender } = renderHook(
       ({ deviceId }) =>
         useActivityHeatmap({
-          baseUrl: "https://(removed)",
+          baseUrl: "https://app.example-dashboard.com",
           cacheKey: "heatmap-race",
           weeks: 4,
           timeZone: "UTC",
@@ -79,7 +79,7 @@ describe("useActivityHeatmap request ordering", () => {
 
     const { result } = renderHook(() =>
       useActivityHeatmap({
-        baseUrl: "https://(removed)",
+        baseUrl: "https://app.example-dashboard.com",
         cacheKey: "heatmap-manual-race",
         weeks: 4,
         timeZone: "UTC",

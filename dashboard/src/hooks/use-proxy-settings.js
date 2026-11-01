@@ -47,7 +47,7 @@ async function authHeaders() {
  * Probe / read / save / test the CLI-side outbound proxy settings.
  *
  * Only runs on a local dashboard host (see `isLocalDashboardHost()`) — on a
- * public deploy (e.g. (removed)) there is no local CLI server to
+ * public deploy (any non-localhost origin) there is no local CLI server to
  * talk to, so no request is made at all. `available` stays false until GET
  * /functions/tokentracker-proxy-config succeeds. Failures (network errors,
  * malformed JSON) are silent — they must not print to the console.

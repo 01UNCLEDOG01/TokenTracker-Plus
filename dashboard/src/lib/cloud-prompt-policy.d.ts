@@ -13,24 +13,17 @@ export type CloudPromptState = {
   catalogObservedAt?: number;
   machineCount?: number;
 };
-export type CloudPromptReason = "multi_device" | "deadline";
 export type CloudPromptDecision = {
   scene: string;
-  kind: "promotion" | "explanation" | "operation" | "deadline";
+  kind: "explanation" | "operation" | "deadline";
   bodyKey: string;
   ctaKey?: string;
   href?: string;
   date?: string;
-  /** Present on promotion/deadline so funnels can split multi-device vs expiry. */
-  reason?: CloudPromptReason;
+  /** Present on deadline prompts so funnels can split expiry windows. */
+  reason?: "deadline";
 };
 export const CLOUD_DEADLINE_WINDOW_DAYS: number;
-export function cloudPromotionTargetReason(
-  machineCount: number | undefined,
-  membership: CloudMembership | undefined,
-  subscriptions?: CloudAccount["subscriptions"],
-  now?: number,
-): CloudPromptReason | null;
 export function subscribeCloudPrompts(listener: () => void): () => void;
 export function cloudPromptRevision(): number;
 export function clearCloudPromptBackendState(): void;
@@ -44,7 +37,7 @@ export function recordCloudPromptFailure(userId: string, code: string, membershi
 export function clearCloudPromptFailure(userId: string, source: string): void;
 export function dismissCloudPrompt(userId: string, scene: string, now?: number, storage?: Storage): void;
 export function cloudContextualPromptDecision(options: CloudPromptState & {
-  userId: string; intentional?: boolean; scene: CloudPromptScene; machineCount?: number;
+  userId: string; intentional?: boolean; scene: CloudPromptScene;
   now?: number; storage?: Storage;
 }): CloudPromptDecision | null;
 export function cloudDeadlinePromptDecision(options: {

@@ -79,8 +79,6 @@ Audit: [`src/lib/telemetry.js`](../src/lib/telemetry.js), [`dashboard/src/lib/an
 | **Devin quota read** | `server.codeium.com` (Devin's official `GetPlanStatus` RPC) | An empty JSON body, authenticated with the Devin CLI session token already stored on your machine. The token is never persisted or logged by TokenTracker. | Off by default — only while the Devin provider switch in Settings → Usage & Limits → Providers is on, and only on a locally authenticated request |
 | **Anonymous heartbeat** | The cloud instance you configured | A one-way hash of the machine id, plus the app version, OS platform, and app shell (`cli` / `macos` / `windows` / `linux`) as separate plain fields. Nothing else. | At most once per day, and only while a cloud instance is configured |
 | **Cloud sync / leaderboard** | The InsForge-compatible instance you configured | Hourly buckets only — see §4 | Signing in to an account on that instance |
-| **Cloud billing (planned)** | TokenTracker backend | Signed-in account, plan, provider, order reference, and requests to read membership or payment history | Choosing trial, checkout, or account billing after launch |
-| **Payment checkout (planned)** | (removed) hosted checkout | Order and opaque account references, environment, plan and amount/currency to bind payment to membership. You enter your purchase email and payment/billing details in Waffo's interface. No usage buckets or AI provider credentials are sent | Explicitly choosing paid Cloud checkout after launch |
 | **Exchange rates** | `open.er-api.com` | Nothing but the request itself | Selecting a non-USD display currency |
 | **Desktop pet download** | `codex-pets.net` | The pet id you chose | Importing a pet from a link |
 | **IP check page** | `ip.net.coffee`, `claude.ai`, `1.1.1.1` | Your IP address is, by design, what these endpoints observe — that page exists to tell you how providers see your network | Opening the IP Check page |
@@ -118,14 +116,6 @@ Signing in is **entirely optional**. TokenTracker is fully functional without an
 
 **Deleting cloud data:** contact us via [GitHub](https://github.com/01UNCLEDOG01/TokenTracker-Plus) and we will remove the account and its usage rows. Deleting `~/.tokentracker/` removes the local copy immediately. Do not include receipts or other billing information in a public issue.
 
-### 4.1 Cloud billing and retention (planned)
-
-Billing will keep a minimal ledger linked to the TokenTracker account: plan/provider/environment, order and provider transaction/subscription references, amount/currency, payment and refund status, membership dates, linked original/retry order references, payment-conflict flags, and normalized event IDs/times used to prevent duplicate fulfillment. TokenTracker does not receive or store card numbers, security codes, payment passwords, or AI provider credentials. Contextual Cloud explanations reuse existing account responses. Their per-account/scenario dismissal dates implement a local seven-day cooldown and remain until browser storage is cleared or updated; this adds no analytics events or periodic network requests. Waffo processes checkout, payer, billing and fraud-prevention information under its [privacy policy](https://www.(removed)/privacy). Its consumer portal uses the email entered at purchase and requires separate sign-in; TokenTracker does not issue a portal login session. A verified callback and provider reconciliation update our ledger, not the checkout success page. Historical payment records retain their original provider and currency.
-
-Planned personal Cloud access covers 90 days of hourly usage and 24 months of daily summaries. After a trial, transition or paid term expires, new personal Cloud uploads stop and existing history remains readable/exportable for 30 days. Compressed usage metrics can remain longer to preserve and correct public lifetime statistics. These limits do not imply deletion of the underlying metrics or local files. Final storage and deletion schedules will be disclosed before archival/deletion is activated.
-
-Usage deletion and billing-record retention are different requests. Any transaction records required for accounting, refunds or disputes will follow the applicable retention requirements disclosed at launch. Payment providers may retain records they are legally required to keep; deleting TokenTracker usage cannot promise deletion of those provider records. Deleting usage or signing out does not cancel a recurring Waffo subscription or any historical subscription with another provider. Cancel renewal separately through the billing flow. Final retention terms and a private billing support route must be available before paid checkout launches.
-
 ---
 
 ## 5. Third parties
@@ -137,10 +127,6 @@ Usage deletion and billing-record retention are different requests. Any transact
 
 | GitHub | Source hosting, releases, OAuth, star counts, upstream pricing data (`raw.githubusercontent.com`) | [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement) |
 | Google | OAuth sign-in, fonts on share cards | [policies.google.com/privacy](https://policies.google.com/privacy) |
-| (removed) (planned) | New Cloud checkout, recurring/fixed-term purchases, MoR, consumer bills, payment/refund callbacks | [Waffo Privacy Policy](https://www.(removed)/privacy) |
-| Paddle (historical compatibility only) | Existing subscription, payment/refund records and notifications; no new purchase route | [(removed) Policy](https://www.(removed)/privacy) |
-| (removed) (historical compatibility only) | Existing Native payment/refund records and notifications | [WeChat Pay service agreement](https://(removed)/posts/cbddf0af6088c4080432b952163ea238.html) |
-| (removed) (historical compatibility only) | Existing web/WAP payment/refund records and notifications | [(removed) and privacy policy](https://(removed)/p/c/17qjvbnlkcw0) |
 
 AI providers whose quota endpoints TokenTracker reads (Anthropic, OpenAI, Cursor, GitHub Copilot, Google, Moonshot, Z.ai, Qoder, Devin, …) are governed by their own policies. TokenTracker acts on your behalf with credentials already on your machine; it does not create any new relationship with them.
 

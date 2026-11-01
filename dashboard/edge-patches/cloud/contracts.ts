@@ -1,27 +1,3 @@
-export type BillingEnvironment = "sandbox" | "live";
-export type PaymentProvider = "paddle" | "wechat" | "alipay" | "waffo";
-
-export interface CloudOrder {
-  id: string;
-  user_id: string;
-  environment: BillingEnvironment;
-  provider: PaymentProvider;
-  sku: string;
-  currency: "USD" | "CNY";
-  amount_cents: number;
-  term_months: number;
-  billing_mode?: "fixed" | "recurring";
-  provider_order_id: string | null;
-  provider_checkout_id?: string | null;
-  (removed)_id?: string | null;
-  retry_order_id?: string | null;
-  retry_payment_conflict_at?: string | null;
-  provider_price_id?: string | null;
-  checkout_url: string | null;
-  status: string;
-  expires_at: string;
-}
-
 export class BillingError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
 }
@@ -79,7 +55,6 @@ export interface PaymentEvent {
   status?: string;
   cancel_at_period_end?: boolean;
   next_billed_at?: string | null;
-  (removed)_id?: string;
   provider_price_id?: string;
   period_number?: number;
 }

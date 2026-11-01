@@ -42,7 +42,7 @@ describe("account response cache", () => {
   // path rather than the localhost one.
   beforeEach(() => {
     vi.stubGlobal("window", {
-      location: { hostname: "(removed)", origin: "https://(removed)" },
+      location: { hostname: "www.example-dashboard.com", origin: "https://www.example-dashboard.com" },
     });
   });
 
@@ -119,7 +119,7 @@ describe("account response cache", () => {
 describe("compact heatmap browser routes", () => {
   beforeEach(() => {
     vi.stubGlobal("window", {
-      location: { hostname: "(removed)", origin: "https://(removed)" },
+      location: { hostname: "www.example-dashboard.com", origin: "https://www.example-dashboard.com" },
     });
   });
 
@@ -150,7 +150,7 @@ describe("compact heatmap browser routes", () => {
 
 
 describe("local API host boundary", () => {
-  it.each(["(removed)", "preview.example.test"])("rejects local-only reads on %s before any network request", async (hostname) => {
+  it.each(["www.example-dashboard.com", "preview.example.test"])("rejects local-only reads on %s before any network request", async (hostname) => {
     vi.stubGlobal("window", { location: { hostname, origin: `https://${hostname}` } });
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
@@ -160,7 +160,7 @@ describe("local API host boundary", () => {
   });
 
   it("keeps authenticated public account reads on the explicitly configured cloud origin", async () => {
-    vi.stubGlobal("window", { location: { hostname: "(removed)", origin: "https://(removed)" } });
+    vi.stubGlobal("window", { location: { hostname: "www.example-dashboard.com", origin: "https://www.example-dashboard.com" } });
     const fetch = vi.fn(async (_url: string) => json({ totals: { total_tokens: 42 } }));
     vi.stubGlobal("fetch", fetch);
     const token = jwt("cloud-owner");

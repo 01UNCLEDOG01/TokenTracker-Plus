@@ -258,8 +258,6 @@ async function loadHandlers(directory) {
         alias: {
           "npm:@insforge/sdk": resolveSdk(),
           "npm:@insforge/sdk@1.4.5": resolveSdk(),
-          "npm:(removed)pancake-ts@0.25.0": require.resolve("(removed)pancake-ts"),
-          "npm:(removed)@4.14.0": require.resolve("(removed)"),
         },
         plugins: [{
           name: "local-backend-locked-imports",

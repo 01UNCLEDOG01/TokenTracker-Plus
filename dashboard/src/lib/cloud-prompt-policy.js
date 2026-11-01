@@ -1,7 +1,6 @@
 import { getInsforgeRemoteUrl } from "./insforge-config";
 
 export const CLOUD_PROMPT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-const CATALOG_FRESH_MS = 10 * 60 * 1000;
 const DAY = 24 * 60 * 60 * 1000;
 const scenes = new Set(["sync", "view", "history", "devices"]);
 const accessCodes = new Set([
@@ -147,13 +146,6 @@ function cooling(userId, scene, promotional, now, storage) {
   return { usable: dismissal.usable,
     hidden: Number(dismissal.scenes[scene]) > now || (promotional && Number(dismissal.globalUntil) > now) };
 }
-function canOfferCloud(catalog, at, now) {
-  const launch = Date.parse(catalog?.policy?.launch_at || "");
-  return catalog?.environment === "live" && catalog?.policy?.phase === "active" &&
-    Number.isFinite(launch) && launch <= now && catalog?.providers?.waffo === true && catalog.checkout_verified === true &&
-    Number.isFinite(at) && now >= at && now - at <= CATALOG_FRESH_MS;
-}
-
 /** Trial, transition, and fixed paid-term reminders share a final 7-day window. */
 export const CLOUD_DEADLINE_WINDOW_DAYS = 7;
 
@@ -175,15 +167,8 @@ function withinCloudDeadlineWindow(membership, subscriptions = [], now = Date.no
   return Number.isFinite(remaining) && remaining > 0 && remaining <= CLOUD_DEADLINE_WINDOW_DAYS * DAY;
 }
 
-/** Sales CTAs only for multi-device accounts or an approaching trial/transition/paid end. */
-export function cloudPromotionTargetReason(machineCount, membership, subscriptions = [], now = Date.now()) {
-  if (withinCloudDeadlineWindow(membership, subscriptions, now)) return "deadline";
-  if (Number(machineCount) >= 2) return "multi_device";
-  return null;
-}
-
 export function cloudContextualPromptDecision({ userId, intentional = false, scene, membership,
-  failure, subscriptions = [], catalog, catalogObservedAt, paymentConflict = false, machineCount,
+  failure, subscriptions = [], catalog, paymentConflict = false,
   now = Date.now(), storage = browserStorage() }) {
   if (!userId || !intentional || !scenes.has(scene) || paymentConflict ||
     membership?.status === "self_hosted" || membership?.hosting_mode === "self_hosted" ||
@@ -213,20 +198,11 @@ export function cloudContextualPromptDecision({ userId, intentional = false, sce
   if (scene !== "sync" && !limited) return null;
   const cooldown = cooling(userId, promptScene, true, now, storage);
   if (cooldown.hidden) return null;
-  const ready = cooldown.usable && membership?.environment === "live" && membership?.phase === "active" &&
-    canOfferCloud(catalog, catalogObservedAt, now);
-  const reason = ready
-    ? cloudPromotionTargetReason(machineCount, membership, subscriptions, now)
-    : null;
-  // Single-device free users keep learn-more explanations, not trial/purchase CTAs.
-  if (ready && reason) {
-    return { scene: promptScene, kind: "promotion", reason,
-      bodyKey: `cloud.prompt.${promptScene}`,
-      ctaKey: membership?.trial_available ? "cloud.prompt.try" : "cloud.action.view_plans",
-      href: membership?.trial_available ? "/billing/checkout?intent=trial" : "/cloud" };
-  }
+  // TT-plus 自建云不售卖任何订阅：上游的收款目录门、试用/购买推广分支与
+  // 多设备促销理由已随商业化移除一并退役（2026-11-01 痕迹清扫）。这里只剩
+  // learn-more 解释路径，提醒文案固定为 unconfirmed。
   return { scene: promptScene, kind: "explanation",
-    bodyKey: ready ? `cloud.prompt.${promptScene}` : "cloud.prompt.unconfirmed",
+    bodyKey: "cloud.prompt.unconfirmed",
     ctaKey: "cloud.prompt.learn", href: "/cloud" };
 }
 

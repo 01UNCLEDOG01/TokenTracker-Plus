@@ -19,8 +19,8 @@ const SPAWN_HEAVY = [
   "init-local-runtime-reinstall", "notify-debug-log", "scan-roots-sync",
   "init-spawn-error", "legacy-baseurl-migration", "init-uninstall",
   "status-json-light", "codex-source-scoped-cache", "vite-pet-api",
-  "cloud-access-sandbox-build", "cline-cli", "cloud-sandbox-build",
-  "rollout-parser", "self-host-backend", "cloud-billing-database",
+  "cline-cli",
+  "rollout-parser", "self-host-backend",
 ];
 
 const testDir = path.join(repo, "test");

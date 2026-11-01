@@ -394,7 +394,7 @@ describe("usage limits on a public host", () => {
     const originalWindow = window;
     vi.stubGlobal("window", new Proxy(originalWindow, {
       get(target, key) {
-        if (key === "location") return { hostname: "(removed)", origin: "https://(removed)" };
+        if (key === "location") return { hostname: "www.example-dashboard.com", origin: "https://www.example-dashboard.com" };
         if (["addEventListener", "removeEventListener", "dispatchEvent"].includes(String(key))) {
           return (target as any)[key].bind(target);
         }

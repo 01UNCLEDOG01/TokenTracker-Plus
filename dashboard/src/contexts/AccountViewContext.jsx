@@ -17,7 +17,7 @@ import {
  * Two host modes:
  *   - localhost dashboard: signed-in user can opt in via Settings →
  *     Account → Cloud sync toggle. When on, reads switch to cloud.
- *   - non-localhost (e.g. (removed)): the local CLI endpoints
+ *   - non-localhost (a hosted deployment): the local CLI endpoints
  *     are unreachable, so signed-in users are pinned to cloud reads. A
  *     signed-out visitor on the public host has nothing to render — the
  *     consumer is expected to gate on `signedIn` before calling hooks.
