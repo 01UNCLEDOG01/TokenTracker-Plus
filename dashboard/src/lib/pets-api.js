@@ -1,15 +1,21 @@
 import { getLocalApiAuthHeaders } from "./local-api-auth";
 
+// Bump this whenever any built-in pet atlas changes. The static server now
+// sends no-cache for /pets/, but a client that already stored the old
+// "immutable, max-age=31536000" response will not revalidate until the URL
+// changes, so the version query is what actually migrates those clients.
+const PET_ATLAS_VERSION = "2026-11-01";
+
 export const BUILTIN_PETS = [
   { id: "clawd", displayName: "Clawd", nameKey: "pet.character.clawd", spriteVersionNumber: 1, custom: false },
   // No assetUrl: bot is drawn from the vector engine in lib/bot/, not a sprite atlas.
   { id: "bot", displayName: "Bot", nameKey: "pet.character.bot", spriteVersionNumber: 1, custom: false },
-  { id: "sprout", displayName: "Sprout", nameKey: "pet.character.sprout", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/sprout/spritesheet.webp" },
-  { id: "byte", displayName: "Byte", nameKey: "pet.character.byte", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/byte/spritesheet.webp" },
-  { id: "ember", displayName: "Ember", nameKey: "pet.character.ember", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/ember/spritesheet.webp" },
+  { id: "sprout", displayName: "Sprout", nameKey: "pet.character.sprout", spriteVersionNumber: 1, custom: false, assetUrl: `/pets/sprout/spritesheet.webp?v=${PET_ATLAS_VERSION}` },
+  { id: "byte", displayName: "Byte", nameKey: "pet.character.byte", spriteVersionNumber: 1, custom: false, assetUrl: `/pets/byte/spritesheet.webp?v=${PET_ATLAS_VERSION}` },
+  { id: "ember", displayName: "Ember", nameKey: "pet.character.ember", spriteVersionNumber: 1, custom: false, assetUrl: `/pets/ember/spritesheet.webp?v=${PET_ATLAS_VERSION}` },
   // TT-plus 自有角色：名字走文案键，切语言时与界面同步；繁中保留原字，其余语言用英文名。
-  { id: "gengxu", displayName: "Gengxu", nameKey: "pet.character.gengxu", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/gengxu/spritesheet.webp" },
-  { id: "yeacat", displayName: "YeaCat", nameKey: "pet.character.yeacat", spriteVersionNumber: 1, custom: false, assetUrl: "/pets/yeacat/spritesheet.webp" },
+  { id: "gengxu", displayName: "Gengxu", nameKey: "pet.character.gengxu", spriteVersionNumber: 1, custom: false, assetUrl: `/pets/gengxu/spritesheet.webp?v=${PET_ATLAS_VERSION}` },
+  { id: "yeacat", displayName: "YeaCat", nameKey: "pet.character.yeacat", spriteVersionNumber: 1, custom: false, assetUrl: `/pets/yeacat/spritesheet.webp?v=${PET_ATLAS_VERSION}` },
 ];
 
 async function payload(response) {

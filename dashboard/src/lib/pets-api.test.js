@@ -33,4 +33,19 @@ describe("pets api catalog", () => {
       "community-pet",
     ]);
   });
+
+  it("versions bundled atlas URLs so a corrected sprite can replace an immutable cache", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ pets: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })));
+
+    const pets = await listPets();
+    const atlased = pets.filter((pet) => pet.assetUrl?.startsWith("/pets/"));
+
+    expect(atlased.length).toBeGreaterThan(0);
+    for (const pet of atlased) {
+      expect(pet.assetUrl).toMatch(/^\/pets\/[a-z0-9-]+\/spritesheet\.webp\?v=.+$/);
+    }
+  });
 });

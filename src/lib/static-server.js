@@ -65,11 +65,16 @@ async function serveStaticFile(baseDir, pathname, res, { localRuntimeConfig = fa
     }
 
     const isAchievement = pathname.startsWith("/achievements/");
+    // Pet atlases keep a stable filename but their pixels change whenever the
+    // artwork is corrected. An immutable year-long cache pinned the old sprite
+    // in the pet WebView2 profile, so a fixed atlas never reached the desktop
+    // pet. Revalidate these instead.
+    const isPetAsset = pathname.startsWith("/pets/");
     if (clientGone) return true;
     res.writeHead(200, {
       "Content-Type": contentType,
       "Content-Length": stat.size,
-      "Cache-Control": (isHtml || isAchievement) ? "no-cache" : "public, max-age=31536000, immutable",
+      "Cache-Control": (isHtml || isAchievement || isPetAsset) ? "no-cache" : "public, max-age=31536000, immutable",
     });
 
     stream = handle.createReadStream();

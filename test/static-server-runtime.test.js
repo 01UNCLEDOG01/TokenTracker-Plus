@@ -84,6 +84,34 @@ test("static bytes and content length stay bound to the checked file when its pa
   }
 });
 
+test("pet atlases revalidate while other static assets stay immutable", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "tt-static-cache-"));
+  await fs.mkdir(path.join(dir, "pets", "yeacat"), { recursive: true });
+  await fs.writeFile(path.join(dir, "pets", "yeacat", "spritesheet.webp"), "pet-atlas");
+  await fs.writeFile(path.join(dir, "app.js"), "window.app = 1;");
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url, "http://localhost");
+    if (!await serveStaticFile(dir, url.pathname, res)) res.writeHead(404).end();
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    // Pet atlases keep a stable filename, so a corrected atlas must revalidate;
+    // an immutable year would pin the old sprite in the client cache.
+    const pet = await fetch(`${base}/pets/yeacat/spritesheet.webp`);
+    assert.equal(pet.status, 200);
+    assert.equal(pet.headers.get("cache-control"), "no-cache");
+    // Everything else keeps the long immutable cache.
+    const asset = await fetch(`${base}/app.js`);
+    assert.equal(asset.status, 200);
+    assert.equal(asset.headers.get("cache-control"), "public, max-age=31536000, immutable");
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("aborted requests close FileHandles opened during serveStaticFile awaits", async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "tt-static-abort-"));
   const file = path.join(dir, "chunk.js");
