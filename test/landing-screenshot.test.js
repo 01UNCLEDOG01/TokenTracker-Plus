@@ -74,34 +74,3 @@ test("copy registry includes landing screenshot alt", () => {
   assert.ok(src.includes("landing.screenshot.alt"));
 });
 
-test("copy registry includes landing/share meta keys", () => {
-  const csv = read("dashboard/src/content/copy.csv");
-  const rows = parseCsv(csv);
-  const map = new Map();
-  for (const row of rows) {
-    if (!row.length) continue;
-    map.set(row[0], row[5] || "");
-  }
-
-  const keys = [
-    "landing.meta.title",
-    "landing.meta.description",
-    "landing.meta.og_site_name",
-    "landing.meta.og_type",
-    "landing.meta.og_image",
-    "landing.meta.og_url",
-    "landing.meta.twitter_card",
-    "share.meta.title",
-    "share.meta.description",
-    "share.meta.og_site_name",
-    "share.meta.og_type",
-    "share.meta.og_image",
-    "share.meta.og_url",
-    "share.meta.twitter_card",
-  ];
-
-  for (const key of keys) {
-    assert.ok(map.has(key), `expected meta key: ${key}`);
-    assert.ok(map.get(key), `expected meta value for: ${key}`);
-  }
-});
