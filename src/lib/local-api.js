@@ -3927,7 +3927,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         // stable; the card shows the model Qoder's own client texts name.
         const mdl = src === "qoder" ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
         if (!bySource.has(src))
-          bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" }, models: new Map() });
+          bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" }, models: new Map() });
         const sa = bySource.get(src);
         sa.totals.total_tokens += row.total_tokens || 0;
         sa.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
@@ -3936,8 +3936,12 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         sa.totals.cached_input_tokens += row.cached_input_tokens || 0;
         sa.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
         sa.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+        // Request-only sources (#948: credit-billed transcripts that report no
+        // tokens) carry their activity solely as conversation_count — thread it
+        // through so the dashboard can surface "0 tokens / N requests".
+        sa.totals.conversation_count += row.conversation_count || 0;
         if (!sa.models.has(mdl))
-          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_cost_usd: "0" } });
+          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" } });
         const ma = sa.models.get(mdl);
         // Same source list computeRowCost prices from, so a credits-derived
         // source (qoder) is labelled as tool-reported instead of being called
@@ -3952,6 +3956,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         ma.totals.cached_input_tokens += row.cached_input_tokens || 0;
         ma.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
         ma.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+        ma.totals.conversation_count += row.conversation_count || 0;
         // Price each row, exactly as aggregateByDay does for the hero (#653).
         // computeRowCost is not linear for models with a Fast tier or
         // long-context rates: priority_* / long_context_* mark a subset of the
@@ -5077,7 +5082,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
 
     // --- usage-limits ---
     if (p === "/functions/tokentracker-usage-limits") {
-      const { getUsageLimits, resetUsageLimitsCache } = require("./usage-limits");
+      const { getUsageLimits, resetUsageLimitsCache, normalizeHiddenProviders } = require("./usage-limits");
       try {
         // Devin quota is opt-in (Settings > Usage & Limits > Providers). An
         // explicit devin=1 without local authentication is rejected before any
@@ -5088,7 +5093,14 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const localAuthorized = isAuthorizedLocalMutation(req);
         const devinParam = url.searchParams.get("devin");
         const devinEnabled = devinParam === "1" || devinParam === "true";
-        if (devinEnabled && !localAuthorized) {
+        // Provider visibility gate (#956): hidden=<csv> names provider rows to
+        // skip entirely — no upstream call, no credential read. Like devin=1,
+        // an explicit list is honored only together with the loopback auth
+        // header (letting an unauthenticated caller scope the fetch would let
+        // it pick exactly which credentials to leave alone). Unknown ids are
+        // dropped by the normalizer, so the gate only ever narrows.
+        const hiddenProviders = normalizeHiddenProviders(url.searchParams.get("hidden"));
+        if ((devinEnabled || hiddenProviders) && !localAuthorized) {
           json(res, { error: "Unauthorized" }, 401);
           return true;
         }
@@ -5105,6 +5117,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           // cooldown) — an explicit user refresh should hit upstream.
           forceRefresh,
           devinEnabled,
+          hiddenProviders,
         });
         json(res, data);
       } catch (e) {

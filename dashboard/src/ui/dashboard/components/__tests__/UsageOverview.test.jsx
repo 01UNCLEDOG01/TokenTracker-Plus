@@ -721,8 +721,12 @@ describe("UsageOverview", () => {
         label: "QODER",
         totalPercent: "0.00",
         usage: 0,
+        // Qoder international bills credits and records conversation_count
+        // without tokens. It is NOT request-only: the spend must keep its card
+        // instead of being demoted to the request-only notice row.
+        requests: 12,
         usd: 3.566868,
-        models: [{ id: "cloud", name: "cloud", share: 100, usage: 0, cost: 3.566868 }],
+        models: [{ id: "cloud", name: "cloud", share: 100, usage: 0, requests: 12, cost: 3.566868 }],
       },
       {
         source: "codex",
@@ -755,6 +759,9 @@ describe("UsageOverview", () => {
     expect(cardText("QODER")).toMatch(/\$3\.56/);
     expect(cardText("CODEX")).toContain(oneModel);
     expect(cardText("CODEX")).not.toMatch(/\$/);
+    // Spend wins over the request-only presentation: no notice row may
+    // shadow the QODER card that carries the credit bill.
+    expect(screen.queryByText(/Active without token data:/)).toBeNull();
   });
 
   it("keeps the Qoder CN official-spend banner off the international card", async () => {
@@ -818,5 +825,104 @@ describe("UsageOverview", () => {
     });
     expect(screen.queryByText(staleNote)).toBeNull();
     fetchSpy.mockRestore();
+  });
+
+  it("keeps request-only providers out of the card grid and shows one notice row", () => {
+    render(
+      <UsageOverview
+        period="day"
+        periods={[]}
+        summaryLabel="Total"
+        summaryValue="0"
+        hasSummary
+        fleetData={[{
+          source: "codex",
+          label: "CODEX",
+          totalPercent: "100.00",
+          totalPercentValue: 100,
+          usage: 100,
+          requests: 0,
+          usd: 0,
+          models: [{ id: "gpt-5", name: "gpt-5", share: 100, usage: 100, requests: 0, cost: 0 }],
+        }, {
+          source: "qoder",
+          label: "QODER",
+          totalPercent: "0.00",
+          totalPercentValue: 0,
+          usage: 0,
+          requests: 19,
+          usd: 0,
+          models: [{ id: "qfmodel", name: "qfmodel", share: 0, usage: 0, requests: 19, cost: null }],
+        }]}
+        from="2026-11-01"
+        to="2026-11-01"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /QODER/ })).toBeNull();
+    const notice = screen.getByText(/Active without token data:/);
+    expect(notice).toBeVisible();
+    expect(notice.textContent).toContain("19 requests");
+  });
+
+  it("keeps the All card reachable when only request-only providers exist", () => {
+    render(
+      <UsageOverview
+        period="day"
+        periods={[]}
+        summaryLabel="Total"
+        summaryValue="0"
+        hasSummary
+        fleetData={[{
+          source: "qoder",
+          label: "QODER",
+          totalPercent: "0.00",
+          totalPercentValue: 0,
+          usage: 0,
+          requests: 19,
+          usd: 0,
+          models: [{ id: "qfmodel", name: "qfmodel", share: 0, usage: 0, requests: 19, cost: null }],
+        }]}
+        from="2026-11-01"
+        to="2026-11-01"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /All tools/ })).toBeTruthy();
+    expect(screen.getByText(/Active without token data:/)).toBeVisible();
+    // The request-only model row lives in the All-models detail, where its
+    // request count stands in for a token total.
+    fireEvent.click(screen.getByRole("button", { name: /All tools/ }));
+    expect(screen.getByText("qfmodel")).toBeVisible();
+    expect(screen.getByText("19 requests")).toBeVisible();
+  });
+
+  it("shows both the token total and the request count on a merged model row", () => {
+    render(
+      <UsageOverview
+        period="month"
+        periods={["month"]}
+        summaryLabel="Total"
+        summaryValue="1.2K"
+        hasSummary
+        fleetData={[{
+          source: "codex",
+          label: "CODEX",
+          totalPercent: "100.00",
+          totalPercentValue: 100,
+          usage: 1200,
+          requests: 5,
+          usd: 0,
+          models: [{ id: "gpt-5", name: "gpt-5", share: 100, usage: 1200, requests: 5, cost: 0 }],
+        }]}
+        from="2026-11-01"
+        to="2026-11-30"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /All tools/ }));
+    // The positive token total keeps its cell; the request count rides beside it
+    // instead of being hidden behind it (issue 948).
+    expect(screen.getByText(/· 5 requests/)).toBeVisible();
   });
 });

@@ -179,6 +179,30 @@ describe("LimitsPage", () => {
     expect(screen.getByRole("button", { name: "Refresh limits" })).toBeEnabled();
   });
 
+  it("does not grade a hidden provider's sentinel row as a failed update", async () => {
+    // A provider the user toggled off ships only the not-configured sentinel
+    // (issue 956). Its presence must not downgrade an otherwise fully refreshed
+    // payload to "partial" — the row is not on screen and was never fetched.
+    refreshLimitsMock.mockResolvedValueOnce({
+      ...apiLimits,
+      claude: { configured: false },
+      fetched_at: "2026-10-07T02:30:00.000Z",
+    });
+
+    render(
+      <MemoryRouter>
+        <LimitsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh limits" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Limits updated/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/some data still comes from cache or failed to update/)).not.toBeInTheDocument();
+  });
+
   it("flags a partial refresh when a provider still reports an error after refreshing", async () => {
     // A fresh fetched_at with a provider-level error must not read as
     // "limits updated": that row came back from the backend broken.

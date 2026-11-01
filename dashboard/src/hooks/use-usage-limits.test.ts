@@ -115,7 +115,7 @@ describe("useUsageLimits", () => {
 
     // Mount fetch reads the server cache (no forced upstream refresh).
     expect(getUsageLimits).toHaveBeenCalledTimes(1);
-    expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: false });
+    expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: false, hiddenProviders: [] });
     expect(result.current.data?.codex.reset_credits).toEqual(freshLimits.codex.reset_credits);
     expect(publishUsageLimitsPreloadState).toHaveBeenCalledWith(freshLimits, {
       source: "page-load",
@@ -133,7 +133,7 @@ describe("useUsageLimits", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(getUsageLimits).toHaveBeenCalledTimes(1);
-    expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: false });
+    expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: false, hiddenProviders: [] });
     expect(result.current.data).toEqual(freshLimits);
     expect(result.current.data?.codex.reset_credits).toEqual(freshLimits.codex.reset_credits);
     expect(result.current.error).toBeNull();
@@ -179,7 +179,7 @@ describe("useUsageLimits", () => {
     });
 
     expect(getUsageLimits).toHaveBeenCalledTimes(1);
-    expect(getUsageLimits).toHaveBeenCalledWith({ refresh: true, devinEnabled: false });
+    expect(getUsageLimits).toHaveBeenCalledWith({ refresh: true, devinEnabled: false, hiddenProviders: [] });
     expect(result.current.data).toEqual(freshLimits);
     expect(publishUsageLimitsPreloadState).toHaveBeenCalledWith(freshLimits, {
       source: "manual-refresh",
@@ -294,7 +294,7 @@ describe("useUsageLimits Devin opt-in selection", () => {
     const { result } = renderHook(() => useUsageLimits({ initialRefresh: true }));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: true });
+    expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: true, hiddenProviders: [] });
     expect(result.current.data?.devin.configured).toBe(true);
     expect(result.current.data?.devin.primary_window?.used_percent).toBe(40);
   });
@@ -311,7 +311,7 @@ describe("useUsageLimits Devin opt-in selection", () => {
     });
 
     await waitFor(() => expect(result.current.data?.devin.configured).toBe(true));
-    expect(getUsageLimits).toHaveBeenLastCalledWith({ devinEnabled: true });
+    expect(getUsageLimits).toHaveBeenLastCalledWith({ devinEnabled: true, hiddenProviders: [] });
   });
 
   it("turning the switch off drops retained Devin rows before the refetch lands", async () => {
@@ -329,7 +329,7 @@ describe("useUsageLimits Devin opt-in selection", () => {
     // Retained Devin rows are gone immediately, without waiting for the network.
     expect(result.current.data?.devin).toEqual({ configured: false });
     await waitFor(() => expect(result.current.data).toEqual(existingLimits));
-    expect(getUsageLimits).toHaveBeenLastCalledWith({ devinEnabled: false });
+    expect(getUsageLimits).toHaveBeenLastCalledWith({ devinEnabled: false, hiddenProviders: [] });
   });
 
   it("a response in flight when the switch turns off cannot republish Devin", async () => {
@@ -343,7 +343,7 @@ describe("useUsageLimits Devin opt-in selection", () => {
 
     const { result } = renderHook(() => useUsageLimits({ initialRefresh: true }));
     await waitFor(() =>
-      expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: true }),
+      expect(getUsageLimits).toHaveBeenCalledWith({ devinEnabled: true, hiddenProviders: [] }),
     );
 
     await act(async () => {
@@ -383,6 +383,118 @@ describe("useUsageLimits Devin opt-in selection", () => {
   });
 });
 
+
+describe("useUsageLimits visibility gating (issue 956)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.mocked(getUsageLimits).mockReset();
+    vi.mocked(publishUsageLimitsPreloadState).mockReset();
+  });
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.mocked(getUsageLimits).mockReset();
+    vi.mocked(publishUsageLimitsPreloadState).mockReset();
+  });
+
+  it("forwards the prefs-derived hidden list on every request", async () => {
+    window.localStorage.setItem(VISIBILITY_KEY, JSON.stringify({ claude: false, zcode: false }));
+    vi.mocked(getUsageLimits).mockResolvedValue(existingLimits);
+
+    const { result } = renderHook(() => useUsageLimits({ initialRefresh: true }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Devin is excluded: its opt-in flag remains the single gating fact, so a
+    // default profile still sends no hidden list at all.
+    expect(getUsageLimits).toHaveBeenCalledWith({
+      devinEnabled: false,
+      hiddenProviders: ["claude", "zcode"],
+    });
+  });
+
+  it("lets the caller getter override the prefs-derived hidden set", async () => {
+    window.localStorage.setItem(VISIBILITY_KEY, JSON.stringify({ claude: false, zcode: false }));
+    vi.mocked(getUsageLimits).mockResolvedValue(existingLimits);
+
+    // A panel that renders a row visibility alone would hide (for example a
+    // hand-entered subscription) subtracts it from the gate, so the row keeps
+    // receiving data.
+    const { result } = renderHook(() => useUsageLimits({
+      initialRefresh: true,
+      getHiddenProviders: () => ["claude"],
+    }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(getUsageLimits).toHaveBeenCalledWith({
+      devinEnabled: false,
+      hiddenProviders: ["claude"],
+    });
+  });
+
+  it("strips retained hidden rows immediately, before the refetch lands", async () => {
+    window.localStorage.setItem(VISIBILITY_KEY, JSON.stringify({ claude: false }));
+    vi.mocked(getUsageLimits).mockResolvedValue(existingLimits);
+    const retained = {
+      ...existingLimits,
+      claude: { configured: true, error: "Claude token expired" },
+    };
+
+    const { result } = renderHook(() => useUsageLimits({
+      initialRefresh: true,
+      initialState: { data: retained },
+    }));
+
+    expect(result.current.data?.claude).toEqual({ configured: false });
+  });
+
+  it("re-reads limits with the new hidden set after a visibility toggle", async () => {
+    vi.mocked(getUsageLimits).mockResolvedValue(existingLimits);
+    const { result } = renderHook(() => useUsageLimits({ initialRefresh: true }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      window.localStorage.setItem(VISIBILITY_KEY, JSON.stringify({ claude: false }));
+      dispatchPrefsChanged();
+    });
+
+    await waitFor(() =>
+      expect(getUsageLimits).toHaveBeenLastCalledWith({
+        devinEnabled: false,
+        hiddenProviders: ["claude"],
+      }),
+    );
+  });
+
+  it("strips hidden rows from the manual-refresh payload so the outcome notice never grades them", async () => {
+    // The refresh-outcome notice in LimitsPage grades the applied payload. A
+    // hidden provider's stale error row must be rewritten to the exact
+    // not-configured sentinel before the caller can see it (issue 956).
+    window.localStorage.setItem(VISIBILITY_KEY, JSON.stringify({ claude: false }));
+    const payload = {
+      ...existingLimits,
+      fetched_at: "2026-05-30T10:05:00.000Z",
+      claude: { configured: true, error: "Claude token expired" },
+    };
+    vi.mocked(getUsageLimits).mockResolvedValue(payload);
+    const { result } = renderHook(() =>
+      useUsageLimits({
+        initialRefresh: false,
+        initialState: { data: existingLimits },
+        publishToPreloadCache: true,
+      }),
+    );
+
+    let refreshed: any;
+    await act(async () => {
+      refreshed = await result.current.refresh();
+    });
+
+    expect(refreshed.claude).toEqual({ configured: false });
+    expect(refreshed.kimi).toEqual(payload.kimi);
+    expect(result.current.data?.claude).toEqual({ configured: false });
+    const published = vi.mocked(publishUsageLimitsPreloadState).mock.calls[0]?.[0] as any;
+    expect(published.claude).toEqual({ configured: false });
+  });
+});
 
 describe("usage limits on a public host", () => {
   afterEach(() => {
