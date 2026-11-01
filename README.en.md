@@ -294,7 +294,7 @@ Common variables: `OPENROUTER_API_KEY`, `TOKENTRACKER_DEVICE_TOKEN`, `VITE_INSFO
 ### Private Backend (Preview)
 If you have multiple devices and want an aggregated view, deploy `scripts/self-host/` onto your private Docker host:
 - See [docs/self-hosting.md](./docs/self-hosting.md).
-- *Note*: The early internal Docker test host was officially decommissioned on 2026-10-23; the project defaults to 100% standalone offline operation.
+- *Note*: The early internal Docker test host was decommissioned; the project defaults to 100% standalone offline operation.
 
 ---
 

@@ -4,7 +4,7 @@
 
 **当前状态为技术预览。** InsForge 本身支持 Docker Compose 自部署，但仓库还没有一套在空白 VPS 上验证过的完整 TokenTracker 安装包。这份文档说明部署准备、已有配置和待完成的步骤，还不是一键安装教程。[InsForge 官方自部署说明](https://github.com/InsForge/InsForge#self-hosted-docker-compose)
 
-[English](self-hosting.md) · [实现状态](internal-status.md)
+[English](self-hosting.md)
 
 ## 选择使用方式
 
@@ -22,7 +22,7 @@
 
 历史迁移是现有数据库上的增量改动，部分文件还包含特定用户群的运营处理或数据修复。**不要在新数据库上直接执行全部历史迁移。** 使用[干净的私有后端安装器](self-hosting-backend.md)。`--sql` 输出带 PostgreSQL 事务的独立文件；`--migration` 由已连接 InsForge 实例的迁移 API 提供事务。
 
-订阅、设备权限、赠送和归档工作保存在 `feat/cloud-subscriptions`，尚未作为收费 Pro 正式发布。干净的私有基础 schema、官方本地 Linux 平台和标准 Dashboard A→C→A 切换已有验收记录；公网 VPS HTTPS 和受支持的原生路由仍需验证。[源码清单与缺口](internal-status.md)
+订阅、设备权限、赠送和归档工作保存在 `feat/cloud-subscriptions`，尚未作为收费 Pro 正式发布。干净的私有基础 schema、官方本地 Linux 平台和标准 Dashboard A→C→A 切换已有验收记录；公网 VPS HTTPS 和受支持的原生路由仍需验证。实现状态在内部追踪。
 
 ## 准备 VPS
 
@@ -95,4 +95,4 @@ CLI 支持 `TOKENTRACKER_INSFORGE_BASE_URL`、`TOKENTRACKER_INSFORGE_ANON_KEY`�
 
 升级前记录应用 commit、InsForge 版本和镜像 digest、schema 版本与函数源码。先备份，按明确的升级清单变更，验证客户端和 API 契约，保留兼容的回滚方式。升级 InsForge 时也要检查认证、存储和函数运行时变化。
 
-自部署可以让你控制数据和运行费用，服务可用性、升级和恢复也由你负责。只有[剩余工程门槛](internal-status.md)通过后，才会把完整部署包标为可用。
+自部署可以让你控制数据和运行费用，服务可用性、升级和恢复也由你负责。只有剩余工程门槛通过后，才会把完整部署包标为可用。

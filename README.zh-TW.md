@@ -294,7 +294,7 @@ cp .env.example .env.local
 ### 私有自建後端（技術預覽）
 若有多台設備需要彙總視圖，可將 `scripts/self-host/` 部署到自己的私有 Docker 宿主機上：
 - 詳見 [docs/self-hosting.md](./docs/self-hosting.md)；
-- 註：早期內部測試用 Docker 宿主機已於 2026-10-23 正式退役，專案預設 100% 離線單機運行。
+- 註：早期內部測試用的私有 Docker 宿主機已退役，專案預設 100% 離線單機運行。
 
 ---
 

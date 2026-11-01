@@ -89,7 +89,7 @@ UTC, half-hour buckets, append-only — readers take the latest entry per `(sour
 
 ## Release workflow
 
-This fork ships **source + a Windows installer built locally** (the fixed chain lives in `AGENTS.md` 「发版链固定顺序」 and `GATE_REGISTRY.md` §4): `bundle-node.ps1` (自带 PET dashboard 构建) → `dotnet publish` → delete-then-copy `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → stop app → silent install → hash/version smoke → record size + SHA-256. Upload the exe to a **draft** GitHub Release as `TokenTracker-Setup.exe` and Publish only after the owner approves. Hot-updates (no installer) go through `npm run mirror:installed` into both installed copies with a five-endpoint smoke.
+This fork ships **source + a Windows installer built locally** (the fixed chain lives in `AGENTS.md` 「发版链固定顺序」 and the internal, local-only `GATE_REGISTRY.md` §4): `bundle-node.ps1` (自带 PET dashboard 构建) → `dotnet publish` → delete-then-copy `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → stop app → silent install → hash/version smoke → record size + SHA-256. Upload the exe to a **draft** GitHub Release as `TokenTracker-Setup.exe` and Publish only after the owner approves. Hot-updates (no installer) go through `npm run mirror:installed` into both installed copies with a five-endpoint smoke.
 
 `TokenTrackerWin/EmbeddedServer/` bundles the CLI runtime and built dashboard — bumping only `package.json` leaves desktop-app users on the stale embedded copy.
 

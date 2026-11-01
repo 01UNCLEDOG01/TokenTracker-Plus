@@ -27,4 +27,4 @@
 
 `init` 的首次同步子进程继承真实 `process.env`，不能为了验收配置而扫描个人日志。本轮配置验收会明确关闭这一步，并独立执行实际设备登录；不会把这个隔离步骤称为完整真实首次数据采集。
 
-参考 [当前状态](internal-status.md)、[后端安装与已验证结果](self-hosting-backend.md) 和 [固定 v2.3.3 官方部署脚本](https://github.com/InsForge/InsForge/blob/v2.3.3/deploy/setup.sh)。
+参考 [后端安装与已验证结果](self-hosting-backend.md) 和 [固定 v2.3.3 官方部署脚本](https://github.com/InsForge/InsForge/blob/v2.3.3/deploy/setup.sh)。

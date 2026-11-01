@@ -4,7 +4,7 @@ Self-hosting is the free software option for people who want to operate their ow
 
 **Status: technical preview.** InsForge supports Docker Compose self-hosting, but this repository does not yet contain a complete, verified TokenTracker installation for an empty VPS. This guide explains the preparation, existing configuration and remaining release gates. It is not a one-command installer. [InsForge self-hosting](https://github.com/InsForge/InsForge#self-hosted-docker-compose)
 
-[中文版](self-hosting.zh-CN.md) · [Implementation status](internal-status.md)
+[中文版](self-hosting.zh-CN.md)
 
 ## Choose how to use it
 
@@ -22,7 +22,7 @@ The public repository includes the application and backend TypeScript/SQL source
 
 The historical migrations are incremental changes to an existing database. Some files are operator-specific moderation or repair operations. **Do not apply every historical migration to a fresh database.** Use the [clean private-backend installer](self-hosting-backend.md). Its `--sql` mode owns a PostgreSQL transaction; `--migration` uses the linked InsForge migration API's transaction.
 
-Subscription, device-access, gift and archive work is tracked on `feat/cloud-subscriptions`; it has not been released as paid Pro. The clean private baseline, official local Linux platform and standard Dashboard A→C→A switching have recorded acceptance. Public VPS HTTPS and supported native routes remain pending. [Current inventory and gaps](internal-status.md)
+Subscription, device-access, gift and archive work is tracked on `feat/cloud-subscriptions`; it has not been released as paid Pro. The clean private baseline, official local Linux platform and standard Dashboard A→C→A switching have recorded acceptance. Public VPS HTTPS and supported native routes remain pending. Implementation status is tracked internally.
 
 ## Prepare the VPS
 
@@ -95,4 +95,4 @@ Install only reviewed schedules, with bounded work and observable failures. Usag
 
 Before upgrades, record the application commit, InsForge version/image digests, schema version and function sources. Back up first, apply the explicit upgrade manifest, verify the client/API contract, and keep a compatible rollback path. Review authentication, storage and function-runtime changes when upgrading InsForge.
 
-Self-hosting offers control over data and operating costs. It also makes uptime, upgrades and recovery your responsibility. The supported deployment package will be marked ready only after the [remaining implementation gates](internal-status.md) pass.
+Self-hosting offers control over data and operating costs. It also makes uptime, upgrades and recovery your responsibility. The supported deployment package will be marked ready only after the remaining implementation gates pass.

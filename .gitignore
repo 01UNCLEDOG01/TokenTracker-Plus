@@ -162,3 +162,10 @@ docs/pro-gift-codes.md
 # dist 备份快照与本地测试日志不入库（2026-11-01 误入库清理）
 dashboard/dist.pre-*/
 dashboard/.tmp-test-run.log
+
+# ── 治理台账（2026-11-01 公开前清扫）：五份台账已随 filter-repo 从全历史移除 ──
+# 本机继续在仓库根维护（AI 协作流程用，不入库）；CHANGELOG.md 除外——已重建为对外版入库。
+FORK_STATUS.md
+KNOWN_ISSUES.md
+HANDOFF.md
+GATE_REGISTRY.md
