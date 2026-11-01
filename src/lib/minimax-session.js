@@ -141,7 +141,7 @@ function sessionIdFromDir(filePath) {
   const match = /^.*?session_([A-Za-z0-9]+)$/.exec(name);
   if (match) {
     try {
-      return Buffer.from(match[1], "base64").toString("utf8").replace(/^mvs_/, "mvs_") || null;
+      return Buffer.from(match[1], "base64").toString("utf8") || null;
     } catch {
       return null;
     }
