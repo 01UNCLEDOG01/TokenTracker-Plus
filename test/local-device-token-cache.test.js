@@ -652,7 +652,15 @@ test("owner-proven trial recheck can replace a successful community deadline whi
   assert.equal(manual.status,200);assert.equal(manual.body.uploaded,true);assert.equal(x.ingested.length,calls+1);
   const paidCadence=JSON.parse(await fs.readFile(throttlePath,'utf8'));
   assert.ok(paidCadence.serverNextAllowedAtMs-community.lastSuccessMs<16*60_000);
-  assert.ok(paidCadence.serverNextAllowedAtMs<community.serverNextAllowedAtMs);
+  // The community deadline is the next UTC midnight, so during the last ~15
+  // minutes of the UTC day it is shorter than the trial cooldown by
+  // construction; only assert the strict ordering when the windows differ.
+  const utcMidnight=Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),new Date().getUTCDate()+1);
+  if (utcMidnight-Date.now()>16*60_000) {
+    assert.ok(paidCadence.serverNextAllowedAtMs<community.serverNextAllowedAtMs);
+  } else {
+    assert.ok(paidCadence.serverNextAllowedAtMs-Date.now()<=16*60_000);
+  }
   assert.equal((await pg.query('SELECT count(*)::int n FROM tokentracker_hourly WHERE user_id=$1',[owner])).rows[0].n,2);
   const other=randomUUID();await pg.query('INSERT INTO auth.users VALUES($1)',[other]);
   await x.post('/api/auth/sign-in',{owner:other});

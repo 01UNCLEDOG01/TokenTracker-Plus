@@ -144,8 +144,12 @@ function mirrorTree(treeDir, repoRoot, { purgeOld = false, stashKeep = STASH_KEE
     fs.rmSync(distTarget, { recursive: true, force: true });
   } else if (fs.existsSync(distTarget)) {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const stash = path.join(stashRoot, `dist-${stamp}`);
+    // Two mirror runs inside the same millisecond used to collide on the stash
+    // name and die with ENOTEMPTY (rename onto a non-empty directory); CI's fast
+    // runner hit this on 2026-11-02. Suffix until the target is free.
     fs.mkdirSync(stashRoot, { recursive: true });
+    let stash = path.join(stashRoot, `dist-${stamp}`);
+    for (let n = 2; fs.existsSync(stash); n += 1) stash = path.join(stashRoot, `dist-${stamp}-${n}`);
     fs.renameSync(distTarget, stash);
     console.log(`[mirror] 旧 dist 暂存 → ${stash}`);
   }
