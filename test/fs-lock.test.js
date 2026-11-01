@@ -254,7 +254,15 @@ test("notify sync waits for the active owner and acquires the released lock", as
       { auto: true, fromNotify: true },
       { notifyWaitMs: 200, notifyPollMs: 10 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    // 满负载下固定毫秒的 head-start 不可靠：等待方可能还没注册完 .notify-wait
+    // 就错过释放通知、白等 200ms 超时拿到 null（CI 与本机全量跑各咬过一次）。
+    // 与下方姊妹用例同方——轮询等注册文件出现再释放，不再赌时钟。
+    const waitPath = `${lockPath}.notify-wait`;
+    let registered = false;
+    for (let waited = 0; waited < 5000; waited += 5) {
+      try { await fs.access(waitPath); registered = true; break; } catch { await new Promise((r) => setTimeout(r, 5)); }
+    }
+    assert.ok(registered, "notify waiter never registered its .notify-wait lock");
     await active.release();
 
     const acquired = await waiting;
