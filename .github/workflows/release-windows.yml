@@ -146,7 +146,7 @@ jobs:
 
       # 6. Build the per-user installer (setup.exe) with Inno Setup. windows-latest
       # ships Inno Setup 6; fall back to installing it via choco if the path moves.
-      # Output: TokenTrackerWin/installer/Output/TokenTracker-Setup-v<version>.exe
+      # Output: TokenTrackerWin/installer/Output/TokenTracker-plus-Setup-v<version>.exe
       - name: Build installer (Inno Setup)
         shell: pwsh
         env:
@@ -160,7 +160,7 @@ jobs:
           }
           if (-not (Test-Path $iscc)) { Write-Host "::error::ISCC.exe not found after install"; exit 1 }
           & $iscc "/DMyAppVersion=$env:VERSION" TokenTrackerWin\installer\TokenTracker.iss
-          $setup = "TokenTrackerWin/installer/Output/TokenTracker-Setup-v$env:VERSION.exe"
+          $setup = "TokenTrackerWin/installer/Output/TokenTracker-plus-Setup-v$env:VERSION.exe"
           if (-not (Test-Path $setup)) { Write-Host "::error::installer not produced at $setup"; exit 1 }
           Write-Host "Installer built: $setup"
 
@@ -177,7 +177,7 @@ jobs:
           # Build artifacts carry the version in their filename (clearer on the
           # runner / in the Inno output folder).
           $zipBuilt = "TokenTracker-win-x64-v$env:VERSION.zip"
-          $setupBuilt = "TokenTrackerWin/installer/Output/TokenTracker-Setup-v$env:VERSION.exe"
+          $setupBuilt = "TokenTrackerWin/installer/Output/TokenTracker-plus-Setup-v$env:VERSION.exe"
           # Upload version-less names ONLY, matching the macOS DMG (which ships a
           # single version-less TokenTrackerBar.dmg). The landing page / READMEs
           # deep-link releases/latest/download/TokenTracker-Setup.exe, so the asset

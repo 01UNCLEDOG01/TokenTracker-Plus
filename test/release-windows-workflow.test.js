@@ -212,6 +212,16 @@ function loadIss() {
   return fs.readFileSync(ISS_PATH, "utf8");
 }
 
+test("release and CI installer paths follow the actual Inno output filename", () => {
+  const output = loadIss().match(/^OutputBaseFilename\s*=\s*(.+)$/m)?.[1].trim();
+  assert.ok(output, "installer must declare its output filename");
+  const versionedPath = `TokenTrackerWin/installer/Output/${output.replace("{#MyAppVersion}", "$env:VERSION")}.exe`;
+  assert.ok(loadWorkflow().includes(versionedPath), `release workflow must use ${versionedPath}`);
+  const ci = fs.readFileSync(path.join(__dirname, "..", ".github/workflows/ci.yml"), "utf8");
+  const glob = `TokenTrackerWin/installer/Output/${output.replace("{#MyAppVersion}", "*")}.exe`;
+  assert.ok(ci.includes(glob), `review artifacts must include ${glob}`);
+});
+
 test("Inno Setup script exists", () => {
   assert.ok(fs.existsSync(ISS_PATH));
 });

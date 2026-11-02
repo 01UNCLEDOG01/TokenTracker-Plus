@@ -183,5 +183,5 @@ jobs:
           if-no-files-found: error
           path: |
             TokenTracker-review-win-x64.zip
-            TokenTrackerWin/installer/Output/TokenTracker-Setup-v*.exe
+            TokenTrackerWin/installer/Output/TokenTracker-plus-Setup-v*.exe
             windows-package-manifest.json
