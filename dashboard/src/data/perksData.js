@@ -1053,6 +1053,29 @@ export const PERK_PROVIDERS = [  {
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://z.ai"  },
   {
+    "id": "agent2api",
+    "name": "Agent2API (开源本地网关)",
+    "provider": "agent2api",
+    "category": [
+      "gateway",
+      "client"
+    ],
+    "badge": "开源本地网关 · 多端账号聚合 · 自动签到打卡",
+    "badgeType": "success",
+    "tags": [
+      "开源自建",
+      "本地聚合网关",
+      "自动签到打卡",
+      "转OpenAI接口"
+    ],
+    "description": "开源免费的本地 AI 逆向代理与多 Agent 聚合网关（GitHub: aimod-cc/Agent2API）。专为打通割裂的 AI 客户端而设计：1. 自动签到打卡：内置定时任务与补签中心，可集中托管 WorkBuddy、小浣熊、AutoClaw、Qoder CN 等平台的每日签到与额度刷新，省去每天手动逐个打开客户端领积分的繁琐；2. 统一转 API：将各平台分散的免费额度与登录态集中聚合，转换为本地标准的 OpenAI 兼容接口（127.0.0.1 端口），供 Cursor、Cline、Cherry Studio、NextChat 等任意第三方开发或对话工具自由调用。",
+    "tips": "支持 Windows/macOS 桌面客户端（Tauri）与 Docker 本地部署；凭证与 Token 均保存在本地机器不上传云端，适合搭配各家白嫖额度构建自己的个人私有聚合 API 池。",
+    "officialUrl": "https://github.com/aimod-cc/Agent2API",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://github.com/aimod-cc/Agent2API"
+  },
+  {
     "id": "agentrouter",
     "name": "Agent Router",
     "provider": "agentrouter",
