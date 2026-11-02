@@ -844,9 +844,10 @@ perks.claim.claimed,ui,PerksPage,PerksPage,claim_claimed,"Claimed on {{date}}",,
 perks.copy.success,ui,PerksPage,PerksPage,copy_success,"Copied {{name}} invitation code: {{code}}",,active
 perks.copy.failed,ui,PerksPage,PerksPage,copy_failed,"Copy failed, please select and copy manually",,active
 perks.action.copy_code,ui,PerksPage,PerksPage,action_copy_code,"Copy invitation code",,active
-perks.disclaimer,ui,PerksPage,PerksPage,disclaimer,"📢 Notice & Disclaimer: every card below carries the date its figures were checked and the page they came from — tap Source to verify against the original text. Figures were last checked on 2026.10.31. Vendor policies and promotions are subject to change without notice; final interpretation belongs to each respective vendor. This guide provides references only. Cards are sorted alphabetically (A-Z).",,active
+perks.disclaimer,ui,PerksPage,PerksPage,disclaimer,"📢 Notice & Disclaimer: every card below carries the date its figures were checked and the page they came from — tap Source to verify against the original text. Vendor policies and promotions are subject to change without notice; final interpretation belongs to each respective vendor. This guide provides references only. Cards are sorted alphabetically (A-Z).",,active
 perks.card.checked,ui,PerksPage,PerksPage,card_checked,"Checked {{date}}",,active
 perks.card.source,ui,PerksPage,PerksPage,card_source,"Source",,active
+perks.card.feedback,ui,PerksPage,PerksPage,card_feedback,"Report a change",,active
 nav.sessions,shared,*,Sidebar,nav_sessions,Sessions,,active
 skills.page.title,ui,SkillsPage,SkillsPage,title,Skills,,active
 skills.tab.my,ui,SkillsPage,SkillsPage,tab_my,My Skills,,active

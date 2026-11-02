@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { PerksPage } from "./PerksPage.jsx";
+import { PerksPage, buildPerksFeedbackUrl } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 
@@ -23,6 +23,32 @@ describe("PerksPage", () => {
     expect(screen.getByText("全部服务商")).toBeInTheDocument();
     expect(screen.getByText(/智谱开放平台/)).toBeInTheDocument();
     expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+  });
+
+  it("builds a prefilled GitHub issue URL for a perk card", () => {
+    const url = buildPerksFeedbackUrl({
+      id: "apigoto",
+      name: "APIGOTO",
+      badge: "订阅制改版：PLUS 约6折 / PROX10 约5折",
+      checkedAt: "2026-11-02",
+      sourceUrl: "https://www.apigoto.com",
+    });
+    expect(url.startsWith("https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues/new?title=")).toBe(true);
+    expect(url).toContain(encodeURIComponent("[福利口径反馈] APIGOTO（apigoto）"));
+    expect(url).toContain(encodeURIComponent("- 当前徽标：订阅制改版：PLUS 约6折 / PROX10 约5折"));
+    expect(url).toContain(encodeURIComponent("- 卡片核对日期：2026-11-02"));
+  });
+
+  it("renders a per-card feedback link that opens a prefilled issue", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    const links = screen.getAllByText(zhCore["perks.card.feedback"]).map((node) => node.closest("a"));
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    expect(links[0].getAttribute("href")).toContain("github.com/01UNCLEDOG01/TokenTracker-Plus/issues/new");
+    expect(links[0].getAttribute("href")).toContain(encodeURIComponent("id: "));
   });
 
   it("filters providers by search query", () => {
@@ -60,8 +86,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 40 家收录（2026-10-31：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor、蚂蚁百灵、飓流AI、APIGOTO、Vyce AI、Agnes 网页版），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(42);
+    // 43 家收录（2026-11-02：+美团妙手 CatPaw；此前 2026-10-31 批：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor、蚂蚁百灵、飓流AI、APIGOTO、Vyce AI、Agnes 网页版），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(43);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -82,7 +108,7 @@ describe("PerksPage", () => {
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
     expect(screen.getByText("永久免费").closest("button")).toHaveTextContent("11");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("19");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("18");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
@@ -93,7 +119,7 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(40);
+    expect(directLinks).toHaveLength(41);
     // agnes 与 bigmodel 为双站卡：主按钮「中国站直达」×2 + 分站「国际站直达」×2
     expect(screen.getAllByText("中国站直达")).toHaveLength(2);
     expect(screen.getAllByText("国际站直达")).toHaveLength(2);

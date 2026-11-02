@@ -8,6 +8,7 @@ const { cmdServe } = require("./commands/serve");
 const { cmdDeviceLogin } = require("./commands/device-login");
 const { cmdWrapped } = require("./commands/wrapped");
 const { cmdSessions } = require("./commands/sessions");
+const { cmdBackup, cmdRestore } = require("./commands/backup");
 
 async function run(argv) {
   const [command, ...rest] = argv;
@@ -60,6 +61,12 @@ async function run(argv) {
     case "sessions":
       await cmdSessions(rest);
       return;
+    case "backup":
+      await cmdBackup(rest);
+      return;
+    case "restore":
+      await cmdRestore(rest);
+      return;
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -84,6 +91,8 @@ function printHelp() {
       "  npx tokentracker [--debug] device-login [--json] [--base-url <url>]",
       "  npx tokentracker [--debug] wrapped [--year 2026] [--json]",
       "  npx tokentracker sessions [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--format json|csv] [--out file] [--refresh] [--no-git]",
+      "  npx tokentracker [--debug] backup [--out <path>]",
+      "  npx tokentracker [--debug] restore <backup.ttbackup> [--force]",
       "",
       "Notes:",
       "  - init: consent first, local setup next, browser sign-in last.",
@@ -99,6 +108,7 @@ function printHelp() {
       "  - --debug shows original backend errors.",
       "  - device-login pairs a headless CLI / SSH session with a browser sign-in (15-min code).",
       "  - sessions exports metadata-only Claude/Codex/Grok/ZCode efficiency analytics; no prompt or response text is retained.",
+      "  - backup/restore 打包并还原 ~/.tokentracker/tracker 的全部本地数据（.ttbackup）；还原会覆盖同名文件，先退出应用再 --force。",
       "",
     ].join("\n"),
   );

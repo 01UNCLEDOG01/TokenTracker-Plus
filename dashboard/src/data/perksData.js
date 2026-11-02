@@ -455,6 +455,29 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://www.qiniu.com/ai/free-models/conatus-2026"
   },
   {
+    "id": "catpaw",
+    "name": "美团妙手 (CatPaw)",
+    "provider": "catpaw",
+    "category": [
+          "big_quota",
+          "monthly_claim"
+    ],
+    "badge": "新户送 1,000 积分（1 年有效）+ 每月 200",
+    "badgeType": "amber",
+    "tags": [
+      "美团出品",
+      "AI编程平台",
+      "注册送1000积分",
+      "每月赠200积分"
+    ],
+    "description": "美团推出的妙手 (CatPaw) 平台，积分制计费。站主端内实测（2026-11-02 用量管理页）：新用户注册奖励 1,000 积分（自发放起一年内有效）；基础积分每月发放 200（当月有效）。积分余额与到账明细在「用量管理」页查看，套餐档位与升级入口在「套餐管理」页；积分适用范围与消耗规则以站内为准。",
+    "tips": "每月基础积分的发放日与有效期以端内为准；失效积分可在用量管理页切换失效积分查看。",
+    "officialUrl": "https://credit.catpaw.meituan.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://credit.catpaw.meituan.com/#/usage"
+  },
+  {
     "id": "cola",
     "name": "Cola (AI 拍档)",
     "provider": "cola",

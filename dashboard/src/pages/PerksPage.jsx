@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ArrowUpRight,
   SlidersHorizontal,
+  Flag,
 } from "lucide-react";
 import { copy, getCopyLocale } from "../lib/copy";
 import { cn } from "../lib/cn";
@@ -53,6 +54,30 @@ function fallbackCopy(text) {
   } catch {
     return false;
   }
+}
+
+// 「反馈口径变动」一键 Issue：把卡片现口径预填进 GitHub new-issue，让社区用户
+// 发现福利变了能一键上报（站主逐张端内实测的维护负担太重，需要社区帮盯）。
+// 用裸 new-issue + title/body 预填（不用 YAML 表单模板——表单不吃 URL 预填）。
+export function buildPerksFeedbackUrl(item) {
+  const title = `[福利口径反馈] ${item.name}（${item.id}）`;
+  const body = [
+    "## 卡片口径反馈",
+    "",
+    `- 卡片：${item.name}（id: ${item.id}）`,
+    `- 当前徽标：${item.badge || "（无）"}`,
+    `- 卡片核对日期：${item.checkedAt || "未标注"}`,
+    `- 卡片来源页：${item.sourceUrl || "未标注"}`,
+    "",
+    "### 你核实到的现行口径",
+    "",
+    "（请填写你在官方页面或端内看到的现状）",
+    "",
+    "### 证据",
+    "",
+    "（请附官方页面链接或端内截图，感谢！）",
+  ].join("\n");
+  return `https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
 }
 
 function ProviderLogo({ item }) {
@@ -179,6 +204,15 @@ function PerkCard({ item, claimedAt, onToggleClaim }) {
             >
               <span>{copy("perks.card.source")}</span>
               <ArrowUpRight className="h-3 w-3" aria-hidden />
+            </a>
+            <a
+              href={buildPerksFeedbackUrl(item)}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-0.5 underline decoration-dotted underline-offset-2 transition hover:text-amber-600 dark:hover:text-amber-400"
+            >
+              <Flag className="h-3 w-3" aria-hidden />
+              <span>{copy("perks.card.feedback")}</span>
             </a>
           </div>
         )}

@@ -8,9 +8,16 @@
 
 ## [未发布]
 
+### 新增
+
+- **福利指南「反馈变动」一键 Issue**：每张卡片的核对行新增反馈入口，点击自动预填卡片 id、当前徽标、核对日期与来源页到 GitHub Issue，鼓励社区用户上报口径变化（配合站主端内实测，形成社区帮盯福利的闭环）。
+- **.ttbackup 本地备份/还原（CLI v1）**：`tokentracker backup` 将 `~/.tokentracker/tracker` 全部本地数据（配置、队列、积分/宠物偏好等 42 个文件）打包为单文件 .ttbackup（gzip JSONL 容器、逐行流式不占大内存、逐文件 SHA-256 完整性校验；实测 177MB 压至 22MB）；`tokentracker restore <file> [--force]` 一键还原，防路径穿越、覆盖同名文件需显式确认。设置页一键入口下批接入。
+- **Cursor Composer 会话层解析器（数据层 v1）**：只读解析 state.vscdb 三源（composerHeaders / composerData / bubbleId），产出会话名、起止时间、用户/AI 轮次数与 token 聚合；本地键与 serverBubbleId 双键回退查找。实测发现当前版本 Cursor 不再向本地库写入真实用量（tokenCount 全零），故本版提供会话清单，token 列在上游恢复写入后自动生效。
+
 ### 福利指南
 
 - **2026-11-02 全量核对 42 家服务商**（官方页 7 路核查 + 站主两轮端内实测核正）：apigoto 订阅制改版（取消实名送 PLUS、FREE/PLUS/PROX5/PROX10 四档、厂商折扣模型按 125% 计费）；17 家对齐官方现行口径——AutoClaw 国内版会员体系改版（新户领 2 亿 tokens、邀请活动在线）、阿里百炼第三方及 Qwen 旧版下架新人赠额、千问办公每日积分改每月、OpenCode Zen 更名 Console、LongCat 上新福利（老户 500 万）、TRAE CN 注册 2000+每月登录 500、WorkBuddy AI DeepSeek 免费调用停止（HY3 仍免费）、Qoder 双卡补 Qwen3.8-Flash 限时每日免费等；11 家确认无变化刷新核对日期；14 家登录墙维持原卡。入门文档的服务商数量同步为 42。
+- **新增第 43 家：美团妙手 (CatPaw)**——站主端内实测（新户注册奖励 1,000 积分/1 年有效、每月 200 基础积分/当月有效）；全站服务商数量 42→43（六语 README + 入门文档同步）。
 
 ## [1.13.2] - 2026-11-02
 
