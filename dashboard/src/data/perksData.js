@@ -290,6 +290,28 @@ export const PERK_PROVIDERS = [
     "sourceUrl": "https://credit.catpaw.meituan.com/#/usage"
   },
   {
+    "id": "cerebras",
+    "name": "Cerebras Inference",
+    "provider": "cerebras",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "每日 100 万 tokens 免费额度",
+    "badgeType": "success",
+    "tags": [
+      "晶圆级极速推理",
+      "OpenAI 兼容",
+      "Llama / GPT-OSS / Qwen",
+      "海外网络"
+    ],
+    "description": "Cerebras Inference：主打晶圆级引擎极速推理的海外平台，官方宣布所有开发者每天可获 100 万 tokens 免费额度（单次输出上限约 8192 tokens，免费档另有速率限制，以控制台为准），可免费调用 Llama、GPT-OSS、Qwen 等开源模型；OpenAI 兼容接口，改 base URL 即可接入任意兼容客户端，实测输出速度普遍达数百 tokens/秒。",
+    "tips": "每日额度刷新、超量转付费；免费档与付费档的速率政策可能调整，以官方 Pricing 页为准；国内访问需海外网络。",
+    "officialUrl": "https://cloud.cerebras.ai",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://www.cerebras.ai/inference"
+  },
+  {
     "id": "cloudflare_workers_ai",
     "name": "Cloudflare Workers AI",
     "provider": "cloudflare",
@@ -765,6 +787,28 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://agent.minimaxi.com/about"
+  },
+  {
+    "id": "modelscope",
+    "name": "魔搭社区 (ModelScope)",
+    "provider": "modelscope",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "API-Inference 每日 2,000 次免费调用",
+    "badgeType": "success",
+    "tags": [
+      "阿里系",
+      "国内直连",
+      "Qwen 系全家桶",
+      "OpenAI 兼容"
+    ],
+    "description": "魔搭社区（ModelScope）API-Inference：每天 2,000 次免费调用额度（每日刷新），覆盖 Qwen3-Coder、Qwen 系列、GLM、DeepSeek 等主流开源模型，国内可直连；OpenAI 兼容接口，绑定魔搭账号访问令牌即可接入任意兼容客户端，国际站同样提供。",
+    "tips": "免费档按调用次数计（非 token 总量），单次请求可用的模型与参数以平台文档为准；部分模型可能需要单独开通或限流，以站内为准。",
+    "officialUrl": "https://www.modelscope.cn",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://modelscope.cn/docs/model-service/API-Inference/introduction"
   },
   {
     "id": "nvidia_nim",

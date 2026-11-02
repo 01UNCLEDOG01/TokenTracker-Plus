@@ -164,6 +164,23 @@ export const PERKS_EN = {
       "When trial credits run out you can move to pay-as-you-go; whether a specific model has free trial capacity and how fast it burns is governed by the site; requires an overseas network from mainland China.",
     tags: ["NVIDIA official", "Many open models", "OpenAI-compatible", "Overseas network"],
   },
+
+  cerebras: {
+    badge: "1,000,000 tokens of free capacity daily",
+    description:
+      "Cerebras Inference: an overseas platform built on wafer-scale engines for extreme-speed inference. Per the official announcement every developer gets 1,000,000 free tokens per day (single-response output capped at ~8,192 tokens, plus free-tier rate limits — the console is authoritative), covering open models like Llama, GPT-OSS and Qwen. OpenAI-compatible: point the base URL at it from any compatible client; real-world output commonly runs at several hundred tokens per second.",
+    tips:
+      "The daily allowance refreshes and overflows into paid capacity; free- vs paid-tier rate policies can change — the official Pricing page is authoritative; requires an overseas network from mainland China.",
+    tags: ["Wafer-scale speed", "OpenAI-compatible", "Llama / GPT-OSS / Qwen", "Overseas network"],
+  },
+  modelscope: {
+    badge: "2,000 free API-Inference calls per day",
+    description:
+      "ModelScope’s API-Inference grants 2,000 free calls per day (refreshed daily) across mainstream open models — Qwen3-Coder, the Qwen family, GLM, DeepSeek and more — reachable from mainland China without an overseas network. OpenAI-compatible: bind a ModelScope access token and point any compatible client at it; the international site offers the same.",
+    tips:
+      "The free tier counts calls, not total tokens; which models and parameters each request may use is governed by the platform docs; some models may require opt-in or throttling — the site is authoritative.",
+    tags: ["Alibaba family", "CN direct access", "Qwen full lineup", "OpenAI-compatible"],
+  },
 };
 
 /**

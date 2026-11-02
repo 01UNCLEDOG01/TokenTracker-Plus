@@ -442,6 +442,11 @@ const PROVIDER_LOGO_MAP = {
   CLOUDFLARE: "/brand-logos/cloudflare.svg",
   GROQ: "/brand-logos/groq.png",
   UNISOUND: "/brand-logos/unisound.ico",
+  // Cerebras has no public static brand asset (SPA, all icon routes 404);
+  // Google's s2 favicon service resolves a clean 128px mark. ModelScope is
+  // the modelscope.cn favicon bundle (.ico, same treatment as UNISOUND).
+  CEREBRAS: "/brand-logos/cerebras.png",
+  MODELSCOPE: "/brand-logos/modelscope.ico",
   // CodeArts Agent's real brand mark - the colorful X extracted from the
   // installed exe's embedded icon (PrivateExtractIcons 256px, RGBA transparent;
   // the product-icon-theme logo.png is a theme attachment, NOT the brand icon

@@ -86,8 +86,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 51 家收录（2026-11-03：+AMD Token Factory / Cloudflare Workers AI / Google AI Studio / Groq / NVIDIA Build / 云知声 MaaS；2026-11-02 批 +美团妙手 CatPaw 等），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(51);
+    // 53 家收录（2026-11-03：+AMD/Cloudflare/Google/Groq/NVIDIA/云知声/Cerebras/魔搭；2026-11-02 批 +CatPaw 等），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(53);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -108,7 +108,7 @@ describe("PerksPage", () => {
     expect(screen.getByText("长期免费")).toBeInTheDocument();
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
-    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("14");
+    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("16");
     expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("17");
   });
 
@@ -120,7 +120,7 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(49);
+    expect(directLinks).toHaveLength(51);
     // agnes 与 bigmodel 为双站卡：主按钮「中国站直达」×2 + 分站「国际站直达」×2
     expect(screen.getAllByText("中国站直达")).toHaveLength(2);
     expect(screen.getAllByText("国际站直达")).toHaveLength(2);
