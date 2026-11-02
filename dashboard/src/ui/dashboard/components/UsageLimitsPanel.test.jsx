@@ -1396,3 +1396,69 @@ describe("ZcodeOtherRegionSection (absorbed from upstream PR 942)", () => {
     unmountPanel();
   });
 });
+
+describe("QoderCookieInput", () => {
+  beforeEach(() => {
+    setCopyLocale(EN_LOCALE);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders on the Qoder CN card and saves the pasted cookie to the local API", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <UsageLimitsPanel
+        order={["qoderCn"]}
+        qoderCn={{
+          configured: true,
+          primary_window: { used_percent: 10, used_credits: 10, limit_credits: 100, remaining_credits: 90 },
+        }}
+      />,
+    );
+
+    // The manual-entry note explains why the cookie cannot be auto-collected.
+    expect(screen.getByText(/manual entry required/i)).toBeTruthy();
+
+    const input = screen.getByLabelText(/paste the qoder website cookie/i);
+    fireEvent.change(input, { target: { value: "qoder_session_cookie=abc; yunpk=1" } });
+    // The card header is a role=button too, so filter to the real submit.
+    const saveButton = screen.getAllByText("Save cookie")[0].closest("button");
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/functions/tokentracker-qoder-cookie",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const cookieCall = fetchMock.mock.calls.find(([url]) => url === "/functions/tokentracker-qoder-cookie");
+    expect(JSON.parse(cookieCall[1].body)).toEqual({ namespace: "cn", cookie: "qoder_session_cookie=abc; yunpk=1" });
+    expect(screen.getByText(/saved/i)).toBeTruthy();
+  });
+
+  it("surfaces a save failure without pretending the cookie was stored", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
+
+    render(
+      <UsageLimitsPanel
+        order={["qoderCn"]}
+        qoderCn={{
+          configured: true,
+          primary_window: { used_percent: 10, used_credits: 10, limit_credits: 100, remaining_credits: 90 },
+        }}
+      />,
+    );
+
+    const input = screen.getByLabelText(/paste the qoder website cookie/i);
+    fireEvent.change(input, { target: { value: "qoder_session_cookie=bad" } });
+    fireEvent.click(screen.getAllByText("Save cookie")[0].closest("button"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/could not save the cookie/i)).toBeTruthy();
+    });
+  });
+});

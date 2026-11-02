@@ -403,6 +403,7 @@ const MANUAL_CREDENTIAL_IDS = new Set([
   "deepseek",
   "sensenova",
   "qoder",
+  "qoderCn",
 ]);
 
 function StatusBadge({ label, age = null, tone = "live", tooltip = null }) {
@@ -1106,6 +1107,8 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
         <EnvCredentialNotice providerId={id} data={data} onSaved={onKeySaved} />
       ) : null}
       {expanded ? <LimitDetail rows={rows} mode={mode} now={now} /> : null}
+      {id === "qoderCn" ? <QoderCookieInput namespace="cn" onSaved={onKeySaved} /> : null}
+      {id === "qoder" ? <QoderCookieInput namespace="intl" onSaved={onKeySaved} /> : null}
       {id === "zcode" && data.start_plan?.configured ? (
         <ZcodeStartPlanSection data={data.start_plan} mode={mode} now={now} />
       ) : null}
@@ -1143,6 +1146,8 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {MANUAL_CREDENTIAL_IDS.has(id) ? (
           <StatusLine>{copy("limits.status.manual_credential")}</StatusLine>
         ) : null}
+        {id === "qoderCn" ? <QoderCookieInput namespace="cn" onSaved={onKeySaved} /> : null}
+        {id === "qoder" ? <QoderCookieInput namespace="intl" onSaved={onKeySaved} /> : null}
         {id === "opencodeGo" ? <OpenCodeGoSetupHint /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
@@ -1735,6 +1740,80 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Paste box for the hand-copied Qoder website cookie. The cookie is a session
+// credential only the user's own browser holds, so it cannot be auto-collected
+// (the httpOnly session cookie is invisible to page JS and to the tray). The
+// user pastes the whole Cookie header from DevTools; it is saved by the
+// loopback backend to the same file the usage fetch reads, so the next refresh
+// picks it up. Never echoed back; sent only to the local API.
+function QoderCookieInput({ namespace = "cn", onSaved }) {
+  const [cookie, setCookie] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = cookie.trim();
+    if (!value || status === "saving") return;
+    setStatus("saving");
+    setError(false);
+    try {
+      const res = await fetch("/functions/tokentracker-qoder-cookie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ namespace, cookie: value }),
+      });
+      if (!res.ok) throw new Error();
+      setCookie("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("idle");
+      setError(true);
+    }
+  };
+
+  return (
+    <form
+      className="mt-1.5 space-y-1.5"
+      onSubmit={onSubmit}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={cookie}
+          onChange={(e) => {
+            setCookie(e.target.value);
+            setStatus("idle");
+            setError(false);
+          }}
+          placeholder={copy("limits.qoderCookie.placeholder")}
+          aria-label={copy("limits.qoderCookie.placeholder")}
+          autoComplete="new-password"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[11px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+        />
+        <button
+          type="submit"
+          disabled={!cookie.trim() || status === "saving"}
+          className="shrink-0 rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.qoderCookie.saving")
+            : status === "saved"
+              ? copy("limits.qoderCookie.saved")
+              : copy("limits.qoderCookie.save")}
+        </button>
+      </div>
+      <div className="text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+        {error ? copy("limits.qoderCookie.save_failed") : copy("limits.qoderCookie.note")}
+      </div>
+    </form>
   );
 }
 
