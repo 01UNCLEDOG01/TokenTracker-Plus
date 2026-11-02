@@ -49,7 +49,7 @@ async function fixture() {
     return `${header}.${body}.${createHmac("sha256",secret).update(`${header}.${body}`).digest("base64url")}`;
   };
   const env={INSFORGE_SERVICE_ROLE_KEY:token(randomUUID(),"project_admin"),ANON_KEY:token(randomUUID(),"anon"),
-    JWT_SECRET:secret,TOKENTRACKER_BILLING_ENVIRONMENT:"live",TOKENTRACKER_DASHBOARD_URL:"https://private.example.test"};
+    JWT_SECRET:secret,TOKENTRACKER_CLOUD_ENVIRONMENT:"live",TOKENTRACKER_DASHBOARD_URL:"https://private.example.test"};
   const serverCredential=env.INSFORGE_SERVICE_ROLE_KEY;
   const server=http.createServer(async(req,res)=>{
     const send=(status,value)=>{res.writeHead(status,{"Content-Type":"application/json"});res.end(JSON.stringify(value));};

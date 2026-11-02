@@ -500,7 +500,7 @@ async function main() {
     ANON_KEY: anonKeyForHandlers,
 
     JWT_SECRET: secret,
-    TOKENTRACKER_BILLING_ENVIRONMENT: "live",
+    TOKENTRACKER_CLOUD_ENVIRONMENT: "live",
     TOKENTRACKER_DASHBOARD_URL: selfUrl,
   };
   const serverCredential = env.INSFORGE_SERVICE_ROLE_KEY;

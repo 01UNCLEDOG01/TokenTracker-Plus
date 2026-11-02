@@ -54,7 +54,7 @@ test("reset verifies the account JWT and uses only its subject and server enviro
 test("refresh accepts a device credential, hashes it, and never forwards raw tokens", async t => {
   const calls = [], token = "device-reset-test-token";
   environment(t, async (name, args) => { calls.push({ name, args }); return success("complete"); },
-    { TOKENTRACKER_BILLING_ENVIRONMENT: "sandbox" });
+    { TOKENTRACKER_CLOUD_ENVIRONMENT: "sandbox" });
   for (const bad of [undefined, jwt(), "a.b", "x".repeat(2049)]) {
     assert.equal((await handler(request("refresh", bad))).status, 401);
   }

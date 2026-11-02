@@ -1,13 +1,13 @@
-import { BillingError } from "./contracts.ts";
+import { CloudRequestError } from "./contracts.ts";
 
 const encoder = new TextEncoder();
 export function bytes(value: string): Uint8Array<ArrayBuffer> { return encoder.encode(value); }
 export function base64Bytes(value: string): Uint8Array<ArrayBuffer> {
   try { return Uint8Array.from(atob(value), c => c.charCodeAt(0)); }
-  catch { throw new BillingError("invalid_signature", 401); }
+  catch { throw new CloudRequestError("invalid_signature", 401); }
 }
 export function hexBytes(value: string): Uint8Array<ArrayBuffer> {
-  if (!/^[0-9a-f]{64}$/i.test(value)) throw new BillingError("invalid_signature", 401);
+  if (!/^[0-9a-f]{64}$/i.test(value)) throw new CloudRequestError("invalid_signature", 401);
   return Uint8Array.from(value.match(/../g)!, part => parseInt(part, 16));
 }
 export function pemBytes(value: string): Uint8Array<ArrayBuffer> {
@@ -15,7 +15,7 @@ export function pemBytes(value: string): Uint8Array<ArrayBuffer> {
 }
 export function freshTimestamp(value: string, nowMs: number, toleranceSeconds: number): void {
   if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) ||
-    Math.abs(nowMs / 1000 - Number(value)) > toleranceSeconds) throw new BillingError("stale_signature", 401);
+    Math.abs(nowMs / 1000 - Number(value)) > toleranceSeconds) throw new CloudRequestError("stale_signature", 401);
 }
 export async function verifyRsa(publicKeyPem: string, message: string, signature: string): Promise<boolean> {
   try {

@@ -6,7 +6,11 @@ export type CloudAccess = Record<string, unknown> & {
 };
 
 export function cloudEnvironment(): "live" | "sandbox" {
-  const value = Deno.env.get("TOKENTRACKER_BILLING_ENVIRONMENT") || "live";
+  // New name for the live/sandbox selector; the old BILLING_ name is still
+  // accepted so self-host deployments configured before the 1.13.2 rename keep
+  // working.
+  const value = Deno.env.get("TOKENTRACKER_CLOUD_ENVIRONMENT")
+    || Deno.env.get("TOKENTRACKER_BILLING_ENVIRONMENT") || "live";
   if (value !== "live" && value !== "sandbox") throw new Error("Invalid Cloud environment");
   return value;
 }

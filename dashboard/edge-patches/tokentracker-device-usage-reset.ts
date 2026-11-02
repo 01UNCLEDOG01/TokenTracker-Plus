@@ -1,7 +1,7 @@
 import { createClient } from "npm:@insforge/sdk";
 import { billingUserId } from "./cloud/auth.ts";
 import { cloudEnvironment } from "./cloud/access.ts";
-import { BillingError, object, uuid } from "./cloud/contracts.ts";
+import { CloudRequestError, object, uuid } from "./cloud/contracts.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +16,7 @@ function json(body: unknown, status = 200): Response {
 
 function identifier(value: unknown): string {
   try { return uuid(value).toLowerCase(); }
-  catch { throw new BillingError("cloud_usage_reset_invalid_request", 400); }
+  catch { throw new CloudRequestError("cloud_usage_reset_invalid_request", 400); }
 }
 
 export default async function (req: Request): Promise<Response> {
@@ -29,7 +29,7 @@ export default async function (req: Request): Promise<Response> {
     }
     let body: Record<string, unknown>;
     try { body = object(JSON.parse(raw)); }
-    catch { throw new BillingError("cloud_usage_reset_invalid_request", 400); }
+    catch { throw new CloudRequestError("cloud_usage_reset_invalid_request", 400); }
     const operationId = identifier(body.operation_id);
     const environment = cloudEnvironment();
     let name: string;
@@ -46,14 +46,14 @@ export default async function (req: Request): Promise<Response> {
       const header = req.headers.get("Authorization");
       const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : "";
       if (!token || token.length > 2048 || token.includes(".")) {
-        throw new BillingError("cloud_device_token_rejected", 401);
+        throw new CloudRequestError("cloud_device_token_rejected", 401);
       }
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
       const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
       name = "cloud_refresh_device_usage";
       args = { p_token_hash: hash, p_operation_id: operationId };
     } else {
-      throw new BillingError("cloud_usage_reset_invalid_request", 400);
+      throw new CloudRequestError("cloud_usage_reset_invalid_request", 400);
     }
     const baseUrl = Deno.env.get("INSFORGE_BASE_URL");
     const serviceRoleKey = Deno.env.get("INSFORGE_SERVICE_ROLE_KEY");
@@ -78,8 +78,8 @@ export default async function (req: Request): Promise<Response> {
     catch { throw new Error("Invalid Cloud reset response"); }
     return json(data);
   } catch (error) {
-    const code = error instanceof BillingError ? error.code : "cloud_usage_reset_unavailable";
-    const status = error instanceof BillingError ? error.status : 503;
+    const code = error instanceof CloudRequestError ? error.code : "cloud_usage_reset_unavailable";
+    const status = error instanceof CloudRequestError ? error.status : 503;
     return json({ ok: false, code, status }, status);
   }
 }

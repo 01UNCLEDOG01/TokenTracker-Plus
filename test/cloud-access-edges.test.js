@@ -24,7 +24,7 @@ async function load(name) {
 async function environment(t,client) {
   const priorDeno=globalThis.Deno,priorClient=globalThis.__cloudAccessClient;
   globalThis.Deno={env:{get:key=>({JWT_SECRET:secret,INSFORGE_BASE_URL:'https://cloud.invalid',
-    INSFORGE_SERVICE_ROLE_KEY:'isolated-admin',INSFORGE_ANON_KEY:'isolated-anon',TOKENTRACKER_BILLING_ENVIRONMENT:'sandbox'})[key]}};
+    INSFORGE_SERVICE_ROLE_KEY:'isolated-admin',INSFORGE_ANON_KEY:'isolated-anon',TOKENTRACKER_CLOUD_ENVIRONMENT:'sandbox'})[key]}};
   globalThis.__cloudAccessClient=client;
   t.after(()=>{globalThis.Deno=priorDeno;globalThis.__cloudAccessClient=priorClient;});
 }

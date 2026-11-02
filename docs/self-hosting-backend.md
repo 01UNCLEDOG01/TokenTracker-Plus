@@ -67,8 +67,10 @@ INSFORGE_SERVICE_ROLE_KEY=your-server-only-service-credential
 ANON_KEY=your-public-anonymous-key
 JWT_SECRET=your-platform-signing-secret
 TOKENTRACKER_DASHBOARD_URL=https://dashboard.your-domain.example
-TOKENTRACKER_BILLING_ENVIRONMENT=live
+TOKENTRACKER_CLOUD_ENVIRONMENT=live
 ```
+
+The legacy `TOKENTRACKER_BILLING_ENVIRONMENT` name is still accepted for existing deployments.
 
 Use `JWT_PUBLIC_KEY` instead of `JWT_SECRET` when the selected platform signs user sessions with RS256. Verify the real platform credentials and claims; do not assume its management `ACCESS_API_KEY` is interchangeable with an edge database credential. This personal instance sells nothing, so no third-party merchant keys are needed.
 
