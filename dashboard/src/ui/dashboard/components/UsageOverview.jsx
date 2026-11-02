@@ -133,6 +133,9 @@ function formatProviderPercent(provider) {
 // zero tokens and real conversations, but it carries money — hiding it here
 // would take its cost card and credit banner off the dashboard.
 function isRequestOnlyProvider(provider) {
+  const source = String(provider?.source || provider?.label || "").trim().toLowerCase();
+  // Qoder and Qoder CN are first-party supported providers with official cards
+  if (source.includes("qoder")) return false;
   const requests = Number(provider?.requests) || 0;
   return requests > 0 && !(Number(provider?.usage) > 0) && !(Number(provider?.usd) > 0);
 }

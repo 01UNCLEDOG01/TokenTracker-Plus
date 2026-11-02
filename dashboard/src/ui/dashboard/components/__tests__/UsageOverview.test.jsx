@@ -845,8 +845,8 @@ describe("UsageOverview", () => {
           usd: 0,
           models: [{ id: "gpt-5", name: "gpt-5", share: 100, usage: 100, requests: 0, cost: 0 }],
         }, {
-          source: "qoder",
-          label: "QODER",
+          source: "custom_agent",
+          label: "CUSTOM_AGENT",
           totalPercent: "0.00",
           totalPercentValue: 0,
           usage: 0,
@@ -859,7 +859,7 @@ describe("UsageOverview", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: /QODER/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /CUSTOM_AGENT/ })).toBeNull();
     const notice = screen.getByText(/Active without token data:/);
     expect(notice).toBeVisible();
     expect(notice.textContent).toContain("19 requests");
@@ -874,8 +874,8 @@ describe("UsageOverview", () => {
         summaryValue="0"
         hasSummary
         fleetData={[{
-          source: "qoder",
-          label: "QODER",
+          source: "custom_agent",
+          label: "CUSTOM_AGENT",
           totalPercent: "0.00",
           totalPercentValue: 0,
           usage: 0,
@@ -924,5 +924,31 @@ describe("UsageOverview", () => {
     // The positive token total keeps its cell; the request count rides beside it
     // instead of being hidden behind it (issue 948).
     expect(screen.getByText(/· 5 requests/)).toBeVisible();
+  });
+  it("keeps Qoder CN and Qoder on the card grid even with zero tokens and zero usd", () => {
+    render(
+      <UsageOverview
+        period="day"
+        periods={[]}
+        summaryLabel="Total"
+        summaryValue="0"
+        hasSummary
+        fleetData={[{
+          source: "qoder-cn",
+          label: "QODER-CN",
+          totalPercent: "0.00",
+          totalPercentValue: 0,
+          usage: 0,
+          requests: 46,
+          usd: 0,
+          models: [{ id: "qfmodel", name: "qfmodel", share: 0, usage: 0, requests: 46, cost: null }],
+        }]}
+        from="2026-11-02"
+        to="2026-11-02"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /QODER-CN/ })).toBeVisible();
+    expect(screen.queryByText(/Active without token data:/)).toBeNull();
   });
 });
