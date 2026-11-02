@@ -1050,6 +1050,10 @@ test("writeQoderCookieFile rejects empty or malformed cookies", (t) => {
 
   assert.throws(() => writeQoderCookieFile({ home, namespace: "cn", cookie: "   " }), /must not be empty/i);
   assert.throws(() => writeQoderCookieFile({ home, namespace: "cn", cookie: "not-a-cookie-pair" }), /does not look like/i);
+  // A pasted cookie with a line break would land in the Cookie: header and fail
+  // with an obscure undici ERR_INVALID_CHAR; reject it at the input boundary.
+  assert.throws(() => writeQoderCookieFile({ home, namespace: "cn", cookie: "a=1\r\nb=2" }), /single line/i);
+  assert.throws(() => writeQoderCookieFile({ home, namespace: "cn", cookie: "a=1\nb=2" }), /single line/i);
   assert.equal(fs.existsSync(qoderCookieFilePath({ home, namespace: "cn" })), false);
 });
 
@@ -1064,4 +1068,40 @@ test("writeQoderCookieFile uses the international file for the intl namespace", 
   assert.equal(readQoderCookieFile({ home, namespace: undefined }), "qoder_session_cookie=intl");
   // And it must not collide with the CN file.
   assert.equal(fs.existsSync(qoderCookieFilePath({ home, namespace: "cn" })), false);
+});
+
+test("writeQoderCookieFile backs up every previous version (timestamped, never overwrites)", (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cookie-backups-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  writeQoderCookieFile({ home, namespace: "cn", cookie: "a=1" });
+  const file = qoderCookieFilePath({ home, namespace: "cn" });
+  // Force a distinct mtime so the next backup gets a clearly distinct stamp.
+  const past = new Date(Date.now() - 60_000);
+  fs.utimesSync(file, past, past);
+
+  writeQoderCookieFile({ home, namespace: "cn", cookie: "b=2" });
+  writeQoderCookieFile({ home, namespace: "cn", cookie: "c=3" });
+
+  const backups = fs.readdirSync(path.join(home, ".tokentracker", "tracker"))
+    .filter((name) => name.startsWith("qoder-cn-usage-cookie.txt.bak-"))
+    .sort();
+  // write2 backed up a=1 (stamped 60s ago), write3 backed up b=2 (stamped now):
+  // the timestamped names must not collide, so both versions survive.
+  assert.equal(backups.length, 2);
+  const contents = backups.map((n) => fs.readFileSync(path.join(home, ".tokentracker", "tracker", n), "utf8")).sort();
+  assert.deepEqual(contents, ["a=1", "b=2"]);
+  assert.equal(readQoderCookieFile({ home, namespace: "cn" }), "c=3");
+});
+
+test("writeQoderCookieFile writes atomically and leaves no temp file", (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cookie-atomic-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  writeQoderCookieFile({ home, namespace: "cn", cookie: "a=1" });
+  writeQoderCookieFile({ home, namespace: "cn", cookie: "b=2" });
+  assert.equal(readQoderCookieFile({ home, namespace: "cn" }), "b=2");
+  const leftovers = fs.readdirSync(path.join(home, ".tokentracker", "tracker"))
+    .filter((n) => n.includes(".tmp"));
+  assert.deepEqual(leftovers, []);
 });

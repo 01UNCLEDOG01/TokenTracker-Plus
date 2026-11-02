@@ -1976,6 +1976,7 @@ async function removeGenerationDir(dirPath) {
 // production callers fire-and-forget.
 function drainTrashEntry(target) {
   const startedAt = Date.now();
+  let drained = false;
   const promise = (async () => {
     let remaining = [target];
     while (remaining.length > 0 && Date.now() - startedAt < TRASH_DRAIN_MAX_MS) {
@@ -2001,12 +2002,17 @@ function drainTrashEntry(target) {
         }
         await fs.rmdir(dir).catch(() => {});
       }
-      if (next.length === 0) break;
+      if (next.length === 0) { drained = true; break; }
       remaining = next;
     }
-    // Final attempt on the root after the loop budget; if anything is still
-    // locked it remains for the startup sweep.
-    await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+    // Final attempt on the root only when the drain held within its budget
+    // (the subtree was small enough to be fully walked); if the budget was
+    // exhausted mid-drain, leave the remainder to the startup sweep — an
+    // unconditional recursive rm here is the minutes-long I/O under the
+    // safe-delete guard this drain exists to avoid.
+    if (drained) {
+      await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+    }
   })().catch(() => {
     // Never surface background cleanup errors to the caller.
   });

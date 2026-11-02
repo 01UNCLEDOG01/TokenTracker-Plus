@@ -499,6 +499,9 @@ function writeQoderCookieFile({ home = os.homedir(), namespace, cookie }) {
     throw new Error("Cookie must not be empty.");
   }
   const value = cookie.trim();
+  if (/[\r\n]/.test(value)) {
+    throw new Error("Cookie must be a single line (no line breaks).");
+  }
   if (!value.includes("=")) {
     throw new Error("Cookie does not look like a Qoder session (expected name=value pairs).");
   }
@@ -509,12 +512,21 @@ function writeQoderCookieFile({ home = os.homedir(), namespace, cookie }) {
     const stat = fs.statSync(file);
     if (stat.isFile()) {
       savedAt = stat.mtime.toISOString().slice(0, 10);
-      fs.copyFileSync(file, `${file}.bak-${savedAt}`);
+      // Millisecond-granularity backup: two saves in the same day (or second)
+      // must not overwrite each other, so a user pasting a half-copied string
+      // can still recover the last working session.
+      const stamp = stat.mtime.toISOString().replace(/\D/g, "").slice(0, 17);
+      fs.copyFileSync(file, `${file}.bak-${stamp}`);
     }
   } catch (_error) {
     // No previous file: nothing to back up.
   }
-  fs.writeFileSync(file, value, "utf8");
+  // Atomic write: temp file + rename, so an interrupted save can never leave a
+  // truncated main file (the .bak is a manual-recovery copy, not auto-restored).
+  const tmpFile = `${file}.tmp`;
+  fs.writeFileSync(tmpFile, value, "utf8");
+  try { fs.chmodSync(tmpFile, 0o600); } catch (_error) {}
+  fs.renameSync(tmpFile, file);
   try { fs.chmodSync(file, 0o600); } catch (_error) {}
   return { ok: true, saved_at: savedAt, file: path.basename(file) };
 }

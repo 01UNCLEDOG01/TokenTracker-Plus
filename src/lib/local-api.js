@@ -5149,7 +5149,8 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         return true;
       }
       try {
-        const body = await readJsonBody(req);
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
         const namespace = body?.namespace === "intl" ? undefined : "cn";
         const cookie = typeof body?.cookie === "string" ? body.cookie : "";
         const { writeQoderCookieFile } = require("./qoder-limits");
