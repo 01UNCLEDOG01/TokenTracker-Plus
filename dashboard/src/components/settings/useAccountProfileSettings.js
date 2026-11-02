@@ -392,7 +392,7 @@ export function useAccountProfileSettings() {
   const auth = useInsforgeAuth();
   useSyncExternalStore(subscribeCloudPrompts, cloudPromptRevision, () => 0);
   const promptState = readCloudPromptState(auth.user?.id);
-  const selfHosted = promptState.membership?.status === "self_hosted" || promptState.catalog?.policy?.hosting_mode === "self_hosted";
+  const selfHosted = promptState.membership?.status === "self_hosted";
   // On TT-plus the configured backend IS the leaderboard server, so the
   // visibility settings apply to it directly; hosted stays gated to the
   // official instance.

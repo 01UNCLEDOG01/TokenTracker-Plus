@@ -449,7 +449,6 @@
   "dashboard.context_breakdown.heading_codex": "Codex コンテキスト内訳",
   "dashboard.context_breakdown.heading_grok": "Grok コンテキスト内訳",
   "cloud.prompt.deadline_gift": "Cloud ギフトは {{date}} に終了します。ギフトに自動更新はありません。終了後もローカルデータを利用できます。",
-  "leaderboard.pro.tooltip": "Pro 会員。ランキングは引き続き使用量に基づきます。",
   "cloud.prompt.deadline_active": "Cloud は {{date}} まで利用できます。更新状況はアカウントの請求情報で確認してください。期間終了後もローカルデータを利用できます。",
   "sessions.filter.model_all": "すべてのモデル",
   "sessions.filter.model_search": "モデルを検索…",

@@ -660,57 +660,6 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   background: transparent;
 }
 
-/* Paid profile identity has its own restrained hue; rank medals stay separate. */
-.leaderboard-pro-avatar {
-  outline: 2px solid #78629e;
-  outline-offset: 1px;
-}
-:root.dark .leaderboard-pro-avatar {
-  outline-color: #b3a2cf;
-}
-.leaderboard-pro-badge {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  padding: 0 0.3rem;
-  border: 1px solid #d5cbed;
-  border-radius: 4px;
-  background: #f3f0f8;
-  color: #65528a;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1rem;
-  white-space: nowrap;
-  cursor: help;
-}
-:root.dark .leaderboard-pro-badge {
-  border-color: #716486;
-  background: #302a40;
-  color: #d7cdec;
-}
-.leaderboard-pro-badge:focus-visible {
-  outline: 2px solid currentColor !important;
-  outline-offset: 2px;
-}
-.leaderboard-pro-tooltip-layer {
-  z-index: 110;
-}
-.leaderboard-pro-tooltip {
-  max-width: min(16rem, calc(100vw - 2rem));
-  padding: 0.5rem 0.625rem;
-  border: 1px solid #d5cbed;
-  border-radius: 6px;
-  background: #faf8ff;
-  color: #3f3357;
-  font-size: 12px;
-  line-height: 1.5;
-}
-:root.dark .leaderboard-pro-tooltip {
-  border-color: #716486;
-  background: #27232f;
-  color: #e8e2f2;
-}
-
 /* Leaderboard: GitHub avatar frame. Machined-graphite conic ring (GitHub
    Primer grays) echoing the achievement coins' metal finish; the element's
    own padding is the visible ring, the inner gap layer knocks out a 1px
@@ -1232,16 +1181,6 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 
 .dark .tt-sidebar-account-control:focus-visible {
   outline-color: #d4d4d4 !important;
-}
-
-.tt-sidebar-pro-fallback {
-  background-color: #78629e;
-  --tw-ring-color: #78629e;
-}
-
-.dark .tt-sidebar-pro-fallback {
-  background-color: #716486;
-  --tw-ring-color: #716486;
 }
 
 .dark .tt-cloud-theme {

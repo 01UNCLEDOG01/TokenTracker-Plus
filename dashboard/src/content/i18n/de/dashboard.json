@@ -460,7 +460,6 @@
   "dashboard.context_breakdown.heading_codex": "Codex Kontextaufschlüsselung",
   "dashboard.context_breakdown.heading_grok": "Grok Kontextaufschlüsselung",
   "cloud.prompt.deadline_gift": "Dein geschenkter Cloud-Zugang endet am {{date}}. Das Geschenk verlängert sich nicht automatisch. Deine lokalen Daten bleiben anschließend verfügbar.",
-  "leaderboard.pro.tooltip": "Pro-Mitglied. Ranglisten basieren weiterhin auf der Nutzung.",
   "cloud.prompt.deadline_active": "Dein Cloud-Zugang bleibt bis {{date}} verfügbar. Prüfe den Verlängerungsstatus in der Kontoabrechnung. Deine lokalen Daten bleiben danach verfügbar.",
   "sessions.filter.model_all": "Alle Modelle",
   "sessions.filter.model_search": "Modelle suchen…",

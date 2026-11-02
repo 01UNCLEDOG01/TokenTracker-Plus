@@ -59,13 +59,13 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     ].join("\n\n")},
     {id:"04d-public-views-revoke",sql:read("migrations/20261014020500_self-host-public-views-revoke.sql")},
     {id:"04e-achievement-badges",sql:read("migrations/20261014030000_achievement-badges.sql")},
-    {id:"04f-user-settings-name",sql:read("migrations/20261014040000_self-host-user-settings-name.sql")},    ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql",
-      "20261007120000_cloud-waffo.sql","20261007130000_cloud-waffo-retry.sql","20261007140000_cloud-waffo-attempts.sql",
-      "20261007150000_cloud-waffo-authorizations.sql","20261007160000_cloud-waffo-sandbox-periods.sql"]
+    {id:"04f-user-settings-name",sql:read("migrations/20261014040000_self-host-user-settings-name.sql")},
+    // Free Cloud contract only: membership/trial policy and machine admission.
+    // This fork sells nothing, so there is no order/payment/gift step to install.
+    ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql"]
       .map(name=>({id:name.slice(0,-4),sql:read("migrations/"+name)})),
     {id:"10-self-hosted-policy",sql:read("migrations/20261008120000_self-hosted-access.sql")},
     {id:"11-token-environment-validation",sql:read("migrations/20261008120001_validate-cloud-token-environment.sql")},
-    {id:"12-pro-gifts",sql:read("migrations/20261009120000_cloud-gifts.sql")},
     {id:"13-machine-alias-cascade",sql:read("migrations/20261012120000_cloud-machine-alias-cascade.sql")},
     // trae-cn joins the machine-level hourly arm: its local-store feed writes
     // tokentracker_hourly rows (like every other source), while the old third

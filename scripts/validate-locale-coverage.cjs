@@ -55,7 +55,6 @@ const SOURCE_IDENTICAL_KEY_ALLOWLIST = [
   /^ipcheck[.]security[.](?:vpn|tor)$/,
   /^shared[.]app_name$/,
   /^sessions[.]storage[.]size$/, // MiB is an international unit symbol.
-  /^leaderboard[.]pro[.]badge$/,
   /^cloud[.](?:nav|page[.]eyebrow|(?:plan|membership)[.]title)$/,
   /^pet[.]character[.](?:clawd|bot|sprout|byte|ember)$/,
 ];

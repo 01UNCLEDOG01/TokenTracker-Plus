@@ -32,7 +32,6 @@ function createRAMAuthBroker({ allowedUserIDs, fetchImpl = fetch }) {
     });
     const value = await response.json();
     if (response.status !== 200 || response.headers.get("X-TokenTracker-Sandbox-Realm") !== REALM ||
-        response.headers.get("X-TokenTracker-Billing-Environment") !== "sandbox" ||
         value.user_id !== userID || value.realm !== REALM || value.environment !== "sandbox" || value.authenticated !== true) {
       throw new Error("native_qa_actor_rejected");
     }
@@ -147,21 +146,6 @@ function createRAMAuthBroker({ allowedUserIDs, fetchImpl = fetch }) {
     sessionEpoch() { return epoch; },
     actorID() { return session?.userID || null; },
     acceptsAccessToken(value) { return !!session && typeof value === "string" && issuedTokens.has(tokenHash(value)); },
-    async ownedOrder(orderID) {
-      if (!session) throw new Error("native_qa_sign_in_required");
-      const captured = session; const capturedEpoch = epoch;
-      await verifyActor(captured.accessToken, captured.userID);
-      const url = new URL(GATEWAY);
-      url.searchParams.set("fn", "tokentracker-billing"); url.searchParams.set("action", "order"); url.searchParams.set("id", orderID);
-      const response = await request(url, { headers: { Authorization: "Bearer " + captured.accessToken,
-        "X-TokenTracker-Sandbox-Realm": REALM } });
-      const value = await response.json();
-      if (capturedEpoch !== epoch || captured.userID !== session?.userID || response.status !== 200 ||
-          response.headers.get("X-TokenTracker-Sandbox-Realm") !== REALM ||
-          response.headers.get("X-TokenTracker-Billing-Environment") !== "sandbox" ||
-          value.order?.id !== orderID || value.membership?.environment !== "sandbox") throw new Error("native_qa_order_rejected");
-      return { order: value.order, userID: captured.userID, epoch: capturedEpoch };
-    },
     clear() { epoch++; session = null; issuedTokens.clear(); }
   };
 }

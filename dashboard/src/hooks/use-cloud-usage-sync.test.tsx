@@ -35,7 +35,7 @@ describe("Cloud automatic sync timer", () => {
     await act(() => vi.advanceTimersByTimeAsync(2500)); expect(state.sync).toHaveBeenCalledTimes(2);
     state.signedIn = false; rerender(); expect(vi.getTimerCount()).toBe(0);
   });
-  for (const route of ["/login", "/cloud", "/billing/checkout", "/share/123"]) {
+  for (const route of ["/login", "/cloud", "/share/123"]) {
     it(`does not create a sync timer on ${route}`, async () => {
       state.path = route; renderHook(useCloudUsageSync); await act(() => vi.advanceTimersByTimeAsync(30 * 60_000));
       expect(state.sync).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);

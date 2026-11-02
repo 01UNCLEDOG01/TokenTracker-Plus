@@ -13,7 +13,7 @@ const profile = {
   totals: {}, streak: {}, models: {}, by_provider: [], heatmap: [], badges: [], period: {},
 };
 
-describe("Pro identity in shared public profile content", () => {
+describe("shared public profile content", () => {
   it("shows expandable per-model token types supplied by the public profile endpoint", () => {
     const { container } = render(<MemoryRouter><ProfileContent data={{ ...profile, models: { breakdown: [{
       model_name: "claude-opus-5-5", total_tokens: 150, estimated_cost_usd: .01,
@@ -24,14 +24,5 @@ describe("Pro identity in shared public profile content", () => {
     expect(detail).not.toHaveAttribute("open");
     expect(detail.querySelectorAll("dt")).toHaveLength(5);
     expect([...detail.querySelectorAll("dd")].map((item) => item.getAttribute("title"))).toEqual(["10", "100", "15", "20", "5"]);
-  });
-  it.each(["modal", "page"])("uses only the target server flag in the %s profile", (variant) => {
-    const { container, rerender } = render(<MemoryRouter><ProfileContent data={{ ...profile, user: { ...profile.user, pro_active: true } }} currency="USD" rate={1} variant={variant} /></MemoryRouter>);
-    expect(screen.getByRole("img", { name: "TokenTracker Pro member" })).toBeInTheDocument();
-    expect(container.querySelector(".leaderboard-pro-avatar")).not.toBeNull();
-    expect(screen.getByRole("heading", { name: "Dana Doe" })).toBeInTheDocument();
-    rerender(<MemoryRouter><ProfileContent data={profile} currency="USD" rate={1} variant={variant} /></MemoryRouter>);
-    expect(screen.queryByRole("img", { name: "TokenTracker Pro member" })).not.toBeInTheDocument();
-    expect(container.querySelector(".leaderboard-pro-avatar")).toBeNull();
   });
 });

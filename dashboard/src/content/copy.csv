@@ -547,9 +547,6 @@ leaderboard.github.tooltipAction,ui,LeaderboardPage,LeaderboardPage,github_toolt
 leaderboard.github.tooltipPrefix,ui,LeaderboardPage,LeaderboardPage,github_tooltip_prefix,"Set yours in",,active
 leaderboard.github.tooltipSettingsLink,ui,LeaderboardPage,LeaderboardPage,github_tooltip_link,"Settings",,active
 leaderboard.github.tooltipSuffix,ui,LeaderboardPage,LeaderboardPage,github_tooltip_suffix,"to appear here",,active
-leaderboard.pro.badge,ui,LeaderboardPage,LeaderboardProBadge,pro_badge,"Pro",,active
-leaderboard.pro.badge_aria,ui,LeaderboardPage,LeaderboardProBadge,pro_badge_aria,"TokenTracker Pro member",,active
-leaderboard.pro.tooltip,ui,LeaderboardPage,LeaderboardProBadge,pro_tooltip,"Pro member. Rankings stay based on usage.",,active
 leaderboard.summary.percentile,ui,LeaderboardPage,LeaderboardMeChip,summary_percentile,"Top {{p}}%",,active
 leaderboard.summary.jump_to_me,ui,LeaderboardPage,LeaderboardMeChip,summary_jump_to_me,"Jump to my row",,active
 leaderboard.summary.view_profile,ui,LeaderboardPage,LeaderboardMeChip,summary_view_profile,"View your profile",,active

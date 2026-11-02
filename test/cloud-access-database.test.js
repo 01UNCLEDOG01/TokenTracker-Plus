@@ -305,22 +305,6 @@ test('the actual server role can ingest, while an authenticated owner cannot inv
   }),/permission denied for function/);
 });
 
-test('a paid term restores expired private access and existing machine identity without changing local truth',async()=>{
-  const id=await user();const seed='renewable-machine';const d=await issue(id,seed);
-  await ingest(d.token,[row(120)]);await expire(id,31);
-  assert.equal((await rpc('cloud_account_access',[id,'sandbox','daily'])).ok,false);
-  const order=await rpc('cloud_create_order',[id,'sandbox','wechat','cloud_cny_monthly',randomUUID()]);
-  await rpc('cloud_apply_event',['wechat','sandbox',JSON.stringify({event_id:randomUUID(),kind:'payment',action_id:randomUUID(),
-    order_id:order.id,occurred_at:new Date().toISOString(),currency:order.currency,base_amount_cents:order.amount_cents,amount_cents:order.amount_cents})]);
-  const access=await rpc('cloud_account_access',[id,'sandbox','daily']);
-  assert.equal(access.membership.status,'active');assert.equal(access.ok,true);
-  const reissued=await issue(id,seed);assert.equal(reissued.ok,true);assert.equal(reissued.machine_id,d.machine_id);
-  await db.query("UPDATE tokentracker_cloud_machines SET last_upload_at=now()-interval '1 hour',upload_window_until=now()-interval '1 hour' WHERE id=$1",[d.machine_id]);
-  const uploaded=await ingest(d.token,[row(150)],[],randomUUID());
-  assert.equal(uploaded.ok,true);assert.equal(uploaded.upload_scope,'cloud');assert.equal(uploaded.sync_interval_seconds,900);
-  assert.equal((await db.query('SELECT total_tokens FROM tokentracker_hourly WHERE user_id=$1',[id])).rows[0].total_tokens,150);
-});
-
 // PGlite serializes its JS connections. A SQL trigger deterministically
 // interleaves the unguarded legacy writer after the RPC's pre-check, so the
 // actual unique indexes decide the conflict rather than a mocked response.
@@ -429,32 +413,6 @@ test('maintenance-lock composition preserves exact-identity conflict handling in
 });
 
 
-test('early purchase preserves old over-limit slots only through the originally promised transition deadline',async()=>{
-  const id=await user(false);
-  const originalLaunch=(await db.query("SELECT launch_at FROM tokentracker_cloud_policy WHERE environment='sandbox'")).rows[0].launch_at;
-  for(let i=0;i<7;i++) await db.query("INSERT INTO tokentracker_devices(user_id,device_name,platform,machine_id,created_at) VALUES($1,$2,'web',$2,now()-interval '60 days')",[id,'paid-grace-'+i]);
-  const before=await list(id);assert.equal(before.membership.status,'transition');assert.equal(before.machine_count,7);
-  const old=await issue(id,'paid-grace-0',{name:'paid-grace-0'});assert.equal(old.ok,true);
-  const uploadId=randomUUID();assert.equal((await ingest(old.token,[row()],[],uploadId)).ok,true);
-  assert.equal((await issue(id)).code,'cloud_machine_limit');
-  const order=await rpc('cloud_create_order',[id,'sandbox','wechat','cloud_cny_monthly',randomUUID()]);
-  await rpc('cloud_apply_event',['wechat','sandbox',JSON.stringify({event_id:randomUUID(),kind:'payment',action_id:randomUUID(),
-    order_id:order.id,occurred_at:new Date().toISOString(),currency:order.currency,base_amount_cents:order.amount_cents,amount_cents:order.amount_cents})]);
-  const afterPurchase=await list(id);assert.equal(afterPurchase.membership.status,'active');
-  assert.equal(afterPurchase.membership.transition_ends_at,before.membership.transition_ends_at);
-  assert.equal((await issue(id,'paid-grace-0',{name:'paid-grace-0'})).ok,true);
-  assert.equal((await ingest(old.token,[row(120)],[],uploadId)).ok,true);
-  assert.equal((await issue(id)).code,'cloud_machine_limit','paying early cannot add an eighth slot');
-  try {
-    await db.exec("UPDATE tokentracker_cloud_policy SET launch_at=now()-interval '31 days' WHERE environment='sandbox'");
-    const expiredGrace=await list(id);assert.equal(expiredGrace.membership.status,'active','the paid term remains active');
-    assert.ok(Date.parse(expiredGrace.membership.transition_ends_at)<Date.now());
-    assert.equal((await issue(id,'paid-grace-0',{name:'paid-grace-0'})).code,'cloud_machine_limit');
-    assert.equal((await ingest(old.token,[row(140)],[],uploadId)).code,'cloud_machine_limit');
-    assert.equal((await issue(id)).code,'cloud_machine_limit');
-  } finally { await db.query("UPDATE tokentracker_cloud_policy SET launch_at=$1 WHERE environment='sandbox'",[originalLaunch]); }
-});
-
 test('Cloud uses a 99-device abuse guard while free uploads and upload protections stay enforced', async () => {
   await db.exec(migration('20261010225755_cloud-device-safety-cap.sql'));
   const id = await user();
@@ -480,14 +438,6 @@ test('Cloud uses a 99-device abuse guard while free uploads and upload protectio
   assert.equal((await issue(free)).ok,true);
   assert.equal((await issue(free)).code,'cloud_machine_limit');
   assert.equal((await list(free)).machine_limit,1);
-  const paid = await user(false);
-  const order = await rpc('cloud_create_order',[paid,'sandbox','wechat','cloud_cny_monthly',randomUUID()]);
-  await rpc('cloud_apply_event',['wechat','sandbox',JSON.stringify({event_id:randomUUID(),kind:'payment',action_id:randomUUID(),
-    order_id:order.id,occurred_at:new Date().toISOString(),currency:order.currency,base_amount_cents:order.amount_cents,amount_cents:order.amount_cents})]);
-  const membership = await rpc('cloud_membership',[paid,'sandbox']);
-  assert.equal(membership.status,'active');
-  assert.equal(membership.machine_limit,99);
-  assert.equal(membership.sync_interval_seconds,900);
   await db.transaction(async tx => {
     await tx.query("INSERT INTO tokentracker_devices(user_id,device_name,platform,machine_id,created_at) VALUES($1,'Transition','web','transition-cap',now()-interval '60 days')",[free]);
     const transition = (await tx.query("SELECT cloud_membership($1,'sandbox') result",[free])).rows[0].result;

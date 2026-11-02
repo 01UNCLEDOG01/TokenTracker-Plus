@@ -6,7 +6,7 @@
 //
 // esbuild runs HERE, on the machine doing the packaging, and never inside the
 // image - so the target host (an iStoreOS / OpenWrt soft-router, say) only has
-// to start Node, not compile fourteen handlers.
+// to start Node, not compile twenty handlers.
 //
 //   node scripts/self-host/package-image.cjs
 //   cd dist/local-backend-image

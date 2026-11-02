@@ -3,8 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createRAMAuthBroker, REALM } = require("../scripts/native-qa-auth.cjs");
 const USER = "00000000-0000-4000-8000-000000000001";
-const ORDER = "00000000-0000-4000-8000-000000000003";
-const gatewayHeaders = { "X-TokenTracker-Sandbox-Realm": REALM, "X-TokenTracker-Billing-Environment": "sandbox" };
+const gatewayHeaders = { "X-TokenTracker-Sandbox-Realm": REALM };
 const session = token => Response.json({ user: { id: USER }, accessToken: token, csrfToken: "unit-only-csrf" }, {
   headers: { "Set-Cookie": "insforge_refresh_token=unit-only-refresh; HttpOnly; Secure; Path=/api/auth" }
 });
@@ -47,21 +46,6 @@ test("an in-flight refresh cannot restore an actor cleared after the request beg
   release(session("unit-stale-after-clear"));
   const result = await pending;
   assert.equal(result.status, 403); assert.equal(broker.accessToken(), null);
-});
-
-test("owned-order verification uses the real public membership/environment envelope and current actor", async () => {
-  const broker = createRAMAuthBroker({ allowedUserIDs: [USER], fetchImpl: async target => {
-    const url = new URL(target);
-    if (url.searchParams.get("mode") === "identity") return identity();
-    if (url.searchParams.get("action") === "order") return Response.json({
-      order: { id: ORDER, status: "paid", payment_state: "partially_refunded" }, membership: { environment: "sandbox" }
-    }, { headers: gatewayHeaders });
-    return session("unit-access");
-  } });
-  assert.equal((await login(broker)).status, 200);
-  const value = await broker.ownedOrder(ORDER);
-  assert.equal(value.userID, USER); assert.equal(value.order.id, ORDER);
-  assert.equal(value.order.environment, undefined);
 });
 
 test("actual broker-issued tokens survive same-actor rotation but are discarded on logout/clear", async () => {

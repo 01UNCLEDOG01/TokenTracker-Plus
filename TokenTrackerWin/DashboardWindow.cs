@@ -1072,13 +1072,6 @@ internal sealed class DashboardWindow : Window
         });
     }
 
-    public void HandleBillingReturn(Guid order)
-    {
-        Log("HandleBillingReturn type=billing");
-        ShowDashboard();
-        NavigateWhenServerReady(NativeReturnUri.CheckoutPath(order));
-    }
-
     /// <summary>Diagnostics → %LOCALAPPDATA%\TokenTracker\windows-host.log (shared with ServerManager).</summary>
     private static void Log(string message) => Diag.Log("dashboard", message);
 

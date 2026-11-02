@@ -83,16 +83,10 @@ export function LeaderboardMeChip({
         avatarUrl={me?.avatar_url}
         displayName={headlineName}
         seed={avatarSeed}
-        proActive={me?.pro_active === true}
       />
       <span className="hidden sm:inline max-w-[120px] truncate text-xs font-semibold text-oai-black dark:text-oai-gray-200 group-hover:text-oai-gray-800 dark:group-hover:text-oai-gray-100 transition-colors">
         {headlineName}
       </span>
-      {me?.pro_active === true && (
-        <span className="leaderboard-pro-badge" role="img" aria-label={copy("leaderboard.pro.badge_aria")} aria-description={copy("leaderboard.pro.tooltip")}>
-          {copy("leaderboard.pro.badge")}
-        </span>
-      )}
       <span className="text-xs font-bold tabular-nums text-oai-gray-800 dark:text-white">
         #{rank.toLocaleString()}
       </span>

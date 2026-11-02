@@ -227,7 +227,7 @@ test('SQL shape drift aborts the whole migration before any archive schema is re
   } finally { await isolated.close(); }
 });
 
-test('billing, machine admission, real ingest RPC and archive run together in the same database', async () => {
+test('machine admission, real ingest RPC and archive run together in the same database', async () => {
   const isolated = await setup();
   const call = async (name, args) => (await isolated.query(`SELECT ${name}(${args.map((_, i) => '$' + (i + 1)).join(',')}) AS result`, args)).rows[0].result;
   try {
@@ -357,7 +357,7 @@ test('bounded cleanup deletes only old superseded empty metadata and leaves anot
   await assert.rejects(rpc('cloud_cleanup_usage_archive', [randomUUID(), id, 1001]), /bounded/);
 });
 
-test('user usage erasure is atomic, scoped and idempotent while auth and financial records survive', async () => {
+test('user usage erasure is atomic, scoped and idempotent while the auth identity survives', async () => {
   const isolated = await setup();
   const call = async (name, args) => (await isolated.query(`SELECT ${name}(${args.map((_, i) => '$' + (i + 1)).join(',')}) AS result`, args)).rows[0].result;
   try {
@@ -383,14 +383,8 @@ test('user usage erasure is atomic, scoped and idempotent while auth and financi
       await isolated.query(`INSERT INTO agentmeter_hourly(user_id,device_id,source,model,hour_start,input_tokens,
         cached_input_tokens,cache_creation_input_tokens,output_tokens,reasoning_output_tokens,total_tokens,billable_total_tokens,
         conversations,total_cost_usd) VALUES($1,$2,'codex','gpt-6','2026-01-02Z',100,0,0,0,0,100,100,1,0)`, [owner, dev]);
-      const order = await call('cloud_create_order', [owner, 'sandbox', 'alipay', 'cloud_cny_monthly', randomUUID()]);
-      await call('cloud_apply_event', ['alipay', 'sandbox', JSON.stringify({ event_id: randomUUID(), kind: 'payment', action_id: randomUUID(), order_id: order.id,
-        occurred_at: new Date().toISOString(), currency: 'CNY', base_amount_cents: 2900, amount_cents: 2900 })]);
     }
     await call('leaderboard_rollup_daily_replace_v2', ['2026-01-02Z', '2026-01-03Z']);
-    const moneyBefore = (await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_cloud_payments p ORDER BY id')).rows;
-    const ordersBefore = (await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_cloud_orders p ORDER BY id')).rows;
-    const eventBefore = (await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_cloud_events p ORDER BY event_id')).rows;
     const otherSnapshots = (await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_leaderboard_snapshots p WHERE user_id=$1', [other])).rows;
     const erasePlan = await call('cloud_usage_maintenance_plan', ['erase-user', id, null, null, null, 10]);
     assert.deepEqual(erasePlan.targets[0].derived_rows, { tokentracker_leaderboard_snapshots: 1,
@@ -405,7 +399,7 @@ test('user usage erasure is atomic, scoped and idempotent while auth and financi
     await isolated.exec('DROP TRIGGER archive_test_erase_failure ON tokentracker_leaderboard_rollup_daily_v2; DROP FUNCTION archive_test_erase_failure();');
     assert.equal((await isolated.query('SELECT count(*)::integer n FROM tokentracker_usage_archive_manifest WHERE user_id=$1', [id])).rows[0].n, 1);
     assert.equal((await isolated.query('SELECT revoked_at FROM tokentracker_device_tokens WHERE token_hash=$1', [tokens[0]])).rows[0].revoked_at, null);
-    assert.equal((await call('cloud_erase_user_usage', [op, id, id])).financial_records_preserved, true);
+    assert.equal((await call('cloud_erase_user_usage', [op, id, id])).auth_preserved, true);
     assert.equal((await call('cloud_erase_user_usage', [op, id, id])).replayed, true);
     assert.equal((await isolated.query('SELECT count(*)::integer n FROM cloud_usage_hourly($1,NULL,NULL,NULL)', [id])).rows[0].n, 0);
     assert.equal((await isolated.query('SELECT sum(total_tokens)::integer n FROM tokentracker_leaderboard_rollup_total_v2 WHERE user_id=$1', [other])).rows[0].n, 100);
@@ -416,9 +410,6 @@ test('user usage erasure is atomic, scoped and idempotent while auth and financi
       assert.equal((await isolated.query(`SELECT count(*)::integer n FROM ${table} WHERE user_id=$1`, [other])).rows[0].n, 1);
     }
     assert.deepEqual((await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_leaderboard_snapshots p WHERE user_id=$1', [other])).rows, otherSnapshots);
-    assert.deepEqual((await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_cloud_payments p ORDER BY id')).rows, moneyBefore);
-    assert.deepEqual((await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_cloud_orders p ORDER BY id')).rows, ordersBefore);
-    assert.deepEqual((await isolated.query('SELECT to_jsonb(p) row FROM tokentracker_cloud_events p ORDER BY event_id')).rows, eventBefore);
     const rejected = await call('cloud_ingest_usage', [tokens[0], 'sandbox', JSON.stringify([{ hour_start: '2026-01-02Z', source: 'codex', model: 'gpt-6', total_tokens: 1 }]), '[]', randomUUID()]);
     assert.equal(rejected.code, 'cloud_device_token_rejected');
     // A later explicit new write must survive an old erasure checkpoint replay.

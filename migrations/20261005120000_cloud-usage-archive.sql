@@ -485,7 +485,7 @@ BEGIN
   DELETE FROM public.tokentracker_usage_dirty_days WHERE user_id=p_user_id;
   DELETE FROM public.tokentracker_account_usage_cache WHERE split_part(cache_key,chr(31),2)=p_user_id::text;
   -- Existing delete triggers update this user's lifetime total. Other users
-  -- remain untouched; the retained financial tables and auth identity are not deleted.
+  -- remain untouched; the auth identity is not deleted.
   DELETE FROM public.tokentracker_leaderboard_rollup_daily_v2 WHERE user_id=p_user_id; GET DIAGNOSTICS v_days=ROW_COUNT;
   DELETE FROM public.tokentracker_leaderboard_rollup_total_v2 WHERE user_id=p_user_id;
   -- Explicit compatibility/materialized tables inspected in the hosted schema.
@@ -502,7 +502,7 @@ BEGIN
     WHERE user_id=p_user_id AND id<>p_operation;
   v_result:=jsonb_build_object('erased_user',p_user_id,'deleted_hot_rows',v_hot,'deleted_sessions',v_sessions,
     'deleted_cold_days',v_cold,'deleted_public_daily_rows',v_days,'deleted_derived_rows',v_derived,
-    'financial_records_preserved',true,'auth_preserved',true);
+    'auth_preserved',true);
   UPDATE public.tokentracker_usage_maintenance_operations SET status='done',result=v_result,completed_at=clock_timestamp() WHERE id=p_operation;
   RETURN v_result;
 END $f$;

@@ -970,22 +970,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     /// <summary>
     /// Handle a <c>tokentracker://</c> deep link (forwarded from a second launch, or a
-    /// cold start argument). OAuth codes return to their callback page; billing
-    /// returns only open the order page, whose server request checks the current account.
+    /// cold start argument). OAuth codes return to their callback page.
     /// </summary>
     public void HandleDeepLink(string url)
     {
         DiagLog($"HandleDeepLink present={!string.IsNullOrEmpty(url)} len={url?.Length ?? 0}");
-        if (NativeReturnUri.TryGetBillingOrder(url, out var order))
-        {
-            DiagLog("HandleDeepLink type=billing");
-            PostToUi(() =>
-            {
-                EnsureDashboard();
-                _dashboard!.HandleBillingReturn(order);
-            });
-            return;
-        }
         if (!NativeReturnUri.TryGetAuthCode(url, out var code))
         {
             DiagLog("HandleDeepLink type=unsupported");

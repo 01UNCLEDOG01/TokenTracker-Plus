@@ -15,13 +15,12 @@ const rawFetch = fetch;
 const rawHttpRequest = require("node:http").request;
 const USER = "00000000-0000-4000-8000-000000000001";
 const PEER = "00000000-0000-4000-8000-000000000002";
-const ORDER = "00000000-0000-4000-8000-000000000003";
 const REALM = "tokentracker-native-sandbox-v1";
 const upstreamCalls = [];
 const publicProfile = { schemaVersion: 1, realm: REALM, environment: "sandbox",
   backendBaseUrl: "https://srctyff5.us-east.insforge.app",
   gatewayUrl: "https://srctyff5.function2.insforge.app/tokentracker-native-sandbox-gateway",
-  protocol: "tokentracker-qa", returnPath: "/billing/checkout", returnSiteOrigin: "https://srctyff5.insforge.site",
+  protocol: "tokentracker-qa", returnSiteOrigin: "https://srctyff5.insforge.site",
   auth: { issuerUnchanged: true, brokerRequired: true } };
 const gatewayHeaders = { "X-TokenTracker-Sandbox-Realm": REALM, "X-TokenTracker-Billing-Environment": "sandbox" };
 const fixture = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "native-qa-core-fixture-")));
@@ -56,7 +55,7 @@ fs.mkdirSync(path.join(packageRoot, "dashboard/dist"), { recursive: true });
 fs.writeFileSync(path.join(packageRoot, "dashboard/dist/index.html"), "<!doctype html><html><body><div id='root'></div></body></html>");
 fs.writeFileSync(path.join(packageRoot, "dashboard/dist/pricing.html"), "<h1>Owned fixture</h1>");
 let native;
-let pausedOrder = null;
+let pausedRead = null;
 const upstream = async (target, options = {}) => {
   const url = new URL(target);
   if (url.hostname === "127.0.0.1") return rawFetch(target, options);
@@ -72,16 +71,15 @@ const upstream = async (target, options = {}) => {
     return Response.json({ user: { id: peer ? PEER : USER }, accessToken: peer ? "unit-peer" : "unit-access", csrfToken: "unit-csrf" },
       { headers: { "Set-Cookie": "insforge_refresh_token=unit-refresh; HttpOnly" } });
   }
-  if (url.searchParams.get("action") === "order") {
-    if (pausedOrder) { pausedOrder.began(); await pausedOrder.wait; }
-    return Response.json({ order: { id: ORDER, status: "paid" }, membership: { environment: "sandbox" } }, { headers: gatewayHeaders });
+  if (url.searchParams.get("fn") === "tokentracker-account-summary") {
+    if (pausedRead) { pausedRead.began(); await pausedRead.wait; }
+    return Response.json({ totals: { total_tokens: 0 } }, { headers: gatewayHeaders });
   }
-  if (url.searchParams.get("action") === "catalog") return Response.json({ environment: "sandbox", policy: { phase: "preview" } }, { headers: gatewayHeaders });
   throw Error("fixture_upstream_unknown_route");
 };
 
 (async () => {
-  native = await createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs: [USER, PEER], ownedOrderIDs: [ORDER], publicProfile, fetchImpl: upstream });
+  native = await createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs: [USER, PEER], publicProfile, fetchImpl: upstream });
   const profile = JSON.parse(fs.readFileSync(native.profilePath, "utf8"));
   const headers = { "X-TokenTracker-QA-Challenge": profile.serverChallenge };
   const send = (route, init = {}) => rawFetch(native.origin + route, { ...init, headers: { ...headers, ...(init.headers || {}) } });
@@ -114,13 +112,12 @@ const upstream = async (target, options = {}) => {
   assert.equal(logged.status, 200); const session = await logged.json(); assert.ok(!JSON.stringify(session).includes("unit-refresh"));
   const before = upstreamCalls.length;
   for (const base of [native.origin + "/functions/", native.origin + "/api/functions/", publicProfile.backendBaseUrl + "/functions/", "https://srctyff5.function2.insforge.app/"]) {
-    assert.equal((await transport({ url: base + "tokentracker-billing?action=account", method: "GET", headers: { Authorization: "Bearer peer-unissued" }, body: null })).status, 403);
-    assert.equal((await transport({ url: base + "tokentracker-billing?action=checkout", method: "POST", headers: { Authorization: "Bearer unit-access" }, body: "{}" })).status, 403);
-    assert.equal((await transport({ url: base + "tokentracker-device-token-issue?action=reconcile", method: "POST", headers: { Authorization: "Bearer unit-access" }, body: JSON.stringify({ id: ORDER }) })).status, 403);
+    // Every business mutation is refused; the QA harness never writes.
+    assert.equal((await transport({ url: base + "tokentracker-device-token-issue?action=reconcile", method: "POST", headers: { Authorization: "Bearer unit-access" }, body: JSON.stringify({ id: USER }) })).status, 403);
   }
   assert.equal(upstreamCalls.length, before);
-  const owned = await send("/__native-qa/validate-order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order: ORDER, realm: REALM }) });
-  assert.equal(owned.status, 200); const proof = await owned.json(); assert.equal(proof.actor, USER);
+  const proofResponse = await send("/__native-qa/identity");
+  assert.equal(proofResponse.status, 200); const proof = await proofResponse.json(); assert.equal(proof.actor, USER);
   const confirm = () => send("/__native-qa/validate-actor", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ actor: proof.actor, actorEpoch: proof.actorEpoch, realm: REALM }) });
   assert.equal((await confirm()).status, 200);
@@ -130,8 +127,8 @@ const upstream = async (target, options = {}) => {
   assert.equal((await send("/functions/tokentracker-usage-limits")).status, 503);
   let began; let release;
   const started = new Promise(resolve => { began = resolve; });
-  pausedOrder = { began, wait: new Promise(resolve => { release = resolve; }) };
-  const delayed = transport({ url: publicProfile.backendBaseUrl + "/functions/tokentracker-billing?action=order&id=" + ORDER,
+  pausedRead = { began, wait: new Promise(resolve => { release = resolve; }) };
+  const delayed = transport({ url: publicProfile.backendBaseUrl + "/functions/tokentracker-account-summary?from=2026-10-01&to=2026-10-01",
     method: "GET", headers: { Authorization: "Bearer unit-access" }, body: null });
   await started;
   const switched = await transport({ url: publicProfile.backendBaseUrl + "/api/auth/sessions", method: "POST", headers: {},

@@ -1,5 +1,7 @@
 -- Stable synchronization slots. Display names and OS-derived machine ids are
 -- aliases, not hardware attestation. Preview preserves pre-launch access.
+-- This fork has no paid upgrade page, so membership denials carry no
+-- recovery_url.
 CREATE TABLE public.tokentracker_cloud_machines (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -155,7 +157,7 @@ BEGIN
       WHERE user_id=p_user_id AND environment=p_environment AND status='active';
     IF v_limit IS NOT NULL AND v_count>=v_limit THEN
       RETURN jsonb_build_object('ok',false,'code','cloud_machine_limit','status',409,
-        'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
+        'membership',v_state);
     END IF;
   END IF;
   UPDATE public.tokentracker_cloud_machines SET status=p_status,upload_window_until=NULL,
@@ -199,7 +201,7 @@ BEGIN
     WHERE user_id=p_user_id AND environment=p_environment AND kind='machine' AND alias=p_machine_id;
   IF EXISTS (SELECT 1 FROM public.tokentracker_cloud_machines WHERE id=v_known_slot AND status='paused') THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_machine_paused','status',403,
-      'membership',v_state,'machine_id',v_known_slot,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state,'machine_id',v_known_slot);
   END IF;
   IF p_machine_id IS NOT NULL THEN
     SELECT * INTO v_device FROM public.tokentracker_devices WHERE user_id=p_user_id
@@ -231,7 +233,7 @@ BEGIN
       WHERE user_id=p_user_id AND environment=p_environment AND status='active';
     IF v_known_slot IS NULL AND v_limit IS NOT NULL AND v_count>=v_limit THEN
       RETURN jsonb_build_object('ok',false,'code','cloud_machine_limit','status',409,
-        'membership',v_state,'machine_count',v_count,'recovery_url','https://www.tokentracker.cc/cloud');
+        'membership',v_state,'machine_count',v_count);
     END IF;
     v_name:=p_device_name;
     IF EXISTS (SELECT 1 FROM public.tokentracker_devices WHERE user_id=p_user_id AND platform=p_platform
@@ -249,13 +251,13 @@ BEGIN
     END IF;
     IF v_device.id IS NULL THEN
       RETURN jsonb_build_object('ok',false,'code','cloud_device_identity_conflict','status',409,
-        'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
+        'membership',v_state);
     END IF;
   ELSE
     v_slot:=public.cloud_bind_device_slot(p_user_id,p_environment,v_device.id);
     IF EXISTS (SELECT 1 FROM public.tokentracker_cloud_machines WHERE id=v_slot AND status='paused') THEN
       RETURN jsonb_build_object('ok',false,'code','cloud_machine_paused','status',403,
-        'membership',v_state,'machine_id',v_slot,'recovery_url','https://www.tokentracker.cc/cloud');
+        'membership',v_state,'machine_id',v_slot);
     END IF;
     IF p_machine_id IS NOT NULL AND v_device.machine_id IS NULL THEN
       BEGIN
@@ -266,7 +268,7 @@ BEGIN
           UPDATE public.tokentracker_devices SET machine_id=p_machine_id WHERE id=v_device.id;
         EXCEPTION WHEN unique_violation THEN
           RETURN jsonb_build_object('ok',false,'code','cloud_device_identity_conflict','status',409,
-            'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
+            'membership',v_state);
         END;
       END;
     END IF;
@@ -274,13 +276,13 @@ BEGIN
   v_slot:=public.cloud_bind_device_slot(p_user_id,p_environment,v_device.id);
   IF EXISTS (SELECT 1 FROM public.tokentracker_cloud_machines WHERE id=v_slot AND status='paused') THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_machine_paused','status',403,
-      'membership',v_state,'machine_id',v_slot,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state,'machine_id',v_slot);
   END IF;
   SELECT count(*) INTO v_count FROM public.tokentracker_cloud_machines
     WHERE user_id=p_user_id AND environment=p_environment AND status='active';
   IF v_limit IS NOT NULL AND v_count>v_limit AND NOT coalesce((v_state->>'transition_ends_at')::timestamptz>clock_timestamp(),false) THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_machine_limit','status',409,
-      'membership',v_state,'machine_count',v_count,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state,'machine_count',v_count);
   END IF;
   IF p_rotate THEN
     UPDATE public.tokentracker_device_tokens SET revoked_at=clock_timestamp()
@@ -310,7 +312,7 @@ BEGIN
     WHERE user_id=p_user_id AND environment=p_environment AND kind='machine' AND alias=v_code.machine_id;
   IF EXISTS (SELECT 1 FROM public.tokentracker_cloud_machines WHERE id=v_slot AND status='paused') THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_machine_paused','status',403,
-      'machine_id',v_slot,'recovery_url','https://www.tokentracker.cc/cloud');
+      'machine_id',v_slot);
   END IF;
   -- Final identity resolution and quota admission happen at token issuance.
   v_state:=public.cloud_membership(p_user_id,p_environment);
@@ -329,7 +331,7 @@ BEGIN
   IF NOT (v_state->>'can_read_cloud')::boolean THEN
     RETURN jsonb_build_object('ok',false,'status',402,'code',CASE WHEN v_state->>'status'='expired'
       THEN 'cloud_read_only_expired' ELSE 'cloud_membership_required' END,
-      'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state);
   END IF;
   IF v_state->>'phase'='active' THEN
     v_from:=CASE WHEN p_kind='hourly' THEN (now() AT TIME ZONE 'UTC')::date - 89
@@ -373,7 +375,7 @@ BEGIN
   v_state:=public.cloud_membership(v_token.user_id,p_environment);
   IF v_machine.status<>'active' THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_machine_paused','status',403,
-      'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state);
   END IF;
   v_limit:=(v_state->>'machine_limit')::integer;
   SELECT count(*) INTO v_count FROM public.tokentracker_cloud_machines
@@ -382,7 +384,7 @@ BEGIN
   -- users choose their five; new slots still pass the admission limit above.
   IF v_limit IS NOT NULL AND v_count>v_limit AND NOT coalesce((v_state->>'transition_ends_at')::timestamptz>clock_timestamp(),false) THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_machine_limit','status',409,
-      'membership',v_state,'machine_count',v_count,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state,'machine_count',v_count);
   END IF;
   v_interval:=(v_state->>'sync_interval_seconds')::integer;
   v_next:=CASE WHEN (v_state->>'can_upload_cloud')::boolean
@@ -395,7 +397,7 @@ BEGIN
   IF v_state->>'phase'='active' AND v_next>v_now AND NOT coalesce(v_continuation,false) THEN
     RETURN jsonb_build_object('ok',false,'code','cloud_sync_throttled','status',429,
       'next_allowed_at',v_next,'retry_after_seconds',greatest(1,ceil(extract(epoch FROM v_next-v_now))::integer),
-      'membership',v_state,'recovery_url','https://www.tokentracker.cc/cloud');
+      'membership',v_state);
   END IF;
   -- Each batch retains MAX within the batch, then replaces the complete row
   -- across requests. Never use GREATEST against the stored hourly snapshot.

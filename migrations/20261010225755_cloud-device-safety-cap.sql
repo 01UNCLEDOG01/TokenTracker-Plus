@@ -1,5 +1,5 @@
 -- Cloud device admission is an abuse guard, not a five-device plan quota.
--- Preserve all existing membership, gift, expiry and self-hosted semantics.
+-- Preserve all existing membership, expiry and self-hosted semantics.
 SET LOCAL lock_timeout = '3s';
 
 ALTER FUNCTION public.cloud_membership(uuid,text)

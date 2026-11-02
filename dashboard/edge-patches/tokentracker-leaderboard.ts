@@ -20,10 +20,6 @@
  * private data is exposed.
  */
 import { createClient } from "npm:@insforge/sdk";
-// Cloud billing was removed from this fork, so no account can be "Pro".
-// `pro_active` stays in the payload as a constant false to keep the public
-// leaderboard response shape stable for existing clients.
-
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -249,11 +245,9 @@ export default async function (req: Request): Promise<Response> {
     entries: visibleEntries.map((e: { user_id?: string }) => ({
       ...e,
       ...badgesFor(e),
-      pro_active: false,
       is_me: (visibleMe as { user_id?: string } | null)?.user_id === e.user_id,
     })),
-    me: visibleMe ? { ...(visibleMe as Record<string, unknown>), ...badgesFor(visibleMe as { user_id?: string }),
-      pro_active: false } : null,
+    me: visibleMe ? { ...(visibleMe as Record<string, unknown>), ...badgesFor(visibleMe as { user_id?: string }) } : null,
     total_entries: count || 0,
     total_pages: Math.ceil((count || 0) / limit),
     from: from_day,

@@ -6,7 +6,7 @@ export const REALM = "tokentracker-native-sandbox-v1";
 export const BACKEND = process.env.TT_SANDBOX_BACKEND || "";
 export const FUNCTIONS = process.env.TT_SANDBOX_FUNCTIONS || "";
 export const GATEWAY = FUNCTIONS ? FUNCTIONS + "/tokentracker-native-sandbox-gateway" : "";
-const FUNCTIONS_ALLOWED = new Set(["tokentracker-billing", "tokentracker-device-token-issue", "tokentracker-device-rename", "tokentracker-ingest",
+const FUNCTIONS_ALLOWED = new Set(["tokentracker-device-token-issue", "tokentracker-device-rename", "tokentracker-ingest",
   "tokentracker-device-flow-authorize", "tokentracker-device-flow-grant", "tokentracker-device-flow-poll",
   ...["summary", "daily", "hourly", "monthly", "heatmap", "model-breakdown", "devices"].map(name => "tokentracker-account-" + name)]);
 const AUTH_METHODS = new Map([["/api/auth/public-config", "GET"], ["/api/auth/sessions", "POST"], ["/api/auth/refresh", "POST"],
@@ -28,21 +28,21 @@ export function classifyNativeSandboxFunction(input, localOrigin) {
 export function assertPublicProfile(profile) {
   if (profile?.schemaVersion !== 1 || profile.realm !== REALM || profile.environment !== "sandbox" ||
     profile.backendBaseUrl !== BACKEND || profile.gatewayUrl !== GATEWAY || profile.protocol !== "tokentracker-qa" ||
-    profile.returnPath !== "/billing/checkout" || profile.auth?.issuerUnchanged !== true || profile.auth?.brokerRequired !== true) throw Error("native_sandbox_profile_invalid");
+    profile.auth?.issuerUnchanged !== true || profile.auth?.brokerRequired !== true) throw Error("native_sandbox_profile_invalid");
   const site = new URL(profile.returnSiteOrigin);
   if (site.protocol !== "https:" || site.origin !== profile.returnSiteOrigin || site.username || site.password) throw Error("native_sandbox_profile_invalid");
   return Object.freeze({ realm: REALM, environment: "sandbox", backendBaseUrl: BACKEND, gatewayUrl: GATEWAY,
-    returnSiteOrigin: site.origin, returnPath: "/billing/checkout", protocol: "tokentracker-qa" });
+    returnSiteOrigin: site.origin, protocol: "tokentracker-qa" });
 }
 
 // Called by the QA native server or an early, mandatory WebView fetch hook.
 // Auth stays on the real issuer via the native-local broker; this module
 // never implements cookies, refresh, login or session restoration itself.
-export function createNativeSandboxTransport({ profile, localOrigin, fetchImpl, getAccessToken, authBrokerFetch, localFetch }) {
+export function createNativeSandboxTransport({ profile, localOrigin, fetchImpl, authBrokerFetch, localFetch }) {
   assertPublicProfile(profile);
   const local = new URL(localOrigin);
   if (local.origin !== localOrigin || local.protocol !== "http:" || !["localhost", "127.0.0.1", "[::1]"].includes(local.hostname) ||
-    typeof fetchImpl !== "function" || typeof getAccessToken !== "function" || typeof authBrokerFetch !== "function") throw Error("native_sandbox_transport_invalid");
+    typeof fetchImpl !== "function" || typeof authBrokerFetch !== "function") throw Error("native_sandbox_transport_invalid");
   return async (input, init = {}) => {
     const existing = input instanceof Request ? input : null;
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, localOrigin);
@@ -65,12 +65,7 @@ export function createNativeSandboxTransport({ profile, localOrigin, fetchImpl, 
     const target = new URL(GATEWAY); target.searchParams.set("fn", name);
     for (const [key, value] of url.searchParams) target.searchParams.append(key, value);
     const sourceHeaders = new Headers(init.headers || existing?.headers);
-    let authorization = sourceHeaders.get("Authorization");
-    if (!authorization && name === "tokentracker-billing" && url.searchParams.get("action") === "catalog") {
-      const token = await getAccessToken();
-      if (typeof token !== "string" || !token) return fail("native_sandbox_sign_in_required");
-      authorization = "Bearer " + token;
-    }
+    const authorization = sourceHeaders.get("Authorization");
     if (!authorization) return fail("native_sandbox_sign_in_required");
     const headers = new Headers({ Authorization: authorization, "X-TokenTracker-Sandbox-Realm": REALM });
     const contentType = sourceHeaders.get("Content-Type"); if (contentType) headers.set("Content-Type", contentType);

@@ -12,7 +12,6 @@ const LOCAL_READ = new Set(["tokentracker-user-status", "tokentracker-usage-summ
   "tokentracker-usage-hourly", "tokentracker-usage-monthly", "tokentracker-usage-heatmap",
   "tokentracker-usage-model-breakdown", "tokentracker-usage-category-breakdown"]);
 const SAFE_API = new Set(["/api/local-auth", "/api/runtime-config.js"]);
-const uuid = value => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(value);
 const digest = value => crypto.createHash("sha256").update(value).digest("hex");
 function json(res, status, value) {
   res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -76,11 +75,8 @@ function installFileAndProcessGuards({ packageRoot, runDirectory, counters }) {
   }
 }
 
-async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, ownedOrderIDs, publicProfile, fetchImpl = fetch }) {
+async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, publicProfile, fetchImpl = fetch }) {
   packageRoot = fs.realpathSync(packageRoot);
-  if (!Array.isArray(ownedOrderIDs) || !ownedOrderIDs.length || ownedOrderIDs.length > 8 || ownedOrderIDs.some(id => !uuid(id))) {
-    throw Error("native_qa_order_configuration_required");
-  }
   const modulePath = path.join(repoRoot, "scripts/cloud-sandbox/native-client-transport.mjs");
   const { createNativeSandboxTransport, assertPublicProfile, classifyNativeSandboxFunction } = await import(pathToFileURL(modulePath).href);
   if (typeof classifyNativeSandboxFunction !== "function") throw Error("native_qa_transport_classifier_required");
@@ -108,6 +104,7 @@ async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, own
   };
   const broker = createRAMAuthBroker({ allowedUserIDs, fetchImpl: trustedFetch });
   const identity = () => ({ runID, runDirectory, realm: REALM, environment: "sandbox", scansDisabled: true,
+    actor: broker.actorID(), actorEpoch: broker.sessionEpoch(),
     challengeProof: digest(serverChallenge + "\n" + runID + "\n" + runDirectory), bootstrapSHA256 });
   const server = http.createServer(async (req, res) => {
     try {
@@ -143,13 +140,6 @@ async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, own
           if (seeded.status !== 200) throw Error("native_qa_server_seed_rejected");
           return json(res, 200, { ...identity(), authenticated: true, actor: broker.actorID(), actorEpoch: broker.sessionEpoch() });
         }
-        if (url.pathname === "/__native-qa/validate-order" && req.method === "POST") {
-          const value = await body(req);
-          if (value.realm !== REALM || !ownedOrderIDs.includes(value.order) || Object.keys(value).length !== 2) throw Error("native_qa_order_rejected");
-          const verified = await broker.ownedOrder(value.order);
-          if (broker.sessionEpoch() !== verified.epoch || broker.actorID() !== verified.userID) throw Error("native_qa_session_changed");
-          return json(res, 200, { ...identity(), allowed: true, order: value.order, actor: verified.userID, actorEpoch: verified.epoch });
-        }
         if (url.pathname === "/__native-qa/transport" && req.method === "POST") {
           const value = await body(req);
           if (typeof value.url !== "string" || typeof value.method !== "string" || !value.headers ||
@@ -163,15 +153,8 @@ async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, own
           if (business) {
             const supplied = sourceHeaders.get("Authorization");
             if (supplied && (!supplied.startsWith("Bearer ") || !broker.acceptsAccessToken(supplied.slice(7)))) throw Error("native_qa_session_rejected");
-            if (value.method === "POST") {
-              const input = JSON.parse(value.body);
-              const action = target.searchParams.get("action");
-              const orderRead = action === "reconcile" && ownedOrderIDs.includes(input?.id);
-              const giftClaim = action === "redeem-gift" && input && !Array.isArray(input) &&
-                Object.keys(input).length === 2 && typeof input.code === "string" && input.code.length <= 256 &&
-                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.request_id || "");
-              if (businessFunction !== "tokentracker-billing" || !orderRead && !giftClaim) throw Error("native_qa_mutation_rejected");
-            }
+            // The QA harness performs no commerce or mutation writes at all.
+            if (value.method === "POST") throw Error("native_qa_mutation_rejected");
           }
           const localFetch = async (input, init) => {
             const localURL = new URL(input, origin);
@@ -184,7 +167,7 @@ async function createNativeQAServer({ packageRoot, repoRoot, allowedUserIDs, own
               () => broker.sessionEpoch() === capturedEpoch && broker.actorID() === capturedActor);
           }
           const transport = createNativeSandboxTransport({ profile: publicProfile, localOrigin: origin,
-            fetchImpl: trustedFetch, getAccessToken: async () => broker.accessToken(),
+            fetchImpl: trustedFetch,
             authBrokerFetch: (_, init) => broker.request(target.pathname, init),
             localFetch });
           const result = await transport(value.url, { method: value.method, headers: sourceHeaders, body: value.body ?? undefined });
@@ -241,7 +224,7 @@ navigator.sendBeacon = () => false;
   const bootstrapBytes = Buffer.from(bootstrap.outputFiles[0].contents);
   bootstrapSHA256 = digest(bootstrapBytes);
   fs.writeFileSync(path.join(runDirectory, "bootstrap.js"), bootstrapBytes, { mode: 0o600 });
-  const profile = { version: 1, runID, origin, runDirectory, serverChallenge, realm: REALM, ownedOrderIDs };
+  const profile = { version: 1, runID, origin, runDirectory, serverChallenge, realm: REALM };
   fs.writeFileSync(path.join(runDirectory, "profile.json"), JSON.stringify(profile), { mode: 0o600 });
   installFileAndProcessGuards({ packageRoot, runDirectory, counters });
   delete process.env.TOKENTRACKER_DEVICE_TOKEN;

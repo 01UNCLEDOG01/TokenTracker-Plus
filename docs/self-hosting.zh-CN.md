@@ -1,6 +1,6 @@
 # 将 TokenTracker 部署到自己的服务器
 
-自部署软件免费。你可以在自己的 VPS 上运行同步后端，服务器、域名和备份费用由你支付，升级和维护也由你负责。Managed Cloud 收取的是托管服务费，TokenTracker 仍遵循 MIT 开源许可。
+自部署软件免费。你可以在自己的 VPS 上运行同步后端，服务器、域名和备份费用由你支付，升级和维护也由你负责。TokenTracker 本身没有付费版本，也没有可购买的托管订阅。
 
 **当前状态为技术预览。** InsForge 本身支持 Docker Compose 自部署，但仓库还没有一套在空白 VPS 上验证过的完整 TokenTracker 安装包。这份文档说明部署准备、已有配置和待完成的步骤，还不是一键安装教程。[InsForge 官方自部署说明](https://github.com/InsForge/InsForge#self-hosted-docker-compose)
 
@@ -11,7 +11,6 @@
 | 方案 | 需要自己维护什么 | TokenTracker 软件费用 | 数据范围 |
 | --- | --- | --- | --- |
 | 本地使用 | 每台设备上的应用 | 免费 | 各设备的本地用量 |
-| Managed Cloud | 无需维护服务器 | 托管订阅 | 官方 Cloud 账户 |
 | 自部署 | 自有后端和 Web 仪表盘 | 免费 | 自有实例的账户与设备 |
 
 自部署实例拥有独立账户系统，与官方公共排行榜分开。账户、用量和排名不会自动导入官方服务。本地采集、成本计算和本地导出不需要服务器。
@@ -22,7 +21,7 @@
 
 历史迁移是现有数据库上的增量改动，部分文件还包含特定用户群的运营处理或数据修复。**不要在新数据库上直接执行全部历史迁移。** 使用[干净的私有后端安装器](self-hosting-backend.md)。`--sql` 输出带 PostgreSQL 事务的独立文件；`--migration` 由已连接 InsForge 实例的迁移 API 提供事务。
 
-订阅、设备权限、赠送和归档工作保存在 `feat/cloud-subscriptions`，尚未作为收费 Pro 正式发布。干净的私有基础 schema、官方本地 Linux 平台和标准 Dashboard A→C→A 切换已有验收记录；公网 VPS HTTPS 和受支持的原生路由仍需验证。实现状态在内部追踪。
+免费的私有基础 schema、设备权限和归档工作保存在 standalone 分支，本仓没有收费 Pro 或订阅版本。干净的私有基础 schema、官方本地 Linux 平台和标准 Dashboard A→C→A 切换已有验收记录；公网 VPS HTTPS 和受支持的原生路由仍需验证。实现状态在内部追踪。
 
 ## 准备 VPS
 
@@ -38,18 +37,16 @@ API 和管理入口通过 HTTPS 代理与访问控制提供服务，不直接对
 
 ## 安装应用
 
-本地分支已提供 `scripts/self-host/` 干净的私有后端安装器和 14 个函数的部署清单。按[后端安装指南](self-hosting-backend.md)执行；实际平台与 VPS 验收仍须单独完成，不能由本地 SQL 测试代替。
+本地分支已提供 `scripts/self-host/` 干净的私有后端安装器和 20 个函数的部署清单。按[后端安装指南](self-hosting-backend.md)执行；实际平台与 VPS 验收仍须单独完成，不能由本地 SQL 测试代替。
 
-1. 安装经过审查的应用表、RPC、索引、触发器、RLS 和权限。核对所选 InsForge 版本的服务端角色、登录角色和匿名角色，不把生产用户、token、订单或封禁记录当作初始化数据。
-2. 用 `node scripts/self-host/build-functions.cjs` 构建私有后端，通过自有实例的管理接口部署清单中的 14 个函数。包含设备授权、签发、用量写入、改名、账户读取和免费实例设置，不包含公共社区及支付回调。相对导入已打包，SDK 版本固定。
+1. 安装经过审查的应用表、RPC、索引、触发器、RLS 和权限。核对所选 InsForge 版本的服务端角色、登录角色和匿名角色，不把生产用户、token 或封禁记录当作初始化数据。
+2. 用 `node scripts/self-host/build-functions.cjs` 构建私有后端，通过自有实例的管理接口部署清单中的函数。包含设备授权、签发、用量写入、改名、账户读取、榜单/公开资料读取和免费实例设置，不包含公共社区发布。相对导入已打包，SDK 版本固定。
 3. 为函数提供服务端 `INSFORGE_BASE_URL`、`INSFORGE_SERVICE_ROLE_KEY`，以及对应的 `INSFORGE_ANON_KEY`/`ANON_KEY`、`JWT_SECRET` 或 `JWT_PUBLIC_KEY`。实际验证用户 JWT 和服务端数据库权限，不假设自部署的 `ACCESS_API_KEY` 可以直接替换所有现有 edge token。
 4. 在自己的实例配置登录方式、会话 cookie、允许访问的来源与回调地址。OAuth 需要自己的应用注册和回调地址，浏览器、CLI 和桌面回调分别验证。若所选登录方式需要发验证邮件或重置邮件，还需配置邮件服务。
 5. 将 Web 仪表盘编译到自己的 API 与匿名 key，并提供前端路由回退。自己的域名要能访问 `/device` 和桌面回调页面，逐条核对登录和用量请求的真实目标。
-6. 干净安装器会启用明确的免费 `self_hosted` 策略。私有数据仍需登录，不受托管设备数和历史窗口限制，不生成付费订单，也不靠 `preview` 授权。邀请用户前须在实际实例核对这套策略。
+6. 干净安装器会启用明确的免费 `self_hosted` 策略。私有数据仍需登录，不受托管设备数和历史窗口限制，也不靠 `preview` 授权。邀请用户前须在实际实例核对这套策略。
 
 私人用量和计划中的归档使用 PostgreSQL。头像等文件上传还需要持久化 InsForge 存储和 bucket 权限，使用默认文件系统或合适的 S3 兼容存储，并纳入备份。[官方存储配置](https://github.com/InsForge/InsForge#5-storage-backends-optional)
-
-个人自部署不需要注册任何第三方支付商户。若另外向他人销售托管服务，则需要自己的支付配置和验证。
 
 ## 客户端配置
 
@@ -66,11 +63,11 @@ CLI 本地 HTML 在应用模块前同步加载 `/api/runtime-config.js`。公开
 
 CLI 支持 `TOKENTRACKER_INSFORGE_BASE_URL`、`TOKENTRACKER_INSFORGE_ANON_KEY`、`TOKENTRACKER_DASHBOARD_URL` 和持久化配置。配置后应核对实际 descriptor 及请求目标。[运行配置](../src/lib/runtime-config.js)、[本地 API](../src/lib/local-api.js)、[前端配置](../dashboard/src/lib/insforge-config.ts)。
 
-前端 SDK 单例绑定服务地址与公开 key。`resetInsforgeClientForInstanceChange()` 清理 SDK 内存会话和 auth/PKCE 命名空间，发出 `tt.insforgeInstanceChanged`，由账号层清理账户缓存和云同步 capability。provider 偏好与本地用量保留，订单恢复和提醒关闭记录按实例、账号分开。新实例需要重新登录，旧 SDK 不能向新实例提供 bearer token。
+前端 SDK 单例绑定服务地址与公开 key。`resetInsforgeClientForInstanceChange()` 清理 SDK 内存会话和 auth/PKCE 命名空间，发出 `tt.insforgeInstanceChanged`，由账号层清理账户缓存和云同步 capability。provider 偏好与本地用量保留，提醒关闭记录按实例、账号分开。新实例需要重新登录，旧 SDK 不能向新实例提供 bearer token。
 
 仅同源 localhost SDK 代理请求带 `x-tokentracker-instance`，直连远程请求保持原协议。HttpOnly refresh cookie 必须由本地代理绑定实例并防止旧响应复活，不能把 JavaScript 清理当成 cookie 隔离。不把官方会话或设备 token 复制到另一后端。
 
-服务端明确返回 `self_hosted` 后，页面显示免费私有实例，不展示官方价格、试用或付款 portal。容量、备份和历史保留由运营者管理，私有路径默认禁用公开 Profile，不向官方服务公开资料。
+服务端明确返回 `self_hosted` 后，页面显示免费私有实例，不展示官方价格。容量、备份和历史保留由运营者管理，私有路径默认禁用公开 Profile，不向官方服务公开资料。
 
 已经发布的桌面包仍需要配套 CLI 和仪表盘版本。设备授权的实际链接必须指向自己的仪表盘，不能让现有 edge 中的官方地址把自部署用户送到官方账号系统。浏览器、桌面授权、两个实例之间的凭证隔离，以及空白 VPS 都需继续验收，单独构建前端不代表整条链路已完成。
 

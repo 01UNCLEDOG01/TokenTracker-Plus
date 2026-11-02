@@ -17,12 +17,10 @@ const server = http.createServer(async (request, response) => {
     realm: profile.realm, environment: "sandbox", scansDisabled: true,
     challengeProof: hash(profile.serverChallenge + "\n" + profile.runID.toLowerCase() + "\n" + profile.runDirectory),
     bootstrapSHA256: hash(fs.readFileSync(path.join(directory, "bootstrap.js"))) };
-  const order = profile.ownedOrderIDs[0];
-  const validOrder = request.url === "/__native-qa/validate-order" && value.order === order && value.realm === profile.realm;
   const validActor = request.url === "/__native-qa/validate-actor" && value.actor === actor && value.actorEpoch === 1 && value.realm === profile.realm;
-  if (!validOrder && !validActor) { response.writeHead(403); response.end(); return; }
-  if (validOrder) await new Promise(resolve => setTimeout(resolve, 5300));
+  if (!validActor) { response.writeHead(403); response.end(); return; }
+  await new Promise(resolve => setTimeout(resolve, 5300));
   response.writeHead(200, { "Content-Type": "application/json" });
-  response.end(JSON.stringify({ ...identity, allowed: true, actor, actorEpoch: 1, ...(validOrder ? { order } : {}) }));
+  response.end(JSON.stringify({ ...identity, allowed: true, actor, actorEpoch: 1 }));
 });
 server.listen(0, "127.0.0.1", () => process.stdout.write(JSON.stringify({ port: server.address().port }) + "\n"));

@@ -6,6 +6,13 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随下一个 MINOR 安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.13.2] - 2026-11-02
+
+### 移除
+
+- **移除全部商业化残留**——本仓不再包含任何收费/订阅/礼物/支付面：删除支付/礼物/订单/Waffo 的 6 个迁移与自建后端清单条目，`cloud-subscriptions` 收敛为免费试用/自建会员契约（无订单、无支付、无商品目录）；移除排行榜 Pro 付费会员徽章及文案；删除 `cloud-billing`、`cloud-prompt-policy` 决策层、`contracts` 支付助手等死代码；桌面壳的 `tokentracker://billing/return` 付费回跳与 `/billing/checkout` 深链一并移除。
+- **保留**：自建后端的免费能力（账号、设备令牌、用量上传、云同步）与全部本地追踪功能不变；自建后端不再有升级/支付入口。
+
 ## [1.13.1] - 2026-11-02
 
 ### 修复

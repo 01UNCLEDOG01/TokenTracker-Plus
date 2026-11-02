@@ -52,7 +52,6 @@ import {
 } from "../lib/cloud-sync-prefs";
 import { runCloudUsageSyncNow } from "../lib/cloud-sync";
 import { LeaderboardAvatar } from "../components/LeaderboardAvatar.jsx";
-import { LeaderboardProBadge } from "../components/LeaderboardProBadge.jsx";
 import { LeaderboardProviderColumnHeader } from "../components/LeaderboardProviderColumnHeader.jsx";
 import { BadgeMini } from "../ui/achievements/BadgeMini.jsx";
 import { useEquippedTitle } from "../ui/achievements/title-registry.js";
@@ -365,7 +364,7 @@ function MobileLeaderboardRow({
           <span
             className={cn(
               "inline-flex rounded-full p-0.5 transition-all duration-300",
-              entry?.pro_active !== true && (RANK_MEDAL_GLOW[entry?.rank] || "ring-1 ring-oai-gray-200 dark:ring-oai-gray-800/80"),
+              (RANK_MEDAL_GLOW[entry?.rank] || "ring-1 ring-oai-gray-200 dark:ring-oai-gray-800/80"),
               isAnon && "opacity-60 grayscale-[15%]"
             )}
           >
@@ -374,7 +373,6 @@ function MobileLeaderboardRow({
               avatarUrl={avatarUrl || entry?.avatar_url}
               displayName={rowName}
               seed={leaderboardAvatarSeed(entry, rowName)}
-              proActive={entry?.pro_active === true}
             />
           </span>
           {entry?.github_url && <MobileGithubBadge githubUrl={entry.github_url} />}
@@ -395,7 +393,6 @@ function MobileLeaderboardRow({
                 {badgeLabel}
               </span>
             )}
-            <LeaderboardProBadge proActive={entry?.pro_active === true} />
             <BadgeMini badges={entry?.badges} className="shrink-0 scale-95" />
           </div>
           <div className="mt-1 text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
@@ -975,20 +972,19 @@ export function LeaderboardPage({
                         <span
                           className={cn(
                             "relative inline-flex shrink-0 rounded-full p-[2px]",
-                            entry?.github_url && entry?.pro_active !== true && "gh-avatar-frame",
+                            entry?.github_url && "gh-avatar-frame",
                           )}
                         >
                           <span
                             className={cn(
                               "inline-flex rounded-full p-px",
-                              entry?.github_url && entry?.pro_active !== true && "bg-white dark:bg-oai-gray-950",
+                              entry?.github_url && "bg-white dark:bg-oai-gray-950",
                             )}
                           >
                             <LeaderboardAvatar
                               avatarUrl={avatarUrl}
                               displayName={name}
                               seed={leaderboardAvatarSeed(entry, name)}
-                              proActive={entry?.pro_active === true}
                             />
                           </span>
                           {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
@@ -1002,7 +998,6 @@ export function LeaderboardPage({
                             {badgeLabel}
                           </span>
                         )}
-                        <LeaderboardProBadge proActive={entry?.pro_active === true} />
                         <BadgeMini badges={entry?.badges} className="hidden sm:inline-flex" />
                       </div>
                     </td>
@@ -1034,26 +1029,24 @@ export function LeaderboardPage({
                       <span
                         className={cn(
                           "relative inline-flex shrink-0 rounded-full p-[2px]",
-                          entry?.github_url && entry?.pro_active !== true && "gh-avatar-frame",
+                          entry?.github_url && "gh-avatar-frame",
                         )}
                       >
                         <span
                           className={cn(
                             "inline-flex rounded-full p-px",
-                            entry?.github_url && entry?.pro_active !== true && "bg-white dark:bg-oai-gray-950",
+                            entry?.github_url && "bg-white dark:bg-oai-gray-950",
                           )}
                         >
                           <LeaderboardAvatar
                             avatarUrl={entry?.avatar_url}
                             displayName={name}
                             seed={leaderboardAvatarSeed(entry, name)}
-                            proActive={entry?.pro_active === true}
                           />
                         </span>
                         {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
                       </span>
                       <span className="truncate font-medium text-oai-gray-800 dark:text-oai-gray-200">{name}</span>
-                      <LeaderboardProBadge proActive={entry?.pro_active === true} />
                       <BadgeMini badges={entry?.badges} className="hidden sm:inline-flex" />
                     </div>
                   </td>

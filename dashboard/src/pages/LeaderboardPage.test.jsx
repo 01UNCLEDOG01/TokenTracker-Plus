@@ -64,7 +64,7 @@ vi.mock("../components/LeaderboardSkeleton.jsx", () => ({
 }));
 
 vi.mock("../components/LeaderboardAvatar.jsx", () => ({
-  LeaderboardAvatar: ({ displayName, proActive }) => <span data-testid="avatar" data-pro-active={proActive === true ? "true" : undefined}>{displayName}</span>,
+  LeaderboardAvatar: ({ displayName }) => <span data-testid="avatar">{displayName}</span>,
 }));
 
 const preloadedData = {
@@ -112,35 +112,24 @@ describe("LeaderboardPage window-session cache reuse", { timeout: 30000 }, () =>
     window.localStorage.clear();
   });
 
-  it("shows paid identity on desktop and mobile without stacking the GitHub frame or changing ranks", () => {
+  it("renders the GitHub frame and rank medal glow without changing row order", () => {
     const contextKey = getLeaderboardPreloadContextKey({ accessMode: "cloud", baseUrl: "https://edge.example", mockEnabled: false, userId: "user-1" });
     publishLeaderboardPreloadState({ ...preloadedData, entries: [
-      { ...preloadedData.entries[0], rank: 1, display_name: "Free GitHub User", github_url: "https://github.com/free", pro_active: false },
-      { ...preloadedData.entries[0], rank: 2, user_id: "paid-user", display_name: "Paid User", github_url: "https://github.com/paid", pro_active: true },
+      { ...preloadedData.entries[0], rank: 1, display_name: "First GitHub User", github_url: "https://github.com/first" },
+      { ...preloadedData.entries[0], rank: 2, user_id: "second-user", display_name: "Second GitHub User", github_url: "https://github.com/second" },
     ] }, { contextKey });
     getLeaderboard.mockReturnValue(new Promise(() => {}));
     renderLeaderboard("/leaderboard", { auth: () => Promise.resolve("test-token") });
-    expect(screen.getAllByRole("img", { name: "TokenTracker Pro member" })).toHaveLength(2);
     const rows = [...document.querySelectorAll("tbody tr")];
-    expect(rows.map(row => row.textContent)).toEqual([expect.stringContaining("Free GitHub User"), expect.stringContaining("Paid User")]);
+    expect(rows.map(row => row.textContent)).toEqual([expect.stringContaining("First GitHub User"), expect.stringContaining("Second GitHub User")]);
     expect(rows[0].querySelector(".gh-avatar-frame")).not.toBeNull();
-    expect(rows[1].querySelector(".gh-avatar-frame")).toBeNull();
-    expect(rows[1].querySelector('[data-pro-active="true"]')).not.toBeNull();
-    expect(rows[1].querySelector('a[href="https://github.com/paid"]')).not.toBeNull();
+    expect(rows[1].querySelector(".gh-avatar-frame")).not.toBeNull();
+    expect(rows[1].querySelector('a[href="https://github.com/second"]')).not.toBeNull();
     const avatars = screen.getAllByTestId("avatar");
-    const mobilePaidAvatar = avatars.filter(avatar => avatar.getAttribute("data-pro-active") === "true")[1];
-    const mobileFreeAvatar = avatars.filter(avatar => !avatar.hasAttribute("data-pro-active"))[1];
-    expect(mobilePaidAvatar.parentElement.className).not.toMatch(/ring-|shadow-/);
-    expect(mobileFreeAvatar.parentElement).toHaveClass("ring-amber-400");
-  });
-
-  it("does not infer a paid label from sign-in, GitHub, or a truthy non-boolean response", () => {
-    const contextKey = getLeaderboardPreloadContextKey({ accessMode: "cloud", baseUrl: "https://edge.example", mockEnabled: false, userId: "user-1" });
-    publishLeaderboardPreloadState({ ...preloadedData, entries: [{ ...preloadedData.entries[0], github_url: "https://github.com/free", pro_active: "true" }] }, { contextKey });
-    getLeaderboard.mockReturnValue(new Promise(() => {}));
-    renderLeaderboard("/leaderboard", { auth: () => Promise.resolve("test-token") });
-    expect(screen.queryByRole("img", { name: "TokenTracker Pro member" })).not.toBeInTheDocument();
-    expect(document.querySelector(".gh-avatar-frame")).not.toBeNull();
+    expect(avatars).toHaveLength(4);
+    // Mobile rows keep their rank medal ring (rank 1 amber, rank 2 slate).
+    expect(avatars[2].parentElement.className).toContain("ring-amber-400");
+    expect(avatars[3].parentElement.className).toContain("ring-slate-350");
   });
 
   it("renders a matching cache immediately and starts a background refresh", async () => {

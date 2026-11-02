@@ -1,46 +1,24 @@
-import type { CloudCatalog, CloudMembership, CloudAccount } from "./cloud-billing";
-
-export const CLOUD_PROMPT_COOLDOWN_MS: number;
+// Minimal account shapes observed by the shared cloud-prompt state. The
+// former cloud-billing module is gone (no billing UI ships in this fork), so
+// only the fields this module and its consumers read are described here.
 export type CloudPromptScene = "sync" | "view" | "history" | "devices";
 export type CloudPromptFailure = { code: string; source: string };
+export type CloudPromptMembership = {
+  status?: string;
+  hosting_mode?: "hosted" | "self_hosted";
+};
 export type CloudPromptState = {
-  membership?: CloudMembership;
-  subscriptions?: CloudAccount["subscriptions"];
+  membership?: CloudPromptMembership;
   intent?: CloudPromptScene | null;
   failure?: CloudPromptFailure | null;
-  paymentConflict?: boolean;
-  catalog?: CloudCatalog;
-  catalogObservedAt?: number;
   machineCount?: number;
 };
-export type CloudPromptDecision = {
-  scene: string;
-  kind: "explanation" | "operation" | "deadline";
-  bodyKey: string;
-  ctaKey?: string;
-  href?: string;
-  date?: string;
-  /** Present on deadline prompts so funnels can split expiry windows. */
-  reason?: "deadline";
-};
-export const CLOUD_DEADLINE_WINDOW_DAYS: number;
 export function subscribeCloudPrompts(listener: () => void): () => void;
 export function cloudPromptRevision(): number;
 export function clearCloudPromptBackendState(): void;
 export function readCloudPromptState(userId: string): CloudPromptState;
 export function cloudPromptOwnerFromToken(token: string | undefined): string | null;
-export function publishCloudPromptBilling(action: string, value: unknown, userId: string | null, now?: number): void;
 export function recordCloudPromptIntent(userId: string, scene: CloudPromptScene): void;
-export function clearCloudPromptIntent(userId: string): void;
 export function recordCloudPromptFailure(userId: string, code: string, membership: unknown, source: string,
   details?: { machineCount?: number }): void;
 export function clearCloudPromptFailure(userId: string, source: string): void;
-export function dismissCloudPrompt(userId: string, scene: string, now?: number, storage?: Storage): void;
-export function cloudContextualPromptDecision(options: CloudPromptState & {
-  userId: string; intentional?: boolean; scene: CloudPromptScene;
-  now?: number; storage?: Storage;
-}): CloudPromptDecision | null;
-export function cloudDeadlinePromptDecision(options: {
-  userId: string; membership: CloudMembership; subscriptions?: CloudAccount["subscriptions"];
-  now?: number; storage?: Storage;
-}): CloudPromptDecision | null;

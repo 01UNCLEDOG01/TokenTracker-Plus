@@ -11,7 +11,7 @@ internal static class Program
         InstallExceptionGuards();
 
         // Windows launches us with the full tokentracker://… URL as an argument when a
-        // deep link fires (OAuth or billing return). Extract it if present.
+        // deep link fires (OAuth callback). Extract it if present.
         var deepLink = NativeReturnUri.FindArgument(args);
         var launchedAtStartup = args.Any(a =>
             string.Equals(a, LaunchAtStartup.StartupArgument, StringComparison.OrdinalIgnoreCase));

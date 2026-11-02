@@ -1,215 +1,132 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearCloudPromptBackendState,
+  clearCloudPromptFailure,
+  cloudPromptOwnerFromToken,
+  cloudPromptRevision,
+  readCloudPromptState,
+  recordCloudPromptFailure,
+  recordCloudPromptIntent,
+  subscribeCloudPrompts,
+} from "./cloud-prompt-policy.js";
 
-let policy;
-let sequence = 0;
-const now = Date.parse("2026-10-08T08:00:00Z");
-const day = 86_400_000;
-// TT-plus 自建云不售卖订阅：目录里不再有支付通道与结账校验字段，
-// 上下文提醒只剩 learn-more 解释路径（见 canOfferCloud 退役注释）。
-const catalog = { environment: "live", policy: { phase: "active", launch_at: "2026-10-01T00:00:00Z" } };
-const free = { status: "free", environment: "live", phase: "active", trial_available: true,
-  can_read_cloud: false, can_upload_cloud: false };
-function storage() {
-  const values = new Map();
-  return { getItem: vi.fn((key) => values.get(key) || null),
-    setItem: vi.fn((key, value) => values.set(key, value)), removeItem: vi.fn((key) => values.delete(key)) };
-}
-function input(extra = {}) {
-  return { userId: `policy-account-${++sequence}`, intentional: true, scene: "sync", membership: free,
-    catalog, catalogObservedAt: now, now, storage: storage(), ...extra };
-}
-beforeEach(async () => {
-  vi.resetModules();
-  policy = await import("./cloud-prompt-policy.js");
+const free = { status: "free", can_read_cloud: false, can_upload_cloud: false };
+const selfHosted = { status: "self_hosted", hosting_mode: "self_hosted", can_read_cloud: true, can_upload_cloud: true };
+
+beforeEach(() => {
+  clearCloudPromptBackendState();
 });
 
-describe("Cloud reminder eligibility", () => {
-  it("never sells on startup, local use, public ranking, or an unknown account", () => {
-    for (const extra of [{ intentional: false }, { scene: "leaderboard" }, { scene: "local" }, { userId: null }])
-      expect(policy.cloudContextualPromptDecision(input(extra))).toBeNull();
+describe("cloud prompt failure observation", () => {
+  it("keeps access failures scoped to the reporting owner", () => {
+    recordCloudPromptFailure("owner-one", "cloud_membership_required", free, "account-hourly");
+
+    const state = readCloudPromptState("owner-one");
+    expect(state.failure).toEqual({ code: "cloud_membership_required", source: "account-hourly" });
+    expect(state.membership).toBe(free);
+    expect(readCloudPromptState("owner-two").membership).toBeUndefined();
+    expect(readCloudPromptState("owner-two").failure).toBeUndefined();
   });
-  it("retired commerce: multi-device accounts get learn-more, never a trial or purchase CTA", () => {
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 2 }))).toMatchObject({
-      kind: "explanation", bodyKey: "cloud.prompt.unconfirmed", ctaKey: "cloud.prompt.learn", href: "/cloud",
-    });
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 2, membership: { ...free, trial_available: false } })))
-      .toMatchObject({ kind: "explanation", ctaKey: "cloud.prompt.learn" });
+
+  it("ignores non-access codes and unknown owners", () => {
+    for (const code of ["cloud_ok", "network_down", ""]) {
+      recordCloudPromptFailure("owner-one", code, free, "account-hourly");
+      expect(readCloudPromptState("owner-one").failure).toBeUndefined();
+    }
+    recordCloudPromptFailure(null, "cloud_membership_required", free, "account-hourly");
+    expect(readCloudPromptState("owner-two").failure).toBeUndefined();
   });
-  it("keeps single-device free sync/view as learn-more", () => {
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 1 }))).toMatchObject({
-      kind: "explanation", ctaKey: "cloud.prompt.learn", href: "/cloud",
-    });
-    expect(policy.cloudContextualPromptDecision(input()).kind).toBe("explanation");
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 0, scene: "view",
-      failure: { code: "cloud_membership_required" } }))).toMatchObject({
-      kind: "explanation", ctaKey: "cloud.prompt.learn",
-    });
+
+  it("records machine-count context from the rejected response", () => {
+    recordCloudPromptFailure("owner-one", "cloud_machine_limit", free, "account-hourly", { machineCount: 4 });
+    expect(readCloudPromptState("owner-one").machineCount).toBe(4);
+    recordCloudPromptFailure("owner-one", "cloud_machine_limit", free, "account-hourly", { machineCount: "4" });
+    expect(readCloudPromptState("owner-one").machineCount).toBe(4);
   });
-  it("keeps the shared seven-day deadline window non-promotional", () => {
-    const membership = { ...free, status: "trial", trial_ends_at: new Date(now + 7 * day).toISOString(),
-      trial_available: false, can_read_cloud: false, can_upload_cloud: false };
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 1, membership }))).toMatchObject({
-      kind: "explanation", ctaKey: "cloud.prompt.learn",
-    });
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 1,
-      membership: { ...membership, trial_ends_at: new Date(now + 7 * day + 1).toISOString() } }))).toMatchObject({
-      kind: "explanation", ctaKey: "cloud.prompt.learn",
-    });
-  });
-  it("ignores catalog environment/phase entirely — no purchase to promise", () => {
-    for (const change of [{ environment: "sandbox" }, { policy: { phase: "preview", launch_at: "2026-10-01" } },
-      { policy: { phase: "active", launch_at: "2026-10-09" } }])
-      expect(policy.cloudContextualPromptDecision(input({ catalog: { ...catalog, ...change } })))
-        .toMatchObject({ kind: "explanation", href: "/cloud", ctaKey: "cloud.prompt.learn" });
-  });
-  it("waits for an actual cloud limit when a user explores history or devices", () => {
-    expect(policy.cloudContextualPromptDecision(input({ scene: "history" }))).toBeNull();
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 2, scene: "view", failure: { code: "cloud_membership_required" } })))
-      .toMatchObject({ kind: "explanation", scene: "view" });
-  });
-  it("never prompts an active paid user or an account with a payment conflict", () => {
-    expect(policy.cloudContextualPromptDecision(input({ membership: { ...free, status: "active" } }))).toBeNull();
-    expect(policy.cloudContextualPromptDecision(input({ paymentConflict: true }))).toBeNull();
-  });
-  it.each(["active", "trialing", "past_due", "paused"])("routes unavailable personal Cloud with a %s renewal contract to billing instead of a new purchase", (status) => {
-    const value = input({ membership: { ...free, status: "expired", expires_at: new Date(now + 30 * day).toISOString() },
-      subscriptions: [{ status, cancel_at_period_end: false }] });
-    expect(policy.cloudContextualPromptDecision(value)).toMatchObject({ kind: "operation",
-      bodyKey: "cloud.prompt.billing_recovery", ctaKey: "cloud.action.view_bills", href: "/settings?section=cloud" });
-    expect(policy.cloudContextualPromptDecision({ ...value, scene: "view", failure: { code: "cloud_membership_required" } }))
-      .toMatchObject({ kind: "operation", href: "/settings?section=cloud" });
-  });
-  it.each([{ status: "canceled" }, { status: "expired" }, { status: "active", cancel_at_period_end: true }])("keeps learn-more available after the renewal contract ends or is canceled %j", (subscription) => {
-    expect(policy.cloudContextualPromptDecision(input({ machineCount: 2, membership: { ...free, status: "expired", trial_available: false },
-      subscriptions: [subscription] }))).toMatchObject({ kind: "explanation", ctaKey: "cloud.prompt.learn", href: "/cloud" });
-  });
-  it("never shows a paid-service reminder on an explicitly free self-hosted instance", () => {
-    expect(policy.cloudContextualPromptDecision(input({ membership: { ...free, status: "self_hosted" }, failure: { code: "cloud_machine_limit" } }))).toBeNull();
-    expect(policy.cloudContextualPromptDecision(input({ catalog: { ...catalog, policy: { ...catalog.policy, hosting_mode: "self_hosted" } } }))).toBeNull();
-  });
-  it.each(["active", "trial", "transition"])("offers device/history management instead of an upgrade while %s access is available", (status) => {
-    const membership = { ...free, status, can_read_cloud: true, can_upload_cloud: true };
-    expect(policy.cloudContextualPromptDecision(input({ membership, scene: "view", failure: { code: "cloud_machine_limit" } })))
-      .toMatchObject({ kind: "operation", scene: "devices", href: "/settings?section=cloud" });
-    expect(policy.cloudContextualPromptDecision(input({ membership, scene: "history", failure: { code: "cloud_history_window_exceeded" } })))
-      .toMatchObject({ kind: "operation", bodyKey: "cloud.prompt.history_window" });
+
+  it("clears only the failure reported by the same source", () => {
+    recordCloudPromptFailure("owner-one", "cloud_membership_required", free, "account-hourly");
+
+    clearCloudPromptFailure("owner-one", "account-summary");
+    expect(readCloudPromptState("owner-one").failure).toBeTruthy();
+    clearCloudPromptFailure("owner-other", "account-hourly");
+    expect(readCloudPromptState("owner-one").failure).toBeTruthy();
+    clearCloudPromptFailure("owner-one", "account-hourly");
+    expect(readCloudPromptState("owner-one").failure).toBeNull();
+    expect(readCloudPromptState("owner-one").membership).toBe(free);
   });
 });
 
-describe("seven-day reminder dismissal", () => {
-  it("cools every reminder scene for seven days and isolates accounts", () => {
-    const value = input({ machineCount: 2 });
-    policy.dismissCloudPrompt(value.userId, "sync", now, value.storage);
-    const otherScene = { ...value, scene: "view", failure: { code: "cloud_membership_required" } };
-    expect(policy.cloudContextualPromptDecision({ ...otherScene, now: now + 7 * day - 1, catalogObservedAt: now + 7 * day - 1 })).toBeNull();
-    expect(policy.cloudContextualPromptDecision({ ...otherScene, now: now + 7 * day, catalogObservedAt: now + 7 * day }).kind).toBe("explanation");
-    expect(policy.cloudContextualPromptDecision({ ...value, userId: "another-account" }).kind).toBe("explanation");
+describe("cloud prompt intents", () => {
+  it("records a known scene and drops a stale failure", () => {
+    recordCloudPromptFailure("owner-one", "cloud_membership_required", free, "account-hourly");
+    recordCloudPromptIntent("owner-one", "history");
+    const state = readCloudPromptState("owner-one");
+    expect(state.intent).toBe("history");
+    expect(state.failure).toBeNull();
   });
-  it("restores a persisted dismissal after a page module reload", async () => {
-    const value = input();
-    policy.dismissCloudPrompt(value.userId, "sync", now, value.storage);
-    vi.resetModules();
-    policy = await import("./cloud-prompt-policy.js");
-    expect(policy.cloudContextualPromptDecision(value)).toBeNull();
-  });
-  it.each(["getItem", "setItem"])("fails closed when storage %s fails and remembers dismissal in memory", (method) => {
-    const value = input();
-    value.storage[method].mockImplementation(() => { throw new Error("storage disabled"); });
-    expect(policy.cloudContextualPromptDecision(value).kind).toBe("explanation");
-    policy.dismissCloudPrompt(value.userId, "sync", now, value.storage);
-    expect(policy.cloudContextualPromptDecision(value)).toBeNull();
-  });
-  it("treats corrupt storage as unavailable rather than repeatedly prompting", () => {
-    const value = input();
-    value.storage.getItem.mockReturnValue("not-json");
-    expect(policy.cloudContextualPromptDecision(value).kind).toBe("explanation");
+
+  it("ignores unknown scenes and missing owners", () => {
+    recordCloudPromptIntent("owner-one", "leaderboard");
+    expect(readCloudPromptState("owner-one").intent).toBeUndefined();
+    recordCloudPromptIntent("", "history");
+    expect(readCloudPromptState("owner-one").intent).toBeUndefined();
   });
 });
 
-describe("account date reminders", () => {
-  it("uses a gift-specific reminder in the last seven days and honors its cooldown", () => {
-    const value = input({ membership: { ...free, status: "active", access_source: "gift",
-      expires_at: new Date(now + 7 * day).toISOString(), can_read_cloud: true, can_upload_cloud: true } });
-    expect(policy.cloudDeadlinePromptDecision(value)).toMatchObject({ kind: "deadline", reason: "deadline", scene: "deadline_gift",
-      bodyKey: "cloud.prompt.deadline_gift", date: value.membership.expires_at });
-    expect(policy.cloudDeadlinePromptDecision({ ...value, now: now - 1 })).toBeNull();
-    policy.dismissCloudPrompt(value.userId, "deadline_gift", now, value.storage);
-    expect(policy.cloudDeadlinePromptDecision(value)).toBeNull();
-    expect(policy.cloudDeadlinePromptDecision({ ...value, now: now + 7 * day })).toBeNull();
-  });
-  it("does not re-prompt gifted access and leaves an ongoing recurring contract alone", () => {
-    const value = input({ membership: { ...free, status: "active", access_source: "gift",
-      expires_at: new Date(now + day).toISOString(), can_read_cloud: true, can_upload_cloud: true } });
-    expect(policy.cloudContextualPromptDecision(value)).toBeNull();
-    expect(policy.cloudDeadlinePromptDecision({ ...value, subscriptions: [{ status: "active", cancel_at_period_end: false }] })).toBeNull();
-    expect(policy.cloudDeadlinePromptDecision({ ...value, membership: { ...value.membership, access_source: "mixed" } }))
-      .toMatchObject({ bodyKey: "cloud.prompt.deadline_active" });
-  });
-  it.each([["trial", "trial_ends_at", 7], ["transition", "transition_ends_at", 7], ["active", "expires_at", 7]])("shows %s only inside its shared seven-day reminder window and never after expiry", (status, field, days) => {
-      const value = input({ membership: { ...free, status, [field]: new Date(now + days * day).toISOString() } });
-      expect(policy.cloudDeadlinePromptDecision(value)).toMatchObject({ kind: "deadline", reason: "deadline", scene: `deadline_${status}` });
-      expect(policy.cloudDeadlinePromptDecision({ ...value, now: now - 1 })).toBeNull();
-      expect(policy.cloudDeadlinePromptDecision({ ...value, now: now + days * day })).toBeNull();
-    });
-  it("does not show a trial deadline more than seven days out", () => {
-    const value = input({ membership: { ...free, status: "trial",
-      trial_ends_at: new Date(now + 7 * day + 1).toISOString() } });
-    expect(policy.cloudDeadlinePromptDecision(value)).toBeNull();
-  });
-  it("leaves automatic renewals alone and preserves a canceled user's paid end date", () => {
-    const value = input({ membership: { ...free, status: "active", expires_at: new Date(now + day).toISOString() },
-      subscriptions: [{ status: "active", cancel_at_period_end: false }] });
-    expect(policy.cloudDeadlinePromptDecision(value)).toBeNull();
-    expect(policy.cloudDeadlinePromptDecision({ ...value, subscriptions: [{ status: "active", cancel_at_period_end: true }] }))
-      .toMatchObject({ kind: "deadline", date: value.membership.expires_at });
-  });
-  it("keeps the verified paid-term date visible when renewal is past due", () => {
-    const end = new Date(now + day).toISOString();
-    const value = input({ membership: { ...free, status: "active", expires_at: end },
-      subscriptions: [{ status: "past_due", cancel_at_period_end: false }] });
-    expect(policy.cloudDeadlinePromptDecision(value)).toMatchObject({ kind: "deadline",
-      bodyKey: "cloud.prompt.deadline_active", date: end });
-  });
-  it("does not invent an end date or show automatic date nudges with broken storage", () => {
-    const value = input({ membership: { ...free, status: "trial", trial_ends_at: "invalid" } });
-    expect(policy.cloudDeadlinePromptDecision(value)).toBeNull();
-    value.membership.trial_ends_at = new Date(now + day).toISOString();
-    value.storage.setItem.mockImplementation(() => { throw new Error("full"); });
-    expect(policy.cloudDeadlinePromptDecision(value)).toBeNull();
-  });
-});
-
-describe("passive response and intent reuse", () => {
-  it("observes existing data without inventing user intent or mixing owners", () => {
+describe("cloud prompt subscriptions", () => {
+  it("notifies subscribers and bumps the revision on every change", () => {
     const listener = vi.fn();
-    const unsubscribe = policy.subscribeCloudPrompts(listener);
-    policy.publishCloudPromptBilling("catalog", catalog, null, now);
-    policy.publishCloudPromptBilling("account", { membership: free }, "owner-one", now);
-    policy.publishCloudPromptBilling("devices", { membership: free, machine_count: 3, machines: [] }, "owner-one", now);
-    expect(policy.readCloudPromptState("owner-one").machineCount).toBe(3);
-    expect(policy.readCloudPromptState("owner-one").intent).toBeUndefined();
-    policy.recordCloudPromptIntent("owner-one", "history");
-    policy.recordCloudPromptFailure("owner-one", "cloud_membership_required", free, "account-hourly");
-    expect(policy.readCloudPromptState("owner-one").failure.code).toBe("cloud_membership_required");
-    expect(policy.readCloudPromptState("owner-two").membership).toBeUndefined();
-    policy.clearCloudPromptFailure("owner-one", "account-summary");
-    expect(policy.readCloudPromptState("owner-one").failure).toBeTruthy();
-    policy.clearCloudPromptFailure("owner-one", "account-hourly");
-    expect(policy.readCloudPromptState("owner-one").failure).toBeNull();
-    policy.recordCloudPromptIntent("owner-two", "leaderboard");
-    expect(policy.readCloudPromptState("owner-two").intent).toBeUndefined();
+    const unsubscribe = subscribeCloudPrompts(listener);
+    const start = cloudPromptRevision();
+
+    recordCloudPromptIntent("owner-one", "sync");
+    recordCloudPromptFailure("owner-two", "cloud_membership_required", free, "account-daily");
+    clearCloudPromptFailure("owner-two", "account-daily");
+
+    expect(listener).toHaveBeenCalledTimes(3);
+    expect(cloudPromptRevision()).toBe(start + 3);
     unsubscribe();
-    expect(listener).toHaveBeenCalled();
   });
 
-  it("still observes machine_count from the ordinary account response for future prompts", () => {
-    const value = input({ machineCount: undefined });
-    policy.publishCloudPromptBilling("catalog", catalog, null, now);
-    policy.publishCloudPromptBilling("account", { membership: free, machine_count: 2 }, value.userId, now);
-    const state = policy.readCloudPromptState(value.userId);
-    expect(state.machineCount).toBe(2);
-    expect(policy.cloudContextualPromptDecision({ ...value, ...state, intentional: true, scene: "sync" })).toMatchObject({
-      kind: "explanation",
-    });
+  it("stops notifying after unsubscribe", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeCloudPrompts(listener);
+    unsubscribe();
+    recordCloudPromptIntent("owner-one", "sync");
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("reacts to cross-tab storage events for its namespace", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeCloudPrompts(listener);
+    window.dispatchEvent(new StorageEvent("storage", { key: "other.key" }));
+    expect(listener).not.toHaveBeenCalled();
+    window.dispatchEvent(new StorageEvent("storage", { key: "tt.cloud.prompt.owner-one" }));
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("clears every observed account on backend reset", () => {
+    recordCloudPromptFailure("owner-one", "cloud_membership_required", free, "account-hourly");
+    clearCloudPromptBackendState();
+    expect(readCloudPromptState("owner-one").failure).toBeUndefined();
+    expect(readCloudPromptState("owner-one").membership).toBeUndefined();
+  });
+});
+
+describe("cloud prompt owner parsing", () => {
+  const tokenFor = (payload) => `${btoa('{"alg":"HS256"}')}.${btoa(JSON.stringify(payload))}.signature`;
+
+  it("reads the owner from the JWT subject", () => {
+    expect(cloudPromptOwnerFromToken(tokenFor({ sub: "owner-one" }))).toBe("owner-one");
+  });
+
+  it("rejects missing, malformed and oversized subjects", () => {
+    expect(cloudPromptOwnerFromToken(undefined)).toBeNull();
+    expect(cloudPromptOwnerFromToken("not-a-token")).toBeNull();
+    expect(cloudPromptOwnerFromToken("a.@@@.c")).toBeNull();
+    expect(cloudPromptOwnerFromToken(tokenFor({ sub: "x".repeat(129) }))).toBeNull();
+    expect(cloudPromptOwnerFromToken(tokenFor({ sub: 42 }))).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 # Self-host TokenTracker
 
-Self-hosting is the free software option for people who want to operate their own synchronization backend. You pay your infrastructure provider for the VPS, domain and backups, and maintain the service yourself. Managed Cloud pays for operating the hosted service; it does not change TokenTracker's MIT license.
+Self-hosting is the free software option for people who want to operate their own synchronization backend. You pay your infrastructure provider for the VPS, domain and backups, and maintain the service yourself. TokenTracker itself has no paid tier: there is no hosted subscription or checkout to buy.
 
 **Status: technical preview.** InsForge supports Docker Compose self-hosting, but this repository does not yet contain a complete, verified TokenTracker installation for an empty VPS. This guide explains the preparation, existing configuration and remaining release gates. It is not a one-command installer. [InsForge self-hosting](https://github.com/InsForge/InsForge#self-hosted-docker-compose)
 
@@ -11,7 +11,6 @@ Self-hosting is the free software option for people who want to operate their ow
 | Option | What you operate | TokenTracker software fee | Data scope |
 | --- | --- | --- | --- |
 | Local | The app on each device | Free | Each device's local usage |
-| Managed Cloud | Nothing on a server | Hosted subscription | Your official Cloud account |
 | Self-host | Your own backend and web dashboard | Free | Accounts and devices on your instance |
 
 A self-hosted instance is independent of the official account system and public leaderboard. Its users and history are not automatically copied to the official service. Local parsers, cost calculations and local export remain available without a server.
@@ -22,7 +21,7 @@ The public repository includes the application and backend TypeScript/SQL source
 
 The historical migrations are incremental changes to an existing database. Some files are operator-specific moderation or repair operations. **Do not apply every historical migration to a fresh database.** Use the [clean private-backend installer](self-hosting-backend.md). Its `--sql` mode owns a PostgreSQL transaction; `--migration` uses the linked InsForge migration API's transaction.
 
-Subscription, device-access, gift and archive work is tracked on `feat/cloud-subscriptions`; it has not been released as paid Pro. The clean private baseline, official local Linux platform and standard Dashboard A→C→A switching have recorded acceptance. Public VPS HTTPS and supported native routes remain pending. Implementation status is tracked internally.
+The free private baseline, device access and archive work track the standalone branch; this fork has no paid Pro or subscription tier. The clean private baseline, official local Linux platform and standard Dashboard A→C→A switching have recorded acceptance. Public VPS HTTPS and supported native routes remain pending. Implementation status is tracked internally.
 
 ## Prepare the VPS
 
@@ -38,18 +37,16 @@ After the platform is installed, the current InsForge CLI supports linking direc
 
 ## Install the application
 
-The local branch provides a clean private-backend installer and a 14-function manifest under `scripts/self-host/`. Follow the [backend installation guide](self-hosting-backend.md). Actual platform and VPS acceptance remain separate from the local SQL tests.
+The local branch provides a clean private-backend installer and a 20-function manifest under `scripts/self-host/`. Follow the [backend installation guide](self-hosting-backend.md). Actual platform and VPS acceptance remain separate from the local SQL tests.
 
-1. Install the reviewed application schema, RPCs, indexes, triggers, RLS policies and grants. Verify the server role and authenticated/anonymous roles against the selected InsForge release. Do not reuse production users, tokens, orders or moderation records as seed data.
-2. Build the private backend with `node scripts/self-host/build-functions.cjs` and deploy its 14 reviewed functions through the self-hosted management interface. The manifest includes device authorization, issuance, ingestion, rename, account reads and free instance settings. It excludes public-community and payment webhooks. Relative imports are bundled and the SDK is pinned.
+1. Install the reviewed application schema, RPCs, indexes, triggers, RLS policies and grants. Verify the server role and authenticated/anonymous roles against the selected InsForge release. Do not reuse production users, tokens or moderation records as seed data.
+2. Build the private backend with `node scripts/self-host/build-functions.cjs` and deploy its reviewed functions through the self-hosted management interface. The manifest includes device authorization, issuance, ingestion, rename, account reads, leaderboard/public profile reads and free instance settings. It excludes public-community publishing. Relative imports are bundled and the SDK is pinned.
 3. Supply server-only `INSFORGE_BASE_URL`, `INSFORGE_SERVICE_ROLE_KEY`, and the appropriate `INSFORGE_ANON_KEY`/`ANON_KEY`, `JWT_SECRET` or `JWT_PUBLIC_KEY` to functions. Verify actual user JWTs and server-role database access. Do not assume the self-hosted `ACCESS_API_KEY` can be substituted into every existing edge-token flow without testing.
 4. Configure sign-in, session cookies, allowed origins and redirect URLs on your instance. An OAuth provider needs your own application registration and callback URL. Test browser, local CLI and native callbacks separately. Configure an email delivery service if your chosen authentication flow sends verification or reset emails.
 5. Build and serve the web dashboard against your own API and anonymous key. Keep frontend history routing, `/device` and native callback routes reachable on your own web origin. Check every auth/usage request's actual destination.
-6. The clean installer activates the explicit free `self_hosted` policy. Private usage remains authenticated, without the hosted device or history allowance. It does not mint paid orders or use `preview` to grant access. Verify this policy on the actual instance before inviting users.
+6. The clean installer activates the explicit free `self_hosted` policy. Private usage remains authenticated, without the hosted device or history allowance. It does not use `preview` to grant access. Verify this policy on the actual instance before inviting users.
 
 Private usage and the proposed archive use PostgreSQL. File uploads, such as avatars, additionally need persistent InsForge storage and bucket policies. Storage can use its default filesystem or an appropriate S3-compatible backend; include it in backups. [InsForge storage configuration](https://github.com/InsForge/InsForge#5-storage-backends-optional)
-
-Personal installations do not need a payment-provider merchant account. A deployment that resells hosted access would need its own payment setup and verification.
 
 ## Client configuration
 
@@ -66,11 +63,11 @@ Local CLI-served HTML loads `/api/runtime-config.js` synchronously before the ap
 
 The CLI runtime supports `TOKENTRACKER_INSFORGE_BASE_URL`, `TOKENTRACKER_INSFORGE_ANON_KEY` and `TOKENTRACKER_DASHBOARD_URL`, as well as persisted configuration. Verify the actual descriptor and request destinations after configuration. Source references are [runtime config](../src/lib/runtime-config.js), [local API](../src/lib/local-api.js) and [frontend configuration](../dashboard/src/lib/insforge-config.ts).
 
-The frontend binds its SDK singleton to the selected endpoint/key pair. `resetInsforgeClientForInstanceChange()` clears its in-memory SDK session and SDK auth/PKCE namespace, and emits `tt.insforgeInstanceChanged` so account caches and cloud-sync capability are cleared. It preserves provider preferences and local usage. Purchases and reminder dismissals are namespaced by instance/account. A new instance requires its own sign-in; an old client cannot provide a bearer token for the new instance.
+The frontend binds its SDK singleton to the selected endpoint/key pair. `resetInsforgeClientForInstanceChange()` clears its in-memory SDK session and SDK auth/PKCE namespace, and emits `tt.insforgeInstanceChanged` so account caches and cloud-sync capability are cleared. It preserves provider preferences and local usage. Reminder dismissals are namespaced by instance/account. A new instance requires its own sign-in; an old client cannot provide a bearer token for the new instance.
 
 Only same-origin localhost SDK proxy requests use `x-tokentracker-instance`; direct remote requests retain the original protocol. HTTP-only refresh cookies require the local proxy's instance binding and stale-response protection; JavaScript cleanup alone cannot isolate those cookies. Do not copy a device token or official account session to the new backend.
 
-With the server's explicit `self_hosted` policy, the UI shows a free private instance without official pricing, trials or payment portals. Server operators manage capacity, backups and history retention. Public Profile features are disabled by default on the private path and do not publish to the official service.
+With the server's explicit `self_hosted` policy, the UI shows a free private instance without official pricing. Server operators manage capacity, backups and history retention. Public Profile features are disabled by default on the private path and do not publish to the official service.
 
 The released desktop bundles still need the matching CLI/dashboard release. Verify the actual device-authorization URL against your own dashboard; the existing edge source's official URL must not send self-hosted authorization to the official account system. Browser/native authorization, two-instance credential isolation and a fresh VPS remain release gates. A frontend build alone does not complete them.
 

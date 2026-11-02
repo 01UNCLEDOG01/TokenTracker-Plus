@@ -4,7 +4,7 @@
 // Local TokenTracker backend.
 //
 // Runs the self-host package - the Postgres schema (scripts/self-host/*.sql via
-// install.cjs) plus the fourteen private handlers (build-functions.cjs) - on
+// install.cjs) plus the twenty private handlers (build-functions.cjs) - on
 // this machine, so the account view has an owner the user controls instead of
 // the hosted service. PGlite supplies PostgreSQL in-process (WASM), so there is
 // no Docker and no external account.
@@ -92,7 +92,7 @@ async function loadSecret(dir) {
   return secret;
 }
 
-// Bundling the fourteen handlers takes ~25s on a desktop and minutes on a
+// Bundling the twenty handlers takes ~25s on a desktop and minutes on a
 // low-power host (a J1900 soft-router, say). Stamp the sources so a restart with
 // nothing changed reuses the previous bundles instead of rebuilding them.
 async function computeSourceStamp() {

@@ -19,8 +19,6 @@
  * MUST be mirrored to refresh.ts and src/lib/local-api.js.
  */
 import { createClient } from "npm:@insforge/sdk";
-// Cloud billing was removed from this fork, so `pro_active` below is always
-// false; the field stays in the payload to keep the response shape stable.
 
 const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline", "qoder"]);
 
@@ -1249,7 +1247,6 @@ export default async function (req: Request): Promise<Response> {
       avatar_url: avatarUrl,
       github_url: githubUrl,
       is_anonymous: isAnonymous,
-      pro_active: false,
       rank: snap?.rank ?? null,
     },
     period: {

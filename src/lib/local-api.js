@@ -1561,7 +1561,6 @@ function computeLocalLeaderboard(queueRows, projectRows, {
     github_url: null,
     is_public: false,
     is_me: true,
-    pro_active: false,
     machine_id: machineId || null,
     ...totals,
     ...providerTotals,

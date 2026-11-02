@@ -30,7 +30,7 @@ test("clean self-host installation is repeatable and preserves real usage and id
   assert.equal((await instance.db.query("SELECT id FROM tokentracker_devices WHERE user_id=$1",[owner])).rows[0].id,device.device_id);
 });
 
-test("self-hosted access is explicitly free without paid orders, trials, device quotas, or hosted history windows",async()=>{
+test("self-hosted access is explicitly free without orders, trials, device quotas, or hosted history windows",async()=>{
   const owner=await instance.user();
   const state=await query("cloud_membership",[owner,"live"]);
   assert.equal(state.status,"self_hosted");assert.equal(state.phase,"active");
@@ -39,10 +39,13 @@ test("self-hosted access is explicitly free without paid orders, trials, device 
   assert.equal((await query("cloud_account_access",[owner,"live","hourly"])).available_from,null);
   for(let i=0;i<7;i++)assert.equal((await issue(owner,"Free host "+i)).membership.status,"self_hosted");
   assert.equal((await query("cloud_list_machines",[owner,"live",null])).machine_count,7);
-  await assert.rejects(query("cloud_create_order",[owner,"live","waffo","cloud_usd_monthly",randomUUID()]),/free.*paid order/);
   await assert.rejects(query("cloud_start_trial",[owner,"live"]),/free.*trial/);
   await assert.rejects(query("cloud_membership",[randomUUID(),"live"]),/account does not exist/);
-  assert.equal((await instance.db.query("SELECT count(*)::int n FROM tokentracker_cloud_payments")).rows[0].n,0);
+  // The free installation carries no commerce schema at all.
+  const commerce=(await instance.db.query(`SELECT count(*)::int n FROM pg_class WHERE relname IN
+    ('tokentracker_cloud_catalog','tokentracker_cloud_orders','tokentracker_cloud_payments',
+     'tokentracker_cloud_subscriptions','tokentracker_cloud_events')`)).rows[0].n;
+  assert.equal(commerce,0);
 });
 
 test("two signed-in devices upload through actual SDK HTTP and private account reads remain isolated",async()=>{
@@ -171,7 +174,7 @@ test("installation and function manifests exclude production data repairs and me
   assert.ok(!buildSql().includes("ban-confirmed-leaderboard-manipulation"));
 });
 
-test("the policy migration keeps hosted charging semantics and leaves installed usage readers intact",async()=>{
+test("the policy migration keeps free hosted semantics and leaves installed usage readers intact",async()=>{
   const db=await platform();
   try {
     for(const step of steps().slice(0,-1))await db.exec(step.sql);
@@ -187,7 +190,6 @@ test("the policy migration keeps hosted charging semantics and leaves installed 
     assert.equal(trial.status,"trial");assert.equal(trial.machine_limit,5);
     const read=(await db.query("SELECT cloud_account_access($1,'live','hourly') AS r",[owner])).rows[0].r;
     assert.ok(read.available_from);
-    assert.ok((await db.query("SELECT cloud_create_order($1,'live','waffo','cloud_usd_monthly',$2) AS r",[owner,randomUUID()])).rows[0].r.id);
   } finally {await db.close();}
 });
 
