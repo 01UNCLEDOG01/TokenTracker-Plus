@@ -219,7 +219,7 @@ function qoderIntlDisplayModel(rawModel, { home = os.homedir() } = {}) {
   // written with broken brackets still lands on its model.
   const base = raw.split(/[^\p{L}\p{N}._-]/u)[0] || raw;
   const key = base.toLowerCase();
-  const dynamic = qoderIntlRouterNames({ home }).get(key);
+  const dynamic = qoderIntlRouterNames({ home }).get(key) || qoderCnRouterNames({ home }).get(key);
   if (dynamic) return dynamic;
   const known = QODER_INTL_ROUTER_MODEL_NAMES.get(key);
   if (known) return known;

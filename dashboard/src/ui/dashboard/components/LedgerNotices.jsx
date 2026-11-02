@@ -30,11 +30,13 @@ function loadUsageLimits() {
 }
 
 function useLimitsField(field) {
-  const [value, setValue] = useState(null);
+  const [value, setValue] = useState(undefined);
   useEffect(() => {
     let alive = true;
     loadUsageLimits().then((data) => {
-      if (alive && data && data[field]) setValue(data[field]);
+      if (alive) {
+        setValue(data && data[field] ? data[field] : null);
+      }
     });
     return () => { alive = false; };
   }, [field]);
@@ -84,6 +86,14 @@ export function QoderCnOfficialSpend({ from, to }) {
   // the first render has no spend yet, and a hook count that changes once the
   // data arrives crashes the whole tree.
   const [detailsOpen, setDetailsOpen] = useState(false);
+
+  if (cn === undefined) {
+    return (
+      <p className={MUTED_LINE_CLASS}>
+        {copy("dashboard.context_breakdown.loading_aria")}
+      </p>
+    );
+  }
 
   // "We could not fetch it" and "you used nothing" must never look the same.
   // Returning null here removed the whole block, and a missing block reads as

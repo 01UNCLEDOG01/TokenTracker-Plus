@@ -874,7 +874,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
       // router id the ledger keeps. Qoder stores `kmodel_latest` for
       // Kimi-K3.1-Pro and `qfmodel` for Qwen3.8-Flash; stealth codenames such
       // as `x-preview-f-free` only resolve through the pricing catalog.
-      const displayModel = sourceKey === "qoder" ? qoderIntlDisplayModel(modelKey) : modelKey;
+      const displayModel = (sourceKey === "qoder" || sourceKey === "qoder-cn") ? qoderIntlDisplayModel(modelKey) : modelKey;
       const aliasLowerModel = String(identityKeyFor(displayModel) || displayModel).toLowerCase();
       // Both spellings share one probe string: every family predicate below is
       // an `includes`/regex check, and a row may carry either the router id
@@ -3991,7 +3991,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         // Qoder's transcripts name their router, not a model ("gfmodel" for
         // GLM-5.3-Flash). The row keeps that id so the cloud ingest key stays
         // stable; the card shows the model Qoder's own client texts name.
-        const mdl = src === "qoder" ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
+        const mdl = (src === "qoder" || src === "qoder-cn") ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
         if (!bySource.has(src))
           bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" }, models: new Map() });
         const sa = bySource.get(src);
