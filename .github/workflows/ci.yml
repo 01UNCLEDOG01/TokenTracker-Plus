@@ -126,9 +126,6 @@ jobs:
       - name: Test Windows updater
         run: dotnet test TokenTrackerWin.Tests/TokenTrackerWin.Tests.csproj --configuration Release
 
-      - name: Build TokenTrackerWin
-        run: dotnet build TokenTrackerWin/TokenTrackerWin.csproj --configuration Release
-
       # Build review artifacts before a release so package/installer failures
       # are caught without publishing a tag or changing public assets.
       - name: Install Windows dashboard dependencies
@@ -162,8 +159,11 @@ jobs:
 
       # The shipped runtime is Node22, while build tooling uses Node24. Test
       # the actual bundled binary too so native fs/undici regressions cannot
-      # hide behind a successful run on a different Node major.
+      # hide behind a successful run on a different Node major. Main pushes keep
+      # the full pass; PRs skip this second ~3 min pass and still get the ubuntu
+      # full suite plus this job's packaging gates.
       - name: Test suite with the bundled Windows Node runtime
+        if: github.event_name == 'push'
         run: .\TokenTrackerWin\publish\EmbeddedServer\node.exe --test --test-timeout=120000 --test-concurrency=4 test/*.test.js
 
       - name: Compile Windows review installer
