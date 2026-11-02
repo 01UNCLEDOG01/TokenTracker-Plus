@@ -714,11 +714,11 @@ describe("UsageOverview", () => {
     expect(screen.queryByText(`${count} · ${hint}`)).toBeNull();
   });
 
-  it("shows the peer median cache hit rate in the TRAE interval notice when peer evidence exists", async () => {
+  it("keeps the peer median cache hit rate out of the collapsed TRAE card and shows it in the expanded notice", async () => {
     const props = { period: "month", periods: [], summaryLabel: "Total", summaryValue: "100" };
     // TRAE reports no cache fields for DeepSeek; a peer (DSH) observed the same
-    // model at 96% — the expanded notice must surface that median, not leave the
-    // reader guessing from the low/high ratio.
+    // model at 96% — that median belongs in the EXPANDED notice only, the
+    // collapsed card stays at the plain hint (owner ruling 2026-11-02).
     const fleetData = [
       {
         source: "trae",
@@ -739,14 +739,18 @@ describe("UsageOverview", () => {
     ];
     render(<UsageOverview {...props} fleetData={fleetData} />);
     const user = userEvent.setup();
+    // Collapsed: the card hint must NOT carry the median.
+    expect(
+      screen.queryByText((_, el) => /(中位数|median)[\s%]*96|96[\s%]*(中位数|median)/.test(el.textContent || "")),
+    ).toBeNull();
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /TRAE:/i }));
     });
-    // The interval line must name the median hit rate (96%), not just the
-    // range — it appears on the collapsed card hint ("median 96%") and in the
-    // expanded notice ("96% median cache hit rate" in en), so match both orders.
+    // Expanded: the interval notice must name the median hit rate (96%), not
+    // just the range — en phrases it "96% median cache hit rate" (notice) vs
+    // zh "命中率中位数 96%", so allow "%" and whitespace between the pair.
     expect(
-      screen.getAllByText((_, el) => /(中位数|median)\s*96|96\s*(中位数|median)/.test(el.textContent || "")).length,
+      screen.getAllByText((_, el) => /(中位数|median)[\s%]*96|96[\s%]*(中位数|median)/.test(el.textContent || "")).length,
     ).toBeGreaterThan(0);
   });
 

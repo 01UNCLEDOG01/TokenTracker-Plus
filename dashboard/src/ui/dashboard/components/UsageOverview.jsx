@@ -658,17 +658,6 @@ export function UsageOverview({
                   traeCardInterval && Number.isFinite(traeCardInterval.low) && traeCardInterval.low > 0
                     ? `${formatCost(traeCardInterval.low, currency, rate)} ~ ${providerCost}`
                     : providerCost;
-                // The interval's lower bound is folded from a median cache hit
-                // rate observed at OTHER sources. Show that median on the card
-                // so the reader sees the hit rate (e.g. 96%) that produces the
-                // range, instead of misreading the low/high ratio as a hit rate.
-                const traeCardHint = isTraeCard
-                  ? traeCardInterval?.medianHitRate != null
-                    ? copy("usage.overview.trae_card_hint_median", {
-                        median: traeCardInterval.medianHitRate,
-                      })
-                    : copy("usage.overview.trae_card_hint")
-                  : null;
                 const modelCountLabel =
                   provider.usage > 0 || (!providerCost && providerRequests <= 0)
                     ? modelCount
@@ -707,7 +696,7 @@ export function UsageOverview({
                       title={isTraeCard ? copy("usage.overview.trae_notice_body") : undefined}
                     >
                       {isTraeCard
-                        ? `${modelCountLabel} · ${traeCardHint}`
+                        ? `${modelCountLabel} · ${copy("usage.overview.trae_card_hint")}`
                         : modelCountLabel}
                     </div>
                   </button>

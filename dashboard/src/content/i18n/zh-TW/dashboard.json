@@ -936,6 +936,5 @@
   "achievements.badge.sensenova_daily.name": "日日新",
   "achievements.badge.sensenova_daily.desc": "商湯日日新（SenseNova）系模型累計消耗——苟日新，日日新。",
   "achievements.badge.xiaomi_mimo.name": "米芯",
-  "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。",
-  "usage.overview.trae_card_hint_median": "牌價推算 · 其他來源命中率中位數 {{median}}%"
+  "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。"
 }
