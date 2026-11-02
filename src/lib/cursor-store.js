@@ -1915,8 +1915,9 @@ function ensureTrashPurged() {
 // Retire a generation directory without deleting hundreds of files one by one
 // (each delete is a trash operation on hosts with a safe-delete guard, which
 // turned a cleanup into minutes of I/O). Renaming the whole directory out of
-// the store is instant, keeps the snapshot recoverable, and lets the host
-// reclaim it later. Cross-device renames fall back to the slow path.
+// the store is instant and keeps the snapshot recoverable for a short window;
+// purgeStaleTrashEntries() reclaims entries older than TRASH_MAX_AGE_MS.
+// Cross-device renames fall back to the slow path.
 async function removeGenerationDir(dirPath) {
   const trashRoot = resolveTrashRoot();
   try {

@@ -820,3 +820,36 @@ test("materializing all Codex shards lets project purge clear frozen historical 
     assert.equal(await fs.readFile(projectQueuePath, "utf8"), "");
   });
 });
+
+test("trash purge drops stale generations but keeps recent and non-conforming entries", async () => {
+  const trashDir = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-trash-test-"));
+  const previous = process.env.TOKENTRACKER_TRASH_DIR;
+  process.env.TOKENTRACKER_TRASH_DIR = trashDir;
+  try {
+    const now = Date.now();
+    const stale = `${now - 48 * 60 * 60 * 1000}-gen-aaaaaaaa-bbbbbbbb`;
+    const recent = `${now}-gen-cccccccc-dddddddd`;
+    const nonConforming = "-backup";
+    for (const name of [stale, recent, nonConforming]) {
+      await fs.mkdir(path.join(trashDir, name), { recursive: true });
+      await fs.writeFile(path.join(trashDir, name, "probe.txt"), "x", "utf8");
+    }
+
+    // Fresh module instance so the memoized purge promise is cold; otherwise an
+    // earlier test in this process would already have consumed it.
+    const modulePath = require.resolve("../src/lib/cursor-store");
+    delete require.cache[modulePath];
+    const { openCursorStore: freshOpen } = require("../src/lib/cursor-store");
+
+    const home = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-cursor-store-"));
+    const trackerDir = path.join(home, ".tokentracker", "tracker");
+    await fs.mkdir(trackerDir, { recursive: true });
+    await freshOpen({ trackerDir, forceV2: true });
+
+    assert.deepEqual((await fs.readdir(trashDir)).sort(), [nonConforming, recent].sort());
+  } finally {
+    if (previous === undefined) delete process.env.TOKENTRACKER_TRASH_DIR;
+    else process.env.TOKENTRACKER_TRASH_DIR = previous;
+    await fs.rm(trashDir, { recursive: true, force: true });
+  }
+});
