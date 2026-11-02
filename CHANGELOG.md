@@ -12,6 +12,7 @@
 
 - **福利指南「反馈变动」一键 Issue**：每张卡片的核对行新增反馈入口，点击自动预填卡片 id、当前徽标、核对日期与来源页到 GitHub Issue，鼓励社区用户上报口径变化（配合站主端内实测，形成社区帮盯福利的闭环）。
 - **.ttbackup 本地备份/还原（CLI v1）**：`tokentracker backup` 将 `~/.tokentracker/tracker` 全部本地数据（配置、队列、积分/宠物偏好等 42 个文件）打包为单文件 .ttbackup（gzip JSONL 容器、逐行流式不占大内存、逐文件 SHA-256 完整性校验；实测 177MB 压至 22MB）；`tokentracker restore <file> [--force]` 一键还原，防路径穿越、覆盖同名文件需显式确认。设置页一键入口下批接入。
+- **会话页加载优化**：会话浏览接口接入磁盘二级缓存与 stale-while-revalidate——缓存未命中时先秒回上一次完整集合（实测 3.3s～59s 的等待降到 7ms～0.4s），后台自动重建后翻新；磁盘缓存位于 tracker 目录的 sessions-browser-cache.json。
 - **Cursor Composer 会话层解析器（数据层 v1）**：只读解析 state.vscdb 三源（composerHeaders / composerData / bubbleId），产出会话名、起止时间、用户/AI 轮次数与 token 聚合；本地键与 serverBubbleId 双键回退查找。实测发现当前版本 Cursor 不再向本地库写入真实用量（tokenCount 全零），故本版提供会话清单，token 列在上游恢复写入后自动生效。
 
 ### 福利指南

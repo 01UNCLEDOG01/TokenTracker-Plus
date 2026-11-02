@@ -2121,6 +2121,37 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
   const ACHIEVEMENTS_CACHE_TTL_MS = 15000;
   let _sessionsCache = null;
   const SESSIONS_CACHE_TTL_MS = 30000;
+  // 会话浏览的磁盘二级缓存：buildSessionAnalytics 冷侧最坏 ~60s（1413 会话实测），
+  // 热侧 ~3.3s，但 L1 只活 30s——每次进页面都可能白等。L2 落盘后任何缓存未命中
+  // 都先秒回上一次的完整集合（标 stale），后台重建完成后 L1/L2 一起翻新。
+  let _sessionsDiskCache = null;
+  let _sessionsDiskCacheLoaded = false;
+  let _sessionsRebuildPromise = null;
+  const sessionsDiskCachePath = () => path.join(os.homedir(), ".tokentracker", "tracker", "sessions-browser-cache.json");
+  const loadSessionsDiskCache = () => {
+    if (_sessionsDiskCacheLoaded) return _sessionsDiskCache;
+    _sessionsDiskCacheLoaded = true;
+    try {
+      const raw = JSON.parse(fs.readFileSync(sessionsDiskCachePath(), "utf8"));
+      if (raw && typeof raw.savedAt === "string" && Array.isArray(raw.sessions)) {
+        _sessionsDiskCache = raw;
+      }
+    } catch {
+      // 无缓存/损坏 → 走同步构建
+    }
+    return _sessionsDiskCache;
+  };
+  const persistSessionsDiskCache = (sessions) => {
+    try {
+      const target = sessionsDiskCachePath();
+      const tmp = `${target}.tmp`;
+      _sessionsDiskCache = { savedAt: new Date().toISOString(), sessions };
+      fs.writeFileSync(tmp, JSON.stringify(_sessionsDiskCache));
+      fs.renameSync(tmp, target);
+    } catch (error) {
+      console.warn("[local-api] sessions disk cache write failed:", error?.message || error);
+    }
+  };
   const normalizedServerVersion = typeof serverVersion === "string" ? serverVersion.trim() : "";
 
   // Server-side cookie relay: captures auth cookies from InsForge cloud responses
@@ -3745,29 +3776,63 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       // from retaining the response after the page is closed.
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
-      try {
-        const tzCtx = getTimeZoneContext(url);
-        const cacheKey = `${from}|${to}|${limit}|${tzCtx.timeZone || ""}|${tzCtx.offsetMinutes || 0}`;
-        const now = Date.now();
-        if (
-          !refresh &&
-          _sessionsCache &&
-          now - _sessionsCache.timestamp < SESSIONS_CACHE_TTL_MS &&
-          _sessionsCache.key === cacheKey
-        ) {
-          json(res, _sessionsCache.payload);
-          return true;
-        }
+      const tzCtx = getTimeZoneContext(url);
+      const cacheKey = `${from}|${to}|${limit}|${tzCtx.timeZone || ""}|${tzCtx.offsetMinutes || 0}`;
+      const now = Date.now();
+      if (
+        !refresh &&
+        _sessionsCache &&
+        now - _sessionsCache.timestamp < SESSIONS_CACHE_TTL_MS &&
+        _sessionsCache.key === cacheKey
+      ) {
+        json(res, _sessionsCache.payload);
+        return true;
+      }
 
-        const { buildSessionAnalytics, listSessionsForBrowser, applyQoderSessionUsageEstimates, applyWallClockSpeed } = require("./session-analytics");
+      const buildSessions = async () => {
+        const { buildSessionAnalytics, applyQoderSessionUsageEstimates, applyWallClockSpeed } = require("./session-analytics");
         const sessions = await buildSessionAnalytics({ force: refresh });
         applyQoderSessionUsageEstimates(sessions, await loadSessionQueueRows());
         for (const session of sessions) applyWallClockSpeed(session);
+        return sessions;
+      };
+      const { listSessionsForBrowser } = require("./session-analytics");
+
+      // Stale-while-revalidate：缓存未命中时先秒回磁盘上的上一次完整集合
+      // （标 stale），后台重建完成后 L1/L2 一起翻新。冷启动（无磁盘缓存）
+      // 与显式 refresh=1 保持原同步构建路径。
+      const stale = !refresh ? loadSessionsDiskCache() : null;
+      if (stale && Array.isArray(stale.sessions) && stale.sessions.length > 0) {
+        const result = listSessionsForBrowser(stale.sessions, { from, to, limit, ...tzCtx });
+        json(res, { from, to, stale: true, asOf: stale.savedAt, ...result });
+        if (!_sessionsRebuildPromise) {
+          _sessionsRebuildPromise = (async () => {
+            try {
+              const sessions = await buildSessions();
+              persistSessionsDiskCache(sessions);
+              _sessionsCache = {
+                key: cacheKey,
+                timestamp: Date.now(),
+                payload: { from, to, ...listSessionsForBrowser(sessions, { from, to, limit, ...tzCtx }) },
+              };
+            } catch (error) {
+              console.warn("[local-api] session background rebuild failed:", error?.message || error);
+            } finally {
+              _sessionsRebuildPromise = null;
+            }
+          })();
+        }
+        return true;
+      }
+
+      try {
+        const sessions = await buildSessions();
+        persistSessionsDiskCache(sessions);
         const result = listSessionsForBrowser(sessions, { from, to, limit, ...tzCtx });
         const payload = { from, to, ...result };
         _sessionsCache = {
           key: cacheKey,
-          timestamp: now,
+          timestamp: Date.now(),
           payload,
         };
         json(res, payload);
