@@ -114,14 +114,20 @@ function useBoardLoader(endpoint) {
   };
 }
 
+const AIHOT_CATEGORIES = ["overall", "coding", "reasoning", "professional", "knowledge"];
+
 export default function GlobalModelsPage() {
   // Owner ruling 2026-11-03: keep BOTH boards — the AA intelligence index and
-  // the AIHOT composite board — as switchable tabs. Each board keeps its own
-  // loader/cache; AIHOT loads lazily on first switch so the default view costs
-  // no extra request.
+  // the AIHOT boards — as switchable tabs, and surface all five AIHOT
+  // categories (综合/编程/科研/专业办公/知识问答) as sub-tabs. AIHOT loads
+  // lazily on first switch so the default view costs no extra request; each
+  // category caches server-side for 6h.
   const [board, setBoard] = useState("aa");
   const aa = useBoardLoader("tokentracker-global-models");
-  const aihot = useBoardLoader("tokentracker-global-models-aihot");
+  const [aihotCat, setAihotCat] = useState("overall");
+  const [aihotData, setAihotData] = useState(null);
+  const [aihotLoading, setAihotLoading] = useState(false);
+  const [aihotError, setAihotError] = useState(null);
   const aihotStartedRef = useRef(false);
 
   useEffect(() => {
@@ -131,27 +137,65 @@ export default function GlobalModelsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aa.load]);
 
+  // Requests carry an id: a late response from an earlier sub-tab must never
+  // overwrite the current one (the category guard would then park the view on
+  // "loading" until the next click — the P2 the adversarial review caught).
+  const aihotReqRef = useRef(0);
+  const loadAihot = useCallback(async ({ force = false, category = "overall" } = {}) => {
+    const reqId = ++aihotReqRef.current;
+    try {
+      setAihotError(null);
+      setAihotLoading(true);
+      const res = await fetch(`/functions/tokentracker-global-models-aihot?category=${category}${force ? "&refresh=1" : ""}`, { cache: "no-store" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      if (reqId !== aihotReqRef.current) return;
+      setAihotData(body);
+      if (body.error) setAihotError(body.error);
+    } catch (err) {
+      if (reqId !== aihotReqRef.current) return;
+      setAihotError(err?.message || String(err));
+    } finally {
+      if (reqId === aihotReqRef.current) setAihotLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (board !== "aihot" || aihotStartedRef.current) return;
     aihotStartedRef.current = true;
-    aihot.load();
+    loadAihot({ category: aihotCat });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board]);
 
-  const active = board === "aa" ? aa : aihot;
+  const switchAihotCat = (cat) => {
+    setAihotCat(cat);
+    loadAihot({ category: cat });
+  };
+
+  const aihotActive = aihotData && (aihotData.category || "overall") === aihotCat ? aihotData : null;
+  const active = board === "aa"
+    ? { data: aa.data, loading: aa.loading, error: aa.error }
+    : { data: aihotActive, loading: aihotLoading || (aihotStartedRef.current && !aihotActive && !aihotError), error: aihotError };
   const data = active.data;
   const items = Array.isArray(data?.items) ? data.items : [];
   const loading = active.loading;
 
   const handleRefresh = () => {
     if (board === "aa") aa.load({ force: true });
-    else aihot.load({ force: true });
+    else loadAihot({ force: true, category: aihotCat });
   };
 
   const tabs = [
     { id: "aa", label: copy("global_models.tab_aa") },
     { id: "aihot", label: copy("global_models.tab_aihot") },
   ];
+  const aihotCatLabels = {
+    overall: copy("global_models.aihot_cat_overall"),
+    coding: copy("global_models.aihot_cat_coding"),
+    reasoning: copy("global_models.aihot_cat_reasoning"),
+    professional: copy("global_models.aihot_cat_professional"),
+    knowledge: copy("global_models.aihot_cat_knowledge"),
+  };
 
   return (
     <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
@@ -201,6 +245,30 @@ export default function GlobalModelsPage() {
               );
             })}
           </div>
+
+          {board === "aihot" ? (
+            <div className="mb-5 flex flex-wrap items-center gap-1.5" role="tablist" aria-label={copy("global_models.tab_aihot")}>
+              {AIHOT_CATEGORIES.map((cat) => {
+                const selected = aihotCat === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => switchAihotCat(cat)}
+                    className={`inline-flex h-7 items-center rounded-full px-3 text-xs font-medium transition ${
+                      selected
+                        ? "bg-oai-gray-200 text-oai-black dark:bg-oai-gray-700 dark:text-oai-white"
+                        : "bg-oai-gray-100 text-oai-gray-600 hover:bg-oai-gray-200 dark:bg-oai-gray-800/70 dark:text-oai-gray-400 dark:hover:bg-oai-gray-700"
+                    }`}
+                  >
+                    {aihotCatLabels[cat]}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           {active.error ? (
             <p className="mb-4 rounded-md border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -280,7 +348,7 @@ export default function GlobalModelsPage() {
                       <tr><td colSpan={9} className="px-4 py-10 text-center text-oai-gray-500 dark:text-oai-gray-400">{copy("global_models.empty")}</td></tr>
                     ) : null}
                     {items.map((row) => (
-                      <tr key={`aihot-${row.rank}-${row.model}`} className="hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40">
+                      <tr key={`aihot-${aihotCat}-${row.rank}-${row.model}`} className="hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40">
                         <td className="px-3 py-2.5 tabular-nums text-oai-gray-500 dark:text-oai-gray-400">{row.rank}</td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-2">

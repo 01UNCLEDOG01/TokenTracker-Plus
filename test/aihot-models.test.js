@@ -95,6 +95,30 @@ test("parseAihotBoard throws when the markup no longer matches (stale-cache path
   assert.throws(() => parseAihotBoard("<html><body>maintenance</body></html>"));
 });
 
+test("categories whitelist, per-category cache paths and source urls", async () => {
+  const { categoryKey, categorySourceUrl, CATEGORIES } = require("../src/lib/aihot-models");
+  assert.deepEqual(Object.keys(CATEGORIES), ["overall", "coding", "reasoning", "professional", "knowledge"]);
+  assert.equal(categoryKey("coding"), "coding");
+  assert.equal(categoryKey("nonsense"), "overall");
+  assert.equal(categorySourceUrl("overall"), "https://aihot.news/leaderboard");
+  assert.equal(categorySourceUrl("coding"), "https://aihot.news/leaderboard/category/coding");
+  const home = sandbox();
+  try {
+    assert.ok(cachePath(home, "overall").endsWith("aihot-models-cache.json"));
+    assert.ok(cachePath(home, "coding").endsWith("aihot-models-cache-coding.json"));
+    // A coding fetch writes its own cache file, not the overall one.
+    const html = boardHtml([rowHtml({ slug: "c-1", rank: "01", name: "Coder One", provider: "L", score: 60 })]);
+    const r = await fetchAihotModels({ home, category: "coding", fetchImpl: async () => ({ ok: true, status: 200, text: async () => html }) });
+    assert.equal(r.category, "coding");
+    assert.equal(r.category_label, "编程");
+    assert.equal(r.items[0].display_name, "Coder One");
+    assert.ok(fs.existsSync(cachePath(home, "coding")));
+    assert.ok(!fs.existsSync(cachePath(home, "overall")));
+  } finally {
+    cleanup(home);
+  }
+});
+
 test("fetchAihotModels caches by TTL, serves stale on fetch failure, and honors force", async () => {
   const home = sandbox();
   try {

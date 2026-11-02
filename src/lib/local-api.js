@@ -5040,6 +5040,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const { fetchAihotModels } = require("./aihot-models");
       json(res, await fetchAihotModels({
         home: os.homedir(),
+        category: url.searchParams.get("category") || "overall",
         fetchImpl: fetch,
         force: url.searchParams.get("refresh") === "1",
       }));

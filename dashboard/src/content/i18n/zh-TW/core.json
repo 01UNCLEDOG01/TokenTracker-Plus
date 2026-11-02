@@ -920,5 +920,10 @@
   "global_models.col.cache_cny": "快取價 (¥)",
   "global_models.col.input_cny": "輸入價 (¥)",
   "global_models.col.output_cny": "輸出價 (¥)",
-  "global_models.price_value_cny": "¥{{value}}"
+  "global_models.price_value_cny": "¥{{value}}",
+  "global_models.aihot_cat_overall": "綜合",
+  "global_models.aihot_cat_coding": "編程",
+  "global_models.aihot_cat_reasoning": "科研",
+  "global_models.aihot_cat_professional": "專業辦公",
+  "global_models.aihot_cat_knowledge": "知識問答"
 }

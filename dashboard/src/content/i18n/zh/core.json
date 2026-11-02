@@ -951,5 +951,10 @@
   "global_models.col.cache_cny": "缓存价 (¥)",
   "global_models.col.input_cny": "输入价 (¥)",
   "global_models.col.output_cny": "输出价 (¥)",
-  "global_models.price_value_cny": "¥{{value}}"
+  "global_models.price_value_cny": "¥{{value}}",
+  "global_models.aihot_cat_overall": "综合",
+  "global_models.aihot_cat_coding": "编程",
+  "global_models.aihot_cat_reasoning": "科研",
+  "global_models.aihot_cat_professional": "专业办公",
+  "global_models.aihot_cat_knowledge": "知识问答"
 }
