@@ -21,6 +21,8 @@ const OPENCODE_FINGERPRINTS_DIRNAME = "opencode-fingerprints";
 const DEFAULT_ACTIVATION_BYTES = 16 * 1024 * 1024;
 const PROJECT_ABSENT_CONTEXT_RESCAN_MS = 24 * 60 * 60 * 1000;
 const CURSOR_STORE_RETRY_CODE = "TOKENTRACKER_CURSOR_STORE_RETRY";
+const TRASH_DIRNAME = "tokentracker-cursor-trash";
+const TRASH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 async function openCursorStore({
   trackerDir,
@@ -33,6 +35,8 @@ async function openCursorStore({
   if (typeof trackerDir !== "string" || trackerDir.length === 0) {
     throw new Error("trackerDir is required");
   }
+
+  await ensureTrashPurged();
 
   const storeRoot = path.join(trackerDir, STORE_DIRNAME);
   const manifestPath = path.join(storeRoot, MANIFEST_FILENAME);
@@ -1856,13 +1860,42 @@ function sameFingerprint(left, right) {
     .every((key) => String(left[key]) === String(right[key]));
 }
 
+// Retired generations are renamed into the OS temp dir rather than deleted
+// (see removeGenerationDir). Nothing else reclaims them, so purge entries
+// older than TRASH_MAX_AGE_MS once per process. The trash entry name starts
+// with the rename timestamp, which doubles as the age signal.
+let trashPurgePromise = null;
+
+async function purgeStaleTrashEntries() {
+  const trashRoot = path.join(require("node:os").tmpdir(), TRASH_DIRNAME);
+  let entries;
+  try {
+    entries = await fs.readdir(trashRoot, { withFileTypes: true });
+  } catch (e) {
+    if (e?.code === "ENOENT") return;
+    throw e;
+  }
+  const cutoff = Date.now() - TRASH_MAX_AGE_MS;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const nameTs = Number(entry.name.split("-")[0]);
+    if (!Number.isFinite(nameTs) || nameTs >= cutoff) continue;
+    await fs.rm(path.join(trashRoot, entry.name), { recursive: true, force: true });
+  }
+}
+
+function ensureTrashPurged() {
+  trashPurgePromise ??= purgeStaleTrashEntries().catch(() => {});
+  return trashPurgePromise;
+}
+
 // Retire a generation directory without deleting hundreds of files one by one
 // (each delete is a trash operation on hosts with a safe-delete guard, which
 // turned a cleanup into minutes of I/O). Renaming the whole directory out of
 // the store is instant, keeps the snapshot recoverable, and lets the host
 // reclaim it later. Cross-device renames fall back to the slow path.
 async function removeGenerationDir(dirPath) {
-  const trashRoot = path.join(require("node:os").tmpdir(), "tokentracker-cursor-trash");
+  const trashRoot = path.join(require("node:os").tmpdir(), TRASH_DIRNAME);
   try {
     await fs.mkdir(trashRoot, { recursive: true });
     const target = path.join(trashRoot, `${Date.now()}-${path.basename(dirPath)}`);
