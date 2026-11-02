@@ -418,42 +418,42 @@ export function PerksPage() {
           </div>
 
           {/* Filters & Search Toolbar */}
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Category Tabs */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {PERK_CATEGORIES.map((cat) => {
-                const active = selectedCategory === cat.id;
-                const label = copy(`perks.cat.${cat.id}`) || cat.label;
-                const count = categoryCounts[cat.id] ?? 0;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
-                      active
-                        ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
-                        : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
-                    )}
-                  >
-                    <span>{label}</span>
-                    <span
+          <div className="mb-6 space-y-2.5">
+            {/* Top Row: Core Platform Categories (left) + Claim-state filter (right) */}
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {PERK_CATEGORIES.slice(0, 4).map((cat) => {
+                  const active = selectedCategory === cat.id;
+                  const label = copy(`perks.cat.${cat.id}`) || cat.label;
+                  const count = categoryCounts[cat.id] ?? 0;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
                       className={cn(
-                        "text-[10px] tabular-nums",
-                        active ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                        active
+                          ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
+                          : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
                       )}
                     >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span>{label}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] tabular-nums",
+                          active ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Claim-state filter + Search Input */}
-            <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
-              <div className="flex flex-wrap items-center gap-1.5">
+              {/* Claim-state filter */}
+              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
                 {[
                   { id: "all", label: copy("perks.filter.all") },
                   { id: "claimed", label: copy("perks.filter.claimed") },
@@ -483,18 +483,54 @@ export function PerksPage() {
                   );
                 })}
               </div>
-              <div className="relative w-full sm:w-64">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-oai-gray-400"
-                aria-hidden
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={copy("perks.search_placeholder")}
-                className="h-9 w-full rounded-xl border border-oai-gray-200 bg-white pl-8 pr-3 text-xs text-oai-black placeholder-oai-gray-400 transition focus:border-emerald-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-white dark:placeholder-oai-gray-500"
-              />
+            </div>
+
+            {/* Bottom Row: Benefit Form Categories (left) + Search Input (right) */}
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {PERK_CATEGORIES.slice(4).map((cat) => {
+                  const active = selectedCategory === cat.id;
+                  const label = copy(`perks.cat.${cat.id}`) || cat.label;
+                  const count = categoryCounts[cat.id] ?? 0;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                        active
+                          ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
+                          : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
+                      )}
+                    >
+                      <span>{label}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] tabular-nums",
+                          active ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search Input */}
+              <div className="relative w-full sm:w-64 sm:shrink-0">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-oai-gray-400"
+                  aria-hidden
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={copy("perks.search_placeholder")}
+                  className="h-9 w-full rounded-xl border border-oai-gray-200 bg-white pl-8 pr-3 text-xs text-oai-black placeholder-oai-gray-400 transition focus:border-emerald-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-white dark:placeholder-oai-gray-500"
+                />
               </div>
             </div>
           </div>

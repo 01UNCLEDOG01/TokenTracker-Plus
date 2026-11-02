@@ -23,6 +23,10 @@ export const PERK_CATEGORIES = [
     "label": "长期免费"
   },
   {
+    "id": "gateway",
+    "label": "聚合平台"
+  },
+  {
     "id": "daily_claim",
     "label": "每日可领取积分"
   },
@@ -33,10 +37,6 @@ export const PERK_CATEGORIES = [
   {
     "id": "big_quota",
     "label": "赠送大额额度"
-  },
-  {
-    "id": "gateway",
-    "label": "聚合平台"
   },
   {
     "id": "client",
