@@ -7066,9 +7066,17 @@ async function parseQoderNewIncremental({
       const usage = msg.usage;
       if (!usage || typeof usage !== "object") continue;
       const base = normalizeQoderNewTokens(usage);
-      // Allow billable zero-token messages to still count conversation (no token delta)
-      const isBillable = usage.billable !== false;
-      if (!base && !isBillable) continue;
+      // Credit-billed editions (qoder / qoder-cn) report every round with all
+      // token counters zeroed, so `base` is always null and only the
+      // billable-zero-token exemption can let a round through. Qoder's 2026-11
+      // client builds stamp `billable: false` on ~96% of those rounds (they are
+      // still charged in credits), which silently turned both sources dark:
+      // 21.8k CN rounds and 18.4k credits were dropped while the panel showed
+      // nothing. `billable` must therefore not gate inclusion for these two
+      // sources — keep the honest zero-token row instead (no invented tokens,
+      // no credit→token rate exists). Other providers keep the strict gate.
+      const creditBilledSource = sourceKey === "qoder" || sourceKey === "qoder-cn";
+      if (!base && !creditBilledSource) continue;
       const timestampMs = qoderNewTimestampMs(record);
       if (!timestampMs) continue;
       const bucketStart = toUtcHalfHourStart(new Date(timestampMs).toISOString());

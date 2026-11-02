@@ -460,3 +460,97 @@ test("parseQoderNewIncremental handles zero credit with only cache-creation toke
   assert.equal(row.usage_precision, undefined);
   assert.equal(row.conversation_count, 1);
 });
+
+// 2026-11 Qoder client builds stamp `billable: false` on credit-billed rounds
+// while zeroing every token counter. Treating that flag as an inclusion gate
+// silently dropped 21.8k CN rounds / 18.4k credits (measured 2026-11-02): the
+// zero-token row must still be counted for both credit-billed editions.
+test("parseQoderNewIncremental counts billable:false credit-only rounds for both credit-billed editions", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const record = (msgId, credits) => ({
+    type: "assistant",
+    timestamp: "2026-11-02T04:00:00.000Z",
+    uuid: `row-${msgId}`,
+    sessionId: "sess-cn-1",
+    cwd: "/tmp/proj",
+    message: {
+      id: msgId,
+      role: "assistant",
+      model: "qfmodel",
+      content: [{ type: "text", text: "ok" }],
+      usage: {
+        input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        output_tokens: 0,
+        credits,
+        original_credits: credits,
+        billable: false,
+      },
+    },
+  });
+  const sessionFile = path.join(tmp, "proj", "sess-cn-1.jsonl");
+  // m1: normal credit-billed round. m2: zero-credit round (aborted/free) — it
+  // is still real conversation activity, so the gate must not require
+  // credits > 0 either.
+  writeJsonl(sessionFile, [record("m1", 2.5), record("m2", 0)]);
+  for (const [sourceKey, cursorKey] of [["qoder-cn", "qoderCnNew"], ["qoder", "qoderNew"]]) {
+    const cursors = {};
+    const res = await parseQoderNewIncremental({
+      sessionFiles: [sessionFile],
+      cursors,
+      queuePath,
+      sourceKey,
+      cursorKey,
+    });
+    assert.equal(res.messagesProcessed, 2, `${sourceKey}: billable:false rounds must be counted`);
+    assert.equal(res.eventsAggregated, 2, `${sourceKey}: each round becomes an event`);
+    const row = queueRows(queuePath).find((r) => r.source === sourceKey);
+    assert.ok(row, `${sourceKey}: a zero-token conversation row must be queued`);
+    assert.equal(row.total_tokens, 0, "tokens stay an honest zero — never invented");
+    assert.equal(row.conversation_count, 2);
+    assert.equal(row.usage_precision, undefined);
+    assert.equal(Object.keys(cursors[cursorKey].messages).length, 2);
+  }
+});
+
+test("parseQoderNewIncremental keeps the strict billable gate for non-credit sources", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const sessionFile = path.join(tmp, "sess.jsonl");
+  // Same zero-token billable:false shape under a non credit-billed source key
+  // must still be skipped: the exemption is scoped to qoder / qoder-cn only.
+  writeJsonl(sessionFile, [{
+    type: "assistant",
+    timestamp: "2026-11-02T04:00:00.000Z",
+    uuid: "u1",
+    sessionId: "sess-other",
+    cwd: "/tmp/proj",
+    message: {
+      id: "m1",
+      role: "assistant",
+      model: "glm-5.3-flash",
+      content: [{ type: "text", text: "ok" }],
+      usage: { input_tokens: 0, output_tokens: 0, credits: 1, billable: false },
+    },
+  }]);
+  const res = await parseQoderNewIncremental({
+    sessionFiles: [sessionFile],
+    cursors: {},
+    queuePath,
+    sourceKey: "zcode",
+    cursorKey: "zcode",
+  });
+  assert.equal(res.messagesProcessed, 0);
+  assert.equal(res.eventsAggregated, 0);
+  assert.equal(queueRows(queuePath).length, 0);
+});

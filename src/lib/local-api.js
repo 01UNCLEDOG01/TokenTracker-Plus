@@ -2127,7 +2127,9 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
   let _sessionsDiskCache = null;
   let _sessionsDiskCacheLoaded = false;
   let _sessionsRebuildPromise = null;
-  const sessionsDiskCachePath = () => path.join(os.homedir(), ".tokentracker", "tracker", "sessions-browser-cache.json");
+  // trackerDataDir（下方定义）在测试里可能指向 mkdtemp 临时目录；本箭头只在
+  // 请求期调用，闭包读到的是已初始化的常量，生产路径仍是 dirname(qp)。
+  const sessionsDiskCachePath = () => path.join(trackerDataDir, "sessions-browser-cache.json");
   const loadSessionsDiskCache = () => {
     if (_sessionsDiskCacheLoaded) return _sessionsDiskCache;
     _sessionsDiskCacheLoaded = true;
