@@ -894,7 +894,7 @@
   "perks.cat.monthly_claim": "每月福利",
   "perks.cat.free_tier": "永久/每日免費",
   "perks.cat.big_quota": "贈送大額額度",
-  "perks.cat.gateway": "聚合平台/網關",
+  "perks.cat.gateway": "聚合平台",
   "perks.cat.client": "用戶端/工作台",
   "perks.claim.mark": "標記已領取",
   "perks.claim.claimed": "已領取（{{date}}）",

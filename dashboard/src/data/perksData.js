@@ -36,7 +36,7 @@ export const PERK_CATEGORIES = [
   },
   {
     "id": "gateway",
-    "label": "聚合平台/网关"
+    "label": "聚合平台"
   },
   {
     "id": "client",
@@ -98,8 +98,7 @@ export const PERK_PROVIDERS = [  {
     "name": "Agnes AI",
     "provider": "agnes",
     "category": [
-          "permanent_free",
-          "daily_claim"
+      "permanent_free"
     ],
     "badge": "自研文本/图像/视频免费档",
     "badgeType": "success",
@@ -220,8 +219,9 @@ export const PERK_PROVIDERS = [  {
     "name": "华为 CodeArts Agent (华为云码道)",
     "provider": "codearts",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim",
+      "monthly_claim"
     ],
     "badge": "注册 4000 + 学生认证 4000 + 每日签到 100",
     "badgeType": "rose",
@@ -364,8 +364,8 @@ export const PERK_PROVIDERS = [  {
     "name": "AutoClaw 国内版 (智谱 AutoGLM)",
     "provider": "autoclaw",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "big_quota"
     ],
     "badge": "新户领 2 亿 tokens（¥120）+ 邀请最高赚 15000",
     "badgeType": "success",
@@ -581,8 +581,8 @@ export const PERK_PROVIDERS = [  {
     "name": "Cursor (AI 代码编辑器)",
     "provider": "cursor",
     "category": [
-          "client",
-          "permanent_free"
+      "client",
+      "monthly_claim"
     ],
     "badge": "免费档无限期 · 限量 Agent/Chat 额度",
     "badgeType": "blue",
@@ -675,7 +675,7 @@ export const PERK_PROVIDERS = [  {
           "permanent_free",
           "big_quota"
     ],
-    "badge": "Spark-X2.6 送 10 亿 Tokens + 端侧限免",
+    "badge": "Spark Lite 长期免费 · Spark-X2.6 送 10 亿 Tokens",
     "badgeType": "blue",
     "tags": [
       "1024开发者节",
@@ -683,7 +683,7 @@ export const PERK_PROVIDERS = [  {
       "Spark Lite免费",
       "端侧0元"
     ],
-    "description": "1024 开发者节发布旗舰 Spark-X2.6（293B-A30B 稀疏 MoE、1M 上下文、全国产算力训练），新老用户注册并实名认证后可在星辰 MaaS 首页或模型广场领取 10 亿 Tokens 礼包；端侧 Spark-X2.6-4B 限时免费（0 元/百万 tokens），与 10 亿额度互不占用；Spark Lite 规格 API 免费开放。",
+    "description": "自研轻量级模型 Spark Lite 官方永久/长期免费开放调用（0 元/Token，个人开发者控制台创建应用即用，不占限时额度，支持文本与多轮对话）。此外 1024 开发者节发布旗舰 Spark-X2.6（293B-A30B 稀疏 MoE、1M 上下文），新老用户实名认证后可在星辰 MaaS 领取 10 亿 Tokens 礼包；端侧 Spark-X2.6-4B 限时免费（0 元/百万 tokens）。",
     "tips": "领取入口在星辰 MaaS 首页「Spark-X2.6 赋能开发者」或模型广场；礼包有效期与每人限领次数官网未列明细，领取弹窗为准。",
     "officialUrl": "https://xinghuo.xfyun.cn/spark",
     "hasInvite": false,
@@ -744,8 +744,9 @@ export const PERK_PROVIDERS = [  {
     "name": "中国电信 TeleAgent (星辰智能体)",
     "provider": "teleagent",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim",
+      "monthly_claim"
     ],
     "badge": "四重福利，月最多赠 39,000 积分 + 邀请返积分",
     "badgeType": "blue",
@@ -906,8 +907,8 @@ export const PERK_PROVIDERS = [  {
     "name": "TRAE (国际版)",
     "provider": "trae",
     "category": [
-          "client",
-          "permanent_free"
+      "client",
+      "monthly_claim"
     ],
     "badge": "免费档每月 $1 额度 + 5,000 次自动补全",
     "badgeType": "blue",
@@ -929,8 +930,9 @@ export const PERK_PROVIDERS = [  {
     "name": "TRAE CN",
     "provider": "trae",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim",
+      "monthly_claim"
     ],
     "badge": "新户赠 2,000 · 受邀 3,000 · 每月登录 500",
     "badgeType": "blue",
@@ -980,8 +982,9 @@ export const PERK_PROVIDERS = [  {
     "name": "WorkBuddy 国内版",
     "provider": "workbuddy",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim",
+      "monthly_claim"
     ],
     "badge": "注册送 250 + 每月 100 + 每日送 30",
     "badgeType": "purple",
@@ -1005,8 +1008,9 @@ export const PERK_PROVIDERS = [  {
     "name": "WorkBuddy AI (国际版)",
     "provider": "workbuddy",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim",
+      "monthly_claim"
     ],
     "badge": "每月 1 日送 100 积分 + 每日对话次日送 30",
     "badgeType": "blue",
