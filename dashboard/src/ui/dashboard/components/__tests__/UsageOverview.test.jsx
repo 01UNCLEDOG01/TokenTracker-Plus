@@ -743,9 +743,10 @@ describe("UsageOverview", () => {
       await user.click(screen.getByRole("button", { name: /TRAE:/i }));
     });
     // The interval line must name the median hit rate (96%), not just the
-    // range — it appears on the collapsed card hint and in the expanded notice.
+    // range — it appears on the collapsed card hint ("median 96%") and in the
+    // expanded notice ("96% median cache hit rate" in en), so match both orders.
     expect(
-      screen.getAllByText((_, el) => /(中位数|median)\s*96/.test(el.textContent || "")).length,
+      screen.getAllByText((_, el) => /(中位数|median)\s*96|96\s*(中位数|median)/.test(el.textContent || "")).length,
     ).toBeGreaterThan(0);
   });
 

@@ -408,9 +408,12 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
     peerSources: covered,
     // Median cache hit rate (across covered models' peer medians) that produced
     // the lower bound — shown on the card so the reader sees the hit rate that
-    // justifies the range, not a mysteriously low dollar figure. null only when
-    // nothing was covered (which would have returned null above).
-    medianHitRate: coveredRates.length ? median(coveredRates) : null,
+    // justifies the range, not a mysteriously low dollar figure. This is a
+    // simple (not cost-weighted) median: fine while only one model carries a
+    // cache-read discount, advisory if that ever grows.
+    medianHitRate: coveredRates.length
+      ? Math.min(Math.max(median(coveredRates), 0), 100)
+      : null,
   };
 }
 
