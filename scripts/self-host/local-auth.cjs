@@ -281,7 +281,11 @@ async function handleAuthRequest({ req, url, raw, db, secret, send, extraHeaders
       send(400, { error: "invalid_request", message: "password must be at least 10 characters" });
       return true;
     }
-    await db.query("UPDATE auth.users SET password_hash = $2 WHERE id = $1", [payload.sub, hashPassword(password)]);
+    const updated = await db.query("UPDATE auth.users SET password_hash = $2 WHERE id = $1 RETURNING id", [payload.sub, hashPassword(password)]);
+    if (!updated.rows?.[0]) {
+      send(401, { error: "unauthorized", message: "account no longer exists" });
+      return true;
+    }
     send(200, { id: payload.sub, email: payload.email || null, password_changed: true });
     return true;
   }

@@ -18,7 +18,9 @@ official InsForge platform has its own authentication ingress controls.
 
 Private leaderboard dispatch and account-profile reads/password changes require
 an unexpired token with role `authenticated` and an access-token purpose. Public
-anonymous keys and refresh tokens are rejected on these routes. Refresh tokens
+anonymous keys and refresh tokens are rejected on these routes. Private dispatch
+also verifies that the account still exists, and password updates verify that
+an account row was actually changed. Refresh tokens
 remain usable through `/api/auth/refresh`; the optional personal backend does
 not maintain a persistent session-revocation store.
 

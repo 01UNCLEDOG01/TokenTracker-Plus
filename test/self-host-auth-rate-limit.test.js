@@ -5,7 +5,7 @@ const vm = require("node:vm");
 const test = require("node:test");
 const { signToken, verifyToken, verifyAccessToken, handleAuthRequest } = require("../scripts/self-host/local-auth.cjs");
 
-function backendAuthFixture() {
+function backendAuthFixture({ accountExists = true } = {}) {
   const source = fs.readFileSync(path.join(__dirname, "../scripts/self-host/local-backend.cjs"), "utf8");
   // Exercise the actual request dispatch without booting a database or loading
   // workers. The auth implementation is irrelevant to the pre-dispatch limit.
@@ -18,7 +18,7 @@ function backendAuthFixture() {
   vm.runInNewContext(source.slice(start, end), {
     http: { createServer(callback) { handler = callback; } },
     process: { env: {} }, globalThis: {}, URL, Request, Response, Date: { now: () => now },
-    env: {}, port: 1234, privateFunctions: [], db: {}, secret, verifyToken, verifyAccessToken,
+    env: {}, port: 1234, privateFunctions: [], db: { query: async () => ({ rows: accountExists ? [{ id: "11111111-1111-4111-8111-111111111111" }] : [] }) }, secret, verifyToken, verifyAccessToken,
     handlers: { "tokentracker-leaderboard": async () => new Response("{}") },
     handleAuthRequest: async ({ url, send }) => {
       if (!url.pathname.startsWith("/api/auth/")) return false;
@@ -77,6 +77,24 @@ test("self-host profile reads and password changes require a current authenticat
     }
   }
   assert.equal(verifyAccessToken(signToken(access, secret), secret).sub, access.sub);
+});
+
+test("self-host private dispatch rejects a still-signed token after its account is deleted", async () => {
+  const fixture = backendAuthFixture({ accountExists: false });
+  const token = fixture.token({ sub: "11111111-1111-4111-8111-111111111111", role: "authenticated", exp: Math.floor(Date.now() / 1000) + 60 });
+  assert.equal(await fixture.request(undefined, undefined, { url: "/functions/tokentracker-leaderboard", token }), 401);
+});
+
+test("self-host password changes cannot claim success for a deleted account", async () => {
+  const secret = "deleted-profile-test";
+  const token = signToken({ sub: "11111111-1111-4111-8111-111111111111", role: "authenticated", exp: Math.floor(Date.now() / 1000) + 60 }, secret);
+  let status;
+  await handleAuthRequest({
+    req: { method: "PATCH", headers: { authorization: `Bearer ${token}` } },
+    url: new URL("http://localhost/api/auth/profiles/current"), raw: JSON.stringify({ password: "valid-password" }),
+    db: { query: async () => ({ rows: [] }) }, secret, send(value) { status = value; },
+  });
+  assert.equal(status, 401);
 });
 
 test("self-host auth bounds IP buckets and reclaims them after the time window", async () => {

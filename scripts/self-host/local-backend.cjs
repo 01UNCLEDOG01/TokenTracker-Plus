@@ -597,6 +597,11 @@ async function main() {
             send(401, { error: "unauthorized", message: "sign in to view this data" });
             return;
           }
+          const user = await db.query("SELECT id FROM auth.users WHERE id = $1 LIMIT 1", [payload.sub]);
+          if (!user.rows?.[0]) {
+            send(401, { error: "unauthorized", message: "account no longer exists" });
+            return;
+          }
         }
         const result = await handler(new Request(url, {
           method: req.method, headers: req.headers, ...(raw ? { body: raw } : {}),
