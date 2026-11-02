@@ -429,7 +429,19 @@ const PROVIDER_LOGO_MAP = {
   // (app-icon-square). It is a white glyph on a dark rounded square, so it keeps
   // that tile in both themes rather than being recolored.
   AUTOCLAW: "/brand-logos/autoclaw.png",
-  CATPAW: "/brand-logos/catpaw.png",
+  // Cropped 2026-11-03: the source PNG was a 150x150 canvas with the glyph in
+  // a centered 64x64 box (~57% transparent padding), which rendered visibly
+  // smaller than every sibling mark. Cropped to the content box; ?v=2 busts
+  // the URL cache per the CODEARTS precedent.
+  CATPAW: "/brand-logos/catpaw.png?v=2",
+  // 2026-11-03 perks batch: AMD / Cloudflare / Groq / Unisound brand marks.
+  // AMD + Cloudflare are Simple Icons glyphs (brand color, transparent); Groq
+  // is the groq.com apple-touch icon (full-bleed); Unisound is the MaaS site
+  // favicon bundle — same .ico treatment as ANT-LING / MINIMAX-CODE.
+  AMD: "/brand-logos/amd.svg",
+  CLOUDFLARE: "/brand-logos/cloudflare.svg",
+  GROQ: "/brand-logos/groq.png",
+  UNISOUND: "/brand-logos/unisound.ico",
   // CodeArts Agent's real brand mark - the colorful X extracted from the
   // installed exe's embedded icon (PrivateExtractIcons 256px, RGBA transparent;
   // the product-icon-theme logo.png is a theme attachment, NOT the brand icon
