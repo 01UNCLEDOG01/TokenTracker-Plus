@@ -8,6 +8,20 @@ InsForge provides its own PostgreSQL/auth/API/function runtime. Install it in a 
 
 ## Required platform contract
 
+The optional `scripts/self-host/local-backend.cjs` Node/PGlite server limits
+`/api/auth/*` to 60 requests per five-minute window per socket peer. Counters
+persist for the server lifetime, expired records are reclaimed, and at most
+1,024 peers are tracked. Unknown peers are denied while all buckets are full.
+Forwarded IP headers are not trusted: clients behind the same reverse proxy
+share its bucket. This in-memory limit resets when the server restarts; the
+official InsForge platform has its own authentication ingress controls.
+
+Private leaderboard dispatch and account-profile reads/password changes require
+an unexpired token with role `authenticated` and an access-token purpose. Public
+anonymous keys and refresh tokens are rejected on these routes. Refresh tokens
+remain usable through `/api/auth/refresh`; the optional personal backend does
+not maintain a persistent session-revocation store.
+
 The target database must already provide `auth.users(id uuid)`, `auth.uid()`, and roles `anon`, `authenticated`, and `project_admin`. The server role must have `BYPASSRLS`, schema usage on `auth`, and permission to read `auth.users.id`. The installer checks these prerequisites and does not create or alter the platform's authentication system. A platform administrator must confirm the selected release supplies this contract; the minimum check does not require reading password or profile columns.
 
 Run the installer as the database owner in a new application database. It refuses a pre-existing TokenTracker database without its installation ledger. Do not execute all historical migrations. Production moderation cohorts and data repairs are excluded from this manifest.

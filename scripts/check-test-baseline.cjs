@@ -3,18 +3,10 @@
 //   node scripts/check-test-baseline.cjs --write <tap-file>   freeze the red set
 //   node scripts/check-test-baseline.cjs --check <tap-file>   diff against it
 //
-// Why this exists: on this machine the suite cannot reach zero red. 40 tests
-// require @insforge/sdk, which upstream added to neither package.json nor its
-// own package-lock; 5 require the sqlite3 CLI, which only the Linux CI runner
-// has; the rest were already red before the fork. Re-reading that list by eye
-// after every run is what made verification expensive, not the run itself.
-//
-// Two lists, both measured rather than guessed (scripts/collect-test-reds.cjs,
-// 4 consecutive fast runs):
-//   test/baseline-red.txt  red in every run  -> the real environmental floor
-//   test/flaky-red.txt     red in some runs  -> reported, never fatal on its own
-// A strict set-diff over the baseline alone cries wolf on the flaky one, and a
-// gate that cries wolf is worse than no gate.
+// Compare complete run evidence with the locally maintained baseline and
+// flaky names. Historical dependency/platform failures are not assumed to
+// remain present: the current files are authoritative, and incomplete runs
+// are rejected before either checking or writing a baseline.
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -28,12 +20,35 @@ const arg = (flag) => {
 
 function redsFromTap(tapPath) {
   const lines = fs.readFileSync(tapPath, "utf8").split(/\r?\n/);
+  // A killed runner can leave a valid-looking prefix with no failures. Only
+  // Node's completed root plan and final counters are evidence of a full run.
+  const text = lines.join("\n");
+  const plans = [...text.matchAll(/^1\.\.(\d+)\s*$/gm)];
+  const results = [...text.matchAll(/^(?:not )?ok \d+ - /gm)];
+  const counters = {};
+  for (const key of ["tests", "pass", "fail", "cancelled", "skipped", "todo"]) {
+    const matches = [...text.matchAll(new RegExp(`^# ${key} (\\d+)\\s*$`, "gm"))];
+    if (matches.length !== 1) throw new Error(`Incomplete TAP: missing or repeated ${key} counter`);
+    counters[key] = Number(matches[0][1]);
+  }
+  if (!/^TAP version 13\r?$/m.test(text) || plans.length !== 1 || Number(plans[0][1]) !== results.length
+      || counters.tests === 0 || !/^# duration_ms \d+(?:\.\d+)?\s*$/m.test(text)
+      || counters.tests !== counters.pass + counters.fail + counters.cancelled + counters.skipped + counters.todo) {
+    throw new Error("Incomplete TAP: plan or final summary does not match the run");
+  }
+  if (counters.cancelled) throw new Error(`Incomplete TAP: ${counters.cancelled} cancelled test(s)`);
+  if (/^\s*Bail out!/m.test(text)) throw new Error("Incomplete TAP: runner bailed out");
   const out = new Set();
   for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].startsWith("not ok ")) continue;
-    const m = lines[i].match(/^not ok \d+ - (.*)$/);
-    if (m) out.add(m[1].trim());
+    const m = lines[i].match(/^\s*not ok \d+ - (.*)$/);
+    if (!m || / # (?:TODO|SKIP)\b/i.test(m[1])) continue;
+    let end = i + 1;
+    while (end < lines.length && !/^\s*(?:not )?ok \d+ - /.test(lines[end])) end += 1;
+    // Suites/parents repeat their children's failure. Compare leaf failures,
+    // including indented children, so a known parent cannot hide a new child.
+    if (!/^\s+failureType:\s*['"]?subtestsFailed\b/m.test(lines.slice(i + 1, end).join("\n"))) out.add(m[1].trim());
   }
+  if (counters.fail > 0 && out.size === 0) throw new Error("Incomplete TAP: failed tests have no failure records");
   return out;
 }
 
@@ -48,7 +63,13 @@ if (!fs.existsSync(tapPath)) {
   process.exit(66);
 }
 
-const current = redsFromTap(tapPath);
+let current;
+try {
+  current = redsFromTap(tapPath);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 if (mode === "--write") {
   const list = [...current].sort();

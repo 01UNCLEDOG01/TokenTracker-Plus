@@ -3,10 +3,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const { verifyTree, mirrorTree, pruneStash, countFiles, awaitStartup } = require("../scripts/mirror-installed.cjs");
 
 function makeRepo(root) {
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "tracker-fixture", version: "1.2.3" }));
+  fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ name: "tracker-fixture", version: "1.2.3", lockfileVersion: 3 }));
   fs.mkdirSync(path.join(root, "dashboard", "dist", "assets"), { recursive: true });
   for (const f of ["index.html", "pet.html", "quota.html"]) {
     fs.writeFileSync(path.join(root, "dashboard", "dist", f), `<html>${f}</html>`);
@@ -66,6 +70,56 @@ test("a drifted src file is caught by the size check", () => {
     const joined = errors.join(" | ").replace(/\\/g, "/");
     assert.ok(errors.some(() => /src\/lib\/local-api\.js/.test(joined) && /大小不一致/.test(joined)), joined);
   });
+});
+
+test("equal-length corruption in source, entry pages and chunks is rejected", () => {
+  withFixture(({ repo, tree }) => {
+    mirrorTree(tree, repo);
+    for (const rel of ["src/lib/local-api.js", "dashboard/dist/index.html", "dashboard/dist/assets/main-abc.js"]) {
+      const target = path.join(tree, rel);
+      const original = fs.readFileSync(target);
+      fs.writeFileSync(target, Buffer.alloc(original.length, "x"));
+    }
+    const errors = verifyTree(tree, path.join(repo, "dashboard", "dist"), repo);
+    for (const file of ["local-api.js", "index.html", "main-abc.js"]) {
+      assert.ok(errors.some((message) => message.includes(file)), `${file} corruption was accepted`);
+    }
+  });
+});
+
+test("mirroring synchronizes and verifies runtime package manifests", () => {
+  withFixture(({ repo, tree }) => {
+    fs.writeFileSync(path.join(tree, "package.json"), JSON.stringify({ name: "tracker-fixture", version: "1.0.0" }));
+    mirrorTree(tree, repo);
+    for (const name of ["package.json", "package-lock.json"]) {
+      assert.deepEqual(fs.readFileSync(path.join(tree, name)), fs.readFileSync(path.join(repo, name)));
+    }
+    fs.writeFileSync(path.join(tree, "package.json"), JSON.stringify({ name: "tracker-fixture", version: "1.2.4" }));
+    assert.ok(verifyTree(tree, path.join(repo, "dashboard", "dist"), repo).some((message) => message.includes("package.json")));
+  });
+});
+
+test("a busy server port aborts the update before touching installed files", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "mirror-port-guard-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const repo = path.join(root, "repo");
+  const tree = path.join(root, "installed");
+  makeRepo(repo);
+  fs.mkdirSync(path.join(tree, "dashboard", "dist"), { recursive: true });
+  const index = path.join(tree, "dashboard", "dist", "index.html");
+  fs.writeFileSync(index, "original-installed-page");
+  let clock = 0;
+  class FastClock extends Date { static now() { clock += 50000; return clock; } }
+  const stubRequire = (name) => name === "child_process"
+    ? { spawnSync: () => ({ status: 0, stdout: "" }) } : require(name);
+  const sandbox = {
+    __dirname: path.join(repo, "scripts"), require: stubRequire, module: { exports: {} },
+    Date: FastClock, fetch: async () => ({ status: 200 }), console: { log() {}, warn() {}, error() {} },
+    process: { env: { MIRROR_TREES: tree }, argv: ["node", "mirror", "--skip-build"], platform: "win32", exit(code) { throw new Error(`exit ${code}`); } },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../scripts/mirror-installed.cjs"), "utf8") + "\nmodule.exports.testMain = main;", sandbox);
+  await assert.rejects(sandbox.module.exports.testMain());
+  assert.equal(fs.readFileSync(index, "utf8"), "original-installed-page");
 });
 
 test("mirroring twice keeps the tree at the repo file count (no accumulation)", () => {

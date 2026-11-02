@@ -42,6 +42,11 @@ const res = spawnSync(process.execPath, [
   ...fast.map((f) => path.join("test", f)),
 ], { cwd: repo, encoding: "utf8", maxBuffer: 1 << 28 });
 const secs = (Date.now() - started) / 1000;
+if (res.error || res.signal || (res.status !== 0 && res.status !== 1)) {
+  console.error(`fast runner failed: ${res.error?.message || res.signal || res.status}`);
+  console.error(`TAP evidence: ${tap}`);
+  process.exit(1);
+}
 
 const tapText = fs.readFileSync(tap, "utf8");
 const grab = (k) => {
@@ -56,12 +61,12 @@ console.log(`  (the ${SPAWN_HEAVY.length} spawn-heavy files were skipped; npm te
 const check = spawnSync(process.execPath,
   [path.join("scripts", "check-test-baseline.cjs"), "--check", tap],
   { cwd: repo, encoding: "utf8" });
-fs.rmSync(tap, { force: true });
-
 process.stdout.write(check.stdout || "");
 process.stderr.write(check.stderr || "");
-if (check.status !== 0) {
+if (check.status !== 0 || (res.status === 1 && grab("fail") === "0")) {
   console.error(`\nfast gate FAILED (node exit ${res.status})`);
+  console.error(`TAP evidence: ${tap}`);
   process.exit(1);
 }
+fs.rmSync(tap, { force: true });
 console.log("\nfast gate OK");

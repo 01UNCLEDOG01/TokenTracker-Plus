@@ -6,14 +6,20 @@ import { ProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 
 const FALLBACK_MARK_COLOR = "gray";
 
-function formatScore(value) {
+function finiteMetric(value) {
+  if (value == null || typeof value === "boolean" || String(value).trim() === "") return null;
   const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(1) : null;
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatScore(value) {
+  const n = finiteMetric(value);
+  return n === null ? null : n.toFixed(1);
 }
 
 function formatPrice(value, key = "global_models.price_value") {
-  const n = Number(value);
-  return Number.isFinite(n) ? copy(key, { value: n.toFixed(2) }) : "—";
+  const n = finiteMetric(value);
+  return n === null ? "—" : copy(key, { value: n.toFixed(2) });
 }
 
 function formatContext(value) {
@@ -22,8 +28,8 @@ function formatContext(value) {
 }
 
 function formatSpeed(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? copy("global_models.speed_value", { value: Math.round(n) }) : "—";
+  const n = finiteMetric(value);
+  return n === null ? "—" : copy("global_models.speed_value", { value: Math.round(n) });
 }
 
 function formatUpdated(value) {
@@ -363,7 +369,7 @@ export default function GlobalModelsPage() {
                         <td className="px-3 py-2.5 text-right tabular-nums text-oai-gray-600 dark:text-oai-gray-300">{formatPrice(row.output_per_million_cny, "global_models.price_value_cny")}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-oai-gray-600 dark:text-oai-gray-300">{row.release_date || "—"}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-oai-gray-600 dark:text-oai-gray-300">
-                          {Number.isFinite(Number(row.eval_coverage_percent)) ? `${row.eval_coverage_percent}%` : "—"}
+                          {finiteMetric(row.eval_coverage_percent) === null ? "—" : `${row.eval_coverage_percent}%`}
                         </td>
                       </tr>
                     ))}

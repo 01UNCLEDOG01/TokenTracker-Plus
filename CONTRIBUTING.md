@@ -28,8 +28,14 @@ node bin/tracker.js doctor       # Health check
 npm test                                     # Full suite (400+ test files, node --test)
 npm run test:fast                            # Fast local test gate (~80s)
 node --test test/rollout-parser.test.js      # A single test file
-npm run ci:local                             # Tests + validations + builds (everything CI runs)
+npm run test:all -- --keep-tap                # Full local baseline gate with TAP evidence
+npm run ci:local                             # Root tests + validations + dashboard build
 ```
+
+The baseline gates require a complete Node TAP plan and final summary. They
+reject cancelled tests, truncated logs and abnormal runner exits. Known failed
+leaves are compared with the local baseline; a parent suite cannot hide a new
+nested failure. Keep the reported TAP file when investigating a failed run.
 
 If you're touching the dashboard:
 
@@ -37,7 +43,15 @@ If you're touching the dashboard:
 npm run dashboard:dev                        # Vite dev server with mocked API
 npm run dashboard:build                      # Production build (output: dashboard/dist/)
 npm run validate:copy                        # Validate copy registry completeness
+npm --prefix dashboard test                  # Full dashboard Vitest suite
+npm --prefix dashboard run typecheck          # TypeScript checks
 ```
+
+`ci:local` does not run the complete dashboard Vitest suite. Run it separately
+for dashboard changes. Installed Windows payloads are synchronized with
+`npm run mirror:installed`, which builds pet/quota entries and compares every
+payload file by SHA-256. Follow the workspace's backup and confirmation rules
+before replacing installed files or pruning old snapshots.
 
 ## Pull Request Checklist
 

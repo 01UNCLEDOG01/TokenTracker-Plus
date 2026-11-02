@@ -39,6 +39,11 @@ const run = spawnSync(process.execPath, [
 
 const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
 console.log(`\n[full] node exited ${run.status} after ${elapsed}s (concurrency ${concurrency}, ${cores} cores)`);
+if (run.error || run.signal || (run.status !== 0 && run.status !== 1)) {
+  console.error(`[full] runner failed: ${run.error?.message || run.signal || run.status}`);
+  console.error(`[full] TAP evidence: ${tapPath}`);
+  process.exit(1);
+}
 
 const check = spawnSync(process.execPath, [
   path.join(ROOT, "scripts", "check-test-baseline.cjs"),
@@ -46,7 +51,9 @@ const check = spawnSync(process.execPath, [
   tapPath,
 ], { cwd: ROOT, stdio: "inherit" });
 
-if (keepTap || check.status !== 0) console.log(`[full] TAP evidence: ${tapPath}`);
+const runnerMismatch = run.status === 1 && /^# fail 0\s*$/m.test(fs.readFileSync(tapPath, "utf8"));
+if (runnerMismatch) console.error("[full] runner exited 1 despite reporting no failed tests");
+if (keepTap || check.status !== 0 || runnerMismatch) console.log(`[full] TAP evidence: ${tapPath}`);
 else fs.rmSync(tapPath, { force: true });
 
-process.exit(check.status ?? 1);
+process.exit(runnerMismatch ? 1 : (check.status ?? 1));

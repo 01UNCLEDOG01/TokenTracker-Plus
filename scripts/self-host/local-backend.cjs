@@ -32,7 +32,7 @@ const { randomUUID, createHmac, createHash } = require("node:crypto");
 const { PGlite } = require("@electric-sql/pglite");
 const { install } = require("./install.cjs");
 const { privateFunctions } = require("./manifest.cjs");
-const { ensureAuthSchema, handleAuthRequest, signToken, verifyToken, hashPassword, REFRESH_TTL_SECONDS } = require("./local-auth.cjs");
+const { ensureAuthSchema, handleAuthRequest, signToken, verifyAccessToken, hashPassword, REFRESH_TTL_SECONDS } = require("./local-auth.cjs");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 
@@ -511,6 +511,31 @@ async function main() {
   const previousDeno = globalThis.Deno;
   globalThis.Deno = { env: { get: (key) => env[key] } };
 
+  // Keep the counters for the server lifetime, rather than resetting them on
+  // every request. Bound memory and reclaim expired buckets before admitting
+  // a new address; at capacity, fail closed instead of evicting active limits.
+  const AUTH_RATE_LIMIT = { windowMs: 5 * 60 * 1000, max: 60, maxBuckets: 1024 };
+  const authRateBuckets = new Map();
+  let authRateSweepAt = 0;
+  const authRateLimited = (ip) => {
+    const nowMs = Date.now();
+    if (nowMs >= authRateSweepAt) {
+      for (const [key, value] of authRateBuckets) {
+        if (value.resetAt <= nowMs) authRateBuckets.delete(key);
+      }
+      authRateSweepAt = nowMs + AUTH_RATE_LIMIT.windowMs;
+    }
+    const bucket = authRateBuckets.get(ip);
+    if (!bucket || bucket.resetAt <= nowMs) {
+      if (!bucket && authRateBuckets.size >= AUTH_RATE_LIMIT.maxBuckets) return true;
+      authRateBuckets.set(ip, { count: 1, resetAt: nowMs + AUTH_RATE_LIMIT.windowMs });
+      return false;
+    }
+    if (bucket.count >= AUTH_RATE_LIMIT.max) return true;
+    bucket.count += 1;
+    return false;
+  };
+
   const server = http.createServer(async (req, res) => {
     let acceptsObject = false;
     const send = (status, value) => {
@@ -538,25 +563,11 @@ async function main() {
         "tokentracker-leaderboard-profile",
         "tokentracker-embed-svg",
       ]);
-      // Light per-IP limiter for the auth API: 60 requests / 5 minutes is
-      // far above any single-user flow and well below password guessing.
-      const AUTH_RATE_LIMIT = { windowMs: 5 * 60 * 1000, max: 60 };
-      const authRateBuckets = new Map();
-      const authRateLimited = (ip) => {
-        const nowMs = Date.now();
-        const bucket = authRateBuckets.get(ip);
-        if (!bucket || bucket.resetAt <= nowMs) {
-          authRateBuckets.set(ip, { count: 1, resetAt: nowMs + AUTH_RATE_LIMIT.windowMs });
-          return false;
-        }
-        bucket.count += 1;
-        return bucket.count > AUTH_RATE_LIMIT.max;
-      };
-
       // Auth is public by definition - it runs before the server-role gate.
       if (url.pathname.startsWith("/api/auth/")) {
-        const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()
-          || req.socket?.remoteAddress || "unknown";
+        // Forwarded headers are caller-controlled without an explicit trusted
+        // proxy contract. A proxy shares one bucket on this single-user host.
+        const ip = req.socket?.remoteAddress || "unknown";
         if (authRateLimited(ip)) {
           send(429, { error: "rate_limited", message: "too many requests" });
           return;
@@ -581,7 +592,7 @@ async function main() {
         // blocks the real request entirely.
         if (AUTH_REQUIRED_FUNCTIONS.has(slug) && req.method !== "OPTIONS") {
           const header = String(req.headers.authorization || "");
-          const payload = header.startsWith("Bearer ") ? verifyToken(header.slice(7), secret) : null;
+          const payload = header.startsWith("Bearer ") ? verifyAccessToken(header.slice(7), secret) : null;
           if (!payload) {
             send(401, { error: "unauthorized", message: "sign in to view this data" });
             return;

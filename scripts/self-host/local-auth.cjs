@@ -47,8 +47,16 @@ function verifyToken(token, secret) {
   } catch (_error) {
     return null;
   }
-  if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now()) return null;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)
+      || typeof payload.exp !== "number" || !Number.isFinite(payload.exp)
+      || payload.exp * 1000 <= Date.now()) return null;
   return payload;
+}
+
+function verifyAccessToken(token, secret) {
+  const payload = verifyToken(token, secret);
+  return payload?.role === "authenticated" && typeof payload.sub === "string" && payload.sub.length > 0
+    && (payload.typ === undefined || payload.typ === "access") ? payload : null;
 }
 
 function hashPassword(password) {
@@ -262,7 +270,7 @@ async function handleAuthRequest({ req, url, raw, db, secret, send, extraHeaders
   // internet - the bootstrap password is not something to keep.
   if (route === "profiles/current" && req.method === "PATCH") {
     const header = String(req.headers.authorization || "");
-    const payload = verifyToken(header.replace(/^Bearer\s+/i, ""), secret);
+    const payload = verifyAccessToken(header.replace(/^Bearer\s+/i, ""), secret);
     if (!payload) {
       send(401, { error: "unauthorized", message: "not signed in" });
       return true;
@@ -280,7 +288,7 @@ async function handleAuthRequest({ req, url, raw, db, secret, send, extraHeaders
 
   if (route === "profiles/current" && req.method === "GET") {
     const header = String(req.headers.authorization || "");
-    const payload = verifyToken(header.replace(/^Bearer\s+/i, ""), secret);
+    const payload = verifyAccessToken(header.replace(/^Bearer\s+/i, ""), secret);
     if (!payload) {
       send(401, { error: "unauthorized", message: "not signed in" });
       return true;
@@ -312,4 +320,5 @@ module.exports = {
   verifyPassword,
   signToken,
   verifyToken,
+  verifyAccessToken,
 };

@@ -7,8 +7,8 @@
  * 替换，结果 pet.html / quota.html 被删、桌宠显示 404 —— 流程写在文档里，但没人保证
  * 每次都会先读。所以把它固化成脚本，任何一步不对就非零退出。
  *
- * 做的事：带 flag 构建 → 两棵安装树各镜像 dist(先删再拷)/src/bin → 逐棵核对
- * （文件数、入口页、src+bin 文件大小）→ HTTP 冒烟 → 重启应用 → 再次冒烟。
+ * 做的事：带 flag 构建 → 两棵安装树各镜像 dist/src/bin/package manifests → 逐棵核对
+ * （文件数、入口页、所有载荷文件 SHA-256）→ 重启应用 → HTTP 冒烟。
  * 启动判定（KI-037）：主预算 180 秒内 200 即算成功；超时后宽限 60 秒复查一次，
  * 宽限内上线记为「冷启动慢」而不是失败。可用 MIRROR_STARTUP_TIMEOUT_MS /
  * MIRROR_STARTUP_GRACE_MS 覆盖（机器更慢时不必改代码）。
@@ -25,6 +25,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("node:crypto");
 const { spawnSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -65,6 +66,10 @@ function listFiles(dir) {
   return out;
 }
 
+function fileDigest(file) {
+  return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
 /**
  * Compare one installed tree against the repo payload. Pure (no network), so the
  * guard test can drive it with fixtures.
@@ -81,16 +86,32 @@ function verifyTree(treeDir, repoDistDir, repoRoot) {
   const want = countFiles(repoDistDir);
   const got = countFiles(dist);
   if (got !== want) errors.push(`${treeDir}: dist 有 ${got} 个文件，仓库构建是 ${want} 个`);
-  for (const dir of ["src", "bin"]) {
-    const repoDir = path.join(repoRoot, dir);
+  // Equal byte counts do not prove equal content (or even the same filenames
+  // in dist). Verify every shipped file, including HTML and hashed chunks.
+  for (const dir of ["dashboard/dist", "src", "bin"]) {
+    const repoDir = dir === "dashboard/dist" ? repoDistDir : path.join(repoRoot, dir);
     const treeSub = path.join(treeDir, dir);
     for (const rel of listFiles(repoDir)) {
       const target = path.join(treeSub, rel);
-      if (!fs.existsSync(target)) { errors.push(`${treeDir}: ${dir}/${rel} 缺失`); continue; }
+      if (!fs.existsSync(target)) {
+        const message = `${treeDir}: ${dir}/${rel} 缺失`;
+        if (!errors.some((error) => error.includes(`dist 缺 ${rel}`))) errors.push(message);
+        continue;
+      }
       const a = fs.statSync(path.join(repoDir, rel)).size;
       const b = fs.statSync(target).size;
       if (a !== b) errors.push(`${treeDir}: ${dir}/${rel} 大小不一致（${b} != ${a}）`);
+      else {
+        if (fileDigest(path.join(repoDir, rel)) !== fileDigest(target)) errors.push(`${treeDir}: ${dir}/${rel} 内容不一致（SHA-256）`);
+      }
     }
+  }
+  for (const name of ["package.json", "package-lock.json"]) {
+    const source = path.join(repoRoot, name);
+    if (!fs.existsSync(source)) continue;
+    const target = path.join(treeDir, name);
+    if (!fs.existsSync(target)) errors.push(`${treeDir}: ${name} 缺失`);
+    else if (fileDigest(source) !== fileDigest(target)) errors.push(`${treeDir}: ${name} 内容不一致（SHA-256）`);
   }
   return errors;
 }
@@ -158,6 +179,10 @@ function mirrorTree(treeDir, repoRoot, { purgeOld = false, stashKeep = STASH_KEE
   fs.cpSync(path.join(repoRoot, "dashboard", "dist"), distTarget, { recursive: true });
   for (const dir of ["src", "bin"]) {
     fs.cpSync(path.join(repoRoot, dir), path.join(treeDir, dir), { recursive: true, force: true });
+  }
+  for (const name of ["package.json", "package-lock.json"]) {
+    const source = path.join(repoRoot, name);
+    if (fs.existsSync(source)) fs.copyFileSync(source, path.join(treeDir, name));
   }
 }
 
@@ -297,7 +322,7 @@ async function main() {
   const purgeOld = argv.includes("--purge-old");
   if (!noRestart) {
     stopApp();
-    if (!(await waitForPortFree(baseUrl))) errors.push("应用已停但端口 30 秒内没有释放，镜像可能被旧进程占用");
+    if (!(await waitForPortFree(baseUrl))) throw new Error("应用已停但端口 30 秒内没有释放，拒绝镜像以免覆盖旧进程正在读取的文件");
   }
   for (const tree of trees) {
     console.log(`[mirror] 镜像 → ${tree}`);
