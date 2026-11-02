@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAllModels,
   buildFleetData,
+  buildTraeCostInterval,
   buildTopModels,
   hasModelTokenSplits,
   modelTokenSplitsTotal,
@@ -486,5 +487,51 @@ describe("request-only providers (issue 948)", () => {
       ],
     });
     expect(top).toEqual([]);
+  });
+});
+
+describe("buildTraeCostInterval", () => {
+  const traeCard = {
+    source: "trae",
+    usd: 16.2,
+    models: [
+      // DeepSeek: TRAE reports no cache fields, so all input is uncached-billed.
+      { id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 16.2, usage: 62_000_000, tokens: { input: 60_000_000, cached: 0 } },
+    ],
+  };
+  const peers = [
+    // DeepSeek direct observes the same model with a real hit rate.
+    { source: "deepseek", models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 5, cacheHitRate: 90 }] },
+    // WorkBuddy observes it too; median of [90, 94] = 92.
+    { source: "workbuddy", models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 8, cacheHitRate: 94 }] },
+    // TRAE CN also observes it but is the same product family — still a peer.
+    { source: "trae-cn", models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 3, cacheHitRate: 80 }] },
+  ];
+
+  it("builds an interval from the same model's median hit rate at other sources", () => {
+    const interval = buildTraeCostInterval(traeCard, [traeCard, ...peers]);
+    expect(interval).not.toBeNull();
+    // Median of [90, 94, 80] = 90 -> low = 16.2 * (0.1 + 0.9 * (0.006/0.3))
+    expect(interval.high).toBeCloseTo(16.2, 5);
+    expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
+    expect(interval.low).toBeLessThan(interval.high);
+    expect(interval.peerSources).toBe(1);
+  });
+
+  it("returns null when no other source observed the model (no fabricated floor)", () => {
+    const lonely = buildTraeCostInterval(traeCard, [traeCard]);
+    expect(lonely).toBeNull();
+  });
+
+  it("ignores non-TRAE providers and models without an entry in the discount table", () => {
+    const deepseekCard = { source: "deepseek", usd: 5, models: traeCard.models };
+    expect(buildTraeCostInterval(deepseekCard, [deepseekCard, ...peers])).toBeNull();
+    // longcat has no cache-read discount entry: floor would be fabricated.
+    const longcatCard = {
+      source: "trae",
+      usd: 3,
+      models: [{ id: "longcat-2.5", name: "longcat-2.5", cost: 3, usage: 1_000_000, tokens: { input: 900_000, cached: 0 } }],
+    };
+    expect(buildTraeCostInterval(longcatCard, [longcatCard, ...peers])).toBeNull();
   });
 });

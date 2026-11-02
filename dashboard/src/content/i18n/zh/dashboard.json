@@ -12,6 +12,8 @@
   "usage.overview.devin_notice_title": "费用未估算",
   "usage.overview.trae_notice_title": "TRAE 费用按牌价计算",
   "usage.overview.trae_notice_body": "费用 = TokenTracker 模型牌价 × Token 数，Token 为实测值。多步对话中 TRAE 只拆分最后一步的缓存输入，之前步骤的缓存占比按最后一步命中率推算，故费用为牌价推算值，并非实际账单金额。",
+  "usage.overview.trae_interval_estimate": "区间口径：{{low}} ~ {{high}}（上限=牌价全额，下限=按缓存命中折算的估算）。",
+  "usage.overview.trae_interval_basis": "下限为估算：命中率取自其他来源对同一模型的实测中位数（跨产品近似，仅供参考）；实际缓存成本以 TRAE 计费为准。",
   "usage.overview.trae_card_hint": "牌价推算",
   "usage.overview.devin_notice_body": "Devin 上报的是真实的本地 Token 计数，但本版本没有 swe-2、swe-2-high 和 compactor 的定价数据，这部分用量不参与美元费用估算——显示 $0 并不代表用量免费。",
   "stats.period.last_7d": "7 天",

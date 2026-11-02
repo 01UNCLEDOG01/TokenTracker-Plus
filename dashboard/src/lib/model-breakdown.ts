@@ -299,6 +299,94 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
     });
 }
 
+// Cache-read pricing as a fraction of uncached input, for models whose
+// provider does not report cache fields at all (TRAE international does not
+// for DeepSeek). Used only to derive the LOWER bound of an honest cost
+// interval; the upper bound stays the reported figure. Values are per-model
+// so a non-DeepSeek unknown-cache model is skipped rather than mis-discounted.
+const UNKNOWN_CACHE_DISCOUNT: Record<string, number> = {
+  "deepseek-v4.1-flash": 0.006 / 0.3, // $0.006 cache read / $0.30 input per MTok
+};
+
+function normalizeIntervalModelName(name: any) {
+  return String(name || "").trim().toLowerCase();
+}
+
+/**
+ * TRAE international reports no cache fields for some models (DeepSeek), so
+ * every input token is billed at the uncached rate and the card's dollar
+ * figure is a ceiling. Build an honest interval:
+ *   - lower bound: the same model's median observed cache hit rate across
+ *     OTHER sources (e.g. DeepSeek direct, WorkBuddy, TRAE CN), folded with
+ *     the model's cache-read discount;
+ *   - upper bound: the reported (all-uncached) figure.
+ * Returns null when no other source observed the model — no hit rate means no
+ * defensible lower bound, so the card keeps the plain ceiling.
+ */
+export function buildTraeCostInterval(provider: any, fleetData: any) {
+  const isTrae = String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+  if (!isTrae) return null;
+  const models: any[] = Array.isArray(provider?.models) ? provider.models : [];
+  if (!models.length) return null;
+
+  const peers: any[] = Array.isArray(fleetData) ? fleetData : [];
+  const hitRatesByModel = new Map();
+  for (const peer of peers) {
+    const peerSource = String(peer?.source || peer?.label || "").trim().toLowerCase();
+    if (peerSource === "trae") continue;
+    for (const model of Array.isArray(peer?.models) ? peer.models : []) {
+      if (model?.cacheHitRate == null) continue;
+      const name = normalizeIntervalModelName(model.name || model.id);
+      if (!name) continue;
+      if (!hitRatesByModel.has(name)) hitRatesByModel.set(name, []);
+      hitRatesByModel.get(name).push(Number(model.cacheHitRate));
+    }
+  }
+  if (!hitRatesByModel.size) return null;
+
+  const median = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
+
+  // Per-model fold: cost_low = cost_high * ((1-H) + H * discount). Models
+  // without a peer hit rate (or an unknown discount) keep their ceiling.
+  let high = 0;
+  let low = 0;
+  let covered = 0;
+  for (const model of models) {
+    const modelCost = Number(model?.cost);
+    if (!Number.isFinite(modelCost) || modelCost < 0) continue;
+    high += modelCost;
+    const discount = UNKNOWN_CACHE_DISCOUNT[normalizeIntervalModelName(model.name || model.id)];
+    if (discount == null) {
+      low += modelCost;
+      continue;
+    }
+    const rates = hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
+    // Other TRAE-card models also observe the model (TRAE CN): they count as
+    // peer evidence even though the card itself reports no cache fields.
+    const hitRate = rates && rates.length ? median(rates) : null;
+    if (hitRate == null || !Number.isFinite(hitRate) || hitRate <= 0) {
+      low += modelCost;
+      continue;
+    }
+    const h = Math.min(Math.max(hitRate / 100, 0), 1);
+    low += modelCost * ((1 - h) + h * discount);
+    covered += 1;
+  }
+
+  if (high <= 0 || low >= high || covered === 0) return null;
+  return {
+    low,
+    high,
+    // Sample size for the "estimated from" note: how many other sources
+    // actually observed the covered model(s).
+    peerSources: covered,
+  };
+}
+
 /**
  * Flatten the provider-oriented fleet data into one personal model ranking.
  * The same model name can be emitted by several tools, so names are matched

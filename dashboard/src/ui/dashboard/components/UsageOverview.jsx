@@ -34,7 +34,7 @@ import { formatProviderDisplayName } from "../../../lib/provider-display";
 import { DateRangePopover, formatDateShort, getDateFnsLocale } from "./DateRangePopover.jsx";
 import { ProviderIcon } from "./ProviderIcon.jsx";
 import { formatUsdCurrency } from "../../../lib/format";
-import { buildAllModels, hasModelTokenSplits } from "../../../lib/model-breakdown";
+import { buildAllModels, buildTraeCostInterval, hasModelTokenSplits } from "../../../lib/model-breakdown";
 import { ContextBreakdownPanel } from "./ContextBreakdownPanel.jsx";
 
 const ALL_PROVIDERS_KEY = "__all__";
@@ -647,16 +647,23 @@ export function UsageOverview({
                 const providerCost = formatCost(provider.usd, currency, rate);
                 const providerRequests = Math.max(0, Number(provider.requests) || 0);
                 const modelCount = copy("usage.overview.model_count", { count: provider.models.length });
-                const modelCountLabel =
-                  provider.usage > 0 || (!providerCost && providerRequests <= 0)
-                    ? modelCount
-                    : `${modelCount} · ${
-                        providerCost || copy("usage.overview.request_count", { count: providerRequests })
-                      }`;
                 // The TRAE pricing caveat lives on the TRAE card itself (short
                 // hint + tooltip), never on the combined totals above.
                 const isTraeCard =
                   String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+                const traeCardInterval = isTraeCard
+                  ? buildTraeCostInterval(provider, fleetData)
+                  : null;
+                const traeCardCost =
+                  traeCardInterval && Number.isFinite(traeCardInterval.low) && traeCardInterval.low > 0
+                    ? `${formatCost(traeCardInterval.low, currency, rate)} ~ ${providerCost}`
+                    : providerCost;
+                const modelCountLabel =
+                  provider.usage > 0 || (!providerCost && providerRequests <= 0)
+                    ? modelCount
+                    : `${modelCount} · ${
+                        traeCardCost || copy("usage.overview.request_count", { count: providerRequests })
+                      }`;
 
                 return (
                   <button
@@ -731,13 +738,16 @@ export function UsageOverview({
                     });
                     const isTraeProvider =
                       String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+                    const traeInterval = isTraeProvider
+                      ? buildTraeCostInterval(provider, fleetData)
+                      : null;
 
                     const providerHeading = contextSource
                       ? contextBreakdownHeading(contextSource)
                       : formatProviderDisplayName(provider.label);
                     return (
                       <React.Fragment key={provider.label}>
-                        {isTraeProvider && <TraePricingNotice />}
+                        {isTraeProvider && <TraePricingNotice interval={traeInterval} />}
                         <ProviderExpandedSection
                           provider={provider}
                           color={color}
@@ -953,13 +963,31 @@ function KiroEstimateNotice() {
   );
 }
 
-function TraePricingNotice() {
+// TRAE international reports no cache fields for some models (DeepSeek), so
+// the dollar figure on its rows is a ceiling (every input token billed at the
+// uncached rate). When the same model was observed with real cache hit rates
+// at other sources, show an honest interval instead of the bare ceiling.
+function TraePricingNotice({ interval = null }) {
+  const { currency, rate } = useCurrency();
+  let intervalLine = null;
+  if (interval && Number.isFinite(interval.low) && interval.low > 0) {
+    intervalLine = copy("usage.overview.trae_interval_estimate", {
+      low: formatCost(interval.low, currency, rate),
+      high: formatCost(interval.high, currency, rate),
+    });
+  }
   return (
     <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
       <span className="font-medium text-oai-gray-500 dark:text-oai-gray-400">
         {copy("usage.overview.trae_notice_title")}.
       </span>{" "}
       {copy("usage.overview.trae_notice_body")}
+      {intervalLine ? (
+        <span className="block mt-0.5">
+          {intervalLine}{" "}
+          {copy("usage.overview.trae_interval_basis")}
+        </span>
+      ) : null}
     </p>
   );
 }
