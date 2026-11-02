@@ -18,7 +18,8 @@ function backendAuthFixture({ accountExists = true } = {}) {
   const secret = "isolated-test-secret";
   vm.runInNewContext(source.slice(start, end), {
     http: { createServer(callback) { handler = callback; } },
-    process: { env: {} }, globalThis: {}, URL, Request, Response, Date: { now: () => now },
+    process: { env: {} }, globalThis: {}, URL, Request, Response, Buffer, Date: { now: () => now },
+    serverCredential: "fixture-server-credential",
     env: {}, port: 1234, privateFunctions: [], db: { query: async () => ({ rows: accountExists ? [{ id: "11111111-1111-4111-8111-111111111111" }] : [] }) }, secret, verifyToken, verifyAccessToken,
     handlers: { "tokentracker-leaderboard": async () => new Response("{}") },
     handleAuthRequest: async ({ url, send }) => {
@@ -30,10 +31,10 @@ function backendAuthFixture({ accountExists = true } = {}) {
   return {
     advance: (ms) => { now += ms; },
     token: (payload) => signToken(payload, secret),
-    async request(ip = "127.0.0.1", forwarded = "", { url = "/api/auth/public-config", token } = {}) {
+    async request(ip = "127.0.0.1", forwarded = "", { url = "/api/auth/public-config", token, chunks = [], onRead } = {}) {
       const req = {
         method: "GET", url, headers: { "x-forwarded-for": forwarded, ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        socket: { remoteAddress: ip }, async *[Symbol.asyncIterator]() {},
+        socket: { remoteAddress: ip }, resume() {}, async *[Symbol.asyncIterator]() { onRead?.(); yield* chunks; },
       };
       let status;
       const res = { writeHead(value) { status = value; }, end() {} };
@@ -128,4 +129,16 @@ test("self-host auth bounds IP buckets and reclaims them after the time window",
   assert.equal(await fixture.request("overflow"), 429);
   fixture.advance(5 * 60 * 1000);
   assert.equal(await fixture.request("overflow"), 200);
+});
+
+test("self-host rejects oversized bodies before dispatching auth or database work", async () => {
+  const fixture = backendAuthFixture();
+  assert.equal(await fixture.request(undefined, undefined, { chunks: [Buffer.alloc(64 * 1024 + 1)] }), 413);
+  assert.equal(await fixture.request(undefined, undefined, { url: "/api/database/rpc/example", chunks: [Buffer.alloc(6 * 1024 * 1024 + 1)] }), 413);
+});
+
+test("self-host rejects rate-limited auth before consuming its request body", async () => {
+  const fixture = backendAuthFixture();
+  for (let i = 0; i < 60; i += 1) await fixture.request();
+  assert.equal(await fixture.request(undefined, undefined, { onRead() { throw new Error("rate-limited body was consumed"); } }), 429);
 });

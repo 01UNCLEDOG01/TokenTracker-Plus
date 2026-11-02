@@ -542,9 +542,35 @@ async function main() {
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(value));
     };
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
     const url = new URL(req.url, "http://127.0.0.1:" + port);
+    if (url.pathname.startsWith("/api/auth/") && authRateLimited(req.socket?.remoteAddress || "unknown")) {
+      req.resume?.();
+      send(429, { error: "rate_limited", message: "too many requests" });
+      return;
+    }
+    // Bound both declared and chunked bodies. Keep the socket alive on an
+    // early return so the 413 response can flush, then drain without buffering.
+    const maxBodyBytes = url.pathname.startsWith("/api/auth/") ? 64 * 1024 : 6 * 1024 * 1024;
+    const chunks = [];
+    let bodyBytes = 0;
+    let raw;
+    try {
+      const stream = typeof req.iterator === "function" ? req.iterator({ destroyOnReturn: false }) : req;
+      for await (const chunk of stream) {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        bodyBytes += bytes.length;
+        if (bodyBytes > maxBodyBytes) {
+          req.resume?.();
+          send(413, { error: "payload_too_large" });
+          return;
+        }
+        chunks.push(bytes);
+      }
+      raw = Buffer.concat(chunks).toString("utf8");
+    } catch {
+      if (!res.headersSent) send(400, { error: "invalid_request" });
+      return;
+    }
     if (process.env.TOKENTRACKER_LOCAL_BACKEND_DEBUG) {
       console.error(`[req] ${req.method} ${url.pathname}${url.search} auth=${req.headers.authorization ? "yes" : "no"}`);
     }
@@ -563,16 +589,6 @@ async function main() {
         "tokentracker-leaderboard-profile",
         "tokentracker-embed-svg",
       ]);
-      // Auth is public by definition - it runs before the server-role gate.
-      if (url.pathname.startsWith("/api/auth/")) {
-        // Forwarded headers are caller-controlled without an explicit trusted
-        // proxy contract. A proxy shares one bucket on this single-user host.
-        const ip = req.socket?.remoteAddress || "unknown";
-        if (authRateLimited(ip)) {
-          send(429, { error: "rate_limited", message: "too many requests" });
-          return;
-        }
-      }
       // Auth routes may attach Set-Cookie headers (browser refresh-cookie
       // session flow); the shared send() only writes JSON, so auth gets its
       // own sender with a mutable extra-headers slot (2026-10-16).
