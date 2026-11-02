@@ -2050,3 +2050,8 @@ global_models.col.cache_cny,ui,GlobalModelsPage,GlobalModelsPage,col_cache_cny,"
 global_models.col.input_cny,ui,GlobalModelsPage,GlobalModelsPage,col_input_cny,"Input (¥)",,active
 global_models.col.output_cny,ui,GlobalModelsPage,GlobalModelsPage,col_output_cny,"Output (¥)",,active
 global_models.price_value_cny,ui,GlobalModelsPage,GlobalModelsPage,price_value_cny,"¥{{value}}",,active
+global_models.aihot_cat_overall,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_overall,"Composite",,active
+global_models.aihot_cat_coding,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_coding,"Coding",,active
+global_models.aihot_cat_reasoning,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_reasoning,"Research",,active
+global_models.aihot_cat_professional,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_professional,"Office",,active
+global_models.aihot_cat_knowledge,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_knowledge,"Knowledge Q&A",,active
