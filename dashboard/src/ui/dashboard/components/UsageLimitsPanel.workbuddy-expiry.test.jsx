@@ -3,9 +3,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { copy } from "../../../lib/copy";
 import { UsageLimitsPanel } from "./UsageLimitsPanel.jsx";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 it("keeps WorkBuddy expiration details in both reward hover cards with Beijing dates and fractional credits", () => {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ font: "", measureText: (text) => ({ width: String(text).length * 6 }) });
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ limitRows: [] }) })));
   const limits = { configured: true, reward_window: {
     used_percent: 20, used_credits: 200, limit_credits: 1000, remaining_credits: 800,
