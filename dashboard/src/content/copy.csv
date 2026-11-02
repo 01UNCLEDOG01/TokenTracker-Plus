@@ -2039,3 +2039,4 @@ limits.zcode.other_region.snapshot,dashboard,LimitsPage,UsageLimitsPanel,detail,
 usage.overview.trae_estimate_line,ui,DashboardPage,UsageOverview,trae_estimate_line,"Estimated cost: {{estimated}} (folded from the {{median}}% median cache hit rate you achieve on this model at other sources; {{high}} if billed fully uncached).",,active
 usage.overview.trae_estimate_basis,ui,DashboardPage,UsageOverview,trae_estimate_basis,"Basis: the hit rate comes from your own measured usage of the same model at other sources (cross-product approximation, for reference only); actual billed cache cost is up to TRAE.",,active
 usage.overview.trae_row_estimate_marker,ui,DashboardPage,UsageOverview,trae_row_estimate_marker,"(est.)",,active
+usage.overview.cache_hit_rate_label_est,ui,DashboardPage,UsageOverview,cache_hit_rate_label_est,"Cache hit rate (est.)",,active

@@ -1079,7 +1079,11 @@ function ProviderExpandedSection({ provider, color, providerHeading, contextSour
                         {provider.cacheHitRate != null && (
                           <p className="mb-3 text-[11px] leading-snug text-oai-gray-500 dark:text-oai-gray-400 tabular-nums">
                             <span className="font-medium text-oai-gray-600 dark:text-oai-gray-300">
-                              {copy("usage.overview.cache_hit_rate_label")}
+                              {copy(
+                                provider.traeEstimate
+                                  ? "usage.overview.cache_hit_rate_label_est"
+                                  : "usage.overview.cache_hit_rate_label",
+                              )}
                             </span>{" "}
                             <span className="text-oai-black dark:text-oai-white">{provider.cacheHitRate}%</span>
                             {" · "}

@@ -906,5 +906,6 @@
   "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累计消耗——手机厂把芯和模型一起造。",
   "usage.overview.trae_estimate_line": "费用估算：{{estimated}}（按你在其他来源使用同一模型的实测命中率中位数 {{median}}% 折算；若完全不缓存、按牌价全额则为 {{high}}）。",
   "usage.overview.trae_estimate_basis": "估算依据：命中率取自你自己在其他来源对同一模型的实测数据（跨产品近似，仅供参考）；实际缓存成本以 TRAE 计费为准。",
-  "usage.overview.trae_row_estimate_marker": "（估算）"
+  "usage.overview.trae_row_estimate_marker": "（估算）",
+  "usage.overview.cache_hit_rate_label_est": "缓存命中率（估算）"
 }

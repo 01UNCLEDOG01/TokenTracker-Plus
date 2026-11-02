@@ -654,6 +654,12 @@ describe("applyTraeEstimatedCosts", () => {
     expect(trae.ceilingUsd).toBeCloseTo(19.2, 5);
     expect(trae.traeEstimate.medianHitRate).toBe(90);
     expect(trae.traeEstimate.covered).toBe(1);
+    // Source-line cache stats are estimated the same way (owner ruling): the
+    // covered model contributes input*H cache reads (60M*0.9=54M) against its
+    // whole input-side volume; longcat keeps its real (zero) cache.
+    expect(trae.cacheReusedTokens).toBeCloseTo(54_000_000, 0);
+    expect(trae.cacheInputTokens).toBeCloseTo(61_000_000, 0);
+    expect(trae.cacheHitRate).toBe(89);
     // Non-TRAE providers are untouched.
     const dsh = fleet.find((f: any) => f.source === "dsh");
     expect(dsh.traeEstimate).toBeUndefined();

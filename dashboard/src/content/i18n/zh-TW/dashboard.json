@@ -937,5 +937,6 @@
   "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。",
   "usage.overview.trae_estimate_line": "費用估算：{{estimated}}（依你在其他來源使用同一模型的實測命中率中位數 {{median}}% 折算；若完全不快取、按牌價全額則為 {{high}}）。",
   "usage.overview.trae_estimate_basis": "估算依據：命中率取自你自己在其他來源對同一模型的實測數據（跨產品近似，僅供參考）；實際快取成本以 TRAE 計費為準。",
-  "usage.overview.trae_row_estimate_marker": "（估算）"
+  "usage.overview.trae_row_estimate_marker": "（估算）",
+  "usage.overview.cache_hit_rate_label_est": "快取命中率（估算）"
 }

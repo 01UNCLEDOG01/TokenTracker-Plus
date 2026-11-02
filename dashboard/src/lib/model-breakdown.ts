@@ -467,6 +467,34 @@ export function applyTraeEstimatedCosts(fleetData: any) {
       entry.model.cost = entry.foldedCost;
       entry.model.ceilingCost = entry.originalCost;
     }
+    // Source-line cache stats get the same treatment (owner ruling: the cached
+    // token quantity must be estimated, not the ~0 figure TRAE's blend reports).
+    // Covered models treat their reported input as the whole input-side volume
+    // T: cache reads = T*H, fresh = T*(1-H). Uncovered models keep their real
+    // reported cache fields. The denominator is volume-conserving, so it matches
+    // what the source line showed before.
+    let estReused = 0;
+    let estFresh = 0;
+    let estCC = 0;
+    for (const entry of fold.perModel) {
+      const t = entry.model?.tokens || {};
+      const input = Math.max(0, Number(t.input) || 0);
+      const cc = Math.max(0, Number(t.cacheCreate) || 0);
+      if (entry.hitRate != null) {
+        const h = Math.min(Math.max(entry.hitRate / 100, 0), 1);
+        estReused += input * h;
+        estFresh += input * (1 - h);
+      } else {
+        estReused += Math.max(0, Number(t.cached) || 0);
+        estFresh += input;
+      }
+      estCC += cc;
+    }
+    const estInputSide = estFresh + estReused + estCC;
+    provider.cacheReusedTokens = estReused;
+    provider.cacheInputTokens = estInputSide;
+    provider.cacheHitRate =
+      estReused > 0 && estInputSide > 0 ? Math.round((estReused / estInputSide) * 100) : null;
     provider.ceilingUsd = fold.ceilingCost;
     provider.usd = fold.estimatedCost;
     provider.traeEstimate = {
