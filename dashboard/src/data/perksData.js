@@ -507,10 +507,6 @@ export const PERK_PROVIDERS = [  {
     "provider": "qwenwork",
     "category": [
           "client",
-          "daily_claim"
-    ],
-    "category": [
-          "client",
           "monthly_claim"
     ],
     "badge": "新户赠 300 积分 · 每月仅 100（福利缩水）",
