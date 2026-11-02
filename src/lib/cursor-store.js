@@ -23,6 +23,7 @@ const PROJECT_ABSENT_CONTEXT_RESCAN_MS = 24 * 60 * 60 * 1000;
 const CURSOR_STORE_RETRY_CODE = "TOKENTRACKER_CURSOR_STORE_RETRY";
 const TRASH_DIRNAME = "tokentracker-cursor-trash";
 const TRASH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const TRASH_PURGE_BATCH = 100;
 
 async function openCursorStore({
   trackerDir,
@@ -1876,11 +1877,14 @@ async function purgeStaleTrashEntries() {
     throw e;
   }
   const cutoff = Date.now() - TRASH_MAX_AGE_MS;
+  let purged = 0;
   for (const entry of entries) {
+    if (purged >= TRASH_PURGE_BATCH) break;
     if (!entry.isDirectory()) continue;
     const nameTs = Number(entry.name.split("-")[0]);
     if (!Number.isFinite(nameTs) || nameTs >= cutoff) continue;
     await fs.rm(path.join(trashRoot, entry.name), { recursive: true, force: true });
+    purged += 1;
   }
 }
 
