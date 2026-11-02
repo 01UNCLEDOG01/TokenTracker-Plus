@@ -44,55 +44,29 @@ export const PERK_CATEGORIES = [
   }
 ];
 
-export const PERK_PROVIDERS = [  {
-    "id": "qwen",
-    "name": "阿里百炼 (通义千问 Qwen)",
-    "provider": "alibaba",
-    "category": [
-          "featured",
-          "big_quota"
-    ],
-    "badge": "在架模型各送 100 万 Tokens（90天）",
-    "badgeType": "amber",
-    "tags": [
-      "阿里大厂",
-      "多模型独立送",
-      "旧版三方已下架",
-      "用完即停安心模式"
-    ],
-    "description": "阿里云大模型一站式服务平台。按官方规则每个模型均有独立免费额度（通常 100 万 Tokens、90 天有效，不跨模型合并）；2026-10-29 官方下架清单同时涵盖第三方系列（DeepSeek、Kimi、智谱 GLM、MiniMax 等）与 Qwen 旧版本/快照（qwen-max、qwen-plus、qwen3 系列快照等），清单内模型新用户不再获赠、已发放给老用户的额度仍可继续使用，后续新上线模型仍会发放免费额度。",
-    "tips": "免费额度默认在华北2（北京）地域实时推理生效；各模型额度相互独立不混用，建议在控制台开启「免费额度用完即停」开关，避免额度耗尽后产生按量扣费。",
-    "officialUrl": "https://bailian.console.aliyun.com",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://help.aliyun.com/zh/model-studio/new-free-quota"
-  },
+export const PERK_PROVIDERS = [
   {
-    "id": "doubaowork",
-    "name": "豆包工作 (Doubao Work)",
-    "provider": "doubao",
+    "id": "agent2api",
+    "name": "Agent2API (开源本地网关)",
+    "provider": "agent2api",
     "category": [
-      "featured",
-          "client",
-          "daily_claim"
+      "gateway",
+      "client"
     ],
-    "badge": "30天体验包 + 签到领额度 + 活动 100 额度",
+    "badge": "开源本地网关 · 多端账号聚合 · 自动签到打卡",
     "badgeType": "success",
     "tags": [
-      "字节大厂",
-      "30天体验包",
-      "每日签到",
-      "活动领100额度",
-      "邀请得重置"
+      "开源自建",
+      "本地聚合网关",
+      "自动签到打卡",
+      "转OpenAI接口"
     ],
-    "description": "首次登录豆包电脑版新用户，可直接领取 **30 天免费体验套餐**（除生视频、Pro 模型外全功能可用，30 天内有效且优先消耗）。新老用户还可参与**每日签到：每天 200 额度、周一翻倍**，累计里程碑再额外奖 200 / 500 / 1300 额度；活动人人可领 100 额度，连续签到 30 天合计可得 **8,800 额度**；邀请好友双方各得 1 次额度重置机会。",
-    "tips": "活动口令经 AI Agent 公益实训营等官方活动渠道发放，以活动页与官方社群为准；下载客户端后通过左下角签到弹窗或头像侧边栏「免费用豆包」参与签到，签到额度立即生效且优先消耗，签到额度的有效期以端内签到页规则为准。",
-    "inviteUrl": "https://www.doubao.com/pc/desktop-fission/pro-trial/invited?inviteCode=WIbgDM5zbX",
-    "officialUrl": "https://doubao.com/work",
-    "inviteCode": "WIbgDM5zbX",
-    "hasInvite": true,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://doubao.com/work"
+    "description": "开源免费的本地 AI 逆向代理与多 Agent 聚合网关（GitHub: aimod-cc/Agent2API）。专为打通割裂的 AI 客户端而设计：1. 自动签到打卡：内置定时任务与补签中心，可集中托管 WorkBuddy、小浣熊、AutoClaw、Qoder CN 等平台的每日签到与额度刷新，省去每天手动逐个打开客户端领积分的繁琐；2. 统一转 API：将各平台分散的免费额度与登录态集中聚合，转换为本地标准的 OpenAI 兼容接口（127.0.0.1 端口），供 Cursor、Cline、Cherry Studio、NextChat 等任意第三方开发或对话工具自由调用。",
+    "tips": "支持 Windows/macOS 桌面客户端（Tauri）与 Docker 本地部署；凭证与 Token 均保存在本地机器不上传云端，适合搭配各家白嫖额度构建自己的个人私有聚合 API 池。",
+    "officialUrl": "https://github.com/aimod-cc/Agent2API",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://github.com/aimod-cc/Agent2API"
   },
   {
     "id": "agnes",
@@ -120,37 +94,11 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
   },
   {
-    "id": "siliconflow",
-    "name": "硅基流动 (SiliconFlow)",
-    "provider": "siliconflow",
-    "category": [
-      "featured",
-      "big_quota",
-      "gateway"
-    ],
-    "badge": "推荐官计划：每邀 1 人实名得 ¥16 代金券",
-    "badgeType": "amber",
-    "tags": [
-      "主流聚合",
-      "送2000万Tokens",
-      "极速推理",
-      "小模型免费"
-    ],
-    "description": "聚合 DeepSeek、Qwen 等主流开源大模型，部分小参数模型长期免费开放并发调用。推荐官计划（2026-11-01 实测）：已完成实名认证的用户可作推荐官，被邀请人完成注册及实名认证后，邀请人每邀 1 名得面值 ¥16 的全平台通用代金券 1 张，邀请人数与奖励次数不设上限、极速到账可追踪；注册端新户赠额的现行口径未核实（早期为注册送 ¥14），以站内余额为准。",
-    "tips": "代金券全平台模型与服务均可使用；注意使用期限，领取后尽快在有效期内消耗（剩余/有效期以站内「费用明细」为准）；额度支持各类第三方客户端接入，充值亦常设阶梯返赠（活动档位以站内公告为准）。",
-    "inviteUrl": "https://cloud.siliconflow.cn/i/667oBtc0",
-    "officialUrl": "https://cloud.siliconflow.cn",
-    "inviteCode": "667oBtc0",
-    "hasInvite": true,
-    "checkedAt": "2026-11-01",
-    "sourceUrl": "https://www.siliconflow.cn/"
-  },
-  {
     "id": "agnes_web",
     "name": "Agnes AI 网页版",
     "provider": "agnes-web",
     "category": [
-          "daily_claim"
+      "daily_claim"
     ],
     "badge": "每日登录领 600 时效积分",
     "badgeType": "success",
@@ -168,86 +116,34 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://app.agnes-ai.com"
   },
   {
-    "id": "scnet",
-    "name": "国家超算互联网 (SCNet)",
-    "provider": "scnet",
+    "id": "qwen",
+    "name": "阿里百炼 (通义千问 Qwen)",
+    "provider": "alibaba",
     "category": [
       "featured",
-      "big_quota",
-      "gateway"
+      "big_quota"
     ],
-    "badge": "0.1 元购 5000 万 Tokens + 新客赠 1000 万 GLM-5.3-Flash",
-    "badgeType": "purple",
+    "badge": "在架模型各送 100 万 Tokens（90天）",
+    "badgeType": "amber",
     "tags": [
-      "国家级算力",
-      "0.1元5000万",
-      "批处理",
-      "新客赠1000万GLM-5.3-Flash"
+      "阿里大厂",
+      "多模型独立送",
+      "旧版三方已下架",
+      "用完即停安心模式"
     ],
-    "description": "国家级超算 MaaS 算力与模型聚合平台。现行注册赠额：**新用户注册直接获赠 1,000 万 GLM-5.3-Flash 资源包**；限时特惠：**0.1 元秒杀购买 5,000 万 Tokens 资源包**（活动期 2026-08-13 至 2026-11-10，含 DeepSeek-V4.1-Flash 与 GLM-5.3-Flash，每天 10:00 限量开抢）。",
-    "tips": "国家超算中心算力储备充沛，适合批处理与大规模推理；0.1 元资源包在控制台特惠区认领，赠额与限时权益以站内实时公告为准。",
-    "officialUrl": "https://www.scnet.cn",
+    "description": "阿里云大模型一站式服务平台。按官方规则每个模型均有独立免费额度（通常 100 万 Tokens、90 天有效，不跨模型合并）；2026-10-29 官方下架清单同时涵盖第三方系列（DeepSeek、Kimi、智谱 GLM、MiniMax 等）与 Qwen 旧版本/快照（qwen-max、qwen-plus、qwen3 系列快照等），清单内模型新用户不再获赠、已发放给老用户的额度仍可继续使用，后续新上线模型仍会发放免费额度。",
+    "tips": "免费额度默认在华北2（北京）地域实时推理生效；各模型额度相互独立不混用，建议在控制台开启「免费额度用完即停」开关，避免额度耗尽后产生按量扣费。",
+    "officialUrl": "https://bailian.console.aliyun.com",
     "hasInvite": false,
     "checkedAt": "2026-11-02",
-    "sourceUrl": "https://www.scnet.cn/home/subject/maas/index.html"
-  },
-  {
-    "id": "juflowai",
-    "name": "飓流AI (JULIU AI)",
-    "provider": "juflowai",
-    "category": [
-      "featured",
-      "gateway"
-    ],
-    "badge": "实名核验后领 ¥5 体验金 · 价格对齐官方",
-    "badgeType": "success",
-    "tags": [
-      "国产大模型",
-      "阿里云/腾讯云合作",
-      "双协议兼容",
-      "DeepSeek-Harness教程"
-    ],
-    "description": "国产大模型调用平台，一站式接入满血版国产大模型：阿里云/腾讯云模型合作伙伴，模型来源均调用自官方合作商，质量满血；OpenAI 与 Claude 双协议兼容，一分钟完成第一次调用。注册并自愿完成实名核验后领 5 元体验金，价格对齐上游官方；站内提供 DeepSeek-harness 一键接入教程、保姆级教程与工单客服。",
-    "tips": "选自定义服务商填端点即可接入 TokenTracker；体验额度到账与各模型站内价以控制台实时为准。",
-    "inviteUrl": "https://juflowai.com/sign-up?aff=UUlZ",
-    "officialUrl": "https://juflowai.com",
-    "inviteCode": "UUlZ",
-    "hasInvite": true,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://juflowai.com/api/home_page_content"
-  },
-  {
-    "id": "huawei_codearts",
-    "name": "华为 CodeArts Agent (华为云码道)",
-    "provider": "codearts",
-    "category": [
-      "featured",
-      "client",
-      "daily_claim",
-      "monthly_claim"
-    ],
-    "badge": "注册 4000 + 学生认证 4000 + 每日签到 100",
-    "badgeType": "rose",
-    "tags": [
-      "华为云",
-      "代码智能体",
-      "每日签到100",
-      "学生认证4000"
-    ],
-    "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。官网落地页现挂「邀请好友领积分」入口（2026-11-02 核对，规则未公开，以端内为准）。",
-    "tips": "支持 IDE 插件与桌面客户端，多模型智能调度（DeepSeek、Kimi、GLM 等）；官方两页口径不一：签到活动页写「当日领取当日有效」，个人订阅计费说明写「自发放之日起 30 天内有效」（签到活动期至 2026-12-31），以端内积分明细实际到期为准、积分按到期先后优先消耗；签到入口在成长中心，随取随用。",
-    "inviteUrl": "https://devcloud.cn-north-4.huaweicloud.com/chat?source=dmzntgwlb&sourcead=dmzntgwlb1&invitecode=INV-taWTH2T2JcL8d0esH15UMseSLiQN99qbfeb5Gp50u21Mt01_mokNPORaI_CxM_LrKuoTZOJThp9prEXpEqLKxJIQWyMC6hxkWSbV1qmMNFT6eQVyw-81VuMzAonD1G1z-NMbHhOWdDYCrxKsgZHxDHIuFrDivfsf0lorAf7go8L-Ug",
-    "officialUrl": "https://www.huaweicloud.com/product/codearts.html",
-    "hasInvite": true,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://www.huaweicloud.com/product/codearts.html"
+    "sourceUrl": "https://help.aliyun.com/zh/model-studio/new-free-quota"
   },
   {
     "id": "ant_ling",
     "name": "蚂蚁百灵 (Ant Ling)",
     "provider": "ant-ling",
     "category": [
-          "monthly_claim"
+      "monthly_claim"
     ],
     "badge": "每月 1 日自动发 10 元券（实测已到账）",
     "badgeType": "blue",
@@ -263,31 +159,6 @@ export const PERK_PROVIDERS = [  {
     "hasInvite": false,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://developer.ant-ling.com/zh-CN/docs/models/price"
-  },
-  {
-    "id": "volcengine",
-    "name": "火山方舟 (字节豆包大模型)",
-    "provider": "volcengine",
-    "category": [
-          "featured",
-          "big_quota",
-          "permanent_free"
-    ],
-    "badge": "新户每模型 50 万 · 个人每日单模型 200 万",
-    "badgeType": "blue",
-    "tags": [
-      "字节大厂",
-      "多模型赠送",
-      "每日限免额度"
-    ],
-    "description": "新用户注册火山引擎即获赠**每个模型 50 万 Tokens 推理额度**。个人认证权益升级为**每日单模型 200 万免费 tokens**；企业认证升级为**每日单模型 500 万免费 tokens**。开启安心体验模式后仅消耗赠送额度，超额自动暂停不扣费。",
-    "tips": "在控制台创建推理接入点 (ep-xxx) 即可使用；赠额有效期与协作奖励档位变动频繁，领取前先看控制台「免费额度」页。",
-    "inviteUrl": "https://volcengine.com/L/YPDTLsCOn8k/",
-    "officialUrl": "https://www.volcengine.com/product/doubao",
-    "inviteCode": "97QSJU7A",
-    "hasInvite": true,
-    "checkedAt": "2026-11-02",
-        "sourceUrl": "https://docs.volcengine.com/docs/ark/model-pricing"
   },
   {
     "id": "apigoto",
@@ -314,54 +185,6 @@ export const PERK_PROVIDERS = [  {
     "hasInvite": true,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://www.apigoto.com"
-  },
-  {
-    "id": "tokenrhythm",
-    "name": "基元律动 (TokenRhythm)",
-    "provider": "tokenrhythm",
-    "category": [
-      "featured",
-      "big_quota",
-      "gateway"
-    ],
-    "badge": "实名送 ¥18 · 充值买一送一",
-    "badgeType": "purple",
-    "tags": [
-      "实名送18元",
-      "有效期一个月",
-      "充值买一送一",
-      "模型特惠"
-    ],
-    "description": "实名认证即可获得 ¥18 额度（有效期一个月）。限时充值买一送一回归：2026-11-13 截止，充值 ¥50 档及以上本金一比一赠送（¥10 档仅赠 ¥2.50），活动期可多次充值，本金与赠额均永久有效，付费后可体验专属模型。此前的千问系列半价与 DeepSeek 全天谷价调用已随 2026-10-30 档期结束下线，邀请活动现行是否重开以站内公告为准。",
-    "tips": "登录后在「我的额度」查看实名赠额是否到账（有效期一个月）；充值买一送一档位与截止以首页横幅当期规则为准。",
-    "officialUrl": "https://tokenrhythm.studio",
-    "hasInvite": false,
-    "checkedAt": "2026-11-01",
-    "sourceUrl": "https://tokenrhythm.studio/"
-  },
-  {
-    "id": "autoclaw_intl",
-    "name": "AutoClaw 国际版 (Z.AI)",
-    "provider": "autoclaw",
-    "category": [
-      "featured",
-          "client",
-          "daily_claim"
-    ],
-    "badge": "国际版每日签到 500 credits",
-    "badgeType": "success",
-    "tags": [
-      "智谱出品",
-      "一键安装Agent",
-      "每日签到500",
-      "国际版独立站"
-    ],
-    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端的国际版，内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日正常签到得 500 credits（有效期 7 天），且经常叠加活动；官网标注注册可领 200M tokens（价值 ¥120，2026-11-02 首页核对），GLM 5.3 限时可享 150% credit 加成，Coding Plan 按档每月首登赠积分（Lite 5,000 / Pro 10,000 / Max 26,000）。国内版与国际版无法共存，只装一个。",
-    "tips": "国际版站点 autoclaw.z.ai 与国内版 autoclaw.zhipuai.cn 账号体系独立、安装互斥；国际版暂未核实有邀请活动，积分福利以端内为准。",
-    "officialUrl": "https://autoclaw.z.ai",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://autoclaw.z.ai"
   },
   {
     "id": "autoclaw",
@@ -391,13 +214,37 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://autoclaw.zhipuai.cn"
   },
   {
+    "id": "autoclaw_intl",
+    "name": "AutoClaw 国际版 (Z.AI)",
+    "provider": "autoclaw",
+    "category": [
+      "featured",
+      "client",
+      "daily_claim"
+    ],
+    "badge": "国际版每日签到 500 credits",
+    "badgeType": "success",
+    "tags": [
+      "智谱出品",
+      "一键安装Agent",
+      "每日签到500",
+      "国际版独立站"
+    ],
+    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端的国际版，内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日正常签到得 500 credits（有效期 7 天），且经常叠加活动；官网标注注册可领 200M tokens（价值 ¥120，2026-11-02 首页核对），GLM 5.3 限时可享 150% credit 加成，Coding Plan 按档每月首登赠积分（Lite 5,000 / Pro 10,000 / Max 26,000）。国内版与国际版无法共存，只装一个。",
+    "tips": "国际版站点 autoclaw.z.ai 与国内版 autoclaw.zhipuai.cn 账号体系独立、安装互斥；国际版暂未核实有邀请活动，积分福利以端内为准。",
+    "officialUrl": "https://autoclaw.z.ai",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://autoclaw.z.ai"
+  },
+  {
     "id": "bigmodel",
     "name": "智谱开放平台 (BigModel / Z.AI)",
     "provider": "zhipu",
     "category": [
-          "featured",
-          "permanent_free",
-          "big_quota"
+      "featured",
+      "permanent_free",
+      "big_quota"
     ],
     "badge": "老 Flash 系列免费（至下架）+ 新户赠额",
     "badgeType": "success",
@@ -420,61 +267,12 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://docs.bigmodel.cn/cn/guide/start/pricing.md"
   },
   {
-    "id": "longcat",
-    "name": "美团 LongCat",
-    "provider": "longcat",
-    "category": [
-          "big_quota"
-    ],
-    "badge": "上新福利老户送 500 万 · 邀请各 1000 万",
-    "badgeType": "amber",
-    "tags": [
-      "美团大厂",
-      "送千万Tokens",
-      "实名互赠",
-      "30天有效"
-    ],
-    "description": "新户注册赠送 1000 万 Tokens；每次新模型上线另发上线福利（2026-11-02 端内实测，LongCat-2.5 上线）：新用户 1000 万 tokens、老用户 500 万 tokens，自动到账（站主作为老户实收 500 万、有效期 30 天），缓存命中持续免费。邀请活动（2026-11-02 端内确认在线）：每成功邀请 1 位新用户完成实名认证，双方各得 1000 万 Tokens，奖励自发放起 30 天内有效；另有拼团返现最高 50%。",
-    "tips": "赠额单次发放、30 天内用完；平台仅限个人与企业正常体验，禁止批量脚本调用。API 侧另有按量付费与资源包口径。",
-    "inviteUrl": "https://longcat.chat/platform/product?inviteCode=WABCQLL3",
-    "officialUrl": "https://longcat.chat",
-    "inviteCode": "WABCQLL3",
-    "hasInvite": true,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://longcat.chat/platform/docs/zh/faq"
-  },
-  {
-    "id": "qiniu",
-    "name": "七牛云 (Qiniu Cloud)",
-    "provider": "qiniu",
-    "category": [
-          "featured",
-          "permanent_free",
-          "big_quota"
-    ],
-    "badge": "conatus-free 每日 1 亿（活动至 2026-11-30）",
-    "badgeType": "success",
-    "tags": [
-      "每日一亿Tokens",
-      "用完即停不扣费",
-      "邀请返300万",
-      "充值可提至10亿"
-    ],
-    "description": "**conatus-free 自研模型每日赠送 1 亿 Tokens 免费推理额度（活动期至 2026-11-30，用完即停不扣费）**。邀请好友注册双方各返 **300 万 Tokens**；充值任意金额可解锁高并发通道。",
-    "tips": "qiniu/conatus-free 仅消耗活动额度，每日用尽自动熔断停止，无意外扣费风险；活动结束时间以官方活动页为准。",
-    "inviteUrl": "https://s.qiniu.com/INbIn2",
-    "officialUrl": "https://www.qiniu.com",
-    "hasInvite": true,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://www.qiniu.com/ai/free-models/conatus-2026"
-  },
-  {
     "id": "catpaw",
     "name": "美团妙手 (CatPaw)",
     "provider": "catpaw",
     "category": [
-          "big_quota",
-          "monthly_claim"
+      "big_quota",
+      "monthly_claim"
     ],
     "badge": "新户送 1,000 积分（1 年有效）+ 每月 200",
     "badgeType": "amber",
@@ -492,11 +290,37 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://credit.catpaw.meituan.com/#/usage"
   },
   {
+    "id": "huawei_codearts",
+    "name": "华为 CodeArts Agent (华为云码道)",
+    "provider": "codearts",
+    "category": [
+      "featured",
+      "client",
+      "daily_claim",
+      "monthly_claim"
+    ],
+    "badge": "注册 4000 + 学生认证 4000 + 每日签到 100",
+    "badgeType": "rose",
+    "tags": [
+      "华为云",
+      "代码智能体",
+      "每日签到100",
+      "学生认证4000"
+    ],
+    "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。官网落地页现挂「邀请好友领积分」入口（2026-11-02 核对，规则未公开，以端内为准）。",
+    "tips": "支持 IDE 插件与桌面客户端，多模型智能调度（DeepSeek、Kimi、GLM 等）；官方两页口径不一：签到活动页写「当日领取当日有效」，个人订阅计费说明写「自发放之日起 30 天内有效」（签到活动期至 2026-12-31），以端内积分明细实际到期为准、积分按到期先后优先消耗；签到入口在成长中心，随取随用。",
+    "inviteUrl": "https://devcloud.cn-north-4.huaweicloud.com/chat?source=dmzntgwlb&sourcead=dmzntgwlb1&invitecode=INV-taWTH2T2JcL8d0esH15UMseSLiQN99qbfeb5Gp50u21Mt01_mokNPORaI_CxM_LrKuoTZOJThp9prEXpEqLKxJIQWyMC6hxkWSbV1qmMNFT6eQVyw-81VuMzAonD1G1z-NMbHhOWdDYCrxKsgZHxDHIuFrDivfsf0lorAf7go8L-Ug",
+    "officialUrl": "https://www.huaweicloud.com/product/codearts.html",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.huaweicloud.com/product/codearts.html"
+  },
+  {
     "id": "cola",
     "name": "Cola (AI 拍档)",
     "provider": "cola",
     "category": [
-          "client"
+      "client"
     ],
     "badge": "受邀注册得 3 天会员 + 2,000 Auto 积分",
     "badgeType": "amber",
@@ -514,73 +338,6 @@ export const PERK_PROVIDERS = [  {
     "hasInvite": true,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://colaos.ai"
-  },
-  {
-    "id": "qwen_work",
-    "name": "千问办公 (QwenWork)",
-    "provider": "qwenwork",
-    "category": [
-          "client",
-          "monthly_claim"
-    ],
-    "badge": "新户赠 300 积分 · 每月仅 100（福利缩水）",
-    "badgeType": "amber",
-    "tags": [
-      "阿里大厂",
-      "一站式Agent",
-      "直接交付产物",
-      "打通钉钉"
-    ],
-    "description": "阿里巴巴推出的一站式 AI Agent 办公平台，支持直接生成 Word、PPT、Excel 与可用代码。官方口径（2026-11-02 定价页与权益文档核对）：新用户注册赠 300 积分（90 天有效），每月 1 号向符合条件账号赠 100 积分（当月有效，发放条件以端内为准）；此前所记「每日登录 100 积分、00:00 刷新」已无官方依据，现行按月赠送。付费档：个人标准版 ¥78/月（原价 ¥98）、个人高级版 ¥158/月（原价 ¥198），档位内另含每月积分。月赠仅 100 积分，福利力度缩水，不推荐作主力（2026-11-02 评测结论）。",
-    "tips": "支持 Windows / Mac 桌面客户端与网页端，手机号或钉钉扫码一键登录；剩余可用与每日刷新明细在端内「设置 → 订阅和用量」查看，其他积分经充值或活动获取、有效期以具体规则为准。",
-    "officialUrl": "https://qwenwork.cn",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://docs.qwenwork.cn/benefits/personal"
-  },
-  {
-    "id": "tuanjie_cowork",
-    "name": "团结 Cowork (Tuanjie AI)",
-    "provider": "tuanjie-cowork",
-    "category": [
-          "client",
-          "daily_claim"
-    ],
-    "badge": "每日签到 300 积分",
-    "badgeType": "blue",
-    "tags": [
-      "Unity中国",
-      "游戏引擎AI",
-      "每日打卡300分"
-    ],
-    "description": "Unity 中国官方打造的智能协作与编程助手。官方社区口径：积分任务中心每日签到固定领 300 积分，用于兑换 AI 助手 Codely 的模型额度；此前的新人注册礼包官网未公开说明，现行是否仍送以站内为准。",
-    "tips": "登录网页端管理后台（codely.tuanjie.cn）进入积分任务中心即可一键签到领取；签到积分有效期为 8 天；签到中断一般不累计。",
-    "officialUrl": "https://codely.tuanjie.cn",
-    "hasInvite": false,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://codely.tuanjie.cn"
-  },
-  {
-    "id": "sensenova",
-    "name": "商汤日日新 (SenseNova)",
-    "provider": "sensenova",
-    "category": [
-          "permanent_free"
-    ],
-    "badge": "双池各 12 万/5h + 120 万/周",
-    "badgeType": "amber",
-    "tags": [
-      "大厂开放",
-      "双池滚动",
-      "12万积分/5h",
-      "OpenAI兼容"
-    ],
-    "description": "**双泡池滚动赠送：通用积分池与 Flash-Lite 专属池各自每 5 小时滚动赠送 120,000 积分**（每周可领 120 万通用 + 120 万专属积分），登录控制台即用；兼容 OpenAI 接口规范。",
-    "tips": "额度按滑动窗口每 5 小时自动逐步恢复，无需手动重置；统一 Base URL 为 https://token.sensenova.cn/v1，完全兼容 OpenAI / Anthropic 规范。",
-    "officialUrl": "https://platform.sensenova.cn",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://www.sensenova.cn/token-plan"
   },
   {
     "id": "cursor",
@@ -606,35 +363,11 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://cursor.com/pricing"
   },
   {
-    "id": "raccoon",
-    "name": "商汤小浣熊 (Raccoon)",
-    "provider": "raccoon",
-    "category": [
-      "featured",
-          "client",
-          "daily_claim"
-    ],
-    "badge": "新号首登任务最多 6000 积分",
-    "badgeType": "purple",
-    "tags": [
-      "商汤科技",
-      "代码小浣熊",
-      "办公小浣熊",
-      "每日300积分"
-    ],
-    "description": "商汤科技旗下全能 AI 助手家族（代码小浣熊 + 办公小浣熊）。实测新号完成任务最多可得 6,000 积分：首次登录电脑端 +3,000、首次登录手机端 +3,000（2026-10-14 结算到账）。免费版每日赠 300 积分：每天 00:00 发放，默认当日 24:00 清零，当天登录后有效期延长至 7 天（2026-11-02 端内积分明细实测：11-02 发放 +300、有效期至 11-08）；官网定价页另有「每日 0 点重置 · 不累计 · 仅限标准模型」字样，与端内机制不一致，以端内为准。另官网定价页已上线积分订阅体系（个人升级版 ¥29.9/月含 500 积分/日 + 10,000 积分/月、加油包 ¥9.9/500 分等，未端内核实）。",
-    "tips": "首登两端都要装才有 6,000；积分在个人中心「用量看板 → 积分明细」查看，每日积分当天登录才延长至 7 天有效期，以端内任务列表为准。",
-    "officialUrl": "https://www.xiaohuanxiong.com",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://xiaohuanxiong.com/pricing"
-  },
-  {
     "id": "deepseek",
     "name": "DeepSeek 官方开放平台",
     "provider": "deepseek",
     "category": [
-          "featured"
+      "featured"
     ],
     "badge": "官方极低资费（新户赠额未证实）",
     "badgeType": "blue",
@@ -650,6 +383,132 @@ export const PERK_PROVIDERS = [  {
     "hasInvite": false,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing"
+  },
+  {
+    "id": "doubaowork",
+    "name": "豆包工作 (Doubao Work)",
+    "provider": "doubao",
+    "category": [
+      "featured",
+      "client",
+      "daily_claim"
+    ],
+    "badge": "30天体验包 + 签到领额度 + 活动 100 额度",
+    "badgeType": "success",
+    "tags": [
+      "字节大厂",
+      "30天体验包",
+      "每日签到",
+      "活动领100额度",
+      "邀请得重置"
+    ],
+    "description": "首次登录豆包电脑版新用户，可直接领取 **30 天免费体验套餐**（除生视频、Pro 模型外全功能可用，30 天内有效且优先消耗）。新老用户还可参与**每日签到：每天 200 额度、周一翻倍**，累计里程碑再额外奖 200 / 500 / 1300 额度；活动人人可领 100 额度，连续签到 30 天合计可得 **8,800 额度**；邀请好友双方各得 1 次额度重置机会。",
+    "tips": "活动口令经 AI Agent 公益实训营等官方活动渠道发放，以活动页与官方社群为准；下载客户端后通过左下角签到弹窗或头像侧边栏「免费用豆包」参与签到，签到额度立即生效且优先消耗，签到额度的有效期以端内签到页规则为准。",
+    "inviteUrl": "https://www.doubao.com/pc/desktop-fission/pro-trial/invited?inviteCode=WIbgDM5zbX",
+    "officialUrl": "https://doubao.com/work",
+    "inviteCode": "WIbgDM5zbX",
+    "hasInvite": true,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://doubao.com/work"
+  },
+  {
+    "id": "siliconflow",
+    "name": "硅基流动 (SiliconFlow)",
+    "provider": "siliconflow",
+    "category": [
+      "featured",
+      "big_quota",
+      "gateway"
+    ],
+    "badge": "推荐官计划：每邀 1 人实名得 ¥16 代金券",
+    "badgeType": "amber",
+    "tags": [
+      "主流聚合",
+      "送2000万Tokens",
+      "极速推理",
+      "小模型免费"
+    ],
+    "description": "聚合 DeepSeek、Qwen 等主流开源大模型，部分小参数模型长期免费开放并发调用。推荐官计划（2026-11-01 实测）：已完成实名认证的用户可作推荐官，被邀请人完成注册及实名认证后，邀请人每邀 1 名得面值 ¥16 的全平台通用代金券 1 张，邀请人数与奖励次数不设上限、极速到账可追踪；注册端新户赠额的现行口径未核实（早期为注册送 ¥14），以站内余额为准。",
+    "tips": "代金券全平台模型与服务均可使用；注意使用期限，领取后尽快在有效期内消耗（剩余/有效期以站内「费用明细」为准）；额度支持各类第三方客户端接入，充值亦常设阶梯返赠（活动档位以站内公告为准）。",
+    "inviteUrl": "https://cloud.siliconflow.cn/i/667oBtc0",
+    "officialUrl": "https://cloud.siliconflow.cn",
+    "inviteCode": "667oBtc0",
+    "hasInvite": true,
+    "checkedAt": "2026-11-01",
+    "sourceUrl": "https://www.siliconflow.cn/"
+  },
+  {
+    "id": "scnet",
+    "name": "国家超算互联网 (SCNet)",
+    "provider": "scnet",
+    "category": [
+      "featured",
+      "big_quota",
+      "gateway"
+    ],
+    "badge": "0.1 元购 5000 万 Tokens + 新客赠 1000 万 GLM-5.3-Flash",
+    "badgeType": "purple",
+    "tags": [
+      "国家级算力",
+      "0.1元5000万",
+      "批处理",
+      "新客赠1000万GLM-5.3-Flash"
+    ],
+    "description": "国家级超算 MaaS 算力与模型聚合平台。现行注册赠额：**新用户注册直接获赠 1,000 万 GLM-5.3-Flash 资源包**；限时特惠：**0.1 元秒杀购买 5,000 万 Tokens 资源包**（活动期 2026-08-13 至 2026-11-10，含 DeepSeek-V4.1-Flash 与 GLM-5.3-Flash，每天 10:00 限量开抢）。",
+    "tips": "国家超算中心算力储备充沛，适合批处理与大规模推理；0.1 元资源包在控制台特惠区认领，赠额与限时权益以站内实时公告为准。",
+    "officialUrl": "https://www.scnet.cn",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.scnet.cn/home/subject/maas/index.html"
+  },
+  {
+    "id": "volcengine",
+    "name": "火山方舟 (字节豆包大模型)",
+    "provider": "volcengine",
+    "category": [
+      "featured",
+      "big_quota",
+      "permanent_free"
+    ],
+    "badge": "新户每模型 50 万 · 个人每日单模型 200 万",
+    "badgeType": "blue",
+    "tags": [
+      "字节大厂",
+      "多模型赠送",
+      "每日限免额度"
+    ],
+    "description": "新用户注册火山引擎即获赠**每个模型 50 万 Tokens 推理额度**。个人认证权益升级为**每日单模型 200 万免费 tokens**；企业认证升级为**每日单模型 500 万免费 tokens**。开启安心体验模式后仅消耗赠送额度，超额自动暂停不扣费。",
+    "tips": "在控制台创建推理接入点 (ep-xxx) 即可使用；赠额有效期与协作奖励档位变动频繁，领取前先看控制台「免费额度」页。",
+    "inviteUrl": "https://volcengine.com/L/YPDTLsCOn8k/",
+    "officialUrl": "https://www.volcengine.com/product/doubao",
+    "inviteCode": "97QSJU7A",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://docs.volcengine.com/docs/ark/model-pricing"
+  },
+  {
+    "id": "spark",
+    "name": "讯飞星火 (iFlytek Spark)",
+    "provider": "spark",
+    "category": [
+      "featured",
+      "permanent_free",
+      "big_quota"
+    ],
+    "badge": "Spark Lite 长期免费 · Spark-X2.6 送 10 亿 Tokens",
+    "badgeType": "blue",
+    "tags": [
+      "1024开发者节",
+      "送10亿Tokens",
+      "Spark Lite免费",
+      "端侧0元"
+    ],
+    "description": "**自研轻量级模型 Spark Lite 官方永久/长期免费开放调用（0 元/Token，控制台创建应用即用，不占限时额度，支持文本与多轮对话）**。此外 1024 开发者节发布旗舰 Spark-X2.6（293B-A30B 稀疏 MoE、1M 上下文），新老用户实名认证后可在星辰 MaaS **免费领取 10 亿 Tokens 礼包**；端侧 **Spark-X2.6-4B 限时免费（0 元/百万 tokens）**。",
+    "tips": "领取入口在星辰 MaaS 首页「Spark-X2.6 赋能开发者」或模型广场；礼包有效期与每人限领次数官网未列明细，领取弹窗为准。",
+    "officialUrl": "https://xinghuo.xfyun.cn/spark",
+    "hasInvite": false,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://xinghuo.xfyun.cn/spark"
   },
   {
     "id": "intern_inkstone",
@@ -675,36 +534,108 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://discovery.intern-ai.org.cn"
   },
   {
-    "id": "spark",
-    "name": "讯飞星火 (iFlytek Spark)",
-    "provider": "spark",
+    "id": "tokenrhythm",
+    "name": "基元律动 (TokenRhythm)",
+    "provider": "tokenrhythm",
     "category": [
       "featured",
-          "permanent_free",
-          "big_quota"
+      "big_quota",
+      "gateway"
     ],
-    "badge": "Spark Lite 长期免费 · Spark-X2.6 送 10 亿 Tokens",
-    "badgeType": "blue",
+    "badge": "实名送 ¥18 · 充值买一送一",
+    "badgeType": "purple",
     "tags": [
-      "1024开发者节",
-      "送10亿Tokens",
-      "Spark Lite免费",
-      "端侧0元"
+      "实名送18元",
+      "有效期一个月",
+      "充值买一送一",
+      "模型特惠"
     ],
-    "description": "**自研轻量级模型 Spark Lite 官方永久/长期免费开放调用（0 元/Token，控制台创建应用即用，不占限时额度，支持文本与多轮对话）**。此外 1024 开发者节发布旗舰 Spark-X2.6（293B-A30B 稀疏 MoE、1M 上下文），新老用户实名认证后可在星辰 MaaS **免费领取 10 亿 Tokens 礼包**；端侧 **Spark-X2.6-4B 限时免费（0 元/百万 tokens）**。",
-    "tips": "领取入口在星辰 MaaS 首页「Spark-X2.6 赋能开发者」或模型广场；礼包有效期与每人限领次数官网未列明细，领取弹窗为准。",
-    "officialUrl": "https://xinghuo.xfyun.cn/spark",
+    "description": "实名认证即可获得 ¥18 额度（有效期一个月）。限时充值买一送一回归：2026-11-13 截止，充值 ¥50 档及以上本金一比一赠送（¥10 档仅赠 ¥2.50），活动期可多次充值，本金与赠额均永久有效，付费后可体验专属模型。此前的千问系列半价与 DeepSeek 全天谷价调用已随 2026-10-30 档期结束下线，邀请活动现行是否重开以站内公告为准。",
+    "tips": "登录后在「我的额度」查看实名赠额是否到账（有效期一个月）；充值买一送一档位与截止以首页横幅当期规则为准。",
+    "officialUrl": "https://tokenrhythm.studio",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://xinghuo.xfyun.cn/spark"
+    "checkedAt": "2026-11-01",
+    "sourceUrl": "https://tokenrhythm.studio/"
+  },
+  {
+    "id": "joycode",
+    "name": "JoyCode (京东智能编码)",
+    "provider": "joycode",
+    "category": [
+      "client",
+      "monthly_claim"
+    ],
+    "badge": "席位每月 10,000 免费积分",
+    "badgeType": "amber",
+    "tags": [
+      "京东云",
+      "AI编程助手",
+      "每月万点",
+      "上下文引擎"
+    ],
+    "description": "京东云推出的一体化 AI 智能编码助手与开发环境，具备仓级上下文理解（CSR）与规约驱动编程能力。官方定价页现行口径为团队版限时免费、按席位发放 10,000 积分/月，用于代码预测续写、智能生成与问答。",
+    "tips": "支持 VS Code / JetBrains 插件与桌面客户端；个人与团队档额度口径不同，领取前以官方定价页为准。",
+    "officialUrl": "https://joycode.jd.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://joycode.jd.com/pricing/"
+  },
+  {
+    "id": "juflowai",
+    "name": "飓流AI (JULIU AI)",
+    "provider": "juflowai",
+    "category": [
+      "featured",
+      "gateway"
+    ],
+    "badge": "实名核验后领 ¥5 体验金 · 价格对齐官方",
+    "badgeType": "success",
+    "tags": [
+      "国产大模型",
+      "阿里云/腾讯云合作",
+      "双协议兼容",
+      "DeepSeek-Harness教程"
+    ],
+    "description": "国产大模型调用平台，一站式接入满血版国产大模型：阿里云/腾讯云模型合作伙伴，模型来源均调用自官方合作商，质量满血；OpenAI 与 Claude 双协议兼容，一分钟完成第一次调用。注册并自愿完成实名核验后领 5 元体验金，价格对齐上游官方；站内提供 DeepSeek-harness 一键接入教程、保姆级教程与工单客服。",
+    "tips": "选自定义服务商填端点即可接入 TokenTracker；体验额度到账与各模型站内价以控制台实时为准。",
+    "inviteUrl": "https://juflowai.com/sign-up?aff=UUlZ",
+    "officialUrl": "https://juflowai.com",
+    "inviteCode": "UUlZ",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://juflowai.com/api/home_page_content"
+  },
+  {
+    "id": "longcat",
+    "name": "美团 LongCat",
+    "provider": "longcat",
+    "category": [
+      "big_quota"
+    ],
+    "badge": "上新福利老户送 500 万 · 邀请各 1000 万",
+    "badgeType": "amber",
+    "tags": [
+      "美团大厂",
+      "送千万Tokens",
+      "实名互赠",
+      "30天有效"
+    ],
+    "description": "新户注册赠送 1000 万 Tokens；每次新模型上线另发上线福利（2026-11-02 端内实测，LongCat-2.5 上线）：新用户 1000 万 tokens、老用户 500 万 tokens，自动到账（站主作为老户实收 500 万、有效期 30 天），缓存命中持续免费。邀请活动（2026-11-02 端内确认在线）：每成功邀请 1 位新用户完成实名认证，双方各得 1000 万 Tokens，奖励自发放起 30 天内有效；另有拼团返现最高 50%。",
+    "tips": "赠额单次发放、30 天内用完；平台仅限个人与企业正常体验，禁止批量脚本调用。API 侧另有按量付费与资源包口径。",
+    "inviteUrl": "https://longcat.chat/platform/product?inviteCode=WABCQLL3",
+    "officialUrl": "https://longcat.chat",
+    "inviteCode": "WABCQLL3",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://longcat.chat/platform/docs/zh/faq"
   },
   {
     "id": "loomy",
     "name": "讯飞 Loomy (桌面 AI 工作搭子)",
     "provider": "loomy",
     "category": [
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim"
     ],
     "badge": "每日刷新5000 + 任务送1万 + 邀请送5000",
     "badgeType": "success",
@@ -725,61 +656,11 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://loomy.xunfei.cn/docs/user-guide/credits"
   },
   {
-    "id": "joycode",
-    "name": "JoyCode (京东智能编码)",
-    "provider": "joycode",
-    "category": [
-          "client",
-          "monthly_claim"
-    ],
-    "badge": "席位每月 10,000 免费积分",
-    "badgeType": "amber",
-    "tags": [
-      "京东云",
-      "AI编程助手",
-      "每月万点",
-      "上下文引擎"
-    ],
-    "description": "京东云推出的一体化 AI 智能编码助手与开发环境，具备仓级上下文理解（CSR）与规约驱动编程能力。官方定价页现行口径为团队版限时免费、按席位发放 10,000 积分/月，用于代码预测续写、智能生成与问答。",
-    "tips": "支持 VS Code / JetBrains 插件与桌面客户端；个人与团队档额度口径不同，领取前以官方定价页为准。",
-    "officialUrl": "https://joycode.jd.com",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://joycode.jd.com/pricing/"
-  },
-  {
-    "id": "teleagent",
-    "name": "中国电信 TeleAgent (星辰智能体)",
-    "provider": "teleagent",
-    "category": [
-      "featured",
-      "client",
-      "daily_claim",
-      "monthly_claim"
-    ],
-    "badge": "四重福利，月最多赠 39,000 积分 + 邀请返积分",
-    "badgeType": "blue",
-    "tags": [
-      "中国电信",
-      "天翼AI",
-      "执行式Agent",
-      "邀请返积分"
-    ],
-    "description": "中国电信天翼 AI 打造的星辰超级智能体，基于星辰基础大模型，支持智能问答与跨软件自主执行任务。端内实测构成（2026-11-02 积分福利社）：每日登录积分 100（每日单独发放、各约一个月内有效）、月度积分赠礼 3,000（活动期内每月登录再送、当月有效）、首登即赠积分礼 3,000（活动期内首次登录，仅此一项 3 个月内有效）；另有工作日夜间（22:00～次日 8:00）积分消耗 5 折与积分福利社活动（当前含双 11 福利狂欢季 2026-11-01～11-30）。官方宣传「月最多 39,000 积分」与实测构成吻合（日签约 3,000/月 + 月度 3,000 + 首登 3,000 + 邀请上限 30,000，首登仅首月计入）。邀请有礼：好友注册并 7 日内首次登录，邀请人得 500 积分（1 年内有效），被邀请人得 3,000 积分（1 个月内有效），双方积分即时到账；每个账号仅可绑定一位邀请人且绑定后不可更改，当月邀请获得积分累计上限 30,000。",
-    "tips": "已深度集成天翼云电脑等生态；积分在「我的权益 → 我的积分」查看明细与有效期（按扣减顺序排列、优先消耗较早到期的积分），邀请进度在端内邀请页跟踪。",
-    "inviteUrl": "https://agent.teleai.com.cn/s/GBWCHZRGYA",
-    "officialUrl": "https://www.teleai.com.cn",
-    "inviteCode": "VLPEAF",
-    "hasInvite": true,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://www.teleai.com.cn/product/teleagent"
-  },
-  {
     "id": "minimax",
     "name": "MiniMax 开放平台",
     "provider": "minimax",
     "category": [
-          "big_quota"
+      "big_quota"
     ],
     "badge": "注册送 ¥15 代金券（30 天）",
     "badgeType": "amber",
@@ -801,8 +682,8 @@ export const PERK_PROVIDERS = [  {
     "provider": "minimax-code",
     "category": [
       "featured",
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim"
     ],
     "badge": "每日登录送积分（第 4/7 天加码）",
     "badgeType": "amber",
@@ -824,7 +705,7 @@ export const PERK_PROVIDERS = [  {
     "name": "OpenCode Console",
     "provider": "opencode",
     "category": [
-          "permanent_free"
+      "permanent_free"
     ],
     "badge": "Console 限免模型（需走客户端）",
     "badgeType": "neutral",
@@ -888,13 +769,62 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://openrouter.ai/docs/api-reference/limits"
   },
   {
+    "id": "qiniu",
+    "name": "七牛云 (Qiniu Cloud)",
+    "provider": "qiniu",
+    "category": [
+      "featured",
+      "permanent_free",
+      "big_quota"
+    ],
+    "badge": "conatus-free 每日 1 亿（活动至 2026-11-30）",
+    "badgeType": "success",
+    "tags": [
+      "每日一亿Tokens",
+      "用完即停不扣费",
+      "邀请返300万",
+      "充值可提至10亿"
+    ],
+    "description": "**conatus-free 自研模型每日赠送 1 亿 Tokens 免费推理额度（活动期至 2026-11-30，用完即停不扣费）**。邀请好友注册双方各返 **300 万 Tokens**；充值任意金额可解锁高并发通道。",
+    "tips": "qiniu/conatus-free 仅消耗活动额度，每日用尽自动熔断停止，无意外扣费风险；活动结束时间以官方活动页为准。",
+    "inviteUrl": "https://s.qiniu.com/INbIn2",
+    "officialUrl": "https://www.qiniu.com",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.qiniu.com/ai/free-models/conatus-2026"
+  },
+  {
+    "id": "qoder_cn",
+    "name": "Qoder CN (国内版)",
+    "provider": "qoder-cn",
+    "category": [
+      "featured",
+      "client",
+      "daily_claim"
+    ],
+    "badge": "每日 10:00 后主动领 100 Credits",
+    "badgeType": "blue",
+    "tags": [
+      "阿里通义系",
+      "国内免翻",
+      "每日主动领取",
+      "CLI 可查额度"
+    ],
+    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**，与国际版同为「手动领、不自动到账」规则；邀请好友注册并在 7 天内完成一次任务，双方**各得 50 Credits**，邀请最多可得 10 次。",
+    "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效。",
+    "officialUrl": "https://qoder.cn",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://docs.qoder.cn/events/invite-friends"
+  },
+  {
     "id": "qoder",
     "name": "Qoder (国际版)",
     "provider": "qoder",
     "category": [
       "featured",
-          "client",
-          "daily_claim"
+      "client",
+      "daily_claim"
     ],
     "badge": "每日 10:00 后主动领 100 Credits",
     "badgeType": "blue",
@@ -914,51 +844,100 @@ export const PERK_PROVIDERS = [  {
     "sourceUrl": "https://docs.qoder.com/events/100credits"
   },
   {
-    "id": "qoder_cn",
-    "name": "Qoder CN (国内版)",
-    "provider": "qoder-cn",
-    "category": [
-      "featured",
-          "client",
-          "daily_claim"
-    ],
-    "badge": "每日 10:00 后主动领 100 Credits",
-    "badgeType": "blue",
-    "tags": [
-      "阿里通义系",
-      "国内免翻",
-      "每日主动领取",
-      "CLI 可查额度"
-    ],
-    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**，与国际版同为「手动领、不自动到账」规则；邀请好友注册并在 7 天内完成一次任务，双方**各得 50 Credits**，邀请最多可得 10 次。",
-    "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效。",
-    "officialUrl": "https://qoder.cn",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://docs.qoder.cn/events/invite-friends"
-  },
-  {
-    "id": "trae",
-    "name": "TRAE (国际版)",
-    "provider": "trae",
+    "id": "qwen_work",
+    "name": "千问办公 (QwenWork)",
+    "provider": "qwenwork",
     "category": [
       "client",
       "monthly_claim"
     ],
-    "badge": "免费档每月 $1 额度 + 5,000 次自动补全",
-    "badgeType": "blue",
+    "badge": "新户赠 300 积分 · 每月仅 100（福利缩水）",
+    "badgeType": "amber",
     "tags": [
-      "字节出品",
-      "国际版",
-      "每月免费额度",
-      "自动补全"
+      "阿里大厂",
+      "一站式Agent",
+      "直接交付产物",
+      "打通钉钉"
     ],
-    "description": "字节跳动 AI 编程平台 TRAE 的国际版（trae.ai），与国内版 TRAE CN 账号体系相互独立。免费档每月 $1 模型调用额度与 5,000 次自动补全（2026-11-02 端内 Usage 页实测：Free plan $1.00/月、按月重置；官方价格页已不再标注 $1 字样，以端内实测为准）；无邀请活动。",
-    "tips": "用量与重置时间在站内「Usage」页查看；国内版（trae.cn）的新人积分与签到福利另见其卡片，两版账号互不互通。",
-    "officialUrl": "https://www.trae.ai",
+    "description": "阿里巴巴推出的一站式 AI Agent 办公平台，支持直接生成 Word、PPT、Excel 与可用代码。官方口径（2026-11-02 定价页与权益文档核对）：新用户注册赠 300 积分（90 天有效），每月 1 号向符合条件账号赠 100 积分（当月有效，发放条件以端内为准）；此前所记「每日登录 100 积分、00:00 刷新」已无官方依据，现行按月赠送。付费档：个人标准版 ¥78/月（原价 ¥98）、个人高级版 ¥158/月（原价 ¥198），档位内另含每月积分。月赠仅 100 积分，福利力度缩水，不推荐作主力（2026-11-02 评测结论）。",
+    "tips": "支持 Windows / Mac 桌面客户端与网页端，手机号或钉钉扫码一键登录；剩余可用与每日刷新明细在端内「设置 → 订阅和用量」查看，其他积分经充值或活动获取、有效期以具体规则为准。",
+    "officialUrl": "https://qwenwork.cn",
     "hasInvite": false,
     "checkedAt": "2026-11-02",
-    "sourceUrl": "https://www.trae.ai/pricing"
+    "sourceUrl": "https://docs.qwenwork.cn/benefits/personal"
+  },
+  {
+    "id": "raccoon",
+    "name": "商汤小浣熊 (Raccoon)",
+    "provider": "raccoon",
+    "category": [
+      "featured",
+      "client",
+      "daily_claim"
+    ],
+    "badge": "新号首登任务最多 6000 积分",
+    "badgeType": "purple",
+    "tags": [
+      "商汤科技",
+      "代码小浣熊",
+      "办公小浣熊",
+      "每日300积分"
+    ],
+    "description": "商汤科技旗下全能 AI 助手家族（代码小浣熊 + 办公小浣熊）。实测新号完成任务最多可得 6,000 积分：首次登录电脑端 +3,000、首次登录手机端 +3,000（2026-10-14 结算到账）。免费版每日赠 300 积分：每天 00:00 发放，默认当日 24:00 清零，当天登录后有效期延长至 7 天（2026-11-02 端内积分明细实测：11-02 发放 +300、有效期至 11-08）；官网定价页另有「每日 0 点重置 · 不累计 · 仅限标准模型」字样，与端内机制不一致，以端内为准。另官网定价页已上线积分订阅体系（个人升级版 ¥29.9/月含 500 积分/日 + 10,000 积分/月、加油包 ¥9.9/500 分等，未端内核实）。",
+    "tips": "首登两端都要装才有 6,000；积分在个人中心「用量看板 → 积分明细」查看，每日积分当天登录才延长至 7 天有效期，以端内任务列表为准。",
+    "officialUrl": "https://www.xiaohuanxiong.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://xiaohuanxiong.com/pricing"
+  },
+  {
+    "id": "sensenova",
+    "name": "商汤日日新 (SenseNova)",
+    "provider": "sensenova",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "双池各 12 万/5h + 120 万/周",
+    "badgeType": "amber",
+    "tags": [
+      "大厂开放",
+      "双池滚动",
+      "12万积分/5h",
+      "OpenAI兼容"
+    ],
+    "description": "**双泡池滚动赠送：通用积分池与 Flash-Lite 专属池各自每 5 小时滚动赠送 120,000 积分**（每周可领 120 万通用 + 120 万专属积分），登录控制台即用；兼容 OpenAI 接口规范。",
+    "tips": "额度按滑动窗口每 5 小时自动逐步恢复，无需手动重置；统一 Base URL 为 https://token.sensenova.cn/v1，完全兼容 OpenAI / Anthropic 规范。",
+    "officialUrl": "https://platform.sensenova.cn",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.sensenova.cn/token-plan"
+  },
+  {
+    "id": "teleagent",
+    "name": "中国电信 TeleAgent (星辰智能体)",
+    "provider": "teleagent",
+    "category": [
+      "featured",
+      "client",
+      "daily_claim",
+      "monthly_claim"
+    ],
+    "badge": "四重福利，月最多赠 39,000 积分 + 邀请返积分",
+    "badgeType": "blue",
+    "tags": [
+      "中国电信",
+      "天翼AI",
+      "执行式Agent",
+      "邀请返积分"
+    ],
+    "description": "中国电信天翼 AI 打造的星辰超级智能体，基于星辰基础大模型，支持智能问答与跨软件自主执行任务。端内实测构成（2026-11-02 积分福利社）：每日登录积分 100（每日单独发放、各约一个月内有效）、月度积分赠礼 3,000（活动期内每月登录再送、当月有效）、首登即赠积分礼 3,000（活动期内首次登录，仅此一项 3 个月内有效）；另有工作日夜间（22:00～次日 8:00）积分消耗 5 折与积分福利社活动（当前含双 11 福利狂欢季 2026-11-01～11-30）。官方宣传「月最多 39,000 积分」与实测构成吻合（日签约 3,000/月 + 月度 3,000 + 首登 3,000 + 邀请上限 30,000，首登仅首月计入）。邀请有礼：好友注册并 7 日内首次登录，邀请人得 500 积分（1 年内有效），被邀请人得 3,000 积分（1 个月内有效），双方积分即时到账；每个账号仅可绑定一位邀请人且绑定后不可更改，当月邀请获得积分累计上限 30,000。",
+    "tips": "已深度集成天翼云电脑等生态；积分在「我的权益 → 我的积分」查看明细与有效期（按扣减顺序排列、优先消耗较早到期的积分），邀请进度在端内邀请页跟踪。",
+    "inviteUrl": "https://agent.teleai.com.cn/s/GBWCHZRGYA",
+    "officialUrl": "https://www.teleai.com.cn",
+    "inviteCode": "VLPEAF",
+    "hasInvite": true,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.teleai.com.cn/product/teleagent"
   },
   {
     "id": "trae_cn",
@@ -985,6 +964,51 @@ export const PERK_PROVIDERS = [  {
     "hasInvite": true,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://docs.trae.cn/ide_plans-and-billing"
+  },
+  {
+    "id": "trae",
+    "name": "TRAE (国际版)",
+    "provider": "trae",
+    "category": [
+      "client",
+      "monthly_claim"
+    ],
+    "badge": "免费档每月 $1 额度 + 5,000 次自动补全",
+    "badgeType": "blue",
+    "tags": [
+      "字节出品",
+      "国际版",
+      "每月免费额度",
+      "自动补全"
+    ],
+    "description": "字节跳动 AI 编程平台 TRAE 的国际版（trae.ai），与国内版 TRAE CN 账号体系相互独立。免费档每月 $1 模型调用额度与 5,000 次自动补全（2026-11-02 端内 Usage 页实测：Free plan $1.00/月、按月重置；官方价格页已不再标注 $1 字样，以端内实测为准）；无邀请活动。",
+    "tips": "用量与重置时间在站内「Usage」页查看；国内版（trae.cn）的新人积分与签到福利另见其卡片，两版账号互不互通。",
+    "officialUrl": "https://www.trae.ai",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.trae.ai/pricing"
+  },
+  {
+    "id": "tuanjie_cowork",
+    "name": "团结 Cowork (Tuanjie AI)",
+    "provider": "tuanjie-cowork",
+    "category": [
+      "client",
+      "daily_claim"
+    ],
+    "badge": "每日签到 300 积分",
+    "badgeType": "blue",
+    "tags": [
+      "Unity中国",
+      "游戏引擎AI",
+      "每日打卡300分"
+    ],
+    "description": "Unity 中国官方打造的智能协作与编程助手。官方社区口径：积分任务中心每日签到固定领 300 积分，用于兑换 AI 助手 Codely 的模型额度；此前的新人注册礼包官网未公开说明，现行是否仍送以站内为准。",
+    "tips": "登录网页端管理后台（codely.tuanjie.cn）进入积分任务中心即可一键签到领取；签到积分有效期为 8 天；签到中断一般不累计。",
+    "officialUrl": "https://codely.tuanjie.cn",
+    "hasInvite": false,
+    "checkedAt": "2026-10-31",
+    "sourceUrl": "https://codely.tuanjie.cn"
   },
   {
     "id": "vyceai",
@@ -1069,8 +1093,8 @@ export const PERK_PROVIDERS = [  {
     "name": "ZCode (Z.AI 编程智能体)",
     "provider": "zcode",
     "category": [
-          "client",
-          "featured"
+      "client",
+      "featured"
     ],
     "badge": "周五晚常有限时 GLM-5.3-Flash 3 亿额度",
     "badgeType": "amber",
@@ -1088,29 +1112,7 @@ export const PERK_PROVIDERS = [  {
     "inviteCode": "DU7JA29Y",
     "hasInvite": true,
     "checkedAt": "2026-11-02",
-    "sourceUrl": "https://z.ai"  },
-  {
-    "id": "agent2api",
-    "name": "Agent2API (开源本地网关)",
-    "provider": "agent2api",
-    "category": [
-      "gateway",
-      "client"
-    ],
-    "badge": "开源本地网关 · 多端账号聚合 · 自动签到打卡",
-    "badgeType": "success",
-    "tags": [
-      "开源自建",
-      "本地聚合网关",
-      "自动签到打卡",
-      "转OpenAI接口"
-    ],
-    "description": "开源免费的本地 AI 逆向代理与多 Agent 聚合网关（GitHub: aimod-cc/Agent2API）。专为打通割裂的 AI 客户端而设计：1. 自动签到打卡：内置定时任务与补签中心，可集中托管 WorkBuddy、小浣熊、AutoClaw、Qoder CN 等平台的每日签到与额度刷新，省去每天手动逐个打开客户端领积分的繁琐；2. 统一转 API：将各平台分散的免费额度与登录态集中聚合，转换为本地标准的 OpenAI 兼容接口（127.0.0.1 端口），供 Cursor、Cline、Cherry Studio、NextChat 等任意第三方开发或对话工具自由调用。",
-    "tips": "支持 Windows/macOS 桌面客户端（Tauri）与 Docker 本地部署；凭证与 Token 均保存在本地机器不上传云端，适合搭配各家白嫖额度构建自己的个人私有聚合 API 池。",
-    "officialUrl": "https://github.com/aimod-cc/Agent2API",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://github.com/aimod-cc/Agent2API"
+    "sourceUrl": "https://z.ai"
   },
   {
     "id": "agentrouter",
