@@ -167,8 +167,7 @@ export const PERK_PROVIDERS = [  {
     "name": "国家超算互联网 (SCNet)",
     "provider": "scnet",
     "category": [
-          "big_quota",
-          "permanent_free"
+          "big_quota"
     ],
     "badge": "0.1 元购 5000 万 Tokens + 新客赠 1000 万 GLM-5.3-Flash",
     "badgeType": "purple",
