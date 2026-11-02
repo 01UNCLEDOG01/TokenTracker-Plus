@@ -639,13 +639,20 @@ export function UsageOverview({
                 const displayLabel = formatProviderDisplayName(provider.label);
                 const percentLabel = formatProviderPercent(provider);
                 // A token-less source reads "0.00%" and looks like an empty card,
-                // so it carries its cost here instead. Only this case: every card
-                // that reports tokens keeps its original two lines.
+                // so it carries its money — or, when it has no money either, its
+                // conversation count — on the sub-line instead. Only this case:
+                // every card that reports tokens keeps its original two lines.
+                // Qoder CN bills credits and reports neither tokens nor cost, so
+                // without the request count its card showed nothing but "0.00%".
                 const providerCost = formatCost(provider.usd, currency, rate);
+                const providerRequests = Math.max(0, Number(provider.requests) || 0);
+                const modelCount = copy("usage.overview.model_count", { count: provider.models.length });
                 const modelCountLabel =
-                  provider.usage > 0 || !providerCost
-                    ? copy("usage.overview.model_count", { count: provider.models.length })
-                    : `${copy("usage.overview.model_count", { count: provider.models.length })} · ${providerCost}`;
+                  provider.usage > 0 || (!providerCost && providerRequests <= 0)
+                    ? modelCount
+                    : `${modelCount} · ${
+                        providerCost || copy("usage.overview.request_count", { count: providerRequests })
+                      }`;
                 // The TRAE pricing caveat lives on the TRAE card itself (short
                 // hint + tooltip), never on the combined totals above.
                 const isTraeCard =

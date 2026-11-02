@@ -764,6 +764,45 @@ describe("UsageOverview", () => {
     expect(screen.queryByText(/Active without token data:/)).toBeNull();
   });
 
+  it("shows the conversation count on a card with neither tokens nor spend", () => {
+    const fleet = [
+      {
+        source: "qoder-cn",
+        label: "QODER-CN",
+        totalPercent: "0.00",
+        // Qoder CN bills credits: no tokens and, unlike the international
+        // edition, no dollar figure either — its only local activity is the
+        // conversation count, so the card must carry that instead of a bare
+        // "0.00%". Without it the card read as empty while the account had
+        // 577 real conversations.
+        usage: 0,
+        requests: 577,
+        usd: 0,
+        models: [
+          { id: "DeepSeek-Flash", name: "DeepSeek-Flash", share: 0, usage: 0, requests: 87, cost: null },
+          { id: "Qwen3.8-Flash", name: "Qwen3.8-Flash", share: 0, usage: 0, requests: 490, cost: null },
+        ],
+      },
+    ];
+    render(
+      <UsageOverview
+        period="month"
+        periods={["month"]}
+        summaryLabel="Total"
+        summaryValue="0"
+        fleetData={fleet}
+        from="2026-11-01"
+        to="2026-11-02"
+      />,
+    );
+    const selector = "[aria-controls=\"provider-details-QODER-CN\"]";
+    const button = document.querySelector(selector);
+    const cardText = (button ? button.textContent : "").replace(/\s+/g, " ").trim();
+    expect(cardText).toContain(copy("usage.overview.model_count", { count: 2 }));
+    expect(cardText).toContain(copy("usage.overview.request_count", { count: 577 }));
+    expect(cardText).not.toMatch(/\$/);
+  });
+
   it("keeps the Qoder CN official-spend banner off the international card", async () => {
     const user = userEvent.setup();
     const spend = {

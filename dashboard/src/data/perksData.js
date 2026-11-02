@@ -20,7 +20,7 @@ export const PERK_CATEGORIES = [
   },
   {
     "id": "permanent_free",
-    "label": "永久免费"
+    "label": "长期免费"
   },
   {
     "id": "daily_claim",
@@ -33,6 +33,10 @@ export const PERK_CATEGORIES = [
   {
     "id": "big_quota",
     "label": "赠送大额额度"
+  },
+  {
+    "id": "gateway",
+    "label": "聚合平台/网关"
   },
   {
     "id": "client",
@@ -120,8 +124,9 @@ export const PERK_PROVIDERS = [  {
     "name": "硅基流动 (SiliconFlow)",
     "provider": "siliconflow",
     "category": [
-          "featured",
-          "big_quota"
+      "featured",
+      "big_quota",
+      "gateway"
     ],
     "badge": "推荐官计划：每邀 1 人实名得 ¥16 代金券",
     "badgeType": "amber",
@@ -167,7 +172,8 @@ export const PERK_PROVIDERS = [  {
     "name": "国家超算互联网 (SCNet)",
     "provider": "scnet",
     "category": [
-          "big_quota"
+      "big_quota",
+      "gateway"
     ],
     "badge": "0.1 元购 5000 万 Tokens + 新客赠 1000 万 GLM-5.3-Flash",
     "badgeType": "purple",
@@ -189,7 +195,8 @@ export const PERK_PROVIDERS = [  {
     "name": "飓流AI (JULIU AI)",
     "provider": "juflowai",
     "category": [
-          "featured"
+      "featured",
+      "gateway"
     ],
     "badge": "实名核验后领 ¥5 体验金 · 价格对齐官方",
     "badgeType": "success",
@@ -284,8 +291,9 @@ export const PERK_PROVIDERS = [  {
     "name": "APIGOTO",
     "provider": "apigoto",
     "category": [
-          "featured",
-          "big_quota"
+      "featured",
+      "big_quota",
+      "gateway"
     ],
     "badge": "订阅制改版：PLUS 约6折 / PROX10 约5折",
     "badgeType": "success",
@@ -309,8 +317,9 @@ export const PERK_PROVIDERS = [  {
     "name": "基元律动 (TokenRhythm)",
     "provider": "tokenrhythm",
     "category": [
-          "featured",
-          "big_quota"
+      "featured",
+      "big_quota",
+      "gateway"
     ],
     "badge": "实名送 ¥18 · 充值买一送一",
     "badgeType": "purple",
@@ -640,7 +649,8 @@ export const PERK_PROVIDERS = [  {
     "name": "书生·端砚 (Intern InkStone)",
     "provider": "intern-inkstone",
     "category": [
-          "monthly_claim"
+      "monthly_claim",
+      "permanent_free"
     ],
     "badge": "每月 10,000 墨点 · 4 款模型免费直用",
     "badgeType": "purple",
@@ -825,7 +835,8 @@ export const PERK_PROVIDERS = [  {
     "name": "OpenRouter",
     "provider": "openrouter",
     "category": [
-          "permanent_free"
+      "permanent_free",
+      "gateway"
     ],
     "badge": "十余款 :free 免费模型",
     "badgeType": "neutral",
@@ -942,9 +953,10 @@ export const PERK_PROVIDERS = [  {
     "name": "Vyce AI",
     "provider": "vyceai",
     "category": [
-          "featured",
-          "big_quota",
-          "daily_claim"
+      "featured",
+      "big_quota",
+      "daily_claim",
+      "gateway"
     ],
     "badge": "注册送 $50 · 每日签到 $10 · 邀请双方各 $10",
     "badgeType": "success",
@@ -1041,8 +1053,9 @@ export const PERK_PROVIDERS = [  {
     "name": "Agent Router",
     "provider": "agentrouter",
     "category": [
-          "big_quota",
-          "daily_claim"
+      "big_quota",
+      "daily_claim",
+      "gateway"
     ],
     "badge": "⚠️ 2026-11-02 实测仍全模型无流量",
     "badgeType": "rose",

@@ -833,11 +833,12 @@ perks.notice.title,ui,PerksPage,PerksPage,notice_title,"💡 About Referral and 
 perks.notice.desc,ui,PerksPage,PerksPage,notice_desc,"This guide provides both invite and official links. Using invite links may give you extra bonus credits while supporting guide maintenance. You can always use direct links to register. More providers are being added continuously.",,active
 perks.cat.all,ui,PerksPage,PerksPage,cat_all,"All Providers",,active
 perks.cat.featured,ui,PerksPage,PerksPage,cat_featured,"Featured",,active
-perks.cat.permanent_free,ui,PerksPage,PerksPage,cat_permanent_free,"Permanent Free",,active
+perks.cat.permanent_free,ui,PerksPage,PerksPage,cat_permanent_free,"Long-term Free",,active
 perks.cat.daily_claim,ui,PerksPage,PerksPage,cat_daily_claim,"Daily Claim & Credits",,active
 perks.cat.monthly_claim,ui,PerksPage,PerksPage,cat_monthly_claim,"Monthly Perks",,active
 perks.cat.free_tier,ui,PerksPage,PerksPage,cat_free_tier,"Daily / Permanent Free",,active
 perks.cat.big_quota,ui,PerksPage,PerksPage,cat_big_quota,"Large Trial Quota",,active
+perks.cat.gateway,ui,PerksPage,PerksPage,cat_gateway,"Gateway / Aggregator",,active
 perks.cat.client,ui,PerksPage,PerksPage,cat_client,"Clients & Apps",,active
 perks.claim.mark,ui,PerksPage,PerksPage,claim_mark,"Mark as claimed",,active
 perks.claim.claimed,ui,PerksPage,PerksPage,claim_claimed,"Claimed on {{date}}",,active
