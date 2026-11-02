@@ -10,6 +10,9 @@ const {
   opencodeMessageShardKey,
   openCursorStore,
   readCursorStateSummary,
+  drainTrashEntry,
+  purgeStaleTrashEntries,
+  shouldDeferTrashDrain,
 } = require("../src/lib/cursor-store");
 const { multiInstallParse } = require("../src/lib/multi-install-parser");
 const { purgeProjectUsage } = require("../src/lib/project-usage-purge");
@@ -850,6 +853,65 @@ test("trash purge drops stale generations but keeps recent and non-conforming en
   } finally {
     if (previous === undefined) delete process.env.TOKENTRACKER_TRASH_DIR;
     else process.env.TOKENTRACKER_TRASH_DIR = previous;
+    await fs.rm(trashDir, { recursive: true, force: true });
+  }
+});
+
+test("drainTrashEntry removes a retired generation immediately (zero-accumulation)", async () => {
+  const trashDir = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-trash-test-"));
+  const previous = process.env.TOKENTRACKER_TRASH_DIR;
+  process.env.TOKENTRACKER_TRASH_DIR = trashDir;
+  try {
+    const entry = `${Date.now()}-gen-aaaaaaaa-bbbbbbbb`;
+    const entryPath = path.join(trashDir, entry);
+    // Build a nested generation: files at several depths, as a real store has.
+    await fs.mkdir(path.join(entryPath, "shards", "a"), { recursive: true });
+    await fs.mkdir(path.join(entryPath, "shards", "b"), { recursive: true });
+    await fs.writeFile(path.join(entryPath, "manifest.json"), "{}", "utf8");
+    await fs.writeFile(path.join(entryPath, "shards", "core.json"), "x", "utf8");
+    await fs.writeFile(path.join(entryPath, "shards", "a", "part.json"), "x", "utf8");
+    await fs.writeFile(path.join(entryPath, "shards", "b", "part.json"), "x", "utf8");
+
+    await drainTrashEntry(entryPath);
+
+    // The retired entry must be fully gone, not left for a later 24h sweep.
+    assert.deepEqual(await fs.readdir(trashDir), []);
+  } finally {
+    if (previous === undefined) delete process.env.TOKENTRACKER_TRASH_DIR;
+    else process.env.TOKENTRACKER_TRASH_DIR = previous;
+    await fs.rm(trashDir, { recursive: true, force: true });
+  }
+});
+
+test("deferred drain leaves the entry for the startup sweep (crash recovery)", async () => {
+  const trashDir = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-trash-test-"));
+  const previous = process.env.TOKENTRACKER_TRASH_DIR;
+  const previousDefer = process.env.TOKENTRACKER_TRASH_DEFER_DRAIN;
+  process.env.TOKENTRACKER_TRASH_DIR = trashDir;
+  process.env.TOKENTRACKER_TRASH_DEFER_DRAIN = "1";
+  try {
+    const now = Date.now();
+    const stale = `${now - 48 * 60 * 60 * 1000}-gen-dead-deadbeef`;
+    await fs.mkdir(path.join(trashDir, stale), { recursive: true });
+    await fs.writeFile(path.join(trashDir, stale, "probe.txt"), "x", "utf8");
+
+    // Simulate a process that died before draining: a fresh module instance
+    // runs the startup sweep, which must reclaim the stale entry.
+    const modulePath = require.resolve("../src/lib/cursor-store");
+    delete require.cache[modulePath];
+    const { openCursorStore: freshOpen } = require("../src/lib/cursor-store");
+
+    const home = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-cursor-store-"));
+    const trackerDir = path.join(home, ".tokentracker", "tracker");
+    await fs.mkdir(trackerDir, { recursive: true });
+    await freshOpen({ trackerDir, forceV2: true });
+
+    assert.deepEqual(await fs.readdir(trashDir), []);
+  } finally {
+    if (previous === undefined) delete process.env.TOKENTRACKER_TRASH_DIR;
+    else process.env.TOKENTRACKER_TRASH_DIR = previous;
+    if (previousDefer === undefined) delete process.env.TOKENTRACKER_TRASH_DEFER_DRAIN;
+    else process.env.TOKENTRACKER_TRASH_DEFER_DRAIN = previousDefer;
     await fs.rm(trashDir, { recursive: true, force: true });
   }
 });

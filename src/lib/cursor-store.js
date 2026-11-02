@@ -26,11 +26,21 @@ const TRASH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const TRASH_PURGE_BATCH = 100;
 const TRASH_PURGE_MAX_MS = 5000;
 const TRASH_ENTRY_REGEX = /^\d{13}-/;
+const TRASH_DRAIN_BATCH = 50;
+const TRASH_DRAIN_MAX_MS = 2500;
 
 // Overridable so tests can point the trash at a sandbox instead of the real
 // %TEMP% (openCursorStore runs on every test that touches the cursor store).
 function resolveTrashRoot() {
   return process.env.TOKENTRACKER_TRASH_DIR || path.join(require("node:os").tmpdir(), TRASH_DIRNAME);
+}
+
+// Test hook: when set to "1", removeGenerationDir keeps the retired directory
+// in the trash and does NOT schedule an immediate background drain. The
+// startup sweep (ensureTrashPurged) still reclaims it, which lets tests
+// exercise the crash-recovery path deterministically.
+function shouldDeferTrashDrain() {
+  return process.env.TOKENTRACKER_TRASH_DEFER_DRAIN === "1";
 }
 
 async function openCursorStore({
@@ -1869,10 +1879,12 @@ function sameFingerprint(left, right) {
     .every((key) => String(left[key]) === String(right[key]));
 }
 
-// Retired generations are renamed into the OS temp dir rather than deleted
-// (see removeGenerationDir). Nothing else reclaims them, so purge entries
-// older than TRASH_MAX_AGE_MS once per process. The trash entry name starts
-// with the rename timestamp, which doubles as the age signal.
+// Crash-recovery sweep for retired generations. Normally removeGenerationDir
+// drains each entry in the background immediately (see drainTrashEntry); this
+// path reclaims anything a dead process left behind, or that the background
+// drain could not delete (locked file). Runs once per process and reclaims
+// entries older than TRASH_MAX_AGE_MS. The trash entry name starts with the
+// rename timestamp, which doubles as the age signal.
 let trashPurgePromise = null;
 
 async function purgeStaleTrashEntries() {
@@ -1915,15 +1927,22 @@ function ensureTrashPurged() {
 // Retire a generation directory without deleting hundreds of files one by one
 // (each delete is a trash operation on hosts with a safe-delete guard, which
 // turned a cleanup into minutes of I/O). Renaming the whole directory out of
-// the store is instant and keeps the snapshot recoverable for a short window;
-// purgeStaleTrashEntries() reclaims entries older than TRASH_MAX_AGE_MS.
-// Cross-device renames fall back to the slow path.
+// the store is instant and keeps the snapshot recoverable for a short window.
+// The retired entry is drained in the background immediately (see
+// drainTrashEntry) so the trash does not accumulate; purgeStaleTrashEntries()
+// is the crash-recovery sweep that reclaims anything a dead process left
+// behind past TRASH_MAX_AGE_MS. Cross-device renames fall back to the slow path.
 async function removeGenerationDir(dirPath) {
   const trashRoot = resolveTrashRoot();
   try {
     await fs.mkdir(trashRoot, { recursive: true });
     const target = path.join(trashRoot, `${Date.now()}-${path.basename(dirPath)}`);
     await fs.rename(dirPath, target);
+    // Retired. Do not block the commit on a file-by-file delete; drain it in
+    // the background so the trash stays near-empty without stalling the sync.
+    if (!shouldDeferTrashDrain()) {
+      drainTrashEntry(target);
+    }
     return;
   } catch (e) {
     if (e?.code === "ENOENT") return;
@@ -1946,6 +1965,52 @@ async function removeGenerationDir(dirPath) {
     await fs.rm(child, { force: true }).catch(() => {});
   }
   await fs.rmdir(dirPath).catch(() => {});
+}
+
+// Background drain of one retired trash entry. Deletes the directory's files
+// in small batches with a wall-clock budget so a huge generation is reclaimed
+// across several turns instead of one long blocking delete, and never lets a
+// locked file stall the process. Failures are swallowed: the entry stays in
+// the trash and the next startup sweep (or purgeStaleTrashEntries) retries it.
+// Returns the drain promise so tests can await completion deterministically;
+// production callers fire-and-forget.
+function drainTrashEntry(target) {
+  const startedAt = Date.now();
+  const promise = (async () => {
+    let remaining = [target];
+    while (remaining.length > 0 && Date.now() - startedAt < TRASH_DRAIN_MAX_MS) {
+      const next = [];
+      let deleted = 0;
+      for (const dir of remaining) {
+        if (deleted >= TRASH_DRAIN_BATCH) break;
+        let children;
+        try {
+          children = await fs.readdir(dir, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const entry of children) {
+          if (deleted >= TRASH_DRAIN_BATCH) break;
+          const child = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            next.push(child);
+            continue;
+          }
+          await fs.rm(child, { force: true }).catch(() => {});
+          deleted += 1;
+        }
+        await fs.rmdir(dir).catch(() => {});
+      }
+      if (next.length === 0) break;
+      remaining = next;
+    }
+    // Final attempt on the root after the loop budget; if anything is still
+    // locked it remains for the startup sweep.
+    await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+  })().catch(() => {
+    // Never surface background cleanup errors to the caller.
+  });
+  return promise;
 }
 
 async function cleanupGenerations(storeRoot, keep) {
@@ -2007,4 +2072,8 @@ module.exports = {
   isCursorStoreRetry,
   openCursorStore,
   readCursorStateSummary,
+  // Exposed for tests: the background drain is deterministic to assert on.
+  drainTrashEntry,
+  purgeStaleTrashEntries,
+  shouldDeferTrashDrain,
 };
