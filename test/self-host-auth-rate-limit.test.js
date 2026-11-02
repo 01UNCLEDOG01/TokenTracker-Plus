@@ -3,10 +3,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const test = require("node:test");
+const http = require("node:http");
 const { signToken, verifyToken, verifyAccessToken, handleAuthRequest, hashPassword, verifyPassword } = require("../scripts/self-host/local-auth.cjs");
 const { PGlite } = require("@electric-sql/pglite");
 
-function backendAuthFixture({ accountExists = true } = {}) {
+function backendAuthFixture({ accountExists = true, realHttp = false, authBodies = [] } = {}) {
   const source = fs.readFileSync(path.join(__dirname, "../scripts/self-host/local-backend.cjs"), "utf8");
   // Exercise the actual request dispatch without booting a database or loading
   // workers. The auth implementation is irrelevant to the pre-dispatch limit.
@@ -14,21 +15,24 @@ function backendAuthFixture({ accountExists = true } = {}) {
   const end = source.indexOf("  // Loopback by default.", start);
   assert.ok(start >= 0 && end > start);
   let handler;
+  let server;
   let now = 1_000_000;
   const secret = "isolated-test-secret";
   vm.runInNewContext(source.slice(start, end), {
-    http: { createServer(callback) { handler = callback; } },
+    http: { createServer(callback) { handler = callback; if (realHttp) server = http.createServer(callback); } },
     process: { env: {} }, globalThis: {}, URL, Request, Response, Buffer, Date: { now: () => now },
     serverCredential: "fixture-server-credential",
     env: {}, port: 1234, privateFunctions: [], db: { query: async () => ({ rows: accountExists ? [{ id: "11111111-1111-4111-8111-111111111111" }] : [] }) }, secret, verifyToken, verifyAccessToken,
     handlers: { "tokentracker-leaderboard": async () => new Response("{}") },
-    handleAuthRequest: async ({ url, send }) => {
+    handleAuthRequest: async ({ url, raw, send }) => {
       if (!url.pathname.startsWith("/api/auth/")) return false;
+      authBodies.push(raw);
       send(200, { ok: true });
       return true;
     },
   });
   return {
+    server,
     advance: (ms) => { now += ms; },
     token: (payload) => signToken(payload, secret),
     async request(ip = "127.0.0.1", forwarded = "", { url = "/api/auth/public-config", token, chunks = [], onRead } = {}) {
@@ -141,4 +145,27 @@ test("self-host rejects rate-limited auth before consuming its request body", as
   const fixture = backendAuthFixture();
   for (let i = 0; i < 60; i += 1) await fixture.request();
   assert.equal(await fixture.request(undefined, undefined, { onRead() { throw new Error("rate-limited body was consumed"); } }), 429);
+});
+
+test("real HTTP flushes a chunked 413 response and preserves split UTF-8 input", async (t) => {
+  const bodies = [];
+  const fixture = backendAuthFixture({ realHttp: true, authBodies: bodies });
+  await new Promise((resolve) => fixture.server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => { fixture.server.closeAllConnections(); await new Promise((resolve) => fixture.server.close(resolve)); });
+  function request(chunks) {
+    return new Promise((resolve, reject) => {
+      const req = http.request({ host: "127.0.0.1", port: fixture.server.address().port, path: "/api/auth/users", method: "POST" }, (res) => {
+        res.resume(); res.on("end", () => resolve(res.statusCode));
+      });
+      req.on("error", reject);
+      req.write(chunks[0]);
+      setTimeout(() => { for (const chunk of chunks.slice(1)) req.write(chunk); req.end(); }, 5);
+    });
+  }
+  assert.equal(await request([Buffer.alloc(64 * 1024), Buffer.from("overflow")]), 413);
+  const text = '{"name":"你好"}';
+  const bytes = Buffer.from(text);
+  const split = bytes.indexOf(Buffer.from("你")) + 1;
+  assert.equal(await request([bytes.subarray(0, split), bytes.subarray(split)]), 200);
+  assert.deepEqual(bodies, [text]);
 });
