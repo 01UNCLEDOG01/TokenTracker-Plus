@@ -510,7 +510,7 @@ describe("buildTraeCostInterval", () => {
 
   it("builds an interval from the same model's median hit rate at other sources", () => {
     const interval = buildTraeCostInterval(traeCard, [traeCard, ...peers]);
-    expect(interval).not.toBeNull();
+    if (!interval) throw new Error("expected an interval for TRAE with peer evidence");
     // Median of [90, 94, 80] = 90 -> low = 16.2 * (0.1 + 0.9 * (0.006/0.3))
     expect(interval.high).toBeCloseTo(16.2, 5);
     expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
