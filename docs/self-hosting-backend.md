@@ -16,6 +16,11 @@ Forwarded IP headers are not trusted: clients behind the same reverse proxy
 share its bucket. This in-memory limit resets when the server restarts; the
 official InsForge platform has its own authentication ingress controls.
 
+The personal server caps authentication bodies at 64 KiB and other request
+bodies at 6 MiB, including chunked transfer. Rate-limited authentication is
+rejected before buffering the body. These controls apply to the optional
+Node/PGlite wrapper, not to the separately managed InsForge platform.
+
 Private leaderboard dispatch and account-profile reads/password changes require
 an unexpired token with role `authenticated` and an access-token purpose. Public
 anonymous keys and refresh tokens are rejected on these routes. Private dispatch
