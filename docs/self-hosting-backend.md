@@ -2,7 +2,7 @@
 
 The local branch now contains a clean TokenTracker application installer and a private-function deployment manifest. They install free private synchronization on a compatible InsForge instance. They do not create the InsForge platform or complete VPS, browser, or packaged desktop acceptance.
 
-The current manifest installs the free Cloud contract only: there is no gift, order, payment or subscription step, and self-hosted access stays free. The official-stack results below are historical, and the isolated-PostgreSQL installer/reinstall results used a separate database. An unchanged reinstall is not proof of an upgrade. See the [release handoff](cloud-release-readiness.md) and [remaining acceptance](self-hosting-remaining-acceptance.md) for current gates.
+The current manifest installs the free Cloud contract only: there is no gift, order, payment or subscription step, and self-hosted access stays free. The official-stack results below are historical, and the isolated-PostgreSQL installer/reinstall results used a separate database. An unchanged reinstall is not proof of an upgrade. See the [remaining acceptance](self-hosting-remaining-acceptance.md) for evidence boundaries and [project rules](../AGENTS.md) for the Windows build and release gates.
 
 InsForge provides its own PostgreSQL/auth/API/function runtime. Install it in a separate directory using a reviewed release and pinned image digests. Its official README documents MCP support for self-hosted administration; the cloud CLI is not a VPS installer. [Official platform instructions](https://github.com/InsForge/InsForge#self-hosted-docker-compose)
 
