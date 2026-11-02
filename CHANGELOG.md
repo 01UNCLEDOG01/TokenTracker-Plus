@@ -6,6 +6,12 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随下一个 MINOR 安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [未发布]
+
+### 福利指南
+
+- **2026-11-02 全量核对 42 家服务商**（官方页 7 路核查 + 站主两轮端内实测核正）：apigoto 订阅制改版（取消实名送 PLUS、FREE/PLUS/PROX5/PROX10 四档、厂商折扣模型按 125% 计费）；17 家对齐官方现行口径——AutoClaw 国内版会员体系改版（新户领 2 亿 tokens、邀请活动在线）、阿里百炼第三方及 Qwen 旧版下架新人赠额、千问办公每日积分改每月、OpenCode Zen 更名 Console、LongCat 上新福利（老户 500 万）、TRAE CN 注册 2000+每月登录 500、WorkBuddy AI DeepSeek 免费调用停止（HY3 仍免费）、Qoder 双卡补 Qwen3.8-Flash 限时每日免费等；11 家确认无变化刷新核对日期；14 家登录墙维持原卡。入门文档的服务商数量同步为 42。
+
 ## [1.13.2] - 2026-11-02
 
 ### 移除
