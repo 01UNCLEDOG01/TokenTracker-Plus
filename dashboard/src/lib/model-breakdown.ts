@@ -289,6 +289,9 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
             cacheHitRate: modelCacheHitRate,
             pricing: model?.pricing || null,
             costSource: model?.cost_source || null,
+            // upstream PR 975: Codex Fast/Ultrafast observed subsets (null on other
+            // sources), consumed by the expanded row's tier block.
+            ...(model?.speed_tiers ? { speedTiers: model.speed_tiers } : {}),
           };
         })
         .filter(Boolean);
@@ -512,6 +515,17 @@ export function applyTraeEstimatedCosts(fleetData: any) {
  * The same model name can be emitted by several tools, so names are matched
  * case-insensitively and their token/cost totals are combined before ranking.
  */
+function emptySpeedTierAggregate() {
+  return {
+    input_tokens: 0,
+    cached_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    output_tokens: 0,
+    reasoning_output_tokens: 0,
+    cost_usd: 0,
+  };
+}
+
 export function buildAllModels(fleetData: any) {
   const providers: any[] = Array.isArray(fleetData) ? fleetData : [];
   const byModel = new Map();
@@ -554,6 +568,8 @@ export function buildAllModels(fleetData: any) {
       hasCost: false,
       nameWeight: 0,
       tokens: { input: 0, output: 0, cached: 0, cacheCreate: 0, reasoning: 0 },
+      speedTiers: null,
+      pricing: null,
     };
     current.usage += usage;
     current.requests += requests;
@@ -566,6 +582,24 @@ export function buildAllModels(fleetData: any) {
     if (cost != null) {
       current.cost += cost;
       current.hasCost = true;
+    }
+    if (!current.pricing && model?.pricing) current.pricing = model.pricing;
+    // upstream PR 975: tier subsets sum across tools the same way the token splits do,
+    // so the All-models view shows the same tier block as the source cards.
+    const tiers = model?.speedTiers;
+    if (tiers) {
+      current.speedTiers = current.speedTiers || {
+        priority: emptySpeedTierAggregate(),
+        ultrafast: emptySpeedTierAggregate(),
+      };
+      for (const tierKey of ["priority", "ultrafast"] as const) {
+        for (const column of ["input_tokens", "cached_input_tokens", "cache_creation_input_tokens", "output_tokens", "reasoning_output_tokens"] as const) {
+          current.speedTiers[tierKey][column] =
+            (current.speedTiers[tierKey][column] || 0) + (Number(tiers[tierKey]?.[column]) || 0);
+        }
+        current.speedTiers[tierKey].cost_usd =
+          (current.speedTiers[tierKey].cost_usd || 0) + (Number(tiers[tierKey]?.cost_usd) || 0);
+      }
     }
     // Preserve the spelling from the source that contributes the most.
     if (bareNames.has(key)) {
@@ -588,6 +622,8 @@ export function buildAllModels(fleetData: any) {
       requests: model.requests,
       cost: model.hasCost ? model.cost : null,
       tokens: { ...model.tokens },
+      ...(model.pricing ? { pricing: model.pricing } : {}),
+      ...(model.speedTiers ? { speedTiers: model.speedTiers } : {}),
       share: totalUsage > 0
         ? Math.round((model.usage / totalUsage) * 1000) / 10
         : 0,

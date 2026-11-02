@@ -32,6 +32,7 @@ import { QoderCnOfficialSpend, QoderIntlCreditsNote, VyceAiSpend, WorkbuddyCredi
 import { CURRENCY_USD, getCurrencySymbol } from "../../../lib/currency";
 import { formatProviderDisplayName } from "../../../lib/provider-display";
 import { DateRangePopover, formatDateShort, getDateFnsLocale } from "./DateRangePopover.jsx";
+import { useAccountView } from "../../../contexts/AccountViewContext.jsx";
 import { ProviderIcon } from "./ProviderIcon.jsx";
 import { formatUsdCurrency } from "../../../lib/format";
 import { buildAllModels, hasModelTokenSplits } from "../../../lib/model-breakdown";
@@ -166,6 +167,59 @@ const PERIOD_COPY_KEYS = {
 function getPeriodLabel(key) {
   const copyKey = PERIOD_COPY_KEYS[key];
   return copyKey ? copy(copyKey) : String(key).toUpperCase();
+}
+
+// upstream PRs 983/986: label the data scope and — for signed-in
+// localhost users — let them peek at the other scope without touching the
+// Cloud sync toggle. The override lives in AccountViewContext (in-memory, not
+// persisted), so every usage surface flips together and refetches via the
+// revision bump.
+function UsageScopeSwitcher() {
+  const { accountView, scopeOverride, setScopeOverride, canOverrideScope } = useAccountView();
+  const active = scopeOverride ?? (accountView ? "account" : "local");
+  if (!canOverrideScope) {
+    // upstream PR 983: still label the scope so cloud-aggregate rows can't be misread
+    // as a local pricing bug.
+    return (
+      <span
+        data-usage-scope-badge=""
+        className="inline-flex items-center h-8 px-3 text-xs font-medium rounded-md border border-oai-gray-300 dark:border-oai-gray-700 text-oai-gray-600 dark:text-oai-gray-300"
+      >
+        {copy(accountView ? "usage.overview.scope_account" : "usage.overview.scope_local")}
+      </span>
+    );
+  }
+  const options = [
+    { key: "local", labelKey: "usage.overview.scope_local" },
+    { key: "account", labelKey: "usage.overview.scope_account" },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label={copy("usage.overview.scope_aria")}
+      data-usage-scope-switcher=""
+      className="inline-flex items-center rounded-md border border-oai-gray-300 dark:border-oai-gray-700 overflow-hidden"
+    >
+      {options.map((option) => {
+        const selected = active === option.key;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => setScopeOverride(option.key)}
+            className={`h-8 px-3 text-xs font-medium transition-colors duration-150 ${
+              selected
+                ? "bg-oai-gray-900 text-white dark:bg-oai-white dark:text-oai-black"
+                : "bg-oai-white text-oai-gray-600 hover:text-oai-brand dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:text-oai-white"
+            }`}
+          >
+            {copy(option.labelKey)}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 // Refresh button with rotation animation
@@ -476,6 +530,7 @@ export function UsageOverview({
             })}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <UsageScopeSwitcher />
             {deviceOptions.length > 1 ? (
               <Select
                 value={selectedDevice}
@@ -808,6 +863,92 @@ function ModelTokenSplits({ tokens }) {
   );
 }
 
+// upstream PR 975 absorption: Codex bills speed tiers (Fast 2x, Ultrafast 6x)
+// on top of the standard rates. The backend reports the observed per-tier
+// subsets; Standard is the remainder of the row's totals, so the three lines
+// sum to the row's headline cost. Only renders when the backend actually
+// observed tier usage. All math/formatting happens in the pure builder below
+// so the JSX carries expression nodes only (ui-hardcode scan).
+const SPEED_TIER_DEFS = [
+  { key: "standard", labelKey: "usage.overview.tier_standard" },
+  { key: "priority", labelKey: "usage.overview.tier_fast", multiplierField: "priority_multiplier" },
+  { key: "ultrafast", labelKey: "usage.overview.tier_ultrafast", multiplierField: "ultrafast_multiplier" },
+];
+const SPEED_TIER_TOKEN_COLUMNS = [
+  { column: "input_tokens", splitKey: "input" },
+  { column: "cached_input_tokens", splitKey: "cached" },
+  { column: "cache_creation_input_tokens", splitKey: "cacheCreate" },
+  { column: "output_tokens", splitKey: "output" },
+  { column: "reasoning_output_tokens", splitKey: "reasoning" },
+];
+
+function buildSpeedTierRows(tiers, model, { formatTokens, formatCost, currency, rate }) {
+  const tierRows = SPEED_TIER_DEFS.map((def) => {
+    const subset = def.key === "standard" ? null : tiers?.[def.key] || {};
+    const tokens = {};
+    for (const { column, splitKey } of SPEED_TIER_TOKEN_COLUMNS) {
+      if (def.key === "standard") {
+        tokens[column] = Math.max(
+          0,
+          (Number(model.tokens?.[splitKey]) || 0)
+            - (Number(tiers?.priority?.[column]) || 0)
+            - (Number(tiers?.ultrafast?.[column]) || 0),
+        );
+      } else {
+        tokens[column] = Number(subset?.[column]) || 0;
+      }
+    }
+    const cost = def.key === "standard"
+      ? Math.max(
+          0,
+          (Number(model.cost) || 0)
+            - (Number(tiers?.priority?.cost_usd) || 0)
+            - (Number(tiers?.ultrafast?.cost_usd) || 0),
+        )
+      : Number(subset?.cost_usd) || 0;
+    const multiplier = def.multiplierField ? Number(model.pricing?.[def.multiplierField]) : null;
+    // Plain i18n word + a JS-composed suffix: a missing/1x multiplier must not
+    // render an unresolved {{multiplier}} placeholder.
+    const baseLabel = copy(def.labelKey);
+    const label = Number.isFinite(multiplier) && multiplier > 1
+      ? `${baseLabel} (${multiplier}\u00d7)`
+      : baseLabel;
+    const cells = [];
+    for (const { column, splitKey } of SPEED_TIER_TOKEN_COLUMNS) {
+      const def = MODEL_SPLIT_DEFS.find((item) => item.key === splitKey);
+      if (tokens[column] > 0) cells.push({ key: column, value: `${copy(def.labelKey)} ${formatTokens(tokens[column])}` });
+    }
+    if (cost > 0) cells.push({ key: "cost", value: formatCost(cost, currency, rate) });
+    return { key: def.key, label, cells, hasTierUsage: Object.values(tokens).some((value) => value > 0) };
+  });
+  const anyTierObserved = tierRows.some((row) => row.key !== "standard" && row.hasTierUsage);
+  return anyTierObserved ? tierRows : [];
+}
+
+function ModelSpeedTiers({ tiers, model }) {
+  const { formatTokens } = useTokenFormat();
+  const { currency, rate } = useCurrency();
+  const rows = buildSpeedTierRows(tiers, model, {
+    formatTokens,
+    formatCost: (value, cur, rt) => formatCost(value, cur, rt),
+    currency,
+    rate,
+  });
+  if (rows.length === 0) return null;
+  return (
+    <div className="mb-1.5 space-y-0.5" data-speed-tier-block="">
+      {rows.map((row) => (
+        <div key={row.key} className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] tabular-nums">
+          <span className="text-oai-gray-400 dark:text-oai-gray-500">{row.label}</span>
+          {row.cells.map((cell) => (
+            <span key={cell.key} className="text-oai-gray-600 dark:text-oai-gray-300">{cell.value}</span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Grid cells of one model row: name, token total, cost and share. The share
  * cell carries a rotating chevron when the row has token splits.
@@ -900,6 +1041,9 @@ function ModelUsageRows({ models, color }) {
               </div>
             )}
             {isExpanded && <ModelTokenSplits tokens={model.tokens} />}
+            {isExpanded && model.speedTiers ? (
+              <ModelSpeedTiers tiers={model.speedTiers} model={model} />
+            ) : null}
             <div
               className="h-[3px] bg-oai-gray-100 dark:bg-oai-gray-800 rounded-full overflow-hidden"
               role="progressbar"

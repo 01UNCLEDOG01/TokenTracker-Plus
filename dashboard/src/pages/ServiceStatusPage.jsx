@@ -17,8 +17,11 @@ import { ProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 // parses status.deepseek.com through /api/deepseek-status (see
 // src/lib/provider-status.js). On the hosted web build without a local backend
 // that probe renders Unreachable. Providers deliberately absent: Grok fronts
-// its status page with bot checks (browser fetch gets 403/HTML), and z.ai /
-// Kiro / Qoder / OpenCode expose no public status API at all. Only providers
+// its status page with bot checks (browser fetch gets 403/HTML); z.ai / Kiro /
+// Qoder expose no public status API at all. OpenCode gained an official JSON
+// feed (status.opencode.ai/api/status, relayed server-side — upstream PR 973). Only
+// providers TokenTracker actually tracks belong here — this page explains "why
+// is MY provider's data red", it is not a general status aggregator.
 // TokenTracker actually tracks belong here — this page explains "why is MY
 // provider's data red", it is not a general status aggregator.
 export const STATUS_PROVIDERS = [
@@ -104,6 +107,14 @@ export const STATUS_PROVIDERS = [
     // No public JSON API / no CORS: the local app relays and parses the page.
     apiUrl: "/api/deepseek-status",
     pageUrl: "https://status.deepseek.com",
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    icon: "OPENCODE",
+    // Official JSON feed, but no CORS: relayed through the local app (upstream PR 973).
+    apiUrl: "/api/opencode-status",
+    pageUrl: "https://status.opencode.ai",
   },
 ];
 

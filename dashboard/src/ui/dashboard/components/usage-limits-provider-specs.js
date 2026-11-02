@@ -11,6 +11,19 @@ function dropEmptyQoderWindow(window) {
   return Number(window.limit_credits) === 0 ? null : window;
 }
 
+// upstream PR 976: the reward pool has no shared cycle — surface the earliest lapse
+// ("by <day>, <credits> expire") in the pool's existing hover detail.
+function workbuddyRewardNote(window) {
+  const credits = Number(window?.expiring_credits);
+  if (!Number.isFinite(credits) || credits <= 0 || typeof window.expiring_at !== "string") return null;
+  const expires = Date.parse(window.expiring_at);
+  if (!Number.isFinite(expires)) return null;
+  return copy("limits.workbuddy.expiring_note", {
+    credits: credits.toLocaleString("en-US", { maximumFractionDigits: 2 }),
+    date: window.expiring_day || new Date(expires + 8 * 3600 * 1000).toISOString().slice(0, 10),
+  });
+}
+
 // Qoder's three credit pools, named the way the official usage panel names them.
 const QODER_POOL_LABEL_KEYS = {
   plan: "limits.label.qoder_pool_plan",
@@ -338,7 +351,7 @@ export const PROVIDER_LIMIT_SPECS = {
     windows(data) {
       return [
         { key: "plan", labelKey: "limits.label.workbuddy_plan", window: data.primary_window, creditPrecision: 2, showCreditDetail: true },
-        { key: "reward", labelKey: "limits.label.workbuddy_reward", window: data.reward_window, creditPrecision: 2, showCreditDetail: true },
+        { key: "reward", labelKey: "limits.label.workbuddy_reward", window: data.reward_window, creditPrecision: 2, showCreditDetail: true, note: workbuddyRewardNote(data.reward_window) },
       ];
     },
   },
@@ -347,7 +360,7 @@ export const PROVIDER_LIMIT_SPECS = {
     windows(data) {
       return [
         { key: "plan", labelKey: "limits.label.workbuddy_plan", window: data.primary_window, creditPrecision: 2, showCreditDetail: true },
-        { key: "reward", labelKey: "limits.label.workbuddy_reward", window: data.reward_window, creditPrecision: 2, showCreditDetail: true },
+        { key: "reward", labelKey: "limits.label.workbuddy_reward", window: data.reward_window, creditPrecision: 2, showCreditDetail: true, note: workbuddyRewardNote(data.reward_window) },
       ];
     },
   },

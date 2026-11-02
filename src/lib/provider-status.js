@@ -32,9 +32,74 @@ const STATUS_PAGE_SPECS = {
     pageUrl: "https://status.deepseek.com",
     format: "deepseek-rsc",
   },
+  opencode: {
+    // #973 absorption (upstream PR 973): status.opencode.ai ships a custom
+    // JSON feed (`{ updatedAt, status, components[] }`, model-level breakdown)
+    // with no CORS headers, so the local app relays and parses it.
+    apiUrl: "https://status.opencode.ai/api/status",
+    pageUrl: "https://status.opencode.ai",
+    format: "opencode-json",
+  },
 };
 
 const VALID_INDICATORS = new Set(["none", "minor", "major", "critical"]);
+// Severity order used to escalate an overall indicator to the worst component.
+const VALID_INDICATORS_ORDER = ["none", "minor", "major", "critical"];
+
+// OpenCode's feed uses its own status vocabulary. Anything unrecognized maps
+// to "minor" rather than "none" — an unknown state must never fake green
+// (upstream #973 semantics).
+const OPENCODE_INDICATOR_MAP = {
+  operational: "none",
+  degraded: "minor",
+  degraded_performance: "minor",
+  partial_outage: "major",
+  major_outage: "critical",
+  outage: "critical",
+};
+
+/**
+ * Convert OpenCode's `{ updatedAt, status, components[] }` feed into the
+ * Statuspage.io shape the shared normalizer expects. Throws on malformed
+ * payloads so the probe surfaces as an error instead of a fake-green row.
+ * The indicator is the worse of the overall status and every component, so a
+ * single degraded service can never hide behind an "operational" top field.
+ */
+function parseOpencodeStatusPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("OpenCode status payload is not an object");
+  }
+  if (typeof payload.status !== "string" || !payload.status) {
+    throw new Error("OpenCode status payload has no status field");
+  }
+  let worst = OPENCODE_INDICATOR_MAP[payload.status] || "minor";
+  const broken = [];
+  for (const component of Array.isArray(payload.components) ? payload.components : []) {
+    if (!component || typeof component !== "object") continue;
+    const name = typeof component.service === "string" ? component.service : "unknown";
+    const state = typeof component.status === "string" ? component.status : "";
+    if (!state) {
+      broken.push(`${name}: unknown`);
+      if (worst === "none") worst = "minor";
+      continue;
+    }
+    const indicator = OPENCODE_INDICATOR_MAP[state] || "minor";
+    if (indicator !== "none") broken.push(`${name}: ${state}`);
+    if (VALID_INDICATORS_ORDER.indexOf(indicator) > VALID_INDICATORS_ORDER.indexOf(worst)) {
+      worst = indicator;
+    }
+  }
+  const updatedAtMs = Number(payload.updatedAt);
+  return {
+    page: { updated_at: Number.isFinite(updatedAtMs) ? new Date(updatedAtMs).toISOString() : undefined },
+    status: {
+      indicator: worst,
+      description: broken.length ? broken.join("; ") : "",
+    },
+  };
+}
+
+
 
 // providerId -> { data, fetchedAtMs } (data may be null after a failed probe
 // with no last-good to fall back on).
@@ -78,6 +143,7 @@ async function fetchProviderServiceStatus(providerId, { fetchImpl = fetch, nowMs
     const timer = setTimeout(() => controller.abort(), STATUS_PROBE_TIMEOUT_MS);
     try {
       const isDeepSeek = spec.format === "deepseek-rsc";
+      const isOpenCode = spec.format === "opencode-json";
       const res = await fetchImpl(spec.apiUrl, {
         method: "GET",
         headers: { Accept: isDeepSeek ? "text/html" : "application/json" },
@@ -86,7 +152,9 @@ async function fetchProviderServiceStatus(providerId, { fetchImpl = fetch, nowMs
       if (res.ok) {
         const payload = isDeepSeek
           ? parseDeepSeekStatusPage(await res.text())
-          : await res.json();
+          : isOpenCode
+            ? parseOpencodeStatusPayload(await res.json())
+            : await res.json();
         data = normalizeStatusPayload(payload, spec, nowMs);
       }
     } finally {
@@ -114,4 +182,5 @@ module.exports = {
   fetchProviderServiceStatus,
   resetProviderStatusCache,
   STATUS_PAGE_SPECS,
+  parseOpencodeStatusPayload,
 };

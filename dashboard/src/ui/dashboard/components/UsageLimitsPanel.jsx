@@ -167,6 +167,7 @@ function buildWindowHoverDetail(spec, pace, mode) {
   }
   const quota = buildQuotaDetail(spec.window, spec.creditPrecision);
   if (quota) lines.push(quota);
+  if (spec.note) lines.push(spec.note);
   return lines.join("\n");
 }
 

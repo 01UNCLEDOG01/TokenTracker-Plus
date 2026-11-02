@@ -760,6 +760,69 @@ describe("UsageOverview", () => {
     expect(screen.getAllByText(/（估算）|\(est\.\)/).length).toBeGreaterThan(0);
   });
 
+  it("renders the Codex speed-tier block when the model carries observed subsets", async () => {
+    const props = { period: "month", periods: [], summaryLabel: "Total", summaryValue: "100" };
+    const fleetData = [
+      {
+        source: "codex",
+        label: "CODEX",
+        totalPercent: "100.00",
+        usage: 2_400_000,
+        usd: 10,
+        models: [{
+          id: "gpt-6.1-sol",
+          name: "gpt-6.1-sol",
+          share: 100,
+          usage: 2_400_000,
+          cost: 10,
+          tokens: { input: 2_000_000, output: 400_000, cached: 0, cacheCreate: 0, reasoning: 0 },
+          pricing: { priority_multiplier: 2, ultrafast_multiplier: 6 },
+          speedTiers: {
+            priority: { input_tokens: 1_000_000, output_tokens: 100_000, cost_usd: 4 },
+            ultrafast: { input_tokens: 500_000, output_tokens: 50_000, cost_usd: 3 },
+          },
+        }],
+      },
+    ];
+    render(<UsageOverview {...props} fleetData={fleetData} />);
+    const user = userEvent.setup();
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /CODEX:/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByText("gpt-6.1-sol"));
+    });
+    // Upstream PR 975: Fast/Ultrafast lines carry the multiplier from pricing.
+    expect(screen.getByText(/Fast \(2×\)/)).toBeVisible();
+    expect(screen.getByText(/Ultrafast \(6×\)/)).toBeVisible();
+  });
+
+  it("renders a Fast tier whose usage consists only of cached input", async () => {
+    render(<UsageOverview period="month" periods={[]} summaryLabel="Total" summaryValue="1K" fleetData={[{
+      source: "codex", label: "CODEX", totalPercent: "100.00", usage: 1000, usd: 0.0002,
+      models: [{ id: "cached-fast", name: "cached-fast", share: 100, usage: 1000, cost: 0.0002,
+        tokens: { input: 0, output: 0, cached: 1000, cacheCreate: 0, reasoning: 0 },
+        pricing: { priority_multiplier: 2 },
+        speedTiers: { priority: { cached_input_tokens: 1000, cost_usd: 0.0002 } },
+      }],
+    }]} />);
+    const user = userEvent.setup();
+    await act(async () => { await user.click(screen.getByRole("button", { name: /CODEX:/i })); });
+    await act(async () => { await user.click(screen.getByRole("button", { name: /cached-fast/i })); });
+    expect(screen.getByText(/Fast \(2×\)/)).toBeVisible();
+  });
+
+  it("labels the data scope on the usage header", () => {
+    const props = { period: "month", periods: [], summaryLabel: "Total", summaryValue: "100" };
+    render(<UsageOverview {...props} fleetData={[{
+      source: "codex", label: "CODEX", totalPercent: "100.00", usage: 100, usd: 1,
+      models: [{ id: "m", name: "m", share: 100, usage: 100, cost: 1 }],
+    }]} />);
+    // Without a signed-in localhost provider the switcher degrades to the
+    // upstream PR 983 scope badge.
+    expect(screen.getByText("This device")).toBeVisible();
+  });
+
   it("shows the cost on a card that has spend but no tokens", () => {
     const fleet = [
       {

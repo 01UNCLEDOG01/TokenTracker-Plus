@@ -1238,7 +1238,7 @@ function localDataApiPlugin() {
         const isRepoSkillsApi = url.pathname === "/functions/tokentracker-skills";
         // DeepSeek status is proxied by this checkout's local API (no public
         // JSON/CORS upstream), so serve it from the current source in dev too.
-        const isRepoProviderStatusApi = url.pathname === "/api/deepseek-status";
+        const isRepoProviderStatusApi = url.pathname === "/api/deepseek-status" || url.pathname === "/api/opencode-status";
         if (isRepoPetApi || isRepoProjectUsageApi || isRepoSessionAnalyticsApi || isRepoSkillsApi || isRepoProviderStatusApi) {
           Promise.resolve(handleRepoLocalApi(req, res, url))
             .then((handled) => { if (!handled) next(); })

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useInsforgeAuth } from "./InsforgeAuthContext.jsx";
 import { invalidateAccountResponseCache } from "../lib/api";
 import {
@@ -91,11 +91,38 @@ export function AccountViewProvider({ children }) {
   // Public host: cloud is mandatory for signed-in users; signed-out users
   // get a no-data state (false) but the page should redirect to /login.
   // Local host: opt-in via the toggle.
-  const accountView = useMemo(() => {
+  const baseAccountView = useMemo(() => {
     if (!authEnabled || !signedIn) return false;
     if (!localHost) return true;
     return cloudSyncOn && cloudUsageReady;
   }, [authEnabled, signedIn, localHost, cloudSyncOn, cloudUsageReady]);
+
+  // upstream PR 986: a view-only scope override — an in-memory lens to
+  // compare this device's numbers with the account aggregate WITHOUT touching
+  // the Cloud sync toggle (which also pauses uploads). Signed-in localhost
+  // users only: a public host is pinned to cloud, and a signed-out user has no
+  // account scope to peek at. Not persisted on purpose — this is a compare
+  // lens, not a preference; the resolved flip still bumps `revision` through
+  // the effect below, so every consumer refetches across the change.
+  const userId = auth?.user?.id || null;
+  const canOverrideScope = Boolean(authEnabled && signedIn && userId && localHost && cloudSyncOn && cloudUsageReady);
+  const [scopeChoice, setScopeChoice] = useState(null);
+  const setScopeOverride = useCallback((scope) => {
+    if (!canOverrideScope) return;
+    if (scope !== "local" && scope !== "account" && scope !== null) return;
+    setScopeChoice((previous) => previous?.scope === scope && previous?.userId === userId
+      ? previous : (scope ? { scope, userId } : null));
+  }, [canOverrideScope, userId]);
+  // Bind an in-memory comparison to the account that selected it. Drop it
+  // immediately on sign-out, account change or loss of the cloud scope.
+  const appliedScopeOverride = canOverrideScope && scopeChoice?.userId === userId ? scopeChoice.scope : null;
+  useEffect(() => {
+    setScopeChoice(null);
+  }, [userId, canOverrideScope]);
+  const accountView = useMemo(
+    () => (appliedScopeOverride ? appliedScopeOverride === "account" : baseAccountView),
+    [appliedScopeOverride, baseAccountView],
+  );
 
   // Single source of truth for revision bumps: fire when the *resolved*
   // accountView flips. Covers signIn/signOut, host change, and the
@@ -121,8 +148,18 @@ export function AccountViewProvider({ children }) {
   const resolving = authLoading && expectCloud;
 
   const value = useMemo(
-    () => ({ accountView, revision, localHost, resolving }),
-    [accountView, revision, localHost, resolving],
+    () => ({
+      accountView,
+      revision,
+      localHost,
+      resolving,
+      scopeOverride: appliedScopeOverride,
+      setScopeOverride,
+      // Preserve the existing cloud-read policy: disabling synchronization
+      // restores local reads and clears the temporary comparison choice.
+      canOverrideScope,
+    }),
+    [accountView, revision, localHost, resolving, appliedScopeOverride, canOverrideScope, setScopeOverride],
   );
 
   return (
@@ -133,5 +170,13 @@ export function AccountViewProvider({ children }) {
 export function useAccountView() {
   const ctx = useContext(AccountViewContext);
   if (ctx) return ctx;
-  return { accountView: false, revision: 0, localHost: true, resolving: false };
+  return {
+    accountView: false,
+    revision: 0,
+    localHost: true,
+    resolving: false,
+    scopeOverride: null,
+    setScopeOverride: null,
+    canOverrideScope: false,
+  };
 }

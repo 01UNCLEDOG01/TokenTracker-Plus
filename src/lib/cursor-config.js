@@ -207,7 +207,12 @@ function fetchCursorUsageCsv({ cookie, timeoutMs = 30000, fetchImpl = fetch }) {
     signal: AbortSignal.timeout(timeoutMs),
   }).then(async (res) => {
     if (res.status === 401 || res.status === 403) {
-      throw new Error("Cursor session expired — re-login in Cursor to refresh");
+      throw Object.assign(new Error("Cursor session expired — re-login in Cursor to refresh"), {
+        // Coded so callers can tell "session expired" apart from a network
+        // blip: an auth failure must surface instead of hiding behind stale
+        // last-good limits data (upstream PR 985 semantics).
+        code: "AUTH_EXPIRED",
+      });
     }
     if (res.status === 308 || res.status === 301 || res.status === 302) {
       // Follow redirect once. Keep this hop on redirect:"manual" so the
@@ -242,7 +247,12 @@ function fetchCursorUsageSummary({ cookie, timeoutMs = 30000, fetchImpl = fetch 
     signal: AbortSignal.timeout(timeoutMs),
   }).then(async (res) => {
     if (res.status === 401 || res.status === 403) {
-      throw new Error("Cursor session expired — re-login in Cursor to refresh");
+      throw Object.assign(new Error("Cursor session expired — re-login in Cursor to refresh"), {
+        // Coded so callers can tell "session expired" apart from a network
+        // blip: an auth failure must surface instead of hiding behind stale
+        // last-good limits data (upstream PR 985 semantics).
+        code: "AUTH_EXPIRED",
+      });
     }
     if (!res.ok) {
       throw new Error(`Cursor API returned ${res.status}`);

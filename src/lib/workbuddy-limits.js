@@ -292,26 +292,68 @@ function planWindow(row) {
 // these rows; the owner wants them visible. Aggregate the pool: remaining and
 // total summed, reset = the soonest expiry among grants that carry one. No
 // grants -> null so the UI renders no row instead of a fake zero.
-function selectWorkbuddyRewardWindow(rows) {
+//
+// #976 (upstream PR 976 absorption): the pool has no shared cycle, so the card
+// also advertises the lapse — expiring_credits is the amount dying with the
+// earliest local (Beijing) calendar day, expiring_at the moment that day's
+// LAST grant dies (the display anchor) and expiring_first_at the moment its
+// FIRST grant does, i.e. when the pool's numbers start to drift. Grants
+// without an expiry never contribute to the lapse.
+const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
+
+function beijingDayKey(iso) {
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? new Date(ms + BEIJING_OFFSET_MS).toISOString().slice(0, 10) : null;
+}
+
+function selectWorkbuddyRewardWindow(rows, { nowMs = Date.now() } = {}) {
   const rewards = mergePackageRows(rows.filter(Boolean)).filter((row) => REWARD_CODES.has(row.code));
   if (rewards.length === 0) return null;
   let total = 0, used = 0, hasTotal = false, soonest = null;
+  const expiringGrants = [];
   for (const row of rewards) {
     if (row.total !== null && row.total > 0) { total += row.total; hasTotal = true; }
     const rowUsed = row.used ?? (row.total !== null && row.remain !== null ? Math.max(0, row.total - row.remain) : 0);
     used += rowUsed;
     const end = normalizeResetAt(row.cycleEnd);
     if (end && (!soonest || end < soonest)) soonest = end;
+    if (end && Date.parse(end) > nowMs) {
+      // An already-expired grant is gone — it must not advertise a past-day
+      // lapse (upstream PR 976 skips expired rows).
+      const remaining = row.remain ?? Math.max(0, (row.total ?? 0) - (rowUsed || 0));
+      expiringGrants.push({ end, remaining: Number.isFinite(remaining) ? remaining : 0 });
+    }
   }
   if (!hasTotal || total <= 0) return null;
   const usedPercent = clampPercent((used / total) * 100);
   if (usedPercent === null) return null;
+
+  // Earliest expiry's Beijing calendar day anchors the lapse. The anchor day's
+  // last grant timestamp is what the UI shows ("by <day>"), the first is when
+  // the numbers start drifting, and the day's remaining sum is the amount.
+  let expiring = null;
+  if (expiringGrants.length > 0) {
+    const firstMs = Math.min(...expiringGrants.map((g) => Date.parse(g.end)));
+    const anchorDay = beijingDayKey(new Date(firstMs).toISOString());
+    const sameDay = expiringGrants.filter((g) => beijingDayKey(g.end) === anchorDay);
+    const lastMs = Math.max(...sameDay.map((g) => Date.parse(g.end)));
+    expiring = {
+      expiring_at: new Date(lastMs).toISOString(),
+      expiring_first_at: new Date(firstMs).toISOString(),
+      // Beijing calendar day of the anchor — the UI prints this date directly,
+      // so hand it over precomputed instead of slicing the UTC ISO string.
+      expiring_day: anchorDay,
+      expiring_credits: Number(sameDay.reduce((sum, g) => sum + g.remaining, 0).toFixed(2)),
+    };
+  }
+
   return {
     used_percent: usedPercent,
     reset_at: soonest,
     used_credits: used,
     limit_credits: total,
     remaining_credits: Math.max(0, total - used),
+    ...expiring,
   };
 }
 
@@ -614,7 +656,7 @@ async function fetchPlanQuota(post, variantId) {
     configured: true, error: null,
     plan_label: quota?.plan_label || englishPlanLabel({ code: identity.code }, identity, variantId),
     primary_window: quota?.primary_window || null,
-    reward_window: selectWorkbuddyRewardWindow(allRows),
+    reward_window: selectWorkbuddyRewardWindow(allRows, { nowMs: nowMs() }),
   };
 }
 

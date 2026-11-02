@@ -61,6 +61,7 @@ const avatarProxyCache = new Map();
 const {
   MODEL_PRICING,
   getModelPricing,
+  computeRowSpeedTierSplit,
   computeRowCost,
   hasAuthoritativeRowCost,
   ensurePricingLoaded,
@@ -435,6 +436,52 @@ function buildCodexCategoryFallbackFromQueue(queueRows, { from, to, timeZoneCont
 function getRequestedUsageScope(url) {
   if (url.searchParams.get("include_account_level") === "1") return "all";
   return normalizeUsageScope(url.searchParams.get("scope"));
+}
+
+// #975: Codex Fast/Ultrafast speed-tier aggregation for the model breakdown.
+// Queue rows carry priority_*/ultrafast_* subsets only when nonzero; Standard
+// is derived on the client as totals minus the observed subsets, which keeps
+// the three lines summing to the row the hero prices.
+const SPEED_TIER_KEYS = ["priority", "ultrafast"];
+const SPEED_TIER_BASE_COLUMNS = [
+  "input_tokens",
+  "cached_input_tokens",
+  "cache_creation_input_tokens",
+  "output_tokens",
+  "reasoning_output_tokens",
+];
+
+function emptySpeedTierAccumulator() {
+  return {
+    input_tokens: 0,
+    cached_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    output_tokens: 0,
+    reasoning_output_tokens: 0,
+    cost_usd: 0,
+  };
+}
+
+function hasObservedSpeedTiers(speedTiers) {
+  if (!speedTiers) return false;
+  return SPEED_TIER_KEYS.some((key) =>
+    SPEED_TIER_BASE_COLUMNS.some((column) => Number(speedTiers[key]?.[column]) > 0)
+      || Number(speedTiers[key]?.cost_usd) !== 0,
+  );
+}
+
+function accumulateSpeedTiers(speedTiers, row) {
+  if (!row) return;
+  for (const key of SPEED_TIER_KEYS) {
+    for (const column of SPEED_TIER_BASE_COLUMNS) {
+      speedTiers[key][column] += Number(row[`${key}_${column}`]) || 0;
+    }
+  }
+  const split = computeRowSpeedTierSplit(row);
+  if (split) {
+    speedTiers.priority.cost_usd += split.priority_cost_usd;
+    speedTiers.ultrafast.cost_usd += split.ultrafast_cost_usd;
+  }
 }
 
 async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
@@ -2846,6 +2893,29 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       }
       return true;
     }
+    // status.opencode.ai/api/status ships no CORS headers either — same relay
+    // treatment as DeepSeek (#973 absorption, upstream PR 973).
+    if (p === "/api/opencode-status") {
+      const method = String(req.method || "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      try {
+        const reading = await fetchProviderServiceStatus("opencode");
+        if (!reading) {
+          json(res, { error: "OpenCode status unavailable" }, 502);
+          return true;
+        }
+        json(res, {
+          page: { updated_at: reading.updated_at },
+          status: { indicator: reading.indicator, description: reading.description || "" },
+        });
+      } catch (error) {
+        json(res, { error: `OpenCode status probe error: ${error?.message || error}` }, 502);
+      }
+      return true;
+    }
     // Session recovery and the one-time native callback marker belong to local
     // clients. Reject foreign requests before consuming either, including preflights.
     const nativeMarkerRead = p === "/api/auth-bridge/verifier" && String(req.method).toUpperCase() === "GET";
@@ -4007,8 +4077,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         // through so the dashboard can surface "0 tokens / N requests".
         sa.totals.conversation_count += row.conversation_count || 0;
         if (!sa.models.has(mdl))
-          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" } });
+          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" }, speed_tiers: { priority: emptySpeedTierAccumulator(), ultrafast: emptySpeedTierAccumulator() } });
         const ma = sa.models.get(mdl);
+        // #975: Codex Fast/Ultrafast subsets ride queue rows only when nonzero
+        // (other sources never carry them). Aggregate tokens per tier; the
+        // per-tier cost comes from differencing computeRowCost on synthetic
+        // rows, so the premium math stays single-sourced in the pricing module.
+        accumulateSpeedTiers(ma.speed_tiers, row);
         // Same source list computeRowCost prices from, so a credits-derived
         // source (qoder) is labelled as tool-reported instead of being called
         // an estimate from model pricing it never had.
@@ -4037,6 +4112,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         s.models = Array.from(s.models.values())
           .map((m) => ({
             ...m,
+            speed_tiers: hasObservedSpeedTiers(m.speed_tiers) ? m.speed_tiers : null,
             totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
           }))
           .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);

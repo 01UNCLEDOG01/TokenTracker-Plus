@@ -2055,3 +2055,10 @@ global_models.aihot_cat_coding,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_co
 global_models.aihot_cat_reasoning,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_reasoning,"Research",,active
 global_models.aihot_cat_professional,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_professional,"Office",,active
 global_models.aihot_cat_knowledge,ui,GlobalModelsPage,GlobalModelsPage,aihot_cat_knowledge,"Knowledge Q&A",,active
+limits.workbuddy.expiring_note,ui,UsageLimitsPanel,UsageLimitsPanel,workbuddy_expiring_note,"{{credits}} credits expire by {{date}}",,active
+usage.overview.tier_standard,ui,DashboardPage,UsageOverview,tier_standard,"Standard",,active
+usage.overview.tier_fast,ui,DashboardPage,UsageOverview,tier_fast,"Fast",,active
+usage.overview.tier_ultrafast,ui,DashboardPage,UsageOverview,tier_ultrafast,"Ultrafast",,active
+usage.overview.scope_account,ui,DashboardPage,UsageOverview,scope_account,"Account aggregate",,active
+usage.overview.scope_local,ui,DashboardPage,UsageOverview,scope_local,"This device",,active
+usage.overview.scope_aria,ui,DashboardPage,UsageOverview,scope_aria,"Data scope switcher",,active

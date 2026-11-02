@@ -925,5 +925,12 @@
   "global_models.aihot_cat_coding": "編程",
   "global_models.aihot_cat_reasoning": "科研",
   "global_models.aihot_cat_professional": "專業辦公",
-  "global_models.aihot_cat_knowledge": "知識問答"
+  "global_models.aihot_cat_knowledge": "知識問答",
+  "limits.workbuddy.expiring_note": "預計 {{date}} 前有 {{credits}} 積分過期",
+  "usage.overview.tier_standard": "標準檔",
+  "usage.overview.tier_fast": "快速檔",
+  "usage.overview.tier_ultrafast": "極速檔",
+  "usage.overview.scope_account": "賬戶匯總",
+  "usage.overview.scope_local": "本機數據",
+  "usage.overview.scope_aria": "數據範圍切換"
 }

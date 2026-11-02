@@ -543,6 +543,32 @@ async function callModelBreakdown(queuePath, from, to) {
   return { statusCode: statusCode || res.statusCode, body: JSON.parse(body) };
 }
 
+test("model breakdown carries observed speed tiers through the API and both dashboard builders", async (t) => {
+  const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "tt-speed-tier-api-"));
+  t.after(() => fs.promises.rm(tmp, { recursive: true, force: true }));
+  const queue = path.join(tmp, "queue.jsonl");
+  await writeQueue(queue, [{
+    source: "codex", model: "gpt-6.1-sol", hour_start: "2026-04-20T10:00:00.000Z",
+    input_tokens: 2_000_000, output_tokens: 400_000, cached_input_tokens: 0,
+    cache_creation_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 2_400_000,
+    conversation_count: 1, priority_input_tokens: 1_000_000, priority_output_tokens: 100_000,
+    ultrafast_input_tokens: 500_000, ultrafast_output_tokens: 50_000,
+  }]);
+  const { statusCode, body } = await callModelBreakdown(queue, "2026-04-20", "2026-04-20");
+  assert.equal(statusCode, 200);
+  const model = body.sources.find((row) => row.source === "codex").models[0];
+  assert.equal(model.speed_tiers.priority.cost_usd, 6);
+  assert.equal(model.speed_tiers.ultrafast.cost_usd, 9);
+  assert.equal(Number(model.totals.total_cost_usd), 18.5);
+  const dashboard = await loadDashboardModule("dashboard/src/lib/model-breakdown.ts");
+  const fleet = dashboard.buildFleetData(body);
+  const sourceModel = fleet.find((row) => row.source === "codex").models[0];
+  const merged = dashboard.buildAllModels(fleet).find((row) => row.id === "gpt-6.1-sol");
+  assert.equal(sourceModel.speedTiers.priority.input_tokens, 1_000_000);
+  assert.equal(merged.speedTiers.ultrafast.cost_usd, 9);
+  assert.equal(merged.pricing.priority_multiplier, 2);
+});
+
 test("merged Kiro source: IDE + CLI rows produce ONE sources[] entry with distinct model rows", async () => {
   const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "tt-kirocli-merge-"));
   try {

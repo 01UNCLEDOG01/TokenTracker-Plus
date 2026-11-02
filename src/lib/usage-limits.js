@@ -7,6 +7,7 @@ const http = require("node:http");
 const https = require("node:https");
 const { performance } = require("node:perf_hooks");
 const { promisify } = require("node:util");
+const { writeJsonAtomicSync } = require("./atomic-json");
 
 const {
   detectClaudeCodeCredentialsPresence,
@@ -186,6 +187,17 @@ const CODEX_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const OPENCODE_GO_LIMITS_CACHE_FILE = "opencode-go-usage-limits-cache.json";
 const OPENCODE_GO_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const OPENCODE_GO_LOCAL_ESTIMATE_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
+// Cursor (#985 absorption, upstream PR 985): the usage summary + Grok Bot RPCs
+// hit cursor.com/api2.cursor.sh over the public internet, so a timeout/5xx used
+// to flash "fetch failed" until the next 2-minute poll. Persist the last
+// successful read so a blip serves stale bars instead — the fifth provider on
+// the same last-good pattern as Claude / Codex / Antigravity / OpenCode Go.
+// Not-installed / no-auth states stay uncached on purpose: they mean the
+// account on disk changed, and stale windows from a previous account would
+// silently misreport.
+const CURSOR_LIMITS_CACHE_FILE = "cursor-usage-limits-cache.json";
+const CURSOR_LIMITS_CACHE_SCHEMA = 1;
+const CURSOR_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // A 429 from the usage endpoint carries a long `retry-after` (often 20+ minutes). Persist
 // the cooldown so every surface — this process, the menu bar app's embedded server, a later
 // restart — stops calling until it expires. Hammering during the cooldown just renews the
@@ -896,13 +908,36 @@ async function fetchCursorLimits({ home, fetchImpl = fetch } = {}) {
     const grokBotWindow = normalizeCursorSandUsageStatus(sandUsageResult, {
       eligible: sandAccessResult?.granted === true,
     });
-    return {
+    const limits = {
       configured: true,
       error: null,
       ...normalizeCursorUsageSummary(body),
       quaternary_window: grokBotWindow,
+      // Live read is current as of now; the catch path below serves the disk
+      // cache with `stale: true`. Always emitting both lets the client show a
+      // data-age label uniformly (same convention as the Claude/Codex blocks).
+      stale: false,
+      cached_at: new Date(Date.now()).toISOString(),
     };
+    writeCursorLimitsCache(limits, { home, identity: auth?.userId || null });
+    return limits;
   } catch (error) {
+    // An auth failure (session expired) is actionable — surface it instead of
+    // hiding behind stale last-good windows (upstream PR 985 semantics, same
+    // discipline as opencode-go's auth errors).
+    if (error?.code === "AUTH_EXPIRED") {
+      return {
+        configured: true,
+        error: error?.message || "Unknown error",
+        auth_action_required: "reauth",
+      };
+    }
+    // Live fetch failed or timed out — serve the last successful read so the
+    // bars stay visible instead of a red error (mirrors the Codex stale path).
+    const cached = readCursorLimitsCache({ home, identity: auth?.userId || null });
+    if (cached) {
+      return cached;
+    }
     return {
       configured: true,
       error: error?.message || "Unknown error",
@@ -2688,6 +2723,82 @@ function writeCodexLimitsCache(limits, { home, nowMs = Date.now() } = {}) {
     const tmpPath = `${cachePath}.${process.pid}.tmp`;
     fs.writeFileSync(tmpPath, JSON.stringify(payload, null, 2), { encoding: "utf8", mode: 0o600 });
     fs.renameSync(tmpPath, cachePath);
+  } catch (_error) {}
+}
+
+function resolveCursorLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", CURSOR_LIMITS_CACHE_FILE);
+}
+
+function isCursorCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  // A window without a reset stamp is still worth showing (the upstream shape
+  // omits reset_at for some plans); an expired one is stale data, not a fallback.
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function hasCursorWindow(limits) {
+  return Boolean(
+    limits?.primary_window || limits?.secondary_window || limits?.tertiary_window || limits?.quaternary_window,
+  );
+}
+
+function normalizeCursorCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = CURSOR_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const cached = {
+    configured: true,
+    error: null,
+    membership_type: typeof raw?.membership_type === "string" ? raw.membership_type : null,
+    primary_window: isCursorCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isCursorCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    tertiary_window: isCursorCacheWindowUsable(raw?.tertiary_window, { nowMs }) ? raw.tertiary_window : null,
+    quaternary_window: isCursorCacheWindowUsable(raw?.quaternary_window, { nowMs }) ? raw.quaternary_window : null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasCursorWindow(cached) ? cached : null;
+}
+
+function readCursorLimitsCache({ home, nowMs = Date.now(), maxAgeMs = CURSOR_LIMITS_CACHE_MAX_AGE_MS, identity = null } = {}) {
+  const cachePath = resolveCursorLimitsCachePath({ home });
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+    // Identity-partitioned: stale windows from account A must never serve as
+    // account B's current usage after a switch (upstream PR 985 semantics).
+    if (parsed?.schema !== CURSOR_LIMITS_CACHE_SCHEMA || !identity || parsed?.identity !== identity) return null;
+    return normalizeCursorCachedLimits(parsed?.cursor, { nowMs, maxAgeMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeCursorLimitsCache(limits, { home, nowMs = Date.now(), identity = null } = {}) {
+  // No identity, no write: an unattributable snapshot is worse than none.
+  if (!identity || !limits?.configured || limits.error || !hasCursorWindow(limits)) return;
+  const cachePath = resolveCursorLimitsCachePath({ home });
+  const payload = {
+    schema: CURSOR_LIMITS_CACHE_SCHEMA,
+    identity,
+    cursor: {
+      membership_type: limits.membership_type || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      tertiary_window: limits.tertiary_window || null,
+      quaternary_window: limits.quaternary_window || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
   } catch (_error) {}
 }
 
@@ -4753,6 +4864,11 @@ module.exports = {
   normalizeCursorUsageSummary,
   normalizeCursorSandUsageStatus,
   cursorSandDuplicatesGrokPool,
+  readCursorLimitsCache,
+  writeCursorLimitsCache,
+  normalizeCursorCachedLimits,
+  resolveCursorLimitsCachePath,
+  CURSOR_LIMITS_CACHE_FILE,
   normalizeGeminiQuotaResponse,
   normalizeKimiUsageResponse,
   parseKiroUsageOutput,

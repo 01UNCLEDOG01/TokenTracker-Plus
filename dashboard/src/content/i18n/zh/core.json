@@ -956,5 +956,12 @@
   "global_models.aihot_cat_coding": "编程",
   "global_models.aihot_cat_reasoning": "科研",
   "global_models.aihot_cat_professional": "专业办公",
-  "global_models.aihot_cat_knowledge": "知识问答"
+  "global_models.aihot_cat_knowledge": "知识问答",
+  "limits.workbuddy.expiring_note": "预计 {{date}} 前有 {{credits}} 积分过期",
+  "usage.overview.tier_standard": "标准档",
+  "usage.overview.tier_fast": "快速档",
+  "usage.overview.tier_ultrafast": "极速档",
+  "usage.overview.scope_account": "账户汇总",
+  "usage.overview.scope_local": "本机数据",
+  "usage.overview.scope_aria": "数据范围切换"
 }

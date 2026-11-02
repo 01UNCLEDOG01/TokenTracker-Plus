@@ -204,6 +204,10 @@ function computeModelPricingInfo(model, opts, sourceKey) {
     output: Number(rates.output) || 0,
     cache_read: Number(rates.cache_read) || 0,
     cache_write: Number(rates.cache_write) || 0,
+    ...(Number.isFinite(Number(rates.priority_multiplier)) && Number(rates.priority_multiplier) > 1
+      ? { priority_multiplier: Number(rates.priority_multiplier) } : {}),
+    ...(Number.isFinite(Number(rates.ultrafast_multiplier)) && Number(rates.ultrafast_multiplier) > 1
+      ? { ultrafast_multiplier: Number(rates.ultrafast_multiplier) } : {}),
   };
 }
 
@@ -418,6 +422,54 @@ function computeRowCost(row) {
   return baseCost + longContextPremium + priorityPremium + ultrafastPremium;
 }
 
+// #975 (upstream PR 975 absorption): split one row's cost across its observed
+// speed tiers. Codex Fast/Ultrafast ride their own multiplier over the
+// standard rates; computeRowCost is the single source of truth for that math.
+// Price each observed subset as a complete row, including its standard-rate
+// base and observed long-context intersection, rather than reporting only the
+// premium and incorrectly assigning its base cost to Standard.
+// Returns null for rows without any observed subset; a zero split (e.g. an
+// authoritative-cost source) is returned as-is and the UI hides it.
+const SPEED_TIER_PREFIXES = ["priority_", "ultrafast_"];
+const SPEED_TIER_BASE_COLUMNS = [
+  "input_tokens",
+  "cached_input_tokens",
+  "cache_creation_input_tokens",
+  "output_tokens",
+  "reasoning_output_tokens",
+];
+
+function rowHasSpeedTierSubsets(row) {
+  return SPEED_TIER_PREFIXES.some((prefix) =>
+    SPEED_TIER_BASE_COLUMNS.some((column) => Number(row?.[`${prefix}${column}`]) > 0),
+  );
+}
+
+function speedTierRow(row, prefix) {
+  const out = { ...row };
+  const bounded = (value, total) => Math.min(Math.max(0, Number(value) || 0), Math.max(0, Number(total) || 0));
+  for (const column of SPEED_TIER_BASE_COLUMNS) {
+    out[column] = bounded(row[`${prefix}${column}`], row[column]);
+    out[`long_context_${column}`] = bounded(row[`${prefix}long_context_${column}`], Math.min(out[column], Number(row[`long_context_${column}`]) || 0));
+    for (const candidate of SPEED_TIER_PREFIXES) {
+      out[`${candidate}${column}`] = candidate === prefix ? out[column] : 0;
+      out[`${candidate}long_context_${column}`] = candidate === prefix ? out[`long_context_${column}`] : 0;
+    }
+  }
+  return out;
+}
+
+function computeRowSpeedTierSplit(row) {
+  if (!rowHasSpeedTierSubsets(row)) return null;
+  // A provider-reported total has no observed per-tier bill to allocate.
+  const reportedCost = Number(row?.total_cost_usd);
+  if (hasAuthoritativeRowCost(row?.source) && Number.isFinite(reportedCost) && reportedCost > 0)
+    return { priority_cost_usd: 0, ultrafast_cost_usd: 0 };
+  const priority = computeRowCost(speedTierRow(row, "priority_"));
+  const ultrafast = computeRowCost(speedTierRow(row, "ultrafast_"));
+  return { priority_cost_usd: priority, ultrafast_cost_usd: ultrafast };
+}
+
 // Backwards-compatible MODEL_PRICING export. Test at
 // test/model-breakdown.test.js:236 reads `localApi.MODEL_PRICING["kiro-agent"]`
 // and expects { input, output, cache_read, cache_write } shape. We expose the
@@ -436,6 +488,7 @@ module.exports = {
   getModelPricingInfo,
   getRowPricing,
   computeRowCost,
+  computeRowSpeedTierSplit,
   hasAuthoritativeRowCost,
   resetPricingForTests,
   MODEL_PRICING,
