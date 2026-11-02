@@ -24,6 +24,14 @@ const CURSOR_STORE_RETRY_CODE = "TOKENTRACKER_CURSOR_STORE_RETRY";
 const TRASH_DIRNAME = "tokentracker-cursor-trash";
 const TRASH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const TRASH_PURGE_BATCH = 100;
+const TRASH_PURGE_MAX_MS = 5000;
+const TRASH_ENTRY_REGEX = /^\d{13}-/;
+
+// Overridable so tests can point the trash at a sandbox instead of the real
+// %TEMP% (openCursorStore runs on every test that touches the cursor store).
+function resolveTrashRoot() {
+  return process.env.TOKENTRACKER_TRASH_DIR || path.join(require("node:os").tmpdir(), TRASH_DIRNAME);
+}
 
 async function openCursorStore({
   trackerDir,
@@ -1868,24 +1876,35 @@ function sameFingerprint(left, right) {
 let trashPurgePromise = null;
 
 async function purgeStaleTrashEntries() {
-  const trashRoot = path.join(require("node:os").tmpdir(), TRASH_DIRNAME);
+  const trashRoot = resolveTrashRoot();
   let entries;
   try {
     entries = await fs.readdir(trashRoot, { withFileTypes: true });
   } catch (e) {
-    if (e?.code === "ENOENT") return;
+    if (e?.code === "ENOENT") return 0;
     throw e;
   }
   const cutoff = Date.now() - TRASH_MAX_AGE_MS;
+  const startedAt = Date.now();
   let purged = 0;
+  let attempts = 0;
   for (const entry of entries) {
-    if (purged >= TRASH_PURGE_BATCH) break;
+    if (purged >= TRASH_PURGE_BATCH || attempts >= TRASH_PURGE_BATCH * 2) break;
+    if (Date.now() - startedAt > TRASH_PURGE_MAX_MS) break;
     if (!entry.isDirectory()) continue;
-    const nameTs = Number(entry.name.split("-")[0]);
+    if (!TRASH_ENTRY_REGEX.test(entry.name)) continue;
+    attempts += 1;
+    const nameTs = Number(entry.name.slice(0, 13));
     if (!Number.isFinite(nameTs) || nameTs >= cutoff) continue;
-    await fs.rm(path.join(trashRoot, entry.name), { recursive: true, force: true });
-    purged += 1;
+    try {
+      await fs.rm(path.join(trashRoot, entry.name), { recursive: true, force: true });
+      purged += 1;
+    } catch {
+      // A locked or undeletable entry must not stall the whole purge: skip it
+      // and let the next sync process retry.
+    }
   }
+  return purged;
 }
 
 function ensureTrashPurged() {
@@ -1899,7 +1918,7 @@ function ensureTrashPurged() {
 // the store is instant, keeps the snapshot recoverable, and lets the host
 // reclaim it later. Cross-device renames fall back to the slow path.
 async function removeGenerationDir(dirPath) {
-  const trashRoot = path.join(require("node:os").tmpdir(), TRASH_DIRNAME);
+  const trashRoot = resolveTrashRoot();
   try {
     await fs.mkdir(trashRoot, { recursive: true });
     const target = path.join(trashRoot, `${Date.now()}-${path.basename(dirPath)}`);
