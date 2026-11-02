@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { copy, getCopyLocale } from "../../../lib/copy";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 
@@ -73,6 +74,36 @@ const NOTE_CLASS = "mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oa
 const LINE_CLASS = "mb-3 text-[11px] leading-snug text-oai-gray-600 dark:text-oai-gray-300 tabular-nums";
 const MUTED_LINE_CLASS = "mb-3 text-[11px] leading-snug text-oai-gray-500 dark:text-oai-gray-400 tabular-nums";
 
+// Prominent banner for an expired (or rejected) saved Qoder website cookie.
+// The card may still carry numbers from a carried-forward snapshot, but they
+// stop at the last settled day: the user must refresh the cookie to see the
+// live ledger again. Links to the limits page, which hosts the paste box.
+function QoderCnSessionExpiredBanner({ from }) {
+  const navigate = useNavigate();
+  const spend = from?.spend || null;
+  const dataDate = spend?.today ? String(spend.today) : null;
+  return (
+    <div
+      role="alert"
+      className="mb-3 rounded-md border border-amber-300/60 bg-amber-50/60 px-2.5 py-2 text-[11px] leading-snug text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+    >
+      <span className="font-medium">
+        {copy("usage.overview.qoder_cn_session_expired_title")}
+      </span>{" "}
+      {copy("usage.overview.qoder_cn_session_expired_body", {
+        date: dataDate || "--"
+      })}{" "}
+      <button
+        type="button"
+        onClick={() => navigate("/limits")}
+        className="font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
+      >
+        {copy("usage.overview.qoder_cn_session_expired_action")}
+      </button>
+    </div>
+  );
+}
+
 // Qoder CN reports credits and money, never token counts, and its daily-trend
 // endpoint only settles closed Beijing days. The CLI's spend block therefore
 // carries a per-model breakdown plus a live "today" figure read from the
@@ -95,15 +126,24 @@ export function QoderCnOfficialSpend({ from, to }) {
     );
   }
 
+  // The saved Qoder website cookie expired (or was rejected) but the CLI or a
+  // snapshot still answered, so the card has numbers - just not today's. This
+  // is an actionable state, not a dead feed: the user must refresh the cookie
+  // to see the live ledger again. Render a prominent banner above the figures.
+  const sessionExpired = cn.saved_session_expired === true;
+
   // "We could not fetch it" and "you used nothing" must never look the same.
   // Returning null here removed the whole block, and a missing block reads as
   // "nothing to report" rather than "the fetch failed" - which is how a dead
   // feed spent two days looking like an idle account.
   if (!spend) {
     return (
-      <p className={MUTED_LINE_CLASS}>
-        {copy("usage.overview.qoder_cn_spend_unavailable")}
-      </p>
+      <div>
+        {sessionExpired && <QoderCnSessionExpiredBanner from={cn} />}
+        <p className={MUTED_LINE_CLASS}>
+          {copy("usage.overview.qoder_cn_spend_unavailable")}
+        </p>
+      </div>
     );
   }
 
@@ -133,6 +173,7 @@ export function QoderCnOfficialSpend({ from, to }) {
 
   return (
     <div>
+      {sessionExpired && <QoderCnSessionExpiredBanner from={cn} />}
       <p className={LINE_CLASS}>
         {copy("usage.overview.qoder_cn_period", {
           credits: number(credits, 3),
@@ -212,7 +253,7 @@ export function QoderCnOfficialSpend({ from, to }) {
           {cn.spend_stale && (
             <p className={NOTE_CLASS}>
               {copy("usage.overview.qoder_cn_spend_snapshot", {
-                date: cn.spend_cached_at ? String(cn.spend_cached_at).slice(0, 16).replace("T", " ") : "--"
+                date: spend.today ? String(spend.today) : "--"
               })}
             </p>
           )}

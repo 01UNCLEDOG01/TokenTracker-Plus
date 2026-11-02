@@ -1703,6 +1703,12 @@ limits.apiKey.saving,ui,LimitsPage,UsageLimitsPanel,api_key_saving,"Saving...",,
 limits.apiKey.saved,ui,LimitsPage,UsageLimitsPanel,api_key_saved,"Saved",,active
 limits.apiKey.save_failed,ui,LimitsPage,UsageLimitsPanel,api_key_save_failed,"Could not save the key. Check the key and try again.",,active
 limits.apiKey.local_note,ui,LimitsPage,UsageLimitsPanel,api_key_local_note,"Stored only on this device (owner-only permissions). TokenTracker sends it only to the provider's usage API.",,active
+limits.qoderCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,qoder_cookie_placeholder,"Paste the Qoder website cookie (whole line, incl. qoder_session_cookie=…)",,active
+limits.qoderCookie.save,ui,LimitsPage,UsageLimitsPanel,qoder_cookie_save,"Save cookie",,active
+limits.qoderCookie.saving,ui,LimitsPage,UsageLimitsPanel,qoder_cookie_saving,"Saving...",,active
+limits.qoderCookie.saved,ui,LimitsPage,UsageLimitsPanel,qoder_cookie_saved,"Saved",,active
+limits.qoderCookie.save_failed,ui,LimitsPage,UsageLimitsPanel,qoder_cookie_save_failed,"Could not save the cookie. Make sure the whole Cookie line was copied, then try again.",,active
+limits.qoderCookie.note,ui,LimitsPage,UsageLimitsPanel,qoder_cookie_note,"Manual entry required: the Qoder website session cookie (httpOnly) is invisible to page scripts, so copy the whole line from your browser's developer tools and paste it here. It expires in about 7–8 days; copy it again after that.",,active
 limits.apiKey.env_note,ui,LimitsPage,UsageLimitsPanel,api_key_env_note,"Using {{env}} from the environment. Save a key here so you can stop exporting it globally.",,active
 limits.apiKey.env_unset_command,ui,LimitsPage,UsageLimitsPanel,api_key_env_unset_command,"launchctl unsetenv {{env}}",,active
 limits.apiKey.env_unset_note,ui,LimitsPage,UsageLimitsPanel,api_key_env_unset_note,"Then reopen TokenTracker.",,active
@@ -1884,6 +1890,9 @@ usage.overview.workbuddy_none,ui,DashboardPage,LedgerNotices,workbuddy_none,No W
 usage.overview.workbuddy_note,ui,DashboardPage,LedgerNotices,workbuddy_note,"WorkBuddy bills in credits, not tokens; priced per 1,000 credits at the plan rate that grants them (domestic ¥50, international $10). Read from local ledger files only - nothing is uploaded.",,active
 usage.overview.qoder_cn_spend_snapshot,ui,DashboardPage,LedgerNotices,qoder_cn_spend_snapshot,"Official cloud totals are a snapshot from {{date}} - the live refresh failed, so today is not included.",,active
 usage.overview.qoder_cn_spend_unavailable,ui,DashboardPage,LedgerNotices,qoder_cn_spend_unavailable,"Official cloud totals could not be fetched. This is a fetch failure, not zero usage.",,active
+usage.overview.qoder_cn_session_expired_title,ui,DashboardPage,LedgerNotices,qoder_cn_session_expired_title,"The Qoder website credential has expired.",,active
+usage.overview.qoder_cn_session_expired_body,ui,DashboardPage,LedgerNotices,qoder_cn_session_expired_body,"Spend figures stop at {{date}} and the live refresh failed - update the credential to see today's usage again.",,active
+usage.overview.qoder_cn_session_expired_action,ui,DashboardPage,LedgerNotices,qoder_cn_session_expired_action,"Update on the limits page",,active
 usage.overview.qoder_cn_three_values,ui,DashboardPage,LedgerNotices,qoder_cn_three_values,"Two more lenses on the same spend (never merged): cash paid for credits ≈ ¥{{cash}} (plan fold) · official pricing ¥{{official}}.",,active
 usage.overview.qoder_cn_freeloading,ui,DashboardPage,LedgerNotices,qoder_cn_freeloading,"0× freeloading estimate: ≈ ¥{{low}}–{{high}} · {{msgs}} messages on 0× SKUs × 36,907 tokens/message × ¥0.2657–0.2820/MTok (an interval by design; per-session rebuild failed the ±25% spike gate)",,active
 usage.overview.qoder_cn_details_toggle,ui,DashboardPage,LedgerNotices,qoder_cn_details_toggle,Methodology details,,active

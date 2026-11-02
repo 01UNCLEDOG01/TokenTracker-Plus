@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   QoderCnOfficialSpend,
@@ -34,6 +35,7 @@ function liveSpend(extra = {}) {
     credits_today: 85.31,
     cost_today: 1.2,
     messages_today: 106,
+    today: "2030-07-20",
     ...extra,
   };
 }
@@ -63,7 +65,11 @@ async function renderNotices(qoderCn) {
   vi.stubGlobal("fetch", vi.fn(async () => {
     return limitsResponse(qoderCn);
   }));
-  const view = <QoderCnOfficialSpend from="2030-07-01" to="2030-07-31" />;
+  const view = (
+    <MemoryRouter>
+      <QoderCnOfficialSpend from="2030-07-01" to="2030-07-31" />
+    </MemoryRouter>
+  );
   render(view);
 }
 
@@ -93,12 +99,14 @@ describe("QoderCnOfficialSpend freshness", () => {
     expect(screen.getByText(/not zero usage/i)).toBeTruthy();
   });
 
-  it("labels a carried-forward snapshot with the date it was captured", async () => {
+  it("labels a carried-forward snapshot with the date the data is from, not when it was cached", async () => {
     await renderNotices({
       configured: true,
       source: "cli-api",
       primary_window: { used_credits: 0, limit_credits: 0, remaining_credits: 0, unit: "credits" },
-      spend: liveSpend(),
+      // The data's own date (today) is the truthful label; spend_cached_at is
+      // only when we refreshed the cache and must not masquerade as freshness.
+      spend: liveSpend({ today: "2030-07-20" }),
       spend_stale: true,
       spend_cached_at: "2030-07-28T09:27:00.000Z",
     });
@@ -106,8 +114,10 @@ describe("QoderCnOfficialSpend freshness", () => {
     // Methodology details collapse by default; open them first.
     fireEvent.click(await screen.findByRole("button", { name: /Methodology details/i }));
     await waitFor(() => {
-      expect(screen.getByText(/snapshot from 2030-07-28 09:27/i)).toBeTruthy();
+      expect(screen.getByText(/snapshot from 2030-07-20/i)).toBeTruthy();
     });
+    // The cache refresh time must not be presented as the data date.
+    expect(screen.queryByText(/2030-07-28/i)).toBeNull();
   });
 
   it("does not claim a snapshot or a local measurement without a local anchor", async () => {
@@ -168,6 +178,43 @@ describe("QoderCnOfficialSpend freshness", () => {
     expect(freeload.textContent).toContain("¥237");
     expect(freeload.textContent).toContain("251");
     expect(freeload.textContent).toContain("24,118");
+  });
+
+  it("shows a prominent banner when the saved cookie expired but numbers remain", async () => {
+    await renderNotices({
+      configured: true,
+      source: "cli-api",
+      primary_window: { used_credits: 0, limit_credits: 0, remaining_credits: 0, unit: "credits" },
+      spend: liveSpend({ today: "2030-07-20" }),
+      spend_stale: true,
+      saved_session_expired: true,
+    });
+
+    // Banner must be visible without opening the methodology details.
+    await waitFor(() => {
+      expect(screen.getByText(/credential has expired/i)).toBeTruthy();
+    });
+    expect(screen.getByText(/update on the limits page/i)).toBeTruthy();
+    // The carried figures still render; open the details to read the true
+    // data date on the snapshot line.
+    fireEvent.click(await screen.findByRole("button", { name: /Methodology details/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/snapshot from 2030-07-20/i)).toBeTruthy();
+    });
+  });
+
+  it("still explains an expired cookie when even the fallback has no spend", async () => {
+    await renderNotices({
+      configured: false,
+      saved_session_expired: true,
+      spend: null,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/credential has expired/i)).toBeTruthy();
+    });
+    // The failure line must not masquerade as "no usage": both show together.
+    expect(screen.getByText(/could not be fetched/i)).toBeTruthy();
   });
 });
 

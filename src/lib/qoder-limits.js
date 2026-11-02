@@ -489,6 +489,36 @@ function readQoderCookieFile({ home = os.homedir(), namespace } = {}) {
   }
 }
 
+// Persist a hand-copied Qoder website cookie. The dashboard paste box calls
+// this; the cookie file is the same artifact readQoderCookieFile reads, so a
+// refresh takes effect on the next usage-limits fetch. The previous file is
+// backed up rather than overwritten, because a user pasting a half-copied
+// string must be able to recover the last working session.
+function writeQoderCookieFile({ home = os.homedir(), namespace, cookie }) {
+  if (typeof cookie !== "string" || !cookie.trim()) {
+    throw new Error("Cookie must not be empty.");
+  }
+  const value = cookie.trim();
+  if (!value.includes("=")) {
+    throw new Error("Cookie does not look like a Qoder session (expected name=value pairs).");
+  }
+  const file = qoderCookieFilePath({ home, namespace });
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  let savedAt = null;
+  try {
+    const stat = fs.statSync(file);
+    if (stat.isFile()) {
+      savedAt = stat.mtime.toISOString().slice(0, 10);
+      fs.copyFileSync(file, `${file}.bak-${savedAt}`);
+    }
+  } catch (_error) {
+    // No previous file: nothing to back up.
+  }
+  fs.writeFileSync(file, value, "utf8");
+  try { fs.chmodSync(file, 0o600); } catch (_error) {}
+  return { ok: true, saved_at: savedAt, file: path.basename(file) };
+}
+
 // A 401 on this route says nothing about the user's Qoder sign-in: the website
 // API is only ever called with a cookie TT-plus saved by hand, and that copy
 // goes stale on its own while the desktop client stays logged in. Name the
@@ -1356,7 +1386,16 @@ async function fetchQoderLimits({
   // moved). Fall back to the CLI's own credentials before trusting a snapshot.
   if (cliCookieFirst) {
     const cliUsage = await tryCliLimits();
-    if (cliUsage) return cliUsage;
+    if (cliUsage) {
+      // The saved cookie failed but the CLI answered. The ledger shown is a
+      // carried snapshot (spend_stale), so surface the expired cookie to the
+      // frontend even though the card still has numbers: the user must refresh
+      // the cookie to see today's spend again.
+      if (lastError?.code === "SAVED_SESSION_EXPIRED") {
+        cliUsage.saved_session_expired = true;
+      }
+      return cliUsage;
+    }
   }
 
   // When no explicit session is configured (or it just expired), prefer a
@@ -1444,4 +1483,7 @@ module.exports = {
   readQoderLocalQuota,
   fetchQoderLimits,
   fetchQoderCnLimits,
+  writeQoderCookieFile,
+  qoderCookieFilePath,
+  readQoderCookieFile,
 };

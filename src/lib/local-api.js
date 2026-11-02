@@ -5135,6 +5135,32 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- qoder-cookie (POST) ---
+    // Persist a hand-copied Qoder website cookie from the limits page paste
+    // box. The cookie is a session credential, so this is a local mutation:
+    // loopback auth required, POST only, and the value is never echoed back.
+    if (p === "/functions/tokentracker-qoder-cookie") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const body = await readJsonBody(req);
+        const namespace = body?.namespace === "intl" ? undefined : "cn";
+        const cookie = typeof body?.cookie === "string" ? body.cookie : "";
+        const { writeQoderCookieFile } = require("./qoder-limits");
+        const result = writeQoderCookieFile({ home: os.homedir(), namespace, cookie });
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save cookie" }, 400);
+      }
+      return true;
+    }
+
     return false;
   };
 }

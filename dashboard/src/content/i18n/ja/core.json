@@ -622,6 +622,12 @@
   "limits.apiKey.env_note": "環境変数 {{env}} のキーを使用中。ここに保存すればグローバル export をやめられます。",
   "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
   "limits.apiKey.env_unset_note": "macOS：実行後、TokenTracker を再起動すると反映されます。",
+  "limits.qoderCookie.placeholder": "Qoder 公式サイトの Cookie を貼り付け（qoder_session_cookie=… を含む行全体）",
+  "limits.qoderCookie.save": "Cookie を保存",
+  "limits.qoderCookie.saving": "保存中…",
+  "limits.qoderCookie.saved": "保存しました",
+  "limits.qoderCookie.save_failed": "保存に失敗しました。Cookie 行全体をコピーしたか確認して再試行してください。",
+  "limits.qoderCookie.note": "手動入力が必要です：Qoder 公式サイトのセッション Cookie（httpOnly）はページスクリプトから読めないため、ブラウザの開発者ツールから行全体をコピーしてここに貼り付けてください。約 7～8 日で失効し、失効後は再コピーが必要です。",
   "limits.provider.workbuddy_ai": "WorkBuddy AI",
   "limits.label.workbuddy_reward": "報酬クレジット"
 }

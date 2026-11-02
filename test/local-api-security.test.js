@@ -1635,3 +1635,50 @@ test("usage-limits honors hidden=<csv> only on locally authenticated requests", 
     restore();
   }
 });
+
+test("qoder-cookie route saves a cookie only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+  const token = await getLocalAuthToken(handler);
+  const url = new URL("http://127.0.0.1/functions/tokentracker-qoder-cookie");
+
+  // Wrong method is rejected before any credential work.
+  const getRes = createResponse();
+  await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+  assert.equal(getRes.statusCode, 405);
+
+  // Unauthenticated POST is rejected.
+  const anonRes = createResponse();
+  await handler(createRequest({ method: "POST", body: JSON.stringify({ namespace: "cn", cookie: "qoder_session_cookie=x" }) }), anonRes, url);
+  assert.equal(anonRes.statusCode, 401);
+
+  // Authenticated POST writes the CN cookie file.
+  const okRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ namespace: "cn", cookie: "qoder_session_cookie=abc; yunpk=1" }),
+  }), okRes, url);
+  assert.equal(okRes.statusCode, 200);
+  const cnFile = path.join(process.env.HOME, ".tokentracker", "tracker", "qoder-cn-usage-cookie.txt");
+  assert.equal(fs.readFileSync(cnFile, "utf8"), "qoder_session_cookie=abc; yunpk=1");
+
+  // intl maps to the international file.
+  const intlRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ namespace: "intl", cookie: "qoder_session_cookie=intl" }),
+  }), intlRes, url);
+  assert.equal(intlRes.statusCode, 200);
+  assert.equal(fs.readFileSync(path.join(process.env.HOME, ".tokentracker", "tracker", "qoder-usage-cookie.txt"), "utf8"), "qoder_session_cookie=intl");
+
+  // A malformed cookie is rejected without writing anything.
+  const badRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ namespace: "cn", cookie: "no-equals-here" }),
+  }), badRes, url);
+  assert.equal(badRes.statusCode, 400);
+});

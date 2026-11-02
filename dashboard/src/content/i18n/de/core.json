@@ -619,6 +619,12 @@
   "limits.apiKey.env_note": "Key aus der Umgebungsvariable {{env}} in Gebrauch. Hier speichern, um den globalen Export zu beenden.",
   "limits.apiKey.env_unset_command": "launchctl unsetenv {{env}}",
   "limits.apiKey.env_unset_note": "macOS: Danach TokenTracker neu starten, damit es greift.",
+  "limits.qoderCookie.placeholder": "Qoder-Website-Cookie einfügen (ganze Zeile inkl. qoder_session_cookie=…)",
+  "limits.qoderCookie.save": "Cookie speichern",
+  "limits.qoderCookie.saving": "Speichern…",
+  "limits.qoderCookie.saved": "Gespeichert",
+  "limits.qoderCookie.save_failed": "Speichern fehlgeschlagen. Prüfe, ob die ganze Cookie-Zeile kopiert wurde, und versuche es erneut.",
+  "limits.qoderCookie.note": "Manuelle Eingabe erforderlich: Das Sitzungs-Cookie der Qoder-Website (httpOnly) ist für Seiten-Skripte unsichtbar. Kopiere die ganze Zeile aus den Entwicklertools des Browsers und füge sie hier ein. Es läuft nach etwa 7–8 Tagen ab; danach erneut kopieren.",
   "limits.provider.workbuddy_ai": "WorkBuddy AI",
   "limits.label.workbuddy_reward": "Bonus-Guthaben"
 }

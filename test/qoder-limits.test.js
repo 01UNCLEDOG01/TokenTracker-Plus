@@ -22,6 +22,9 @@ const {
   parseQoderQuotaLog,
   parseQoderAccountUsageLog,
   fetchQoderCnLimits,
+  writeQoderCookieFile,
+  readQoderCookieFile,
+  qoderCookieFilePath,
 } = require("../src/lib/qoder-limits");
 
 test("normalizeQoderUsageResponse keeps the three credit pools apart (captured 2026-10-28)", () => {
@@ -843,6 +846,9 @@ test("the CN CLI fallback carries the spend ledger forward instead of blanking i
   assert.equal(result.spend?.messages_total, 106);
   assert.equal(result.spend_stale, true);
   assert.equal(result.spend_cached_at, new Date(seededAt).toISOString());
+  // The saved cookie failed but the CLI answered: the frontend must learn the
+  // cookie itself is stale, even though the card still has a carried ledger.
+  assert.equal(result.saved_session_expired, true);
 
   // It has to survive the write to disk, or the next read loses it again.
   const reread = readQoderLimitsCache({ home, nowMs: seededAt + 120_000, namespace: "cn" });
@@ -1006,4 +1012,56 @@ test("parseQoderAccountUsageLog maps the 0.4.x JSON line via normalizeQoderRpcUs
 
 test("parseQoderAccountUsageLog ignores lines without qoderUsage", () => {
   assert.equal(parseQoderAccountUsageLog("plain log line", 0), null);
+});
+
+test("writeQoderCookieFile persists the cookie and backs up the previous file", (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cookie-write-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  const result = writeQoderCookieFile({
+    home,
+    namespace: "cn",
+    cookie: "qoder_session_cookie=abc123; yunpk=xyz",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.file, "qoder-cn-usage-cookie.txt");
+  // First write: nothing to back up.
+  assert.equal(result.saved_at, null);
+  assert.equal(readQoderCookieFile({ home, namespace: "cn" }), "qoder_session_cookie=abc123; yunpk=xyz");
+  assert.equal(fs.existsSync(qoderCookieFilePath({ home, namespace: "cn" })), true);
+
+  // Second write backs up the first as .bak-<date> and replaces the file.
+  const second = writeQoderCookieFile({
+    home,
+    namespace: "cn",
+    cookie: "qoder_session_cookie=newer",
+  });
+  assert.ok(second.saved_at, "backup date recorded");
+  assert.equal(readQoderCookieFile({ home, namespace: "cn" }), "qoder_session_cookie=newer");
+  const backups = fs.readdirSync(path.join(home, ".tokentracker", "tracker"))
+    .filter((name) => name.startsWith("qoder-cn-usage-cookie.txt.bak-"));
+  assert.equal(backups.length, 1);
+  assert.equal(fs.readFileSync(path.join(home, ".tokentracker", "tracker", backups[0]), "utf8"), "qoder_session_cookie=abc123; yunpk=xyz");
+});
+
+test("writeQoderCookieFile rejects empty or malformed cookies", (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cookie-reject-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  assert.throws(() => writeQoderCookieFile({ home, namespace: "cn", cookie: "   " }), /must not be empty/i);
+  assert.throws(() => writeQoderCookieFile({ home, namespace: "cn", cookie: "not-a-cookie-pair" }), /does not look like/i);
+  assert.equal(fs.existsSync(qoderCookieFilePath({ home, namespace: "cn" })), false);
+});
+
+test("writeQoderCookieFile uses the international file for the intl namespace", (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cookie-intl-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+
+  // The local-api route maps namespace "intl" to undefined (the international
+  // flow has no cache namespace), so the file is qoder-usage-cookie.txt.
+  writeQoderCookieFile({ home, namespace: undefined, cookie: "qoder_session_cookie=intl" });
+  assert.equal(fs.existsSync(qoderCookieFilePath({ home, namespace: undefined })), true);
+  assert.equal(readQoderCookieFile({ home, namespace: undefined }), "qoder_session_cookie=intl");
+  // And it must not collide with the CN file.
+  assert.equal(fs.existsSync(qoderCookieFilePath({ home, namespace: "cn" })), false);
 });
