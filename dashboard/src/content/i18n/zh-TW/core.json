@@ -910,5 +910,15 @@
   "perks.disclaimer": "📢 時效與免責聲明：下方每張卡片都在底部標註了該行額度的核對日期與來源頁面，點「來源」即可回原文核對。各大廠商政策隨時可能發生變更，活動最終解釋權均歸各服務商所有；本軟體僅提供整理與參考。卡片預設按首字母順序（A-Z）排列，不分先後。",
   "perks.card.checked": "核對 {{date}}",
   "perks.card.feedback": "回報變動",
-  "perks.card.source": "來源"
+  "perks.card.source": "來源",
+  "global_models.tab_aa": "AA 智能榜",
+  "global_models.tab_aihot": "AIHOT 榜",
+  "global_models.subtitle_aihot": "AIHOT 綜合榜：只計第三方評測機構實測成績（編程 38% / 科研 19% / 專業辦公 19% / 知識問答 14% / 真人盲選 10% 加權），價格為人民幣/百萬 Token，本地快取自動更新。",
+  "global_models.col.score_aihot": "AIHOT 評分",
+  "global_models.col.release": "上線日期",
+  "global_models.col.coverage": "評測覆蓋",
+  "global_models.col.cache_cny": "快取價 (¥)",
+  "global_models.col.input_cny": "輸入價 (¥)",
+  "global_models.col.output_cny": "輸出價 (¥)",
+  "global_models.price_value_cny": "¥{{value}}"
 }

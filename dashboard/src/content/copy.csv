@@ -2040,3 +2040,13 @@ usage.overview.trae_estimate_line,ui,DashboardPage,UsageOverview,trae_estimate_l
 usage.overview.trae_estimate_basis,ui,DashboardPage,UsageOverview,trae_estimate_basis,"Basis: the hit rate comes from your own measured usage of the same model at other sources (cross-product approximation, for reference only); actual billed cache cost is up to TRAE.",,active
 usage.overview.trae_row_estimate_marker,ui,DashboardPage,UsageOverview,trae_row_estimate_marker,"(est.)",,active
 usage.overview.cache_hit_rate_label_est,ui,DashboardPage,UsageOverview,cache_hit_rate_label_est,"Cache hit rate (est.)",,active
+global_models.tab_aa,ui,GlobalModelsPage,GlobalModelsPage,tab_aa,"AA Intelligence",,active
+global_models.tab_aihot,ui,GlobalModelsPage,GlobalModelsPage,tab_aihot,"AIHOT Board",,active
+global_models.subtitle_aihot,ui,GlobalModelsPage,GlobalModelsPage,subtitle_aihot,"AIHOT composite board: weighted from third-party benchmark results only (coding 38% / research 19% / office 19% / knowledge Q&A 14% / human blind test 10%); prices in CNY per million tokens, cached locally.",,active
+global_models.col.score_aihot,ui,GlobalModelsPage,GlobalModelsPage,col_score_aihot,"AIHOT score",,active
+global_models.col.release,ui,GlobalModelsPage,GlobalModelsPage,col_release,"Released",,active
+global_models.col.coverage,ui,GlobalModelsPage,GlobalModelsPage,col_coverage,"Eval coverage",,active
+global_models.col.cache_cny,ui,GlobalModelsPage,GlobalModelsPage,col_cache_cny,"Cache (¥)",,active
+global_models.col.input_cny,ui,GlobalModelsPage,GlobalModelsPage,col_input_cny,"Input (¥)",,active
+global_models.col.output_cny,ui,GlobalModelsPage,GlobalModelsPage,col_output_cny,"Output (¥)",,active
+global_models.price_value_cny,ui,GlobalModelsPage,GlobalModelsPage,price_value_cny,"¥{{value}}",,active

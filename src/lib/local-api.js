@@ -5035,6 +5035,17 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- global model leaderboard, second board (AIHOT page, cached locally) ---
+    if (p === "/functions/tokentracker-global-models-aihot") {
+      const { fetchAihotModels } = require("./aihot-models");
+      json(res, await fetchAihotModels({
+        home: os.homedir(),
+        fetchImpl: fetch,
+        force: url.searchParams.get("refresh") === "1",
+      }));
+      return true;
+    }
+
     // --- desktop-pet shared preferences ---
     // The pet window runs in its own WebView2 profile, so localStorage (and the
     // storage event) never cross between it and the dashboard; this endpoint is

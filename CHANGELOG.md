@@ -8,6 +8,11 @@
 
 ## [未发布]
 
+### 新增
+
+- **全球模型榜双榜并存**：在原 Artificial Analysis 智能榜之外新增 **AIHOT 综合榜**标签页（aihot.news，站主钦点）——30 个模型的 AIHOT 评分、缓存/输入/输出价（人民币/百万 Token）、上线日期与第三方评测覆盖率，页面内一键切换、各自本地缓存 6 小时；解析失败如实回退上次快照并标注「缓存」，绝不编造。
+- **福利卡品牌图标补齐**：AMD Token Factory、Cloudflare Workers AI、Groq、云知声 MaaS 四家补上官方品牌图标（此前显示首字母占位）；**美团妙手（CatPaw）图标放大修复**——原图 150×150 画布内仅有 64×64 内容（57% 透明留白），已裁剪至内容区并按惯例加版本号防旧缓存。
+
 ### 福利指南
 
 - **新增 6 家服务商（45→51 张卡）**：AMD Token Factory（Radeon Cloud，15 款免费模型 API 直连、OpenAI 兼容、国内可直连）、Cloudflare Workers AI（每日 10,000 neurons 免费算力）、Google AI Studio（Gemini 免费 API Key 按模型限速）、Groq（免费档按模型限速、LPU 极速）、NVIDIA Build（NIM 试用额度）、云知声 MaaS（实名领一个月会员 + Free 档每周 2500 积分）；国际卡同步英文内容。六语 README 与入门文档的收录数同步 43→51。
