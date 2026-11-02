@@ -375,6 +375,7 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
   let high = 0;
   let low = 0;
   let covered = 0;
+  const coveredRates: number[] = [];
   for (const model of models) {
     const modelCost = Number(model?.cost);
     if (!Number.isFinite(modelCost) || modelCost < 0) continue;
@@ -395,6 +396,7 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
     const h = Math.min(Math.max(hitRate / 100, 0), 1);
     low += modelCost * ((1 - h) + h * discount);
     covered += 1;
+    coveredRates.push(hitRate);
   }
 
   if (high <= 0 || low >= high || covered === 0) return null;
@@ -404,6 +406,11 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
     // Sample size for the "estimated from" note: how many other sources
     // actually observed the covered model(s).
     peerSources: covered,
+    // Median cache hit rate (across covered models' peer medians) that produced
+    // the lower bound — shown on the card so the reader sees the hit rate that
+    // justifies the range, not a mysteriously low dollar figure. null only when
+    // nothing was covered (which would have returned null above).
+    medianHitRate: coveredRates.length ? median(coveredRates) : null,
   };
 }
 

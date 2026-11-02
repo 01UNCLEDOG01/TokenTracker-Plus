@@ -714,6 +714,41 @@ describe("UsageOverview", () => {
     expect(screen.queryByText(`${count} · ${hint}`)).toBeNull();
   });
 
+  it("shows the peer median cache hit rate in the TRAE interval notice when peer evidence exists", async () => {
+    const props = { period: "month", periods: [], summaryLabel: "Total", summaryValue: "100" };
+    // TRAE reports no cache fields for DeepSeek; a peer (DSH) observed the same
+    // model at 96% — the expanded notice must surface that median, not leave the
+    // reader guessing from the low/high ratio.
+    const fleetData = [
+      {
+        source: "trae",
+        label: "TRAE",
+        totalPercent: "100.00",
+        usage: 1_000,
+        usd: 10,
+        models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", share: 100, usage: 1_000, cost: 10 }],
+      },
+      {
+        source: "dsh",
+        label: "DSH",
+        totalPercent: "0.00",
+        usage: 0,
+        usd: 0,
+        models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", share: 0, usage: 0, cost: 0, cacheHitRate: 96 }],
+      },
+    ];
+    render(<UsageOverview {...props} fleetData={fleetData} />);
+    const user = userEvent.setup();
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /TRAE:/i }));
+    });
+    // The interval line must name the median hit rate (96%), not just the
+    // range — it appears on the collapsed card hint and in the expanded notice.
+    expect(
+      screen.getAllByText((_, el) => /(中位数|median)\s*96/.test(el.textContent || "")).length,
+    ).toBeGreaterThan(0);
+  });
+
   it("shows the cost on a card that has spend but no tokens", () => {
     const fleet = [
       {

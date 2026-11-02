@@ -518,6 +518,8 @@ describe("buildTraeCostInterval", () => {
     expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
     expect(interval.low).toBeLessThan(interval.high);
     expect(interval.peerSources).toBe(1);
+    // The median hit rate that produced the lower bound: median of [90,94,80].
+    expect(interval.medianHitRate).toBe(90);
   });
 
   it("returns null when no other source observed the model (no fabricated floor)", () => {
@@ -594,6 +596,7 @@ describe("buildTraeCostInterval", () => {
     expect(interval.high).toBeCloseTo(16.2, 5);
     expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
     expect(interval.low).toBeLessThan(interval.high);
+    expect(interval.medianHitRate).toBe(90);
   });
 
   it("ignores non-TRAE providers and models without an entry in the discount table", () => {

@@ -690,9 +690,10 @@ usage.overview.devin_notice_title,ui,DashboardPage,UsageOverview,devin_notice_ti
 usage.overview.devin_notice_body,ui,DashboardPage,UsageOverview,devin_notice_body,"Devin reports real local token counts, but swe-2, swe-2-high and compactor have no pricing data in this build, so they are excluded from dollar estimates. A $0 figure does not mean the usage was free.",,active
 usage.overview.trae_notice_title,ui,DashboardPage,UsageOverview,trae_notice_title,"TRAE cost uses list prices",,active
 usage.overview.trae_notice_body,ui,DashboardPage,UsageOverview,trae_notice_body,"Cost = TokenTracker model price x token count; tokens are measured. In multi-step turns TRAE splits cached input only for the final step, so the cache share of earlier steps is inferred from that final request's hit rate — the figure is a list-price calculation, not a billed amount.",,active
-usage.overview.trae_interval_estimate,ui,DashboardPage,UsageOverview,trae_interval_estimate,"Interval: {{low}} ~ {{high}} (upper = full list price, lower = estimated with cache hits applied).",,active
+usage.overview.trae_interval_estimate,ui,DashboardPage,UsageOverview,trae_interval_estimate,"Interval: {{low}} ~ {{high}} (upper = full list price, lower = estimated from the {{median}}% median cache hit rate at other sources).",,active
 usage.overview.trae_interval_basis,ui,DashboardPage,UsageOverview,trae_interval_basis,"The lower bound is an estimate: the hit rate is the median measured for the same model at other sources (cross-product approximation, for reference only); actual cache costs are what TRAE bills.",,active
 usage.overview.trae_card_hint,ui,DashboardPage,UsageOverview,trae_card_hint,"price-based estimate",,active
+usage.overview.trae_card_hint_median,ui,DashboardPage,UsageOverview,trae_card_hint_median,"price-based estimate · median {{median}}% cache hit at other sources",,active
 achievements.resonance.toast_badge,ui,AchievementsPage,SteamAchievementToast,resonance_toast_badge,"Title · Resonance Upgrade",,active
 achievements.resonance.toast_name_fallback,ui,AchievementsPage,SteamAchievementToast,resonance_toast_name_fallback,"Title resonance",,active
 achievements.resonance.toast_tier_up,ui,AchievementsPage,SteamAchievementToast,resonance_toast_tier_up,"Resonance up to {{tier}}",,active
