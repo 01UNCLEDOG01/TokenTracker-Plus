@@ -253,6 +253,24 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
           // the All-models and per-provider model lists. The API already
           // returns them; previously they were dropped here.
           const rawTotals = model?.totals || {};
+          const tokens = {
+            input: Math.max(0, toFiniteNumber(rawTotals?.input_tokens) ?? 0),
+            output: Math.max(0, toFiniteNumber(rawTotals?.output_tokens) ?? 0),
+            cached: Math.max(0, toFiniteNumber(rawTotals?.cached_input_tokens) ?? 0),
+            cacheCreate: Math.max(0, toFiniteNumber(rawTotals?.cache_creation_input_tokens) ?? 0),
+            reasoning: Math.max(0, toFiniteNumber(rawTotals?.reasoning_output_tokens) ?? 0),
+          };
+          // Per-model input-side cache hit rate, same semantics as the
+          // source-level figure: cache reads / all input-side tokens. null when
+          // the model does no caching at all (e.g. a provider that reports
+          // neither read nor create), so TRAE-interval peer evidence ignores it
+          // instead of treating "no cache reporting" as a 0% hit rate.
+          const modelCacheInputTokens = tokens.input + tokens.cached + tokens.cacheCreate;
+          const hasModelCacheActivity = tokens.cached + tokens.cacheCreate > 0;
+          const modelCacheHitRate =
+            hasModelCacheActivity && modelCacheInputTokens > 0
+              ? Math.round((tokens.cached / modelCacheInputTokens) * 100)
+              : null;
           return {
             id,
             name,
@@ -260,13 +278,8 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
             usage: modelTokens,
             requests: modelRequests,
             cost: modelCost,
-            tokens: {
-              input: Math.max(0, toFiniteNumber(rawTotals?.input_tokens) ?? 0),
-              output: Math.max(0, toFiniteNumber(rawTotals?.output_tokens) ?? 0),
-              cached: Math.max(0, toFiniteNumber(rawTotals?.cached_input_tokens) ?? 0),
-              cacheCreate: Math.max(0, toFiniteNumber(rawTotals?.cache_creation_input_tokens) ?? 0),
-              reasoning: Math.max(0, toFiniteNumber(rawTotals?.reasoning_output_tokens) ?? 0),
-            },
+            tokens,
+            cacheHitRate: modelCacheHitRate,
             pricing: model?.pricing || null,
             costSource: model?.cost_source || null,
           };

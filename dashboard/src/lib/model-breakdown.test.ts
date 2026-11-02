@@ -295,6 +295,8 @@ describe("buildAllModels", () => {
         requests: 0,
         cost: 0,
         tokens: { input: 100, output: 20, cached: 170, cacheCreate: 5, reasoning: 5 },
+        // Input-side cache hit rate: 170/(100+170+5) = 61.8 -> 62.
+        cacheHitRate: 62,
         pricing: null,
         costSource: null,
       },
@@ -521,6 +523,45 @@ describe("buildTraeCostInterval", () => {
   it("returns null when no other source observed the model (no fabricated floor)", () => {
     const lonely = buildTraeCostInterval(traeCard, [traeCard]);
     expect(lonely).toBeNull();
+  });
+
+  it("builds an interval through the real buildFleetData path (per-model cacheHitRate attached)", () => {
+    // Regression: buildFleetData did not attach a per-model cacheHitRate, so
+    // every peer model was skipped and the interval was always null in
+    // production — TRAE stayed at its all-uncached ceiling. This exercises the
+    // exact production shape (raw API response -> buildFleetData -> interval)
+    // instead of hand-constructing peers that already carry cacheHitRate.
+    const response = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae",
+          totals: { total_cost_usd: 16.2, input_tokens: 60_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 16.2, input_tokens: 60_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = buildFleetData(response);
+    const traeProvider = fleet.find((f) => String(f.source).toLowerCase() === "trae");
+    if (!traeProvider) throw new Error("expected a TRAE provider in the fleet");
+    // The DeepSeek peer must carry a computed per-model hit rate: 9M/(1M+9M)=90%.
+    // (buildFleetData folds the "deepseek" source alias into "dsh".)
+    const peerModel = fleet.find((f) => f.source === "dsh")?.models?.[0];
+    expect(peerModel?.cacheHitRate).toBe(90);
+    const interval = buildTraeCostInterval(traeProvider, fleet);
+    if (!interval) throw new Error("expected an interval via the real buildFleetData path");
+    expect(interval.high).toBeCloseTo(16.2, 5);
+    expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
+    expect(interval.low).toBeLessThan(interval.high);
   });
 
   it("ignores non-TRAE providers and models without an entry in the discount table", () => {
