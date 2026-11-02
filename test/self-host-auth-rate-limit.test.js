@@ -3,7 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const test = require("node:test");
-const { signToken, verifyToken, verifyAccessToken, handleAuthRequest } = require("../scripts/self-host/local-auth.cjs");
+const { signToken, verifyToken, verifyAccessToken, handleAuthRequest, hashPassword, verifyPassword } = require("../scripts/self-host/local-auth.cjs");
+const { PGlite } = require("@electric-sql/pglite");
 
 function backendAuthFixture({ accountExists = true } = {}) {
   const source = fs.readFileSync(path.join(__dirname, "../scripts/self-host/local-backend.cjs"), "utf8");
@@ -95,6 +96,30 @@ test("self-host password changes cannot claim success for a deleted account", as
     db: { query: async () => ({ rows: [] }) }, secret, send(value) { status = value; },
   });
   assert.equal(status, 401);
+});
+
+test("self-host password updates work against real SQL and stop after account deletion", async (t) => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  await db.exec("CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY, email text, password_hash text)");
+  const id = "11111111-1111-4111-8111-111111111111";
+  await db.query("INSERT INTO auth.users VALUES($1,$2,$3)", [id, "fixture@example.invalid", hashPassword("original-password")]);
+  const secret = "real-sql-profile-test";
+  const token = signToken({ sub: id, role: "authenticated", exp: Math.floor(Date.now() / 1000) + 60 }, secret);
+  async function update() {
+    let status;
+    await handleAuthRequest({
+      req: { method: "PATCH", headers: { authorization: `Bearer ${token}` } },
+      url: new URL("http://localhost/api/auth/profiles/current"), raw: JSON.stringify({ password: "updated-password" }),
+      db, secret, send(value) { status = value; },
+    });
+    return status;
+  }
+  assert.equal(await update(), 200);
+  const row = (await db.query("SELECT password_hash FROM auth.users WHERE id=$1", [id])).rows[0];
+  assert.equal(verifyPassword("updated-password", row.password_hash), true);
+  await db.query("DELETE FROM auth.users WHERE id=$1", [id]);
+  assert.equal(await update(), 401);
 });
 
 test("self-host auth bounds IP buckets and reclaims them after the time window", async () => {
