@@ -429,6 +429,7 @@ const PROVIDER_LOGO_MAP = {
   // (app-icon-square). It is a white glyph on a dark rounded square, so it keeps
   // that tile in both themes rather than being recolored.
   AUTOCLAW: "/brand-logos/autoclaw.png",
+  CATPAW: "/brand-logos/catpaw.png",
   // CodeArts Agent's real brand mark - the colorful X extracted from the
   // installed exe's embedded icon (PrivateExtractIcons 256px, RGBA transparent;
   // the product-icon-theme logo.png is a theme attachment, NOT the brand icon

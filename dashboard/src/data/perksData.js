@@ -72,6 +72,7 @@ export const PERK_PROVIDERS = [  {
     "name": "豆包工作 (Doubao Work)",
     "provider": "doubao",
     "category": [
+      "featured",
           "client",
           "daily_claim"
     ],
@@ -84,7 +85,7 @@ export const PERK_PROVIDERS = [  {
       "活动领100额度",
       "邀请得重置"
     ],
-    "description": "首次登录豆包电脑版或豆包工作电脑版的新用户，可直接领取 30 天免费体验套餐（除生视频、Pro 模型外全功能可用，30 天内有效且优先消耗）。新老用户还可参与每日签到：每天 200 额度、周一翻倍，累计 500 / 2000 / 5000 额度里程碑再额外奖 200 / 500 / 1300 额度。「豆包来了·免费领额度」活动：人人可领 100 额度，每用户限领 1 次，登录「豆包电脑版」激活，先输入活动口令可升级额度；连续签到 30 天合计可得 8,800 额度；邀请好友使用豆包电脑版，双方各得 1 次额度重置机会，最多可邀请 20 人。",
+    "description": "首次登录豆包电脑版新用户，可直接领取 **30 天免费体验套餐**（除生视频、Pro 模型外全功能可用，30 天内有效且优先消耗）。新老用户还可参与**每日签到：每天 200 额度、周一翻倍**，累计里程碑再额外奖 200 / 500 / 1300 额度；活动人人可领 100 额度，连续签到 30 天合计可得 **8,800 额度**；邀请好友双方各得 1 次额度重置机会。",
     "tips": "活动口令经 AI Agent 公益实训营等官方活动渠道发放，以活动页与官方社群为准；下载客户端后通过左下角签到弹窗或头像侧边栏「免费用豆包」参与签到，签到额度立即生效且优先消耗，签到额度的有效期以端内签到页规则为准。",
     "inviteUrl": "https://www.doubao.com/pc/desktop-fission/pro-trial/invited?inviteCode=WIbgDM5zbX",
     "officialUrl": "https://doubao.com/work",
@@ -171,6 +172,7 @@ export const PERK_PROVIDERS = [  {
     "name": "国家超算互联网 (SCNet)",
     "provider": "scnet",
     "category": [
+      "featured",
       "big_quota",
       "gateway"
     ],
@@ -182,7 +184,7 @@ export const PERK_PROVIDERS = [  {
       "批处理",
       "新客赠1000万GLM-5.3-Flash"
     ],
-    "description": "MaaS 特惠：新用户 0.1 元秒杀购买 5000 万 Tokens 资源包（活动期 2026-08-13 至 2026-11-10，含 DeepSeek-V4.1-Flash-1017 与 GLM-5.3-Flash，每天 10:00 开启、每账号合计限购 1 次、售完即止）。现行注册赠额为官方「新客尝鲜」1000 万 GLM-5.3-Flash 量包（每账号限领 1 次，到账后 30 天有效，官方注明实际发放模型可能按供应调整）；夜间 21:00–09:00 免费调用 Auto 模型的限时权益已于 2026-10-30 结束。",
+    "description": "国家级超算 MaaS 算力与模型聚合平台。现行注册赠额：**新用户注册直接获赠 1,000 万 GLM-5.3-Flash 资源包**；限时特惠：**0.1 元秒杀购买 5,000 万 Tokens 资源包**（活动期 2026-08-13 至 2026-11-10，含 DeepSeek-V4.1-Flash 与 GLM-5.3-Flash，每天 10:00 限量开抢）。",
     "tips": "国家超算中心算力储备充沛，适合批处理与大规模推理；0.1 元资源包在控制台特惠区认领，赠额与限时权益以站内实时公告为准。",
     "officialUrl": "https://www.scnet.cn",
     "hasInvite": false,
@@ -219,6 +221,7 @@ export const PERK_PROVIDERS = [  {
     "name": "华为 CodeArts Agent (华为云码道)",
     "provider": "codearts",
     "category": [
+      "featured",
       "client",
       "daily_claim",
       "monthly_claim"
@@ -277,7 +280,7 @@ export const PERK_PROVIDERS = [  {
       "多模型赠送",
       "每日限免额度"
     ],
-    "description": "新用户注册火山引擎即获赠每个模型 50 万 Tokens 推理额度。协作奖励计划分级（2026-11-01 官方页核对）：领取个人权益 = 每日单模型 200 万免费 tokens；领取企业权益 = 完成认证后升级每日单模型 500 万免费 tokens。安心体验模式开启后仅消耗赠送额度、按量付费不产生额外费用，额度耗尽对应模型自动暂停；具体模型清单与有效期以控制台额度页实时为准。Coding Plan 可叠加折扣。另：Managed Agents 首次开通即赠免费额度包（30 小时 Agent 运行时 + 500 次 web_search 调用，每账号限一次、有效期 2 年，2026-11-02 官方价格文档核对）。",
+    "description": "新用户注册火山引擎即获赠**每个模型 50 万 Tokens 推理额度**。个人认证权益升级为**每日单模型 200 万免费 tokens**；企业认证升级为**每日单模型 500 万免费 tokens**。开启安心体验模式后仅消耗赠送额度，超额自动暂停不扣费。",
     "tips": "在控制台创建推理接入点 (ep-xxx) 即可使用；赠额有效期与协作奖励档位变动频繁，领取前先看控制台「免费额度」页。",
     "inviteUrl": "https://volcengine.com/L/YPDTLsCOn8k/",
     "officialUrl": "https://www.volcengine.com/product/doubao",
@@ -341,6 +344,7 @@ export const PERK_PROVIDERS = [  {
     "name": "AutoClaw 国际版 (Z.AI)",
     "provider": "autoclaw",
     "category": [
+      "featured",
           "client",
           "daily_claim"
     ],
@@ -365,9 +369,11 @@ export const PERK_PROVIDERS = [  {
     "provider": "autoclaw",
     "category": [
       "client",
-      "big_quota"
+      "daily_claim",
+      "big_quota",
+      "featured"
     ],
-    "badge": "新户领 2 亿 tokens（¥120）+ 邀请最高赚 15000",
+    "badge": "新户领 2 亿 tokens（¥120）+ 每日签到领积分",
     "badgeType": "success",
     "tags": [
       "智谱出品",
@@ -375,7 +381,7 @@ export const PERK_PROVIDERS = [  {
       "注册领2亿tokens",
       "邀请积分风暴"
     ],
-    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端（国内版），内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。2026-11-02 官网核对改版口径：新用户注册领取 2 亿 tokens（价值 120 元）；每日登录积分改为订阅档权益——连续包月基础 100/日、进阶 300/日、旗舰 600/日（入门档无），Coding Plan 按档每月首登赠积分（Lite 5,000/¥29、Pro 10,000/¥58、Max 26,000/¥109）。邀请活动在线（2026-11-02 活动页核对）：受邀新用户注册最高得 4,800 积分；邀请人每成功邀请 1 位好友注册并发起成功任务得 1,000 积分（最多 15 位、累计上限 15,000），好友付费月卡/加油包双方按购买积分（不含日积分）得 8%（百元以下档）～12%（百元及以上档）、可累积无上限；活动下线后邀请码即失效。",
+    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端（国内版），内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。**新用户注册免费领 2 亿 tokens（价值 120 元）**；客户端内支持**每日签到领取免费积分**，每日打卡即可稳定使用；此外受邀注册可得**最高 4,800 积分**，邀请好友双方享**积分风暴奖励**，可调 GLM-5.3 等主力大模型。",
     "tips": "国内版 autoclaw.zhipuai.cn、国际版 autoclaw.z.ai 两套安装互斥，只装一个；新用户在桌面端登录环节填写邀请码即可领奖励；端内积分福利以「我的积分」页实时为准。",
     "inviteUrl": "https://autoglm.zhipuai.cn/misc/autoclaw-invite?activity_id=autoclaw_fission&channel=fission&source_location=sidebar&target_app=autoclaw&target_app_version=2.1.0&os=win&IC=GX4HHVHS",
     "officialUrl": "https://autoclaw.zhipuai.cn",
@@ -401,7 +407,7 @@ export const PERK_PROVIDERS = [  {
       "免翻直连",
       "兼容OpenAI"
     ],
-    "description": "手机号注册即可使用，无需复杂认证。老 Flash 系列（GLM-4.7-Flash、GLM-4.5-Flash、GLM-4-Flash-250414 等）免费开放，官方口径是免费至模型下架，而非承诺永久；新一代 GLM-5.3-Flash/FlashX 已按量计费（约 0.8–7 元/百万 Tokens，2026-11-02 定价页核对），勿与免费老 Flash 混淆。新用户体验礼包以站内额度中心为准（官方明确公开的是邀请双方各赠 2000 万 GLM-4.5-Air）。",
+    "description": "手机号注册即可使用，无需复杂认证。**老 Flash 系列（GLM-4.7-Flash、GLM-4.5-Flash、GLM-4-Flash-250414 等）全系免费开放至下架**，官方承诺长期免费免 Token 费；新用户完成个人或企业认证另赠 **2,000 万 Tokens 初始额度**。",
     "tips": "国内站 bigmodel.cn、国际站 z.ai，两端均可调用 GLM Flash 免费系列；赠额可用于体验 GLM 主力付费模型。",
     "inviteUrl": "https://www.bigmodel.cn/invite?icode=ZaL1bTUfl7pSnDADpfvDjHHEaazDlIZGj9HxftzTbt4%3D",
     "officialUrl": "https://bigmodel.cn",
@@ -454,7 +460,7 @@ export const PERK_PROVIDERS = [  {
       "邀请返300万",
       "充值可提至10亿"
     ],
-    "description": "七牛云 AI 推理限免活动（2026-10-24 至 2026-11-30）：完成认证后每日 1 亿 Token 免费额度，单次充值超过 ¥100 可将每日额度提升至 10 亿 Token。免费端点 qiniu/conatus-free 用完即停，绝不暗扣余额。专属邀请：好友经链接首次体验得 300 万 Token，邀请人立返 300 万。",
+    "description": "**conatus-free 自研模型每日赠送 1 亿 Tokens 免费推理额度（活动期至 2026-11-30，用完即停不扣费）**。邀请好友注册双方各返 **300 万 Tokens**；充值任意金额可解锁高并发通道。",
     "tips": "qiniu/conatus-free 仅消耗活动额度，每日用尽自动熔断停止，无意外扣费风险；活动结束时间以官方活动页为准。",
     "inviteUrl": "https://s.qiniu.com/INbIn2",
     "officialUrl": "https://www.qiniu.com",
@@ -478,7 +484,7 @@ export const PERK_PROVIDERS = [  {
       "注册送1000积分",
       "每月赠200积分"
     ],
-    "description": "美团推出的妙手 (CatPaw) 平台，积分制计费。站主端内实测（2026-11-02 用量管理页）：新用户注册奖励 1,000 积分（自发放起一年内有效）；基础积分每月发放 200（当月有效）。积分余额与到账明细在「用量管理」页查看，套餐档位与升级入口在「套餐管理」页；积分适用范围与消耗规则以站内为准。",
+    "description": "美团推出的妙手 (CatPaw) AI 编程平台，积分制计费。**新用户注册奖励 1,000 积分（自发放起 1 年内有效）**；**基础积分每月发放 200（当月有效）**。积分可用于 AI 代码生成、智能补全与工程调试，余额在「用量管理」页查看。",
     "tips": "每月基础积分的发放日与有效期以端内为准；失效积分可在用量管理页切换失效积分查看。",
     "officialUrl": "https://credit.catpaw.meituan.com",
     "hasInvite": false,
@@ -569,7 +575,7 @@ export const PERK_PROVIDERS = [  {
       "12万积分/5h",
       "OpenAI兼容"
     ],
-    "description": "双积分池 + 5 小时滑动窗口：通用积分池与 Flash-Lite 专属积分池各自每 5 小时 120,000 积分、每周 1,200,000 积分上限（合计每 5 小时 24 万、每周 240 万）。数值由 TokenTracker 直连官方额度接口实测，支持 SenseNova 6.7/6.8 Flash-Lite 等轻量多模态模型。",
+    "description": "**双泡池滚动赠送：通用积分池与 Flash-Lite 专属池各自每 5 小时滚动赠送 120,000 积分**（每周可领 120 万通用 + 120 万专属积分），登录控制台即用；兼容 OpenAI 接口规范。",
     "tips": "额度按滑动窗口每 5 小时自动逐步恢复，无需手动重置；统一 Base URL 为 https://token.sensenova.cn/v1，完全兼容 OpenAI / Anthropic 规范。",
     "officialUrl": "https://platform.sensenova.cn",
     "hasInvite": false,
@@ -604,6 +610,7 @@ export const PERK_PROVIDERS = [  {
     "name": "商汤小浣熊 (Raccoon)",
     "provider": "raccoon",
     "category": [
+      "featured",
           "client",
           "daily_claim"
     ],
@@ -660,7 +667,7 @@ export const PERK_PROVIDERS = [  {
       "每月领墨点",
       "多模型可白嫖"
     ],
-    "description": "上海人工智能实验室打造的端到端科研工作台，「墨点计划」每月可免费领取 10,000 墨点。现可调用 10 款模型：Agents-A1、Atria-Dawn、Sage-A1.5、书生-S2 共 4 款免费直用；DeepSeek-V4.1-Flash-1017、GLM-5.3、Kimi-K2.6、MiniMax-M3、Qwen3.8-27B、书生-Decision-4B 共 6 款按墨点计价，上下文长度覆盖 256K～1M，按原主力模型 deepseek-v4.1-flash-1017 口径 10,000 墨点约合 5,000 万 Token。",
+    "description": "上海人工智能实验室打造的端到端科研工作台，**「墨点计划」每月可免费领取 10,000 墨点**（约合 5,000 万 Token）。官方提供 **Agents-A1、Atria-Dawn、Sage-A1.5、书生-S2 共 4 款自研模型长期免费直用**。",
     "tips": "支持 OpenAI Chat / OpenAI Responses / Anthropic Messages 三种规范调用（书生-Decision-4B 走 SystemOne）；登录控制台领取当月墨点，各模型墨点单价与上下文长度以「可用模型」页实时为准。",
     "officialUrl": "https://discovery.intern-ai.org.cn",
     "hasInvite": false,
@@ -672,6 +679,7 @@ export const PERK_PROVIDERS = [  {
     "name": "讯飞星火 (iFlytek Spark)",
     "provider": "spark",
     "category": [
+      "featured",
           "permanent_free",
           "big_quota"
     ],
@@ -683,7 +691,7 @@ export const PERK_PROVIDERS = [  {
       "Spark Lite免费",
       "端侧0元"
     ],
-    "description": "自研轻量级模型 Spark Lite 官方永久/长期免费开放调用（0 元/Token，个人开发者控制台创建应用即用，不占限时额度，支持文本与多轮对话）。此外 1024 开发者节发布旗舰 Spark-X2.6（293B-A30B 稀疏 MoE、1M 上下文），新老用户实名认证后可在星辰 MaaS 领取 10 亿 Tokens 礼包；端侧 Spark-X2.6-4B 限时免费（0 元/百万 tokens）。",
+    "description": "**自研轻量级模型 Spark Lite 官方永久/长期免费开放调用（0 元/Token，控制台创建应用即用，不占限时额度，支持文本与多轮对话）**。此外 1024 开发者节发布旗舰 Spark-X2.6（293B-A30B 稀疏 MoE、1M 上下文），新老用户实名认证后可在星辰 MaaS **免费领取 10 亿 Tokens 礼包**；端侧 **Spark-X2.6-4B 限时免费（0 元/百万 tokens）**。",
     "tips": "领取入口在星辰 MaaS 首页「Spark-X2.6 赋能开发者」或模型广场；礼包有效期与每人限领次数官网未列明细，领取弹窗为准。",
     "officialUrl": "https://xinghuo.xfyun.cn/spark",
     "hasInvite": false,
@@ -744,6 +752,7 @@ export const PERK_PROVIDERS = [  {
     "name": "中国电信 TeleAgent (星辰智能体)",
     "provider": "teleagent",
     "category": [
+      "featured",
       "client",
       "daily_claim",
       "monthly_claim"
@@ -791,6 +800,7 @@ export const PERK_PROVIDERS = [  {
     "name": "MiniMax Code (智能编程助手)",
     "provider": "minimax-code",
     "category": [
+      "featured",
           "client",
           "daily_claim"
     ],
@@ -826,10 +836,33 @@ export const PERK_PROVIDERS = [  {
     ],
     "description": "面向终端的 AI 编程平台。通过 Console（原 Zen，2026-11-02 官网已更名）开放限时免费模型，兼容 OpenAI 接口规范并轮换开放多款编程强化开源模型；官方口径是免费模型需经 OpenCode 客户端接入，直接当通用 API 用可能不被支持；免费档另有用量与速率限制，以官方档期与端内提示为准。",
     "tips": "使用 GitHub 或 Google 账号直接登录即可获取 Key，免费模型会定期轮换，接入前先确认当前档期。",
-    "officialUrl": "https://opencode.ai",
+    "officialUrl": "https://console.opencode.ai",
     "hasInvite": false,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://opencode.ai/v2/docs/console/models"
+  },
+  {
+    "id": "opencode_go",
+    "name": "OpenCode GO",
+    "provider": "opencode",
+    "category": [
+      "featured",
+      "gateway"
+    ],
+    "badge": "$10 享 $100 DeepSeek 额度 · 超高性价比",
+    "badgeType": "success",
+    "tags": [
+      "超值付费",
+      "DeepSeek高速",
+      "10倍杠杆额度",
+      "IDE终端接入"
+    ],
+    "description": "面向重度编码 Agent 的超值订阅服务。**$10/月订阅套餐可享受高达 $100 等值额度** 的 **DeepSeek-V4.1-Flash** 高速推理（官方已将其额度上限永久提升至 $100，享受 10 倍杠杆性价比）。在各大平台免费期陆续结束后，适合作为长期稳定的高性价比主力模型网关。",
+    "tips": "付费订阅制（非免费白嫖），按 5 小时滚动限额 20%、周限额 50% 保护并发；获取 Key 后通过 /connect 命令直接连接 OpenCode 终端与各 IDE 插件。",
+    "officialUrl": "https://opencode.ai",
+    "hasInvite": false,
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://opencode.ai"
   },
   {
     "id": "openrouter",
@@ -859,6 +892,7 @@ export const PERK_PROVIDERS = [  {
     "name": "Qoder (国际版)",
     "provider": "qoder",
     "category": [
+      "featured",
           "client",
           "daily_claim"
     ],
@@ -870,7 +904,7 @@ export const PERK_PROVIDERS = [  {
       "30天有效",
       "多模型支持"
     ],
-    "description": "面向专业开发者的全流程 AI 编程工具。每日 10:00 之后需在站内/客户端主动领取 100 Credits（不是登录自动到账），单笔赠额自到账起 30 天有效；新用户注册另赠初始额度，档位以站内为准。邀请三重礼：好友注册并下载后 7 天内完成一次对话或任务，你得 50 Credits；好友注册后 7 天内累计 3 天完成对话或任务，你得 100 Credits；好友注册后 30 天内完成首次订阅，你得 1,000 Credits（好友另得 500 Credits）。站内另有「Credits 买一送一」首购限时福利，档期以活动页为准。模型侧：Qwen3.8-Flash 个人版限时每日免费使用（2026-11-02 站主实测仍免费，白天高峰易排队）。",
+    "description": "面向专业开发者的全流程 AI 编程工具。**每日 10:00 之后需在站内/客户端主动领取 100 Credits（30 天有效）**；新用户注册另赠初始额度；邀请好友注册并在 7 天内完成任务，你得 **50 Credits**。",
     "tips": "错过当日 10:00 时段不补发，也不累积；额度构成与消耗明细可在客户端用量页与 TokenTracker 的 Qoder 卡片对照查看。",
     "inviteUrl": "https://qoder.com/activities?referral_code=gviloqaY80z3XxsS6W78IIy3uMK3qRlc",
     "officialUrl": "https://qoder.com",
@@ -884,6 +918,7 @@ export const PERK_PROVIDERS = [  {
     "name": "Qoder CN (国内版)",
     "provider": "qoder-cn",
     "category": [
+      "featured",
           "client",
           "daily_claim"
     ],
@@ -895,7 +930,7 @@ export const PERK_PROVIDERS = [  {
       "每日主动领取",
       "CLI 可查额度"
     ],
-    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn，openapi.qoder.com.cn）。每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效），与国际版同为「手动领、不自动到账」的规则；邀请三重礼 2026-10-29 起与国际版同规则：好友注册后 7 天内完成任务你得 50 Credits、7 天内活跃 3 天得 100 Credits、30 天内首购你得 1,000 Credits（好友另得 500），单友上限 1,150、最多邀 50 人；新用户注册赠额以站内为准；新客首次订阅低至 19.9 元，档位以端内为准。模型侧：Qwen3.8-Flash 个人版限时每日免费使用（2026-11-02 站主实测仍免费，白天高峰易排队）。",
+    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**，与国际版同为「手动领、不自动到账」规则；邀请好友注册并在 7 天内完成一次任务，双方**各得 50 Credits**，邀请最多可得 10 次。",
     "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效。",
     "officialUrl": "https://qoder.cn",
     "hasInvite": false,
@@ -930,6 +965,7 @@ export const PERK_PROVIDERS = [  {
     "name": "TRAE CN",
     "provider": "trae",
     "category": [
+      "featured",
       "client",
       "daily_claim",
       "monthly_claim"
@@ -982,6 +1018,7 @@ export const PERK_PROVIDERS = [  {
     "name": "WorkBuddy 国内版",
     "provider": "workbuddy",
     "category": [
+      "featured",
       "client",
       "daily_claim",
       "monthly_claim"
@@ -994,7 +1031,7 @@ export const PERK_PROVIDERS = [  {
       "每月基础积分",
       "邀请返利"
     ],
-    "description": "全能 AI 工作台国内版：新用户注册送 250 积分，每月发放 100 基础积分，每日完成对话次日赠送 30 积分；积分直接在客户端内抵扣模型消耗。模型侧：HY3 模型目前仍可免费调用（2026-11-02 站主实测）。",
+    "description": "全能 AI 工作台国内版：**新用户注册送 250 积分**，**每月发放 100 基础积分**，**每日完成对话次日赠送 30 积分**；积分直接在客户端内抵扣模型消耗。模型侧：**HY3 模型目前仍可免费调用（2026-11-02 站主实测）**。",
     "tips": "客户端/工作台形态，适合日常桌面交互；官方订阅政策口径：每日奖励积分约 30 天过期清零、按到期先后优先消耗短有效期积分（以端内显示为准）；邀请返利与连续签到加码以端内活动页为准。国际版 WorkBuddy AI（workbuddy.ai）与本版账号体系相互独立，另见其卡片。",
     "inviteUrl": "https://www.workbuddy.cn/events/invite?inviteCode=hppwvxg4sgqw",
     "officialUrl": "https://www.workbuddy.cn",

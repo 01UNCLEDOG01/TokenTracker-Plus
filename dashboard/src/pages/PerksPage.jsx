@@ -97,6 +97,23 @@ function ProviderLogo({ item }) {
   );
 }
 
+function renderBoldText(text) {
+  if (!text || typeof text !== "string") return text;
+  const parts = text.split(/(\b|(?<=\*{2})|(?=\*{2}))/g);
+  // Simpler split by bold markdown
+  const segments = text.split(/(\B\*\*[^*]+\*\*\B|\*\*[^*]+\*\*)/g);
+  return segments.map((seg, i) => {
+    if (seg.startsWith("**") && seg.endsWith("**") && seg.length > 4) {
+      return (
+        <strong key={i} className="font-semibold text-oai-black dark:text-white">
+          {seg.slice(2, -2)}
+        </strong>
+      );
+    }
+    return seg;
+  });
+}
+
 function PerkCard({ item, claimedAt, onToggleClaim }) {
   const [copied, setCopied] = useState(false);
 
@@ -181,7 +198,7 @@ function PerkCard({ item, claimedAt, onToggleClaim }) {
 
         {/* Description */}
         <p className="mt-3 text-xs leading-relaxed text-oai-gray-600 dark:text-oai-gray-300">
-          {item.description}
+          {renderBoldText(item.description)}
         </p>
 
         {/* Tips Box */}
