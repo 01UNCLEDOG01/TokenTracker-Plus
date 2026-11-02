@@ -628,7 +628,7 @@ async function postBilling(fetchImpl, url, token, body = {}, signal) {
   return response.json();
 }
 
-async function fetchPlanQuota(post, variantId) {
+async function fetchPlanQuota(post, variantId, nowMs = Date.now) {
   const prefix = "/billing/meter/";
   const summary = await post(`${prefix}get-user-resource-summary`, {});
   if (!unwrapBillingBody(summary)) throw new Error("WorkBuddy quota request was rejected.");
@@ -771,7 +771,7 @@ async function fetchVariant(variantId, opts = {}) {
   let live;
   try {
     live = { ...await fetchPlanQuota((apiPath, body) => postBilling(fetchImpl,
-      `${origin}${apiPath}`, session.token, body, opts.signal), variantId), source: "api" };
+      `${origin}${apiPath}`, session.token, body, opts.signal), variantId, nowMs), source: "api" };
   } catch (error) {
     // Re-login stays actionable (auth expiry is a configuration fault, not
     // transient data loss): it may not be masked by stale bars (PR 954).
