@@ -525,6 +525,38 @@ describe("buildTraeCostInterval", () => {
     expect(lonely).toBeNull();
   });
 
+  it("treats a peer that reports cache reads without uncached input as unknown evidence (no degenerate 100%)", () => {
+    // Adversarial guard: a peer with cached>0 but input=cacheCreate=0 would
+    // read as a 100% hit rate; if that was really a "input_tokens not
+    // reported" data gap it would pull the TRAE lower bound down (exaggerated
+    // savings). Such a row must not count as evidence.
+    const response = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae",
+          totals: { total_cost_usd: 10, input_tokens: 50_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 10, input_tokens: 50_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 0, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 0, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = buildFleetData(response);
+    const peer = fleet.find((f) => f.source === "dsh")?.models?.[0];
+    expect(peer?.cacheHitRate).toBeNull();
+    const traeProvider = fleet.find((f) => String(f.source).toLowerCase() === "trae");
+    if (!traeProvider) throw new Error("expected a TRAE provider in the fleet");
+    expect(buildTraeCostInterval(traeProvider, fleet)).toBeNull();
+  });
+
   it("builds an interval through the real buildFleetData path (per-model cacheHitRate attached)", () => {
     // Regression: buildFleetData did not attach a per-model cacheHitRate, so
     // every peer model was skipped and the interval was always null in

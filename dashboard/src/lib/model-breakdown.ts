@@ -265,10 +265,17 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
           // the model does no caching at all (e.g. a provider that reports
           // neither read nor create), so TRAE-interval peer evidence ignores it
           // instead of treating "no cache reporting" as a 0% hit rate.
+          //
+          // A peer is only valid hit-rate evidence when it actually reported
+          // uncached input (input > 0): a model that reports cached>0 with
+          // input=cacheCreate=0 would otherwise read as a degenerate 100% hit
+          // rate, and if that was really a "input_tokens not reported" data gap
+          // it would pull the TRAE lower bound down (exaggerated savings).
+          // Requiring input>0 keeps such rows out of the peer evidence.
           const modelCacheInputTokens = tokens.input + tokens.cached + tokens.cacheCreate;
           const hasModelCacheActivity = tokens.cached + tokens.cacheCreate > 0;
           const modelCacheHitRate =
-            hasModelCacheActivity && modelCacheInputTokens > 0
+            tokens.input > 0 && hasModelCacheActivity && modelCacheInputTokens > 0
               ? Math.round((tokens.cached / modelCacheInputTokens) * 100)
               : null;
           return {
