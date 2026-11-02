@@ -86,8 +86,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 43 家收录（2026-11-02：+美团妙手 CatPaw；此前 2026-10-31 批：AutoClaw/WorkBuddy 拆卡 + 新增 ZCode、TRAE 国际版、Cola、Cursor、蚂蚁百灵、飓流AI、APIGOTO、Vyce AI、Agnes 网页版），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(43);
+    // 51 家收录（2026-11-03：+AMD Token Factory / Cloudflare Workers AI / Google AI Studio / Groq / NVIDIA Build / 云知声 MaaS；2026-11-02 批 +美团妙手 CatPaw 等），每行一条 provenance。
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(51);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -104,11 +104,12 @@ describe("PerksPage", () => {
     );
 
     expect(screen.getByText(/共收录 \{\{count\}\} 家服务商/)).toBeInTheDocument();
-    expect(screen.getByText("永久免费")).toBeInTheDocument();
+    // 分类签文案以 i18n 为准：permanent_free 的现行标签是「长期免费」
+    expect(screen.getByText("长期免费")).toBeInTheDocument();
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
-    expect(screen.getByText("永久免费").closest("button")).toHaveTextContent("11");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("18");
+    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("14");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("17");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
@@ -119,7 +120,7 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(41);
+    expect(directLinks).toHaveLength(49);
     // agnes 与 bigmodel 为双站卡：主按钮「中国站直达」×2 + 分站「国际站直达」×2
     expect(screen.getAllByText("中国站直达")).toHaveLength(2);
     expect(screen.getAllByText("国际站直达")).toHaveLength(2);
@@ -137,8 +138,8 @@ describe("PerksPage", () => {
 
     fireEvent.click(screen.getAllByText("标记已领取")[0]);
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
-    // 公平排序（中英文名取较前）下首卡为阿里百炼（中文拼音 rank 0）
-    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["qwen"]);
+    // 数据现序首卡 = Agnes AI（2026-11-03 起 51 家；公平排序重排后的手动插卡使首卡漂移，以数据现序为准）
+    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agnes"]);
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
@@ -153,23 +154,23 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 标记第一张卡（公平排序下首卡 = 阿里百炼）
+    // 标记第一张卡（数据现序首卡 = Agnes AI）
     fireEvent.click(screen.getAllByText("标记已领取")[0]);
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
 
     // 切到「已领取」：只剩被标记的那张卡（其他卡不可见）
     fireEvent.click(screen.getByText("已领取").closest("button"));
-    expect(screen.getByText(/阿里百炼/)).toBeInTheDocument();
+    expect(screen.getByText("Agnes AI")).toBeInTheDocument();
     expect(screen.queryByText(/硅基流动/)).not.toBeInTheDocument();
 
     // 切到「未标记」：标记过的卡隐藏
     fireEvent.click(screen.getByText("未标记").closest("button"));
-    expect(screen.queryByText(/阿里百炼/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Agnes AI")).not.toBeInTheDocument();
     expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
 
     // 回到「全部」：全量恢复
     fireEvent.click(screen.getByText("全部").closest("button"));
-    expect(screen.getByText(/阿里百炼/)).toBeInTheDocument();
+    expect(screen.getByText("Agnes AI")).toBeInTheDocument();
   });
 
   it("英文界面下国际卡显示英文内容（纯中国卡保持中文）", async () => {

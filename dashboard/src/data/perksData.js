@@ -71,6 +71,29 @@ export const PERK_PROVIDERS = [
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
   },
   {
+    "id": "amd_token_factory",
+    "name": "AMD Token Factory (Radeon Cloud)",
+    "provider": "amd",
+    "category": [
+      "permanent_free",
+      "gateway"
+    ],
+    "badge": "15 款免费模型 API 免费直连（站点共 18 款）",
+    "badgeType": "success",
+    "tags": [
+      "AMD 官方",
+      "OpenAI 兼容 /v1",
+      "DeepSeek/Qwen/GLM",
+      "国内手机号可注册"
+    ],
+    "description": "AMD Radeon Cloud 的 Token Factory（BETA）：登录 AMD 开发者账号领取 Key，即可直接调用「Public Free Model APIs」15 款免费模型（站点共 18 款）——DeepSeek-V4.1-Flash-1017 / DeepSeek-V4-Flash-0731、GLM-5.3-Flash、Qwen3.8-Flash-Next / Qwen3.8-27B、Gemma-4-31B-IT、MiMo-V2.6-Flash、MiniCPM-V-4.7 系列与 d3 / d3-flash 决策模型等（2026-11-03 站主端内实测）。接口为 OpenAI 兼容 /v1 双协议，填入任意兼容客户端即可；支持国内手机号注册、国内可直连。模型卡片带实时负载条（Busy/Idle），免费档限速与用量以站内为准。",
+    "tips": "BETA 阶段免费模型列表与限时活动可能随时变动，以官网页面为准；调用前先看模型负载与余量，Busy 时段可能排队；不含邀请活动。",
+    "officialUrl": "https://developer.amd.com.cn/radeon/modelapis",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://developer.amd.com.cn/radeon/modelapis"
+  },
+  {
     "id": "agnes_web",
     "name": "Agnes AI 网页版",
     "provider": "agnes-web",
@@ -267,6 +290,28 @@ export const PERK_PROVIDERS = [
     "sourceUrl": "https://credit.catpaw.meituan.com/#/usage"
   },
   {
+    "id": "cloudflare_workers_ai",
+    "name": "Cloudflare Workers AI",
+    "provider": "cloudflare",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "每日 10,000 neurons 免费算力",
+    "badgeType": "success",
+    "tags": [
+      "Cloudflare 官方",
+      "每日刷新",
+      "不绑卡",
+      "海外网络"
+    ],
+    "description": "Cloudflare Workers AI：免费计划每天送 10,000 neurons（官方统一 AI 算力计费单位，按模型折算、每日刷新），覆盖 LLM（Llama 等）、图像、语音转写、嵌入等多类模型，REST / OpenAI 兼容方式调用；免费层超出后请求直接失败、不产生扣费。付费 Workers 计划（$5/月）同样含每日 10,000 neurons，超出部分按约 $0.011 / 千 neurons 计费。",
+    "tips": "不同模型的 neurons 消耗差异很大，官方每个模型页标注每输入/输出的 neurons 数并有计算器可估算；免费层超量即停不扣费，适合小流量白嫖；国内访问需海外网络。",
+    "officialUrl": "https://developers.cloudflare.com/workers-ai/",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://developers.cloudflare.com/workers-ai/platform/pricing/"
+  },
+  {
     "id": "huawei_codearts",
     "name": "华为 CodeArts Agent (华为云码道)",
     "provider": "codearts",
@@ -387,6 +432,50 @@ export const PERK_PROVIDERS = [
     "hasInvite": true,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://doubao.com/work"
+  },
+  {
+    "id": "google_ai_studio",
+    "name": "Google AI Studio (Gemini)",
+    "provider": "google",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "免费 API Key 按模型限速",
+    "badgeType": "success",
+    "tags": [
+      "谷歌官方",
+      "Gemini 系列",
+      "免费层数据用于训练",
+      "海外网络"
+    ],
+    "description": "Google AI Studio（Gemini 开发者平台）：谷歌账号登录即可免费领取 API Key，免费档按模型分列速率限制（RPM / TPM / RPD 各模型不同，以控制台 Rate limits 页为准），可零成本调用 Gemini 系列模型。注意：免费层数据可能被用于改进谷歌产品（含训练），介意隐私可选付费层；国内访问需海外网络。",
+    "tips": "免费档限额与可用模型随时调整，以控制台显示为准；免费层与付费层数据政策不同，敏感内容走付费层。",
+    "officialUrl": "https://aistudio.google.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://ai.google.dev/gemini-api/docs/rate-limits"
+  },
+  {
+    "id": "groq",
+    "name": "Groq",
+    "provider": "groq",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "免费档按模型限速、极速推理",
+    "badgeType": "success",
+    "tags": [
+      "LPU 极速",
+      "Llama / GPT-OSS",
+      "OpenAI 兼容",
+      "海外网络"
+    ],
+    "description": "Groq：主打 LPU 极速推理的海外平台，注册即用免费档——无固定金额赠额，改为按模型分列速率限制（每分钟/每日请求数各模型不同，以控制台 Rate Limits 页为准），可免费调用 Llama、GPT-OSS 等开源模型，OpenAI 兼容接口直连客户端。",
+    "tips": "免费档没有总金额、只有速率与每日请求数上限，跑量任务注意配额轮换；国内访问需海外网络。",
+    "officialUrl": "https://console.groq.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://console.groq.com/docs/rate-limits"
   },
   {
     "id": "siliconflow",
@@ -676,6 +765,28 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://agent.minimaxi.com/about"
+  },
+  {
+    "id": "nvidia_nim",
+    "name": "NVIDIA Build (NIM)",
+    "provider": "nvidia",
+    "category": [
+      "big_quota"
+    ],
+    "badge": "送试用额度调 NIM 全家桶",
+    "badgeType": "amber",
+    "tags": [
+      "英伟达官方",
+      "开源模型多",
+      "OpenAI 兼容",
+      "海外网络"
+    ],
+    "description": "NVIDIA Build（build.nvidia.com）：注册后在 NIM 试玩页可免费试用 DeepSeek、Llama、Qwen 等大量开源与官方模型，新账号送试用额度（数值与有效期官方未公开固定口径，以站内额度页为准），接口 OpenAI 兼容可接入任意兼容客户端。",
+    "tips": "试用额度用完可转按量付费；各模型是否有免费试用与消耗速度以站内为准；国内访问需海外网络。",
+    "officialUrl": "https://build.nvidia.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://build.nvidia.com"
   },
   {
     "id": "opencode",
@@ -986,6 +1097,28 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-10-31",
     "sourceUrl": "https://codely.tuanjie.cn"
+  },
+  {
+    "id": "unisound_maas",
+    "name": "云知声 MaaS (Unisound)",
+    "provider": "unisound",
+    "category": [
+      "permanent_free"
+    ],
+    "badge": "实名领一个月会员 + Free 档每周 2500 积分",
+    "badgeType": "success",
+    "tags": [
+      "云知声官方",
+      "注册+实名一次性会员",
+      "语音/OCR/医疗",
+      "Agent 工具兼容"
+    ],
+    "description": "云知声 Token Hub（MaaS 平台）：注册并完成实名认证可免费领取一个月会员（一次性，站主 2026-11-03 端内实测）；Free 档 ¥0/月、每周 2,500 积分（每周刷新），套餐内含 U2-Flash（编程/办公）、U2-Med（专业医疗）及 OCR、语音识别/合成等权益额度——实测 Free 档账号权益参考：u2-ocr 737.5 万 tokens、u2-ocr-med 737.5 万 tokens、u2-radimed 47.5 万 tokens、u2-asr 8 小时、u2-tts 4 万字（均属套餐内权益，非额外赠送）。平台兼容 OpenCode、TRAE、WorkBuddy、Claude 等主流 Agent 工具接入。",
+    "tips": "一个月会员为一次性领取，活动口径以站内为准；各模型额度随套餐档位不同，以控制台显示为准。",
+    "officialUrl": "https://maas.unisound.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-03",
+    "sourceUrl": "https://maas.unisound.com/token-plan"
   },
   {
     "id": "vyceai",

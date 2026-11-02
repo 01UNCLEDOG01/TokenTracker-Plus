@@ -123,6 +123,47 @@ export const PERKS_EN = {
       "These limited-time drops come and go — check the client every Friday evening; TokenTracker Plus's ZCode usage card cross-checks granted quotas and generation rates in real time. Invite progress lives in the in-app rewards center.",
     tags: ["By Zhipu", "Coding agent", "Friday-evening perks", "Limited 300M quota", "Invite rewards"],
   },
+
+  amd_token_factory: {
+    badge: "15 free model APIs, ready to call (18 on site)",
+    description:
+      "AMD Radeon Cloud\u2019s Token Factory (BETA): sign in with an AMD developer account, grab a key, and call the 15 models under \u201cPublic Free Model APIs\u201d (18 on the whole site) \u2014 DeepSeek-V4.1-Flash-1017 / DeepSeek-V4-Flash-0731, GLM-5.3-Flash, Qwen3.8-Flash-Next / Qwen3.8-27B, Gemma-4-31B-IT, MiMo-V2.6-Flash, the MiniCPM-V-4.7 family, d3 / d3-flash decision models and more (owner-verified 2026-11-03). OpenAI-compatible /v1 endpoints plug into any compatible client; mainland-China phone numbers can register and the site is reachable from mainland China. Model cards show live load bars (Busy/Idle); free-tier limits and quotas are governed by the site.",
+    tips:
+      "On a BETA service the free model list and limited-time events can change anytime \u2014 the site is authoritative; check each model\u2019s load and remaining capacity before calling, Busy periods may queue; no invite program.",
+    tags: ["AMD official", "OpenAI-compatible /v1", "DeepSeek/Qwen/GLM", "CN phone sign-up"],
+  },
+  cloudflare_workers_ai: {
+    badge: "10,000 neurons of free compute daily",
+    description:
+      "Cloudflare Workers AI: the free plan includes 10,000 neurons per day (Cloudflare\u2019s unified AI compute unit, model-dependent, refreshed daily) across LLMs (Llama etc.), image, speech transcription and embedding models, callable via REST / OpenAI-compatible interfaces; on the free tier, requests beyond the daily allowance simply fail with no charge. The paid Workers plan ($5/mo) also includes 10,000 free neurons per day, then roughly $0.011 per 1,000 neurons.",
+    tips:
+      "Neuron consumption varies a lot per model \u2014 each model page lists neurons per input/output and there is an official calculator; the free tier is hard-capped and card-free; reaching Cloudflare from mainland China requires an overseas network.",
+    tags: ["Cloudflare official", "Daily refresh", "No credit card", "Overseas network"],
+  },
+  google_ai_studio: {
+    badge: "Free API keys with per-model rate limits",
+    description:
+      "Google AI Studio (the Gemini developer platform): sign in with a Google account and create free API keys \u2014 the free tier ships per-model rate limits (RPM / TPM / RPD differ per model, see the console Rate limits page) so you can call Gemini models at zero cost. Note: free-tier data may be used to improve Google products (including training); pick the paid tier if that matters. Accessing from mainland China requires an overseas network.",
+    tips:
+      "Free-tier limits and available models change over time \u2014 the console is authoritative; free and paid tiers have different data policies, keep sensitive workloads on paid.",
+    tags: ["Google official", "Gemini family", "Free-tier data trains models", "Overseas network"],
+  },
+  groq: {
+    badge: "Free tier with per-model rate limits and blazing speed",
+    description:
+      "Groq: an overseas platform built on LPU ultra-fast inference \u2014 sign up and the free tier works immediately. There is no fixed credit grant; instead each model gets its own rate limits (requests per minute/day differ per model, see the console Rate Limits page), letting you call open models like Llama and GPT-OSS for free through an OpenAI-compatible API.",
+    tips:
+      "The free tier is rate-based, not credit-based \u2014 watch per-model quotas for bulk jobs; requires an overseas network from mainland China.",
+    tags: ["LPU speed", "Llama / GPT-OSS", "OpenAI-compatible", "Overseas network"],
+  },
+  nvidia_nim: {
+    badge: "Trial credits for the NIM model catalog",
+    description:
+      "NVIDIA Build (build.nvidia.com): register and try DeepSeek, Llama, Qwen and many more open and first-party models free on the NIM playground; new accounts get trial credits (no official fixed amount or validity \u2014 your in-site balance prevails), exposed through an OpenAI-compatible API that plugs into any compatible client.",
+    tips:
+      "When trial credits run out you can move to pay-as-you-go; whether a specific model has free trial capacity and how fast it burns is governed by the site; requires an overseas network from mainland China.",
+    tags: ["NVIDIA official", "Many open models", "OpenAI-compatible", "Overseas network"],
+  },
 };
 
 /**
