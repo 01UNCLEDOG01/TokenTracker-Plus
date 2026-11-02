@@ -288,22 +288,22 @@ export const PERK_PROVIDERS = [  {
           "featured",
           "big_quota"
     ],
-    "badge": "实名注册领一个月 RouterCode PLUS",
+    "badge": "订阅制改版：PLUS 约6折 / PROX10 约5折",
     "badgeType": "success",
     "tags": [
       "聚合网关",
       "DeepSeek官方token",
-      "RouterCode PLUS",
+      "订阅制",
       "邀请返利"
     ],
-    "description": "模型聚合网关平台，RouterCode PLUS 套餐走 DeepSeek 官方 token 直连，实测速度快、量大。新用户实名注册后免费领取一个月 RouterCode PLUS 套餐。邀请计划：日结佣金 8%（被邀请人每日资金消费折算）+ 每日返利 TCredits 消费 1% / Credits 消费 10%（次日自动发放），推广积分 1,000,000 = ¥1，收益有效期自绑定起一年。",
-    "tips": "TokenTracker 已内置 APIGOTO 额度卡实时对照；实名认证在站内「实名认证」页完成，推广收益与提现细则以站内「推广信息」页为准。",
+    "description": "模型聚合网关平台，订阅套餐走 DeepSeek 官方 token 直连，实测速度快、量大。2026-11-01 起订阅制改版（已订阅用户不受影响）：FREE 并发 2、每周约 2,500,000 TCredits、订阅总额度 10,000,000 TCredits（价值约 ¥10）；PLUS ¥29.9 得约 ¥50 额度（约 6 折，并发 5、每周约 12,500,000）；PROX5 ¥142.00 得约 ¥250（约 55 折，并发 10、每周约 62,500,000）；PROX10 ¥255.6 得约 ¥520（约 5 折，并发 30、每周约 130,000,000）。同日起取消「上线后实名赠送会员」活动；有厂商折扣的模型订阅按 125% 比例计算（厂商已有 80% 折扣，再叠订阅折扣属重复折扣，现修正），OpenAI 整体厂商倍率调整为 0.4X 抵消订阅折扣重复计算。邀请计划：日结佣金 8%（被邀请人每日资金消费折算）+ 每日返利 TCredits 消费 1% / Credits 消费 10%（次日自动发放），推广积分 1,000,000 = ¥1，收益有效期自绑定起一年。",
+    "tips": "TokenTracker 已内置 APIGOTO 额度卡实时对照；套餐档位与订阅入口在站内「订阅」页，厂商折扣模型的 125% 计费比例以站内模型价目为准，推广收益与提现细则以站内「推广信息」页为准。",
     "inviteUrl": "https://www.apigoto.com/UNCLEDOG",
     "officialUrl": "https://www.apigoto.com",
     "inviteCode": "UNCLEDOG",
     "hasInvite": true,
-    "checkedAt": "2026-10-31",
-    "sourceUrl": "https://www.apigoto.com/user/promo/info"
+    "checkedAt": "2026-11-02",
+    "sourceUrl": "https://www.apigoto.com"
   },
   {
     "id": "tokenrhythm",
