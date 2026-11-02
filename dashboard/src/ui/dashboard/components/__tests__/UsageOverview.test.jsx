@@ -2,6 +2,7 @@ import { act, render, screen , fireEvent} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { copy } from "../../../../lib/copy";
+import { applyTraeEstimatedCosts, buildFleetData } from "../../../../lib/model-breakdown";
 import { UsageOverview } from "../UsageOverview.jsx";
 
 const breakdownProps = [];
@@ -714,44 +715,49 @@ describe("UsageOverview", () => {
     expect(screen.queryByText(`${count} · ${hint}`)).toBeNull();
   });
 
-  it("keeps the peer median cache hit rate out of the collapsed TRAE card and shows it in the expanded notice", async () => {
+  it("keeps the peer median cache hit rate out of the collapsed TRAE card and shows the folded estimate in the expanded notice", async () => {
     const props = { period: "month", periods: [], summaryLabel: "Total", summaryValue: "100" };
     // TRAE reports no cache fields for DeepSeek; a peer (DSH) observed the same
-    // model at 96% — that median belongs in the EXPANDED notice only, the
-    // collapsed card stays at the plain hint (owner ruling 2026-11-02).
-    const fleetData = [
-      {
-        source: "trae",
-        label: "TRAE",
-        totalPercent: "100.00",
-        usage: 1_000,
-        usd: 10,
-        models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", share: 100, usage: 1_000, cost: 10 }],
-      },
-      {
-        source: "dsh",
-        label: "DSH",
-        totalPercent: "0.00",
-        usage: 0,
-        usd: 0,
-        models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", share: 0, usage: 0, cost: 0, cacheHitRate: 96 }],
-      },
-    ];
+    // model at 95%. The fixture goes through the REAL production pipeline
+    // (buildFleetData -> applyTraeEstimatedCosts) so the provider carries the
+    // folded traeEstimate exactly like the dashboard does (owner ruling
+    // 2026-11-03: price the model at the owner's own observed hit rate).
+    const rawResponse = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae",
+          totals: { total_cost_usd: 10, input_tokens: 1_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 2 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 10, input_tokens: 1_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 2 } },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 1, input_tokens: 100_000, cached_input_tokens: 1_900_000, cache_creation_input_tokens: 0, conversation_count: 2 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 1, input_tokens: 100_000, cached_input_tokens: 1_900_000, cache_creation_input_tokens: 0, conversation_count: 2 } },
+          ],
+        },
+      ],
+    };
+    const fleetData = applyTraeEstimatedCosts(buildFleetData(rawResponse));
     render(<UsageOverview {...props} fleetData={fleetData} />);
     const user = userEvent.setup();
     // Collapsed: the card hint must NOT carry the median.
     expect(
-      screen.queryByText((_, el) => /(中位数|median)[\s%]*96|96[\s%]*(中位数|median)/.test(el.textContent || "")),
+      screen.queryByText((_, el) => /(中位数|median)[\s%]*95|95[\s%]*(中位数|median)/.test(el.textContent || "")),
     ).toBeNull();
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /TRAE:/i }));
     });
-    // Expanded: the interval notice must name the median hit rate (96%), not
-    // just the range — en phrases it "96% median cache hit rate" (notice) vs
-    // zh "命中率中位数 96%", so allow "%" and whitespace between the pair.
+    // Expanded: the notice must name the median hit rate (95%) — en phrases it
+    // "median 95% cache hit", zh "命中率中位数 95%", so allow "%" and whitespace.
     expect(
-      screen.getAllByText((_, el) => /(中位数|median)[\s%]*96|96[\s%]*(中位数|median)/.test(el.textContent || "")).length,
+      screen.getAllByText((_, el) => /(中位数|median)[\s%]*95|95[\s%]*(中位数|median)/.test(el.textContent || "")).length,
     ).toBeGreaterThan(0);
+    // The folded model row is explicitly marked as an estimate.
+    expect(screen.getAllByText(/（估算）|\(est\.\)/).length).toBeGreaterThan(0);
   });
 
   it("shows the cost on a card that has spend but no tokens", () => {

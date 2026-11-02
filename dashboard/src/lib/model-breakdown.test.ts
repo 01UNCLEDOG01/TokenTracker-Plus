@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyTraeEstimatedCosts,
   buildAllModels,
   buildFleetData,
   buildTraeCostInterval,
@@ -552,9 +553,9 @@ describe("buildTraeCostInterval", () => {
       ],
     };
     const fleet = buildFleetData(response);
-    const peer = fleet.find((f) => f.source === "dsh")?.models?.[0];
+    const peer = fleet.find((f: any) => f.source === "dsh")?.models?.[0];
     expect(peer?.cacheHitRate).toBeNull();
-    const traeProvider = fleet.find((f) => String(f.source).toLowerCase() === "trae");
+    const traeProvider = fleet.find((f: any) => String(f.source).toLowerCase() === "trae");
     if (!traeProvider) throw new Error("expected a TRAE provider in the fleet");
     expect(buildTraeCostInterval(traeProvider, fleet)).toBeNull();
   });
@@ -585,11 +586,11 @@ describe("buildTraeCostInterval", () => {
       ],
     };
     const fleet = buildFleetData(response);
-    const traeProvider = fleet.find((f) => String(f.source).toLowerCase() === "trae");
+    const traeProvider = fleet.find((f: any) => String(f.source).toLowerCase() === "trae");
     if (!traeProvider) throw new Error("expected a TRAE provider in the fleet");
     // The DeepSeek peer must carry a computed per-model hit rate: 9M/(1M+9M)=90%.
     // (buildFleetData folds the "deepseek" source alias into "dsh".)
-    const peerModel = fleet.find((f) => f.source === "dsh")?.models?.[0];
+    const peerModel = fleet.find((f: any) => f.source === "dsh")?.models?.[0];
     expect(peerModel?.cacheHitRate).toBe(90);
     const interval = buildTraeCostInterval(traeProvider, fleet);
     if (!interval) throw new Error("expected an interval via the real buildFleetData path");
@@ -609,5 +610,82 @@ describe("buildTraeCostInterval", () => {
       models: [{ id: "longcat-2.5", name: "longcat-2.5", cost: 3, usage: 1_000_000, tokens: { input: 900_000, cached: 0 } }],
     };
     expect(buildTraeCostInterval(longcatCard, [longcatCard, ...peers])).toBeNull();
+  });
+});
+
+describe("applyTraeEstimatedCosts", () => {
+  // Raw API shape -> buildFleetData -> apply, i.e. the exact production path.
+  const rawResponse = () => ({
+    pricing: { pricing_mode: "usd" },
+    sources: [
+      {
+        source: "trae",
+        totals: { total_cost_usd: 19.2, input_tokens: 61_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 5 },
+        models: [
+          { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 16.2, input_tokens: 60_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          { model_id: "longcat-2.5", name: "longcat-2.5", totals: { total_cost_usd: 3, input_tokens: 1_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 2 } },
+        ],
+      },
+      {
+        source: "deepseek",
+        totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+        models: [
+          { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+        ],
+      },
+    ],
+  });
+  const traeOf = (fleet: any[]) => fleet.find((f: any) => String(f.source).toLowerCase() === "trae");
+
+  it("prices TRAE's unknown-cache model at the peer-median fold and preserves the ceiling", () => {
+    const fleet = applyTraeEstimatedCosts(buildFleetData(rawResponse()));
+    const trae = traeOf(fleet);
+    if (!trae) throw new Error("expected a TRAE provider");
+    const ds = trae.models.find((m: any) => m.name === "deepseek-v4.1-flash");
+    // Peer median 90% -> folded = 16.2 * (0.1 + 0.9 * 0.02).
+    expect(ds.cost).toBeCloseTo(16.2 * 0.118, 5);
+    expect(ds.ceilingCost).toBeCloseTo(16.2, 5);
+    // longcat has no discount entry: keeps its ceiling, no marker.
+    const lc = trae.models.find((m: any) => m.name === "longcat-2.5");
+    expect(lc.cost).toBeCloseTo(3, 5);
+    expect(lc.ceilingCost).toBeUndefined();
+    // Provider totals switch to the estimate, ceiling kept for the notice.
+    expect(trae.usd).toBeCloseTo(16.2 * 0.118 + 3, 5);
+    expect(trae.ceilingUsd).toBeCloseTo(19.2, 5);
+    expect(trae.traeEstimate.medianHitRate).toBe(90);
+    expect(trae.traeEstimate.covered).toBe(1);
+    // Non-TRAE providers are untouched.
+    const dsh = fleet.find((f: any) => f.source === "dsh");
+    expect(dsh.traeEstimate).toBeUndefined();
+    expect(dsh.ceilingUsd).toBeUndefined();
+  });
+
+  it("leaves TRAE untouched when no peer evidence exists (nothing fabricated)", () => {
+    const lonely = {
+      pricing: { pricing_mode: "usd" },
+      sources: [rawResponse().sources[0]],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(lonely));
+    const trae = traeOf(fleet);
+    expect(trae.traeEstimate).toBeUndefined();
+    expect(trae.ceilingUsd).toBeUndefined();
+    const ds = trae.models.find((m: any) => m.name === "deepseek-v4.1-flash");
+    expect(ds.cost).toBeCloseTo(16.2, 5);
+    expect(ds.ceilingCost).toBeUndefined();
+  });
+
+  it("is idempotent — re-applying never double-folds", () => {
+    const fleet = applyTraeEstimatedCosts(buildFleetData(rawResponse()));
+    const trae = traeOf(fleet);
+    const once = trae.usd;
+    const onceModelCost = trae.models[0].cost;
+    applyTraeEstimatedCosts(fleet);
+    expect(traeOf(fleet).usd).toBe(once);
+    expect(trae.models[0].cost).toBe(onceModelCost);
+    // The aggregate interval wrapper reads the stored estimate, not a re-fold.
+    const interval = buildTraeCostInterval(traeOf(fleet), fleet);
+    if (!interval) throw new Error("expected the stored estimate as an interval");
+    expect(interval.high).toBeCloseTo(19.2, 5);
+    expect(interval.low).toBe(once);
   });
 });

@@ -34,7 +34,7 @@ import { formatProviderDisplayName } from "../../../lib/provider-display";
 import { DateRangePopover, formatDateShort, getDateFnsLocale } from "./DateRangePopover.jsx";
 import { ProviderIcon } from "./ProviderIcon.jsx";
 import { formatUsdCurrency } from "../../../lib/format";
-import { buildAllModels, buildTraeCostInterval, hasModelTokenSplits } from "../../../lib/model-breakdown";
+import { buildAllModels, hasModelTokenSplits } from "../../../lib/model-breakdown";
 import { ContextBreakdownPanel } from "./ContextBreakdownPanel.jsx";
 
 const ALL_PROVIDERS_KEY = "__all__";
@@ -648,21 +648,17 @@ export function UsageOverview({
                 const providerRequests = Math.max(0, Number(provider.requests) || 0);
                 const modelCount = copy("usage.overview.model_count", { count: provider.models.length });
                 // The TRAE pricing caveat lives on the TRAE card itself (short
-                // hint + tooltip), never on the combined totals above.
+                // hint + tooltip), never on the combined totals above. Cost
+                // folding for unknown-cache models happens upstream in
+                // applyTraeEstimatedCosts, so provider.usd is already the
+                // estimate here and no per-card interval math is needed.
                 const isTraeCard =
                   String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
-                const traeCardInterval = isTraeCard
-                  ? buildTraeCostInterval(provider, fleetData)
-                  : null;
-                const traeCardCost =
-                  traeCardInterval && Number.isFinite(traeCardInterval.low) && traeCardInterval.low > 0
-                    ? `${formatCost(traeCardInterval.low, currency, rate)} ~ ${providerCost}`
-                    : providerCost;
                 const modelCountLabel =
                   provider.usage > 0 || (!providerCost && providerRequests <= 0)
                     ? modelCount
                     : `${modelCount} · ${
-                        traeCardCost || copy("usage.overview.request_count", { count: providerRequests })
+                        providerCost || copy("usage.overview.request_count", { count: providerRequests })
                       }`;
 
                 return (
@@ -738,16 +734,13 @@ export function UsageOverview({
                     });
                     const isTraeProvider =
                       String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
-                    const traeInterval = isTraeProvider
-                      ? buildTraeCostInterval(provider, fleetData)
-                      : null;
 
                     const providerHeading = contextSource
                       ? contextBreakdownHeading(contextSource)
                       : formatProviderDisplayName(provider.label);
                     return (
                       <React.Fragment key={provider.label}>
-                        {isTraeProvider && <TraePricingNotice interval={traeInterval} />}
+                        {isTraeProvider && <TraePricingNotice estimate={provider?.traeEstimate || null} />}
                         <ProviderExpandedSection
                           provider={provider}
                           color={color}
@@ -873,7 +866,13 @@ function ModelUsageRows({ models, color }) {
     <div className="space-y-3">
       {models.map((model) => {
         const tokensLabel = modelTokensCellLabel(model, formatTokens);
-        const costLabel = formatCost(model.cost, currency, rate);
+        // applyTraeEstimatedCosts marks folded models with ceilingCost — those
+        // rows show an estimated price, so the cell says so explicitly.
+        const baseCostLabel = formatCost(model.cost, currency, rate);
+        const costLabel =
+          model.ceilingCost != null && baseCostLabel
+            ? `${baseCostLabel} ${copy("usage.overview.trae_row_estimate_marker")}`
+            : baseCostLabel;
         const clampedShare = Math.max(0, Math.min(100, Number(model.share) || 0));
         const rowKey = model.id || model.name;
         // A row expands only when the backend supplied token-type splits;
@@ -964,17 +963,18 @@ function KiroEstimateNotice() {
 }
 
 // TRAE international reports no cache fields for some models (DeepSeek), so
-// the dollar figure on its rows is a ceiling (every input token billed at the
-// uncached rate). When the same model was observed with real cache hit rates
-// at other sources, show an honest interval instead of the bare ceiling.
-function TraePricingNotice({ interval = null }) {
+// its API cost is an all-uncached ceiling. applyTraeEstimatedCosts has already
+// folded those models to the hit rate the owner achieves on the same model at
+// other sources; this notice states the basis and keeps the all-uncached
+// ceiling as the reference point.
+function TraePricingNotice({ estimate = null }) {
   const { currency, rate } = useCurrency();
-  let intervalLine = null;
-  if (interval && Number.isFinite(interval.low) && interval.low > 0) {
-    intervalLine = copy("usage.overview.trae_interval_estimate", {
-      low: formatCost(interval.low, currency, rate),
-      high: formatCost(interval.high, currency, rate),
-      median: interval.medianHitRate,
+  let estimateLine = null;
+  if (estimate && Number.isFinite(estimate.estimatedCost) && estimate.estimatedCost > 0) {
+    estimateLine = copy("usage.overview.trae_estimate_line", {
+      estimated: formatCost(estimate.estimatedCost, currency, rate),
+      high: formatCost(estimate.ceilingCost, currency, rate),
+      median: estimate.medianHitRate,
     });
   }
   return (
@@ -983,10 +983,10 @@ function TraePricingNotice({ interval = null }) {
         {copy("usage.overview.trae_notice_title")}.
       </span>{" "}
       {copy("usage.overview.trae_notice_body")}
-      {intervalLine ? (
+      {estimateLine ? (
         <span className="block mt-0.5">
-          {intervalLine}{" "}
-          {copy("usage.overview.trae_interval_basis")}
+          {estimateLine}{" "}
+          {copy("usage.overview.trae_estimate_basis")}
         </span>
       ) : null}
     </p>

@@ -333,22 +333,17 @@ function normalizeIntervalModelName(name: any) {
 }
 
 /**
- * TRAE international reports no cache fields for some models (DeepSeek), so
- * every input token is billed at the uncached rate and the card's dollar
- * figure is a ceiling. Build an honest interval:
- *   - lower bound: the same model's median observed cache hit rate across
- *     OTHER sources (e.g. DeepSeek direct, WorkBuddy, TRAE CN), folded with
- *     the model's cache-read discount;
- *   - upper bound: the reported (all-uncached) figure.
- * Returns null when no other source observed the model — no hit rate means no
- * defensible lower bound, so the card keeps the plain ceiling.
+ * Core TRAE cache fold. TRAE international reports no cache fields for some
+ * models (DeepSeek), so every input token is billed at the uncached rate and
+ * the API cost is a ceiling. For each such model this folds its cost with the
+ * hit rate observed for the SAME model at OTHER sources (median):
+ *   folded = ceiling * ((1-H) + H * cacheReadDiscount)
+ * Models without peer evidence (or without a known discount) keep their
+ * ceiling — nothing is fabricated. Returns per-model results so callers can
+ * either build an aggregate interval or rewrite displayed costs.
  */
-export function buildTraeCostInterval(provider: any, fleetData: any) {
-  const isTrae = String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
-  if (!isTrae) return null;
+function computeTraeFold(provider: any, fleetData: any) {
   const models: any[] = Array.isArray(provider?.models) ? provider.models : [];
-  if (!models.length) return null;
-
   const peers: any[] = Array.isArray(fleetData) ? fleetData : [];
   const hitRatesByModel = new Map();
   for (const peer of peers) {
@@ -362,7 +357,6 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
       hitRatesByModel.get(name).push(Number(model.cacheHitRate));
     }
   }
-  if (!hitRatesByModel.size) return null;
 
   const median = (values: number[]) => {
     const sorted = [...values].sort((a, b) => a - b);
@@ -370,51 +364,119 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
-  // Per-model fold: cost_low = cost_high * ((1-H) + H * discount). Models
-  // without a peer hit rate (or an unknown discount) keep their ceiling.
-  let high = 0;
-  let low = 0;
+  const perModel: { model: any; originalCost: number; foldedCost: number; hitRate: number | null }[] = [];
+  let estimatedCost = 0;
+  let ceilingCost = 0;
   let covered = 0;
   const coveredRates: number[] = [];
   for (const model of models) {
     const modelCost = Number(model?.cost);
     if (!Number.isFinite(modelCost) || modelCost < 0) continue;
-    high += modelCost;
+    ceilingCost += modelCost;
     const discount = UNKNOWN_CACHE_DISCOUNT[normalizeIntervalModelName(model.name || model.id)];
-    if (discount == null) {
-      low += modelCost;
-      continue;
-    }
-    const rates = hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
+    const rates =
+      discount == null
+        ? null
+        : hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
     // Other TRAE-card models also observe the model (TRAE CN): they count as
     // peer evidence even though the card itself reports no cache fields.
     const hitRate = rates && rates.length ? median(rates) : null;
     if (hitRate == null || !Number.isFinite(hitRate) || hitRate <= 0) {
-      low += modelCost;
+      estimatedCost += modelCost;
+      perModel.push({ model, originalCost: modelCost, foldedCost: modelCost, hitRate: null });
       continue;
     }
     const h = Math.min(Math.max(hitRate / 100, 0), 1);
-    low += modelCost * ((1 - h) + h * discount);
+    const foldedCost = modelCost * ((1 - h) + h * discount);
+    estimatedCost += foldedCost;
     covered += 1;
     coveredRates.push(hitRate);
+    perModel.push({ model, originalCost: modelCost, foldedCost, hitRate });
   }
 
-  if (high <= 0 || low >= high || covered === 0) return null;
   return {
-    low,
-    high,
-    // Sample size for the "estimated from" note: how many other sources
-    // actually observed the covered model(s).
-    peerSources: covered,
+    perModel,
+    estimatedCost,
+    ceilingCost,
+    covered,
     // Median cache hit rate (across covered models' peer medians) that produced
-    // the lower bound — shown on the card so the reader sees the hit rate that
-    // justifies the range, not a mysteriously low dollar figure. This is a
-    // simple (not cost-weighted) median: fine while only one model carries a
-    // cache-read discount, advisory if that ever grows.
+    // the estimate — shown so the reader sees the rate the price is folded
+    // with. This is a simple (not cost-weighted) median: fine while only one
+    // model carries a cache-read discount, advisory if that ever grows.
     medianHitRate: coveredRates.length
       ? Math.min(Math.max(median(coveredRates), 0), 100)
       : null,
   };
+}
+
+/**
+ * Aggregate interval view over the fold (lower = estimated, upper = ceiling).
+ * Kept for callers/tests that want the interval shape; the UI now prices via
+ * applyTraeEstimatedCosts instead. Safe to call on already-estimated fleet
+ * data: a mutated provider short-circuits to its stored estimate.
+ */
+export function buildTraeCostInterval(provider: any, fleetData: any) {
+  const isTrae = String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+  if (!isTrae) return null;
+  if (provider?.traeEstimate) {
+    const e = provider.traeEstimate;
+    return {
+      low: e.estimatedCost,
+      high: e.ceilingCost,
+      peerSources: e.covered,
+      medianHitRate: e.medianHitRate,
+    };
+  }
+  if (!Array.isArray(provider?.models) || !provider.models.length) return null;
+  const fold = computeTraeFold(provider, fleetData);
+  if (fold.ceilingCost <= 0 || fold.estimatedCost >= fold.ceilingCost || fold.covered === 0) {
+    return null;
+  }
+  return {
+    low: fold.estimatedCost,
+    high: fold.ceilingCost,
+    peerSources: fold.covered,
+    medianHitRate: fold.medianHitRate,
+  };
+}
+
+/**
+ * Owner ruling 2026-11-03: price TRAE's unknown-cache models at the hit rate
+ * the owner actually achieves on the same model at OTHER sources, instead of
+ * showing a wide "estimated ~ ceiling" interval. Rewrites the TRAE provider in
+ * place so every cost surface (rows, card totals, All-models) shows the same
+ * estimate:
+ *   - model.cost -> folded estimate, model.ceilingCost -> original (row marker);
+ *   - provider.usd -> estimated total, provider.ceilingUsd -> original total;
+ *   - provider.traeEstimate -> {estimatedCost, ceilingCost, medianHitRate,
+ *     covered} for the expanded notice.
+ * Models without peer evidence keep their ceiling (nothing fabricated), and an
+ * already-estimated provider is left untouched (idempotent).
+ */
+export function applyTraeEstimatedCosts(fleetData: any) {
+  const providers: any[] = Array.isArray(fleetData) ? fleetData : [];
+  for (const provider of providers) {
+    const isTrae = String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+    if (!isTrae || provider?.traeEstimate) continue;
+    const fold = computeTraeFold(provider, fleetData);
+    if (fold.covered === 0 || fold.ceilingCost <= 0 || fold.estimatedCost >= fold.ceilingCost) {
+      continue;
+    }
+    for (const entry of fold.perModel) {
+      if (entry.hitRate == null) continue;
+      entry.model.cost = entry.foldedCost;
+      entry.model.ceilingCost = entry.originalCost;
+    }
+    provider.ceilingUsd = fold.ceilingCost;
+    provider.usd = fold.estimatedCost;
+    provider.traeEstimate = {
+      estimatedCost: fold.estimatedCost,
+      ceilingCost: fold.ceilingCost,
+      medianHitRate: fold.medianHitRate,
+      covered: fold.covered,
+    };
+  }
+  return fleetData;
 }
 
 /**

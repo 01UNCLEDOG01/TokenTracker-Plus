@@ -31,7 +31,7 @@ import { getMockNow, isMockEnabled } from "../lib/mock-data";
 import { publishUsageLimitsPreloadState } from "../lib/dashboard-preload.js";
 import { startLocalUsageAutoRefresh } from "../lib/local-usage-auto-refresh";
 import { buildDailyBreakdownRange, selectDailyBreakdownRows } from "../lib/daily-breakdown";
-import { buildFleetData, buildTopModels, resolveDisplayTokens } from "../lib/model-breakdown";
+import { applyTraeEstimatedCosts, buildFleetData, buildTopModels, resolveDisplayTokens } from "../lib/model-breakdown";
 import { safeWriteClipboard } from "../lib/safe-browser";
 import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
 import {
@@ -1272,18 +1272,38 @@ export function DashboardPage({
   ));
   const summaryCostValue = useMemo(() => {
     if (hasUnpricedUsage && Number(summary?.total_cost_usd) === 0) return copy("dashboard.cost_breakdown.unpriced_label");
-    const value = formatUsdCurrency(summary?.total_cost_usd, { currency, rate });
+    const rawCost = Number(summary?.total_cost_usd);
+    // Subtract the TRAE ceiling->estimate delta so the hero total prices TRAE's
+    // unknown-cache models the same way the TRAE card does.
+    const value = formatUsdCurrency(
+      Number.isFinite(rawCost) ? rawCost - traeEstimateCostDelta : summary?.total_cost_usd,
+      { currency, rate },
+    );
     return hasUnpricedUsage && value !== "-" ? `≥${value}` : value;
-  }, [summary?.total_cost_usd, currency, rate, hasUnpricedUsage]);
+  }, [summary?.total_cost_usd, currency, rate, hasUnpricedUsage, traeEstimateCostDelta]);
   const summaryConversationsValue = useMemo(
     () => summary?.conversation_count ?? null,
     [summary?.conversation_count],
   );
 
   const fleetData = useMemo(
-    () => buildFleetData(modelBreakdown, { copyFn: copy }),
+    // Owner ruling 2026-11-03: TRAE's unknown-cache models are priced at the
+    // hit rate the owner achieves on the same model at other sources, so every
+    // cost surface downstream (cards, rows, All-models) shows the estimate.
+    () => applyTraeEstimatedCosts(buildFleetData(modelBreakdown, { copyFn: copy })),
     [modelBreakdown],
   );
+  // How much the hero total drops once TRAE's all-uncached ceiling is replaced
+  // by the folded estimate (0 when no peer evidence was available).
+  const traeEstimateCostDelta = useMemo(() => {
+    const trae = (Array.isArray(fleetData) ? fleetData : []).find(
+      (provider) => String(provider?.source || "").trim().toLowerCase() === "trae",
+    );
+    const ceiling = Number(trae?.ceilingUsd);
+    const estimated = Number(trae?.usd);
+    if (!Number.isFinite(ceiling) || !Number.isFinite(estimated)) return 0;
+    return Math.max(0, ceiling - estimated);
+  }, [fleetData]);
   const topModels = useMemo(
     () => buildTopModels(modelBreakdown, { limit: 3, copyFn: copy }),
     [modelBreakdown],

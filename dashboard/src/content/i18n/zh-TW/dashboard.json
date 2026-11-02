@@ -12,8 +12,6 @@
   "usage.overview.devin_notice_title": "費用未估算",
   "usage.overview.trae_notice_title": "TRAE 費用按牌價計算",
   "usage.overview.trae_notice_body": "費用 = TokenTracker 模型牌價 × Token 數，Token 為實測值。多步對話中 TRAE 只拆分最後一步的快取輸入，先前步驟的快取佔比依最後一步命中率推算，故費用為牌價推算值，並非實際帳單金額。",
-  "usage.overview.trae_interval_estimate": "區間口徑：{{low}} ~ {{high}}（上限=牌價全額，下限=依其他來源命中率中位數 {{median}}% 折算的估算）。",
-  "usage.overview.trae_interval_basis": "下限為估算：命中率取自其他來源對同一模型的實測中位數（跨產品近似，僅供參考）；實際快取成本以 TRAE 計費為準。",
   "usage.overview.trae_card_hint": "牌價推算",
   "usage.overview.devin_notice_body": "Devin 回報的是真實的本機 Token 計數，但此版本沒有 swe-2、swe-2-high 和 compactor 的定價資料，這部分用量不計入美元費用估算——顯示 $0 並不代表用量免費。",
   "stats.period.last_7d": "7 天",
@@ -936,5 +934,8 @@
   "achievements.badge.sensenova_daily.name": "日日新",
   "achievements.badge.sensenova_daily.desc": "商湯日日新（SenseNova）系模型累計消耗——苟日新，日日新。",
   "achievements.badge.xiaomi_mimo.name": "米芯",
-  "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。"
+  "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。",
+  "usage.overview.trae_estimate_line": "費用估算：{{estimated}}（依你在其他來源使用同一模型的實測命中率中位數 {{median}}% 折算；若完全不快取、按牌價全額則為 {{high}}）。",
+  "usage.overview.trae_estimate_basis": "估算依據：命中率取自你自己在其他來源對同一模型的實測數據（跨產品近似，僅供參考）；實際快取成本以 TRAE 計費為準。",
+  "usage.overview.trae_row_estimate_marker": "（估算）"
 }
