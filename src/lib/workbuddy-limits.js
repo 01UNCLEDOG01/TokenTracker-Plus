@@ -718,7 +718,7 @@ async function fetchVariant(variantId, opts = {}) {
     try {
       let live;
       try {
-        live = { ...await fetchPlanQuota((apiPath, body) => client.postBilling(apiPath, body), variantId), source: "ipc" };
+        live = { ...await fetchPlanQuota((apiPath, body) => client.postBilling(apiPath, body), variantId, nowMs), source: "ipc" };
       } catch (error) {
         // A mid-read IPC failure falls back to the last-good snapshot; with no
         // usable snapshot the original error keeps its shape.
