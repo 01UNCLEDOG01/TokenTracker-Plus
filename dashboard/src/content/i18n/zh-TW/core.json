@@ -936,5 +936,6 @@
   "perks.claim.daily_mark": "今日未領取 · 標記已領取",
   "perks.claim.daily_claimed": "今日已領取（{{date}}）",
   "perks.claim.monthly_mark": "本月未領取 · 標記已領取",
-  "perks.claim.monthly_claimed": "本月已領取（{{date}}）"
+  "perks.claim.monthly_claimed": "本月已領取（{{date}}）",
+  "sessions.page.cached": "正在顯示 {{date}} 的快取快照；可重新整理檢查最新會話。"
 }

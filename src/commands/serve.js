@@ -92,19 +92,6 @@ async function cmdServe(argv) {
   const { trackerDir, binDir } = await resolveTrackerPaths();
   const needsFirstRunSetup = !fssync.existsSync(path.join(trackerDir, "cursors.json"));
 
-  try {
-    const { installLocalTrackerApp, repairRuntimeIntegrations } = require("./init");
-    await installLocalTrackerApp({ appDir: path.join(trackerDir, "app") });
-    const repairResult = await repairRuntimeIntegrations({ trackerDir, binDir, safeMode: true });
-    for (const warning of repairResult?.warnings || []) {
-      process.stdout.write(
-        `Runtime integration repair warning (${warning.integration}): ${warning.error}\n`,
-      );
-    }
-  } catch (e) {
-    process.stdout.write(`Runtime refresh warning: ${e?.message || e}\n`);
-  }
-
   // 1. Optional sync for non-first-run launches. First-run init still owns its
   // inline first sync below, after the listener is up.
   if (opts.sync && !needsFirstRunSetup) {
@@ -201,7 +188,7 @@ async function cmdServe(argv) {
       }
 
       // Static files
-      const served = await serveStaticFile(dashboardDir, url.pathname, res, { localRuntimeConfig: true });
+      const served = await serveStaticFile(dashboardDir, url.pathname, res, { localRuntimeConfig: true, acceptEncoding: req.headers["accept-encoding"] });
       if (served) return;
 
       // SPA fallback
@@ -263,6 +250,22 @@ async function cmdServe(argv) {
     if (opts.open) {
       openInBrowser(url);
     }
+  }
+
+  // The dashboard is served from the active package. Runtime copies and
+  // hook repairs can finish after listen, so health probes and the first page
+  // do not wait for thousands of file operations.
+  try {
+    const { installLocalTrackerApp, repairRuntimeIntegrations } = require("./init");
+    await installLocalTrackerApp({ appDir: path.join(trackerDir, "app") });
+    const repairResult = await repairRuntimeIntegrations({ trackerDir, binDir, safeMode: true });
+    for (const warning of repairResult?.warnings || []) {
+      process.stdout.write(
+        `Runtime integration repair warning (${warning.integration}): ${warning.error}\n`,
+      );
+    }
+  } catch (e) {
+    process.stdout.write(`Runtime refresh warning: ${e?.message || e}\n`);
   }
 
   // First-time setup AFTER the listener is accepting health probes. Init still

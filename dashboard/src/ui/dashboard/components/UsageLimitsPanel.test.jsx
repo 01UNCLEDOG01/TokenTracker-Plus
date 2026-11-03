@@ -429,6 +429,24 @@ describe("UsageLimitsPanel", () => {
     expect(screen.getByText(/Run this command, paste your API key \(input stays invisible\)/)).toBeInTheDocument();
   });
 
+  it("cancels the OpenCode Go copied hint when its card unmounts", async () => {
+    vi.useFakeTimers();
+    const schedule = vi.spyOn(globalThis, "setTimeout");
+    const cancel = vi.spyOn(globalThis, "clearTimeout");
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    try {
+      const { unmount } = render(<UsageLimitsPanel opencodeGo={{ configured: false }} order={["opencodeGo"]} />);
+      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+      const timerIndex = schedule.mock.calls.findIndex((args) => args[1] === 1600);
+      expect(timerIndex).toBeGreaterThanOrEqual(0);
+      const copiedTimer = schedule.mock.results[timerIndex].value;
+      unmount();
+      expect(cancel).toHaveBeenCalledWith(copiedTimer);
+    } finally { schedule.mockRestore(); cancel.mockRestore(); vi.useRealTimers(); vi.unstubAllGlobals(); }
+  });
+
   it("copies an API-key setup snippet without sending the key anywhere", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });

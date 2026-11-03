@@ -141,3 +141,5 @@ an npm package.
 The manual **Check upstream updates** action is informational: it does not
 download or execute an upstream installer, and background checks are disabled.
 Upgrade this fork by downloading its own latest published Windows installer.
+
+本地加载：服务先监听再复制运行文件和修复集成；构建会预压缩共享 JS/CSS。会话列表按需 gzip、重建期间复用结果，磁盘缓存带格式版本与 24 小时有效期，会话页显示快照时间。

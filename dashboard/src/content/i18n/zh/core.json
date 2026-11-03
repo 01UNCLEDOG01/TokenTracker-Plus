@@ -967,5 +967,6 @@
   "perks.claim.daily_mark": "今日未领取 · 标记已领取",
   "perks.claim.daily_claimed": "今日已领取（{{date}}）",
   "perks.claim.monthly_mark": "本月未领取 · 标记已领取",
-  "perks.claim.monthly_claimed": "本月已领取（{{date}}）"
+  "perks.claim.monthly_claimed": "本月已领取（{{date}}）",
+  "sessions.page.cached": "正在显示 {{date}} 的缓存快照；可刷新检查最新会话。"
 }

@@ -631,5 +631,6 @@
   "perks.claim.daily_claimed": "Heute erhalten ({{date}})",
   "perks.claim.monthly_mark": "Diesen Monat offen · Als erhalten markieren",
   "perks.claim.monthly_claimed": "Diesen Monat erhalten ({{date}})",
-  "perks.filter.unclaimed": "Noch offen"
+  "perks.filter.unclaimed": "Noch offen",
+  "sessions.page.cached": "Zwischengespeicherter Stand vom {{date}}. Aktualisieren prüft auf neue Sitzungen."
 }

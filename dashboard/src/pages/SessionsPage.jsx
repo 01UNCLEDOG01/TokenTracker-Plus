@@ -23,7 +23,7 @@ import { SessionPerformance } from "../ui/dashboard/components/SessionPerformanc
 import "./sessions-layout.css";
 
 const IS_LOCAL_HOST = isLocalDashboardHost();
-const SESSIONS_CACHE_KEY = "tokentracker:sessions_cache";
+const SESSIONS_CACHE_KEY = "tokentracker:sessions_cache:v2";
 
 // Stable empty array so the memos below don't recompute on every render while
 // there is no data yet.
@@ -407,7 +407,7 @@ export function SessionsPage() {
         const cached = sessionStorage.getItem(SESSIONS_CACHE_KEY);
         if (cached) return JSON.parse(cached);
       }
-    } catch (_) {}
+    } catch (_) { /* storage may be blocked or full; keep in-memory data */ }
     return null;
   });
   const [error, setError] = useState(null);
@@ -416,7 +416,7 @@ export function SessionsPage() {
       if (typeof window !== "undefined") {
         return !sessionStorage.getItem(SESSIONS_CACHE_KEY);
       }
-    } catch (_) {}
+    } catch (_) { /* storage may be blocked or full; keep in-memory data */ }
     return true;
   });
   const [refreshing, setRefreshing] = useState(false);
@@ -451,7 +451,9 @@ export function SessionsPage() {
   // `load`, whose effect then fired a second identical request after the first
   // response landed.
   const hasLoadedRef = useRef(Boolean(data));
+  const cachePollsRef = useRef(0);
   const load = useCallback(async (refresh = false) => {
+    if (refresh) cachePollsRef.current = 0;
     const requestId = ++requestIdRef.current;
     if (refresh) setRefreshing(true);
     else if (!hasLoadedRef.current) setIsLoading(true);
@@ -467,7 +469,7 @@ export function SessionsPage() {
           if (typeof window !== "undefined") {
             sessionStorage.setItem(SESSIONS_CACHE_KEY, JSON.stringify(result));
           }
-        } catch (_) {}
+        } catch (_) { /* storage may be blocked or full; keep in-memory data */ }
       }
     } catch (err) {
       if (requestId === requestIdRef.current) setError(err?.message || String(err));
@@ -483,6 +485,16 @@ export function SessionsPage() {
     if (IS_LOCAL_HOST || isMockEnabled()) void load(false);
     else setIsLoading(false);
   }, [load]);
+
+  useEffect(() => {
+    if (!data?.stale || cachePollsRef.current >= 10) return;
+    const timer = setTimeout(() => {
+      if (document.visibilityState === "hidden") return;
+      cachePollsRef.current += 1;
+      void load(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [data, load]);
 
   const allSessions = data?.sessions || NO_SESSIONS;
   // Distinct project names present in the loaded sessions, for the project
@@ -704,6 +716,11 @@ export function SessionsPage() {
             <div className="min-w-0">
               <h1 className="mb-3 text-3xl font-semibold tracking-tight text-oai-black dark:text-white sm:text-4xl">{copy("nav.sessions")}</h1>
               <p className="text-sm text-oai-gray-500 dark:text-oai-gray-400 sm:text-base">{copy("sessions.page.summary")}</p>
+              {data?.stale && (
+                <p role="status" className="mt-2 text-xs text-oai-gray-600 dark:text-oai-gray-300">
+                  {copy("sessions.page.cached", { date: data.asOf ? new Date(data.asOf).toLocaleString(resolvedLocale) : "—" })}
+                </p>
+              )}
             </div>
             <button
               type="button"

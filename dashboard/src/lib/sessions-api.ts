@@ -140,6 +140,8 @@ export interface SessionsResponse {
   session_count: number;
   returned_count: number;
   sessions: SessionRow[];
+  stale?: boolean;
+  asOf?: string;
   provenance?: Record<string, unknown>;
   error?: string;
 }

@@ -2171,35 +2171,14 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
   // 会话浏览的磁盘二级缓存：buildSessionAnalytics 冷侧最坏 ~60s（1413 会话实测），
   // 热侧 ~3.3s，但 L1 只活 30s——每次进页面都可能白等。L2 落盘后任何缓存未命中
   // 都先秒回上一次的完整集合（标 stale），后台重建完成后 L1/L2 一起翻新。
-  let _sessionsDiskCache = null;
-  let _sessionsDiskCacheLoaded = false;
   let _sessionsRebuildPromise = null;
-  // trackerDataDir（下方定义）在测试里可能指向 mkdtemp 临时目录；本箭头只在
-  // 请求期调用，闭包读到的是已初始化的常量，生产路径仍是 dirname(qp)。
   const sessionsDiskCachePath = () => path.join(trackerDataDir, "sessions-browser-cache.json");
-  const loadSessionsDiskCache = () => {
-    if (_sessionsDiskCacheLoaded) return _sessionsDiskCache;
-    _sessionsDiskCacheLoaded = true;
-    try {
-      const raw = JSON.parse(fs.readFileSync(sessionsDiskCachePath(), "utf8"));
-      if (raw && typeof raw.savedAt === "string" && Array.isArray(raw.sessions)) {
-        _sessionsDiskCache = raw;
-      }
-    } catch {
-      // 无缓存/损坏 → 走同步构建
-    }
-    return _sessionsDiskCache;
-  };
+  let sessionsDiskCache;
+  const getSessionsDiskCache = () => sessionsDiskCache ||= require("./sessions-disk-cache").createSessionsDiskCache(sessionsDiskCachePath());
   const persistSessionsDiskCache = (sessions) => {
-    try {
-      const target = sessionsDiskCachePath();
-      const tmp = `${target}.tmp`;
-      _sessionsDiskCache = { savedAt: new Date().toISOString(), sessions };
-      fs.writeFileSync(tmp, JSON.stringify(_sessionsDiskCache));
-      fs.renameSync(tmp, target);
-    } catch (error) {
-      console.warn("[local-api] sessions disk cache write failed:", error?.message || error);
-    }
+    void getSessionsDiskCache().save(sessions).catch(() => {
+      console.warn("[local-api] sessions disk cache write failed");
+    });
   };
   const normalizedServerVersion = typeof serverVersion === "string" ? serverVersion.trim() : "";
 
@@ -3857,7 +3836,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         now - _sessionsCache.timestamp < SESSIONS_CACHE_TTL_MS &&
         _sessionsCache.key === cacheKey
       ) {
-        json(res, _sessionsCache.payload);
+        await require("./sessions-response").writeSessionsResponse(req, res, _sessionsCache.payload);
         return true;
       }
 
@@ -3873,13 +3852,21 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       // Stale-while-revalidate：缓存未命中时先秒回磁盘上的上一次完整集合
       // （标 stale），后台重建完成后 L1/L2 一起翻新。冷启动（无磁盘缓存）
       // 与显式 refresh=1 保持原同步构建路径。
-      const stale = !refresh ? loadSessionsDiskCache() : null;
-      if (stale && Array.isArray(stale.sessions) && stale.sessions.length > 0) {
+      const stale = !refresh ? await getSessionsDiskCache().load() : null;
+      // Another request can populate L1 while this one awaits the disk read.
+      if (!refresh && _sessionsCache?.key === cacheKey && Date.now() - _sessionsCache.timestamp < SESSIONS_CACHE_TTL_MS) {
+        await require("./sessions-response").writeSessionsResponse(req, res, _sessionsCache.payload);
+        return true;
+      }
+      if (stale) {
         const result = listSessionsForBrowser(stale.sessions, { from, to, limit, ...tzCtx });
-        json(res, { from, to, stale: true, asOf: stale.savedAt, ...result });
+        const payload = { from, to, stale: true, asOf: stale.savedAt, ...result };
+        _sessionsCache = { key: cacheKey, timestamp: Date.now(), payload };
+        await require("./sessions-response").writeSessionsResponse(req, res, payload);
         if (!_sessionsRebuildPromise) {
           _sessionsRebuildPromise = (async () => {
             try {
+              await yieldToRequests();
               const sessions = await buildSessions();
               persistSessionsDiskCache(sessions);
               _sessionsCache = {
@@ -3898,6 +3885,8 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       }
 
       try {
+        // Explicit refresh waits for the older scan before forcing a new one.
+        if (_sessionsRebuildPromise) await _sessionsRebuildPromise;
         const sessions = await buildSessions();
         persistSessionsDiskCache(sessions);
         const result = listSessionsForBrowser(sessions, { from, to, limit, ...tzCtx });
@@ -3907,7 +3896,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           timestamp: Date.now(),
           payload,
         };
-        json(res, payload);
+        await require("./sessions-response").writeSessionsResponse(req, res, payload);
       } catch (error) {
         // Node fs errors embed the absolute path ("EACCES ... open '/Users/…'").
         // Keep that out of the HTTP body and log it locally instead.

@@ -76,6 +76,8 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - **Usage scope and read-only comparison** — A badge identifies local or account data; local data is the default. A temporary comparison is available only with an explicitly configured cloud instance, sign-in, enabled sync and working cloud reads. It does not change upload preferences and resets on account changes or when sync is disabled.
 - **Session retention and local backup** — Drill into local Qoder editions, MiniMax, Devin and other sessions. Lightweight gzip snapshots retain only previously collected session statistics after source files are deleted; they cannot recover uncollected conversations. Export `.ttbackup` in Settings; imports on another machine preview changes and add missing data only.
 
+- **Loading and dark-mode readability** — Local session responses use negotiated gzip and reuse list results during rebuilds. Disk snapshots use asynchronous I/O, a versioned format and a maximum age of 24 hours; legacy formats rebuild automatically. The page shows snapshot time and attempts background updates. Perks text, control borders and keyboard focus have stronger contrast. Startup serves the page before runtime copying and integration repair; shared JS/CSS assets are precompressed for transport.
+
 ---
 
 ## 🖼️ Preview

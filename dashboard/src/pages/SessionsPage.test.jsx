@@ -954,4 +954,13 @@ describe("SessionsPage", () => {
     expect(await screen.findByText(copy("sessions.summary.scope"))).toHaveAttribute("role", "tooltip");
     expect(getSessions).toHaveBeenCalledTimes(1);
   });
+  it("shows cache age then replaces the snapshot when background data becomes fresh", async () => {
+    getSessions.mockResolvedValueOnce({ ...response, stale: true, asOf: "2026-11-03T10:00:00Z" }).mockResolvedValue(response);
+    render(<TokenFormatProvider><SessionsPage /></TokenFormatProvider>);
+    expect(await screen.findByRole("status")).toHaveTextContent("Cached snapshot");
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument(), { timeout: 4500 });
+    expect(getSessions).toHaveBeenCalledTimes(2);
+    expect(getSessions).toHaveBeenLastCalledWith({ refresh: false });
+  });
+
 });

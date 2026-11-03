@@ -1,5 +1,6 @@
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
+const { acceptsGzip } = require("./sessions-response");
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -26,7 +27,7 @@ const MIME_TYPES = {
  * Serve a static file from baseDir. Returns true if served, false otherwise.
  * For SPA: caller should fall back to index.html when this returns false.
  */
-async function serveStaticFile(baseDir, pathname, res, { localRuntimeConfig = false } = {}) {
+async function serveStaticFile(baseDir, pathname, res, { localRuntimeConfig = false, acceptEncoding = "" } = {}) {
   const safePath = path.normalize(pathname).replace(/^(\.\.[/\\])+/, "");
   const filePath = path.join(baseDir, safePath);
 
@@ -46,7 +47,7 @@ async function serveStaticFile(baseDir, pathname, res, { localRuntimeConfig = fa
   let handle;
   try {
     handle = await fsPromises.open(filePath, "r");
-    const stat = await handle.stat();
+    let stat = await handle.stat();
     if (!stat.isFile()) return false;
     if (clientGone) return true; // finally closes the handle
 
@@ -70,11 +71,33 @@ async function serveStaticFile(baseDir, pathname, res, { localRuntimeConfig = fa
     // in the pet WebView2 profile, so a fixed atlas never reached the desktop
     // pet. Revalidate these instead.
     const isPetAsset = pathname.startsWith("/pets/");
+    // Build-time gzip avoids spending CPU on every page navigation. Only
+    // generated JS/CSS assets use sidecars; HTML runtime injection and images
+    // keep their existing representation and cache policies.
+    const compressible = pathname.startsWith("/assets/") && [".js", ".css"].includes(ext);
+    let compressed = false;
+    if (compressible && acceptsGzip(acceptEncoding)) {
+      let gzipHandle;
+      try {
+        gzipHandle = await fsPromises.open(`${filePath}.gz`, "r");
+        const gzipStat = await gzipHandle.stat();
+        if (gzipStat.isFile()) {
+          await handle.close();
+          handle = gzipHandle;
+          gzipHandle = null;
+          stat = gzipStat;
+          compressed = true;
+        }
+      } catch { /* older builds still serve the original asset */ }
+      finally { if (gzipHandle) await gzipHandle.close(); }
+    }
     if (clientGone) return true;
     res.writeHead(200, {
       "Content-Type": contentType,
       "Content-Length": stat.size,
       "Cache-Control": (isHtml || isAchievement || isPetAsset) ? "no-cache" : "public, max-age=31536000, immutable",
+      ...(compressible ? { Vary: "Accept-Encoding" } : {}),
+      ...(compressed ? { "Content-Encoding": "gzip" } : {}),
     });
 
     stream = handle.createReadStream();

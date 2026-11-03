@@ -1329,6 +1329,12 @@ function ExternalArrow() {
 // No credential ever passes through TokenTracker itself.
 function OpenCodeGoSetupHint() {
   const [copied, setCopied] = useState(false);
+  const copyTimer = useRef(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; clearTimeout(copyTimer.current); };
+  }, []);
   const snippet = [
     "read -r -s OPENCODE_GO_API_KEY",
     "export OPENCODE_GO_API_KEY",
@@ -1339,8 +1345,10 @@ function OpenCodeGoSetupHint() {
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(snippet);
+      if (!mounted.current) return;
       setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 1600);
     } catch (_e) {
       // Clipboard can be unavailable in embedded or restricted contexts.
     }

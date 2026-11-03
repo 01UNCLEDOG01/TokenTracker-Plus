@@ -1378,3 +1378,13 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 .tt-cloud-sync-control [role="switch"]:focus-visible {
   --tw-ring-color: var(--tt-cloud-focus);
 }
+
+/* Preserve a visible keyboard position on the perks controls despite the
+   historical global outline reset. Existing neutral palette, scoped to page. */
+.tt-perks-page :is(button, a, input):focus-visible {
+  outline: 2px solid #525252 !important;
+  outline-offset: 3px;
+}
+.dark .tt-perks-page :is(button, a, input):focus-visible {
+  outline-color: #d4d4d4 !important;
+}

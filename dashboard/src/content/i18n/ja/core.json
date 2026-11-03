@@ -634,5 +634,6 @@
   "perks.claim.daily_claimed": "今日受取済み（{{date}}）",
   "perks.claim.monthly_mark": "今月未受取 · 受取済みにする",
   "perks.claim.monthly_claimed": "今月受取済み（{{date}}）",
-  "perks.filter.unclaimed": "未受取"
+  "perks.filter.unclaimed": "未受取",
+  "sessions.page.cached": "{{date}} のキャッシュを表示中です。更新して最新のセッションを確認できます。"
 }

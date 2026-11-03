@@ -105,7 +105,6 @@ function ProviderLogo({ item }) {
 
 function renderBoldText(text) {
   if (!text || typeof text !== "string") return text;
-  const parts = text.split(/(\b|(?<=\*{2})|(?=\*{2}))/g);
   // Simpler split by bold markdown
   const segments = text.split(/(\B\*\*[^*]+\*\*\B|\*\*[^*]+\*\*)/g);
   return segments.map((seg, i) => {
@@ -179,7 +178,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim }) {
                 {item.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center rounded-md bg-oai-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-oai-gray-600 dark:bg-oai-gray-800 dark:text-oai-gray-400"
+                    className="inline-flex items-center rounded-md bg-oai-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-oai-gray-600 dark:bg-oai-gray-800 dark:text-oai-gray-300"
                   >
                     {tag}
                   </span>
@@ -209,7 +208,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim }) {
 
         {/* Tips Box */}
         {item.tips && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl bg-oai-gray-50/80 p-2.5 text-[11px] leading-relaxed text-oai-gray-500 border border-oai-gray-200/50 dark:bg-oai-gray-950/60 dark:text-oai-gray-400 dark:border-oai-gray-800/60">
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-oai-gray-50/80 p-2.5 text-[11px] leading-relaxed text-oai-gray-500 border border-oai-gray-200/50 dark:bg-oai-gray-950/60 dark:text-oai-gray-300 dark:border-oai-gray-800/60">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden />
             <span className="flex-1">{item.tips}</span>
           </div>
@@ -217,7 +216,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim }) {
 
         {/* Provenance: which date this card was checked and against which page */}
         {item.checkedAt && item.sourceUrl && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-oai-gray-600 dark:text-oai-gray-300">
             <span>{copy("perks.card.checked", { date: item.checkedAt })}</span>
             <a
               href={item.sourceUrl}
@@ -250,7 +249,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim }) {
                 href={item.inviteUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-emerald-700 active:scale-[0.98] dark:bg-emerald-500 dark:hover:bg-emerald-600"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-emerald-800 active:scale-[0.98] dark:bg-emerald-700 dark:hover:bg-emerald-800"
               >
                 <Gift className="h-3.5 w-3.5" aria-hidden />
                 <span>{copy("perks.action.invite")}</span>
@@ -325,7 +324,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim }) {
                 "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
                 claimedAt
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
-                  : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-800 dark:bg-transparent dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
+                  : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-500 dark:bg-oai-gray-800/60 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
               )}
             >
               {claimedAt ? (
@@ -431,7 +430,7 @@ export function PerksPage() {
   });
 
   return (
-    <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
+    <div className="tt-perks-page flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
       <main className="flex-1 pb-16 pt-8 sm:pb-20 sm:pt-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {/* Header Banner */}
@@ -445,12 +444,12 @@ export function PerksPage() {
                   {copy("perks.title")}
                 </h1>
               </div>
-              <p className="mt-1.5 max-w-2xl text-sm text-oai-gray-500 dark:text-oai-gray-400">
+              <p className="mt-1.5 max-w-2xl text-sm text-oai-gray-500 dark:text-oai-gray-300">
                 {copy("perks.subtitle")}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-oai-gray-500 dark:text-oai-gray-400">
+            <div className="flex items-center gap-2 text-xs text-oai-gray-500 dark:text-oai-gray-300">
               <span className="inline-flex items-center gap-1 rounded-md bg-oai-gray-100 px-2 py-1 font-medium text-oai-gray-600 dark:bg-oai-gray-800 dark:text-oai-gray-300">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
                 <span>{copy("perks.count", { count: PERK_PROVIDERS.length })}</span>
@@ -469,7 +468,7 @@ export function PerksPage() {
           {/* Invite / Official-link transparency notice — kept at the top so
               it is actually read (owner call 2026-11-01: a footer notice
               scrolls out of sight). */}
-          <div className="mb-6 rounded-2xl border border-oai-gray-200/70 bg-oai-gray-50/60 p-5 text-xs text-oai-gray-500 dark:border-oai-gray-800/60 dark:bg-oai-gray-950/40 dark:text-oai-gray-400">
+          <div className="mb-6 rounded-2xl border border-oai-gray-200/70 bg-oai-gray-50/60 p-5 text-xs text-oai-gray-500 dark:border-oai-gray-800/60 dark:bg-oai-gray-950/40 dark:text-oai-gray-300">
             <h4 className="font-semibold text-oai-black dark:text-white">
               {copy("perks.notice.title")}
             </h4>
@@ -490,19 +489,20 @@ export function PerksPage() {
                   <button
                     key={cat.id}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setSelectedCategory(cat.id)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
                       active
                         ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
-                        : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
+                        : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
                     )}
                   >
                     <span>{label}</span>
                     <span
                       className={cn(
                         "text-[10px] tabular-nums",
-                        active ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"
+                        active ? "opacity-75" : "text-oai-gray-600 dark:text-oai-gray-300"
                       )}
                     >
                       {count}
@@ -523,19 +523,20 @@ export function PerksPage() {
                     <button
                       key={cat.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => setSelectedCategory(cat.id)}
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
                         active
                           ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
-                          : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
+                          : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
                       )}
                     >
                       <span>{label}</span>
                       <span
                         className={cn(
                           "text-[10px] tabular-nums",
-                          active ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"
+                          active ? "opacity-75" : "text-oai-gray-600 dark:text-oai-gray-300"
                         )}
                       >
                         {count}
@@ -558,15 +559,16 @@ export function PerksPage() {
                       <button
                         key={opt.id}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => setClaimFilter(opt.id)}
                         className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                           active
                             ? "bg-oai-black text-white dark:bg-white dark:text-oai-black"
-                            : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-800 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800"
+                            : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
                         }`}
                       >
                         <span>{opt.label}</span>
-                        <span className="text-[10px] tabular-nums opacity-70">
+                        <span className="text-[10px] tabular-nums opacity-90">
                           {opt.id === "all"
                             ? matchedItems.length
                             : opt.id === "claimed"
@@ -586,10 +588,11 @@ export function PerksPage() {
                   />
                   <input
                     type="text"
+                    aria-label={copy("perks.search_placeholder")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={copy("perks.search_placeholder")}
-                    className="h-9 w-full rounded-xl border border-oai-gray-200 bg-white pl-8 pr-3 text-xs text-oai-black placeholder-oai-gray-400 transition focus:border-emerald-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-white dark:placeholder-oai-gray-500"
+                    className="h-9 w-full rounded-xl border border-oai-gray-200 bg-white pl-8 pr-3 text-xs text-oai-black placeholder-oai-gray-400 transition focus:border-emerald-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 dark:border-oai-gray-500 dark:bg-oai-gray-900 dark:text-white dark:placeholder-oai-gray-300"
                   />
                 </div>
               </div>

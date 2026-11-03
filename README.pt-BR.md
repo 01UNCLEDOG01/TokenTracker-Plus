@@ -28,6 +28,8 @@
 - **Retenção de estatísticas e backup local** — Explore sessões locais das duas edições do Qoder, MiniMax, Devin e outras. Snapshots gzip leves preservam apenas estatísticas já coletadas após excluir a origem; não recuperam conversas não coletadas. Exporte `.ttbackup` nas configurações; a importação em outro PC mostra uma prévia e adiciona somente dados ausentes.
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 
+- **Carregamento e modo escuro** — Respostas locais de sessões usam gzip negociado e reutilizam listas durante a reconstrução. O cache em disco usa E/S assíncrona, formato versionado e validade máxima de 24 horas; formatos antigos são reconstruídos automaticamente. A página mostra a data do snapshot e tenta atualizar em segundo plano. Textos, bordas e foco de teclado dos benefícios têm maior contraste. A inicialização serve a página antes da cópia do runtime e reparo das integrações; JS/CSS compartilhados são pré-comprimidos para transferência.
+
 ## ⚡ Início rápido
 
 **No Windows, sem build**: baixe o `TokenTracker-Setup.exe` em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) e instale. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
