@@ -18,25 +18,31 @@ const SUPPORTED_PROVIDERS = (() => {
   return [...block[1].matchAll(/^\s*"([^"]+)",?$/gm)].map((match) => match[1]);
 })();
 const TOOL_COUNT = SUPPORTED_PROVIDERS.length;
+const LIMIT_COUNT = (() => {
+  const source = read("dashboard/src/lib/limits-providers.js");
+  const block = source.match(/export const LIMIT_PROVIDER_IDS = \[([\s\S]*?)\];/);
+  assert.ok(block, "dashboard defines LIMIT_PROVIDER_IDS");
+  return [...block[1].matchAll(/^\s*"([^"]+)",?$/gm)].length;
+})();
 
 const README_EXPECTATIONS = [
   [
     "README.md",
     () => new RegExp(`${TOOL_COUNT} 款 AI 编码工具`),
     () => new RegExp(`支持的 AI 工具数.*${TOOL_COUNT}`),
-    /限额追踪.*✅ 18 家 provider/,
+    new RegExp(`限额追踪.*✅ ${LIMIT_COUNT} 项配额/余额来源`),
   ],
   [
     "README.en.md",
     () => new RegExp(`${TOOL_COUNT} AI coding tools`),
     () => new RegExp(`AI tools supported.*${TOOL_COUNT}`),
-    /Rate-limit tracking.*✅ 18 providers/,
+    new RegExp(`Rate-limit tracking.*✅ ${LIMIT_COUNT} quota/balance sources`),
   ],
   [
     "README.zh-TW.md",
     () => new RegExp(`${TOOL_COUNT} 款 AI 編碼工具`),
     () => new RegExp(`支援的 AI 工具數.*${TOOL_COUNT}`),
-    /限額追蹤.*✅ 18 家 provider/,
+    new RegExp(`限額追蹤.*✅ ${LIMIT_COUNT} 項配額/餘額來源`),
   ],
 ];
 

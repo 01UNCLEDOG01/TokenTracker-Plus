@@ -47,7 +47,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 ```
 
 **What you can see in 30 seconds:**
-- 📊 **Local Dashboard** (Windows desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees. With at least 8 active sample days, reaching P98.5 while exceeding P95 also qualifies for Lv7.
+- 📊 **Local Dashboard** (Windows desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
 - 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 55 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the repository's `Qoder-*-刷新Cookie` scripts — core usage tracking needs none of that.)
 - 🏆 **65 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
@@ -64,7 +64,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
 - ⚡ **Multi-source Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
 - 🏠 **Local-first usage collection** — Parses on-device logs and databases without saving prompt, response or code bodies. Provider credentials are used only for the corresponding optional integrations; no first-party cloud service is bundled.
-- 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights.
+- 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights. With at least 8 active sample days, reaching P98.5 while exceeding P95 also qualifies for Lv7.
 - 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations; Trae CN merges both legacy Trae Work and modern Trae CN session databases.
 - 🏆 **65 Offline Achievements & 17 3D Synergy Title Crests (Steam Stacked Toasts)** — 100% local offline unlocking; authentic Steam unlock audio, concurrent multi-toast vertical stacking (up to 3 toasts with hover-pause), bespoke 3D relief crest medallions with real-time UI/Leaderboard equip display, and Canvas battle report export.
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
@@ -143,7 +143,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 |:---|:---:|:---:|:---:|
 | **Architecture & Focus** | **Macro Ledger + Deep Topology + Real-Time Speed** | General All-in-One Dashboard (optional hosted cloud) | Minimalist Desktop Floating Widget |
 | **AI tools supported** | **55** | 47 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
-| **Rate-limit tracking** | **✅ Multiple providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
+| **Rate-limit tracking** | **✅ 29 quota/balance sources** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
 | **Primary Interaction** | **Windows Tray + Web Dashboard + Widgets + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
 | **Data Privacy & Storage** | **100% Local-First** (Zero cloud requirement, WAL-aware) | Local SQLite + Optional official cloud sync | Local SQLite WAL (No macro historical reporting) |
 | **Token Speed (tok/s)** | **✅ Native Support** (Source timing measurements, reasoning tokens) | ❌ Only totals and spend; no speed metrics | ✅ Supported (Key highlight of floating widget) |

@@ -28,6 +28,10 @@ while ((match = titleRegex.exec(titleContent)) !== null) {
   titleIds.push(match[1]);
 }
 const actualTitleCount = titleIds.length;
+const limitsSource = fs.readFileSync(path.join(ROOT, 'dashboard/src/lib/limits-providers.js'), 'utf8');
+const limitsBlock = limitsSource.match(/export const LIMIT_PROVIDER_IDS = \[([\s\S]*?)\];/);
+if (!limitsBlock) throw new Error('LIMIT_PROVIDER_IDS declaration not found');
+const actualLimitCount = [...limitsBlock[1].matchAll(/^\s*"([^"]+)",?$/gm)].length;
 
 console.log(`[README-GATE] Code Truth: ${actualBadgeCount} badges, ${actualTitleCount} titles.`);
 
@@ -64,6 +68,14 @@ const requiredFor = {
 };
 
 let hasErrors = false;
+const limitsPhrase = {
+  'zh-CN': `${actualLimitCount} 项配额/余额来源`,
+  'zh-TW': `${actualLimitCount} 項配額/餘額來源`,
+  en: `${actualLimitCount} quota/balance sources`,
+  ja: `${actualLimitCount} のクォータ/残高ソース`,
+  ko: `${actualLimitCount}개 쿼터/잔액 소스`,
+  'pt-BR': `${actualLimitCount} fontes de cota/saldo`,
+};
 
 for (const { file, lang } of readmes) {
   const fullPath = path.join(ROOT, file);
@@ -73,6 +85,10 @@ for (const { file, lang } of readmes) {
     continue;
   }
   const content = fs.readFileSync(fullPath, 'utf8');
+  if (!content.includes(limitsPhrase[lang])) {
+    console.error(`[README-GATE] ❌ ${file} does not describe ${actualLimitCount} quota/balance sources`);
+    hasErrors = true;
+  }
   for (const feature of ['Artificial Analysis', 'AIHOT', 'Cursor', 'OpenCode', 'WorkBuddy', 'Standard / Fast / Ultrafast', 'A–Z', '.ttbackup', 'TokenTracker-Setup.exe']) {
     if (!content.includes(feature)) {
       console.error(`[README-GATE] ❌ ${file} is missing current feature: ${feature}`);
