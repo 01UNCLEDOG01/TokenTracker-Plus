@@ -14,7 +14,7 @@ This document lists **every** network request the software can make, what each o
 
 ## 1. What never leaves your machine
 
-TokenTracker's parsers extract numbers and timestamps only. TRAE CN is a narrow exception to the local-only source model, and it is off by default: only when you explicitly set `TOKENTRACKER_TRAE_CN_USAGE=1`, during an eligible non-background sync, when local TRAE CN auth exists, does TokenTracker transmit the existing sign-in authorization from the locally signed-in app to TRAE's internal API for a read-only usage request. Without that variable nothing is ever sent. It is not an unconditional or default generic network request. That authorization is never persisted or logged.
+TokenTracker's parsers extract numbers and timestamps only. The TRAE CN cloud usage read is a narrow exception to the local-only source model, and it is off by default: only when you explicitly set `TOKENTRACKER_TRAE_CN_USAGE=1`, during an eligible non-background sync, when local TRAE CN auth exists, does TokenTracker transmit the existing sign-in authorization from the locally signed-in app to TRAE's internal API for a read-only usage request. Without that variable nothing is ever sent. It is not an unconditional or default generic network request. That authorization is never persisted or logged. Local TRAE CN database collection is independent of this flag: background refresh reads projected usage metadata from the on-device database and WAL without sending the TRAE sign-in authorization.
 
 **Never retained as usage data or uploaded to TokenTracker:**
 

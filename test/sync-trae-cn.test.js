@@ -62,6 +62,7 @@ async function withTempTraeEnv(fn) {
     TOKENTRACKER_OPENCLAW_PREV_SESSION_ID: process.env.TOKENTRACKER_OPENCLAW_PREV_SESSION_ID,
     TOKENTRACKER_OPENCLAW_SESSION_KEY: process.env.TOKENTRACKER_OPENCLAW_SESSION_KEY,
     TOKENTRACKER_TRAE_CN_HOME: process.env.TOKENTRACKER_TRAE_CN_HOME,
+    TOKENTRACKER_TRAE_CN_LOCAL_DB: process.env.TOKENTRACKER_TRAE_CN_LOCAL_DB,
     TOKENTRACKER_TRAE_HOME: process.env.TOKENTRACKER_TRAE_HOME,
     TOKENTRACKER_TRAE_DB: process.env.TOKENTRACKER_TRAE_DB,
     TOKENTRACKER_TRAE_CN_USAGE: process.env.TOKENTRACKER_TRAE_CN_USAGE,
@@ -82,6 +83,7 @@ async function withTempTraeEnv(fn) {
     process.env.XDG_DATA_HOME = path.join(home, ".local", "share");
     process.env.TOKENTRACKER_OPENCLAW_HOME = path.join(home, ".openclaw");
     process.env.TOKENTRACKER_TRAE_CN_HOME = traeCnHome;
+    delete process.env.TOKENTRACKER_TRAE_CN_LOCAL_DB;
     process.env.TOKENTRACKER_TRAE_HOME = path.join(home, "trae-data");
     delete process.env.TOKENTRACKER_TRAE_DB;
     process.env.TOKENTRACKER_TRAE_CN_USAGE = "1";
@@ -444,5 +446,32 @@ test("failed TRAE CN fetch skips parser/queue/cursor mutation while other provid
     assert.ok(rows.some((row) => row.source === "codex"), "unrelated provider continued");
     assert.ok(!rows.some((row) => row.source === "trae-cn"), "no trae-cn rows after failure");
     assert.equal(readCursors(home).traeCn, undefined);
+  });
+});
+
+
+test("native background sync collects the local TRAE CN store without cloud opt-in or duplicates", async () => {
+  await withTempTraeEnv(async ({ home }) => {
+    delete process.env.TOKENTRACKER_TRAE_CN_USAGE;
+    const SQL = await require("sql.js")();
+    const db = new SQL.Database();
+    const dbPath = path.join(home, "trae-cn-local.db");
+    process.env.TOKENTRACKER_TRAE_CN_LOCAL_DB = dbPath;
+    try {
+      db.run("CREATE TABLE chat_turn (session_id TEXT, created_at INTEGER, updated_at INTEGER, context TEXT); CREATE TABLE chat_session (session_id TEXT, project_id TEXT); CREATE TABLE project (project_id TEXT, absolute_path TEXT)");
+      db.run("INSERT INTO chat_turn VALUES (?, ?, ?, ?)", ["local-fixture", Math.floor(NOW_MS / 1000), Math.floor(NOW_MS / 1000), JSON.stringify({ model_name: "qwen3-coder", token_usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 } })]);
+      fs.writeFileSync(dbPath, Buffer.from(db.export()));
+    } finally { db.close(); }
+    let fetchCalls = 0;
+    const context = { scanSources: ["trae-cn"], traeCnFetchImpl: async () => { fetchCalls++; throw new Error("unexpected cloud call"); } };
+    await cmdSync(["--auto", "--background"], context);
+    const first = readQueueRows(home).filter(r => r.source === "trae-cn");
+    assert.equal(first.length, 1, "the native refresh must collect the local turn");
+    assert.equal(first[0].total_tokens, 120);
+    assert.equal(readCursors(home).traeCnLocal.lastId, 1);
+    await cmdSync(["--auto", "--background", "--all-local-sources"], context);
+    await cmdSync(["--auto", "--background", "--source=trae-cn"], context);
+    assert.deepEqual(readQueueRows(home).filter(r => r.source === "trae-cn"), first);
+    assert.equal(fetchCalls, 0, "local reads must not transmit the login token");
   });
 });

@@ -635,5 +635,6 @@
   "perks.claim.monthly_mark": "今月未受取 · 受取済みにする",
   "perks.claim.monthly_claimed": "今月受取済み（{{date}}）",
   "perks.filter.unclaimed": "未受取",
-  "sessions.page.cached": "{{date}} のキャッシュを表示中です。更新して最新のセッションを確認できます。"
+  "sessions.page.cached": "{{date}} のキャッシュを表示中です。更新して最新のセッションを確認できます。",
+  "global_models.credit_aihot": "AIHOT のデータは、数字生命卡兹克（Kazik）が公開するオープンソースプロジェクト AIHOT（aihot.news）から取得しています。データを公開している作者に感謝します。"
 }

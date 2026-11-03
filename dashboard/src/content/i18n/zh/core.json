@@ -319,6 +319,7 @@
   "global_models.speed_value": "{{value}} tok/秒",
   "global_models.source": "官网",
   "global_models.attribution": "数据来自 {{source}}，共 {{count}} 个已评测模型；价格为官方标准 API 价，仅供参考。",
+  "global_models.credit_aihot": "AIHOT 榜数据来自数字生命卡兹克的开源项目 AIHOT（aihot.news），感谢作者长期公开榜单数据。",
   "global_models.error": "加载失败：{{error}}",
   "nav.collapse": "折叠侧边栏",
   "nav.expand": "展开侧边栏",

@@ -396,6 +396,9 @@ export default function GlobalModelsPage() {
                 </a>
               ) : null}
             </p>
+            {board === "aihot" ? (
+              <p className="mt-1.5">{copy("global_models.credit_aihot")}</p>
+            ) : null}
           </div>
         </div>
       </main>

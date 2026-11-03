@@ -144,3 +144,36 @@ test("TRAE CN local feed skips unchanged stores and ingests only new rows", asyn
   assert.equal(projectRows.length, 2, "new half-hour bucket appended");
   assert.equal(f.cursors.traeCnLocal.lastId, 36);
 });
+
+test("TRAE CN local feed notices WAL-only writes and invalidates legacy signatures without recounting", async (t) => {
+  const f = await fixture(t);
+  const rows = [row(34), row(35)];
+  let reads = 0;
+  const args = {
+    dbPath: f.dbPath, cursors: f.cursors, queuePath: f.queuePath,
+    readRowsImpl: async (_, { lastId }) => { reads++; return rows.filter(r => Number(r.id) > lastId); },
+  };
+  await parseTraeCnLocalIncremental(args);
+  const base = fs.statSync(f.dbPath);
+  f.cursors.traeCnLocal.signature = `${base.size}:${base.mtimeMs}`;
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(reads, 2, "legacy DB-only signatures must be invalidated");
+  assert.equal(f.cursors.traeCnLocal.lastId, 35);
+  assert.equal(readRows(f.queuePath).length, 1, "invalidation does not recount old rows");
+
+  rows.push(row(36, { prompt: 10, completion: 5 }));
+  fs.writeFileSync(`${f.dbPath}-wal`, "first WAL commit");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(f.cursors.traeCnLocal.lastId, 36);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens, 315);
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(reads, 3, "unchanged DB and WAL stay cheap");
+
+  rows.push(row(37, { prompt: 10, completion: 5 }));
+  fs.writeFileSync(`${f.dbPath}-wal`, "other WAL commit");
+  fs.utimesSync(`${f.dbPath}-wal`, new Date(1000), new Date(2000));
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(f.cursors.traeCnLocal.lastId, 37);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens, 330);
+  assert.equal(fs.statSync(f.dbPath).mtimeMs, base.mtimeMs, "main DB never changed");
+});

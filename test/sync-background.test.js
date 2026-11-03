@@ -1012,3 +1012,39 @@ test("lightweight flag aliases bounded background sync", async () => {
     assert.doesNotMatch(queue, /"total_tokens":58/);
   });
 });
+
+
+test("all-local background sync discovers OpenClaw usage without a plugin signal", async () => {
+  await withTempSyncEnv(async (home) => {
+    const sessions = path.join(home, ".openclaw", "agents", "channel", "sessions");
+    await fs.mkdir(sessions, { recursive: true });
+    await fs.writeFile(path.join(sessions, "passive.jsonl"), JSON.stringify({ type: "message", id: "passive-event", timestamp: "2026-06-30T10:15:00.000Z", message: { role: "assistant", model: "claude-opus-4.7", usage: { input: 100, output: 20, totalTokens: 120 } } }) + "\n");
+    const context = { scanSources: ["openclaw"] };
+    await cmdSync(["--auto", "--background", "--all-local-sources"], context);
+    const first = await readQueue(home);
+    const rows = first.trim().split("\n").filter(Boolean).map(JSON.parse);
+    assert.equal(rows.length, 1, "all-local refresh must discover the local transcript");
+    assert.equal(rows[0].source, "openclaw");
+    assert.equal(rows[0].total_tokens, 120);
+    await cmdSync(["--auto", "--background", "--all-local-sources"], context);
+    assert.equal(await readQueue(home), first, "passive refresh does not recount the plugin's event");
+  });
+});
+
+
+test("all-local background sync includes Prime Agent and remains idempotent", async () => {
+  await withTempSyncEnv(async (home) => {
+    const sessions = path.join(home, ".prime", "agent", "sessions");
+    await fs.mkdir(sessions, { recursive: true });
+    await fs.writeFile(path.join(sessions, "prime.jsonl"), JSON.stringify({ type: "message", id: "prime-background-event", timestamp: "2026-06-30T10:15:00.000Z", message: { role: "assistant", provider: "anthropic", model: "claude-opus-4.7", usage: { input: 100, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 120 } } }) + "\n");
+    const context = { scanSources: ["prime-agent"] };
+    await cmdSync(["--auto", "--background", "--all-local-sources"], context);
+    const first = await readQueue(home);
+    const rows = first.trim().split("\n").filter(Boolean).map(JSON.parse);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].source, "prime-agent-anthropic");
+    assert.equal(rows[0].total_tokens, 120);
+    await cmdSync(["--auto", "--background", "--all-local-sources", "--source=prime-agent"], context);
+    assert.equal(await readQueue(home), first);
+  });
+});

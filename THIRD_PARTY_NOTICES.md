@@ -112,6 +112,15 @@ and does not ship a license file inside the tarball. The full terms live at
 <https://gsap.com/standard-license/> and are the authoritative text for this
 dependency.
 
+## AIHOT leaderboard data
+
+The "AIHOT 榜" tab on the Global Models page reads the public leaderboard at
+[aihot.news](https://aihot.news/leaderboard), an open-source project by
+数字生命卡兹克 (Kazik). No third-party code is vendored into this repository —
+each category page is fetched once per six-hour TTL window, parsed server-side,
+and cached locally (`src/lib/aihot-models.js`). Thanks to the author for
+keeping the data public.
+
 ## Trademark Disclaimer
 
 All product names, logos, brands, and registered trademarks displayed in this project (including brand icons in `dashboard/public/brand-logos/`) are property of their respective owners. Their use in TokenTracker Plus is for identification and reference purposes only, and does not imply any affiliation, sponsorship, or endorsement by the trademark holders.

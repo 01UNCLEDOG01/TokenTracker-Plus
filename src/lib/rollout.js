@@ -25840,7 +25840,14 @@ async function parseTraeCnLocalIncremental({
   if (!stat || !stat.isFile()) {
     return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
   }
-  const signature = `${stat.size}:${stat.mtimeMs}`;
+  let walStat = null;
+  try { walStat = fssync.statSync(`${dbPath}-wal`); }
+  catch (error) {
+    if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+  }
+  // WAL commits can change usage while the main DB stays untouched. v2
+  // invalidates the old signature without resetting the consumed rowid.
+  const signature = `v2:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}:${walStat ? `${walStat.size}:${walStat.mtimeMs}:${walStat.ctimeMs}` : "absent"}`;
   const lastId = Number.isSafeInteger(traeCnLocalState.lastId) ? traeCnLocalState.lastId : 0;
   if (traeCnLocalState.signature === signature && lastId > 0) {
     return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };

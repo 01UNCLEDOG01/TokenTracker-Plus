@@ -401,6 +401,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "opensquilla",
   "openclaw",
   "pi",
+  "prime-agent",
   "qoder",
   "qoder-cn",
   "reasonix",
@@ -415,7 +416,7 @@ const AUTO_SYNC_SOURCES = new Set([
   "zed",
 ]);
 const BACKGROUND_AUTO_SYNC_SOURCES = new Set([
-  // Keep unscoped native 5-minute syncs bounded to dated local session trees.
+  // Keep native syncs on bounded local readers; databases skip unchanged stores.
   "acode",
   "codex",
   "cola",
@@ -424,6 +425,7 @@ const BACKGROUND_AUTO_SYNC_SOURCES = new Set([
   "muse",
   "prime-agent",
   "reasonix",
+  "trae-cn",
 ]);
 
 // D1（审计 2026-10-25）：auto（钩子触发）是生产最常见路径，stderr 没人看——
@@ -1083,7 +1085,7 @@ async function cmdSync(argv, context = {}) {
         break;
       }
     }
-    if ((isFullSourceScan || (opts.fromOpenclaw && !openclawSignal)) && sourceAllowed("openclaw")) {
+    if ((isFullSourceScan || isBackgroundAllLocalSync || (opts.fromOpenclaw && !openclawSignal)) && sourceAllowed("openclaw")) {
       try {
         for (const f of await resolveOpenclawSessionFiles(process.env)) {
           const key = openclawCursorKey(f);
@@ -2478,28 +2480,30 @@ async function cmdSync(argv, context = {}) {
       } catch (err) {
         warnProviderParseFailure("TRAE CN", err, opts);
       }
+    }
 
-      // ── TRAE CN merged-app local database — the unified Trae CN IDE's own
-      // store. Its sessions are disjoint from the SOLO CN cloud bill (zero
-      // session-id overlap, verified on the real store), so this history has
-      // never been ingested anywhere and cannot double-count the bill.
-      if (sourceAllowed("trae-cn")) {
-        const traeCnLocalDb = resolveTraeCnLocalDbPath({ env: process.env, home });
-        if (traeCnLocalDb && fssync.existsSync(traeCnLocalDb)) {
-          if (progress?.enabled) {
-            progress.start(`Parsing TRAE CN local history...`);
-          }
-          try {
-            traeCnLocalResult = await parseTraeCnLocalIncremental({
-              dbPath: traeCnLocalDb,
-              cursors,
-              queuePath,
-              projectQueuePath,
-              onProgress: makeProviderProgress("TRAE CN (local)"),
-            });
-          } catch (err) {
-            warnProviderParseFailure("TRAE CN (local)", err, opts);
-          }
+    // Local collection is independent of cloud sign-in/opt-in and must run
+    // during desktop refreshes too.
+    // ── TRAE CN merged-app local database — the unified Trae CN IDE's own
+    // store. Its sessions are disjoint from the SOLO CN cloud bill (zero
+    // session-id overlap, verified on the real store), so this history has
+    // never been ingested anywhere and cannot double-count the bill.
+    if (sourceAllowed("trae-cn")) {
+      const traeCnLocalDb = resolveTraeCnLocalDbPath({ env: process.env, home });
+      if (traeCnLocalDb && fssync.existsSync(traeCnLocalDb)) {
+        if (progress?.enabled) {
+          progress.start(`Parsing TRAE CN local history...`);
+        }
+        try {
+          traeCnLocalResult = await parseTraeCnLocalIncremental({
+            dbPath: traeCnLocalDb,
+            cursors,
+            queuePath,
+            projectQueuePath,
+            onProgress: makeProviderProgress("TRAE CN (local)"),
+          });
+        } catch (err) {
+          warnProviderParseFailure("TRAE CN (local)", err, opts);
         }
       }
     }

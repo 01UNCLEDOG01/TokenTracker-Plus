@@ -340,6 +340,7 @@ global_models.price_value,ui,GlobalModelsPage,GlobalModelsPage,price_value,"${{v
 global_models.speed_value,ui,GlobalModelsPage,GlobalModelsPage,speed_value,"{{value}} tok/s",,active
 global_models.source,ui,GlobalModelsPage,GlobalModelsPage,source,"Source",,active
 global_models.attribution,ui,GlobalModelsPage,GlobalModelsPage,attribution,"Data from {{source}} ({{count}} evaluated models). Prices are standard API rates, for reference only.",,active
+global_models.credit_aihot,ui,GlobalModelsPage,GlobalModelsPage,credit_aihot,"The AIHOT board is built on AIHOT, the open-source leaderboard by Kazik (数字生命卡兹克). Thanks to its author for keeping the data public.",,active
 global_models.error,ui,GlobalModelsPage,GlobalModelsPage,error,"Load failed: {{error}}",,active
 nav.collapse,shared,*,Sidebar,nav_collapse,"Collapse sidebar",,active
 nav.expand,shared,*,Sidebar,nav_expand,"Expand sidebar",,active
