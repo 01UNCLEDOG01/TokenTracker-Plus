@@ -20,7 +20,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 
-const { parseTraeCnLocalIncremental } = require("../src/lib/rollout");
+const { parseTraeCnLocalIncremental, parseTraeCnApiIncremental } = require("../src/lib/rollout");
 
 const T0 = Math.floor(Date.UTC(2026, 9, 18, 10) / 1000); // seconds, like the store
 
@@ -109,7 +109,7 @@ test("TRAE CN local rows feed hourly and project queues with a rowid watermark",
   assert.equal(projectRows[0].total_tokens, 300, "only the two attributable turns");
 });
 
-test("TRAE CN local feed skips unchanged stores and ingests only new rows", async (t) => {
+test("TRAE CN local feed skips unchanged stores and only books changed contributions", async (t) => {
   const f = await fixture(t);
   const rows = [row(34, { path: f.project }), row(35, { path: f.project })];
   let lastId = 0;
@@ -133,12 +133,13 @@ test("TRAE CN local feed skips unchanged stores and ingests only new rows", asyn
   const res2 = await parseTraeCnLocalIncremental(args);
   assert.equal(res2.recordsProcessed, 0);
 
-  // Store grows: only the new row is read (the reader filters by watermark).
-  // Appending changes the file signature, so the signature gate re-opens it.
+  // A changed store re-observes old rows too; only its new contribution books.
   rows.push(row(36, { path: f.project, prompt: 10, completion: 5 }));
   fs.appendFileSync(f.dbPath, "x");
   const res3 = await parseTraeCnLocalIncremental(args);
-  assert.equal(res3.recordsProcessed, 1);
+  assert.equal(res3.recordsProcessed, 3);
+  assert.equal(res3.eventsAggregated, 1);
+  assert.equal(lastId,0,"rowid must not hide a late correction to an old row");
   assert.equal(res3.projectBucketsQueued, 1);
   const projectRows = readRows(f.projectQueuePath).filter((r) => r.source === "trae-cn");
   assert.equal(projectRows.length, 2, "new half-hour bucket appended");
@@ -176,4 +177,137 @@ test("TRAE CN local feed notices WAL-only writes and invalidates legacy signatur
   assert.equal(f.cursors.traeCnLocal.lastId, 37);
   assert.equal(readRows(f.queuePath).at(-1).total_tokens, 330);
   assert.equal(fs.statSync(f.dbPath).mtimeMs, base.mtimeMs, "main DB never changed");
+});
+
+test("TRAE CN revisits an unfinished old row after a newer row was consumed", async (t) => {
+  const f = await fixture(t);
+  const pending = {...row(34), usage:{}};
+  const rows = [pending, row(35)];
+  const args = {dbPath:f.dbPath,cursors:f.cursors,queuePath:f.queuePath,
+    readRowsImpl:async (_, {lastId})=>rows.filter(r=>Number(r.id)>lastId)};
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens,150);
+  Object.assign(pending,row(34,{prompt:20,completion:10}));
+  fs.appendFileSync(f.dbPath,"late usage");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens,180,"late token fields must be counted exactly once");
+  const before=fs.readFileSync(f.queuePath,"utf8");
+  fs.appendFileSync(f.dbPath,"unrelated write");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(fs.readFileSync(f.queuePath,"utf8"),before);
+});
+
+test("TRAE CN corrects an already counted row and retracts its old model and project bucket", async (t) => {
+  const f = await fixture(t);
+  const rows = [row(34,{path:f.project})];
+  const args = {...f,readRowsImpl:async (_, {lastId})=>rows.filter(r=>Number(r.id)>lastId)};
+  await parseTraeCnLocalIncremental(args);
+  rows[0]={...row(34,{model:"qwen3-coder",prompt:20,completion:10}),created_at:T0+3600};
+  fs.appendFileSync(f.dbPath,"correction");
+  await parseTraeCnLocalIncremental(args);
+  const latest=new Map(readRows(f.queuePath).map(r=>[r.model+'|'+r.hour_start,r]));
+  assert.equal([...latest.values()].reduce((sum,r)=>sum+r.total_tokens,0),30);
+  assert.equal(readRows(f.projectQueuePath).at(-1).total_tokens,0,"old project attribution must be retracted");
+});
+
+test("TRAE CN migrates legacy local totals while retaining pruned cloud observations", async (t) => {
+  const f=await fixture(t);
+  const cloud={session_id:"cloud-1",model_name:"cloud-model",usage_time:T0,
+    extra_info:{input_token:20,output_token:10}};
+  await parseTraeCnApiIncremental({sessions:[cloud],cursors:f.cursors,queuePath:f.queuePath});
+  const rows=[row(34,{path:f.project})];
+  const args={...f,readRowsImpl:async (_, {lastId})=>rows.filter(r=>Number(r.id)>lastId)};
+  await parseTraeCnLocalIncremental(args);
+  f.cursors.traeCnLocal={lastId:34,signature:"legacy"};
+  f.cursors.traeCn.sessions={};
+  f.cursors.traeCn.prunedBeforeMs=T0*1000+60*60*1000;
+  rows[0]=row(34,{model:"qwen3-coder",path:f.project,prompt:20,completion:10});
+  fs.appendFileSync(f.dbPath,"legacy correction");
+  await parseTraeCnLocalIncremental(args);
+  const latest=new Map(readRows(f.queuePath).filter(r=>!r.kind).map(r=>[r.model+'|'+r.hour_start,r]));
+  assert.equal([...latest.values()].reduce((n,r)=>n+r.total_tokens,0),60,"30 cloud + 30 corrected local, not their old 150");
+  assert.equal(f.cursors.traeCnLocal.version,2);
+  const before=fs.readFileSync(f.queuePath,"utf8");
+  fs.appendFileSync(f.dbPath,"unchanged contribution");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(fs.readFileSync(f.queuePath,"utf8"),before);
+});
+
+test("TRAE CN does not mutate cursor state when project enqueue fails after a correction", async (t) => {
+  const f=await fixture(t),rows=[row(34,{path:f.project})];
+  const args={...f,readRowsImpl:async()=>rows};
+  await parseTraeCnLocalIncremental(args);
+  const before=structuredClone(f.cursors);
+  rows[0]=row(34,{path:f.project,prompt:200,completion:20});
+  fs.appendFileSync(f.dbPath,"correction");
+  const append=fs.promises.appendFile.bind(fs.promises);
+  const failure=new Error("synthetic project enqueue failure");
+  const mock=t.mock.method(fs.promises,"appendFile",async(file,...rest)=>{
+    if(file===f.projectQueuePath)throw failure;
+    return append(file,...rest);
+  });
+  await assert.rejects(parseTraeCnLocalIncremental(args),e=>e===failure);
+  assert.deepEqual(f.cursors,before,"both attribution and watermark must remain retryable");
+  mock.mock.restore();
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens,220);
+  assert.equal(readRows(f.projectQueuePath).at(-1).total_tokens,220);
+});
+
+test("TRAE CN catches project attribution up after hourly-only corrections", async (t) => {
+  const f=await fixture(t),rows=[row(34,{path:f.project})];
+  const args={...f,readRowsImpl:async()=>rows};
+  await parseTraeCnLocalIncremental(args);
+  rows[0]={...row(34,{path:f.project,prompt:20,completion:10}),created_at:T0+3600};
+  fs.appendFileSync(f.dbPath,"hourly-only correction");
+  await parseTraeCnLocalIncremental({...args,projectQueuePath:undefined});
+  assert.equal(readRows(f.projectQueuePath).at(-1).total_tokens,150);
+  await parseTraeCnLocalIncremental(args);
+  const latest=new Map(readRows(f.projectQueuePath).map(r=>[r.project_key+'|'+r.hour_start,r]));
+  assert.equal([...latest.values()].reduce((n,r)=>n+r.total_tokens,0),30);
+});
+
+test("TRAE CN rejects corrupt stored billing contributions before any queue or cursor mutation", async (t) => {
+  const f=await fixture(t),args={...f,readRowsImpl:async()=>[row(34)]};
+  await parseTraeCnLocalIncremental(args);
+  const contribution=Object.values(f.cursors.traeCnLocal.turns)[0];
+  contribution.totals.billable_total_tokens=-1;
+  const before=structuredClone(f.cursors),queue=fs.readFileSync(f.queuePath,"utf8");
+  await assert.rejects(parseTraeCnLocalIncremental(args),/billing metadata is malformed/);
+  assert.deepEqual(f.cursors,before);
+  assert.equal(fs.readFileSync(f.queuePath,"utf8"),queue);
+});
+
+test("TRAE CN rebuilds when an older collector updated a newer ledger's v2 signature", async (t) => {
+  const f=await fixture(t),rows=[row(34)],args={...f,readRowsImpl:async()=>rows};
+  await parseTraeCnLocalIncremental(args);
+  const bucket=Object.values(f.cursors.hourly.buckets)[0];
+  for(const field of ["input_tokens","output_tokens","total_tokens","billable_total_tokens"])bucket.totals[field]*=2;
+  f.cursors.traeCnLocal.signature="v2:legacy-writer";
+  fs.appendFileSync(f.dbPath,"older collector wrote again");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens,150,"legacy app usage must not stack on the retained newer ledger");
+});
+
+test("TRAE CN does not resurrect orphaned account observations into current local totals", async (t) => {
+  const f=await fixture(t),rows=[row(34)],args={...f,readRowsImpl:async()=>rows};
+  await parseTraeCnLocalIncremental(args);
+  await fs.promises.appendFile(f.queuePath,JSON.stringify({kind:"account_session_state",source:"trae-cn",
+    session_id:"uncommitted-old-observation",model:"old-cloud-model",bucket_start:new Date(T0*1000).toISOString(),
+    input_tokens:1000000000,cached_input_tokens:0,cache_creation_input_tokens:0,
+    output_tokens:0,reasoning_output_tokens:0,total_tokens:1000000000,snapshot_verified_at:new Date(T0*1000).toISOString()})+'\n');
+  f.cursors.traeCnLocal={lastId:34,signature:"legacy"};
+  rows[0]=row(34,{prompt:20,completion:10});
+  await parseTraeCnLocalIncremental(args);
+  const latest=new Map(readRows(f.queuePath).filter(r=>!r.kind).map(r=>[r.model+'|'+r.hour_start,r]));
+  assert.equal([...latest.values()].reduce((n,r)=>n+r.total_tokens,0),30);
+});
+
+test("TRAE CN preserves earlier sessions when a recreated store reuses a rowid", async (t) => {
+  const f=await fixture(t),rows=[row(34,{session:"old-session"})],args={...f,readRowsImpl:async()=>rows};
+  await parseTraeCnLocalIncremental(args);
+  rows[0]=row(34,{session:"new-session",prompt:20,completion:10});
+  fs.appendFileSync(f.dbPath,"replacement session");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(readRows(f.queuePath).at(-1).total_tokens,180,"a new session is not a correction to an unrelated old session");
 });

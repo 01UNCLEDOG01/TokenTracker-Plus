@@ -12,7 +12,7 @@ const CACHE_PAGES = 64;
 const MAX_WAL_INDEX_PAGES = 1024 * 1024;
 
 function error(message) { return new Error(`Cannot read TRAE usage: ${message}`); }
-// A writer race rather than a bad store: the caller may retry immediately.
+// A writer race rather than a bad store: the caller retries with backoff.
 function transientError(message) { return Object.assign(error(message), { transient: true }); }
 
 function statOptional(file) {
@@ -85,7 +85,7 @@ function checksum(data, bigEndian, state = [0, 0]) {
 
 function indexWal(fd, size, pageSize) {
   const pages = new Map();
-  if (fd == null || size === 0) return { pages, pageCount: null };
+  if (fd == null || size === 0) return { pages, pageCount: null, header: null };
   if (size < 32) throw transientError("incomplete WAL header; retry when TRAE is idle.");
   const header = readExact(fd, Buffer.alloc(32), 0);
   const magic = header.readUInt32BE(0);
@@ -112,7 +112,7 @@ function indexWal(fd, size, pageSize) {
     const number = frame.readUInt32BE(0);
     const commit = frame.readUInt32BE(4);
     if (!number || number === 0xffffffff || commit === 0xffffffff) throw error("invalid WAL page number or database size.");
-    pending.set(number, offset + 24);
+    pending.set(number, { position: offset + 24, header: Buffer.from(frame.subarray(0, 24)) });
     if (pending.size + pages.size > MAX_WAL_INDEX_PAGES) throw error("WAL index exceeds the bounded-memory limit; let TRAE checkpoint its WAL and retry.");
     if (commit) {
       for (const [page, position] of pending) pages.set(page, position);
@@ -122,7 +122,7 @@ function indexWal(fd, size, pageSize) {
     }
   }
   frame.fill(0);
-  return { pages, pageCount };
+  return { pages, pageCount, header };
 }
 
 // A read-only, optimistic snapshot. SQLite reads authenticated pages on demand;
@@ -137,10 +137,12 @@ function openTraeSnapshot(dbPath, env = process.env) {
   }
   const handles = [];
   const cache = new Map();
+  const readWalFrames = new Map();
   let decryptor;
   const close = () => {
     for (const page of cache.values()) page.fill(0);
     cache.clear();
+    readWalFrames.clear();
     if (decryptor) { decryptor.dispose(); decryptor = null; }
     let failure;
     while (handles.length) {
@@ -162,7 +164,7 @@ function openTraeSnapshot(dbPath, env = process.env) {
     if (before[2] && before[2].size >= 8n) {
       const journalFd = fs.openSync(paths[2], "r");
       handles.push(journalFd);
-      if (readExact(journalFd, Buffer.alloc(8), 0).some((byte) => byte !== 0)) throw error("a rollback transaction is active; retry when TRAE is idle.");
+      if (readExact(journalFd, Buffer.alloc(8), 0).some((byte) => byte !== 0)) throw transientError("a rollback transaction is active; retry when TRAE is idle.");
     }
     const size = Number(before[0].size);
     if (size < 100) throw error("database is truncated.");
@@ -172,7 +174,7 @@ function openTraeSnapshot(dbPath, env = process.env) {
     const pageSize = encodedSize === 1 ? 65536 : encodedSize;
     if (pageSize < 512 || pageSize > 65536 || (pageSize & (pageSize - 1)) || size % pageSize) throw error("invalid database page size or truncated database.");
     if (encrypted) decryptor = pageDecryptor(header, env);
-    const { pages, pageCount } = indexWal(walFd, Number(before[1]?.size || 0n), pageSize);
+    const { pages, pageCount, header: walHeader } = indexWal(walFd, Number(before[1]?.size || 0n), pageSize);
     const finalPageCount = pageCount == null ? size / pageSize : pageCount;
     if (!finalPageCount || finalPageCount > 0xfffffffe) throw error("invalid database size.");
     const byteLength = finalPageCount * pageSize;
@@ -185,7 +187,14 @@ function openTraeSnapshot(dbPath, env = process.env) {
       }
       const page = Buffer.alloc(pageSize);
       try {
-        if (pages.has(number)) readExact(walFd, page, pages.get(number));
+        if (pages.has(number)) {
+          const entry = pages.get(number);
+          if (!readExact(walFd, Buffer.alloc(24), entry.position - 24).equals(entry.header)) {
+            throw transientError("committed WAL frame changed during the read.");
+          }
+          readExact(walFd, page, entry.position);
+          readWalFrames.set(entry.position - 24, entry.header);
+        }
         else readExact(dbFd, page, (number - 1) * pageSize);
         if (decryptor) decryptor.decrypt(page, number);
         if (number === 1) {
@@ -221,7 +230,26 @@ function openTraeSnapshot(dbPath, env = process.env) {
         }
         return count;
       },
-      isStable() { return paths.map(statOptional).every((stat, i) => sameStat(before[i], stat)); },
+      isStable() {
+        const after = paths.map(statOptional);
+        if (!sameStat(before[0], after[0]) || !sameStat(before[2], after[2])) return false;
+        if (sameStat(before[1], after[1])) return true;
+        // SQLite appends new transactions after the pinned committed frames.
+        // Those appends do not change this read's view. Checkpoint/reset,
+        // truncation, replacement and mutations of any read frame still fail.
+        if (!walHeader || !after[1] || after[1].ino !== before[1].ino ||
+            after[1].size <= before[1].size) return false;
+        try {
+          if (!readExact(walFd, Buffer.alloc(32), 0).equals(walHeader)) return false;
+          for (const [offset, header] of readWalFrames) {
+            if (!readExact(walFd, Buffer.alloc(24), offset).equals(header)) return false;
+          }
+          return true;
+        } catch (err) {
+          if (err?.transient) return false;
+          throw err;
+        }
+      },
       close,
     };
   } catch (err) { close(); throw err; }

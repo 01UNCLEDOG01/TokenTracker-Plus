@@ -16,6 +16,8 @@ This document lists **every** network request the software can make, what each o
 
 TokenTracker's parsers extract numbers and timestamps only. The TRAE CN cloud usage read is a narrow exception to the local-only source model, and it is off by default: only when you explicitly set `TOKENTRACKER_TRAE_CN_USAGE=1`, during an eligible non-background sync, when local TRAE CN auth exists, does TokenTracker transmit the existing sign-in authorization from the locally signed-in app to TRAE's internal API for a read-only usage request. Without that variable nothing is ever sent. It is not an unconditional or default generic network request. That authorization is never persisted or logged. Local TRAE CN database collection is independent of this flag: background refresh reads projected usage metadata from the on-device database and WAL without sending the TRAE sign-in authorization.
 
+Windows TRAE reads take brief shared locks on the existing WAL shared-memory file to defer checkpoint/reset while reading. Database, WAL and shared-memory contents are not modified by the reader. TRAE CN retains only hashed local turn identities and normalized token contributions so delayed or corrected usage can be reconciled. Legacy migration reads retained cloud observations from the local queue; it does not authorize or perform a cloud request.
+
 **Never retained as usage data or uploaded to TokenTracker:**
 
 - **Prompts, responses, and conversation bodies** — TokenTracker may parse local tool files containing conversation records to extract usage metrics, but prompt and response texts are never persisted, collected, or transmitted
@@ -40,7 +42,8 @@ Everything lives under `~/.tokentracker/` (`%USERPROFILE%\.tokentracker\` on Win
 | `tracker/queue.jsonl` | Append-only hourly buckets: source, model, token counts, timestamp |
 | `tracker/project.queue.jsonl` | The same hourly buckets, split per project: git remote URL and `owner/repo` key. Never uploaded |
 | `tracker/session.queue.jsonl` | Per-session token totals and timing for the Sessions view, plus each session's working directory. Never uploaded |
-| `tracker/cursors.json` | Read offsets so parsing stays incremental |
+| `tracker/cursors.json` | Compatibility read offsets; large active cursor state can reside in the versioned store below |
+| `tracker/cursor-store-v2/` | Active cursor generations, including normalized usage contributions and project attribution; no conversation text |
 | `tracker/config.json` | Your preferences |
 | `tracker/*-usage-limits-cache.json` | Last successful quota reading per provider, so a timeout shows stale bars instead of an error |
 | `pets/`, `skills/`, `cache/` | Desktop pet assets, skill index, misc caches |

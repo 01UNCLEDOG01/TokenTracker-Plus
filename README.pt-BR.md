@@ -29,7 +29,7 @@
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 
 - **Carregamento e modo escuro** — Respostas locais de sessões usam gzip negociado e reutilizam listas durante a reconstrução. O cache em disco usa E/S assíncrona, formato versionado e validade máxima de 24 horas; formatos antigos são reconstruídos automaticamente. A página mostra a data do snapshot e tenta atualizar em segundo plano. Textos, bordas e foco de teclado dos benefícios têm maior contraste. A inicialização serve a página antes da cópia do runtime e reparo das integrações; JS/CSS compartilhados são pré-comprimidos para transferência.
-- **Coleta de uso em segundo plano** — As atualizações coletam uso local do DB/WAL do TRAE CN, sessões do OpenClaw sem sinais do plugin e Prime Agent. Atualizações repetidas não recontam uso; a leitura na nuvem do TRAE CN continua exigindo consentimento separado.
+- **Coleta de uso em segundo plano** — As atualizações coletam uso local do DB/WAL do TRAE CN, sessões do OpenClaw sem sinais do plugin e Prime Agent. No Windows, leituras do TRAE usam uma breve proteção compartilhada durante gravações. Uso preenchido ou corrigido depois é reconciliado pela diferença, sem bloquear novos registros ou duplicar valores; a leitura na nuvem continua exigindo consentimento separado.
 
 ## ⚡ Início rápido
 

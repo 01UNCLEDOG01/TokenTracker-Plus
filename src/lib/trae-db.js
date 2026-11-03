@@ -1,9 +1,11 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { setTimeout: wait } = require("node:timers/promises");
 
 const { openTraeSnapshot } = require("./trae-snapshot");
 const { withTraeSqlite } = require("./trae-sqlite");
+const { acquireTraeReadGuard } = require("./trae-read-guard");
 
 const TOKEN_FIELDS = [
   "prompt_tokens", "prompt_tokens_total", "input_tokens",
@@ -99,29 +101,32 @@ async function projectUsage(queryRows) {
   });
 }
 
-async function readTraeUsageRows(dbPath, { env = process.env } = {}) {
+async function readStableTraeSnapshot(dbPath, env, project, waitImpl = wait) {
+  let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     let snapshot;
-    try { snapshot = openTraeSnapshot(dbPath, env); }
-    catch (err) {
-      // A writer can also change the files while the snapshot opens. Retry
-      // that too, and report the specific failure once attempts run out.
-      if (err?.transient && attempt < 2) continue;
-      throw err;
-    }
+    let guard;
     try {
-      let result;
-      try { result = await withTraeSqlite(snapshot, projectUsage); }
-      catch (err) {
-        // A writer may have changed pages while SQLite was reading. Discard
-        // every projected row and retry; never publish a mixed snapshot.
-        if (snapshot.isStable()) throw err;
-        continue;
-      }
-      if (snapshot.isStable()) return result;
-    } finally { snapshot.close(); }
+      guard = await acquireTraeReadGuard(dbPath);
+      snapshot = openTraeSnapshot(dbPath, env);
+      const result = await withTraeSqlite(snapshot, project);
+      if (snapshot.isStable() && (!guard || guard.isHeld())) return result;
+      lastError = error("database changed during the read; retry after TRAE finishes its current turn.");
+    } catch (err) {
+      // Invalid keys/schemas and permission failures are not writer races.
+      if (!err?.transient && (!snapshot || snapshot.isStable())) throw err;
+      lastError = err;
+    } finally {
+      try { snapshot?.close(); } finally { await guard?.release(); }
+    }
+    // Release SQLite and file handles before waiting; other readers can run.
+    if (attempt < 2) await waitImpl((attempt + 1) * 1000);
   }
-  throw error("database changed during the read; retry after TRAE finishes its current turn.");
+  throw lastError;
+}
+
+async function readTraeUsageRows(dbPath, { env = process.env, waitImpl } = {}) {
+  return readStableTraeSnapshot(dbPath, env, projectUsage, waitImpl);
 }
 
 // ── TRAE CN merged-app local database ──
@@ -141,26 +146,10 @@ function resolveTraeCnLocalDbPath({ env = process.env, home = os.homedir(), plat
 // Same projection as readTraeUsageRows' chat_turn query, plus the
 // chat_session → project join for cwd attribution and a rowid watermark so
 // the 3.7 GB decrypt only re-runs when the store actually grew.
-async function readTraeCnLocalRows(dbPath, { lastId = 0, env = process.env } = {}) {
+async function readTraeCnLocalRows(dbPath, { lastId = 0, env = process.env, waitImpl } = {}) {
   const watermark = Number.isSafeInteger(lastId) && lastId > 0 ? lastId : 0;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    let snapshot;
-    try { snapshot = openTraeSnapshot(dbPath, env); }
-    catch (err) {
-      if (err?.transient && attempt < 2) continue;
-      throw err;
-    }
-    try {
-      let result;
-      try { result = await withTraeSqlite(snapshot, (queryRows) => projectTraeCnLocalRows(queryRows, watermark)); }
-      catch (err) {
-        if (snapshot.isStable()) throw err;
-        continue;
-      }
-      if (snapshot.isStable()) return result;
-    } finally { snapshot.close(); }
-  }
-  throw error("database changed during the read; retry after TRAE finishes its current turn.");
+  return readStableTraeSnapshot(dbPath, env,
+    queryRows => projectTraeCnLocalRows(queryRows, watermark), waitImpl);
 }
 
 async function projectTraeCnLocalRows(queryRows, watermark) {
@@ -273,25 +262,8 @@ async function projectTraeSessionRows(queryRows) {
   };
 }
 
-async function readTraeSessionRows(dbPath, { env = process.env } = {}) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    let snapshot;
-    try { snapshot = openTraeSnapshot(dbPath, env); }
-    catch (err) {
-      if (err?.transient && attempt < 2) continue;
-      throw err;
-    }
-    try {
-      let result;
-      try { result = await withTraeSqlite(snapshot, projectTraeSessionRows); }
-      catch (err) {
-        if (snapshot.isStable()) throw err;
-        continue;
-      }
-      if (snapshot.isStable()) return result;
-    } finally { snapshot.close(); }
-  }
-  throw error("database changed during the read; retry after TRAE finishes its current turn.");
+async function readTraeSessionRows(dbPath, { env = process.env, waitImpl } = {}) {
+  return readStableTraeSnapshot(dbPath, env, projectTraeSessionRows, waitImpl);
 }
 
 module.exports = { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeSessionRows };

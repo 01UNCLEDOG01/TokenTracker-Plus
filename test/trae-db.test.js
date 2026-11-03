@@ -6,6 +6,8 @@ const path = require("node:path");
 const { test } = require("node:test");
 const initSqlJs = require("sql.js");
 const { resolveTraeDbPaths, readTraeUsageRows } = require("../src/lib/trae-db");
+const { openTraeSnapshot } = require("../src/lib/trae-snapshot");
+const { withTraeSqlite } = require("../src/lib/trae-sqlite");
 
 const KEY = "a1".repeat(32); // Synthetic test key.
 const ENV = { TOKENTRACKER_TRAE_SQLCIPHER_KEY: KEY };
@@ -127,6 +129,37 @@ function context(input = 100) {
     token_usage: { prompt_tokens: input, completion_tokens: 20, cache_read_input_tokens: 80, total_tokens: input + 20 },
   };
 }
+
+test("TRAE keeps its committed WAL view while a writer appends another transaction", async (t) => {
+  const file=path.join(temp(t),"database.db");
+  const base=await fixture([context(100)]),next=await fixture([context(200)]);
+  const frames=allPages(base),wal=makeWal(frames);
+  fs.writeFileSync(file,base);
+  fs.writeFileSync(file+'-wal',wal);
+  const snapshot=openTraeSnapshot(file,{});
+  try {
+    const appended=makeWal([...frames,...allPages(next)]);
+    assert.deepEqual(appended.subarray(0,wal.length),wal,"previous committed frame bytes stay immutable");
+    fs.writeFileSync(file+'-wal',appended);
+    const rows=await withTraeSqlite(snapshot,q=>q("SELECT json_extract(context,'$.token_usage.prompt_tokens') AS input FROM chat_turn"));
+    assert.equal(rows[0].input,100,"the pinned view must not mix in the later transaction");
+    assert.equal(snapshot.isStable(),true,"normal WAL append does not invalidate the committed view");
+  } finally {snapshot.close();}
+  assert.equal((await readTraeUsageRows(file,{env:{}}))[0].usage.prompt_tokens,200);
+});
+
+test("TRAE rejects replacement of a committed WAL frame even when the WAL grows", async (t) => {
+  const file=path.join(temp(t),"database.db");
+  const base=await fixture([context(100)]),changed=await fixture([context(200)]);
+  fs.writeFileSync(file,base);
+  fs.writeFileSync(file+'-wal',makeWal(allPages(base)));
+  const snapshot=openTraeSnapshot(file,{});
+  try {
+    await withTraeSqlite(snapshot,q=>q("SELECT context FROM chat_turn"));
+    fs.writeFileSync(file+'-wal',makeWal([...allPages(changed),...allPages(base)]));
+    assert.equal(snapshot.isStable(),false,"growth must not hide mutation of a consumed frame");
+  } finally {snapshot.close();}
+});
 
 test("TRAE discovery uses only international live databases on each platform", (t) => {
   const dir = temp(t);

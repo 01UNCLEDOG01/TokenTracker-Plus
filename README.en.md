@@ -62,7 +62,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 - 🔌 **Built for Multi-Platform Power Users (55 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
 - 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
-- ⚡ **Multi-source Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
+- ⚡ **Multi-source Token Generation Speed Capture** — Multi-source parser and SQLite WAL transaction probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
 - 🏠 **Local-first usage collection** — Parses on-device logs and databases without saving prompt, response or code bodies. Provider credentials are used only for the corresponding optional integrations; no first-party cloud service is bundled.
 - 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights. With at least 8 active sample days, reaching P98.5 while exceeding P95 also qualifies for Lv7.
 - 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations; Trae CN merges both legacy Trae Work and modern Trae CN session databases.
@@ -77,7 +77,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - **Session retention and local backup** — Drill into local Qoder editions, MiniMax, Devin and other sessions. Lightweight gzip snapshots retain only previously collected session statistics after source files are deleted; they cannot recover uncollected conversations. Export `.ttbackup` in Settings; imports on another machine preview changes and add missing data only.
 
 - **Loading and dark-mode readability** — Local session responses use negotiated gzip and reuse list results during rebuilds. Disk snapshots use asynchronous I/O, a versioned format and a maximum age of 24 hours; legacy formats rebuild automatically. The page shows snapshot time and attempts background updates. Perks text, control borders and keyboard focus have stronger contrast. Startup serves the page before runtime copying and integration repair; shared JS/CSS assets are precompressed for transport.
-- **Background usage collection** — Desktop refresh collects local TRAE CN database/WAL usage, OpenClaw sessions without plugin signals and Prime Agent. Repeated refreshes do not recount usage; TRAE CN cloud usage reads still require separate opt-in.
+- **Background usage collection** — Desktop refresh collects local TRAE CN database/WAL usage, OpenClaw sessions without plugin signals and Prime Agent. On Windows, TRAE reads use a brief shared read guard during active writes. Late-filled and corrected turns are reconciled without blocking later usage or counting it twice; TRAE CN cloud usage reads still require separate opt-in.
 
 ---
 
@@ -242,7 +242,7 @@ The repo supports **55 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 ```mermaid
 flowchart LR
     A["55 AI Coding Tools<br/>(Claude Code · Codex · Cursor · Gemini · Antigravity · OpenCode · ZCode · DSH · Qoder etc.)"] -->|Hook / Passive Probe| B[TokenTracker Plus Core Engine]
-    B -->|Speed Parsing & Reasoning Tokens<br/>SQLite WAL Lock-free Probing| C[(Local SQLite & Queue Snapshot)]
+    B -->|Speed Parsing & Reasoning Tokens<br/>SQLite WAL Transaction Probing| C[(Local SQLite & Queue Snapshot)]
     C --> D[Web Dashboard UI]
     C --> E[Windows System Tray & Pill]
     C --> F[Desktop Widgets]

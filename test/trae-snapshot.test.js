@@ -130,6 +130,7 @@ test("TRAE reader fails after three unstable snapshots instead of publishing mix
   fs.writeFileSync(file, await fixture());
   const readSync = fs.readSync;
   let mutations = 0;
+  const waits = [];
   t.mock.method(fs, "readSync", (...args) => {
     const count = readSync(...args);
     if (args[3] === 4096 && args[4] === 0) {
@@ -138,8 +139,9 @@ test("TRAE reader fails after three unstable snapshots instead of publishing mix
     }
     return count;
   });
-  await assert.rejects(readTraeUsageRows(file, { env: {} }), /database changed during the read/);
+  await assert.rejects(readTraeUsageRows(file, { env: {}, waitImpl:async ms=>waits.push(ms) }), /database changed during the read/);
   assert.equal(mutations, 3);
+  assert.deepEqual(waits,[1000,2000],"writer retries must be separated by bounded backoff");
 });
 
 test("TRAE snapshots close every opened handle when WAL validation fails", async (t) => {
