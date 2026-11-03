@@ -16,7 +16,7 @@ function getCachedAchievements() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+      return floorAchievementsAtHighWater({ achievements: parsed });
     }
   } catch {
     // ignore
@@ -28,7 +28,10 @@ function readHighWaterTiers() {
   try {
     const raw = localStorage.getItem(TIERS_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === "object" ? parsed : null;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return Object.fromEntries(Object.entries(parsed).filter(([, tier]) =>
+      Number.isInteger(tier) && tier >= 0 && tier <= 4,
+    ));
   } catch {
     return null;
   }
@@ -48,7 +51,7 @@ function floorAchievementsAtHighWater(data) {
   if (!prevTiers) return achievements;
   return achievements.map((badge) => {
     if (!badge?.id) return badge;
-    const highWater = Number(prevTiers[badge.id]) || 0;
+    const highWater = prevTiers[badge.id] || 0;
     const tier = badge.tier || 0;
     if (highWater <= tier) return badge;
     return {
@@ -94,10 +97,8 @@ export async function pollAchievements({ timeZone } = {}) {
     // Persist a high-water mark, not the latest reading. Share- and streak-based
     // badges (kill_line, heart_model, streak, zen_balancer …) legitimately drop
     // when the underlying ratio moves, and storing the dipped value made every
-    // rebound look like a fresh unlock — the "same three achievements keep
-    // firing" report of 2026-10-27. The array returned (and cached for first
-    // paint) is the floored one, so the page, share card and title banner all
-    // render the ever-best tier.
+    // rebound look like a fresh unlock. Apply the mark at read time for both
+    // live responses and the first-paint cache; keep the cached snapshot raw.
     const highWaterTiers = {};
     for (const b of achievements) {
       if (b && b.id) highWaterTiers[b.id] = Math.max(b.tier || 0, prevTiers?.[b.id] || 0);
@@ -130,7 +131,7 @@ export async function pollAchievements({ timeZone } = {}) {
     }
     localStorage.setItem(TITLE_RESONANCE_STORAGE_KEY, JSON.stringify(currentTitleTiers));
     localStorage.setItem(TIERS_STORAGE_KEY, JSON.stringify(highWaterTiers));
-    localStorage.setItem(ACHIEVEMENTS_CACHE_KEY, JSON.stringify(achievements));
+    localStorage.setItem(ACHIEVEMENTS_CACHE_KEY, JSON.stringify(data.achievements));
   } catch {
     // Safe handling for storage restrictions
   }

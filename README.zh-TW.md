@@ -50,7 +50,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 - 📊 **本地 Dashboard**（Windows 桌面版預設 `http://localhost:17680`；CLI `node bin/tracker.js serve` 預設 `7680`）—— 總花費、每日趨勢、按模型明細、項目歸屬與會話拓撲。
 - ⚡ **多來源 Token 生成速率捕獲** —— 根據各來源的時間戳與輸出 token 計算會話級 `tok/s`，思考 token 單獨記錄。
 - 🔌 **全自動掃描掛接** —— 自動識別掛接本地已安裝的 55 款 AI 編碼工具，零帳號綁定、零 API Key 洩漏風險。（可選：個別限額卡需自行重新整理本地憑證，如 Qoder 限額卡用倉庫根目錄的 `Qoder-*-刷新Cookie` 指令碼；核心用量統計零設定可用。）
-- 🏆 **65 枚成就全量離線判定** —— 100% 按本機本地佇列解鎖，無需連接公網排行榜服務。
+- 🏆 **65 枚成就全量離線判定** —— 100% 按本機本地佇列解鎖，無需連接公網排行榜服務。同一瀏覽器保留已觀察到的最高階位，首次載入舊快取也不會退階；用量與占比仍顯示真實現值。
 
 > **想要原生桌面端？**
 > - **Windows** —— 運行 `TokenTrackerWin`（C# .NET 8 + WebView2 系統匣 App），附帶動態桌寵、桌面額度小組件與置頂用量藥丸。構建方式見 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。

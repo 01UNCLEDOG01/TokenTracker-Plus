@@ -50,7 +50,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 - 📊 **本地 Dashboard**（Windows 桌面版默认 `http://localhost:17680`；CLI `node bin/tracker.js serve` 默认 `7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
 - ⚡ **毫秒级 Token 速率流** —— 自动接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客户端的实时生成速率（`tok/s`）。
 - 🔌 **全自动扫描挂接** —— 自动识别挂接本地已安装的 55 款 AI 编码工具，零账号绑定、零 API Key 泄露风险。（可选：个别限额卡需要自行刷新本地凭据，如 Qoder 限额卡用仓库根目录的 `Qoder-*-刷新Cookie` 脚本；核心用量统计零配置可用。）
-- 🏆 **65 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。
+- 🏆 **65 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。同一浏览器保留已观察到的最高阶位，首次加载旧缓存也不会退阶；用量与占比仍显示真实现值。
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。

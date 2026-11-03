@@ -5,11 +5,12 @@ pngquant-quantized), one PNG per badge id.
 
 ## Badges: how to earn them
 
-Every badge has four tiers — Bronze / Silver / Gold / Diamond. Tiers are
-monotonic (once earned, never lost) and each tier's first-achieved date is
-recorded. Cloud badges are recomputed every 6 hours from the account's
-deduplicated cross-device history (UTC days); local badges are computed
-on-device in real time and never leave the machine.
+Every badge has four tiers — Bronze / Silver / Gold / Diamond. Local badges
+are recomputed on-device from usage history. The same browser retains the
+highest observed tier and applies it when reading live data or cached data;
+current metrics remain unchanged. Clearing browser storage or switching
+devices can lose that display history. Cloud paths require an explicitly
+configured instance; this fork provides no cloud service.
 
 > Threshold source of truth: the `tokentracker_badge_catalog` seed in
 > `scripts/ops/user-badges.sql` (cloud) and `LOCAL_BADGE_THRESHOLDS` in
