@@ -3,7 +3,7 @@
  * scripts/validate-readme-stats.cjs
  *
  * README 文档真值门禁：
- * 自动化核验 README.md、README.zh-CN.md、README.zh-TW.md 中的核心量测数据
+ * 自动化核验六语 README 中的核心量测数据与共同功能入口
  * （成就总数、称号总数等）是否与代码实际注册值 100% 一致。
  * 防止任何 AI 或开发者在更新成就/称号后遗漏文档更新。
  */
@@ -73,6 +73,12 @@ for (const { file, lang } of readmes) {
     continue;
   }
   const content = fs.readFileSync(fullPath, 'utf8');
+  for (const feature of ['Artificial Analysis', 'AIHOT', 'Cursor', 'OpenCode', 'WorkBuddy', 'Standard / Fast / Ultrafast', 'A–Z', '.ttbackup', 'TokenTracker-Setup.exe']) {
+    if (!content.includes(feature)) {
+      console.error(`[README-GATE] ❌ ${file} is missing current feature: ${feature}`);
+      hasErrors = true;
+    }
+  }
 
   // Check badges/titles: the file must mention the code truth in at least one
   // of the accepted phrasings for its language.

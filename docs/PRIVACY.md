@@ -1,8 +1,8 @@
 # Privacy Policy
 
-_Last updated: 2026-10-28 · Applies to TokenTracker Plus: the Windows desktop app, the CLI, and the bundled dashboard.
+_Last updated: 2026-11-03 · Applies to TokenTracker Plus: the Windows desktop app, the CLI, and the bundled dashboard._
 
-This build ships **no first-party cloud service**. There is no TokenTracker-operated backend, account system, or leaderboard server, and no shared key is bundled. Every row below marked as cloud-only is inactive unless you explicitly configure an InsForge-compatible instance of your own (`--base-url` with your own public anon key, or `TOKENTRACKER_INSFORGE_BASE_URL`); with nothing configured the app makes no cloud request of any kind.
+This build ships **no first-party cloud service**. There is no TokenTracker-operated backend, account system, or leaderboard server, and no shared key is bundled. Cloud-only features are inactive unless you explicitly configure your own compatible instance (`--base-url` with your own public anon key, or `TOKENTRACKER_INSFORGE_BASE_URL`). Local usage works offline. Provider quota reads, public model rankings, service-status pages and other optional requests below can still use the network without a cloud account.
 
 TokenTracker reads the local logs that AI coding tools already write to your disk, and turns them into token counts and cost estimates. It is local-first: the dashboard, the parsers and the database all run on your machine.
 
@@ -21,7 +21,7 @@ TokenTracker's parsers extract numbers and timestamps only. TRAE CN is a narrow 
 - **Prompts, responses, and conversation bodies** — TokenTracker may parse local tool files containing conversation records to extract usage metrics, but prompt and response texts are never persisted, collected, or transmitted
 - **File contents** from your projects
 - **Commit messages and diffs** — Git attribution runs `git log` locally, uses the subject line only to detect reverts, and keeps nothing
-- **API keys, cookies, and session tokens** belonging to your AI providers are never persisted or logged by TokenTracker
+- **Provider credentials** are never uploaded to a TokenTracker-operated service. Locally configured keys/cookies can be stored in your user directory or `.env.local`; quota integrations send the required authorization only to the corresponding provider. Secret values must not be committed or exposed in dashboard bundles.
 
 **Recorded locally, never uploaded:**
 
@@ -59,7 +59,6 @@ To erase everything TokenTracker knows about you, delete that directory. `tokent
 | **Provider quota reads** | The provider's own API (`api.anthropic.com`, `chatgpt.com`, `cursor.com`, `api.github.com`, `api.kimi.com`, `api.z.ai`, `qoder.com`, `qoder.com.cn`, `openapi.qoder.sh`, `openapi.qoder.com.cn`, `cloudcode-pa.googleapis.com`, …) | Whatever that provider's own endpoint requires, authenticated with the credentials **that provider already stored on your machine**. These requests go directly from your machine to the provider — they never pass through our servers, and we never see the response. | While quota bars are visible |
 | **TRAE CN usage read** | TRAE's internal API | Transmits the existing sign-in authorization from the locally signed-in TRAE CN app to TRAE; reads usage metadata only. TokenTracker never persists or logs the auth token or prompt/response content. | Off unless you set `TOKENTRACKER_TRAE_CN_USAGE=1`; then during eligible non-background sync when local TRAE CN auth exists |
 | **GitHub star count** | `api.github.com` | Nothing but the request itself (public repo metadata) | On dashboard load |
-| **Update check** | `api.github.com` | Nothing but the request itself | Windows: once at launch. macOS: only when you click "Check for Updates" |
 | **Pricing data refresh** | `raw.githubusercontent.com` | Nothing but the request itself (public model pricing JSON from BerriAI/litellm) | At most once every 24 hours when the local pricing cache is missing or stale |
 
 Both telemetry items are disabled together by a single switch:
@@ -82,7 +81,9 @@ Audit: [`src/lib/telemetry.js`](../src/lib/telemetry.js), [`dashboard/src/lib/an
 | **Exchange rates** | `open.er-api.com` | Nothing but the request itself | Selecting a non-USD display currency |
 | **Desktop pet download** | `codex-pets.net` | The pet id you chose | Importing a pet from a link |
 | **IP check page** | `ip.net.coffee`, `claude.ai`, `1.1.1.1` | Your IP address is, by design, what these endpoints observe — that page exists to tell you how providers see your network | Opening the IP Check page |
-| **Service status page** | Provider status pages (`status.claude.com`, `status.openai.com`, `status.cursor.com`, …) | Nothing but the request itself | Opening the Service Status page |
+| **Service status page** | Provider status pages (`status.claude.com`, `status.openai.com`, `status.cursor.com`, `status.opencode.ai`, …) | Nothing but the request itself; relayed by the local server | Opening the Service Status page |
+| **Global model rankings** | Artificial Analysis and AIHOT public pages | Nothing but the request itself; fetched and cached locally | Opening the global model rankings; each source has an independent cache and snapshot fallback |
+| **Upstream update check** | `api.github.com` | Nothing but the request itself | Only the manual Windows “Check upstream updates” action; no automatic download or installation |
 | **Share card fonts** | `fonts.googleapis.com` | Standard web-font request; Google can see your IP address | Generating a share image |
 
 ### 3.3 Never
@@ -97,11 +98,11 @@ Audit: [`src/lib/telemetry.js`](../src/lib/telemetry.js), [`dashboard/src/lib/an
 
 **This build operates no cloud service**, so by default there is nothing to sign in to: local history, achievements, sessions and every card are computed on your machine. If you point the app at an InsForge-compatible instance you control, the account features below become available on that instance, and it — not the TokenTracker authors — operates and stores them.
 
-Signing in is **entirely optional**. TokenTracker is fully functional without an account; the leaderboard, cross-device aggregation, badges and public profiles are the only features that require one.
+Signing in is **entirely optional**. Local history, local achievements and sessions work without an account. Account aggregation and public profiles require your configured cloud instance. A usage-scope badge identifies local/account reads; temporary read-only comparison is available only when signed in, sync is enabled and cloud reads are available. Selecting a comparison does not change upload preferences and resets on account changes or disabled sync.
 
 **Sent when signed in:**
 
-- Hourly usage buckets, each containing exactly: `hour_start`, `source`, `model`, `input_tokens`, `output_tokens`, `cached_input_tokens`, `cache_creation_input_tokens`, `reasoning_output_tokens`, `total_tokens`, `conversation_count`
+- Hourly usage buckets, containing token counters such as `hour_start`, `source`, `model`, `input_tokens`, `output_tokens`, `cached_input_tokens`, `cache_creation_input_tokens`, `reasoning_output_tokens`, `total_tokens`, `conversation_count`, plus supported speed-tier counters
 - A machine id at device-registration time, so usage from several computers can be merged into one account without double-counting
 - The email address and display name from your OAuth provider (GitHub or Google)
 
@@ -114,7 +115,7 @@ Signing in is **entirely optional**. TokenTracker is fully functional without an
 
 **Public visibility:** your profile appears on the public leaderboard only while `Settings → Account → Public profile` is on. Turning it off removes you from the leaderboard and turns badges into a "private" placeholder.
 
-**Deleting cloud data:** contact us via [GitHub](https://github.com/01UNCLEDOG01/TokenTracker-Plus) and we will remove the account and its usage rows. Deleting `~/.tokentracker/` removes the local copy immediately. Do not include account credentials or receipts in a public issue.
+**Deleting cloud data:** use your own instance's account controls or contact its operator. This fork's maintainers do not operate that instance and cannot delete its rows. Local data is managed separately under `~/.tokentracker/`. Do not include account credentials or receipts in a public issue.
 
 ---
 
@@ -150,8 +151,8 @@ TokenTracker is a developer tool and is not directed at children under 13. We do
 
 ## 8. Changes
 
-Material changes to this policy will be noted in the release notes and in the `Last updated` date above. The full history is in [this file's Git log](https://github.com/xiufengsun/TokenTracker/commits/main/docs/PRIVACY.md).
+Material changes to this policy will be noted in the release notes and in the `Last updated` date above. The full history is in [this file's Git log](https://github.com/01UNCLEDOG01/TokenTracker-Plus/commits/main/docs/PRIVACY.md).
 
 ## 9. Contact
 
-Questions, corrections, or deletion requests: [github.com/xiufengsun/TokenTracker/issues](https://github.com/xiufengsun/TokenTracker/issues)
+Questions or corrections: [this fork's issues](https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues). Cloud data requests belong with your own instance's operator.

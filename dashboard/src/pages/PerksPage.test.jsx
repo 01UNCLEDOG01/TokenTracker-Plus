@@ -212,6 +212,8 @@ describe("PerksPage", () => {
     // 国际卡（有英文 overlay）：智谱双站卡显示英文卡名与英文描述
     expect(screen.getByText(/Zhipu Open Platform/)).toBeInTheDocument();
     expect(screen.getByText(/An AI-first code editor by Anysphere/)).toBeInTheDocument();
+    expect(screen.getByText(/DeepSeek-V4\.1-Flash free calls ended/)).toBeInTheDocument();
+    expect(screen.getByText(/HY3 remains available for free/)).toBeInTheDocument();
     // 纯中国卡无 overlay，保持中文
     expect(screen.getByText(/阿里百炼/)).toBeInTheDocument();
     const names = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);

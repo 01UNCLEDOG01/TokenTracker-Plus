@@ -1,12 +1,20 @@
-# TokenTracker for Windows (tray app)
+# TokenTracker Plus for Windows
 
-The Windows counterpart of the macOS menu-bar app (`TokenTrackerBar/`). It is a
-thin native shell around the same cross-platform pieces — the Node CLI, the local
-`tracker serve` server, and the built dashboard — exposed as a resident **system
-tray** application.
+The Windows desktop app for this fork wraps the Node CLI, the local server and
+built dashboard in a resident **system tray** application. This repository ships
+Windows installers and source only; macOS and Linux clients are not maintained.
 
-- **Stack:** .NET 8 WinForms + WebView2 (mirrors the macOS `NSStatusItem` + `WKWebView` design).
-- **Scope (MVP):** tray icon, right-click menu (Open Dashboard / Sync Now / Launch at startup / Star on GitHub / Quit), auto-starts the local server, opens the dashboard in an embedded WebView2 window.
+- **Stack:** .NET 8, WinForms tray, WPF/WebView2 dashboard and native widgets.
+- **Features:** tray menus, local sync, startup preferences, embedded dashboard,
+  desktop pets, quota widgets, usage pill, theme/language settings and a native
+  settings bridge. Usage tracking requires no cloud account.
+
+## Install
+
+Download `TokenTracker-Setup.exe` from this fork's [published releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases).
+Older assets may include the version in their filename. Node and the .NET runtime
+are bundled; Windows 10/11 and WebView2 Runtime are required. The .NET SDK is only
+needed when building from source.
 
 ## What it does
 
@@ -46,12 +54,13 @@ with a clipped rounded region, so it does not require Windows 11 Acrylic.
    dashboard in a WebView2 window pointed at `http://127.0.0.1:<P>`.
 3. On quit (or crash — see Job Object below) the Node server is stopped.
 
-### Why a dynamic port instead of 7680
+### Local server port
 
-The macOS app hardcodes `:7680`. On Windows that port is frequently taken:
+The CLI defaults to `:7680`. On Windows that port can be taken:
 **Delivery Optimization (DoSvc)** binds `::7680` dual-stack, which also reserves
-IPv4 `7680`, so binding fails with `EACCES`. We therefore pick a free loopback
-port at launch and pass it explicitly, and always use the literal `127.0.0.1`
+IPv4 `7680`, so binding fails with `EACCES`. The desktop app prefers `:17680`
+and falls back to an OS-assigned free loopback port when it is busy. It passes
+that port explicitly and always uses the literal `127.0.0.1`
 (never `localhost`, which resolves to `::1` first and would hit DoSvc).
 
 ### Process cleanup
@@ -71,7 +80,7 @@ force-killed (Task Manager "End task" / crash), not just on a graceful Quit.
 ## Build
 
 ```powershell
-dotnet build -c Debug   # output: bin\Debug\net8.0-windows\TokenTracker.exe
+dotnet build -c Debug   # output: bin\Debug\net8.0-windows10.0.19041.0\TokenTracker.exe
 ```
 
 The tray icon is committed at `assets\trayicon.ico`. To regenerate it:
@@ -85,6 +94,7 @@ powershell -ExecutionPolicy Bypass -File scripts\make-icon.ps1
 `tracker serve` requires a built dashboard, so build it once from the repo root:
 
 ```powershell
+$env:TOKENTRACKER_BUILD_PET = '1'
 npm run dashboard:build
 ```
 
@@ -93,32 +103,39 @@ Then point the app at system Node + the repo CLI via env vars and run it:
 ```powershell
 $env:TOKENTRACKER_NODE  = (Get-Command node).Source
 $env:TOKENTRACKER_ENTRY = "$PWD\..\bin\tracker.js"   # from TokenTrackerWin\
-.\bin\Debug\net8.0-windows\TokenTracker.exe
+.\bin\Debug\net8.0-windows10.0.19041.0\TokenTracker.exe
 ```
 
 The exe runs in the tray (no console window). Right-click the tray icon to quit.
 
 ## Bundle a self-contained runtime (for distribution)
 
-Mirrors `TokenTrackerBar/scripts/bundle-node.sh`. Downloads the pinned Node
-win-x64 binary and copies the CLI source + built dashboard into `EmbeddedServer\`
+`scripts\bundle-node.ps1` downloads the pinned Node 22.22.2 win-x64 binary,
+builds the dashboard with the pet/quota entries and copies the CLI and dashboard into `EmbeddedServer\`
 (gitignored), which `ServerManager` prefers over the dev fallback.
 
 ```powershell
-npm run dashboard:build                                   # from repo root
+# Run from TokenTrackerWin; bundle-node builds the PET dashboard itself.
 powershell -ExecutionPolicy Bypass -File scripts\bundle-node.ps1
-dotnet publish -c Release -r win-x64 --self-contained false
+dotnet publish -c Release -r win-x64 --self-contained true -o publish
+# Use a fresh staging directory; an existing child must not be copied into itself.
+if (Test-Path publish\EmbeddedServer) { throw 'Stage into a fresh publish directory before copying EmbeddedServer.' }
+Copy-Item EmbeddedServer publish\EmbeddedServer -Recurse
+node ..\scripts\verify-windows-package.cjs publish
+dotnet test ..\TokenTrackerWin.Tests\TokenTrackerWin.Tests.csproj -c Release
 ```
 
 > The published `EmbeddedServer\` must sit next to `TokenTracker.exe`. Wire it
 > into the publish output (copy step / installer) when packaging an installer.
 
-## Not yet implemented (vs. the macOS app)
+## Distribution and updates
 
-This is an MVP launcher. The following macOS features are **not** ported yet:
+The Inno Setup definition is `installer/TokenTracker.iss`; its version is passed
+as `/DMyAppVersion=X.Y.Z`. Verify the staged package before compiling. The manual
+`release-windows` GitHub workflow builds installers and portable ZIPs for an
+existing tag, uploads only to a draft and titles it `vX.Y.Z`. The owner publishes
+the draft. This fork does not publish an npm package.
 
-- Live token/cost numbers rendered into the tray icon.
-- Native ↔ web bridge (`NativeBridge`) — Settings page menu-bar-pref controls,
-  theme sync, OAuth deep-link relay. The dashboard loads in plain web mode.
-- Auto-update checker.
-- An installer / signed package and a CI workflow to build the `.exe`.
+The manual **Check upstream updates** action is informational: it does not
+download or execute an upstream installer, and background checks are disabled.
+Upgrade this fork by downloading its own latest published Windows installer.

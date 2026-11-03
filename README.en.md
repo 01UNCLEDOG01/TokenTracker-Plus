@@ -24,9 +24,9 @@
 
 ## ⚡ Quick Start
 
-> **Prerequisites**: Node.js **20+** (the CLI is cross-platform source code, used directly on Windows; the desktop app ships as a Windows installer only, which additionally requires the .NET 8 SDK and WebView2 Runtime).
+> **Prerequisites**: running from source requires Node.js **20+**. The Windows installer bundles Node and the .NET runtime; users need Windows 10/11 and WebView2 Runtime. The .NET 8 SDK is required only to build the desktop app.
 
-**Windows users — no build needed**: download `TokenTracker-plus-Setup-v*.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+**Windows users — no build needed**: download `TokenTracker-Setup.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
 
 > 💡 **About the Windows SmartScreen prompt**: This is an individual open-source project without a paid code-signing certificate, so Windows SmartScreen may show an "Unknown publisher" warning on first install. This is normal — click "More info" → "Run anyway" to proceed. The code is 100% open source and all data stays on your machine.
 
@@ -47,9 +47,9 @@ node bin/tracker.js doctor     # System diagnostics and health check
 ```
 
 **What you can see in 30 seconds:**
-- 📊 **Local Dashboard** (Windows desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
+- 📊 **Local Dashboard** (Windows desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees. With at least 8 active sample days, reaching P98.5 while exceeding P95 also qualifies for Lv7.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
-- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 55 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the bundled `Qoder-*-Refresh-Cookie` scripts — core usage tracking needs none of that.)
+- 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 55 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the repository's `Qoder-*-刷新Cookie` scripts — core usage tracking needs none of that.)
 - 🏆 **65 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard.
 
 > **Looking for native desktop apps?**
@@ -62,15 +62,19 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 - 🔌 **Built for Multi-Platform Power Users (55 Tools)** — Designed specifically for developers juggling multiple AI tools. Aggregates fragmented logs across CLIs, VS Code / Cursor extensions, and IDEs into one unified ledger without switching between 10+ dashboards.
 - 💰 **Exclusive True Valuation for Free Models** — Strictly rejects upstream zeroing of `-free` routes! Free tokens are valued at standard provider list prices, giving you exact metrics on how much compute value you saved (or "freeloaded"), plus unlocking the "Frugal Architect" badge and "Frugal Archmage" synergy title.
-- ⚡ **Nanosecond Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
-- 🏠 **100% Local-First & Zero Privacy Risk** — Runs strictly locally. Parses on-device logs and databases; code snippets, prompts, and personal account credentials never leave your computer.
+- ⚡ **Multi-source Token Generation Speed Capture** — Multi-source parser and lock-free SQLite WAL probing; millisecond-level chunk duration extraction, separate reasoning token accounting, and precise session `tok/s`.
+- 🏠 **Local-first usage collection** — Parses on-device logs and databases without saving prompt, response or code bodies. Provider credentials are used only for the corresponding optional integrations; no first-party cloud service is bundled.
 - 📊 **Lv0~Lv7 8-Tier Heatmap (Featuring Lv7 Singularity · 3B+ Tokens)** — Beyond previous ceilings! Exclusively unlocking the Lv7 "Singularity" tier for single-day bursts exceeding 3 Billion tokens with towering 3D voxel heights.
 - 🌲 **Deep Session Topology & Agent Breakdown** — Drill down into primary sessions, tool calls, and subagent trees to pinpoint expensive operations; Trae CN merges both legacy Trae Work and modern Trae CN session databases.
 - 🏆 **65 Offline Achievements & 17 3D Synergy Title Crests (Steam Stacked Toasts)** — 100% local offline unlocking; authentic Steam unlock audio, concurrent multi-toast vertical stacking (up to 3 toasts with hover-pause), bespoke 3D relief crest medallions with real-time UI/Leaderboard equip display, and Canvas battle report export.
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles and cursor tracking), 4 desktop widgets, and always-on-top quota cards.
-- 🌍 **Global Model Board (zero setup)** — Reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models, side by side with your own usage. No API key, cached locally, self-updating.
-- 🎁 **Provider Perks Guide** — 53 vendors and clients worth freeloading from: new-user credit grants, daily free tiers, long-lived quotas and check-in perks, cards with an active invite program offering an invite link and every card offering a plain official link, plus the date the figures were checked and their source, filterable by category and searchable.
+- 🌍 **Two global model leaderboards** — Switch between Artificial Analysis intelligence rankings and AIHOT overall rankings to compare scores, input/output/cache prices, context and output speed. Each has its own cache and labeled snapshot fallback. Missing metrics show “—”; measured zero values remain zero.
+- 🎁 **Provider Perks Guide** — 53 providers and clients, with starter credits, daily/monthly benefits, standing free tiers and check-in credits. Active invite programs get invite links; every card has an official link, verification date and source. All cards use one A–Z order, choosing the earlier full Chinese pinyin or English brand name, with categories, search and claim markers.
+- **Quota resilience and service status** — Cursor falls back to valid same-account quota caches during transient failures, while expired credentials still prompt sign-in. OpenCode shows official service status. WorkBuddy China and international editions keep separate plan and reward balances; the existing hover details show the earliest Beijing expiry day and the credits expiring that day, preserving fractions.
+- **Codex speed-tier breakdown** — Expand models to see observed Standard / Fast / Ultrafast tokens and full tier costs, including cached and long-context usage. Provider cards and the all-models view share the same breakdown; total-cost calculation stays consistent.
+- **Usage scope and read-only comparison** — A badge identifies local or account data; local data is the default. A temporary comparison is available only with an explicitly configured cloud instance, sign-in, enabled sync and working cloud reads. It does not change upload preferences and resets on account changes or when sync is disabled.
+- **Session retention and local backup** — Drill into local Qoder editions, MiniMax, Devin and other sessions. Lightweight gzip snapshots retain only previously collected session statistics after source files are deleted; they cannot recover uncollected conversations. Export `.ttbackup` in Settings; imports on another machine preview changes and add missing data only.
 
 ---
 
@@ -112,7 +116,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 <tr>
 <td colspan="2">
 
-**Global Model Board** — reads the Artificial Analysis leaderboard directly: intelligence index, input/output/cache pricing, context window and output speed for 80+ models. No setup, cached locally, self-updating.
+**Two Global Model Leaderboards** — Artificial Analysis and AIHOT in one page, with comparable metrics and prices, separate caches and “—” for missing values.
 
 <img src="./docs/screenshots/global-models.png" alt="Global Models" />
 
@@ -139,10 +143,10 @@ node bin/tracker.js doctor     # System diagnostics and health check
 |:---|:---:|:---:|:---:|
 | **Architecture & Focus** | **Macro Ledger + Deep Topology + Real-Time Speed** | General All-in-One Dashboard (optional hosted cloud) | Minimalist Desktop Floating Widget |
 | **AI tools supported** | **55** | 47 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
-| **Rate-limit tracking** | **✅ 18 providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
+| **Rate-limit tracking** | **✅ Multiple providers** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
 | **Primary Interaction** | **Windows Tray + Web Dashboard + Widgets + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
 | **Data Privacy & Storage** | **100% Local-First** (Zero cloud requirement, WAL-aware) | Local SQLite + Optional official cloud sync | Local SQLite WAL (No macro historical reporting) |
-| **Token Speed (tok/s)** | **✅ Native Support** (Nanosecond duration, reasoning tokens) | ❌ Only totals and spend; no speed metrics | ✅ Supported (Key highlight of floating widget) |
+| **Token Speed (tok/s)** | **✅ Native Support** (Source timing measurements, reasoning tokens) | ❌ Only totals and spend; no speed metrics | ✅ Supported (Key highlight of floating widget) |
 | **Agent Topologies** | **✅ Deep Topology** (Primary/subagent drill-down, tool calls) | ⚠️ Basic flat session listing | ❌ Flat request stream only; no hierarchy |
 | **Activity Heatmap** | **✅ 8 Tiers (Lv0~Lv7)** (Features Lv7 Singularity for 3B+ single-day bursts) | ⚠️ Traditional 4 tiers (Lv0~Lv4, saturated early) | ❌ No heatmap feature |
 | **Cost Valuation Truth** | **✅ Strict List Pricing** (Rejects `-free` zeroing; WorkBuddy points) | ⚠️ Forces `-free` routes to $0; points unrefined | ⚠️ Basic pricing config with limited scope |
@@ -219,8 +223,8 @@ The repo supports **55 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 | **OpenCode** | reasoning_output_tokens speed denominator fix |
 | **GitHub Copilot** | Reconciles multi-source data to avoid double-counting |
 | **Kimi Code** | Live chunk speed and output tok/s metrics |
-| **WorkBuddy** (Tencent) | Dual-source split: Standard Edition; quota card reads the desktop app over IPC (plan + reward pool), requires the client running |
-| **WorkBuddy AI** (Tencent) | Dual-source split: High-Flyer Edition & points audit; quota card also via desktop IPC (the intl client may bill through the CN domain — auto-compat) |
+| **WorkBuddy** (Tencent) | Separate China account and usage; quota card reads the desktop app over IPC (plan + reward pool), requires the client running |
+| **WorkBuddy AI** (Tencent) | Separate international account and credit audit; quota card also via desktop IPC (the intl client may bill through the CN domain — auto-compat) |
 | **Xiaomi MiMo** | Third-party models count too (direct-vendor blocklist detection); renamed from the original Mimo |
 | **ZCode** | Session drill-down with millisecond tok/s capture; per-request gateway reconciliation restores the input side for self-added providers |
 | **Qoder** | Model refinement & credit balance reconciliation |
@@ -257,7 +261,7 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 
 - **Strict Rejection of Upstream `-free` Rule**: Upstream forces all `-free` models to $0. This fork permanently rejects that behavior, valuing all tokens at true vendor list prices to reflect actual productivity investment.
 - **Pricing Sources**: Aggregates LiteLLM official rate sheets and local curated overrides (`src/lib/pricing/curated-overrides.json`). Unpriced models record token quantities without fabricating fictitious currency.
-- **WorkBuddy Credits Reconciliation**: Dual-track accounting separating Standard and High-Flyer editions, reconciling consumption points against tokens.
+- **WorkBuddy edition and credit separation**: China and international accounts, usage and quotas stay separate; subscription and reward pools are reported separately rather than merged across accounts.
 - **Gateway (relay) attribution**: Local gateways (Agent2API / Magpie) keep only the requests their clients cannot self-certify. A caller this tracker already parses (DSH, Codex, …) is skipped; a client whose own ledger misses the input side (Claude Code, ZCode) gets the gateway row credited onto **its** card — ZCode receives input + cache only, Claude Code keeps the completion. The gateway card therefore holds unattributable traffic alone and never double-counts a client card.
 
 ### Heatmap Tiers & Data Analytics (Lv0 ~ Lv7 8-Tier Scale)
@@ -268,8 +272,8 @@ The activity heatmap uses an **8-tier scale**: 6 dynamic quantiles (`P30`, `P55`
 - **Level 3**: `P55 < tokens ≤ P75` (Deep coding)
 - **Level 4**: `P75 < tokens ≤ P88` (Intensive output)
 - **Level 5**: `P88 < tokens ≤ P95` (Extreme burst, emerald enhancement)
-- **Level 6**: `> P95` (Peak production with the glowing night tier)
-- **Level 7 · Singularity**: `tokens ≥ 3,000,000,000` in a single day — 3D voxels break past the nominal ceiling (up to $1.25 \times H_{\text{max}}$) with an emerald glow ring.
+- **Level 6**: `> P95` without meeting the Lv7 rule (Peak production with the glowing night tier)
+- **Level 7 · Singularity**: `tokens ≥ 3,000,000,000` in a single day — 3D voxels break past the nominal ceiling (up to $1.25 \times H_{\text{max}}$) with an emerald glow ring. With at least 8 active sample days, reaching P98.5 while exceeding P95 also qualifies for Lv7.
 
 Both 2D flat calendar and 3D voxel heatmaps (voxel heights scale with the level; Lv7 rises above the ceiling) are fully synchronized.
 
@@ -277,6 +281,7 @@ Both 2D flat calendar and 3D voxel heatmaps (voxel heights scale with the level;
 
 ## 🔒 Data & Privacy
 
+- **Optional network features**: local usage collection needs no account or cloud. Quota and balance cards contact their respective providers; model leaderboards and service status use public sources. Self-hosted cloud sync requires explicit configuration. See the [privacy policy](./docs/PRIVACY.md).
 - **100% Local-First**: All data parsing, speed computation, and report rollups happen strictly on your local machine.
 - **Metadata Only**: Only logs token counts, timestamps, model identifiers, and calculated currency amounts. **Prompts, responses, and code are never saved or uploaded.**
 - **Local Credential Isolation**: Cookies, API keys, and local credentials reside exclusively in user home folders or `.env.local`. They are never committed or exposed in web bundles.

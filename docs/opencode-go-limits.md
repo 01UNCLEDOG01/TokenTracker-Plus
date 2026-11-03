@@ -4,6 +4,12 @@
 
 TokenTracker exposes **OpenCode Go** as a usage-limits provider separate from the ordinary local OpenCode session source. The provider reports the three subscription windows that OpenCode calculates on its servers: rolling five-hour usage, weekly usage, and monthly usage.
 
+The Service Status page separately reads OpenCode's public status endpoint,
+`https://status.opencode.ai/api/status`, through the local server. It reports
+the most severe known component state; missing or failed responses remain
+unknown. Public service status is independent of an account's Go quota and
+does not require a Go API key.
+
 The preferred source is OpenCode's official authenticated usage endpoint, `GET https://opencode.ai/zen/go/v1/usage`. The endpoint is implemented upstream in [anomalyco/opencode#16513](https://github.com/anomalyco/opencode/pull/16513). The older signed-in dashboard scrape remains available for existing configurations, and a local SQLite cost calculation remains an explicit, non-authoritative estimate.
 
 ## Data-source priority

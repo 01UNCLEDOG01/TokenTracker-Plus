@@ -3,10 +3,9 @@
 WorkBuddy China and WorkBuddy AI use separate local authenticated proxies:
 `~/.workbuddy/wbipc/endpoint.json` and `~/.workbuddy-ai/wbipc/endpoint.json`.
 `WORKBUDDY_HOME` and `WORKBUDDY_AI_HOME` override the respective directories.
-The UI exposes one **WorkBuddy** provider and one visibility switch for both editions.
-It chooses a successful quota over an unavailable edition; if both have usable
-quotas, China takes precedence. Balances from different accounts are never added.
-Legacy `workbuddyAi` display preferences migrate into the unified `workbuddy` switch.
+The UI exposes separate **WorkBuddy** (`workbuddy`) and **WorkBuddy AI**
+(`workbuddyAi`) cards and visibility switches. Each edition reads its own
+account and cache partition; balances are never added or borrowed across editions.
 
 The desktop app must be running and signed in. TokenTracker authenticates the
 local peer with the discovery ticket and the broker's HMAC challenge, then calls
@@ -23,7 +22,14 @@ The summary supplies the plan balance; package details supply `CycleEndTime`.
 The window also carries `used_credits`, `limit_credits` and `remaining_credits`
 for hover details, displayed to at most two decimal places. Only the subscription's
 base credits contribute to the displayed percentage.
-Reward, gift, bonus and extra-credit packages are excluded. Requests and sockets
+Reward, gift, bonus and extra-credit packages are excluded from the subscription
+percentage and shown in a separate reward window. Its hover details show the
+earliest expiry day in Beijing time and the remaining credits expiring on that
+day, with fractional amounts preserved. Expired grants are excluded; grants
+without an expiry cannot contribute to the expiry summary. The displayed day
+comes from the billing timestamps, not the viewer's local timezone.
+
+Requests and sockets
 are cancelled when the usage-limits provider budget expires. Tickets, backend
 credentials and full API responses are never persisted or logged. Legacy
 plaintext sessions and manually configured `WORKBUDDY_ACCESS_TOKEN` /
@@ -56,7 +62,8 @@ WorkBuddy Desktop 5.8.3 bundle:
 This means China's `TCACA_code_008_cfWoLwvjU4` is shown as `Free`, not an invented
 `Trial` label. Unknown localized packages stay unnamed until an official English
 name is available. English casing and punctuation survive limits aggregation and
-render the same way in the dashboard and macOS menu bar, regardless of UI locale.
+render consistently in the dashboard regardless of UI locale. This fork ships
+the Windows app; it does not maintain a macOS menu-bar client.
 
 China Desktop 5.8.3 was verified against the live signed-in billing proxy. The
 international transport and edition isolation are covered by a local broker

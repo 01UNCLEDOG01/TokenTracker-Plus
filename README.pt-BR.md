@@ -17,16 +17,20 @@
 - 💰 **Modelos gratuitos avaliados pelo preço de tabela** —— rejeitamos a regra do upstream que zera rotas `-free`; o valor que você "pegou de graça" fica visível.
 - ⚡ **Fluxo tok/s em milissegundos** —— duração por chunk e tokens de raciocínio separados, velocidade precisa por sessão.
 - 🌲 **Topologia de sessões** —— sessão principal / subagentes / chamadas de ferramenta, para achar as operações caras.
-- 📊 **Heatmap de 8 níveis (Lv0~Lv7)** —— incluindo o nível "Singularidade" para dias acima de 3 bilhões de tokens. 2D e 3D.
+- 📊 **Heatmap de 8 níveis (Lv0~Lv7)** —— incluindo o nível "Singularidade" para dias acima de 3 bilhões de tokens. 2D e 3D. Com pelo menos 8 dias ativos na amostra, atingir P98.5 e superar P95 também resulta em Lv7.
 - 🏆 **65 conquistas + 17 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas.
 - 🪟 **Integração no Windows** —— bandeja do sistema, pet e widgets de cota; o instalador já embute o Node (sem build).
-- 🌍 **Ranking global de modelos (zero configuração)** — lê direto o leaderboard oficial da Artificial Analysis: índice de inteligência, preços de entrada/saída/cache, contexto e velocidade de saída de 80+ modelos. Sem chave de API, cache local com atualização automática.
-- 🎁 **Guia de benefícios dos provedores** — 53 serviços e clientes aproveitáveis de graça: créditos de boas-vindas, tiers gratuitos diários, cotas de longa duração e perks de check-in, com link de convite nos cartões com convite ativo e link oficial em todos eles, além da data de verificação e da página de origem em cada cartão, filtrável e pesquisável.
+- 🌍 **Dois rankings globais de modelos** — Alterne entre inteligência da Artificial Analysis e ranking geral da AIHOT para comparar notas, preços de entrada/saída/cache, contexto e velocidade. Cada ranking tem cache próprio e fallback para um snapshot identificado. Métricas ausentes aparecem como “—”; zeros medidos continuam como zero.
+- 🎁 **Guia de benefícios dos provedores** — 53 serviços e clientes com créditos iniciais, benefícios diários/mensais, planos gratuitos e check-in. Cartões com campanhas ativas trazem convite; todos têm link oficial, data de verificação e fonte. A ordem A–Z usa o nome que vem primeiro entre o pinyin completo do nome chinês e a marca em inglês, com filtros, busca e marcação de resgate.
+- **Cotas e status dos serviços** — Em falhas temporárias, o Cursor usa um cache válido da mesma conta; credenciais expiradas continuam pedindo login. O OpenCode mostra o status oficial. WorkBuddy China e internacional mantêm saldos separados; o detalhe ao passar o mouse informa o primeiro dia de expiração no horário de Pequim e os créditos que expiram nesse dia, preservando decimais.
+- **Detalhamento por velocidade do Codex** — Expanda um modelo para ver tokens medidos de Standard / Fast / Ultrafast e o custo completo de cada faixa, incluindo cache e contexto longo. Cartões de ferramentas e a visão de todos os modelos compartilham o cálculo; o total permanece consistente.
+- **Escopo de uso e comparação somente leitura** — O indicador identifica dados locais ou da conta; o padrão é local. A comparação temporária exige nuvem configurada por você, login, sincronização ativa e leitura da nuvem disponível. Não muda preferências de envio e é redefinida ao trocar de conta ou desativar a sincronização.
+- **Retenção de estatísticas e backup local** — Explore sessões locais das duas edições do Qoder, MiniMax, Devin e outras. Snapshots gzip leves preservam apenas estatísticas já coletadas após excluir a origem; não recuperam conversas não coletadas. Exporte `.ttbackup` nas configurações; a importação em outro PC mostra uma prévia e adiciona somente dados ausentes.
 - 🔒 **100% local** —— grava apenas números; código e prompts nunca são salvos ou enviados.
 
 ## ⚡ Início rápido
 
-**No Windows, sem build**: baixe o `TokenTracker-plus-Setup-v*.exe` em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) e instale. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
+**No Windows, sem build**: baixe o `TokenTracker-Setup.exe` em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) e instale. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
 
 ```bash
 git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
@@ -41,9 +45,11 @@ O dashboard local fica em `http://localhost:17680` no app do Windows (a CLI `ser
 
 ## 💰 Cobrança e heatmap
 
-`custo = Σ(tokens × preço de tabela)`. Tarifas do LiteLLM + ajustes locais. Modelos sem preço público registram apenas tokens, sem inventar valores. O heatmap usa os quantis P30–P95 + nível Lv7 (≥ 3 bi de tokens/dia), em 8 níveis.
+`custo = Σ(tokens × preço de tabela)`. Tarifas do LiteLLM + ajustes locais. Modelos sem preço público registram apenas tokens, sem inventar valores. O heatmap usa os quantis P30 / P55 / P75 / P88 / P95 / P98.5 + nível Lv7 (≥ 3 bi de tokens/dia), em 8 níveis.
 
 ## 🔒 Privacidade
+
+A coleta local dispensa conta e nuvem. Cartões de cota e saldo consultam seus provedores; rankings e status usam fontes públicas. A sincronização com nuvem própria exige configuração explícita. Veja a [política de privacidade](./docs/PRIVACY.md).
 
 Só números (tokens, horários, nome do modelo, custo estimado) em `~/.tokentracker/`. Prompts, respostas e código nunca são salvos ou enviados. Cookies/chaves são necessários apenas em alguns cartões de cota — o núcleo funciona sem nada disso. Os cartões de cota do WorkBuddy (ambas as edições) só leem com o app desktop em execução (plano + créditos de recompensa diária).
 
