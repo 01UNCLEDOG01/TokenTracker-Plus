@@ -184,15 +184,26 @@ try {
   warn("ProviderIcon.jsx 读不到，跳过图标可解析性检查");
 }
 
-if (warnings.length) {
-  console.log(`validate-perks: ${warnings.length} 条提醒（不判红）`);
-  for (const w of warnings) console.log(`  WARN ${w}`);
-}
-
-if (errors.length) {
-  console.error(`validate-perks: ${errors.length} 项不通过`);
-  for (const e of errors) console.error(`  FAIL ${e}`);
-  process.exit(1);
-}
-
-console.log(`validate-perks: ${rows.length} 行福利条目全部带核对时间与来源，结构与措辞合格`);
+import("../dashboard/src/data/perks-sort.mjs").then(({ getPerkSortKey }) => {
+  for (const row of rows) {
+    try {
+      getPerkSortKey(row);
+    } catch (error) {
+      fail(`${row.id}: ${error.message}`);
+    }
+  }
+  if (warnings.length) {
+    console.log(`validate-perks: ${warnings.length} 条提醒（不判红）`);
+    for (const w of warnings) console.log(`  WARN ${w}`);
+  }
+  if (errors.length) {
+    console.error(`validate-perks: ${errors.length} 项不通过`);
+    for (const e of errors) console.error(`  FAIL ${e}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`validate-perks: ${rows.length} 行福利条目全部带核对时间与来源，结构与措辞合格；大写品牌排序键完整`);
+}).catch((error) => {
+  console.error(`validate-perks: 排序校验加载失败：${error.message}`);
+  process.exitCode = 1;
+});

@@ -1,9 +1,21 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { PerksPage, buildPerksFeedbackUrl } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
+import { PERK_PROVIDERS } from "../data/perksData.js";
+import { localizePerk } from "../data/perks-i18n-en.js";
+
+const ORDERED_IDS = [
+  "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling", "apigoto",
+  "autoclaw", "autoclaw_intl", "bigmodel", "catpaw", "cerebras", "cloudflare_workers_ai", "huawei_codearts",
+  "cola", "tuanjie_cowork", "cursor", "deepseek", "doubaowork", "google_ai_studio", "groq", "siliconflow",
+  "scnet", "volcengine", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "longcat", "loomy",
+  "minimax_code", "minimax", "modelscope", "nvidia_nim", "opencode", "opencode_go", "openrouter",
+  "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "sensenova", "teleagent", "trae_cn", "trae",
+  "unisound_maas", "vyceai", "workbuddy_intl", "workbuddy", "zcode",
+];
 
 // Mock copy helper using real zh strings
 vi.mock("../lib/copy", () => ({
@@ -12,6 +24,19 @@ vi.mock("../lib/copy", () => ({
 }));
 
 describe("PerksPage", () => {
+  it("renders all providers in bilingual A-Z order including usable Agent cards", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const names = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
+    expect(names).toEqual(ORDERED_IDS.map((id) => PERK_PROVIDERS.find((row) => row.id === id).name));
+    expect(names.filter((name) => name === "Agent Router")).toHaveLength(1);
+    expect(names.filter((name) => name === "Agent2API (开源本地网关)")).toHaveLength(1);
+  });
+
   it("renders page header and provider cards", () => {
     render(
       <ToastProvider>
@@ -136,9 +161,10 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    fireEvent.click(screen.getAllByText("标记已领取")[0]);
+    const agnesCard = screen.getByRole("heading", { name: "Agnes AI" }).closest(".group");
+    fireEvent.click(within(agnesCard).getByRole("button", { name: "标记已领取" }));
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
-    // 数据现序首卡 = Agnes AI（2026-11-03 起 51 家；公平排序重排后的手动插卡使首卡漂移，以数据现序为准）
+    // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录。
     expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agnes"]);
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
@@ -154,8 +180,9 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 标记第一张卡（数据现序首卡 = Agnes AI）
-    fireEvent.click(screen.getAllByText("标记已领取")[0]);
+    // 标记指定卡片，避免把领取功能与列表位置绑在一起。
+    const agnesCard = screen.getByRole("heading", { name: "Agnes AI" }).closest(".group");
+    fireEvent.click(within(agnesCard).getByRole("button", { name: "标记已领取" }));
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
 
     // 切到「已领取」：只剩被标记的那张卡（其他卡不可见）
@@ -187,6 +214,8 @@ describe("PerksPage", () => {
     expect(screen.getByText(/An AI-first code editor by Anysphere/)).toBeInTheDocument();
     // 纯中国卡无 overlay，保持中文
     expect(screen.getByText(/阿里百炼/)).toBeInTheDocument();
+    const names = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
+    expect(names).toEqual(ORDERED_IDS.map((id) => localizePerk(PERK_PROVIDERS.find((row) => row.id === id), "en").name));
     getCopyLocale.mockReturnValue("zh");
   });
 });

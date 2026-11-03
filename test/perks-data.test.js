@@ -26,6 +26,7 @@ const TAIL = `\n];\n`;
 const GOOD_ROW = `{
   "id": "acme",
   "name": "Acme AI",
+  "sortNames": ["ACME AI"],
   "provider": "acme",
   "category": ["free_tier"],
   "badge": "每日 100 积分",
@@ -56,6 +57,10 @@ test("线上福利数据通过门禁（每行都有核对时间与来源）", ()
 
 test("门禁挡住编造信号", () => {
   const cases = [
+    ["缺排序品牌名", GOOD_ROW.replace(/\n\s*"sortNames": \["ACME AI"\],/, "")],
+    ["空排序品牌名", GOOD_ROW.replace('["ACME AI"]', '[]')],
+    ["小写排序品牌名", GOOD_ROW.replace('["ACME AI"]', '["acme ai"]')],
+    ["中文未经全拼转换", GOOD_ROW.replace('["ACME AI"]', '["中文"]')],
     ["缺 sourceUrl", GOOD_ROW.replace(/\n\s*"sourceUrl": "https:\/\/acme\.example\/pricing"/, "")],
     ["缺 checkedAt", GOOD_ROW.replace(/,\n\s*"checkedAt": "2026-10-31"/, "")],
     ["相对时间措辞", GOOD_ROW.replace("注册后每日登录领 100 积分。", "注册后今晚登录领 100 积分。")],

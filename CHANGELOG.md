@@ -6,7 +6,13 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随下一个 MINOR 安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
-## [未发布]
+## [1.15.1] - 2026-11-03
+
+### 修复
+
+- **福利指南统一按 A–Z 排序**：全部服务商比较中文名全拼与英文品牌名，取更靠前的名称排序；同字母继续按完整名称排序，中文和英文界面顺序一致。Agent2API、Agent Router 回到 A 区；领取记录仍按服务商 ID 保存。新增卡片必须提供大写品牌排序名，数据门禁会检查。
+
+## [1.15.0] - 2026-11-03
 
 ### 新增
 
@@ -15,11 +21,9 @@
 
 ### 福利指南
 
-- **新增 6 家服务商（45→51 张卡）**：AMD Token Factory（Radeon Cloud，15 款免费模型 API 直连、OpenAI 兼容、国内可直连）、Cloudflare Workers AI（每日 10,000 neurons 免费算力）、Google AI Studio（Gemini 免费 API Key 按模型限速）、Groq（免费档按模型限速、LPU 极速）、NVIDIA Build（NIM 试用额度）、云知声 MaaS（实名领一个月会员 + Free 档每周 2500 积分）；国际卡同步英文内容。六语 README 与入门文档的收录数同步 43→51。
+- **新增 8 家服务商（45→53 张卡）**：AMD Token Factory（Radeon Cloud，15 款免费模型 API 直连、OpenAI 兼容、国内可直连）、Cloudflare Workers AI（每日 10,000 neurons 免费算力）、Google AI Studio（Gemini 免费 API Key 按模型限速）、Groq（免费档按模型限速、LPU 极速）、NVIDIA Build（NIM 试用额度）、云知声 MaaS（实名领一个月会员 + Free 档每周 2500 积分）、Cerebras Inference、魔搭社区；国际卡同步英文内容，README 与入门文档同步收录数。
 - **Agnes AI 网页版**：每日 600 积分为时效积分，过期清零、多日不叠加（2026-11-03 端内实测）。
 - **Agent Router**：站主账号实测恢复，3/3 模型可用（近 24h 可用率 97.76%），卡片转成功态。
-
-## [1.15.0] - 2026-11-03
 
 ### 新增与优化
 
