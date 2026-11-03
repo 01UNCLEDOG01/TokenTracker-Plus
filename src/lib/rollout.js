@@ -25958,8 +25958,43 @@ async function parseTraeCnLocalIncremental({
   if (!Array.isArray(rows)) throw new Error("TRAE CN local snapshot must be an array.");
   const migrating = lastId > 0 && (traeCnLocalState.version !== 2 ||
     /^v2:/.test(traeCnLocalState.signature || ""));
+  // A stable empty snapshot (readStableTraeSnapshot only returns consistent
+  // reads) means the store currently projects no usage rows — a reinstalled
+  // or schema-drifted Trae CN. Throwing here deadlocked every later sync
+  // with nothing to collect: the legacy cursor never retired, so "migration
+  // received an empty snapshot" re-threw forever.
+  //
+  // Retiring on the FIRST empty read, however, is its own trap: the legacy
+  // ledger carries no per-turn identities, so a store whose rows come back
+  // afterwards (backup restore, schema drift repaired) would re-book on top
+  // of the preserved totals — a silent permanent double-count. Hold for one
+  // cycle instead, and only retire after two consecutive stable empty reads.
+  // Retirement itself falls through to the normal migration block below:
+  // reset the booked trae-cn buckets, re-book the retained cloud
+  // contributions, and re-derive everything the store still evidences. That
+  // can never double-count (the reset wipes before the re-book), matches the
+  // end state the first non-empty read would have produced anyway, and a
+  // later verbatim restore re-books its rows through the same path.
+  if (migrating && rows.length === 0) {
+    // Clamp like lastId above: a corrupt streak must not skip the hold or
+    // count down from garbage. Any non-positive/garbage value restarts at a
+    // fresh hold, which still terminates (the next empty read retires).
+    const heldStreak = traeCnLocalState.traeCnEmptyStreak;
+    const emptyStreak = (Number.isSafeInteger(heldStreak) && heldStreak > 0 ? heldStreak : 0) + 1;
+    if (emptyStreak < 2) {
+      // Hold: one empty sync may be a transient store state. Keep the legacy
+      // fields untouched (a non-empty read still migrates through the normal
+      // path below) and record the streak for the next cycle.
+      cursors.traeCnLocal = { ...traeCnLocalState, traeCnEmptyStreak: emptyStreak };
+      return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
+    }
+    // Confirmed empty: retire through the normal machinery. The tail write
+    // drops traeCnEmptyStreak along with the legacy fields. If the retained
+    // cloud contributions cannot be established, readTraeCnCloudMigrationState
+    // throws and the hold repeats — the same fail-closed guard the first
+    // non-empty read would have hit, so no new failure class is introduced.
+  }
   const migrateProjects = projectEnabled && (migrating || traeCnLocalState.projectMigrationPending);
-  if (migrating && rows.length === 0) throw new Error("TRAE CN migration received an empty snapshot; existing usage was preserved.");
   if (migrating) {
     for (const identity of Object.keys(turns)) delete turns[identity];
     const cloud = await readTraeCnCloudMigrationState(queuePath, cursors);

@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
 const initSqlJs = require("sql.js");
-const { resolveTraeDbPaths, readTraeUsageRows } = require("../src/lib/trae-db");
+const { resolveTraeDbPaths, readTraeUsageRows, __resetTraeGuardFallbackWarnForTest } = require("../src/lib/trae-db");
 const { openTraeSnapshot } = require("../src/lib/trae-snapshot");
 const { withTraeSqlite } = require("../src/lib/trae-sqlite");
 
@@ -382,4 +382,40 @@ test("TRAE reader rejects an active rollback journal instead of reading uncommit
   fs.writeFileSync(file, await fixture([context()]));
   fs.writeFileSync(`${file}-journal`, Buffer.from("d9d505f920a163d7", "hex"));
   await assert.rejects(readTraeUsageRows(file, { env: {} }), /rollback transaction/);
+});
+
+test("TRAE degrades to a guard-less read when the shared read guard cannot be acquired", async (t) => {
+  const file = path.join(temp(t), "database.db");
+  fs.writeFileSync(file, await fixture([context(100)]));
+  __resetTraeGuardFallbackWarnForTest();
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (msg) => warnings.push(String(msg));
+  try {
+    let guardCalls = 0;
+    const blocked = async () => { guardCalls += 1; throw new Error("powershell.exe is blocked by policy"); };
+    const rows = await readTraeUsageRows(file, { env: {}, guardImpl: blocked });
+    assert.equal(rows[0].usage.prompt_tokens, 100, "a blocked guard must not fail the collection");
+    assert.equal(guardCalls, 1);
+    assert.equal(warnings.length, 1, "degraded mode warns once per process");
+    await readTraeUsageRows(file, { env: {}, guardImpl: blocked });
+    assert.equal(guardCalls, 2, "the guard is still attempted on every read");
+    assert.equal(warnings.length, 1, "the warning stays once across reads");
+  } finally { console.warn = originalWarn; }
+});
+
+test("TRAE read guard BUSY stays a retryable failure instead of degrading", async (t) => {
+  const file = path.join(temp(t), "database.db");
+  fs.writeFileSync(file, await fixture([context(100)]));
+  const busy = Object.assign(new Error("guard busy"), { transient: true });
+  let attempts = 0;
+  await assert.rejects(
+    readTraeUsageRows(file, {
+      env: {},
+      waitImpl: async () => {},
+      guardImpl: async () => { attempts += 1; throw busy; },
+    }),
+    (err) => err === busy,
+  );
+  assert.equal(attempts, 3, "a busy guard exhausts the retry budget; it never reads unlocked");
 });

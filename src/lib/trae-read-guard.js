@@ -15,6 +15,10 @@ async function acquireTraeReadGuard(dbPath) {
   child.stdin.on("error",()=>{});
   child.stderr.resume();
   await new Promise((resolve,reject)=>{
+    // A startup timeout is deliberately NOT transient: a half-started helper
+    // may already hold locks, so retrying could double-hold. The caller
+    // degrades to a guard-less read instead — the cost on a PowerShell-hung
+    // machine is one 10s wait per read, still better than failing outright.
     const timer=setTimeout(()=>{child.kill();reject(new Error("TRAE read guard startup timed out."));},10000);
     const fail=(transient=false)=>{clearTimeout(timer);reject(Object.assign(new Error("TRAE shared read guard could not be acquired."),{transient}));};
     child.once("error",()=>fail());

@@ -50,6 +50,59 @@ function error(message) {
   return new Error(`Cannot read TRAE usage: ${message}`);
 }
 
+// A blocked or unavailable PowerShell (execution policy, AV, stripped system)
+// must degrade to the pre-1.18 guard-less read instead of failing every
+// collection while TRAE CN is live. The degraded read gives up the SHM lock
+// that defers TRAE's checkpoint — the stability check below still rejects
+// torn snapshots (stat + WAL header/frame re-verification), which is the
+// same risk tier 1.18 shipped in before the guard existed; what the guard
+// adds on top is fewer retry storms and deferred TRAE checkpoints, not a
+// correctness guarantee. Warn once per process so the degraded mode stays
+// discoverable without spamming every sync cycle.
+let guardFallbackWarned = false;
+function warnTraeGuardFallback(guardErr) {
+  if (guardFallbackWarned) return;
+  guardFallbackWarned = true;
+  console.warn(`[trae-db] shared read guard unavailable (${guardErr?.message || guardErr}); reading without it — unstable snapshots are caught by the stability check instead of the SHM lock.`);
+}
+
+async function readStableTraeSnapshot(dbPath, env, project, waitImpl = wait, guardImpl = acquireTraeReadGuard) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let snapshot;
+    let guard = null;
+    try {
+      try {
+        guard = await guardImpl(dbPath);
+      } catch (guardErr) {
+        // A busy guard (a competing holder) stays a retryable failure — the
+        // read would burn the attempt on an unstable snapshot anyway. Every
+        // other guard failure (blocked PowerShell, dead helper) degrades to
+        // the guard-less read above.
+        if (guardErr?.transient) throw guardErr;
+        warnTraeGuardFallback(guardErr);
+      }
+      snapshot = openTraeSnapshot(dbPath, env);
+      const result = await withTraeSqlite(snapshot, project);
+      if (snapshot.isStable() && (!guard || guard.isHeld())) return result;
+      lastError = error("database changed during the read; retry after TRAE finishes its current turn.");
+    } catch (err) {
+      // Invalid keys/schemas and permission failures are not writer races.
+      if (!err?.transient && (!snapshot || snapshot.isStable())) throw err;
+      lastError = err;
+    } finally {
+      try { snapshot?.close(); } finally { await guard?.release(); }
+    }
+    // Release SQLite and file handles before waiting; other readers can run.
+    if (attempt < 2) await waitImpl((attempt + 1) * 1000);
+  }
+  throw lastError;
+}
+
+async function readTraeUsageRows(dbPath, { env = process.env, waitImpl, guardImpl } = {}) {
+  return readStableTraeSnapshot(dbPath, env, projectUsage, waitImpl, guardImpl);
+}
+
 async function projectUsage(queryRows) {
   const tables = await queryRows("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'chat_turn'");
   // history_v2.token_usage can be a context-size snapshot rather than billed
@@ -101,32 +154,10 @@ async function projectUsage(queryRows) {
   });
 }
 
-async function readStableTraeSnapshot(dbPath, env, project, waitImpl = wait) {
-  let lastError;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    let snapshot;
-    let guard;
-    try {
-      guard = await acquireTraeReadGuard(dbPath);
-      snapshot = openTraeSnapshot(dbPath, env);
-      const result = await withTraeSqlite(snapshot, project);
-      if (snapshot.isStable() && (!guard || guard.isHeld())) return result;
-      lastError = error("database changed during the read; retry after TRAE finishes its current turn.");
-    } catch (err) {
-      // Invalid keys/schemas and permission failures are not writer races.
-      if (!err?.transient && (!snapshot || snapshot.isStable())) throw err;
-      lastError = err;
-    } finally {
-      try { snapshot?.close(); } finally { await guard?.release(); }
-    }
-    // Release SQLite and file handles before waiting; other readers can run.
-    if (attempt < 2) await waitImpl((attempt + 1) * 1000);
-  }
-  throw lastError;
-}
-
-async function readTraeUsageRows(dbPath, { env = process.env, waitImpl } = {}) {
-  return readStableTraeSnapshot(dbPath, env, projectUsage, waitImpl);
+async function readTraeCnLocalRows(dbPath, { lastId = 0, env = process.env, waitImpl, guardImpl } = {}) {
+  const watermark = Number.isSafeInteger(lastId) && lastId > 0 ? lastId : 0;
+  return readStableTraeSnapshot(dbPath, env,
+    queryRows => projectTraeCnLocalRows(queryRows, watermark), waitImpl, guardImpl);
 }
 
 // ── TRAE CN merged-app local database ──
@@ -146,12 +177,6 @@ function resolveTraeCnLocalDbPath({ env = process.env, home = os.homedir(), plat
 // Same projection as readTraeUsageRows' chat_turn query, plus the
 // chat_session → project join for cwd attribution and a rowid watermark so
 // the 3.7 GB decrypt only re-runs when the store actually grew.
-async function readTraeCnLocalRows(dbPath, { lastId = 0, env = process.env, waitImpl } = {}) {
-  const watermark = Number.isSafeInteger(lastId) && lastId > 0 ? lastId : 0;
-  return readStableTraeSnapshot(dbPath, env,
-    queryRows => projectTraeCnLocalRows(queryRows, watermark), waitImpl);
-}
-
 async function projectTraeCnLocalRows(queryRows, watermark) {
   const columns = new Set((await queryRows("PRAGMA table_info(chat_turn)")).map((row) => row.name));
   const modelPaths = [
@@ -262,8 +287,13 @@ async function projectTraeSessionRows(queryRows) {
   };
 }
 
-async function readTraeSessionRows(dbPath, { env = process.env, waitImpl } = {}) {
-  return readStableTraeSnapshot(dbPath, env, projectTraeSessionRows, waitImpl);
+async function readTraeSessionRows(dbPath, { env = process.env, waitImpl, guardImpl } = {}) {
+  return readStableTraeSnapshot(dbPath, env, projectTraeSessionRows, waitImpl, guardImpl);
 }
 
-module.exports = { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeSessionRows };
+module.exports = {
+  resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeSessionRows,
+  // Test seam: the fallback warning is once-per-process; tests reset it to
+  // assert the once-ness across reads.
+  __resetTraeGuardFallbackWarnForTest: () => { guardFallbackWarned = false; },
+};

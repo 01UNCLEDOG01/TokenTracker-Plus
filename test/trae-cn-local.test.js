@@ -311,3 +311,54 @@ test("TRAE CN preserves earlier sessions when a recreated store reuses a rowid",
   await parseTraeCnLocalIncremental(args);
   assert.equal(readRows(f.queuePath).at(-1).total_tokens,180,"a new session is not a correction to an unrelated old session");
 });
+test("TRAE CN retires the legacy ledger after two consecutive empty syncs and re-derives from sources", async (t) => {
+  const f = await fixture(t), rows = [row(34, { path: f.project })];
+  const args = { ...f, readRowsImpl: async () => rows };
+  await parseTraeCnLocalIncremental(args);
+  // Downgrade to the pre-1.18 rowid ledger, then the store reads empty.
+  f.cursors.traeCnLocal = { lastId: 34, signature: "legacy" };
+  rows.length = 0;
+  // First empty sync holds: the legacy cursor stays, nothing is booked.
+  const held = await parseTraeCnLocalIncremental(args);
+  assert.equal(f.cursors.traeCnLocal.version, undefined, "the first empty read holds instead of retiring");
+  assert.equal(f.cursors.traeCnLocal.traeCnEmptyStreak, 1);
+  assert.equal(f.cursors.traeCnLocal.lastId, 34, "the hold keeps the legacy watermark");
+  assert.equal(f.cursors.traeCnLocal.signature, "legacy", "the hold keeps the legacy signature");
+  assert.equal(held.bucketsQueued, 0, "the hold queues nothing");
+  // Second consecutive empty sync retires through the normal migration:
+  // booked trae-cn buckets reset and nothing re-books (no cloud, no rows).
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(f.cursors.traeCnLocal.version, 2, "retired");
+  assert.equal(f.cursors.traeCnLocal.traeCnEmptyStreak, undefined, "retirement drops the streak");
+  const booked = () => Object.entries(f.cursors.hourly.buckets)
+    .filter(([key]) => key.startsWith("trae-cn|")).reduce((sum, [, b]) => sum + b.totals.total_tokens, 0);
+  assert.equal(booked(), 0, "retirement re-derives from sources; nothing is double-counted");
+  // A verbatim restore of the old store re-books its rows exactly once.
+  rows.push(row(34, { path: f.project }));
+  fs.appendFileSync(f.dbPath, "store restored from backup");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(booked(), 150, "restored rows re-book once");
+  // And the retired cursor skips unchanged stores afterwards.
+  const before = fs.readFileSync(f.queuePath, "utf8");
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(fs.readFileSync(f.queuePath, "utf8"), before);
+});
+
+test("TRAE CN holds a transient empty sync and migrates normally when rows return", async (t) => {
+  const f = await fixture(t), rows = [row(34, { path: f.project })];
+  const args = { ...f, readRowsImpl: async () => rows };
+  await parseTraeCnLocalIncremental(args);
+  f.cursors.traeCnLocal.signature = "v2:legacy-writer";
+  rows.length = 0;
+  await parseTraeCnLocalIncremental(args);
+  assert.equal(f.cursors.traeCnLocal.traeCnEmptyStreak, 1);
+  assert.equal(f.cursors.traeCnLocal.version, 2, "the v2 ledger keeps its version during the hold");
+  // Rows come back the next cycle (schema drift repaired, backup restored).
+  rows.push(row(34, { path: f.project }));
+  fs.appendFileSync(f.dbPath, "rows visible again");
+  await parseTraeCnLocalIncremental(args);
+  const booked = () => Object.entries(f.cursors.hourly.buckets)
+    .filter(([key]) => key.startsWith("trae-cn|")).reduce((sum, [, b]) => sum + b.totals.total_tokens, 0);
+  assert.equal(booked(), 150, "a non-empty read migrates through the normal path — no double count");
+  assert.equal(f.cursors.traeCnLocal.traeCnEmptyStreak, undefined, "the streak clears once rows migrate");
+});
