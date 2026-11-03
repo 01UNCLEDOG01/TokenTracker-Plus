@@ -26,7 +26,7 @@ const { cmdSync } = require("../src/commands/sync");
 const { cmdStatus } = require("../src/commands/status");
 
 const ENV_KEYS = [
-  "HOME", "USERPROFILE", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "CODE_HOME", "GEMINI_HOME",
+  "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "CODE_HOME", "GEMINI_HOME",
   "OPENCODE_HOME", "XDG_DATA_HOME", "TOKENTRACKER_DEVICE_TOKEN", "TOKENTRACKER_OPENCLAW_HOME",
   "TOKENTRACKER_OPENCLAW_AGENT_ID", "TOKENTRACKER_OPENCLAW_PREV_SESSION_ID",
   "TOKENTRACKER_OPENCLAW_SESSION_KEY", "TOKENTRACKER_INSFORGE_BASE_URL", "DSH_HOME",
@@ -39,6 +39,8 @@ async function withTempSyncEnv(fn) {
   try {
     process.env.HOME = home;
     process.env.USERPROFILE = home;
+    process.env.APPDATA = path.join(home, "AppData", "Roaming");
+    process.env.LOCALAPPDATA = path.join(home, "AppData", "Local");
     process.env.CODEX_HOME = path.join(home, ".codex");
     process.env.CODE_HOME = path.join(home, ".code");
     process.env.GEMINI_HOME = path.join(home, ".gemini");

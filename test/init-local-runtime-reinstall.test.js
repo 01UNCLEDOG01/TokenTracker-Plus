@@ -50,6 +50,7 @@ test("init first sync keeps local data and credentials without uploading when no
       await fs.writeFile(path.join(trackerDir, "queue.jsonl"), JSON.stringify(row) + "\n");
       const env = {
         ...process.env, HOME: tmp, USERPROFILE: tmp, CODEX_HOME: path.join(tmp, ".codex"),
+        APPDATA: path.join(tmp, "AppData", "Roaming"), LOCALAPPDATA: path.join(tmp, "AppData", "Local"),
         OPENCODE_CONFIG_DIR: path.join(tmp, ".config", "opencode"),
       };
       delete env.TOKENTRACKER_SKIP_FIRST_SYNC;
@@ -79,6 +80,8 @@ test("init can rerun from installed local runtime without self-deleting app sour
     ...process.env,
     HOME: tmp,
     USERPROFILE: tmp,
+    APPDATA: path.join(tmp, "AppData", "Roaming"),
+    LOCALAPPDATA: path.join(tmp, "AppData", "Local"),
     CODEX_HOME: path.join(tmp, ".codex"),
     OPENCODE_CONFIG_DIR: path.join(tmp, ".config", "opencode"),
   };
