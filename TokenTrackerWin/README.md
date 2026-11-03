@@ -133,8 +133,10 @@ dotnet test ..\TokenTrackerWin.Tests\TokenTrackerWin.Tests.csproj -c Release
 The Inno Setup definition is `installer/TokenTracker.iss`; its version is passed
 as `/DMyAppVersion=X.Y.Z`. Verify the staged package before compiling. The manual
 `release-windows` GitHub workflow builds installers and portable ZIPs for an
-existing tag, uploads only to a draft and titles it `vX.Y.Z`. The owner publishes
-the draft. This fork does not publish an npm package.
+existing tag, uploads only to a draft and titles it `vX.Y.Z`. After tests, review,
+runtime verification and push, the owner can publish it or explicitly authorize
+an agent to publish and verify the public download. This fork does not publish
+an npm package.
 
 The manual **Check upstream updates** action is informational: it does not
 download or execute an upstream installer, and background checks are disabled.
