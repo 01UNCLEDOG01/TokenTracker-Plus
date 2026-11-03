@@ -24,17 +24,55 @@ function getCachedAchievements() {
   return null;
 }
 
+function readHighWaterTiers() {
+  try {
+    const raw = localStorage.getItem(TIERS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+// Once unlocked, always unlocked. The server recomputes every badge from the
+// live queue on each poll, so share badges (kill_line / heart_model) and
+// re-priced cost badges legitimately dip below a tier the user has already
+// seen. The 2026-10-27 high-water mark only stopped toasts from re-firing;
+// the page still rendered the dipped reading, which looked like a revoked
+// achievement. Floor every displayed tier at the best tier this browser has
+// ever observed — toasts stay honest because max(live, highWater) > highWater
+// is exactly "the live reading climbed above the mark".
+function floorAchievementsAtHighWater(data) {
+  const achievements = Array.isArray(data?.achievements) ? data.achievements : [];
+  const prevTiers = readHighWaterTiers();
+  if (!prevTiers) return achievements;
+  return achievements.map((badge) => {
+    if (!badge?.id) return badge;
+    const highWater = Number(prevTiers[badge.id]) || 0;
+    const tier = badge.tier || 0;
+    if (highWater <= tier) return badge;
+    return {
+      ...badge,
+      tier: highWater,
+      // Re-derive from the floored tier so the detail modal's "next tier"
+      // matches what the page shows, not the dipped live reading.
+      next_threshold: Array.isArray(badge.thresholds)
+        ? (highWater >= badge.thresholds.length ? null : badge.thresholds[highWater])
+        : badge.next_threshold,
+    };
+  });
+}
+
 /**
  * Poll local achievements, evaluate progression and trigger toasts on unlocks/tier-ups.
  */
 export async function pollAchievements({ timeZone } = {}) {
   const tz = timeZone || getBrowserTimeZone();
   const data = await getLocalAchievements({ timeZone: tz, tzOffsetMinutes: getBrowserTimeZoneOffsetMinutes() });
-  const achievements = Array.isArray(data?.achievements) ? data.achievements : [];
+  const achievements = floorAchievementsAtHighWater(data);
 
   try {
-    const raw = localStorage.getItem(TIERS_STORAGE_KEY);
-    const prevTiers = raw ? JSON.parse(raw) : null;
+    const prevTiers = readHighWaterTiers();
 
     if (prevTiers) {
       for (const b of achievements) {
@@ -57,7 +95,9 @@ export async function pollAchievements({ timeZone } = {}) {
     // badges (kill_line, heart_model, streak, zen_balancer …) legitimately drop
     // when the underlying ratio moves, and storing the dipped value made every
     // rebound look like a fresh unlock — the "same three achievements keep
-    // firing" report of 2026-10-27.
+    // firing" report of 2026-10-27. The array returned (and cached for first
+    // paint) is the floored one, so the page, share card and title banner all
+    // render the ever-best tier.
     const highWaterTiers = {};
     for (const b of achievements) {
       if (b && b.id) highWaterTiers[b.id] = Math.max(b.tier || 0, prevTiers?.[b.id] || 0);

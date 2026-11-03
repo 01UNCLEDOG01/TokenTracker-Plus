@@ -110,4 +110,49 @@ describe("achievement notification artwork", () => {
       tier: 2,
     }));
   });
+
+  it("keeps the displayed tier at the high-water mark when the live reading dips", async () => {
+    // Once unlocked, always unlocked: the page must not show a revoked badge
+    // just because the live replay (share dilution, re-priced cost …) dipped.
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 2 }));
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{ id: "kill_line", tier: 1, thresholds: [50, 60, 70, 80], next_threshold: 60 }],
+    });
+
+    const result = await pollAchievements();
+
+    const killLine = result.find((b) => b.id === "kill_line");
+    expect(killLine.tier).toBe(2);
+    // "Next tier" is re-derived from the floored tier so the detail modal
+    // stays consistent with what the page shows.
+    expect(killLine.next_threshold).toBe(70);
+    expect(triggerAchievementNotification).not.toHaveBeenCalled();
+    // The first-paint cache stores the floored snapshot, not the dipped read.
+    const cached = JSON.parse(localStorage.getItem("tokentracker:cached_achievements"));
+    expect(cached.find((b) => b.id === "kill_line").tier).toBe(2);
+  });
+
+  it("floors to diamond without a next threshold", async () => {
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 4 }));
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{ id: "kill_line", tier: 2, thresholds: [50, 60, 70, 80], next_threshold: 70 }],
+    });
+
+    const result = await pollAchievements();
+
+    const killLine = result.find((b) => b.id === "kill_line");
+    expect(killLine.tier).toBe(4);
+    expect(killLine.next_threshold).toBeNull();
+  });
+
+  it("leaves the payload untouched before any high-water snapshot exists", async () => {
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{ id: "kill_line", tier: 1, thresholds: [50, 60, 70, 80], next_threshold: 60 }],
+    });
+
+    const result = await pollAchievements();
+
+    expect(result[0].tier).toBe(1);
+    expect(result[0].next_threshold).toBe(60);
+  });
 });
