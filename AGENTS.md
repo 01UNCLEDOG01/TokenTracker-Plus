@@ -30,6 +30,7 @@
 - Before claiming a UI feature is delivered, read the rendered text/DOM, not only the server endpoint.
 - **新增 UI 必须复用原版组件与版式，不许自制一套**（2026-10-28 站主明确要求）。具体到限额页：行 = 标签列（`--tt-limits-label-w`）+ `h-1.5` 圆角轨道 + 右侧百分比列；配色只用 `barColor()` 的 emerald/amber/red；悬浮一律用 `HoverTooltip`（深色玻璃卡），**禁止原生 `title`**；行上要有 `cursor-pointer`；明细只放悬浮提示里，正文不重复；`limit_credits = 0` 的窗口不占行。新增卡片、行类型、图例都按这条走。
 - **福利指南统一 A–Z 排序**（2026-11-03 站主明确要求）：`perksData.js` 的 `sortNames` 写中文品牌名全拼与英文品牌名（大写），取较靠前的名称排序；通用描述 AI/MaaS 不单独当品牌。`perks-sort.mjs` 在读取端排序，中英文界面使用同一顺序；新增卡片必须补排序名并通过 `validate:perks`，不可再把可用服务商追加沉底。
+- **福利标记按周期判断**（2026-11-03 站主要求）：`daily_claim` 每个北京时间自然日、`monthly_claim` 每月 1 日重置提示；混合卡片两个独立按钮，其他卡片一次性标记。以 `perks-claims.mjs` 为准，v2 存各周期日期，迁移时保留 v1；分类筛选按对应周期，全部分类须整卡所有周期已标记，不能再按旧记录是否存在判断领取状态。
 - **上游吸收建议必须先逐条对照本仓已有能力**（2026-10-30 站主裁定；起因：WorkBuddy CN/AI 拆分本仓早已实现，AI 仍当作可吸收的新功能上报，且不是第一次）。流程：写上游动态报告前，先读 `FORK_STATUS.md` 的能力段与 `src/lib/*-limits.js`、`src/lib/rollout.js` 的来源/卡片清单，对每条上游改动标注「本仓已有 / 部分有（差什么）/ 没有」；没有这一列的报告不许交付。
 - **修复凡涉及客户端持久化状态（localStorage、WebView2 缓存、`~/.tokentracker` 下的缓存/快照文件），必须自带迁移或版本失效**（2026-10-30 站主裁定；起因：宠物勾选、榜单图标两次被旧缓存咬，"修好了"在用户端看不到）。验收标准：`mirror:installed` 重启后新行为立即可测，交付说明里不允许出现"请清缓存/请重装"。数据形状变更 → 升 schema/版本号并让旧数据被拒读；新增映射 → 映射放读取端，不许把判定结果烤进快照。
 

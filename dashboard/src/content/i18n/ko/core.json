@@ -629,5 +629,10 @@
   "limits.qoderCookie.save_failed": "저장에 실패했습니다. 전체 Cookie 줄을 복사했는지 확인하고 다시 시도하세요.",
   "limits.qoderCookie.note": "수동 입력이 필요합니다: Qoder 공식 사이트 세션 Cookie(httpOnly)는 페이지 스크립트에서 읽을 수 없어 브라우저 개발자 도구에서 전체 줄을 복사해 여기에 붙여넣어야 합니다. 약 7~8일 후 만료되며, 만료 후 다시 복사해야 합니다.",
   "limits.provider.workbuddy_ai": "WorkBuddy AI",
-  "limits.label.workbuddy_reward": "보너스 크레딧"
+  "limits.label.workbuddy_reward": "보너스 크레딧",
+  "perks.claim.daily_mark": "오늘 미수령 · 수령 표시",
+  "perks.claim.daily_claimed": "오늘 수령 완료 ({{date}})",
+  "perks.claim.monthly_mark": "이번 달 미수령 · 수령 표시",
+  "perks.claim.monthly_claimed": "이번 달 수령 완료 ({{date}})",
+  "perks.filter.unclaimed": "미수령"
 }

@@ -1925,7 +1925,7 @@ limits.provider.agentrouter,ui,LimitsPage,UsageLimitsPanel,provider_agentrouter,
 usage.overview.vyceai_summary,ui,UsageOverview,UsageOverview,vyceai_summary,"Vyce AI — balance ${{balance}} · spent ${{spent}} ({{requests}} requests)",,active
 perks.filter.all,ui,PerksPage,PerksPage,filter_all,"All",,active
 perks.filter.claimed,ui,PerksPage,PerksPage,filter_claimed,"Claimed",,active
-perks.filter.unclaimed,ui,PerksPage,PerksPage,filter_unclaimed,"Unmarked",,active
+perks.filter.unclaimed,ui,PerksPage,PerksPage,filter_unclaimed,"Pending",,active
 usage.overview.vyceai_model,ui,UsageOverview,UsageOverview,vyceai_model,"{{model}}: {{input}} in / {{output}} out · ${{cost}}",,active
 limits.label.agentrouter_balance,ui,LimitsPage,UsageLimitsPanel,agentrouter_balance,"${{balance}} left, ${{used}} used in total",,active
 localProfile.defaultName,shared,*,LocalProfileIdentity,default_name,"This device",,active
@@ -2062,3 +2062,7 @@ usage.overview.tier_ultrafast,ui,DashboardPage,UsageOverview,tier_ultrafast,"Ult
 usage.overview.scope_account,ui,DashboardPage,UsageOverview,scope_account,"Account aggregate",,active
 usage.overview.scope_local,ui,DashboardPage,UsageOverview,scope_local,"This device",,active
 usage.overview.scope_aria,ui,DashboardPage,UsageOverview,scope_aria,"Data scope switcher",,active
+perks.claim.daily_mark,ui,PerksPage,PerksPage,claim_daily_mark,"Not claimed today · Mark as claimed",,active
+perks.claim.daily_claimed,ui,PerksPage,PerksPage,claim_daily_claimed,"Claimed today ({{date}})",,active
+perks.claim.monthly_mark,ui,PerksPage,PerksPage,claim_monthly_mark,"Not claimed this month · Mark as claimed",,active
+perks.claim.monthly_claimed,ui,PerksPage,PerksPage,claim_monthly_claimed,"Claimed this month ({{date}})",,active

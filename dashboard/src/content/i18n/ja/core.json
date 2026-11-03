@@ -629,5 +629,10 @@
   "limits.qoderCookie.save_failed": "保存に失敗しました。Cookie 行全体をコピーしたか確認して再試行してください。",
   "limits.qoderCookie.note": "手動入力が必要です：Qoder 公式サイトのセッション Cookie（httpOnly）はページスクリプトから読めないため、ブラウザの開発者ツールから行全体をコピーしてここに貼り付けてください。約 7～8 日で失効し、失効後は再コピーが必要です。",
   "limits.provider.workbuddy_ai": "WorkBuddy AI",
-  "limits.label.workbuddy_reward": "報酬クレジット"
+  "limits.label.workbuddy_reward": "報酬クレジット",
+  "perks.claim.daily_mark": "今日未受取 · 受取済みにする",
+  "perks.claim.daily_claimed": "今日受取済み（{{date}}）",
+  "perks.claim.monthly_mark": "今月未受取 · 受取済みにする",
+  "perks.claim.monthly_claimed": "今月受取済み（{{date}}）",
+  "perks.filter.unclaimed": "未受取"
 }

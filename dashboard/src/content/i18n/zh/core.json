@@ -203,7 +203,7 @@
   "usage.overview.vyceai_summary": "Vyce AI：余额 ${{balance}} · 累计消耗 ${{spent}}（{{requests}} 次调用）",
   "perks.filter.all": "全部",
   "perks.filter.claimed": "已领取",
-  "perks.filter.unclaimed": "未标记",
+  "perks.filter.unclaimed": "待领取",
   "usage.overview.vyceai_model": "{{model}}：输入 {{input}} / 输出 {{output}} · ${{cost}}",
   "limits.label.agentrouter_balance": "余额 ${{balance}}（累计已用 ${{used}}）",
   "limits.provider.cline_pass": "Cline Pass",
@@ -963,5 +963,9 @@
   "usage.overview.tier_ultrafast": "极速档",
   "usage.overview.scope_account": "账户汇总",
   "usage.overview.scope_local": "本机数据",
-  "usage.overview.scope_aria": "数据范围切换"
+  "usage.overview.scope_aria": "数据范围切换",
+  "perks.claim.daily_mark": "今日未领取 · 标记已领取",
+  "perks.claim.daily_claimed": "今日已领取（{{date}}）",
+  "perks.claim.monthly_mark": "本月未领取 · 标记已领取",
+  "perks.claim.monthly_claimed": "本月已领取（{{date}}）"
 }

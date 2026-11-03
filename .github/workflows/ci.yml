@@ -66,7 +66,7 @@ jobs:
       # renderer is here because its cross-host contracts live on the dashboard
       # side (test/bot-parity.test.js only pins values, not rendering).
       - name: Test dashboard surfaces
-        run: npm --prefix dashboard test -- src/pages/SkillsPage.test.jsx src/hooks/use-limits-display-prefs.test.js src/ui/dashboard/views/DashboardView.test.jsx src/ui/foundation/BotAnimated.test.jsx src/lib/pets-api.test.js
+        run: npm --prefix dashboard test -- src/pages/SkillsPage.test.jsx src/hooks/use-limits-display-prefs.test.js src/ui/dashboard/views/DashboardView.test.jsx src/ui/foundation/BotAnimated.test.jsx src/lib/pets-api.test.js src/pages/PerksPage.test.jsx src/lib/perks-claims.test.js
 
       # Same checks as `npm run ci:local`, with the dashboard build hoisted above.
       - name: Test and validate

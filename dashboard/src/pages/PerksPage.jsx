@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   Gift,
   ExternalLink,
@@ -18,24 +18,30 @@ import { showToast } from "../ui/components/Toast.jsx";
 import { ProviderIcon, hasProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 import { PERK_CATEGORIES, PERK_PROVIDERS } from "../data/perksData.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
-
-const PERKS_CLAIMS_KEY = "tokentracker.perks.claims.v1";
+import {
+  PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, getPerkClaimDay, nextPerkClaimDayDelay,
+  getPerkClaimCycles, getPerkClaimDate, isPerkClaimed, normalizePerkClaims,
+  migrateLegacyPerkClaims, togglePerkClaim,
+} from "../lib/perks-claims.mjs";
 
 function readPerksClaims() {
   try {
     const raw = window?.localStorage?.getItem(PERKS_CLAIMS_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    if (raw != null) return normalizePerkClaims(JSON.parse(raw), PERK_PROVIDERS);
+    const legacy = window?.localStorage?.getItem(PERKS_LEGACY_CLAIMS_KEY);
+    return migrateLegacyPerkClaims(legacy ? JSON.parse(legacy) : null, PERK_PROVIDERS);
   } catch {
-    return {};
+    return null;
   }
 }
 
 function writePerksClaims(claims) {
   try {
-    window?.localStorage?.setItem(PERKS_CLAIMS_KEY, JSON.stringify(claims));
+    window?.localStorage?.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: claims }));
+    return true;
   } catch {
     // 私密模式等存储不可用时静默降级：标记仅本次会话生效
+    return false;
   }
 }
 
@@ -114,7 +120,7 @@ function renderBoldText(text) {
   });
 }
 
-function PerkCard({ item, claimedAt, onToggleClaim }) {
+function PerkCard({ item, claims, claimDay, onToggleClaim }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = (e) => {
@@ -304,28 +310,33 @@ function PerkCard({ item, claimedAt, onToggleClaim }) {
           </a>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => onToggleClaim(item.id)}
-          aria-pressed={Boolean(claimedAt)}
-          className={cn(
-            "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
-            claimedAt
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
-              : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-800 dark:bg-transparent dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
-          )}
-        >
-          {claimedAt ? (
-            <Check className="h-3.5 w-3.5" aria-hidden />
-          ) : (
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
-          )}
-          <span>
-            {claimedAt
-              ? copy("perks.claim.claimed", { date: claimedAt })
-              : copy("perks.claim.mark")}
-          </span>
-        </button>
+        {getPerkClaimCycles(item).map((cycle) => {
+          const claimedAt = getPerkClaimDate(item, claims, cycle, claimDay);
+          const labelKey = cycle === "once" ? (claimedAt ? "perks.claim.claimed" : "perks.claim.mark")
+            : cycle === "daily" ? (claimedAt ? "perks.claim.daily_claimed" : "perks.claim.daily_mark")
+              : (claimedAt ? "perks.claim.monthly_claimed" : "perks.claim.monthly_mark");
+          return (
+            <button
+              key={cycle}
+              type="button"
+              onClick={() => onToggleClaim(item, cycle)}
+              aria-pressed={Boolean(claimedAt)}
+              className={cn(
+                "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
+                claimedAt
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                  : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-800 dark:bg-transparent dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
+              )}
+            >
+              {claimedAt ? (
+                <Check className="h-3.5 w-3.5" aria-hidden />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" aria-hidden />
+              )}
+              <span>{copy(labelKey, { date: claimedAt })}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -335,24 +346,53 @@ export function PerksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const locale = getCopyLocale();
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [claims, setClaims] = useState(readPerksClaims);
+  const [claims, setClaims] = useState(() => readPerksClaims() ?? {});
+  const [claimDay, setClaimDay] = useState(getPerkClaimDay);
+  const unsavedClaims = useRef(null);
   const [claimFilter, setClaimFilter] = useState("all");
 
   useEffect(() => {
     document.title = `${copy("perks.title")} | TokenTracker`;
   }, []);
 
-  const toggleClaim = (id) => {
-    setClaims((prev) => {
-      const next = { ...prev };
-      if (next[id]) {
-        delete next[id];
-      } else {
-        next[id] = new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    let timer;
+    const refresh = () => {
+      clearTimeout(timer);
+      const now = Date.now();
+      setClaimDay(getPerkClaimDay(now));
+      const stored = unsavedClaims.current ?? readPerksClaims();
+      if (stored != null) setClaims(stored);
+      timer = setTimeout(refresh, nextPerkClaimDayDelay(now));
+    };
+    const visible = () => { if (document.visibilityState === "visible") refresh(); };
+    const storage = (event) => {
+      if (event.key == null || event.key === PERKS_CLAIMS_KEY || event.key === PERKS_LEGACY_CLAIMS_KEY) refresh();
+    };
+    try {
+      if (window.localStorage.getItem(PERKS_CLAIMS_KEY) == null && window.localStorage.getItem(PERKS_LEGACY_CLAIMS_KEY) != null) {
+        const migrated = readPerksClaims();
+        if (migrated != null) writePerksClaims(migrated);
       }
-      writePerksClaims(next);
-      return next;
-    });
+    } catch { /* unavailable storage keeps the in-memory selection */ }
+    refresh();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", storage);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", storage);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, []);
+
+  const toggleClaim = (item, cycle) => {
+    const day = getPerkClaimDay();
+    const next = togglePerkClaim(unsavedClaims.current ?? readPerksClaims() ?? claims, item, cycle, day);
+    setClaimDay(day);
+    setClaims(next);
+    unsavedClaims.current = writePerksClaims(next) ? null : next;
   };
 
   const categoryCounts = useMemo(() => {
@@ -364,7 +404,7 @@ export function PerksPage() {
     return counts;
   }, []);
 
-  const filteredItems = useMemo(() => {
+  const matchedItems = useMemo(() => {
     return PERK_PROVIDERS.filter((item) => {
       // Category Filter
       if (selectedCategory !== "all") {
@@ -380,11 +420,15 @@ export function PerksPage() {
         const enHay = shown === item ? "" : `${shown.name} ${shown.description} ${shown.badge} ${shown.tags.join(" ")}`.toLowerCase();
         return zhHay.includes(query) || enHay.includes(query);
       }
-      if (claimFilter === "claimed" && !claims[item.id]) return false;
-      if (claimFilter === "unclaimed" && claims[item.id]) return false;
       return true;
     });
-  }, [claimFilter, claims, locale, searchQuery, selectedCategory]);
+  }, [locale, searchQuery, selectedCategory]);
+
+  const claimedCount = matchedItems.filter((item) => isPerkClaimed(item, claims, claimDay, selectedCategory)).length;
+  const filteredItems = matchedItems.filter((item) => {
+    const claimed = isPerkClaimed(item, claims, claimDay, selectedCategory);
+    return claimFilter === "all" || (claimFilter === "claimed" ? claimed : !claimed);
+  });
 
   return (
     <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
@@ -524,10 +568,10 @@ export function PerksPage() {
                         <span>{opt.label}</span>
                         <span className="text-[10px] tabular-nums opacity-70">
                           {opt.id === "all"
-                            ? PERK_PROVIDERS.length
+                            ? matchedItems.length
                             : opt.id === "claimed"
-                              ? Object.keys(claims).length
-                              : PERK_PROVIDERS.length - Object.keys(claims).length}
+                              ? claimedCount
+                              : matchedItems.length - claimedCount}
                         </span>
                       </button>
                     );
@@ -569,7 +613,8 @@ export function PerksPage() {
                 <PerkCard
                   key={item.id}
                   item={localizePerk(item, locale)}
-                  claimedAt={claims[item.id]}
+                  claims={claims}
+                  claimDay={claimDay}
                   onToggleClaim={toggleClaim}
                 />
               ))}

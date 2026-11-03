@@ -203,7 +203,7 @@
   "usage.overview.vyceai_summary": "Vyce AI：餘額 ${{balance}} · 累計消耗 ${{spent}}（{{requests}} 次呼叫）",
   "perks.filter.all": "全部",
   "perks.filter.claimed": "已領取",
-  "perks.filter.unclaimed": "未標記",
+  "perks.filter.unclaimed": "待領取",
   "usage.overview.vyceai_model": "{{model}}：輸入 {{input}} / 輸出 {{output}} · ${{cost}}",
   "limits.label.agentrouter_balance": "餘額 ${{balance}}（累計已用 ${{used}}）",
   "limits.provider.cline_pass": "Cline Pass",
@@ -932,5 +932,9 @@
   "usage.overview.tier_ultrafast": "極速檔",
   "usage.overview.scope_account": "賬戶匯總",
   "usage.overview.scope_local": "本機數據",
-  "usage.overview.scope_aria": "數據範圍切換"
+  "usage.overview.scope_aria": "數據範圍切換",
+  "perks.claim.daily_mark": "今日未領取 · 標記已領取",
+  "perks.claim.daily_claimed": "今日已領取（{{date}}）",
+  "perks.claim.monthly_mark": "本月未領取 · 標記已領取",
+  "perks.claim.monthly_claimed": "本月已領取（{{date}}）"
 }

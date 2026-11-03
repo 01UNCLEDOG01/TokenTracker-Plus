@@ -134,8 +134,51 @@ test("installLocalTrackerApp replaces stale installed runtime and writes a packa
     assert.notEqual(copiedParser, "stale parser\n");
     assert.equal(marker.name, "tokentracker-plus-cli");
     assert.equal(typeof marker.version, "string");
+    assert.equal(
+      await fs.readFile(path.join(appDir, "package-lock.json"), "utf8"),
+      await fs.readFile(path.join(repoRoot, "package-lock.json"), "utf8"),
+      "runtime refresh must retain an available source lockfile for mirror verification",
+    );
     await fs.stat(path.join(appDir, "src", "lib", "codex-context-breakdown.js"));
     await fs.stat(path.join(appDir, "dashboard", "dist", "index.html"));
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test("runtime refresh accepts a source package without a lockfile", async (context) => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-runtime-no-lock-"));
+  const originalRead = fs.readFile.bind(fs);
+  const sourceLock = path.join(repoRoot, "package-lock.json");
+  context.mock.method(fs, "readFile", async (file, ...args) => {
+    if (path.resolve(String(file)) === path.resolve(sourceLock)) {
+      throw Object.assign(new Error("source package has no lockfile"), { code: "ENOENT" });
+    }
+    return originalRead(file, ...args);
+  });
+  try {
+    const appDir = path.join(tmp, "app");
+    await installLocalTrackerApp({ appDir });
+    await fs.stat(path.join(appDir, "package.json"));
+    await assert.rejects(fs.stat(path.join(appDir, "package-lock.json")), { code: "ENOENT" });
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test("runtime refresh reports a destination lockfile write failure", async (context) => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-runtime-lock-error-"));
+  const appDir = path.join(tmp, "app");
+  const destinationLock = path.join(appDir, "package-lock.json");
+  const originalWrite = fs.writeFile.bind(fs);
+  context.mock.method(fs, "writeFile", async (file, ...args) => {
+    if (path.resolve(String(file)) === path.resolve(destinationLock)) {
+      throw Object.assign(new Error("lockfile write denied"), { code: "EACCES" });
+    }
+    return originalWrite(file, ...args);
+  });
+  try {
+    await assert.rejects(installLocalTrackerApp({ appDir }), { code: "EACCES" });
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

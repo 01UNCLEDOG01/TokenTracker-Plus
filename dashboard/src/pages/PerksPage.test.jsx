@@ -1,11 +1,13 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { PerksPage, buildPerksFeedbackUrl } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 import { PERK_PROVIDERS } from "../data/perksData.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
+import { getCopyLocale } from "../lib/copy";
+import { PERKS_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
 
 const ORDERED_IDS = [
   "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling", "apigoto",
@@ -24,6 +26,11 @@ vi.mock("../lib/copy", () => ({
 }));
 
 describe("PerksPage", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    getCopyLocale.mockReturnValue("zh");
+  });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
   it("renders all providers in bilingual A-Z order including usable Agent cards", () => {
     render(
       <ToastProvider>
@@ -88,6 +95,17 @@ describe("PerksPage", () => {
 
     expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
     expect(screen.queryByText(/智谱开放平台/)).not.toBeInTheDocument();
+  });
+
+  it("applies search and claimed state together", () => {
+    localStorage.setItem("tokentracker.perks.claims.v1", JSON.stringify({ agentrouter: getPerkClaimDay() }));
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    fireEvent.click(screen.getByText("已领取").closest("button"));
+    expect(screen.queryByRole("heading", { name: "Agent2API (开源本地网关)" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText(/搜索服务商/), { target: { value: "Agent" } });
+    expect(screen.getByRole("heading", { name: "Agent Router" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Agent2API (开源本地网关)" })).not.toBeInTheDocument();
+    localStorage.clear();
   });
 
   it("filters providers by category tab", () => {
@@ -165,11 +183,11 @@ describe("PerksPage", () => {
     fireEvent.click(within(agnesCard).getByRole("button", { name: "标记已领取" }));
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
     // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录。
-    expect(Object.keys(JSON.parse(localStorage.getItem("tokentracker.perks.claims.v1")))).toEqual(["agnes"]);
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: getPerkClaimDay() } });
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
-    expect(localStorage.getItem("tokentracker.perks.claims.v1")).toBe("{}");
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({});
   });
 
   it("领取状态筛选按钮能过滤已领取与未标记卡片", () => {
@@ -191,13 +209,99 @@ describe("PerksPage", () => {
     expect(screen.queryByText(/硅基流动/)).not.toBeInTheDocument();
 
     // 切到「未标记」：标记过的卡隐藏
-    fireEvent.click(screen.getByText("未标记").closest("button"));
+    fireEvent.click(screen.getByText("待领取").closest("button"));
     expect(screen.queryByText("Agnes AI")).not.toBeInTheDocument();
     expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
 
     // 回到「全部」：全量恢复
     fireEvent.click(screen.getByText("全部").closest("button"));
     expect(screen.getByText("Agnes AI")).toBeInTheDocument();
+  });
+
+  it("keeps daily and monthly marks independent and filters the selected cycle", () => {
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
+    fireEvent.click(within(card).getByRole("button", { name: "本月未领取 · 标记已领取" }));
+    fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    fireEvent.click(within(card).getByRole("button", { name: "今日已领取（{{date}}）" }));
+    expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.change(screen.getByPlaceholderText(/搜索服务商/), { target: { value: "WorkBuddy" } });
+    fireEvent.click(screen.getByText("每月福利").closest("button"));
+    fireEvent.click(screen.getByText("已领取").closest("button"));
+    expect(screen.getByRole("heading", { name: "WorkBuddy 国内版" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("每日可领取积分").closest("button"));
+    expect(screen.queryByRole("heading", { name: "WorkBuddy 国内版" })).not.toBeInTheDocument();
+  });
+
+  it("updates open pages across Beijing midnight without clearing monthly marks", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-03T15:59:59Z"));
+    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+      workbuddy: { daily: "2026-11-03", monthly: "2026-11-01" },
+    } }));
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
+    expect(within(card).getByRole("button", { name: "今日已领取（{{date}}）" })).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1_000); });
+    expect(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toBeInTheDocument();
+  });
+
+  it("refreshes monthly marks on the first and catches up after sleep on focus", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-31T15:59:59Z"));
+    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+      ant_ling: { monthly: "2026-10-10" }, agentrouter: { daily: "2026-10-31" },
+    } }));
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    const ant = screen.getByRole("heading", { name: "蚂蚁百灵 (Ant Ling)" }).closest(".group");
+    expect(within(ant).getByRole("button", { name: "本月已领取（{{date}}）" })).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1_000); });
+    expect(within(ant).getByRole("button", { name: "本月未领取 · 标记已领取" })).toBeInTheDocument();
+    const router = screen.getByRole("heading", { name: "Agent Router" }).closest(".group");
+    fireEvent.click(within(router).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    vi.setSystemTime(new Date("2026-11-03T08:00:00Z"));
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    expect(within(router).getByRole("button", { name: "今日未领取 · 标记已领取" })).toBeInTheDocument();
+  });
+
+  it("migrates legacy dates and preserves the original record", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-03T08:00:00Z"));
+    const legacy = JSON.stringify({ workbuddy: "2026-11-01", agnes: "2026-10-01", retired: "2026-11-03" });
+    localStorage.setItem("tokentracker.perks.claims.v1", legacy);
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
+    expect(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toBeInTheDocument();
+    expect(localStorage.getItem("tokentracker.perks.claims.v1")).toBe(legacy);
+    const migrated = JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY));
+    expect(migrated.schema).toBe(2);
+    expect(migrated.providers.agnes.once).toBe("2026-10-01");
+    expect(migrated.providers.retired).toBeUndefined();
+  });
+
+  it("observes other windows and keeps unrelated cycle updates", () => {
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+      workbuddy: { monthly: getPerkClaimDay() },
+    } }));
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: PERKS_CLAIMS_KEY })); });
+    const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
+    fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers.workbuddy).toEqual({ daily: getPerkClaimDay(), monthly: getPerkClaimDay() });
+  });
+
+  it("preserves both marks in memory when writes are blocked", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota reached"); });
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
+    fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    fireEvent.click(within(card).getByRole("button", { name: "本月未领取 · 标记已领取" }));
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    expect(within(card).getByRole("button", { name: "今日已领取（{{date}}）" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("英文界面下国际卡显示英文内容（纯中国卡保持中文）", async () => {
