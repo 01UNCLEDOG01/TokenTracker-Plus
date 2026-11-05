@@ -24,7 +24,7 @@
 
 ## ⚡ 快速开始
 
-> **环境要求**：源码运行需要 Node.js **20+**。Windows 安装包自带 Node 与 .NET 运行时，只需 Windows 10/11 与 WebView2 Runtime；只有自行构建桌面端才需要 .NET 8 SDK。
+> **环境要求**：源码运行需要 Node.js **20+**；SQLite 数据源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（走内置 `node:sqlite`）或系统装有 `sqlite3` 命令。Windows 安装包自带 Node 与 .NET 运行时，只需 Windows 10/11 与 WebView2 Runtime；只有自行构建桌面端才需要 .NET 8 SDK。
 
 **Windows 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载 `TokenTracker-Setup.exe` 安装即可——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
 

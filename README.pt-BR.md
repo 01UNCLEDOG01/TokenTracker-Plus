@@ -33,6 +33,8 @@
 
 ## ⚡ Início rápido
 
+> **Pré-requisitos**: para executar a partir do código-fonte é preciso Node.js **20+**; fontes SQLite (opencode/zcode/loomy/trae etc.) exigem, além disso, Node.js **22.5+** (usa o `node:sqlite` nativo) ou a instalação do comando `sqlite3`. O instalador do Windows já embute o Node.
+
 **No Windows, sem build**: baixe o `TokenTracker-Setup.exe` em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) e instale. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
 
 ```bash

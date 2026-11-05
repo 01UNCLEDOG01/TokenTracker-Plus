@@ -24,7 +24,7 @@
 
 ## ⚡ Quick Start
 
-> **Prerequisites**: running from source requires Node.js **20+**. The Windows installer bundles Node and the .NET runtime; users need Windows 10/11 and WebView2 Runtime. The .NET 8 SDK is required only to build the desktop app.
+> **Prerequisites**: running from source requires Node.js **20+**; SQLite-backed sources (opencode/zcode/loomy/trae, etc.) additionally need Node.js **22.5+** (uses the built-in `node:sqlite`) or a `sqlite3` CLI on PATH. The Windows installer bundles Node and the .NET runtime; users need Windows 10/11 and WebView2 Runtime. The .NET 8 SDK is required only to build the desktop app.
 
 **Windows users — no build needed**: download `TokenTracker-Setup.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
 

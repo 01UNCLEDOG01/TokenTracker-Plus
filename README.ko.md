@@ -33,6 +33,8 @@
 
 ## ⚡ 빠른 시작
 
+> **실행 환경**: 소스에서 실행하려면 Node.js **20+**가 필요합니다. SQLite 소스(opencode/zcode/loomy/trae 등)는 Node.js **22.5+**(내장 `node:sqlite` 사용) 또는 `sqlite3` 명령어 설치가 별도로 필요합니다. Windows 설치 프로그램에는 Node가 포함되어 있습니다.
+
 **Windows는 빌드 불필요**: [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases)에서 `TokenTracker-Setup.exe`를 내려받아 설치하세요. 처음이라면 [입문 가이드](./docs/getting-started.zh-CN.md)(중국어)를 먼저 읽어보세요.
 
 ```bash
