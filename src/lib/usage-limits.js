@@ -145,6 +145,11 @@ const ANTIGRAVITY_QUOTA_SUMMARY_URLS = Object.freeze([
   "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
   "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
 ]);
+const ANTIGRAVITY_AVAILABLE_MODELS_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
+const ANTIGRAVITY_AVAILABLE_MODELS_URLS = Object.freeze([
+  ANTIGRAVITY_AVAILABLE_MODELS_URL,
+  "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+]);
 const ANTIGRAVITY_USER_AGENT = "antigravity/2.9.1";
 const ANTIGRAVITY_TOKEN_REFRESH_SKEW_MS = 60 * 1000;
 // Per-step ceilings for the Antigravity serial chain. `providerTimeoutMs` bounds the
@@ -198,6 +203,18 @@ const OPENCODE_GO_LOCAL_ESTIMATE_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 const CURSOR_LIMITS_CACHE_FILE = "cursor-usage-limits-cache.json";
 const CURSOR_LIMITS_CACHE_SCHEMA = 1;
 const CURSOR_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Gemini's Code Assist quota RPCs (cloudcode-pa.googleapis.com) are routinely
+// degraded on GFW-affected routes; a timeout or 5xx previously blanked the card
+// until the next poll. Persist the last successful windows so a blip serves
+// stale bars instead (mirrors Cursor / Codex / OpenCode Go).
+const GEMINI_LIMITS_CACHE_FILE = "gemini-usage-limits-cache.json";
+const GEMINI_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// The Kimi coding API (api.kimi.com / api.kimi.ai) is another proxied route where
+// a timeout or 5xx previously blanked the card until the next poll. Persist the
+// last successful windows so a blip serves stale bars instead
+// (mirrors Cursor / Codex / OpenCode Go).
+const KIMI_LIMITS_CACHE_FILE = "kimi-usage-limits-cache.json";
+const KIMI_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // A 429 from the usage endpoint carries a long `retry-after` (often 20+ minutes). Persist
 // the cooldown so every surface — this process, the menu bar app's embedded server, a later
 // restart — stops calling until it expires. Hammering during the cooldown just renews the
@@ -1013,7 +1030,9 @@ function kimiCredentialsExpired(creds, nowMs = Date.now()) {
 
 async function refreshKimiAccessToken({ refreshToken, profile, fetchImpl = fetch } = {}) {
   if (typeof refreshToken !== "string" || !refreshToken.trim()) {
-    throw new Error("Not logged in to Kimi. Run 'kimi' in Terminal to authenticate.");
+    const error = new Error("Not logged in to Kimi. Run 'kimi' in Terminal to authenticate.");
+    error.code = "AUTH_EXPIRED";
+    throw error;
   }
 
   const body = new URLSearchParams({
@@ -1032,7 +1051,9 @@ async function refreshKimiAccessToken({ refreshToken, profile, fetchImpl = fetch
     body,
   });
   if (res.status === 401 || res.status === 403) {
-    throw new Error("Not logged in to Kimi. Run 'kimi' in Terminal to authenticate.");
+    const error = new Error("Not logged in to Kimi. Run 'kimi' in Terminal to authenticate.");
+    error.code = "AUTH_EXPIRED";
+    throw error;
   }
   if (!res.ok) {
     throw new Error(`Kimi token refresh failed (HTTP ${res.status})`);
@@ -1066,7 +1087,11 @@ async function fetchKimiUsage(accessToken, { profile, fetchImpl = fetch } = {}) 
     },
   });
   if (res.status === 401) {
-    throw new Error("token_expired");
+    // The retry-with-refresh path keys off this message; the code marks the
+    // error actionable (re-login) so the cache fallback never hides it.
+    const error = new Error("token_expired");
+    error.code = "AUTH_EXPIRED";
+    throw error;
   }
   if (!res.ok) {
     throw new Error(`Kimi API returned ${res.status}`);
@@ -1079,12 +1104,17 @@ async function fetchKimiLimits({ home, env, fetchImpl = fetch } = {}) {
   if (!profile.configured) {
     return { configured: false };
   }
-  if (profile.error) return { configured: true, error: profile.error };
+  // A profile misconfiguration (unsupported endpoints, non-file credential
+  // storage) is actionable — the user must fix their config — so it must not
+  // be hidden behind the stale disk-cache fallback. Internal marker —
+  // stripped before the payload is served.
+  if (profile.error) return { configured: true, error: profile.error, config_error: true };
   const creds = loadKimiCredentials({ profile });
   let accessToken = typeof creds?.access_token === "string" ? creds.access_token.trim() : "";
   if (!accessToken) {
     return { configured: false };
   }
+  const cacheIdentity = kimiProfileIdentity(profile);
   try {
     if (kimiCredentialsExpired(creds) && creds?.refresh_token) {
       accessToken = await refreshKimiAccessToken({
@@ -1112,11 +1142,18 @@ async function fetchKimiLimits({ home, env, fetchImpl = fetch } = {}) {
       configured: true,
       error: null,
       ...normalizeKimiUsageResponse(body),
+      // Internal cache-partition key (stripped before the payload is served).
+      cache_identity: cacheIdentity,
     };
   } catch (error) {
     return {
       configured: true,
       error: error?.message || "Unknown error",
+      // A session-expiry error is actionable (re-login) and must not be hidden
+      // behind the stale disk-cache fallback (opencode-go auth_error precedent).
+      // Internal marker — stripped before the payload is served.
+      ...(error?.code === "AUTH_EXPIRED" ? { auth_error: true } : {}),
+      cache_identity: cacheIdentity,
     };
   }
 }
@@ -1248,6 +1285,12 @@ async function extractGeminiOauthClientCredentials({ commandRunner, home } = {})
   return { ...GEMINI_CLI_FALLBACK_OAUTH_CLIENT };
 }
 
+// Shared by the refresh-401 path, the missing-credentials path, and the quota
+// endpoint's 401: all three mean the Google OAuth session is gone. Re-login is
+// actionable, so none of them may be hidden behind the stale disk-cache
+// fallback (opencode-go auth_error precedent).
+const GEMINI_NOT_LOGGED_IN_MESSAGE = "Not logged in to Gemini. Run 'gemini' in Terminal to authenticate.";
+
 async function refreshGeminiAccessToken({
   refreshToken,
   home,
@@ -1273,7 +1316,14 @@ async function refreshGeminiAccessToken({
     body,
   });
   if (!res.ok) {
-    throw new Error("Not logged in to Gemini. Run 'gemini' in Terminal to authenticate.");
+    const error = new Error(GEMINI_NOT_LOGGED_IN_MESSAGE);
+    // Confirmed credential failures only (invalid_grant = 400, invalid_client
+    // = 401/403): a transient 429/5xx from the token endpoint must stay
+    // cache-eligible so the stale fallback can still serve bars.
+    if (res.status === 400 || res.status === 401 || res.status === 403) {
+      error.code = "AUTH_EXPIRED";
+    }
+    throw error;
   }
 
   const json = await res.json();
@@ -1414,17 +1464,37 @@ async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner }
   if (!settings && !credentials) {
     return { configured: false };
   }
+  // An unsupported auth mode is a stable, actionable configuration state: the
+  // quota RPC can never succeed here and stale OAuth-era bars would be
+  // misleading, so it punches through the cache like an auth error.
   if (selectedType === "api-key") {
-    return { configured: true, error: "Gemini API key auth not supported. Use Google account (OAuth) instead." };
+    return {
+      configured: true,
+      error: "Gemini API key auth not supported. Use Google account (OAuth) instead.",
+      auth_error: true,
+    };
   }
   if (selectedType === "vertex-ai") {
-    return { configured: true, error: "Gemini Vertex AI auth not supported. Use Google account (OAuth) instead." };
+    return {
+      configured: true,
+      error: "Gemini Vertex AI auth not supported. Use Google account (OAuth) instead.",
+      auth_error: true,
+    };
   }
 
   const creds = credentials;
   if (!creds?.access_token) {
-    return { configured: true, error: "Not logged in to Gemini. Run 'gemini' in Terminal to authenticate." };
+    return {
+      configured: true,
+      error: GEMINI_NOT_LOGGED_IN_MESSAGE,
+      auth_error: true,
+    };
   }
+
+  // The Google account email from the local id_token JWT partitions the disk
+  // cache (zcode login-identity precedent). Decoded before the network work —
+  // it cannot throw — so the failure path below still knows who we serve for.
+  const claims = decodeJwtPayload(creds.id_token);
 
   try {
     let accessToken = creds.access_token;
@@ -1438,8 +1508,6 @@ async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner }
         commandRunner,
       });
     }
-
-    const claims = decodeJwtPayload(creds.id_token);
     const codeAssist = await loadGeminiCodeAssistStatus(accessToken, { fetchImpl });
     const res = await fetchImpl("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", {
       method: "POST",
@@ -1450,7 +1518,18 @@ async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner }
       body: JSON.stringify(codeAssist.projectId ? { project: codeAssist.projectId } : {}),
     });
     if (res.status === 401) {
-      throw new Error("Not logged in to Gemini. Run 'gemini' in Terminal to authenticate.");
+      const error = new Error(GEMINI_NOT_LOGGED_IN_MESSAGE);
+      error.code = "AUTH_EXPIRED";
+      throw error;
+    }
+    if (res.status === 403) {
+      // PERMISSION_DENIED (seen for Enterprise accounts, gemini-cli#25512):
+      // re-login cannot fix it, but stale bars for a project the account can
+      // no longer see would mislead — punch through like an auth error while
+      // keeping the displayed message unchanged.
+      const error = new Error(`Gemini API error: HTTP ${res.status}`);
+      error.code = "AUTH_EXPIRED";
+      throw error;
     }
     if (!res.ok) {
       throw new Error(`Gemini API error: HTTP ${res.status}`);
@@ -1464,11 +1543,19 @@ async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner }
         email: claims?.email || null,
         tier: codeAssist.tier,
       }),
+      // Internal cache-partition key (stripped before the payload is served):
+      // the same non-secret id the payload already surfaces as account_email.
+      cache_identity: claims?.email || null,
     };
   } catch (error) {
     return {
       configured: true,
       error: error?.message || "Unknown error",
+      // A session-expiry error is actionable (re-login) and must not be hidden
+      // behind the stale disk-cache fallback. Internal marker — stripped
+      // before the payload is served.
+      ...(error?.code === "AUTH_EXPIRED" ? { auth_error: true } : {}),
+      cache_identity: claims?.email || null,
     };
   }
 }
@@ -2878,6 +2965,204 @@ function writeOpencodeGoLimitsCache(limits, { home, nowMs = Date.now() } = {}) {
   } catch (_error) {}
 }
 
+function resolveGeminiLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", GEMINI_LIMITS_CACHE_FILE);
+}
+
+function hasGeminiWindow(limits) {
+  return Boolean(
+    limits?.primary_window
+    || limits?.secondary_window
+    || limits?.tertiary_window,
+  );
+}
+
+// Gemini windows carry `reset_at` as an ISO string (the Code Assist bucket's own
+// resetTime — daily for free-tier quotas). A window whose reset has already passed
+// is stale data, not a usable fallback, so drop it. Windows without a reset stamp
+// are kept — the overall cached_at max-age gate already bounds them.
+function isGeminiCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeGeminiCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = GEMINI_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const cached = {
+    configured: true,
+    error: null,
+    account_email: typeof raw?.account_email === "string" ? raw.account_email : null,
+    account_plan: typeof raw?.account_plan === "string" ? raw.account_plan : null,
+    primary_window: isGeminiCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isGeminiCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    tertiary_window: isGeminiCacheWindowUsable(raw?.tertiary_window, { nowMs }) ? raw.tertiary_window : null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasGeminiWindow(cached) ? cached : null;
+}
+
+// The signed-in Google account partitions the cache (zcode login-identity
+// precedent): the email decoded from the local id_token JWT is non-secret and is
+// the same id the payload already surfaces as account_email. GEMINI_HOME can aim
+// the credential lookup at a different installation, but the cache stays keyed by
+// account — a read requires the stored identity to match the account the current
+// credentials resolve to, and a write without an identity is refused: an
+// unreadable login must never pin another account's bars in place.
+function readGeminiLimitsCache({ home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveGeminiLimitsCachePath({ home }), "utf8"));
+    const entry = parsed?.gemini;
+    if (entry?.identity !== identity) return null;
+    return normalizeGeminiCachedLimits(entry, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeGeminiLimitsCache(limits, { home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return;
+  if (!limits?.configured || limits.error || !hasGeminiWindow(limits)) return;
+  const cachePath = resolveGeminiLimitsCachePath({ home });
+  const payload = {
+    gemini: {
+      identity,
+      account_email: limits.account_email || null,
+      account_plan: limits.account_plan || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      tertiary_window: limits.tertiary_window || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
+  } catch (_error) {}
+}
+
+// Failure-only identity re-derivation for the cache fallback: when the provider
+// slot's result was produced by the outer timeout race, the fetcher's own
+// identity field is lost, so decode the (still-local) id_token once to learn
+// who we are serving for.
+function resolveGeminiCacheIdentity({ home, env } = {}) {
+  try {
+    return decodeJwtPayload(loadGeminiCredentials({ home, env })?.id_token)?.email || null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+// The active Kimi profile partitions the cache (ark profile_identity precedent):
+// mainland and global logins — and any KIMI_HOME override — resolve to different
+// endpoint-scoped credential slots, and one slot must never serve another's
+// windows. The profile home plus OAuth host is non-secret and derivable from
+// local files alone (the credential file holds no account id).
+function kimiProfileIdentity(profile) {
+  if (!profile?.home || !profile?.oauthHost) return null;
+  return `${profile.home}::${profile.oauthHost}`;
+}
+
+// Failure-only identity re-derivation for the cache fallback: when the provider
+// slot's result was produced by the outer timeout race, the fetcher's own
+// identity field is lost, so re-resolve the (still-local) Kimi profile.
+function resolveKimiCacheIdentity({ home, env } = {}) {
+  try {
+    return kimiProfileIdentity(resolveKimiProfile({ home, env }));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function resolveKimiLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", KIMI_LIMITS_CACHE_FILE);
+}
+
+function hasKimiWindow(limits) {
+  return Boolean(
+    limits?.primary_window
+    || limits?.secondary_window
+    || limits?.tertiary_window,
+  );
+}
+
+// Kimi windows carry `reset_at` (ISO) when the API reports a cycle end; a window
+// whose reset has already passed is stale data, not a usable fallback, so drop
+// it. Windows without a reset stamp are kept — the overall cached_at max-age
+// gate already bounds them.
+function isKimiCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeKimiCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = KIMI_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const cached = {
+    configured: true,
+    error: null,
+    membership_level: typeof raw?.membership_level === "string" ? raw.membership_level : null,
+    subscription_type: typeof raw?.subscription_type === "string" ? raw.subscription_type : null,
+    parallel_limit: Number.isFinite(raw?.parallel_limit) ? raw.parallel_limit : null,
+    primary_window: isKimiCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isKimiCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    tertiary_window: isKimiCacheWindowUsable(raw?.tertiary_window, { nowMs }) ? raw.tertiary_window : null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasKimiWindow(cached) ? cached : null;
+}
+
+function readKimiLimitsCache({ home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveKimiLimitsCachePath({ home }), "utf8"));
+    const entry = parsed?.kimi;
+    if (entry?.identity !== identity) return null;
+    return normalizeKimiCachedLimits(entry, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeKimiLimitsCache(limits, { home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return;
+  if (!limits?.configured || limits.error || !hasKimiWindow(limits)) return;
+  const cachePath = resolveKimiLimitsCachePath({ home });
+  const payload = {
+    kimi: {
+      identity,
+      membership_level: limits.membership_level || null,
+      subscription_type: limits.subscription_type || null,
+      parallel_limit: Number.isFinite(limits.parallel_limit) ? limits.parallel_limit : null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      tertiary_window: limits.tertiary_window || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
+  } catch (_error) {}
+}
+
 function resolveClaudeRateLimitPath({ home } = {}) {
   return path.join(home || os.homedir(), ".tokentracker", "tracker", CLAUDE_RATE_LIMIT_FILE);
 }
@@ -3747,6 +4032,11 @@ async function fetchAntigravityQuotaSummaryJson(fetchImpl, accessToken, signal) 
   for (const url of ANTIGRAVITY_QUOTA_SUMMARY_URLS) {
     try {
       const res = await postAntigravityCloudCode(fetchImpl, url, accessToken, {}, signal);
+      if (res.status === 403 && await isAntigravitySubscriptionRequired(res)) {
+        const err = new Error("Antigravity quota summary requires a subscription.");
+        err.code = "SUBSCRIPTION_REQUIRED";
+        throw err;
+      }
       if (res.status === 401 || res.status === 403) {
         const err = new Error(ANTIGRAVITY_AUTH_EXPIRED_MESSAGE);
         err.code = "AUTH_EXPIRED";
@@ -3759,11 +4049,54 @@ async function fetchAntigravityQuotaSummaryJson(fetchImpl, accessToken, signal) 
       }
       return await res.json();
     } catch (error) {
-      if (error?.code === "AUTH_EXPIRED") throw error;
+      if (error?.code === "AUTH_EXPIRED" || error?.code === "SUBSCRIPTION_REQUIRED") throw error;
       lastError = error;
     }
   }
   throw lastError || new Error("Antigravity quota request failed.");
+}
+
+// Free-tier ("Starter Quota") accounts get 403 SUBSCRIPTION_REQUIRED from
+// retrieveUserQuotaSummary even with a valid token — that is not an auth failure.
+async function isAntigravitySubscriptionRequired(res) {
+  try {
+    const body = await res.json();
+    const details = Array.isArray(body?.error?.details) ? body.error.details : [];
+    return details.some((d) => d?.reason === "SUBSCRIPTION_REQUIRED");
+  } catch {
+    return false;
+  }
+}
+
+// Per-model quotaInfo, available to every tier. Reshaped into the language
+// server's clientModelConfigs so normalizeAntigravityResponse can pick windows.
+async function fetchAntigravityAvailableModelsLimits(fetchImpl, accessToken, signal) {
+  let lastError = null;
+  for (const url of ANTIGRAVITY_AVAILABLE_MODELS_URLS) {
+    try {
+      const res = await postAntigravityCloudCode(fetchImpl, url, accessToken, {}, signal);
+      if (res.status === 401 || res.status === 403) {
+        const err = new Error(ANTIGRAVITY_AUTH_EXPIRED_MESSAGE);
+        err.code = "AUTH_EXPIRED";
+        err.status = res.status;
+        throw err;
+      }
+      if (!res.ok) {
+        lastError = new Error(`Antigravity API error: HTTP ${res.status}`);
+        continue;
+      }
+      const json = await res.json();
+      const models = json?.models && typeof json.models === "object" ? json.models : {};
+      const clientModelConfigs = Object.entries(models)
+        .filter(([, m]) => typeof m?.displayName === "string" && m.displayName)
+        .map(([id, m]) => ({ label: m.displayName, modelOrAlias: { model: id }, quotaInfo: m.quotaInfo }));
+      return normalizeAntigravityResponse({ clientModelConfigs }, { fallbackToConfigs: true });
+    } catch (error) {
+      if (error?.code === "AUTH_EXPIRED") throw error;
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Antigravity models request failed.");
 }
 
 /** Read the paid plan label without failing a successful quota response if this lookup fails. */
@@ -3805,8 +4138,14 @@ async function fetchAntigravityRemoteLimits({
   if (!resolvedCreds) return null;
 
   const loadWithToken = async (accessToken) => {
-    const payload = await fetchAntigravityQuotaSummaryJson(fetchImpl, accessToken, signal);
-    const windows = normalizeAntigravityQuotaSummary(payload);
+    let windows;
+    try {
+      const payload = await fetchAntigravityQuotaSummaryJson(fetchImpl, accessToken, signal);
+      windows = normalizeAntigravityQuotaSummary(payload);
+    } catch (error) {
+      if (error?.code !== "SUBSCRIPTION_REQUIRED") throw error;
+      windows = await fetchAntigravityAvailableModelsLimits(fetchImpl, accessToken, signal);
+    }
     const accountPlan = windows.account_plan || await fetchAntigravityPlanLabel(fetchImpl, accessToken, signal);
     return {
       configured: true,
@@ -4713,6 +5052,111 @@ async function fetchUsageLimitsUncached({
     ? { ...cursor, quaternary_window: null }
     : cursor;
 
+  // Kimi: persist last successful windows so a transient timeout/5xx on the
+  // api.kimi.com / api.kimi.ai coding routes serves stale bars instead of a
+  // flashing "fetch failed" (mirrors Cursor / Codex / OpenCode Go). Re-login
+  // errors ("Not logged in to Kimi" / "token_expired") and actionable profile
+  // misconfigurations must not be hidden behind stale cache, so they pass
+  // through untouched.
+  let kimiWithCache;
+  if (!kimi || kimi.configured === false) {
+    kimiWithCache = kimi;
+  } else if (kimi.auth_error === true || kimi.config_error === true) {
+    kimiWithCache = kimi;
+  } else if (!kimi.error && hasKimiWindow(kimi)) {
+    kimiWithCache = {
+      ...kimi,
+      stale: false,
+      cached_at: new Date(nowMs).toISOString(),
+    };
+    // A slow in-flight fetch must not clobber the on-disk entry of a
+    // profile/region that has since been switched away: only write when the
+    // snapshot's identity still matches current credentials.
+    const currentIdentity = resolveKimiCacheIdentity({ home, env });
+    const snapshotIdentity = typeof kimi.cache_identity === "string"
+      ? kimi.cache_identity
+      : currentIdentity;
+    if (snapshotIdentity && snapshotIdentity === currentIdentity) {
+      writeKimiLimitsCache(kimiWithCache, {
+        home,
+        nowMs,
+        identity: snapshotIdentity,
+      });
+    }
+  } else {
+    // The slot's error object loses the fetcher's identity field when the outer
+    // timeout race wins (the common failure mode this cache exists for). Always
+    // re-resolve the identity from the (still-local) Kimi profile.
+    const identity = resolveKimiCacheIdentity({ home, env });
+    const cached = readKimiLimitsCache({ home, nowMs, identity });
+    kimiWithCache = cached || kimi;
+  }
+  // cache_identity / auth_error / config_error are internal cache-plumbing
+  // markers, not payload.
+  if (kimiWithCache && ("cache_identity" in kimiWithCache || "auth_error" in kimiWithCache || "config_error" in kimiWithCache)) {
+    const {
+      cache_identity: _identity,
+      auth_error: _authError,
+      config_error: _configError,
+      ...kimiPayload
+    } = kimiWithCache;
+    kimiWithCache = kimiPayload;
+  }
+
+  // Gemini: persist last successful windows so a transient timeout/5xx on the
+  // cloudcode-pa.googleapis.com routes serves stale bars instead of a flashing
+  // "fetch failed" (mirrors Cursor / Codex / OpenCode Go). Auth errors (a dead
+  // OAuth session, or the unsupported api-key / vertex-ai auth modes) are
+  // actionable and must not be hidden behind stale cache, so they pass through
+  // untouched.
+  let geminiWithCache;
+  if (!gemini || gemini.configured === false) {
+    geminiWithCache = gemini;
+  } else if (gemini.auth_error === true) {
+    geminiWithCache = gemini;
+  } else if (!gemini.error && hasGeminiWindow(gemini)) {
+    geminiWithCache = {
+      ...gemini,
+      stale: false,
+      cached_at: new Date(nowMs).toISOString(),
+    };
+    // A slow in-flight fetch must not clobber the on-disk entry of an
+    // account that has since been switched away: only write when the
+    // snapshot's identity still matches the current credentials.
+    const currentIdentity = resolveGeminiCacheIdentity({ home, env });
+    const snapshotIdentity = typeof gemini.cache_identity === "string"
+      ? gemini.cache_identity
+      : currentIdentity;
+    if (snapshotIdentity && snapshotIdentity === currentIdentity) {
+      writeGeminiLimitsCache(geminiWithCache, {
+        home,
+        nowMs,
+        identity: snapshotIdentity,
+      });
+    }
+  } else {
+    // The slot's error object loses the fetcher's identity field when the outer
+    // timeout race wins (the common failure mode this cache exists for). Always
+    // re-derive from the CURRENT local credentials — the request may have
+    // started under an account that has since been switched away, in which
+    // case the read's identity gate refuses the old entry. Revalidate the auth
+    // mode too: a mid-flight switch to api-key/vertex-ai never reached the
+    // punch-through branch above, but stale OAuth bars would still mislead.
+    const selectedType = loadGeminiSettings({ home, env })?.security?.auth?.selectedType ?? null;
+    if (selectedType === "api-key" || selectedType === "vertex-ai") {
+      geminiWithCache = gemini;
+    } else {
+      const identity = resolveGeminiCacheIdentity({ home, env });
+      const cached = readGeminiLimitsCache({ home, nowMs, identity });
+      geminiWithCache = cached || gemini;
+    }
+  }
+  // cache_identity / auth_error are internal cache-plumbing markers, not payload.
+  if (geminiWithCache && ("cache_identity" in geminiWithCache || "auth_error" in geminiWithCache)) {
+    const { cache_identity: _identity, auth_error: _authError, ...geminiPayload } = geminiWithCache;
+    geminiWithCache = geminiPayload;
+  }
+
   const data = {
     fetched_at: new Date(nowMs).toISOString(),
     claude: withPlanLabel(claude, claudePlanType, "Claude"),
@@ -4722,8 +5166,8 @@ async function fetchUsageLimitsUncached({
     // tier, and membership.level is an opaque enum (LEVEL_INTERMEDIATE) with no
     // authoritative human-readable plan mapping. Both rendered as garbage like
     // "Kimi Type_event" (issue #130), so show the bare brand instead.
-    kimi: withPlanLabel(kimi, null, "Kimi"),
-    gemini: withPlanLabel(gemini, gemini.account_plan, "Gemini"),
+    kimi: withPlanLabel(kimiWithCache, null, "Kimi"),
+    gemini: withPlanLabel(geminiWithCache, geminiWithCache?.account_plan, "Gemini"),
     kiro: withPlanLabel(kiro, kiro.plan_name, "Kiro"),
     antigravity: withPlanLabel(antigravity, antigravity.account_plan, "Antigravity"),
     apigoto: withPlanLabel(apigoto, apigoto?.plan_name, "APIGOTO"),

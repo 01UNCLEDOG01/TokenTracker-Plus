@@ -364,6 +364,27 @@
       "cache_write": 0,
       "note": "Cursor Grok 4.7 Fast rate. Cursor publishes $4/M input, $1/M cached input, $12/M output. Kept separate from the cheaper base SKU."
     },
+    "grok-4.7": {
+      "input": 2.0,
+      "output": 6.0,
+      "cache_read": 0.5,
+      "cache_write": 0,
+      "note": "xAI short-context rates for bare grok-4.7 ($2/$0.50/$6 per MTok below 200k prompt tokens)."
+    },
+    "grok-4.7-build-fast": {
+      "input": 4.0,
+      "output": 12.0,
+      "cache_read": 1.0,
+      "cache_write": 0,
+      "note": "Grok 4.7 Fast / Build rate ($4/$1/$12 per MTok). Recorded by ZCode as grok-4.7-build-fast."
+    },
+    "grok-4.7-fast": {
+      "input": 4.0,
+      "output": 12.0,
+      "cache_read": 1.0,
+      "cache_write": 0,
+      "note": "Grok 4.7 Fast alias ($4/$1/$12 per MTok)."
+    },
     "grok-4-0709": {
       "input": 3,
       "output": 15,
