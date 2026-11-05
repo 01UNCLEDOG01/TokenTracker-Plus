@@ -2260,7 +2260,7 @@ async function scanGrokSession(filePath) {
 
 // Project and title metadata stay local. SQL projects only numeric usage and
 // identity fields; user/assistant bodies and tool arguments never enter JS.
-const OPENCODE_INPUT_CACHE_VERSION = 1;
+const OPENCODE_INPUT_CACHE_VERSION = 2;
 const OPENCODE_SQLITE_OPTIONS = {
   label: "OpenCode",
   timeout: 30_000,
@@ -2370,13 +2370,30 @@ async function readOpencodeSessionInputsFull(dbPath) {
     })}
       ${partColumns.has("time_created") ? `ORDER BY time_created ASC, ${partSortId} ASC` : `ORDER BY ${partSortId} ASC`}`));
   }
-  // Incremental resume is only safe for the single v1 message table. A v2
-  // session_message row or a transitional dual layout keeps the full path.
+  // Incremental resume is safe for the single v1 `message` table. The v2 /
+  // transitional layouts (session_message present) are cached the same way, but
+  // with a per-table watermark so both the legacy `message`/`part` and the newer
+  // `session_message`/`session_part` tables are read incrementally. A dropped
+  // head row or a net row-count loss still forces a full rebuild (see
+  // readOpencodeSessionInputs).
   const v2HasRows = tables.has("session_message")
     ? Number((await query("SELECT COUNT(*) AS count FROM session_message"))[0]?.count || 0) > 0
     : false;
   const layout = tables.has("message") && !v2HasRows ? "v1" : "full";
   const partColumns = partColumnsByTable.get("part") || new Set();
+  const tableStats = {};
+  for (const table of ["message", "session_message"]) {
+    if (tables.has(table)) tableStats[`msg:${table}`] = await readOpencodeTableStats(query, table);
+  }
+  for (const table of ["part", "session_part"]) {
+    if (!partColumnsByTable.has(table)) continue;
+    const cols = partColumnsByTable.get(table);
+    tableStats[`part:${table}`] = {
+      ...(await readOpencodeTableStats(query, table, { hasTimeUpdated: cols.has("time_updated") })),
+      hasTimeUpdated: cols.has("time_updated"),
+      hasId: cols.has("id"),
+    };
+  }
   return {
     sessionRows,
     messages,
@@ -2385,15 +2402,12 @@ async function readOpencodeSessionInputsFull(dbPath) {
     tables: [...tables],
     partTable: partColumnsByTable.has("part") ? "part" : null,
     partHasTimeUpdated: partColumns.has("time_updated"),
-    messageStats: await readOpencodeTableStats(query, tables.has("message") ? "message" : null),
-    partStats: await readOpencodeTableStats(query, partColumnsByTable.has("part") ? "part" : null, {
-      hasTimeUpdated: partColumns.has("time_updated"),
-    }),
+    tableStats,
   };
 }
 
 function cacheOpencodeInputs(dbPath, data) {
-  if (data.layout !== "v1") return;
+  if (!data || !data.tableStats) return;
   const identity = opencodeDbIdentity(dbPath);
   if (!identity) return;
   opencodeInputCache.set(path.resolve(dbPath), {
@@ -2407,12 +2421,7 @@ function cacheOpencodeInputs(dbPath, data) {
     sessionIds: data.sessionRows.map((row) => row.id),
     messages: data.messages,
     toolRows: data.toolRows,
-    messageCount: data.messageStats.count,
-    maxMessageRowId: data.messageStats.maxRowId,
-    maxMessageUpdatedAt: data.messageStats.maxUpdatedAt,
-    partCount: data.partStats.count,
-    maxPartRowId: data.partStats.maxRowId,
-    maxPartUpdatedAt: data.partStats.maxUpdatedAt,
+    tableStats: data.tableStats,
   });
 }
 
@@ -2430,50 +2439,77 @@ async function readOpencodeSessionInputs(dbPath, { allowCache = true, forceFull 
   const key = path.resolve(dbPath);
   const cached = opencodeInputCache.get(key);
   const identity = opencodeDbIdentity(dbPath);
-  if (!cached || cached.version !== OPENCODE_INPUT_CACHE_VERSION || cached.identity !== identity || cached.layout !== "v1") {
+  if (!cached || cached.version !== OPENCODE_INPUT_CACHE_VERSION || cached.identity !== identity) {
     const data = await full();
     return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
   }
   const query = opencodeQuery(dbPath);
-  const tables = new Set(cached.tables);
-  const sessionRows = await readOpencodeSessionRows(query, tables);
+  const freshTables = new Set((await query("SELECT name FROM sqlite_master WHERE name IN ('session','session_v2','message','session_message','part','session_part')")).map((row) => row.name));
+  if (freshTables.size !== cached.tables.length || cached.tables.some((t) => !freshTables.has(t))) {
+    const data = await full();
+    return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
+  }
+  const sessionRows = await readOpencodeSessionRows(query, freshTables);
   const sessionIds = new Set(sessionRows.map((row) => row.id));
   if (sessionRows.length < cached.sessionIds.length || cached.sessionIds.some((id) => !sessionIds.has(id))) {
     const data = await full();
     return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
   }
-  const messageStats = await readOpencodeTableStats(query, "message");
-  const partStats = await readOpencodeTableStats(query, cached.partTable, {
-    hasTimeUpdated: cached.partHasTimeUpdated,
-  });
-  if (messageStats.count < cached.messageCount || messageStats.maxRowId < cached.maxMessageRowId
-      || partStats.count < cached.partCount || partStats.maxRowId < cached.maxPartRowId) {
+  if (!cached.tableStats) {
+    // Legacy cache shape (pre v2 watermark layout): rebuild once.
     const data = await full();
     return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
   }
-  const newMessages = await query(`${opencodeMessageSelect("message")} ${opencodeMessageWhere(
-    "message",
-    `rowid > ${cached.maxMessageRowId} OR time_updated >= ${cached.maxMessageUpdatedAt}`,
-  )} ORDER BY time_created ASC, id ASC`);
-  const newParts = cached.partTable
-    ? await query(`${opencodePartSelect(cached.partTable, { hasTimeUpdated: cached.partHasTimeUpdated, hasId: true })}
-      WHERE rowid > ${cached.maxPartRowId}${cached.partHasTimeUpdated ? ` OR time_updated >= ${cached.maxPartUpdatedAt}` : ""}
-      ORDER BY rowid ASC`)
-    : [];
+  // Re-read every present table's watermark. If a table shrank or lost its head
+  // row (edits/deletes), only a full rebuild is correct — resuming from a stale
+  // watermark could resurrect rows that were already removed upstream.
+  const nextTableStats = {};
+  for (const [tk, prev] of Object.entries(cached.tableStats)) {
+    const table = tk.slice(tk.indexOf(":") + 1);
+    if (tk.startsWith("part:")) {
+      nextTableStats[tk] = {
+        ...(await readOpencodeTableStats(query, table, { hasTimeUpdated: prev.hasTimeUpdated })),
+        hasTimeUpdated: prev.hasTimeUpdated,
+        hasId: prev.hasId,
+      };
+    } else {
+      nextTableStats[tk] = await readOpencodeTableStats(query, table);
+    }
+    if (nextTableStats[tk].count < prev.count || nextTableStats[tk].maxRowId < prev.maxRowId) {
+      const data = await full();
+      return { sessionRows: data.sessionRows, messages: data.messages, toolRows: data.toolRows };
+    }
+  }
+  // Pull only rows added since each table's watermark (new tail or an updated
+  // row), then merge onto the cached set with newest-wins dedup semantics.
   const messages = new Map(cached.messages.map((row) => [`${row.session_id}\0${row.id}`, row]));
-  for (const row of newMessages) {
-    const messageKey = `${row.session_id}\0${row.id}`;
-    const previous = messages.get(messageKey);
-    if (!previous || Number(row.time_updated) >= Number(previous.time_updated)) messages.set(messageKey, row);
+  for (const tk of Object.keys(cached.tableStats)) {
+    if (!tk.startsWith("msg:")) continue;
+    const table = tk.slice(tk.indexOf(":") + 1);
+    const prev = cached.tableStats[tk];
+    const rows = await query(`${opencodeMessageSelect(table)} ${opencodeMessageWhere(table, `rowid > ${prev.maxRowId} OR time_updated >= ${prev.maxUpdatedAt}`)} ORDER BY time_created ASC, id ASC`);
+    for (const row of rows) {
+      const messageKey = `${row.session_id}\0${row.id}`;
+      const previous = messages.get(messageKey);
+      if (!previous || Number(row.time_updated) >= Number(previous.time_updated)) messages.set(messageKey, row);
+    }
   }
   const toolRows = new Map();
   for (const row of cached.toolRows) {
     const id = String(row?.id || "");
     toolRows.set(id ? id : `anon:${toolRows.size}`, row);
   }
-  for (const row of newParts) {
-    const id = String(row?.id || "");
-    toolRows.set(id ? id : `anon:${toolRows.size}`, row);
+  for (const tk of Object.keys(cached.tableStats)) {
+    if (!tk.startsWith("part:")) continue;
+    const table = tk.slice(tk.indexOf(":") + 1);
+    const prev = cached.tableStats[tk];
+    const rows = await query(`${opencodePartSelect(table, { hasTimeUpdated: prev.hasTimeUpdated, hasId: prev.hasId })}
+      WHERE rowid > ${prev.maxRowId}${prev.hasTimeUpdated ? ` OR time_updated >= ${prev.maxUpdatedAt}` : ""}
+      ORDER BY rowid ASC`);
+    for (const row of rows) {
+      const id = String(row?.id || "");
+      toolRows.set(id ? id : `anon:${toolRows.size}`, row);
+    }
   }
   const next = {
     ...cached,
@@ -2481,12 +2517,7 @@ async function readOpencodeSessionInputs(dbPath, { allowCache = true, forceFull 
     sessionIds: sessionRows.map((row) => row.id),
     messages: [...messages.values()],
     toolRows: [...toolRows.values()],
-    messageCount: messageStats.count,
-    maxMessageRowId: messageStats.maxRowId,
-    maxMessageUpdatedAt: messageStats.maxUpdatedAt,
-    partCount: partStats.count,
-    maxPartRowId: partStats.maxRowId,
-    maxPartUpdatedAt: partStats.maxUpdatedAt,
+    tableStats: nextTableStats,
   };
   opencodeInputCache.set(key, next);
   opencodeInputStats.incrementalReads += 1;
@@ -4840,19 +4871,30 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
   // budget is spent, a one-row readability probe decides — a recovered database
   // heals on the very next build, a permanently locked one stops costing a full
   // re-read per request. The probe runs at most once per build.
-  let zcodeProbe = null;
-  const zcodeRescanDue = () => {
-    if (!retryZcodeScan) return false;
-    if (incompleteRetryDue(incompleteZcodeMarker)) return true;
-    if (zcodeProbe === null) zcodeProbe = databaseSourceReadable(discovered.zcode);
-    return zcodeProbe;
+  // After a marker's retry budget is spent, a one-row readability probe decides
+  // (see the sourceRetryDue comment above). Give every database source the same
+  // self-heal zcode got: once the db is readable again, it rescans on the very
+  // next build instead of staying frozen until an unrelated stat change. Each
+  // source probes its own db paths (opencode and loomy are distinct databases).
+  const buildRescanDue = (marker, pathsForSource) => {
+    let probed; // memoized: at most one probe per source per build
+    return () => {
+      if (!marker) return false;
+      if (incompleteRetryDue(marker)) return true;
+      if (probed === undefined) probed = !!databaseSourceReadable(pathsForSource);
+      return probed;
+    };
+  };
+  const rescanDueBySource = {
+    zcode: buildRescanDue(incompleteZcodeMarker, discovered.zcode),
+    opencode: buildRescanDue(incompleteOpencodeMarker, discovered.opencode),
+    loomy: buildRescanDue(incompleteOpencodeMarker, discovered.loomy),
+    kimi: buildRescanDue(incompleteKimiMarker, discovered.kimi),
+    omp: buildRescanDue(incompleteOmpMarker, discovered.omp),
   };
   const sourceRetryDue = (source) => {
-    if (source === "zcode") return zcodeRescanDue();
-    if (isOpencodeFamilySource(source)) return incompleteRetryDue(incompleteOpencodeMarker);
-    if (source === "kimi") return incompleteRetryDue(incompleteKimiMarker);
-    if (source === "omp") return incompleteRetryDue(incompleteOmpMarker);
-    return false;
+    const due = rescanDueBySource[source];
+    return due ? due() : false;
   };
   // Which sources were actually re-read from disk in THIS build. A marker may
   // only be cleared by a source that really re-scanned successfully: clearing

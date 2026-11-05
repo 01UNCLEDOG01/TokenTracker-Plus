@@ -383,3 +383,87 @@ sqliteTest("transitional opencode with legacy part (id) and session_part (no id)
   assert.equal(row.total_tokens, 190);
   assert.equal(row.edit_turns, 1, "session_part edit is attributed");
 });
+
+sqliteTest("spent opencode retry budget still self-heals via a readability probe", async (t) => {
+  const f = fixture(t);
+  session(f, "ses_root");
+  message(f);
+  f.db.close();
+
+  const previousHome = process.env.OPENCODE_HOME;
+  const previousMode = process.env.TOKENTRACKER_WSL_MODE;
+  process.env.OPENCODE_HOME = path.dirname(f.dbPath);
+  process.env.TOKENTRACKER_WSL_MODE = "native-only";
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.OPENCODE_HOME; else process.env.OPENCODE_HOME = previousHome;
+    if (previousMode === undefined) delete process.env.TOKENTRACKER_WSL_MODE; else process.env.TOKENTRACKER_WSL_MODE = previousMode;
+  });
+
+  // First healthy build caches opencode rows and leaves no marker.
+  const first = await buildSessionAnalytics({ home: f.home, force: true });
+  assert.equal(first.length, 1);
+  const markerPath = `${resolveSessionSidecarPath(f.home)}.meta.json.opencode-incomplete`;
+  assert.equal(fs.existsSync(markerPath), false);
+
+  // Simulate a transient read failure that inflated the retry budget to the
+  // INCOMPLETE_RETRY_LIMIT without changing the database (mtime/stat unchanged,
+  // db still readable). The cached stat still matches, so without a readability
+  // probe the source would be skipped and the marker would persist forever.
+  const spent = JSON.stringify({ attempts: 3, since: new Date().toISOString(), last_attempt_at: new Date().toISOString() });
+  fs.writeFileSync(markerPath, `${spent}\n`);
+
+  const healed = await buildSessionAnalytics({ home: f.home });
+  assert.equal(healed.length, 1);
+  assert.equal(fs.existsSync(markerPath), false, "a readable opencode db rescans and clears the spent marker");
+});
+
+sqliteTest("full layout reads new session_message/session_part rows incrementally", async (t) => {
+  resetOpencodeInputCacheForTests();
+  const f = fixture(t, { v2: true, sessionTable: "session_v2" });
+  f.db.exec("CREATE TABLE session_part (message_id TEXT, session_id TEXT, ordinal INTEGER, type TEXT, call_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  session(f, "ses_root");
+  message(f, { table: "session_message", role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f, { table: "session_message", id: "assistant", model: "deepseek-v4.1-flash-free" });
+  f.db.prepare("INSERT INTO session_part (message_id, session_id, ordinal, type, call_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("assistant", "ses_root", 0, "tool", "c1", T0, T0 + 1000, JSON.stringify({ type: "tool", tool: "edit", callID: "c1" }));
+
+  const first = await scanOpencodeSessions(f.dbPath);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].total_tokens, 190);
+  assert.equal(first[0].edit_turns, 1, "full-layout part is read on the cold scan");
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 1, incrementalReads: 0 });
+
+  // New tail message + a new tool part land while the process is warm: the full
+  // layout must catch them with an incremental read, not re-read the whole db.
+  message(f, { table: "session_message", id: "assistant-2", start: T0 + 3600000, model: "deepseek-v4.1-flash-free" });
+  f.db.prepare("INSERT INTO session_part (message_id, session_id, ordinal, type, call_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("assistant-2", "ses_root", 0, "tool", "c2", T0 + 3600000, T0 + 3601000, JSON.stringify({ type: "tool", tool: "task", callID: "c2" }));
+  const second = await scanOpencodeSessions(f.dbPath);
+  assert.equal(second[0].total_tokens, 380, "second assistant message merged without a full re-read");
+  assert.equal(second[0].subagent_calls, 1, "session_part task added incrementally");
+  assert.equal(second[0].edit_turns, 1, "original edit turn preserved");
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 1, incrementalReads: 1 });
+  f.db.close();
+});
+
+sqliteTest("full layout falls back to a full rebuild when a row is deleted", async (t) => {
+  resetOpencodeInputCacheForTests();
+  const f = fixture(t, { v2: true, sessionTable: "session_v2" });
+  session(f, "ses_root");
+  message(f, { table: "session_message", role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f, { table: "session_message", id: "assistant", model: "deepseek-v4.1-flash-free" });
+  const first = await scanOpencodeSessions(f.dbPath);
+  assert.equal(first[0].total_tokens, 190);
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 1, incrementalReads: 0 });
+
+  message(f, { table: "session_message", id: "tail", start: T0 + 3600000, model: "deepseek-v4.1-flash-free" });
+  const grown = await scanOpencodeSessions(f.dbPath);
+  assert.equal(grown[0].total_tokens, 380);
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 1, incrementalReads: 1 });
+
+  f.db.prepare("DELETE FROM session_message WHERE id = 'tail'").run();
+  const afterDelete = await scanOpencodeSessions(f.dbPath);
+  assert.equal(afterDelete[0].total_tokens, 190, "a deleted tail forces a full rebuild");
+  assert.deepEqual(getOpencodeInputCacheStatsForTests(), { fullReads: 2, incrementalReads: 1 });
+  f.db.close();
+});
