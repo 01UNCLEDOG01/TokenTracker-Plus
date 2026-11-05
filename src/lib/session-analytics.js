@@ -2307,9 +2307,14 @@ function opencodeMessageWhere(table, extra = "") {
   return `WHERE ${role} IN ('user', 'assistant')${extra ? ` AND (${extra})` : ""}`;
 }
 
-function opencodePartSelect(table, columns) {
-  const timeUpdated = columns.has("time_updated") ? ", time_updated" : "";
-  return `SELECT rowid AS _rowid, id, session_id, message_id${timeUpdated},
+function opencodePartSelect(table, { hasTimeUpdated = false, hasId = true } = {}) {
+  // Legacy opencode `part` exposes a stable string `id` primary key. The newer
+  // schema's `session_part` drops `id` (composite message_id + ordinal + type),
+  // so select id only when the table actually has it; otherwise fall back to
+  // rowid, which every SQLite table carries and is unique per row.
+  const timeUpdated = hasTimeUpdated ? ", time_updated" : "";
+  const partId = hasId ? "id" : "rowid AS id";
+  return `SELECT rowid AS _rowid, ${partId}, session_id, message_id${timeUpdated},
       json_extract(data, '$.tool') AS tool
       FROM ${table}`;
 }
@@ -2357,8 +2362,13 @@ async function readOpencodeSessionInputsFull(dbPath) {
     const partColumns = new Set((await query(`SELECT name FROM pragma_table_info('${table}')`)).map((row) => row.name));
     if (!partColumns.has("data") || !partColumns.has("session_id")) continue;
     partColumnsByTable.set(table, partColumns);
-    toolRows.push(...await query(`${opencodePartSelect(table, partColumns)}
-      ${partColumns.has("time_created") ? "ORDER BY time_created ASC, id ASC" : "ORDER BY id ASC"}`));
+    const partHasId = partColumns.has("id");
+    const partSortId = partHasId ? "id" : "rowid";
+    toolRows.push(...await query(`${opencodePartSelect(table, {
+      hasTimeUpdated: partColumns.has("time_updated"),
+      hasId: partHasId,
+    })}
+      ${partColumns.has("time_created") ? `ORDER BY time_created ASC, ${partSortId} ASC` : `ORDER BY ${partSortId} ASC`}`));
   }
   // Incremental resume is only safe for the single v1 message table. A v2
   // session_message row or a transitional dual layout keeps the full path.
@@ -2446,7 +2456,7 @@ async function readOpencodeSessionInputs(dbPath, { allowCache = true, forceFull 
     `rowid > ${cached.maxMessageRowId} OR time_updated >= ${cached.maxMessageUpdatedAt}`,
   )} ORDER BY time_created ASC, id ASC`);
   const newParts = cached.partTable
-    ? await query(`${opencodePartSelect(cached.partTable, cached.partHasTimeUpdated ? new Set(["time_updated"]) : new Set())}
+    ? await query(`${opencodePartSelect(cached.partTable, { hasTimeUpdated: cached.partHasTimeUpdated, hasId: true })}
       WHERE rowid > ${cached.maxPartRowId}${cached.partHasTimeUpdated ? ` OR time_updated >= ${cached.maxPartUpdatedAt}` : ""}
       ORDER BY rowid ASC`)
     : [];

@@ -333,3 +333,53 @@ sqliteTest("OpenCode tool parts drive edit turns and sub-agent calls", async (t)
   assert.deepEqual(row.subagent_types, { task: 2 });
   assert.equal(row.edit_turns, 1, "edit tools in one message are one edit turn");
 });
+
+sqliteTest("newer OpenCode session_part without an id column scans toolbox without a crash", async (t) => {
+  // Regression: the newest OpenCode schema keeps tool parts in `session_part`,
+  // whose primary key is the composite (message_id, ordinal, type) — there is
+  // no `id` column. The reader used to emit a constant `id` in the SELECT and
+  // ORDER BY for every part table, throwing `no such column: id` and skipping
+  // the whole opencode session scan (incomplete marker, stale sessions page).
+  const f = fixture(t, { v2: true, sessionTable: "session_v2" });
+  f.db.exec("CREATE TABLE session_part (message_id TEXT, session_id TEXT, ordinal INTEGER, type TEXT, call_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  session(f, "ses_root");
+  message(f, { table: "session_message", role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f, { table: "session_message", id: "assistant", model: "deepseek-v4.1-flash-free" });
+  f.db.prepare("INSERT INTO session_part (message_id, session_id, ordinal, type, call_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("assistant", "ses_root", 0, "tool", "c1", T0, T0 + 1000, JSON.stringify({ type: "tool", tool: "task", callID: "c1" }));
+  f.db.prepare("INSERT INTO session_part (message_id, session_id, ordinal, type, call_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("assistant", "ses_root", 1, "tool", "c2", T0, T0 + 1000, JSON.stringify({ type: "tool", tool: "edit", callID: "c2" }));
+  f.db.close();
+
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows.length, 1);
+  const row = rows[0];
+  assert.equal(row.total_tokens, 190);
+  assert.equal(row.subagent_calls, 1, "session_part task call is counted");
+  assert.deepEqual(row.subagent_types, { task: 1 });
+  assert.equal(row.edit_turns, 1, "session_part edit tool is one edit turn");
+});
+
+sqliteTest("transitional opencode with legacy part (id) and session_part (no id) both scan", async (t) => {
+  // Mirrors a real box mid-migration: `part` still carries tool rows keyed by a
+  // string id, while the newer `session_part` table exists without an id column.
+  // Both must be readable in a single full scan (this is the layout that
+  // previously crashed when the constant `id` hit session_part).
+  const f = fixture(t, { v2: true, sessionTable: "session_v2" });
+  f.db.exec("CREATE TABLE part (id TEXT, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  f.db.exec("CREATE TABLE session_part (message_id TEXT, session_id TEXT, ordinal INTEGER, type TEXT, call_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)");
+  session(f, "ses_root");
+  message(f, { table: "session_message", role: "user", id: "user", start: T0 - 1000, end: T0 - 1000 });
+  message(f, { table: "session_message", id: "assistant", model: "deepseek-v4.1-flash-free" });
+  f.db.prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?, ?)")
+    .run("p_legacy", "assistant", "ses_root", T0, T0 + 1000, JSON.stringify({ type: "tool", tool: "read", callID: "p_legacy" }));
+  f.db.prepare("INSERT INTO session_part (message_id, session_id, ordinal, type, call_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run("assistant", "ses_root", 0, "tool", "c1", T0, T0 + 1000, JSON.stringify({ type: "tool", tool: "edit", callID: "c1" }));
+  f.db.close();
+
+  const rows = await scanOpencodeSessions(f.dbPath);
+  assert.equal(rows.length, 1);
+  const row = rows[0];
+  assert.equal(row.total_tokens, 190);
+  assert.equal(row.edit_turns, 1, "session_part edit is attributed");
+});
