@@ -131,6 +131,7 @@ const {
 } = require("../lib/scan-roots");
 const { probeGrokHookState, resolveGrokHome } = require("../lib/grok-hook");
 const { probeOmpHookState } = require("../lib/omp-hook");
+const { detectSqliteBackend } = require("../lib/sqlite-reader");
 
 // `filename` may be a list, in which case the first child that exists wins. A
 // resolver using requireAnyChild accepts a root that holds ANY of several
@@ -1058,6 +1059,10 @@ async function cmdStatus(argv = []) {
       generated_at: new Date().toISOString(),
       base_url: config?.baseUrl || null,
       device_token_set: deviceTokenPresence.set,
+      // Which SQLite read backend this runtime can use. If both are missing,
+      // SQLite-backed sources (opencode/zcode/loomy/trae/…) are skipped, so this
+      // makes that failure surface in the very command meant to diagnose hooks.
+      sqlite_backend: detectSqliteBackend(),
       queue: {
         pending_bytes: pendingBytes,
         size_bytes: queueSize,

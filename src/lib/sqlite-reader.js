@@ -207,9 +207,39 @@ function resetSqliteReaderWarningsForTests() {
   warnedSqliteReadFailures.clear();
 }
 
+// Report which SQLite read backend this runtime can use, without opening any
+// database. Surfaced by `tracker status` so a machine with neither the sqlite3
+// CLI nor node:sqlite (Node <22.5) is diagnosable instead of silently dropping
+// every SQLite-backed source (opencode/zcode/loomy/trae/…). Both calls are
+// cheap and non-destructive; this is only invoked from status/diagnose paths.
+function detectSqliteBackend({ spawnSync = cp.spawnSync, requireFn = require } = {}) {
+  let cliPresent = false;
+  try {
+    const res = spawnSync("sqlite3", ["-version"], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] });
+    cliPresent = Boolean(res) && res.status === 0;
+  } catch {
+    cliPresent = false;
+  }
+  let nodeSqlite = false;
+  try {
+    const mod = requireFn("node:sqlite");
+    nodeSqlite = Boolean(mod && typeof mod.DatabaseSync === "function");
+  } catch {
+    nodeSqlite = false;
+  }
+  const available = cliPresent || nodeSqlite;
+  const nodeVersion = typeof process?.versions?.node === "string" ? process.versions.node : null;
+  let backend = "none";
+  if (cliPresent && nodeSqlite) backend = "sqlite3-cli + node:sqlite";
+  else if (cliPresent) backend = "sqlite3-cli";
+  else if (nodeSqlite) backend = `node:sqlite (Node ${nodeVersion})`;
+  return { available, backend, sqlite3_cli: cliPresent, node_sqlite: nodeSqlite, node_version: nodeVersion };
+}
+
 module.exports = {
   readSqliteJsonRows,
   readSqliteJsonRowsAsync,
   readSqliteFirstValue,
   resetSqliteReaderWarningsForTests,
+  detectSqliteBackend,
 };

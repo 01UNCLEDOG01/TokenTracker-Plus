@@ -9,6 +9,7 @@ const {
   readSqliteJsonRows,
   readSqliteJsonRowsAsync,
   resetSqliteReaderWarningsForTests,
+  detectSqliteBackend,
 } = require("../src/lib/sqlite-reader");
 
 function tempDbPath() {
@@ -184,4 +185,41 @@ test("readSqliteFirstValue trims string values and closes node:sqlite DB", () =>
 
   assert.equal(value, "token");
   assert.equal(closed, true);
+});
+
+test("detectSqliteBackend reports cli-only, node-only, both and none", () => {
+  const cliOk = () => ({ status: 0 });
+  const cliMissing = () => {
+    throw new Error("spawn sqlite3 ENOENT");
+  };
+  const nodeOk = () => ({ DatabaseSync: function DatabaseSync() {} });
+  const nodeMissing = () => {
+    throw new Error("no such built-in module 'node:sqlite'");
+  };
+
+  let result = detectSqliteBackend({ spawnSync: cliOk, requireFn: nodeMissing });
+  assert.deepEqual(
+    { available: result.available, sqlite3_cli: result.sqlite3_cli, node_sqlite: result.node_sqlite, backend: result.backend },
+    { available: true, sqlite3_cli: true, node_sqlite: false, backend: "sqlite3-cli" },
+  );
+
+  result = detectSqliteBackend({ spawnSync: cliMissing, requireFn: nodeOk });
+  assert.deepEqual(
+    { available: result.available, sqlite3_cli: result.sqlite3_cli, node_sqlite: result.node_sqlite },
+    { available: true, sqlite3_cli: false, node_sqlite: true },
+  );
+  assert.match(result.backend, /^node:sqlite/);
+
+  result = detectSqliteBackend({ spawnSync: cliOk, requireFn: nodeOk });
+  assert.deepEqual(
+    { available: result.available, backend: result.backend },
+    { available: true, backend: "sqlite3-cli + node:sqlite" },
+  );
+
+  result = detectSqliteBackend({ spawnSync: cliMissing, requireFn: nodeMissing });
+  assert.deepEqual(
+    { available: result.available, backend: result.backend },
+    { available: false, backend: "none" },
+  );
+  assert.equal(result.node_version, process.versions.node);
 });
