@@ -3581,6 +3581,11 @@ function preserveCodexModelBuckets(hourlyState, touchedBuckets) {
     touchedBuckets.add(bucketKey(DEFAULT_SOURCE, DEFAULT_MODEL, hourStart));
     delete hourlyState.groupQueued[groupKey];
   }
+  for (const groupKey of Object.keys(hourlyState.groupQueued)) {
+    if (groupKey.startsWith(`${DEFAULT_SOURCE}${BUCKET_SEPARATOR}`)) {
+      delete hourlyState.groupQueued[groupKey];
+    }
+  }
   hourlyState.modelAttributionPolicy = { ...hourlyState.modelAttributionPolicy, codex: "observed" };
 }
 

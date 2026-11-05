@@ -202,3 +202,31 @@ test("#927 Codex rebuild preserves the model bucket schema through the following
     assert.equal(await fs.readFile(queuePath, "utf8"), stable);
   } finally { await fs.rm(dir, { recursive: true, force: true }); }
 });
+
+test("#927 preserveCodexModelBuckets purges orphan group keys without buckets and hits fast path", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "tt-codex-orphan-groups-"));
+  try {
+    const queuePath = path.join(dir, "queue.jsonl");
+    // Simulate an orphan group key in groupQueued with no matching buckets
+    const cursors = {
+      hourly: {
+        version: 3,
+        buckets: {},
+        groupQueued: {
+          [`codex|${HOUR}`]: "orphan-group-token",
+        },
+      },
+    };
+    const res = await parseRolloutIncremental({ rolloutFiles: [], cursors, queuePath });
+    assert.equal(res.eventsAggregated, 0);
+    // Orphan group key must be purged
+    assert.deepEqual(cursors.hourly.groupQueued, {});
+    assert.deepEqual(cursors.hourly.modelAttributionPolicy, { codex: "observed" });
+
+    // Subsequent sync must hit the fast path without scanning
+    const res2 = await parseRolloutIncremental({ rolloutFiles: [], cursors, queuePath });
+    assert.equal(res2.eventsAggregated, 0);
+    assert.equal(res2.bucketsQueued, 0);
+    assert.deepEqual(cursors.hourly.groupQueued, {});
+  } finally { await fs.rm(dir, { recursive: true, force: true }); }
+});
