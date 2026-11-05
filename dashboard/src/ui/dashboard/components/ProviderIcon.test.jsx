@@ -69,6 +69,27 @@ describe("ProviderIcon", () => {
     expect(container.querySelector(".text-oai-gray-400")).toBeNull();
   });
 
+  it("renders WorkBuddy brand logo for domestic and buddy mascot for international instead of placeholder", () => {
+    // Domestic WorkBuddy uses its own green cat mark from PROVIDER_LOGO_MAP.
+    const domestic = render(<ProviderIcon provider="WORKBUDDY" size={15} />).container;
+    const catLogo = domestic.querySelector('img[src="/brand-logos/workbuddy.png"]');
+    expect(catLogo, "domestic WORKBUDDY renders the green cat brand logo").not.toBeNull();
+    expect(domestic.querySelector("circle")).toBeNull();
+
+    // International WorkBuddy AI reports slug workbuddy-ai / WORKBUDDY-AI and
+    // falls through to the mono buddy mascot SVG without placeholder circles.
+    for (const provider of ["WORKBUDDY-AI", "workbuddy-ai"]) {
+      const { container } = render(<ProviderIcon provider={provider} size={15} />);
+      const icon = container.querySelector("svg");
+
+      expect(icon, `${provider} maps to the buddy mascot`).not.toBeNull();
+      expect(icon).toHaveAttribute("width", "15");
+      expect(icon?.querySelector("path")).not.toBeNull();
+      expect(icon?.querySelector("circle")).toBeNull();
+      expect(container.querySelector(".text-oai-gray-400")).toBeNull();
+    }
+  });
+
   it("renders AStudio with its theme-aware brand assets", () => {
     const { container } = render(<ProviderIcon provider="acode" size={18} />);
     const lightIcon = container.querySelector('img[src^="/brand-logos/acode.png"]');

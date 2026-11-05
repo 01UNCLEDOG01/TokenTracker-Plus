@@ -361,6 +361,7 @@ async function parseRolloutIncremental({
   const projectFreshnessNowMs = Date.now();
   const touchedBuckets = new Set();
   const defaultSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
+  preserveCodexModelBuckets(hourlyState, touchedBuckets);
   const syncDiagnostics = diagnostics && typeof diagnostics === "object" ? diagnostics : null;
 
   if (!cursors.files || typeof cursors.files !== "object") {
@@ -3548,6 +3549,41 @@ async function parseOpencodeMessageFile({
   };
 }
 
+// Codex models are observed per rollout/turn. A busier sibling agent in the
+// same half-hour is not evidence for the model of an unnamed request (#927).
+// Re-emit stored buckets once on upgrade, including idle historical groups:
+// their totals still retain the original attribution, so no log replay is
+// needed. Queue readers replace rows by (source, model, hour_start).
+function preserveCodexModelBuckets(hourlyState, touchedBuckets) {
+  const upgrading = hourlyState.modelAttributionPolicy?.codex !== "observed";
+  hourlyState.groupQueued ||= {};
+  if (!upgrading && !Object.keys(hourlyState.groupQueued).some(
+    key => key.startsWith(`${DEFAULT_SOURCE}${BUCKET_SEPARATOR}`),
+  )) return;
+  const legacyGroups = new Set();
+  for (const [key, bucket] of Object.entries(hourlyState.buckets || {})) {
+    const parsed = parseBucketKey(key);
+    if (parsed.source !== DEFAULT_SOURCE || !bucket?.totals) continue;
+    const groupKey = groupBucketKey(parsed.source, parsed.hourStart);
+    const legacy = Object.prototype.hasOwnProperty.call(hourlyState.groupQueued, groupKey);
+    if (legacy) legacyGroups.add(groupKey);
+    if (!upgrading && !legacy) continue;
+    bucket.queuedKey = null;
+    bucket.retractedUnknownKey = null;
+    touchedBuckets.add(key);
+  }
+  for (const groupKey of legacyGroups) {
+    const hourStart = groupKey.slice(DEFAULT_SOURCE.length + BUCKET_SEPARATOR.length);
+    // Legacy groups emitted a combined unknown row for multiple named models.
+    // Replace it with the actual unknown total (or zero) before splitting.
+    const unknown = getHourlyBucket(hourlyState, DEFAULT_SOURCE, DEFAULT_MODEL, hourStart);
+    unknown.queuedKey = null;
+    touchedBuckets.add(bucketKey(DEFAULT_SOURCE, DEFAULT_MODEL, hourStart));
+    delete hourlyState.groupQueued[groupKey];
+  }
+  hourlyState.modelAttributionPolicy = { ...hourlyState.modelAttributionPolicy, codex: "observed" };
+}
+
 async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets }) {
   if (!touchedBuckets || touchedBuckets.size === 0) return 0;
 
@@ -3644,6 +3680,72 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
   // appendFile 成功后才允许写回（见函数尾部），失败即保持旧值、整段重发。
   const pendingStamps = [];
   for (const group of groupedBuckets.values()) {
+    // Codex defaults to observed-only attribution; reconstructions can opt
+    // other sources in. Preserve every model bucket, including unknown,
+    // instead of guessing from the busiest model in the same half-hour.
+    // Persist the policy so hooks, desktop refreshes and restarts agree.
+    if (hourlyState.modelAttributionPolicy?.[group.source] === "observed") {
+      // A group last aligned under the default policy must not keep the stale
+      // dominant attribution downstream. Mirror the default path's alignment
+      // correction — one zero row for the old model — then observed mode
+      // re-emits every bucket, unknown included, and the alignment state is
+      // dropped so the correction fires at most once per group.
+      const alignedModelBucket = group.buckets.get(DEFAULT_MODEL) || null;
+      const staleAlignedModel = (() => {
+        if (!alignedModelBucket?.alignedModel) return null;
+        const normalized = normalizeModelInput(alignedModelBucket.alignedModel);
+        return normalized && normalized !== DEFAULT_MODEL && !group.buckets.has(normalized)
+          ? normalized
+          : null;
+      })();
+      if (staleAlignedModel) {
+        const zeroTotals = initTotals();
+        toAppend.push(JSON.stringify({
+          source: group.source,
+          model: staleAlignedModel,
+          hour_start: group.hourStart,
+          input_tokens: zeroTotals.input_tokens,
+          cached_input_tokens: zeroTotals.cached_input_tokens,
+          cache_creation_input_tokens: zeroTotals.cache_creation_input_tokens,
+          output_tokens: zeroTotals.output_tokens,
+          reasoning_output_tokens: zeroTotals.reasoning_output_tokens,
+          total_tokens: zeroTotals.total_tokens,
+          billable_total_tokens: zeroTotals.billable_total_tokens,
+          total_cost_usd: zeroTotals.total_cost_usd,
+          conversation_count: zeroTotals.conversation_count,
+        }));
+      }
+      for (const bucket of group.buckets.values()) {
+        pendingStamps.push([bucket, "alignedModel", null]);
+      }
+      for (const [model, bucket] of group.buckets.entries()) {
+        const totals = bucket.totals;
+        const usagePrecision = bucket.usage_precision || null;
+        const metadata = antigravityQueueMetadata(group.source, bucket);
+        const precisionKey = usagePrecision ? `${totalsKey(totals)}|${usagePrecision}` : totalsKey(totals);
+        const key = metadata.usage_retracted ? `${precisionKey}|retracted` : precisionKey;
+        if (bucket.queuedKey === key) continue;
+        toAppend.push(JSON.stringify({
+          source: group.source,
+          model,
+          hour_start: group.hourStart,
+          input_tokens: totals.input_tokens,
+          cached_input_tokens: totals.cached_input_tokens,
+          cache_creation_input_tokens: totals.cache_creation_input_tokens,
+          output_tokens: totals.output_tokens,
+          reasoning_output_tokens: totals.reasoning_output_tokens,
+          total_tokens: totals.total_tokens,
+          billable_total_tokens: totals.billable_total_tokens ?? totals.total_tokens,
+          total_cost_usd: totals.total_cost_usd || 0,
+          usage_precision: usagePrecision || undefined,
+          ...metadata,
+          ...prioritySubsetOf(totals),
+          conversation_count: totals.conversation_count,
+        }));
+        pendingStamps.push([bucket, "queuedKey", key]);
+      }
+      continue;
+    }
     const unknownBucket = group.buckets.get(DEFAULT_MODEL) || null;
     const dominantModel = pickDominantModel(group.buckets);
     let alignedModel = null;
@@ -4032,14 +4134,29 @@ function normalizeHourlyState(raw) {
   const version = Number(state.version || 1);
   const rawBuckets = state.buckets && typeof state.buckets === "object" ? state.buckets : {};
   const buckets = {};
-  const groupQueued = {};
+  const existingGroupQueued =
+    state.groupQueued && typeof state.groupQueued === "object" ? state.groupQueued : {};
+  const modelAttributionPolicy = Object.fromEntries(
+    Object.entries(state.modelAttributionPolicy || {})
+      .filter(([, policy]) => policy === "observed"),
+  );
 
   if (!Number.isFinite(version) || version < 2) {
+    const groupQueued = { ...existingGroupQueued };
     for (const [key, value] of Object.entries(rawBuckets)) {
       const parsed = parseBucketKey(key);
       const hourStart = parsed.hourStart;
       if (!hourStart) continue;
       const source = normalizeSourceInput(parsed.source) || DEFAULT_SOURCE;
+      // Older repairs persisted model-aware keys without a schema version.
+      // Preserve them before v1 normalization can collapse sibling models into
+      // unknown; preserveCodexModelBuckets needs the original attribution (#927).
+      const firstSeparator = key.indexOf(BUCKET_SEPARATOR);
+      const hasModel = firstSeparator > 0 && key.indexOf(BUCKET_SEPARATOR, firstSeparator + 1) > 0;
+      if (hasModel) {
+        buckets[bucketKey(source, parsed.model, hourStart)] = value;
+        continue;
+      }
       const normalizedKey = bucketKey(source, DEFAULT_MODEL, hourStart);
       buckets[normalizedKey] = value;
       if (value?.queuedKey) {
@@ -4050,6 +4167,7 @@ function normalizeHourlyState(raw) {
       version: 3,
       buckets,
       groupQueued,
+      modelAttributionPolicy,
       updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : null,
     };
   }
@@ -4062,13 +4180,11 @@ function normalizeHourlyState(raw) {
     buckets[normalizedKey] = value;
   }
 
-  const existingGroupQueued =
-    state.groupQueued && typeof state.groupQueued === "object" ? state.groupQueued : {};
-
   return {
     version: 3,
     buckets,
     groupQueued: version >= 3 ? existingGroupQueued : {},
+    modelAttributionPolicy,
     updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : null,
   };
 }
