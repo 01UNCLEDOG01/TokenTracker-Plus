@@ -6,6 +6,14 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.18.2] - 2026-11-05
+
+- **OpenCode 会话不再缺项**：适配新版 opencode 会话库（`session_part` 无 `id` 列的 schema），此前「会话」页读不到 opencode 并冻结在旧快照的问题已修复。
+- **数据库源自愈**：opencode/loomy/kimi/omp 在读取失败、重试预算耗尽后，只要库恢复可读便在下次构建自愈，不再长期停留在旧数据。
+- **会话增量读取提速**：v2/full 布局（`session_message`/`session_part`）纳入增量缓存，只拉取水位之后的新行，避免每次全量重读多 GB 会话库。
+- **SQLite 后端可诊断**：`tracker status` 新增 `sqlite_backend` 字段，报告当前用 `sqlite3` CLI 还是 `node:sqlite`；两者都缺失时明确提示，不再静默丢 SQLite 数据源。
+- **多语言 README 同步**：六份 README 标注 SQLite 源需 Node 22.5+（`node:sqlite`）或安装 `sqlite3` 命令。
+
 ## [1.18.1] - 2026-11-04
 
 - **成就显示不退阶**：页面、分享卡和称号判定使用本浏览器已观察到的最高阶位；旧缓存首次加载也应用同一规则，实际用量与占比保持现值。
