@@ -6,6 +6,16 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.18.3] - 2026-11-05
+
+- **Codex 多模型日统计区分与归属修复**：同一个半小时内出现多个不同模型（如编排模型、子代理、快照评审）或未命名模型时，不再强行坍缩为 dominant model；历史 rescan 重建保留版本号与 observed 策略，避免重构降级为 unknown。
+- **Antigravity 免费档（Starter Quota）降级与双域容灾**：遇到 403 SUBSCRIPTION_REQUIRED 状态时，自动平滑降级至 fetchAvailableModels 获取配额，并支持双域名容灾切换。
+- **Gemini 与 Kimi 磁盘缓存回退**：限额接口遇到网络异常或限流超额时，自动回退到 7 天 Last-Good 磁盘快照；接入原子写入机制并增加请求中凭证一致性防线，保留 401 穿透。
+- **Grok 4.7 费率补全**：补全 grok-4.7 与 grok-4.7-build-fast / grok-4.7-fast 裸模型费率，修复第三方模型采集归零问题。
+- **WorkBuddy 品牌资产保真**：国内版 WorkBuddy 优先呈现官方绿色小猫品牌图，国际版 WorkBuddy AI 精准映射单色吉祥物，杜绝虚线圆圈占位符。
+
+（本版已正式发布并设为 Latest；推荐下载 TokenTracker-Setup.exe。）
+
 ## [1.18.2] - 2026-11-05
 
 - **OpenCode 会话不再缺项**：适配新版 opencode 会话库（`session_part` 无 `id` 列的 schema），此前「会话」页读不到 opencode 并冻结在旧快照的问题已修复。
