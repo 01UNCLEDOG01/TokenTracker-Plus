@@ -288,6 +288,11 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
             // the estimate gate then keeps the conservative "measured wins"
             // behavior instead of guessing a coverage ratio from a hit rate.
             cacheObservedInput: toFiniteNumber(rawTotals?.cache_observed_input_tokens),
+            // The model's own measured hit rate over its fielded history
+            // (server-side: measured rows only). Estimate evidence when the
+            // current period has no same-model peer — same tool, same model,
+            // real measurements.
+            cacheObservedHitRate: toFiniteNumber(model?.cache_observed_hit_rate),
           };
           // Per-model input-side cache hit rate, same semantics as the
           // source-level figure: cache reads / all input-side tokens. null when
@@ -457,7 +462,14 @@ function computeTraeFold(provider: any, fleetData: any) {
         : hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
     // Other TRAE-card models also observe the model (TRAE CN): they count as
     // peer evidence even though the card itself reports no cache fields.
-    const hitRate = rates && rates.length ? median(rates) : null;
+    // Owner ruling 2026-11-07: when the current period has no same-model peer
+    // at all, the model's own fielded history is still real evidence — the
+    // estimate runs with it rather than leaving the card at a measured 0%.
+    const hitRate = rates && rates.length
+      ? median(rates)
+      : Number.isFinite(Number(t.cacheObservedHitRate)) && Number(t.cacheObservedHitRate) > 0
+        ? Number(t.cacheObservedHitRate)
+        : null;
     if (hitRate == null || !Number.isFinite(hitRate) || hitRate <= 0) {
       estimatedCost += modelCost;
       perModel.push({ model, originalCost: modelCost, foldedCost: modelCost, hitRate: null });

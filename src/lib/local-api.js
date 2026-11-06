@@ -4098,6 +4098,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           ma.totals.cache_observed_input_tokens = (ma.totals.cache_observed_input_tokens || 0) +
             (Number(row.cache_observed_input_tokens) || 0);
         }
+        // Self-observed hit rate (TRAE CN fielded rows only): the model's own
+        // measured hit rate across its history, exposed as estimate evidence
+        // for periods where no other source observed the same model.
+        if ((Number(row.cache_observed_input_tokens) || 0) > 0) {
+          ma.cache_observed_hits = (ma.cache_observed_hits || 0) + (Number(row.cached_input_tokens) || 0);
+          ma.cache_observed_volume = (ma.cache_observed_volume || 0) + Number(row.cache_observed_input_tokens);
+        }
         // Price each row, exactly as aggregateByDay does for the hero (#653).
         // computeRowCost is not linear for models with a Fast tier or
         // long-context rates: priority_* / long_context_* mark a subset of the
@@ -4113,6 +4120,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           .map((m) => ({
             ...m,
             speed_tiers: hasObservedSpeedTiers(m.speed_tiers) ? m.speed_tiers : null,
+            cache_observed_hit_rate: (m.cache_observed_volume || 0) > 0
+              ? Math.round(((m.cache_observed_hits || 0) / m.cache_observed_volume) * 1000) / 10
+              : null,
             totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
           }))
           .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);

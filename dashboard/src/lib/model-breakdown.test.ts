@@ -295,7 +295,7 @@ describe("buildAllModels", () => {
         usage: 300,
         requests: 0,
         cost: 0,
-        tokens: { input: 100, output: 20, cached: 170, cacheCreate: 5, reasoning: 5, cacheObservedInput: null },
+        tokens: { input: 100, output: 20, cached: 170, cacheCreate: 5, reasoning: 5, cacheObservedInput: null, cacheObservedHitRate: null },
         // Input-side cache hit rate: 170/(100+170+5) = 61.8 -> 62.
         cacheHitRate: 62,
         pricing: null,
@@ -817,6 +817,43 @@ describe("applyTraeEstimatedCosts", () => {
     expect(model.cost).toBeCloseTo(18, 5);
     expect(model.cacheEstimated).toBeUndefined();
     expect(cn.traeEstimate).toBeUndefined();
+  });
+
+  it("estimates from the model's own fielded history when the period has no same-model peer", () => {
+    // Production shape (owner ruling 2026-11-07): a day view where no other
+    // source observed the model — the peer pool is empty, but TRAE CN's own
+    // fielded history (Sep/Oct: 95-97% measured) is real evidence. The fold
+    // runs with the self-observed rate instead of leaving a measured 0%.
+    const dayView = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, conversation_count: 174 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              cache_observed_hit_rate: 95.2,
+              totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174, cache_observed_input_tokens: 44_000 },
+            },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(dayView));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    if (!cn) throw new Error("expected a TRAE CN provider");
+    const model = cn.models[0];
+    // Coverage 0.06% < 50% gate -> fold with the self-observed 95.2%:
+    // cost = 18 * (0.048 + 0.952 * 0.02).
+    expect(model.cost).toBeCloseTo(18 * (0.048 + 0.952 * 0.02), 5);
+    expect(model.cacheEstimated).toBe(true);
+    const volume = 74_176_000 + 44_000;
+    expect(model.tokens.cached).toBeCloseTo(volume * 0.952, 0);
+    expect(model.cacheHitRate).toBe(95);
+    expect(cn.traeEstimate.medianHitRate).toBe(95.2);
   });
 
   it("never replaces measured cache with an estimate (no observed signal: pre-v5 ledger keeps the conservative stance)", () => {
