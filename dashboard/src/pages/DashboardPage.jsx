@@ -1281,6 +1281,11 @@ export function DashboardPage({
   // How much the hero total drops once TRAE's all-uncached ceiling is replaced
   // by the folded estimate (0 when no peer evidence was available).
   const traeEstimateCostDelta = useMemo(() => {
+    // When the server folded the costs itself (trae_estimate_applied) the
+    // summary total is already estimate-priced — subtracting a delta here
+    // would double-discount. The client-side delta only applies to payloads
+    // the server priced at list (pre-fold servers).
+    if (modelBreakdown?.trae_estimate_applied === true) return 0;
     // Both TRAE editions estimate cache costs (owner ruling 2026-11-07):
     // the hero must drop each edition's ceiling->estimate delta, not just
     // the international one — otherwise the total stays at list price while
@@ -1293,7 +1298,7 @@ export function DashboardPage({
       if (!Number.isFinite(ceiling) || !Number.isFinite(estimated)) return sum;
       return sum + Math.max(0, ceiling - estimated);
     }, 0);
-  }, [fleetData]);
+  }, [fleetData, modelBreakdown]);
 
   const summaryCostValue = useMemo(() => {
     if (hasUnpricedUsage && Number(summary?.total_cost_usd) === 0) return copy("dashboard.cost_breakdown.unpriced_label");

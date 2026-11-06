@@ -94,7 +94,10 @@ export function useTrendData({
       const raw = window.localStorage.getItem(storageKey);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.rows)) return null;
+      // An empty cached row set is a stale artifact (a failed fetch once
+      // wrote it), not a real "no data" — treat as a miss so the network
+      // fetch runs (owner-reported: the Total view stayed empty forever).
+      if (!parsed || !Array.isArray(parsed.rows) || parsed.rows.length === 0) return null;
       touchLocalStorageCacheKey(TREND_CACHE_INDEX_KEY, storageKey, TREND_CACHE_MAX_ENTRIES);
       return parsed;
     } catch (_e) {

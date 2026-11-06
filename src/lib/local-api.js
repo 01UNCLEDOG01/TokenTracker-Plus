@@ -62,6 +62,8 @@ const {
   MODEL_PRICING,
   getModelPricing,
   computeRowSpeedTierSplit,
+
+
   computeRowCost,
   hasAuthoritativeRowCost,
   ensurePricingLoaded,
@@ -167,6 +169,55 @@ const readProjectQueueData = createAsyncQueueReader({
     };
   },
 });
+
+// ── TRAE cache-estimate fold (owner ruling 2026-11-07) ─────────────────────
+// The client's 2026-11 regime stopped reporting cache-read fields, so rows
+// priced by computeRowCost bill the whole input at the uncached rate. Every
+// cost surface (hero, heatmap, trend, daily, model breakdown, floating
+// island) folds TRAE-family rows with the model's own fielded-history hit
+// rate (the ledger's coverage signal), halving nothing when no evidence
+// exists. Dashboard-side folding is skipped via the payload flag below.
+const TRAE_FOLD_REFRESH_MS = 5 * 60 * 1000;
+let traeFoldByModel = null;
+let traeFoldLoadedAt = 0;
+function traeFoldMap() {
+  const now = Date.now();
+  if (traeFoldByModel && now - traeFoldLoadedAt < TRAE_FOLD_REFRESH_MS) return traeFoldByModel;
+  traeFoldByModel = {};
+  traeFoldLoadedAt = now;
+  try {
+    const cursorsPath = path.join(os.homedir(), ".tokentracker", "tracker", "cursors.json");
+    const cursorsData = JSON.parse(fs.readFileSync(cursorsPath, "utf8"));
+    for (const [bucketKey, bucket] of Object.entries(cursorsData?.hourly?.buckets || {})) {
+      if (!bucketKey.startsWith("trae-cn|")) continue;
+      const bucketTotals = bucket?.totals || {};
+      const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
+      if (!(observedVolume > 0)) continue;
+      const observedModel = bucketKey.split("|")[1] || "unknown";
+      const acc = traeFoldByModel[observedModel] || { hits: 0, volume: 0 };
+      acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
+      acc.volume += observedVolume;
+      traeFoldByModel[observedModel] = acc;
+    }
+  } catch (_error) {
+    // No cursors / malformed file: no self evidence, rows stay at ceiling.
+  }
+  return traeFoldByModel;
+}
+function foldTraeRowCost(row, cost) {
+  const source = String(row?.source || "").toLowerCase();
+  if (source !== "trae" && source !== "trae-cn") return cost;
+  const acc = traeFoldMap()[String(row?.model || "")];
+  if (!acc || !(acc.volume > 0)) return cost;
+  const h = Math.min(Math.max(acc.hits / acc.volume, 0), 1);
+  const pricing = getModelPricingInfo(String(row?.model || ""), { source: row.source });
+  const inputRate = Number(pricing?.input);
+  const cacheRate = Number(pricing?.cache_read);
+  if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
+  const discount = Math.min(cacheRate / inputRate, 1);
+  return cost * ((1 - h) + h * discount);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function isLegacyInclusiveCodexRow(row) {
   if (!row || (row.source !== "codex" && row.source !== "every-code")) return false;
@@ -320,7 +371,7 @@ async function buildDailyAggregates(normalizedRows, timeZoneContext) {
     const a = byDay.get(day);
     a.total_tokens += row.total_tokens || 0;
     a.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
-    a.total_cost_usd += computeRowCost(row);
+    a.total_cost_usd += foldTraeRowCost(row, computeRowCost(row));
     a.input_tokens += row.input_tokens || 0;
     a.output_tokens += row.output_tokens || 0;
     a.cached_input_tokens += row.cached_input_tokens || 0;
@@ -863,7 +914,7 @@ function computeLocalAchievements(queueRows, projectRows, { timeZoneContext, ses
     // Same cost semantics as the usage summary (the corner ¥ number):
     // authoritative provider-reported cost wins, everything else prices from
     // the model tables at read time. Rows rarely carry a stored cost.
-    const rowCost = computeRowCost(row);
+    const rowCost = foldTraeRowCost(row, computeRowCost(row));
     costTotal += rowCost;
     const modelLower = String(row.model || "").toLowerCase();
     const sourceLower = String(row.source || "").toLowerCase();
@@ -1569,7 +1620,7 @@ function computeLocalLeaderboard(queueRows, projectRows, {
     totals.output_tokens += Number(row.output_tokens || 0);
     totals.cached_input_tokens += Number(row.cached_input_tokens || 0);
     totals.conversation_count += Number(row.conversation_count || 0);
-    totals.estimated_cost_usd += computeRowCost(row);
+    totals.estimated_cost_usd += foldTraeRowCost(row, computeRowCost(row));
     providerTotals[leaderboardProviderColumn(row.source)] += tokens;
     if (row.model) models[row.model] = (models[row.model] || 0) + tokens;
   }
@@ -1734,6 +1785,7 @@ async function aggregateHourlyByDay(rows, dayKey, timeZoneContext) {
         hour: hourKey,
         total_tokens: 0,
         billable_total_tokens: 0,
+        total_cost_usd: 0,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,
@@ -1751,6 +1803,7 @@ async function aggregateHourlyByDay(rows, dayKey, timeZoneContext) {
     bucket.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
     bucket.reasoning_output_tokens += row.reasoning_output_tokens || 0;
     bucket.conversation_count += row.conversation_count || 0;
+    bucket.total_cost_usd = (bucket.total_cost_usd || 0) + foldTraeRowCost(row, computeRowCost(row));
 
     if (!bucket.models) {
       bucket.models = {};
@@ -3650,7 +3703,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const { aggregateWrapped } = require("./wrapped-aggregator");
       const summary = aggregateWrapped(rows, year ? { year } : {});
-      json(res, { scope, excluded_sources: excludedSources, ...summary });
+      json(res, { scope, excluded_sources: excludedSources, trae_estimate_applied: true, ...summary });
       return true;
     }
 
@@ -3745,7 +3798,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const timeZoneContext = getTimeZoneContext(url);
       const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const daily = (await aggregateByDay(rows, timeZoneContext)).filter((d) => d.day >= from && d.day <= to);
-      json(res, { from, to, scope, excluded_sources: excludedSources, data: daily });
+      json(res, { from, to, scope, excluded_sources: excludedSources, trae_estimate_applied: true, data: daily });
       return true;
     }
 
@@ -3779,7 +3832,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       }
       const { rows, scope, excludedSources } = await scopedRowsForUrl(url);
       const result = computeQualityPerDollar(rows, outcomes, { from, to });
-      json(res, { from, to, scope, excluded_sources: excludedSources, ...result });
+      json(res, { from, to, scope, excluded_sources: excludedSources, trae_estimate_applied: true, ...result });
       return true;
     }
 
@@ -4104,7 +4157,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         // base columns rather than adding volume, so they survive only while the
         // row is intact. Summing the base columns first and pricing once silently
         // dropped every premium — same tokens, fewer dollars than the hero.
-        ma.totals.total_cost_usd = Number(ma.totals.total_cost_usd || 0) + computeRowCost(row);
+        ma.totals.total_cost_usd = Number(ma.totals.total_cost_usd || 0) + foldTraeRowCost(row, computeRowCost(row));
       }
       if (pricingRevision !== getPricingRevision()) return handleLocalApi(req, res, url);
 
@@ -4153,7 +4206,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       });
 
       json(res, {
-        from, to, days: 0, scope, excluded_sources: excludedSources, sources,
+        from, to, days: 0, scope, excluded_sources: excludedSources, sources, trae_estimate_applied: true,
         pricing: { model: "per-model", pricing_mode: "per_token_type", source: "litellm", effective_from: new Date().toISOString().slice(0, 10) },
       });
       return true;
@@ -4743,7 +4796,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         if (!day || day < from || day > to) continue;
         const month = day.slice(0, 7);
         if (!byMonth.has(month))
-          byMonth.set(month, { month, total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0 });
+          byMonth.set(month, { month, total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: 0 });
+        const monthAcc = byMonth.get(month);
+        monthAcc.total_cost_usd = (monthAcc.total_cost_usd || 0) + foldTraeRowCost(row, computeRowCost(row));
         const a = byMonth.get(month);
         a.total_tokens += row.total_tokens || 0;
         a.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;

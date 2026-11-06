@@ -342,6 +342,7 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
           : null;
       return {
         source: entry.source,
+        trae_estimate_applied: modelBreakdown?.trae_estimate_applied === true,
         label,
         totalPercent: String(totalPercent),
         totalPercentValue: totalPercentRaw,
@@ -545,6 +546,11 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
  */
 export function applyTraeEstimatedCosts(fleetData: any) {
   const providers: any[] = Array.isArray(fleetData) ? fleetData : [];
+  // The server now folds TRAE-family costs before the payload leaves
+  // (trae_estimate_applied): client-side folding would double-discount.
+  if (providers.some((p) => p?.trae_estimate_applied === true || p?.__trae_estimate_applied)) {
+    return providers;
+  }
   for (const provider of providers) {
     const source = String(provider?.source || provider?.label || "").trim().toLowerCase();
     // TRAE international and TRAE CN both report no cache fields for recent
