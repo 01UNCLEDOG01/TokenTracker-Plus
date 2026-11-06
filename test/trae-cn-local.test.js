@@ -110,7 +110,7 @@ test("TRAE CN request rows feed hourly/project queues and advance the rowid wate
   const res = await parseTraeCnLocalIncremental(args);
   assert.equal(res.recordsProcessed, 3);
   assert.equal(res.eventsAggregated, 3);
-  assert.equal(f.cursors.traeCnLocal.version, 5);
+  assert.equal(f.cursors.traeCnLocal.version, 6);
   assert.equal(f.cursors.traeCnLocal.lastRowId, 3);
 
   const hourly = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model.toLowerCase()}|${r.hour_start}`);
@@ -254,7 +254,7 @@ test("TRAE CN v3 request ledger (pre-cache) migrates by full rebuild", async (t)
   const rows = [row(10, { total: 264116, output: 203, exact: { prompt: 262922, output: 1194, cacheRead: 261000, reasoning: 998 } })];
   const args = { ...f, readRowsImpl: makeReader(() => rows) };
   const res = await parseTraeCnLocalIncremental(args);
-  assert.equal(f.cursors.traeCnLocal.version, 5, "ledger upgrades to v5");
+  assert.equal(f.cursors.traeCnLocal.version, 6, "ledger upgrades to v6");
   const hourly = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model.toLowerCase()}|${r.hour_start}`);
   const bucket = hourly.get("deepseek-v4.1-flash|" + HOUR);
   // Rebuild REPLACES the old total-only booking; the cache split lands.
@@ -277,7 +277,7 @@ test("TRAE CN migrates the v2 per-turn ledger by replacing, never stacking", asy
   const args = { ...f, readRowsImpl: makeReader(() => rows) };
 
   await parseTraeCnLocalIncremental(args);
-  assert.equal(f.cursors.traeCnLocal.version, 5);
+  assert.equal(f.cursors.traeCnLocal.version, 6);
   assert.equal(bookedTotal(f.cursors), 200, "old per-turn booking is replaced by the request-log totals");
   const latest = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model}|${r.hour_start}`);
   assert.equal(latest.get("old-model|" + HOUR).total_tokens, 0, "retired model bucket is zeroed");

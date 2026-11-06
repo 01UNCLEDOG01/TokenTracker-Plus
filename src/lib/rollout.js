@@ -25962,9 +25962,12 @@ async function parseTraeCnApiIncremental({
 // rows actually carrying the exact fields, which the dashboard's estimate gate
 // needs as a true coverage signal (a hit-rate-derived ratio cannot distinguish
 // "fully measured, low hit rate" from "mostly unmeasured").
+// v6: the coverage signal only counts rows that reported a CACHE READ — the
+// 2026-11 client regime reports the prompt split without a cache-read field,
+// and counting those rows diluted the self-observed hit rate to 0.1%.
 // Bumping the version forces one full rebuild so the signal lands for every
 // historical bucket.
-const TRAE_CN_LOCAL_LEDGER_VERSION = 5;
+const TRAE_CN_LOCAL_LEDGER_VERSION = 6;
 const TRAE_CN_FULL_RESCAN_MS = 24 * 60 * 60 * 1000;
 
 function traeCnStatOptional(file) {
@@ -26143,9 +26146,13 @@ async function parseTraeCnLocalIncremental({
       billable_total_tokens: totalTokens,
       conversation_count: 1,
       // Coverage signal for the dashboard's estimate gate: the input-side
-      // volume of rows that actually carried the client's exact_* split.
+      // volume of rows that actually reported a CACHE READ. Rows that carry
+      // the prompt split but no cache-read field (the client's 2026-11
+      // regime: prompt reported, cache read omitted) must NOT count — their
+      // cached=0 is "not reported", and folding them into the denominator
+      // diluted the self-observed hit rate to 0.1% (owner-reported).
       cache_observed_input_tokens:
-        exact && (exact.prompt !== null || exact.output !== null)
+        exact && exact.cacheRead !== null
           ? freshInput + cachedInput
           : 0,
     };
