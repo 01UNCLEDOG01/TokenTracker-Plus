@@ -694,4 +694,78 @@ describe("applyTraeEstimatedCosts", () => {
     expect(interval.high).toBeCloseTo(19.2, 5);
     expect(interval.low).toBe(once);
   });
+
+  it("estimates TRAE CN cache and cost when the client stopped reporting cache fields", () => {
+    const cnResponse = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 18, input_tokens: 60_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 600 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              totals: { total_cost_usd: 18, input_tokens: 60_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 600 },
+            },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(cnResponse));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    if (!cn) throw new Error("expected a TRAE CN provider");
+    const model = cn.models[0];
+    // Peer median 90% and cache_read/input = 0.006/0.3 = 2%.
+    expect(model.cost).toBeCloseTo(18 * (0.1 + 0.9 * 0.02), 5);
+    expect(model.ceilingCost).toBeCloseTo(18, 5);
+    // The token columns are estimated too, so the card and its detail agree.
+    expect(model.tokens.cached).toBeCloseTo(54_000_000, 0);
+    expect(model.tokens.input).toBeCloseTo(6_000_000, 0);
+    expect(model.cacheHitRate).toBe(90);
+    expect(model.cacheEstimated).toBe(true);
+    expect(cn.traeEstimate.medianHitRate).toBe(90);
+  });
+
+  it("never replaces measured cache with an estimate", () => {
+    const measured = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 8, input_tokens: 5_000_000, cached_input_tokens: 45_000_000, cache_creation_input_tokens: 0, conversation_count: 100 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              totals: { total_cost_usd: 8, input_tokens: 5_000_000, cached_input_tokens: 45_000_000, cache_creation_input_tokens: 0, conversation_count: 100 },
+            },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(measured));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    const model = cn.models[0];
+    expect(model.cost).toBeCloseTo(8, 5);
+    expect(model.tokens.cached).toBe(45_000_000);
+    expect(model.cacheEstimated).toBeUndefined();
+    expect(cn.traeEstimate).toBeUndefined();
+  });
 });

@@ -77,7 +77,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - **Session retention and local backup** — Drill into local Qoder editions, MiniMax, Devin and other sessions. Lightweight gzip snapshots retain only previously collected session statistics after source files are deleted; they cannot recover uncollected conversations. Export `.ttbackup` in Settings; imports on another machine preview changes and add missing data only.
 
 - **Loading and dark-mode readability** — Local session responses use negotiated gzip and reuse list results during rebuilds. Disk snapshots use asynchronous I/O, a versioned format and a maximum age of 24 hours; legacy formats rebuild automatically. The page shows snapshot time and attempts background updates. Perks text, control borders and keyboard focus have stronger contrast. Startup serves the page before runtime copying and integration repair; shared JS/CSS assets are precompressed for transport.
-- **Background usage collection** — Desktop refresh collects local TRAE CN database/WAL usage, OpenClaw sessions without plugin signals and Prime Agent. On Windows, TRAE reads use a brief shared read guard during active writes. Late-filled and corrected turns are reconciled without blocking later usage or counting it twice; TRAE CN cloud usage reads still require separate opt-in.
+- **Background usage collection** — Desktop refresh collects local TRAE CN database/WAL usage, OpenClaw sessions without plugin signals and Prime Agent. On Windows, TRAE reads use a brief shared read guard during active writes. Late-filled and corrected turns are reconciled without blocking later usage or counting it twice; TRAE CN cloud usage reads still require separate opt-in. Since Trae's 2026-09 client update the local request log no longer records cache fields, so TRAE CN's cache hit rate is **estimated** from your own measured hit rate on the same model at other sources (token totals stay measured, and cost is folded with the same estimate).
 
 ---
 
@@ -232,8 +232,8 @@ The repo supports **55 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 | **ZCode** | Session drill-down with millisecond tok/s capture; per-request gateway reconciliation restores the input side for self-added providers |
 | **Qoder** | Model refinement & credit balance reconciliation |
 | **DeepSeek Harness** | Multi-frame zstd decompression & live tok/s |
-| **TRAE CN** | Supports unified merged architecture & session drill-down |
-| **TRAE** (Intl) | Session layer added; early-step costs inferred at list price |
+| **TRAE CN** | Per-request parsing of the merged architecture & session drill-down; cache hit is estimated (the client stopped writing cache fields after 2026-09) |
+| **TRAE** (Intl) | Per-request parsing with exact cache; copies deduplicated by request id |
 
 ---
 

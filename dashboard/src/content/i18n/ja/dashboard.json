@@ -9,6 +9,8 @@
   "usage.overview.cache_hit_rate_detail": "{{reused}} 再利用 / {{input}} 入力",
   "usage.overview.antigravity_notice_body": "利用可能な場合は Antigravity のローカルセッションメタデータから正確なトークン数と prompt cache ヒット数を取得します。メタデータのないログは文字数（約 4 文字／トークン）から推定されます。",
   "usage.overview.devin_notice_title": "料金は未算出です",
+  "usage.overview.trae_cn_notice_title": "TRAE CN のキャッシュは推定値",
+  "usage.overview.trae_cn_notice_body": "Trae クライアントの 2026-09 アップデート以降、ローカルのリクエストログにキャッシュ読み取りフィールドが書き込まれなくなり、実際のキャッシュを取得できません。ヒット率は他ソースで同じモデルを使った実測値の中央値から推定し、トークン総数は実測のまま、費用はその推定で算出します。",
   "usage.overview.devin_notice_body": "Devin は実際のローカルトークン数を報告しますが、このビルドには swe-2、swe-2-high、compactor の料金データがないため、これらの使用量はドル換算の推定から除外されます。$0 と表示されても無料とは限りません。",
   "stats.period.today": "今日",
   "stats.period.week": "今週",

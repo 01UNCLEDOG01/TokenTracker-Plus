@@ -7,6 +7,8 @@
   "usage.overview.antigravity_notice_title": "Token-Details",
   "usage.overview.antigravity_notice_body": "Genaue Token-Werte und Prompt-Cache-Treffer werden aus den lokalen Antigravity-Sitzungsmetadaten ausgelesen, sofern vorhanden. Transkripte ohne Metadaten werden anhand der Textlänge (~4 Zeichen/Token) geschätzt.",
   "usage.overview.devin_notice_title": "Kosten nicht geschätzt",
+  "usage.overview.trae_cn_notice_title": "TRAE CN: Cache-Wert geschätzt",
+  "usage.overview.trae_cn_notice_body": "Das Trae-Client-Update von 2026-09 schreibt keine Cache-Read-Felder mehr ins lokale Request-Log, daher ist der Cache-Anteil lokal nicht lesbar. Die Trefferquote wird aus deiner gemessenen Quote für dasselbe Modell bei anderen Quellen geschätzt; Token-Summen bleiben gemessen, der Preis wird mit dieser Schätzung berechnet.",
   "usage.overview.devin_notice_body": "Devin meldet echte lokale Token-Zählungen, aber für swe-2, swe-2-high und compactor liegen in diesem Build keine Preisdaten vor. Diese Nutzung fließt daher nicht in die Dollar-Schätzung ein – ein angezeigter Wert von $0 bedeutet nicht, dass die Nutzung kostenlos war.",
   "stats.period.today": "Heute",
   "stats.period.week": "Diese Woche",

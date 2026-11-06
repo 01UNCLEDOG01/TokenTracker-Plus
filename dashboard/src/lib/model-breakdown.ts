@@ -335,6 +335,20 @@ function normalizeIntervalModelName(name: any) {
   return String(name || "").trim().toLowerCase();
 }
 
+// Cache-read price as a fraction of the uncached input price. Prefer the
+// per-model pricing payload (the API already returns input/output/cache_read
+// rates), so every model with published cache pricing can be folded; fall
+// back to the curated DeepSeek ratio for payloads that omit pricing.
+function cacheDiscountFor(model: any): number | null {
+  const pricing = model?.pricing;
+  const input = Number(pricing?.input);
+  const cacheRead = Number(pricing?.cache_read);
+  if (Number.isFinite(input) && input > 0 && Number.isFinite(cacheRead) && cacheRead > 0) {
+    return Math.min(cacheRead / input, 1);
+  }
+  return UNKNOWN_CACHE_DISCOUNT[normalizeIntervalModelName(model?.name || model?.id)] ?? null;
+}
+
 /**
  * Core TRAE cache fold. TRAE international reports no cache fields for some
  * models (DeepSeek), so every input token is billed at the uncached rate and
@@ -376,7 +390,12 @@ function computeTraeFold(provider: any, fleetData: any) {
     const modelCost = Number(model?.cost);
     if (!Number.isFinite(modelCost) || modelCost < 0) continue;
     ceilingCost += modelCost;
-    const discount = UNKNOWN_CACHE_DISCOUNT[normalizeIntervalModelName(model.name || model.id)];
+    // Reported cache activity is measured truth: never overwrite it with an
+    // estimate. Only models whose provider omitted the cache fields (TRAE CN
+    // stopped writing them after the 2026-09 client update) are folded.
+    const t = model?.tokens || {};
+    const reportedCache = (Number(t.cached) || 0) + (Number(t.cacheCreate) || 0);
+    const discount = reportedCache > 0 ? null : cacheDiscountFor(model);
     const rates =
       discount == null
         ? null
@@ -390,7 +409,7 @@ function computeTraeFold(provider: any, fleetData: any) {
       continue;
     }
     const h = Math.min(Math.max(hitRate / 100, 0), 1);
-    const foldedCost = modelCost * ((1 - h) + h * discount);
+    const foldedCost = modelCost * ((1 - h) + h * (discount as number));
     estimatedCost += foldedCost;
     covered += 1;
     coveredRates.push(hitRate);
@@ -459,7 +478,11 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
 export function applyTraeEstimatedCosts(fleetData: any) {
   const providers: any[] = Array.isArray(fleetData) ? fleetData : [];
   for (const provider of providers) {
-    const isTrae = String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+    const source = String(provider?.source || provider?.label || "").trim().toLowerCase();
+    // TRAE international and TRAE CN both report no cache fields for recent
+    // models (CN stopped writing them after the 2026-09 client update), so
+    // both need the same measured-elsewhere estimate.
+    const isTrae = source === "trae" || source === "trae-cn";
     if (!isTrae || provider?.traeEstimate) continue;
     const fold = computeTraeFold(provider, fleetData);
     if (fold.covered === 0 || fold.ceilingCost <= 0 || fold.estimatedCost >= fold.ceilingCost) {
@@ -498,6 +521,20 @@ export function applyTraeEstimatedCosts(fleetData: any) {
     provider.cacheInputTokens = estInputSide;
     provider.cacheHitRate =
       estReused > 0 && estInputSide > 0 ? Math.round((estReused / estInputSide) * 100) : null;
+    // The card's expanded model row shows token columns, so the estimate must
+    // rewrite them too — otherwise the cache column would stay 0 next to an
+    // estimated cost. Run after the provider stats above so their calculation
+    // still sees the measured totals.
+    for (const entry of fold.perModel) {
+      if (entry.hitRate == null) continue;
+      const t = entry.model.tokens || {};
+      const volume = Math.max(0, Number(t.input) || 0) +
+        Math.max(0, Number(t.cached) || 0) + Math.max(0, Number(t.cacheCreate) || 0);
+      const h = Math.min(Math.max(entry.hitRate / 100, 0), 1);
+      entry.model.tokens = { ...t, input: volume * (1 - h), cached: volume * h };
+      entry.model.cacheHitRate = Math.round(h * 100);
+      entry.model.cacheEstimated = true;
+    }
     provider.ceilingUsd = fold.ceilingCost;
     provider.usd = fold.estimatedCost;
     provider.traeEstimate = {

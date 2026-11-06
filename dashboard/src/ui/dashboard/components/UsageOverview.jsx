@@ -787,15 +787,20 @@ export function UsageOverview({
                     const sortedModels = [...provider.models].sort((a, b) => {
                       return (b.share || 0) - (a.share || 0);
                     });
-                    const isTraeProvider =
-                      String(provider?.source || provider?.label || "").trim().toLowerCase() === "trae";
+                    const providerSource = String(provider?.source || provider?.label || "").trim().toLowerCase();
+                    const isTraeProvider = providerSource === "trae" || providerSource === "trae-cn";
 
                     const providerHeading = contextSource
                       ? contextBreakdownHeading(contextSource)
                       : formatProviderDisplayName(provider.label);
                     return (
                       <React.Fragment key={provider.label}>
-                        {isTraeProvider && <TraePricingNotice estimate={provider?.traeEstimate || null} />}
+                        {isTraeProvider && (
+                          <TraePricingNotice
+                            estimate={provider?.traeEstimate || null}
+                            variant={providerSource === "trae-cn" ? "cn" : "intl"}
+                          />
+                        )}
                         <ProviderExpandedSection
                           provider={provider}
                           color={color}
@@ -1111,8 +1116,9 @@ function KiroEstimateNotice() {
 // folded those models to the hit rate the owner achieves on the same model at
 // other sources; this notice states the basis and keeps the all-uncached
 // ceiling as the reference point.
-function TraePricingNotice({ estimate = null }) {
+function TraePricingNotice({ estimate = null, variant = "intl" }) {
   const { currency, rate } = useCurrency();
+  const isCn = variant === "cn";
   let estimateLine = null;
   if (estimate && Number.isFinite(estimate.estimatedCost) && estimate.estimatedCost > 0) {
     estimateLine = copy("usage.overview.trae_estimate_line", {
@@ -1124,9 +1130,9 @@ function TraePricingNotice({ estimate = null }) {
   return (
     <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
       <span className="font-medium text-oai-gray-500 dark:text-oai-gray-400">
-        {copy("usage.overview.trae_notice_title")}.
+        {copy(isCn ? "usage.overview.trae_cn_notice_title" : "usage.overview.trae_notice_title")}.
       </span>{" "}
-      {copy("usage.overview.trae_notice_body")}
+      {copy(isCn ? "usage.overview.trae_cn_notice_body" : "usage.overview.trae_notice_body")}
       {estimateLine ? (
         <span className="block mt-0.5">
           {estimateLine}{" "}
