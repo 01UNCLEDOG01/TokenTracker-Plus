@@ -749,7 +749,7 @@ describe("UsageOverview", () => {
     const user = userEvent.setup();
     // Collapsed: the card hint must NOT carry the median.
     expect(
-      screen.queryByText((_, el) => /(中位数|median)[\s%]*95|95[\s%]*(中位数|median)/.test(el.textContent || "")),
+      screen.queryByText((_, el) => /(命中率)[\s%]*95|95[%]\s*(measured cache hit rate|命中率)/.test(el.textContent || "")),
     ).toBeNull();
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /TRAE:/i }));
@@ -757,7 +757,7 @@ describe("UsageOverview", () => {
     // Expanded: the notice must name the median hit rate (95%) — en phrases it
     // "median 95% cache hit", zh "命中率中位数 95%", so allow "%" and whitespace.
     expect(
-      screen.getAllByText((_, el) => /(中位数|median)[\s%]*95|95[\s%]*(中位数|median)/.test(el.textContent || "")).length,
+      screen.getAllByText((_, el) => /(命中率)[\s%]*95|95[%]\s*(measured cache hit rate|命中率)/.test(el.textContent || "")).length,
     ).toBeGreaterThan(0);
     // The folded model row is explicitly marked as an estimate.
     expect(screen.getAllByText(/（估算）|\(est\.\)/).length).toBeGreaterThan(0);
