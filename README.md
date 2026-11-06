@@ -289,6 +289,8 @@ $$\text{Cost} = \text{Input} \times P_{\text{in}} + \text{Cached} \times P_{\tex
 - **纯用量指标记录**：仅记录 input / output / cached / reasoning token 数量、时间戳、模型名与金额；**代码正文、Prompt 绝不保存、绝不上传**。
 - **凭据本机隔离**：API Key、Cookie、本地数据库密码仅保存在用户本地目录或 `.env.local` 中，绝不提交至代码仓库或前端构建产物。
 
+> **🛡️ 杀毒软件误报提示**：个别 Windows 用户反馈卡巴斯基的行为引擎（PDM）可能对 tracker 的 Node 服务脚本报 `PDM:Trojan.Win32.Generic`。行为引擎按「进程做了什么」（读取其他工具的本地数据库、写缓存文件）判报，而非签名匹配；本工具本地读取各 AI CLI 的会话库属设计使然。请按 [杀毒软件误报说明](./docs/antivirus-false-positives.md) 核对发行版 SHA-256 并向厂商提交误报申诉，不要轻信第三方镜像。
+
 ---
 
 ## 🛠️ 本地配置与自建后端（可选）
