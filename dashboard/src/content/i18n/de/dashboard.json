@@ -8,9 +8,9 @@
   "usage.overview.antigravity_notice_body": "Genaue Token-Werte und Prompt-Cache-Treffer werden aus den lokalen Antigravity-Sitzungsmetadaten ausgelesen, sofern vorhanden. Transkripte ohne Metadaten werden anhand der Textlänge (~4 Zeichen/Token) geschätzt.",
   "usage.overview.devin_notice_title": "Kosten nicht geschätzt",
   "usage.overview.trae_cn_notice_title": "TRAE CN: Cache-Wert geschätzt",
-  "usage.overview.trae_cn_notice_body": "Das Trae-Client-Update von 2026-09 schreibt keine Cache-Read-Felder mehr ins lokale Request-Log, daher ist der Cache-Anteil lokal nicht lesbar. Die Trefferquote wird aus deiner gemessenen Quote für dasselbe Modell bei anderen Quellen geschätzt; Token-Summen bleiben gemessen, der Preis wird mit dieser Schätzung berechnet.",
-"usage.overview.trae_cn_notice_body_unestimated": "Der Trae-Client schreibt keine Cache-Read-Felder mehr, und in diesem Zeitraum gibt es keine Messung desselben Modells aus anderen Quellen — der Cache bleibt beim gemessenen Wert, keine Schätzung; die Kosten entsprechen dem unkasschierten Listenpreis.",
-"usage.overview.trae_cn_notice_title_unestimated": "TRAE-CN-Cache-Berichterstattung",
+  "usage.overview.trae_cn_notice_body": "Seit Traes Client-Update 2026-09 schreibt das lokale Anfragelog keine Cache-Read-Felder mehr; die Cache-Quote wird über die eigene gemessene Trefferquote dieses Tools für dasselbe Modell geschätzt (Felder-Historie, lokal 95–97 %). Nie genutzte Modelle werden mit dem offiziellen Cache-Read-Preisverhältnis und der gemessenen Median-Quote dieses Tools gefaltet; Token-Mengen bleiben gemessen, die Kosten werden entsprechend gefaltet.",
+  "usage.overview.trae_cn_notice_body_unestimated": "Der Trae-Client schreibt keine Cache-Read-Felder mehr, und dieser Zeitraum hat keine verwertbare Messung (weder Felder-Historie noch offizielle Preisdaten) — die Cache-Quote bleibt beim gemessenen Wert, keine Schätzung; Kosten entsprechen dem unkasschierten Listenpreis.",
+  "usage.overview.trae_cn_notice_title_unestimated": "TRAE-CN-Cache-Berichterstattung",
   "usage.overview.devin_notice_body": "Devin meldet echte lokale Token-Zählungen, aber für swe-2, swe-2-high und compactor liegen in diesem Build keine Preisdaten vor. Diese Nutzung fließt daher nicht in die Dollar-Schätzung ein – ein angezeigter Wert von $0 bedeutet nicht, dass die Nutzung kostenlos war.",
   "stats.period.today": "Heute",
   "stats.period.week": "Diese Woche",
@@ -756,5 +756,8 @@
   "pet.codex.close": "Schließen",
   "pet.codex.select_all": "Alle auswählen",
   "pet.codex.empty": "Keine importierbaren Pets gefunden",
-  "pet.codex.imported": "Importiert"
+  "pet.codex.imported": "Importiert",
+  "usage.overview.trae_notice_body_unestimated": "In diesem Zeitraum gibt es keine verwertbare Messung, daher wurde keine Cache-Schätzung vorgenommen; Token und Kosten bleiben gemessen.",
+  "usage.overview.trae_estimate_line": "Geschätzte Kosten: {{estimated}} (gefaltet mit der {{median}} % gemessenen Cache-Trefferquote dieses Modells in diesem Tool — ungenutzte Modelle mit dem offiziellen Cache-Read-Preisverhältnis; {{high}} bei voller Unkasschiert-Abrechnung).",
+  "usage.overview.trae_estimate_basis": "Grundlage: die Trefferquote stammt aus der eigenen gemessenen Historie dieses Tools für dasselbe Modell (95–97 % im Felder-Fenster); ungenutzte Modelle werden mit dem offiziellen Cache-Read-Preisverhältnis und der Median-Quote gefaltet; die tatsächlichen Abrechnungskosten bestimmt TRAE."
 }

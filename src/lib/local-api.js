@@ -226,6 +226,24 @@ function foldTraeRowCost(row, cost) {
   const source = String(row?.source || "").toLowerCase();
   if (source !== "trae" && source !== "trae-cn") return cost;
   const model = String(row?.model || "");
+  // Row-level measured-coverage gate (owner review 2026-11-07): computeRowCost
+  // already bills the row's MEASURED cache at the cache rate, so a row whose
+  // cache read was reported must never be folded again — the old whole-row
+  // factor double-discounted exactly the best-covered months and folded
+  // output/reasoning, which are not cacheable.
+  const inputSide = (Number(row?.input_tokens) || 0) +
+    (Number(row?.cached_input_tokens) || 0) +
+    (Number(row?.cache_creation_input_tokens) || 0);
+  if (!(inputSide > 0)) return cost;
+  // undefined (pre-signal row) counts as unmeasured: its cache fields were
+  // never reported, so the whole input side rides the estimate.
+  const observed = row?.cache_observed_input_tokens == null
+    ? 0
+    : Math.max(0, Number(row.cache_observed_input_tokens) || 0);
+  const coverage = Math.min(observed / inputSide, 1);
+  if (coverage >= 0.5) return cost; // measured truth — priced by computeRowCost already
+  const unmeasured = inputSide - observed;
+  if (!(unmeasured > 0)) return cost;
   const acc = traeFoldMap()[model];
   // Evidence priority: the model's own fielded history; without it, the
   // recognized rate (median across the tool's fielded models).
@@ -238,7 +256,20 @@ function foldTraeRowCost(row, cost) {
   const cacheRate = Number(pricing?.cache_read);
   if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
   const discount = Math.min(cacheRate / inputRate, 1);
-  return cost * ((1 - h) + h * discount);
+  // Fold ONLY the unmeasured input-side volume: reprice it standalone, fold
+  // that, and splice it into the real cost — measured cache, output and
+  // reasoning keep their computeRowCost pricing untouched.
+  const unmeasuredCost = computeRowCost({
+    input_tokens: unmeasured,
+    output_tokens: 0,
+    cached_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    reasoning_output_tokens: 0,
+    model,
+    source: row.source,
+  });
+  const foldFactor = (1 - h) + h * discount;
+  return cost - unmeasuredCost + unmeasuredCost * foldFactor;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -5363,8 +5394,16 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
   };
 }
 
+function __setTraeFoldStateForTest({ byModel = null, recognizedRate = 0 } = {}) {
+  traeFoldByModel = byModel || {};
+  traeRecognizedRate = Number(recognizedRate) || 0;
+  traeFoldLoadedAt = Date.now();
+}
+
 module.exports = {
   createLocalApiHandler,
+  __setTraeFoldStateForTest,
+  foldTraeRowCost,
   resolveAllowedInsforgeBaseUrl,
   resolveQueuePath,
   // Exported for cross-consumer tests (pricing + native contract lock).

@@ -10,9 +10,9 @@
   "usage.overview.antigravity_notice_body": "利用可能な場合は Antigravity のローカルセッションメタデータから正確なトークン数と prompt cache ヒット数を取得します。メタデータのないログは文字数（約 4 文字／トークン）から推定されます。",
   "usage.overview.devin_notice_title": "料金は未算出です",
   "usage.overview.trae_cn_notice_title": "TRAE CN のキャッシュは推定値",
-  "usage.overview.trae_cn_notice_body": "Trae クライアントの 2026-09 アップデート以降、ローカルのリクエストログにキャッシュ読み取りフィールドが書き込まれなくなり、実際のキャッシュを取得できません。ヒット率は他ソースで同じモデルを使った実測値の中央値から推定し、トークン総数は実測のまま、費用はその推定で算出します。",
-"usage.overview.trae_cn_notice_body_unestimated": "Trae クライアントはキャッシュ読取フィールドを書かなくなり、この期間は他ソースの同モデル実測もないため、キャッシュは実測値のまま表示され推計は行われません。費用は未キャッシュの定価です。",
-"usage.overview.trae_cn_notice_title_unestimated": "TRAE CN のキャッシュ報告",
+  "usage.overview.trae_cn_notice_body": "Trae クライアントの 2026-09 更新以降、ローカル要求ログはキャッシュ読取フィールドを書かなくなりました。キャッシュ命中率は、このツール自身の同モデル実測命中率（フィールド履歴、ローカル実測 95–97%）から推計します。未使用のモデルは公式のキャッシュ読取価格比とこのツールの実測中央値で折算し、Token 総量は実測のまま費用を折算します。",
+  "usage.overview.trae_cn_notice_body_unestimated": "Trae クライアントはキャッシュ読取フィールドを書かなくなり、この期間には利用可能な実測もないため、キャッシュは実測値のまま表示され推計は行われません。費用は未キャッシュの定価です。",
+  "usage.overview.trae_cn_notice_title_unestimated": "TRAE CN のキャッシュ報告",
   "usage.overview.devin_notice_body": "Devin は実際のローカルトークン数を報告しますが、このビルドには swe-2、swe-2-high、compactor の料金データがないため、これらの使用量はドル換算の推定から除外されます。$0 と表示されても無料とは限りません。",
   "stats.period.today": "今日",
   "stats.period.week": "今週",
@@ -745,5 +745,8 @@
   "pet.codex.close": "閉じる",
   "pet.codex.select_all": "すべて選択",
   "pet.codex.empty": "インポートできるペットがありません",
-  "pet.codex.imported": "インポート済み"
+  "pet.codex.imported": "インポート済み",
+  "usage.overview.trae_notice_body_unestimated": "この期間には利用可能な実測がないためキャッシュ推計は行われず、Token と費用は実測のまま表示されます。",
+  "usage.overview.trae_estimate_line": "推計費用: {{estimated}}（このツールでの同モデルの実測命中率 {{median}}% で折算 — 未使用モデルは公式キャッシュ読取価格比を使用。完全にキャッシュなしの場合は {{high}}）。",
+  "usage.overview.trae_estimate_basis": "根拠: 命中率はこのツール自身の同モデル実測履歴（フィールド期間の実測 95–97%）に基づきます。未使用モデルは公式キャッシュ読取価格比と実測中央値で折算。実際の請求キャッシュコストは TRAE の計算によります。"
 }
