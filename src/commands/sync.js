@@ -237,6 +237,14 @@ const {
 } = require("../lib/codex-token-usage");
 
 const CURSOR_UNKNOWN_MIGRATION_KEY = "cursorUnknownPurge_2026_04";
+// #927's observed-attribution upgrade re-emits legacy Codex buckets, including
+// the "unknown" ones. For history parsed before model attribution existed the
+// queue already carries those totals under the model rows they were merged into
+// (the old default policy folded unknown into the hour's dominant model), so the
+// re-emitted unknown row is exact duplication: every affected hour's unknown
+// totals match either the sum of its model rows or one of them. Retract only the
+// duplicate unknown rows (leave model rows untouched) with a one-time repair.
+const CODEX_LEGACY_UNKNOWN_REPAIR_KEY = "codexLegacyUnknownDedupRepair_2026_11";
 const ROLLOUT_CUMULATIVE_DELTA_MIGRATION_KEY = "rolloutCumulativeDeltaReparse_2026_05";
 const CLAUDE_MEM_OBSERVER_REINCLUDE_KEY = "claudeMemObserverReinclude_2026_05_v3";
 const GROK_APPEND_ONLY_REPAIR_MIGRATION_KEY = "grokAppendOnlyRepair_2026_05_v4";
@@ -2330,6 +2338,16 @@ async function cmdSync(argv, context = {}) {
       await migrateCursorUnknownBuckets({ cursors, queuePath });
     }
 
+    // ── Codex legacy unknown dedup (#927 follow-up) ──
+    // Runs after the Codex parse above so any unknown row the observed upgrade
+    // just re-emitted is visible here and gets retracted in the same sync.
+    let codexLegacyUnknownRepair = false;
+    try {
+      codexLegacyUnknownRepair = await repairCodexLegacyUnknownDuplicates({ cursors, queuePath });
+    } catch (err) {
+      warnProviderParseFailure("Codex legacy unknown repair", err, opts);
+    }
+
     let cursorResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     const cursorInstalled = cursorSyncDeps.isInstalled || isCursorInstalled;
     const cursorAuthExtractor = cursorSyncDeps.extractAuth || extractCursorSessionToken;
@@ -3787,6 +3805,7 @@ async function cmdSync(argv, context = {}) {
       !codexFallbackRetryRan &&
       !grokHookSignalConsumed &&
       !cursors.migrations?.[KIMI_MODEL_REPAIR_KEY]?.pendingCompaction &&
+      !codexLegacyUnknownRepair &&
       !opts.repairGrok;
 
     if (syncDiagnostics) {
@@ -4183,6 +4202,10 @@ module.exports = {
   repairCodexRescanInflation,
   repairCodexForkReplayInflation,
   repairCodexInterleavedUsageInflation,
+  repairCodexLegacyUnknownDuplicates,
+  codexLegacyUnknownHours,
+  planCodexLegacyUnknownRetractions,
+  CODEX_LEGACY_UNKNOWN_REPAIR_KEY,
   repairDroidDuplicateSessionInflation,
   repairMimoClaudeMislabel,
   repairZcodeNativeUsageMigration,
@@ -5972,6 +5995,190 @@ async function applyCloudConversationsBackfill({ cursors, queueStatePath }) {
     previousOffset: prevOffset,
   };
   return prevOffset > 0;
+}
+
+// Codex hours whose hourly state only ever knew the "unknown" bucket (parsed
+// before model attribution existed). Those queue totals were historically
+// emitted under the hour's model row(s); the observed upgrade then re-emitted
+// them as a second "unknown" row.
+function codexLegacyUnknownHours(hourlyState) {
+  const buckets = hourlyState?.buckets;
+  if (!buckets || typeof buckets !== "object") return new Set();
+  const modelsByHour = new Map();
+  for (const key of Object.keys(buckets)) {
+    if (!buckets[key]?.totals) continue;
+    const parts = String(key).split("|");
+    if (parts[0] !== "codex") continue;
+    const hourStart = parts.slice(2).join("|");
+    if (!hourStart) continue;
+    let models = modelsByHour.get(hourStart);
+    if (!models) {
+      models = new Set();
+      modelsByHour.set(hourStart, models);
+    }
+    models.add(parts[1]);
+  }
+  const legacy = new Set();
+  for (const [hourStart, models] of modelsByHour) {
+    if (models.size === 1 && models.has("unknown")) legacy.add(hourStart);
+  }
+  return legacy;
+}
+
+const CODEX_UNKNOWN_DUP_FIELDS = [
+  "input_tokens",
+  "cached_input_tokens",
+  "cache_creation_input_tokens",
+  "output_tokens",
+  "reasoning_output_tokens",
+  "total_tokens",
+  "conversation_count",
+];
+
+// An unknown row is a #927 duplicate only when its counters are identical to
+// either the sum of the hour's model rows or a single model row. Genuine
+// unattributed tokens mixed with model rows do not match, so they stay.
+function planCodexLegacyUnknownRetractions(legacyHours, rowsByHour) {
+  const retract = [];
+  for (const hourStart of legacyHours) {
+    const rows = rowsByHour.get(hourStart);
+    if (!rows) continue;
+    const unknown = rows.get("unknown");
+    if (!unknown || (Number(unknown.total_tokens) || 0) <= 0) continue;
+    const models = [...rows.entries()].filter(
+      ([model, row]) => model !== "unknown" && (Number(row?.total_tokens) || 0) > 0,
+    );
+    if (models.length === 0) continue;
+    const sum = {};
+    for (const field of CODEX_UNKNOWN_DUP_FIELDS) {
+      sum[field] = models.reduce((total, [, row]) => total + (Number(row?.[field]) || 0), 0);
+    }
+    const matchesSum = CODEX_UNKNOWN_DUP_FIELDS.every(
+      (field) => (Number(unknown[field]) || 0) === sum[field],
+    );
+    const matchesSingle = models.some(([, row]) => CODEX_UNKNOWN_DUP_FIELDS.every(
+      (field) => (Number(unknown[field]) || 0) === (Number(row?.[field]) || 0),
+    ));
+    if (matchesSum || matchesSingle) retract.push(hourStart);
+  }
+  return retract;
+}
+
+// One-time #927 follow-up. Appends zero retractions for the duplicated unknown
+// rows so queue readers (last-wins per source/model/hour) drop them; the model
+// rows that already carry the same totals remain untouched. The stale unknown
+// bucket is deleted as well, so no later queuedKey invalidation can re-emit it.
+async function repairCodexLegacyUnknownDuplicates({ cursors, queuePath } = {}) {
+  if (!cursors || typeof cursors !== "object" || typeof queuePath !== "string" || !queuePath) {
+    return false;
+  }
+  const migrations = (cursors.migrations ||= {});
+  if (migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY]) return false;
+  // Never finalize while the observed upgrade is still pending: a parse that
+  // threw after clearing bucket queuedKey would re-emit the unknown rows on the
+  // next sync, and a burned key would leave that duplication permanent.
+  const observed = cursors.hourly?.modelAttributionPolicy?.codex === "observed";
+  const upgradePending = !observed && Object.keys(cursors.hourly?.groupQueued || {})
+    .some((key) => key.startsWith("codex|"));
+  const legacyHours = codexLegacyUnknownHours(cursors.hourly);
+  if (legacyHours.size === 0) {
+    if (upgradePending) return false;
+    migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY] = {
+      appliedAt: new Date().toISOString(),
+      legacyHours: 0,
+      retracted: 0,
+    };
+    return true;
+  }
+
+  const rowsByHour = new Map();
+  let handle = null;
+  try {
+    handle = fssync.createReadStream(queuePath, { encoding: "utf8" });
+    const rl = readline.createInterface({ input: handle, crlfDelay: Infinity });
+    for await (const line of rl) {
+      if (!line || !line.includes('"codex"')) continue;
+      let row;
+      try {
+        row = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (!row || row.source !== "codex") continue;
+      const hourStart = typeof row.hour_start === "string" ? row.hour_start : "";
+      if (!legacyHours.has(hourStart)) continue;
+      const model = typeof row.model === "string" && row.model ? row.model : "unknown";
+      let rows = rowsByHour.get(hourStart);
+      if (!rows) {
+        rows = new Map();
+        rowsByHour.set(hourStart, rows);
+      }
+      rows.set(model, row);
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  } finally {
+    handle?.destroy?.();
+  }
+
+  const retracted = planCodexLegacyUnknownRetractions(legacyHours, rowsByHour);
+  // Crash-window convergence: a previous run may have appended the zero rows
+  // but died before its cursor commit persisted the bucket deletion. Those
+  // hours now read as unknown=0, so plan() skips them; still drop their stale
+  // buckets here or a later queuedKey invalidation can re-emit the duplicate
+  // after the migration key is already burned.
+  const alreadyZeroed = [];
+  for (const hourStart of legacyHours) {
+    if (retracted.includes(hourStart)) continue;
+    const rows = rowsByHour.get(hourStart);
+    if (!rows) continue;
+    const unknown = rows.get("unknown");
+    if (!unknown || (Number(unknown.total_tokens) || 0) > 0) continue;
+    const models = [...rows.entries()].filter(
+      ([model, row]) => model !== "unknown" && (Number(row?.total_tokens) || 0) > 0,
+    );
+    if (models.length > 0) alreadyZeroed.push(hourStart);
+  }
+  let mutated = false;
+  if (retracted.length > 0) {
+    const retractions = retracted.map((hourStart) => JSON.stringify({
+      source: "codex",
+      model: "unknown",
+      hour_start: hourStart,
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+      billable_total_tokens: 0,
+      total_cost_usd: 0,
+      conversation_count: 0,
+    }));
+    await ensureDir(path.dirname(queuePath));
+    await fs.appendFile(queuePath, `${retractions.join("\n")}\n`);
+    mutated = true;
+  }
+  // Drop the state bucket as well: its totals were already carried by the
+  // model rows, and a later queuedKey invalidation (version re-normalization,
+  // rollback/upgrade, state rebuild) would otherwise re-emit them as a fresh
+  // duplicate. With no bucket the observed parser has nothing to re-emit.
+  for (const hourStart of [...retracted, ...alreadyZeroed]) {
+    const bucketKey = `codex|unknown|${hourStart}`;
+    if (cursors.hourly?.buckets?.[bucketKey]) {
+      delete cursors.hourly.buckets[bucketKey];
+      mutated = true;
+    }
+  }
+  if (!upgradePending) {
+    migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY] = {
+      appliedAt: new Date().toISOString(),
+      legacyHours: legacyHours.size,
+      retracted: retracted.length,
+    };
+    mutated = true;
+  }
+  return mutated;
 }
 
 async function migrateCursorUnknownBuckets({ cursors, queuePath }) {
