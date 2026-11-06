@@ -799,9 +799,11 @@ export function TrendMonitor({
                 </span>
               </div>
 
-              {isZoom &&
-                (hoveredBar.row?.total_cost_usd != null ||
-                  Number(hoveredBar.row?.conversation_count) > 0) && (
+              {/* Costs and conversations render in the main tooltip too — the
+                  rows carry them at every granularity (owner-reported: the
+                  Total-view monthly hover showed no spending at all). */}
+              {(hoveredBar.row?.total_cost_usd != null ||
+                Number(hoveredBar.row?.conversation_count) > 0) && (
                   <div className="flex items-center gap-3 text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
                     {hoveredBar.row?.total_cost_usd != null && (
                       <span>
