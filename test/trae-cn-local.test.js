@@ -244,7 +244,12 @@ test("TRAE CN v3 request ledger (pre-cache) migrates by full rebuild", async (t)
     buckets: {
       [`trae-cn|deepseek-v4.1-flash|${HOUR}`]: { totals: { input_tokens: 150, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 150, billable_total_tokens: 150, total_cost_usd: 0, conversation_count: 1 } },
     },
-    groupQueued: {},
+    // A stale queued marker for this group must NOT suppress the re-enqueue:
+    // the rebuilt totals (with the coverage signal) differ from what the old
+    // queue rows carry, and the dashboard aggregates the queue, not these
+    // buckets (owner-reported 2026-11-07: 1,834/2,174 keys kept serving
+    // signal-less rows when the marker survived).
+    groupQueued: { [`trae-cn|${HOUR}`]: 1 },
   };
   const rows = [row(10, { total: 264116, output: 203, exact: { prompt: 262922, output: 1194, cacheRead: 261000, reasoning: 998 } })];
   const args = { ...f, readRowsImpl: makeReader(() => rows) };

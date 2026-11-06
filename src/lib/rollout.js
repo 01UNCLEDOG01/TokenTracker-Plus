@@ -26041,7 +26041,18 @@ async function parseTraeCnLocalIncremental({
   const walStat = traeCnStatOptional(`${dbPath}-wal`);
   const identity = traeCnStoreIdentity(stat);
   const signature = traeCnStoreSignature(stat, walStat);
-  if (stored.version === TRAE_CN_LOCAL_LEDGER_VERSION && stored.signature === signature) {
+  // Self-heal: a trae-cn bucket whose totals carry the coverage signal but
+  // whose persisted queuedKey predates it was never re-enqueued (the rebuild
+  // ran while its group marker suppressed enqueue) — the dashboard aggregates
+  // the QUEUE rows, so that bucket keeps serving signal-less data forever
+  // unless one more rebuild re-enqueues it. Buckets without the signal
+  // (pre-v5, other groups) are intentionally left alone.
+  const missingCoverageSignal = Object.entries(cursors.hourly && cursors.hourly.buckets || {})
+    .some(([key, bucket]) => key.startsWith(`${TRAE_CN_SOURCE}|`)
+      && (bucket?.totals?.total_tokens || 0) > 0
+      && Number(bucket?.totals?.cache_observed_input_tokens) > 0
+      && !(String(bucket?.queuedKey || "").includes("|o:")));
+  if (!missingCoverageSignal && stored.version === TRAE_CN_LOCAL_LEDGER_VERSION && stored.signature === signature) {
     return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0, recordsSkipped: 0 };
   }
 
@@ -26049,6 +26060,7 @@ async function parseTraeCnLocalIncremental({
     stored.identity !== identity ||
     !storedLastRow ||
     stored.projectOutputEnabled !== projectEnabled ||
+    missingCoverageSignal ||
     (nowMs - storedFullScanAt) >= TRAE_CN_FULL_RESCAN_MS;
 
   const readResult = await readRowsImpl(dbPath, { lastRowId: fullRescan ? 0 : storedLastRow });
@@ -26208,6 +26220,15 @@ async function parseTraeCnLocalIncremental({
   }
 
   if (fullRescan) {
+    // The rebuilt totals differ from what the old rows in the queue carry
+    // (v5 adds the cache-coverage signal), but enqueue skips groups already
+    // marked queued. Drop those markers for this source so every rebuilt
+    // bucket re-enqueues and the dashboard — which aggregates the queue, not
+    // these buckets — sees the new signal at all (owner-reported 2026-11-07:
+    // 1,834 of 2,174 keys kept serving signal-less rows otherwise).
+    for (const gk of Object.keys(hourlyState.groupQueued)) {
+      if (gk.startsWith(`${TRAE_CN_SOURCE}${BUCKET_SEPARATOR}`)) delete hourlyState.groupQueued[gk];
+    }
     for (const [key, bucket] of Object.entries(hourlyState.buckets)) {
       if (!key.startsWith(`${TRAE_CN_SOURCE}|`) || hourlyAdds.has(key)) continue;
       bucket.totals = initTotals();
