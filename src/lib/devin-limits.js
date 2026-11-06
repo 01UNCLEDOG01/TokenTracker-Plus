@@ -15,7 +15,9 @@
 //     host above.
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { writeJsonAtomicSync } = require("./atomic-json");
 
 const DEVIN_PLAN_STATUS_URL =
   "https://server.codeium.com/exa.seat_management_pb.SeatManagementService/GetPlanStatus";
@@ -23,6 +25,13 @@ const DEVIN_API_ORIGIN = "https://server.codeium.com";
 
 const DEVIN_DAILY_WINDOW_SECONDS = 24 * 60 * 60;
 const DEVIN_WEEKLY_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+
+// Last-good disk cache (upstream PR 995). Only timeouts, transport failures,
+// schema-malformed responses, 429 and 5xx serve stale bars; auth/credential
+// errors and persistent rejections (HTTP 400) punch through so a re-login
+// prompt is never masked by the fallback.
+const DEVIN_LIMITS_CACHE_FILE = "devin-usage-limits-cache.json";
+const DEVIN_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -46,11 +55,9 @@ function parseDevinCredentialsToml(raw) {
   return fields;
 }
 
-// Returns { apiKey } or null when no sign-in exists (no home, or the file is
-// absent — ENOENT only). Any other read failure or a mangled file throws an
-// owned, actionable error with no path or filesystem details, so a broken
-// sign-in can never masquerade as "not configured".
-function readDevinCredentials({ home, env = process.env } = {}) {
+// Credential-file location shared by the token read and the cache identity,
+// so both always look at the same file the same way.
+function devinCredentialsPath({ home, env = process.env } = {}) {
   const xdg = env && typeof env === "object" ? env.XDG_DATA_HOME : null;
   const dir = isNonEmptyString(xdg)
     ? xdg.trim()
@@ -60,36 +67,82 @@ function readDevinCredentials({ home, env = process.env } = {}) {
         ? env.HOME.trim()
         : null;
   if (!dir) return null;
-  const base = isNonEmptyString(xdg)
+  return isNonEmptyString(xdg)
     ? path.join(dir, "devin", "credentials.toml")
     : path.join(dir, ".local", "share", "devin", "credentials.toml");
-  let raw;
+}
+
+// Non-secret credential-file revision (resolved path, device, inode, size,
+// nanosecond modification/change timestamps). The token itself — and no hash
+// of it — is ever persisted; replacing or editing credentials, changing
+// $XDG_DATA_HOME, or removing the sign-in all change the revision and refuse
+// the previous snapshot (upstream PR 995).
+function devinCredentialRevisionFromStat(stat, filePath) {
+  if (!stat || !filePath) return null;
+  return JSON.stringify([
+    path.resolve(filePath),
+    ...[stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].map(String),
+  ]);
+}
+
+function devinCredentialRevision(filePath) {
+  if (!filePath) return null;
   try {
-    raw = fs.readFileSync(base, "utf8");
+    return devinCredentialRevisionFromStat(fs.statSync(filePath, { bigint: true }), filePath);
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Returns { apiKey, cacheRevision } or null when no sign-in exists (no home,
+// or the file is absent — ENOENT only). Any other read failure or a mangled
+// file throws an owned, actionable error with no path or filesystem details,
+// so a broken sign-in can never masquerade as "not configured".
+function readDevinCredentials({ home, env = process.env } = {}) {
+  const base = devinCredentialsPath({ home, env });
+  if (!base) return null;
+  let raw;
+  let cacheRevision;
+  try {
+    // Token and revision from the same open, so an in-place credential swap
+    // mid-read cannot pair a new token with a stale revision.
+    const fd = fs.openSync(base, "r");
+    try {
+      cacheRevision = devinCredentialRevisionFromStat(fs.fstatSync(fd, { bigint: true }), base);
+      raw = fs.readFileSync(fd, "utf8");
+    } finally {
+      fs.closeSync(fd);
+    }
   } catch (error) {
     if (error && error.code === "ENOENT") return null;
-    throw new Error(
+    const credentialsError = new Error(
       "Could not read the Devin CLI credentials file — check its permissions or run `devin auth login` to sign in again.",
     );
+    credentialsError.code = "CREDENTIALS_INVALID";
+    throw credentialsError;
   }
   const fields = parseDevinCredentialsToml(raw);
   const apiKey = isNonEmptyString(fields.windsurf_api_key)
     ? fields.windsurf_api_key.trim()
     : null;
   if (!apiKey) {
-    throw new Error(
+    const credentialsError = new Error(
       "Devin credentials file has no sign-in token — run `devin auth login`.",
     );
+    credentialsError.code = "CREDENTIALS_INVALID";
+    throw credentialsError;
   }
   const apiServerUrl = isNonEmptyString(fields.api_server_url)
     ? fields.api_server_url.trim().replace(/\/+$/, "")
     : null;
   if (apiServerUrl && apiServerUrl !== DEVIN_API_ORIGIN) {
-    throw new Error(
+    const credentialsError = new Error(
       "Devin credentials point at a custom api_server_url, which this quota provider does not support.",
     );
+    credentialsError.code = "CREDENTIALS_INVALID";
+    throw credentialsError;
   }
-  return { apiKey };
+  return { apiKey, cacheRevision };
 }
 
 function malformed(field) {
@@ -226,9 +279,14 @@ async function fetchDevinLimits({ home, env = process.env, enabled = false, fetc
     throw error;
   }
   if (!response?.ok) {
-    throw new Error(
+    // statusCode lets the aggregator tell a 429/5xx blip (cache fallback is
+    // fair) from an ambiguous or persistent rejection like HTTP 400 (punch
+    // through — upstream PR 995).
+    const rejected = new Error(
       `Devin quota request was rejected (HTTP ${response?.status ?? "?"}).`,
     );
+    rejected.statusCode = response?.status ?? null;
+    throw rejected;
   }
   let body;
   try {
@@ -243,7 +301,98 @@ async function fetchDevinLimits({ home, env = process.env, enabled = false, fetc
     plan_label: windows.plan_label,
     primary_window: windows.primary_window,
     secondary_window: windows.secondary_window,
+    // Read from the same file the token came from; stripped before serving.
+    cache_identity: credentials.cacheRevision,
   };
 }
 
-module.exports = { fetchDevinLimits };
+// Failure-only identity re-derivation: a thrown Error carries no revision, so
+// re-stat the (still-local) credentials file. Same file → same revision → the
+// fallback read hits; edited/replaced/removed credentials → new revision or
+// null → the previous snapshot is refused.
+function resolveDevinCacheIdentity({ home, env } = {}) {
+  return devinCredentialRevision(devinCredentialsPath({ home, env }));
+}
+
+function resolveDevinLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", DEVIN_LIMITS_CACHE_FILE);
+}
+
+function parseTimeMs(value) {
+  if (typeof value !== "string" || !value) return null;
+  const ts = Date.parse(value);
+  return Number.isFinite(ts) && ts > 0 ? ts : null;
+}
+
+function hasDevinWindow(limits) {
+  return Boolean(limits?.primary_window || limits?.secondary_window);
+}
+
+function isDevinCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeDevinCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = DEVIN_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const cached = {
+    configured: true,
+    error: null,
+    plan_label: typeof raw?.plan_label === "string" ? raw.plan_label : null,
+    primary_window: isDevinCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isDevinCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasDevinWindow(cached) ? cached : null;
+}
+
+function readDevinLimitsCache({ home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveDevinLimitsCachePath({ home }), "utf8"));
+    const entry = parsed?.devin;
+    if (entry?.identity !== identity) return null;
+    return normalizeDevinCachedLimits(entry, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Windowless plans never write: a card with nothing to show is not a fallback.
+function writeDevinLimitsCache(limits, { home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return;
+  if (!limits?.configured || limits.error || !hasDevinWindow(limits)) return;
+  const cachePath = resolveDevinLimitsCachePath({ home });
+  const payload = {
+    devin: {
+      identity,
+      plan_label: limits.plan_label || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
+  } catch (_error) {}
+}
+
+module.exports = {
+  fetchDevinLimits,
+  resolveDevinCacheIdentity,
+  readDevinLimitsCache,
+  writeDevinLimitsCache,
+  normalizeDevinCachedLimits,
+  resolveDevinLimitsCachePath,
+  DEVIN_LIMITS_CACHE_FILE,
+};

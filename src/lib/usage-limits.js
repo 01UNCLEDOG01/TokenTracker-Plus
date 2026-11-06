@@ -28,11 +28,22 @@ const {
   fetchCursorSandAccessStatus,
   fetchCursorSandUsageStatus,
 } = require("./cursor-config");
-const { fetchGrokLimits } = require("./grok-limits");
+const {
+  fetchGrokLimits,
+  resolveGrokCacheIdentity,
+  readGrokLimitsCache,
+  writeGrokLimitsCache,
+  hasGrokWindow,
+} = require("./grok-limits");
 const { fetchZcodeLimits } = require("./zcode-limits");
 const { fetchOpencodeGoLimits } = require("./opencode-go-limits");
 const { fetchCommandcodeLimits } = require("./commandcode-limits");
-const { fetchDevinLimits } = require("./devin-limits");
+const {
+  fetchDevinLimits,
+  resolveDevinCacheIdentity,
+  readDevinLimitsCache,
+  writeDevinLimitsCache,
+} = require("./devin-limits");
 const { fetchQoderLimits, fetchQoderCnLimits } = require("./qoder-limits");
 const { enrichQoderCnSpend } = require("./qoder-cn-estimate");
 const { fetchApigotoLimits } = require("./apigoto-limits");
@@ -215,6 +226,19 @@ const GEMINI_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // (mirrors Cursor / Codex / OpenCode Go).
 const KIMI_LIMITS_CACHE_FILE = "kimi-usage-limits-cache.json";
 const KIMI_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Grok / Copilot / Kiro / Devin (upstream PRs 1003 / 994 / 993 / 995): the same
+// last-good pattern for the four remaining public-internet quota sources. Grok
+// hits cli-chat-proxy.grok.com, Copilot api.github.com, Devin
+// server.codeium.com, and Kiro shells out to kiro-cli — a blip in any of them
+// previously blanked the card until the next poll. Copilot and Kiro helpers
+// live in this file beside their fetchers; Grok and Devin live beside theirs
+// in grok-limits.js / devin-limits.js. Auth and not-configured states never
+// fall back to the disk cache — a re-login prompt must not be masked by stale
+// bars.
+const COPILOT_LIMITS_CACHE_FILE = "copilot-usage-limits-cache.json";
+const COPILOT_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const KIRO_LIMITS_CACHE_FILE = "kiro-usage-limits-cache.json";
+const KIRO_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 // A 429 from the usage endpoint carries a long `retry-after` (often 20+ minutes). Persist
 // the cooldown so every surface — this process, the menu bar app's embedded server, a later
 // restart — stops calling until it expires. Hammering during the cooldown just renews the
@@ -2154,6 +2178,102 @@ function buildCopilotWindow(snapshot, resetIso) {
   return buildWindow({ usedPercent, resetAt: resetIso });
 }
 
+// Last-good disk cache (upstream PR 994). The token is the only stable account
+// handle the local install exposes — no login name survives the SQLite/Keychain
+// migrations — so the partition key is the SHA-256 prefix of the OAuth token
+// itself: the secret never lands on disk, and a token rotation simply misses
+// the cache once (the safe direction). Fail closed on both sides: no identity,
+// no read and no write.
+function copilotTokenIdentity(token) {
+  if (!token) return null;
+  return crypto.createHash("sha256").update(String(token)).digest("hex").slice(0, 16);
+}
+
+function resolveCopilotLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", COPILOT_LIMITS_CACHE_FILE);
+}
+
+function hasCopilotWindow(limits) {
+  return Boolean(limits?.primary_window || limits?.secondary_window);
+}
+
+function isCopilotCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeCopilotCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = COPILOT_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const cached = {
+    configured: true,
+    error: null,
+    plan_name: typeof raw?.plan_name === "string" ? raw.plan_name : null,
+    primary_window: isCopilotCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isCopilotCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasCopilotWindow(cached) ? cached : null;
+}
+
+function readCopilotLimitsCache({ home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveCopilotLimitsCachePath({ home }), "utf8"));
+    const entry = parsed?.copilot;
+    if (entry?.identity !== identity) return null;
+    return normalizeCopilotCachedLimits(entry, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeCopilotLimitsCache(limits, { home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return;
+  if (!limits?.configured || limits.error || !hasCopilotWindow(limits)) return;
+  const cachePath = resolveCopilotLimitsCachePath({ home });
+  const payload = {
+    copilot: {
+      identity,
+      plan_name: limits.plan_name || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
+  } catch (_error) {}
+}
+
+// Failure-only identity re-derivation for the cache fallback: when the slot's
+// result came from the outer timeout race the fetcher's identity field is
+// gone, so re-read the (still-local) OAuth token once. A fresh login between
+// fetch and fallback changes the token, and the read's identity gate refuses
+// the previous account's entry.
+async function resolveCopilotCacheIdentity({ home, env, platform, securityRunner, sqliteReader } = {}) {
+  try {
+    const token = await readCopilotOauthTokenAsync({
+      home: home || env?.HOME || os.homedir(),
+      platform,
+      securityRunner,
+      sqliteReader,
+    });
+    return copilotTokenIdentity(token);
+  } catch (_error) {
+    return null;
+  }
+}
+
 function describeCopilotOtelStatus({ home, env = process.env } = {}) {
   const resolvedHome = home || env.HOME || os.homedir();
   const enabled = String(env.COPILOT_OTEL_ENABLED || "").toLowerCase() === "true";
@@ -2204,6 +2324,7 @@ async function fetchCopilotLimits({
     sqliteReader,
   });
   if (!token) return { configured: false, ...otel };
+  const cacheIdentity = copilotTokenIdentity(token);
 
   try {
     const res = await fetchImpl("https://api.github.com/copilot_internal/user", {
@@ -2211,7 +2332,15 @@ async function fetchCopilotLimits({
       headers: copilotRequestHeaders(token),
     });
     if (res.status === 401 || res.status === 403) {
-      throw new Error("GitHub Copilot token rejected. Re-authenticate via GitHub Copilot CLI/extension.");
+      // A rejected token is actionable (re-login) and must not be hidden behind
+      // the stale disk-cache fallback (kimi auth_error precedent).
+      return {
+        configured: true,
+        error: "GitHub Copilot token rejected. Re-authenticate via GitHub Copilot CLI/extension.",
+        auth_error: true,
+        cache_identity: cacheIdentity,
+        ...otel,
+      };
     }
     if (!res.ok) {
       throw new Error(`GitHub Copilot API error: HTTP ${res.status}`);
@@ -2226,7 +2355,7 @@ async function fetchCopilotLimits({
     const chatWindow = buildCopilotWindow(snapshots.chat, resetIso);
 
     if (!premiumWindow && !chatWindow) {
-      return { configured: true, error: null, plan_name: planName, primary_window: null, secondary_window: null, ...otel };
+      return { configured: true, error: null, plan_name: planName, primary_window: null, secondary_window: null, cache_identity: cacheIdentity, ...otel };
     }
 
     return {
@@ -2235,10 +2364,16 @@ async function fetchCopilotLimits({
       plan_name: planName,
       primary_window: premiumWindow,
       secondary_window: chatWindow,
+      cache_identity: cacheIdentity,
       ...otel,
     };
   } catch (error) {
-    return { configured: true, error: error?.message || "Unknown error", ...otel };
+    return {
+      configured: true,
+      error: error?.message || "Unknown error",
+      cache_identity: cacheIdentity,
+      ...otel,
+    };
   }
 }
 
@@ -2249,6 +2384,9 @@ async function fetchKiroLimits({
   home = os.homedir(),
 } = {}) {
   const trackedCredits = readKiroCreditsSummary({ home });
+  // Cache partition key (never the token itself) — derived before any I/O so
+  // the failure paths below can still attribute the fallback read.
+  const kiroAuthIdentity = resolveKiroAuthIdentity({ home });
   const binaryPath = await whichBinary("kiro-cli", { commandRunner });
   if (!binaryPath) {
     return trackedCredits
@@ -2310,6 +2448,7 @@ async function fetchKiroLimits({
           configured: true,
           error: null,
           ...parseKiroCommandResult(result, { now }),
+          cache_identity: kiroAuthIdentity,
           ...(trackedCredits || {}),
         };
       } catch (error) {
@@ -2318,12 +2457,104 @@ async function fetchKiroLimits({
     }
     throw lastError || new Error("Failed to read Kiro usage.");
   } catch (error) {
+    const message = error?.message || "Unknown error";
     return {
       configured: true,
-      error: error?.message || "Unknown error",
+      error: message,
+      // A not-logged-in panel is actionable — surface it instead of masking it
+      // with stale bars (upstream PR 993). Everything else (PTY/parse/backend
+      // hiccups) qualifies for the disk-cache fallback.
+      ...(isKiroAuthErrorMessage(message) ? { auth_error: true } : {}),
+      cache_identity: kiroAuthIdentity,
       ...(trackedCredits || {}),
     };
   }
+}
+
+// Last-good disk cache (upstream PR 993). The partition key is the CodeWhisperer
+// profile ARN from kiro-cli's own auth file — a non-secret resource id, never
+// the token. Reads require a match and writes without an identity are refused.
+function resolveKiroAuthIdentity({ home } = {}) {
+  try {
+    const authPath = path.join(home || os.homedir(), ".aws", "sso", "cache", "kiro-auth-token.json");
+    const parsed = JSON.parse(fs.readFileSync(authPath, "utf8"));
+    return typeof parsed?.profileArn === "string" && parsed.profileArn ? parsed.profileArn : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+// kiro-cli's not-logged-in output walks straight through /usage parsing into an
+// error string, so the auth classification has to key off the message text.
+function isKiroAuthErrorMessage(message) {
+  return /not logged in to kiro|kiro-cli login|login required|oauth error|failed to initialize auth portal/i
+    .test(String(message || ""));
+}
+
+function resolveKiroLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", KIRO_LIMITS_CACHE_FILE);
+}
+
+function hasKiroWindow(limits) {
+  return Boolean(limits?.primary_window || limits?.secondary_window);
+}
+
+function isKiroCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeKiroCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = KIRO_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  const cached = {
+    configured: true,
+    error: null,
+    plan_name: typeof raw?.plan_name === "string" ? raw.plan_name : null,
+    primary_window: isKiroCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isKiroCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasKiroWindow(cached) ? cached : null;
+}
+
+function readKiroLimitsCache({ home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveKiroLimitsCachePath({ home }), "utf8"));
+    const entry = parsed?.kiro;
+    if (entry?.identity !== identity) return null;
+    return normalizeKiroCachedLimits(entry, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeKiroLimitsCache(limits, { home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return;
+  if (!limits?.configured || limits.error || !hasKiroWindow(limits)) return;
+  const cachePath = resolveKiroLimitsCachePath({ home });
+  const payload = {
+    kiro: {
+      identity,
+      plan_name: limits.plan_name || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
+  } catch (_error) {}
 }
 
 function parseProcessLine(line) {
@@ -5034,18 +5265,49 @@ async function fetchUsageLimitsUncached({
 
   // Devin: server-owned quota windows like CommandCode — a fulfilled
   // `configured: false` means no CLI credentials; a rejected fetch with
-  // AUTH_EXPIRED flags auth_action_required for the re-sign-in hint.
+  // AUTH_EXPIRED flags auth_action_required for the re-sign-in hint. Last-good
+  // disk cache (upstream PR 995): only timeouts, transport failures,
+  // schema-malformed responses, 429 and 5xx serve stale bars; AUTH_EXPIRED,
+  // credential problems and persistent rejections (HTTP 400) punch through.
   let devinObj;
   if (devinRaw?.status === "fulfilled") {
     const value = devinRaw.value;
-    devinObj = value && value.configured === false
-      ? value
-      : { ...value, stale: false, cached_at: new Date(nowMs).toISOString() };
+    if (value && value.configured === false) {
+      devinObj = value;
+    } else {
+      devinObj = { ...value, stale: false, cached_at: new Date(nowMs).toISOString() };
+      // Write only when the snapshot's revision still matches the credentials
+      // on disk — an in-flight re-login must not pin the previous account.
+      const currentIdentity = resolveDevinCacheIdentity({ home, env });
+      const snapshotIdentity = typeof value.cache_identity === "string"
+        ? value.cache_identity
+        : currentIdentity;
+      if (snapshotIdentity && snapshotIdentity === currentIdentity) {
+        writeDevinLimitsCache(devinObj, { home, nowMs, identity: snapshotIdentity });
+      }
+    }
   } else {
     const reason = devinRaw?.reason || null;
-    devinObj = reason?.code === "AUTH_EXPIRED"
-      ? { configured: true, error: reason?.message || "Unknown error", auth_action_required: "reauth" }
-      : { configured: true, error: reason?.message || "Unknown error" };
+    const status = reason?.statusCode;
+    const persistentRejection = Number.isFinite(status)
+      && status >= 400 && status < 500 && status !== 429;
+    if (reason?.code === "AUTH_EXPIRED") {
+      devinObj = { configured: true, error: reason?.message || "Unknown error", auth_action_required: "reauth" };
+    } else if (reason?.code === "CREDENTIALS_INVALID" || persistentRejection) {
+      devinObj = { configured: true, error: reason?.message || "Unknown error" };
+    } else {
+      // A thrown Error carries no revision — re-stat the credentials file.
+      // Same file → same revision → the fallback read hits; edited/replaced
+      // credentials → refused.
+      const identity = resolveDevinCacheIdentity({ home, env });
+      const cached = readDevinLimitsCache({ home, nowMs, identity });
+      devinObj = cached || { configured: true, error: reason?.message || "Unknown error" };
+    }
+  }
+  // cache_identity is an internal cache-plumbing marker, not payload.
+  if (devinObj && "cache_identity" in devinObj) {
+    const { cache_identity: _identity, ...devinPayload } = devinObj;
+    devinObj = devinPayload;
   }
 
   const cursorLimits = cursorSandDuplicatesGrokPool(cursor, grok)
@@ -5157,6 +5419,119 @@ async function fetchUsageLimitsUncached({
     geminiWithCache = geminiPayload;
   }
 
+  // Grok: persist last successful windows so a transient timeout/5xx on the
+  // cli-chat-proxy.grok.com billing route serves stale bars instead of a
+  // flashing "fetch failed" (upstream PR 1003). Not-logged-in / re-auth states
+  // are actionable and pass through untouched.
+  let grokWithCache;
+  if (!grok || grok.configured === false) {
+    grokWithCache = grok;
+  } else if (grok.auth_error === true) {
+    grokWithCache = grok;
+  } else if (!grok.error && hasGrokWindow(grok)) {
+    grokWithCache = {
+      ...grok,
+      stale: false,
+      cached_at: new Date(nowMs).toISOString(),
+    };
+    // A slow in-flight fetch must not clobber the on-disk entry of an account
+    // that has since been switched away (kimi snapshot-identity precedent).
+    const currentIdentity = resolveGrokCacheIdentity({ home, env });
+    const snapshotIdentity = typeof grok.cache_identity === "string"
+      ? grok.cache_identity
+      : currentIdentity;
+    if (snapshotIdentity && snapshotIdentity === currentIdentity) {
+      writeGrokLimitsCache(grokWithCache, {
+        home,
+        nowMs,
+        identity: snapshotIdentity,
+      });
+    }
+  } else {
+    // The slot's error object loses the fetcher's identity when the outer
+    // timeout race wins — re-decode the (still-local) access token.
+    const identity = resolveGrokCacheIdentity({ home, env });
+    const cached = readGrokLimitsCache({ home, nowMs, identity });
+    grokWithCache = cached || grok;
+  }
+  if (grokWithCache && ("cache_identity" in grokWithCache || "auth_error" in grokWithCache)) {
+    const { cache_identity: _identity, auth_error: _authError, ...grokPayload } = grokWithCache;
+    grokWithCache = grokPayload;
+  }
+
+  // Copilot: same last-good pattern for the api.github.com quota RPC (upstream
+  // PR 994). A rejected token (401/403) is actionable and passes through.
+  let copilotWithCache;
+  if (!copilot || copilot.configured === false) {
+    copilotWithCache = copilot;
+  } else if (copilot.auth_error === true) {
+    copilotWithCache = copilot;
+  } else if (!copilot.error && hasCopilotWindow(copilot)) {
+    copilotWithCache = {
+      ...copilot,
+      stale: false,
+      cached_at: new Date(nowMs).toISOString(),
+    };
+    const currentIdentity = await resolveCopilotCacheIdentity({ home, env, platform, securityRunner });
+    const snapshotIdentity = typeof copilot.cache_identity === "string"
+      ? copilot.cache_identity
+      : currentIdentity;
+    if (snapshotIdentity && snapshotIdentity === currentIdentity) {
+      writeCopilotLimitsCache(copilotWithCache, {
+        home,
+        nowMs,
+        identity: snapshotIdentity,
+      });
+    }
+  } else {
+    // Re-read the (still-local) OAuth token: the fetch-carried identity is
+    // lost when the outer timeout race wins, and a login switched mid-flight
+    // must not inherit the previous account's cache.
+    const identity = await resolveCopilotCacheIdentity({ home, env, platform, securityRunner });
+    const cached = readCopilotLimitsCache({ home, nowMs, identity });
+    copilotWithCache = cached || copilot;
+  }
+  if (copilotWithCache && ("cache_identity" in copilotWithCache || "auth_error" in copilotWithCache)) {
+    const { cache_identity: _identity, auth_error: _authError, ...copilotPayload } = copilotWithCache;
+    copilotWithCache = copilotPayload;
+  }
+
+  // Kiro: same last-good pattern for the kiro-cli /usage panel (upstream PR
+  // 993). A not-logged-in panel is actionable and passes through; PTY/parse
+  // hiccups and backend failures qualify for the fallback. The local credits
+  // sidecar is re-read live on every pass, so it never rides the cache.
+  let kiroWithCache;
+  if (!kiro || kiro.configured === false) {
+    kiroWithCache = kiro;
+  } else if (kiro.auth_error === true) {
+    kiroWithCache = kiro;
+  } else if (!kiro.error && hasKiroWindow(kiro)) {
+    kiroWithCache = {
+      ...kiro,
+      stale: false,
+      cached_at: new Date(nowMs).toISOString(),
+    };
+    const currentIdentity = resolveKiroAuthIdentity({ home });
+    const snapshotIdentity = typeof kiro.cache_identity === "string"
+      ? kiro.cache_identity
+      : currentIdentity;
+    if (snapshotIdentity && snapshotIdentity === currentIdentity) {
+      writeKiroLimitsCache(kiroWithCache, {
+        home,
+        nowMs,
+        identity: snapshotIdentity,
+      });
+    }
+  } else {
+    const identity = resolveKiroAuthIdentity({ home });
+    const cached = readKiroLimitsCache({ home, nowMs, identity });
+    kiroWithCache = cached || kiro;
+  }
+  if (kiroWithCache && ("cache_identity" in kiroWithCache || "auth_error" in kiroWithCache)) {
+    const { cache_identity: _identity, auth_error: _authError, ...kiroPayload } = kiroWithCache;
+    kiroWithCache = kiroPayload;
+  }
+
   const data = {
     fetched_at: new Date(nowMs).toISOString(),
     claude: withPlanLabel(claude, claudePlanType, "Claude"),
@@ -5168,18 +5543,18 @@ async function fetchUsageLimitsUncached({
     // "Kimi Type_event" (issue #130), so show the bare brand instead.
     kimi: withPlanLabel(kimiWithCache, null, "Kimi"),
     gemini: withPlanLabel(geminiWithCache, geminiWithCache?.account_plan, "Gemini"),
-    kiro: withPlanLabel(kiro, kiro.plan_name, "Kiro"),
+    kiro: withPlanLabel(kiroWithCache, kiroWithCache?.plan_name, "Kiro"),
     antigravity: withPlanLabel(antigravity, antigravity.account_plan, "Antigravity"),
     apigoto: withPlanLabel(apigoto, apigoto?.plan_name, "APIGOTO"),
     sensenova: withPlanLabel(sensenova, sensenova?.plan_name, "SenseNova"),
-    copilot: withPlanLabel(copilot, copilot.plan_name, "Copilot"),
+    copilot: withPlanLabel(copilotWithCache, copilotWithCache?.plan_name, "Copilot"),
     // grok-limits already maps subscriptionTier to xAI's own product names
     // ("SuperGrok Heavy", "X Premium+", "API Key"). The shared normalization
     // would Title-Case them into "Supergrok Heavy" / "Api Key" and drop "Free"
     // outright, so surface the label as-is like CommandCode below. Error and
     // unconfigured branches never carry plan_label, so the panel still falls
     // back to the bare brand name.
-    grok,
+    grok: grokWithCache,
     zcode: withPlanLabel(zcode, zcode.plan_label, "ZCode"),
     opencodeGo: withPlanLabel(opencodeGo, opencodeGo?.plan_label, "OpenCode Go"),
     // CommandCode tiers are acronym brands (GOAT/Pro/Max) — the fetcher already
@@ -5341,6 +5716,20 @@ module.exports = {
   decryptCopilotAuthDbToken,
   describeCopilotOtelStatus,
   fetchGrokLimits,
+  hasGrokWindow,
+  readGrokLimitsCache,
+  writeGrokLimitsCache,
+  fetchDevinLimits,
+  readDevinLimitsCache,
+  writeDevinLimitsCache,
+  fetchCopilotLimits,
+  readCopilotLimitsCache,
+  writeCopilotLimitsCache,
+  resolveCopilotLimitsCachePath,
+  COPILOT_LIMITS_CACHE_FILE,
+  readKiroLimitsCache,
+  writeKiroLimitsCache,
+  KIRO_LIMITS_CACHE_FILE,
   fetchZcodeLimits,
   fetchOpencodeGoLimits,
   fetchCommandcodeLimits,

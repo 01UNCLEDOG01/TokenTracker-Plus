@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { writeJsonAtomicSync } = require("./atomic-json");
 
 const DEFAULT_BILLING_BASE_URL = "https://cli-chat-proxy.grok.com";
 const DEFAULT_BILLING_TIMEOUT_MS = 15_000;
@@ -764,6 +765,144 @@ async function fetchGrokPlanLabel(accessToken, { fetchImpl = fetch, env, timeout
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Last-good disk cache (upstream PR 1003) — mirrors the Cursor/Gemini/Kimi
+// pattern in usage-limits.js, but lives here beside its fetcher (WorkBuddy
+// precedent). Grok's quota RPC hits cli-chat-proxy.grok.com over the public
+// internet; a timeout or 5xx used to flash "fetch failed" until the next poll.
+
+const GROK_LIMITS_CACHE_FILE = "grok-usage-limits-cache.json";
+const GROK_LIMITS_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Local copy of usage-limits.js parseTimeMs (the two modules stay decoupled —
+// usage-limits requires this file, so this one cannot reach back).
+function parseTimeMs(value) {
+  if (typeof value !== "string" || !value) return null;
+  const ts = Date.parse(value);
+  return Number.isFinite(ts) && ts > 0 ? ts : null;
+}
+
+// Partition key: the OIDC `sub` claim inside the access token, read with an
+// unverified decode. Non-secret and stable across refreshes; opaque tokens
+// yield null, and there is deliberately no token-fingerprint fallback (CodeQL
+// js/insufficient-password-hash precedent) — an unattributable login must
+// never pin another account's bars, so both sides fail closed.
+function grokTokenSubject(token) {
+  if (typeof token !== "string" || !token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    return typeof payload?.sub === "string" && payload.sub ? payload.sub : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Failure-only re-derivation: when the slot's result came from the outer
+// timeout race the fetch-carried identity is gone, so decode the (still-local)
+// access token without triggering a refresh — a network blip must not turn
+// into a token endpoint round-trip here.
+function resolveGrokCacheIdentity({ home, env } = {}) {
+  try {
+    const loaded = loadGrokAuthEntry({ home, env });
+    return grokTokenSubject(grokEntryAccessToken(loaded?.entry));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isGrokAuthErrorCode(error) {
+  return error?.code === "GROK_AUTH_REQUIRED" || error?.code === "GROK_REAUTH_REQUIRED";
+}
+
+function resolveGrokLimitsCachePath({ home } = {}) {
+  return path.join(home || os.homedir(), ".tokentracker", "tracker", GROK_LIMITS_CACHE_FILE);
+}
+
+function hasGrokWindow(limits) {
+  return Boolean(limits?.primary_window || limits?.secondary_window);
+}
+
+function isGrokCacheWindowUsable(window, { nowMs } = {}) {
+  if (!window || typeof window !== "object") return false;
+  const resetAtMs = parseTimeMs(window.reset_at);
+  if (resetAtMs === null) return true;
+  return resetAtMs > nowMs;
+}
+
+function normalizeGrokCachedLimits(
+  raw,
+  { nowMs = Date.now(), maxAgeMs = GROK_LIMITS_CACHE_MAX_AGE_MS } = {},
+) {
+  const cachedAtMs = parseTimeMs(raw?.cached_at);
+  if (!Number.isFinite(cachedAtMs)) return null;
+  if (cachedAtMs > nowMs + 60_000) return null;
+  if (nowMs - cachedAtMs > maxAgeMs) return null;
+
+  // Product rows attribute to the pool window, so each is gated by the same
+  // reset stamp as the window it shares (upstream PR 1003).
+  const products = Array.isArray(raw?.products)
+    ? raw.products.filter((entry) => isGrokCacheWindowUsable(entry?.window, { nowMs }))
+    : [];
+  const cached = {
+    configured: true,
+    error: null,
+    plan_label: typeof raw?.plan_label === "string" ? raw.plan_label : null,
+    period_type: typeof raw?.period_type === "string" ? raw.period_type : null,
+    monthly_credits_limit: Number.isFinite(raw?.monthly_credits_limit) ? raw.monthly_credits_limit : null,
+    monthly_credits_used: Number.isFinite(raw?.monthly_credits_used) ? raw.monthly_credits_used : null,
+    credit_usage_percent: Number.isFinite(raw?.credit_usage_percent) ? raw.credit_usage_percent : null,
+    on_demand_cap: Number.isFinite(raw?.on_demand_cap) ? raw.on_demand_cap : null,
+    on_demand_used: Number.isFinite(raw?.on_demand_used) ? raw.on_demand_used : null,
+    billing_period_start: typeof raw?.billing_period_start === "string" ? raw.billing_period_start : null,
+    primary_window: isGrokCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
+    secondary_window: isGrokCacheWindowUsable(raw?.secondary_window, { nowMs }) ? raw.secondary_window : null,
+    products,
+    stale: true,
+    cached_at: raw.cached_at,
+  };
+  return hasGrokWindow(cached) ? cached : null;
+}
+
+function readGrokLimitsCache({ home, nowMs = Date.now(), identity, env } = {}) {
+  if (!identity) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(resolveGrokLimitsCachePath({ home }), "utf8"));
+    const entry = parsed?.grok;
+    if (entry?.identity !== identity) return null;
+    return normalizeGrokCachedLimits(entry, { nowMs });
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeGrokLimitsCache(limits, { home, nowMs = Date.now(), identity } = {}) {
+  if (!identity) return;
+  if (!limits?.configured || limits.error || !hasGrokWindow(limits)) return;
+  const cachePath = resolveGrokLimitsCachePath({ home });
+  const payload = {
+    grok: {
+      identity,
+      plan_label: limits.plan_label || null,
+      period_type: limits.period_type || null,
+      monthly_credits_limit: limits.monthly_credits_limit ?? null,
+      monthly_credits_used: limits.monthly_credits_used ?? null,
+      credit_usage_percent: limits.credit_usage_percent ?? null,
+      on_demand_cap: limits.on_demand_cap ?? null,
+      on_demand_used: limits.on_demand_used ?? null,
+      billing_period_start: limits.billing_period_start || null,
+      primary_window: limits.primary_window || null,
+      secondary_window: limits.secondary_window || null,
+      products: Array.isArray(limits.products) ? limits.products : [],
+      cached_at: new Date(nowMs).toISOString(),
+    },
+  };
+  try {
+    writeJsonAtomicSync(cachePath, payload);
+  } catch (_error) {}
+}
+
 async function fetchGrokLimits({ home, env, fetchImpl = fetch, timeoutMs, nowMs } = {}) {
   if (!isGrokInstalled({ home, env })) {
     return { configured: false };
@@ -776,6 +915,11 @@ async function fetchGrokLimits({ home, env, fetchImpl = fetch, timeoutMs, nowMs 
     return {
       configured: true,
       error: error?.message || "Unknown error",
+      // A 400/401 from the token endpoint is a dead login (GROK_REAUTH_REQUIRED)
+      // and is actionable; a network/timeout refresh failure is a blip the
+      // account is still signed in through — that one may fall back to cache.
+      ...(isGrokAuthErrorCode(error) ? { auth_error: true } : {}),
+      cache_identity: resolveGrokCacheIdentity({ home, env }),
     };
   }
 
@@ -786,6 +930,10 @@ async function fetchGrokLimits({ home, env, fetchImpl = fetch, timeoutMs, nowMs 
     return {
       configured: true,
       error: resolved.error?.message || grokAuthError().message,
+      // No token on disk means no sign-in: actionable, and there is no `sub`
+      // to attribute a fallback read to anyway (fail closed).
+      auth_error: true,
+      cache_identity: null,
     };
   }
 
@@ -831,11 +979,17 @@ async function fetchGrokLimits({ home, env, fetchImpl = fetch, timeoutMs, nowMs 
       configured: true,
       error: null,
       ...limits,
+      // Refreshes keep the same `sub`; decode from whichever token is live.
+      cache_identity: grokTokenSubject(accessToken) || resolveGrokCacheIdentity({ home, env }),
     };
   } catch (error) {
     return {
       configured: true,
       error: error?.message || "Unknown error",
+      // A rejected or unrecoverable login is actionable and must surface
+      // instead of being masked by stale bars (kimi auth_error precedent).
+      ...(isGrokAuthErrorCode(error) ? { auth_error: true } : {}),
+      cache_identity: resolveGrokCacheIdentity({ home, env }),
     };
   }
 }
@@ -863,4 +1017,12 @@ module.exports = {
   normalizeGrokBillingResponse,
   fetchGrokBilling,
   fetchGrokLimits,
+  grokTokenSubject,
+  resolveGrokCacheIdentity,
+  hasGrokWindow,
+  readGrokLimitsCache,
+  writeGrokLimitsCache,
+  normalizeGrokCachedLimits,
+  resolveGrokLimitsCachePath,
+  GROK_LIMITS_CACHE_FILE,
 };
