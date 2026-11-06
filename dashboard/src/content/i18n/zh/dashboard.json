@@ -13,7 +13,7 @@
   "usage.overview.trae_notice_title": "TRAE 费用按牌价计算",
   "usage.overview.trae_notice_body": "费用 = TokenTracker 模型牌价 × Token 数，Token 为实测值。多步对话中 TRAE 只拆分最后一步的缓存输入，之前步骤的缓存占比按最后一步命中率推算，故费用为牌价推算值，并非实际账单金额。",
   "usage.overview.trae_cn_notice_title": "TRAE CN 缓存为估算值",
-  "usage.overview.trae_cn_notice_body": "Trae 客户端 2026-09 更新后，本地请求日志不再写缓存读取字段，无法读取真实缓存；缓存命中率按同一工具、同一模型的历史实测命中率（本机字段覆盖期实测 95–97%）估算，无该历史时回退其他来源同模型实测，Token 总量仍为实测，费用按估算缓存折算。",
+  "usage.overview.trae_cn_notice_body": "Trae 客户端 2026-09 更新后，本地请求日志不再写缓存读取字段，无法读取真实缓存；缓存命中率按同一工具、同一模型的历史实测命中率（本机字段覆盖期实测 95–97%）估算，从未使用过的模型按官方缓存价率与同工具实测中位命中率折算，再无则保持实测，Token 总量仍为实测，费用按估算缓存折算。",
 "usage.overview.trae_cn_notice_body_unestimated": "Trae 客户端不再写缓存读取字段，且当期没有其他来源使用同一模型的实测——缓存保持实测值显示，未做估算；费用为未缓存牌价。",
 "usage.overview.trae_notice_title_unestimated": "TRAE 缓存口径",
 "usage.overview.trae_notice_body_unestimated": "当期没有其他来源使用同一模型的实测，因此未做缓存估算；Token 与费用保持实测值显示，费用为未缓存牌价。",
@@ -910,8 +910,8 @@
   "achievements.badge.sensenova_daily.desc": "商汤日日新（SenseNova）系模型累计消耗——苟日新，日日新。",
   "achievements.badge.xiaomi_mimo.name": "米芯",
   "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累计消耗——手机厂把芯和模型一起造。",
-  "usage.overview.trae_estimate_line": "费用估算：{{estimated}}（按同一工具、同一模型的历史实测命中率 {{median}}% 折算（本机字段覆盖期实测 95–97%；无该历史时回退其他来源同模型实测）；若完全不缓存、按牌价全额则为 {{high}}）。",
-  "usage.overview.trae_estimate_basis": "估算依据：命中率取自同一工具、同一模型的历史实测数据（字段覆盖期实测；当期无自身历史时回退其他来源同模型实测，仅供参考）；实际缓存成本以 TRAE 计费为准。",
+  "usage.overview.trae_estimate_line": "费用估算：{{estimated}}（按同一工具、同一模型的历史实测命中率 {{median}}% 折算（本机字段覆盖期实测 95–97%；从未使用过的模型按官方缓存价率与同工具实测中位命中率折算，再无则保持实测）；若完全不缓存、按牌价全额则为 {{high}}）。",
+  "usage.overview.trae_estimate_basis": "估算依据：命中率取自同一工具、同一模型的历史实测数据（字段覆盖期实测 95–97%）；未使用过的模型按官方缓存价率与同工具实测中位命中率折算；实际缓存成本以 TRAE 计费为准。；实际缓存成本以 TRAE 计费为准。",
   "usage.overview.trae_row_estimate_marker": "（估算）",
   "usage.overview.cache_hit_rate_label_est": "缓存命中率（估算）"
 }

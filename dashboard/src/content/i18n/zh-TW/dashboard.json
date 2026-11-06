@@ -13,7 +13,7 @@
   "usage.overview.trae_notice_title": "TRAE 費用按牌價計算",
   "usage.overview.trae_notice_body": "費用 = TokenTracker 模型牌價 × Token 數，Token 為實測值。多步對話中 TRAE 只拆分最後一步的快取輸入，先前步驟的快取佔比依最後一步命中率推算，故費用為牌價推算值，並非實際帳單金額。",
   "usage.overview.trae_cn_notice_title": "TRAE CN 快取為估算值",
-  "usage.overview.trae_cn_notice_body": "Trae 用戶端 2026-09 更新後，本機請求紀錄不再寫入快取讀取欄位，無法讀取真實快取；快取命中率依同一工具、同一模型的歷史實測命中率（本機欄位覆蓋期實測 95–97%）估算，無該歷史時回退其他來源同模型實測，Token 總量仍為實測，費用依估算快取折算。",
+  "usage.overview.trae_cn_notice_body": "Trae 用戶端 2026-09 更新後，本機請求紀錄不再寫入快取讀取欄位，無法讀取真實快取；快取命中率依同一工具、同一模型的歷史實測命中率（本機欄位覆蓋期實測 95–97%）估算，從未使用過的模型按官方快取價率與同工具實測中位命中率折算，再無則保持實測，Token 總量仍為實測，費用依估算快取折算。",
 "usage.overview.trae_cn_notice_body_unestimated": "Trae 用戶端不再寫入快取讀取欄位，且當期沒有其他來源使用同一模型的實測——快取保持實測值顯示，未做估算；費用為未快取牌價。",
 "usage.overview.trae_notice_title_unestimated": "TRAE 快取口徑",
 "usage.overview.trae_notice_body_unestimated": "當期沒有其他來源使用同一模型的實測，因此未做快取估算；Token 與費用保持實測值顯示，費用為未快取牌價。",
@@ -942,7 +942,7 @@
   "achievements.badge.xiaomi_mimo.name": "米芯",
   "achievements.badge.xiaomi_mimo.desc": "小米 MiMo 系模型累計消耗——手機廠把芯和模型一起造。",
   "usage.overview.trae_estimate_line": "費用估算：{{estimated}}（依同一工具、同一模型的歷史實測命中率 {{median}}% 折算；若完全不快取、按牌價全額則為 {{high}}）。",
-  "usage.overview.trae_estimate_basis": "估算依據：命中率取自同一工具、同一模型的歷史實測數據（欄位覆蓋期實測；當期無自身歷史時回退其他來源同模型實測，僅供參考）；實際快取成本以 TRAE 計費為準。",
+  "usage.overview.trae_estimate_basis": "估算依據：命中率取自同一工具、同一模型的歷史實測數據（欄位覆蓋期實測 95–97%）；未使用過的模型按官方快取價率與同工具實測中位命中率折算；實際快取成本以 TRAE 計費為準。；實際快取成本以 TRAE 計費為準。",
   "usage.overview.trae_row_estimate_marker": "（估算）",
   "usage.overview.cache_hit_rate_label_est": "快取命中率（估算）"
 }

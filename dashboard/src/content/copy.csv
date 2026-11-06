@@ -2043,8 +2043,8 @@ limits.zcode.region.zai,dashboard,LimitsPage,UsageLimitsPanel,label,Z.ai,,active
 limits.zcode.region.bigmodel,dashboard,LimitsPage,UsageLimitsPanel,label,BigModel,,active
 limits.zcode.other_region.snapshot,dashboard,LimitsPage,UsageLimitsPanel,detail,"Snapshot taken {{time}}",,active
 
-usage.overview.trae_estimate_line,ui,DashboardPage,UsageOverview,trae_estimate_line,"Estimated cost: {{estimated}} (folded from the {{median}}% median cache hit rate you achieve on this model at other sources; {{high}} if billed fully uncached).",,active
-usage.overview.trae_estimate_basis,ui,DashboardPage,UsageOverview,trae_estimate_basis,"Basis: the hit rate comes from your own measured usage of the same model at other sources (cross-product approximation, for reference only); actual billed cache cost is up to TRAE.",,active
+usage.overview.trae_estimate_line,ui,DashboardPage,UsageOverview,trae_estimate_line,"Estimated cost: {{estimated}} (folded from the {{median}}% measured cache hit rate for this model on this tool — its fielded history; unused models use the official per-model cache-read price ratio; {{high}} if billed fully uncached).",,active
+usage.overview.trae_estimate_basis,ui,DashboardPage,UsageOverview,trae_estimate_basis,"Basis: the hit rate comes from this tool's own measured history for the same model (95-97% in the fielded window); unused models fold with the official per-model cache-read price ratio and the tool's median measured rate; actual billed cache cost is up to TRAE.",,active
 usage.overview.trae_row_estimate_marker,ui,DashboardPage,UsageOverview,trae_row_estimate_marker,"(est.)",,active
 usage.overview.cache_hit_rate_label_est,ui,DashboardPage,UsageOverview,cache_hit_rate_label_est,"Cache hit rate (est.)",,active
 global_models.tab_aa,ui,GlobalModelsPage,GlobalModelsPage,tab_aa,"AA Intelligence",,active

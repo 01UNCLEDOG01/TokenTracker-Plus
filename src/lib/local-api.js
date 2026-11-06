@@ -179,11 +179,13 @@ const readProjectQueueData = createAsyncQueueReader({
 // exists. Dashboard-side folding is skipped via the payload flag below.
 const TRAE_FOLD_REFRESH_MS = 5 * 60 * 1000;
 let traeFoldByModel = null;
+let traeRecognizedRate = 0;
 let traeFoldLoadedAt = 0;
 function traeFoldMap() {
   const now = Date.now();
   if (traeFoldByModel && now - traeFoldLoadedAt < TRAE_FOLD_REFRESH_MS) return traeFoldByModel;
   traeFoldByModel = {};
+  traeRecognizedRate = 0;
   traeFoldLoadedAt = now;
   try {
     const cursorsPath = path.join(os.homedir(), ".tokentracker", "tracker", "cursors.json");
@@ -199,6 +201,22 @@ function traeFoldMap() {
       acc.volume += observedVolume;
       traeFoldByModel[observedModel] = acc;
     }
+    // Recognized hit rate (owner ruling 2026-11-07): the median across the
+    // tool's own fielded models' measured rates — same tool, same agent
+    // workload. Applied to models the owner never used (no fielded history),
+    // combined with each model's OFFICIAL cache-read price ratio from the
+    // pricing tables. Nothing is fabricated: no fielded models at all, or a
+    // model without official cache pricing, stays at the ceiling.
+    const rates = Object.values(traeFoldByModel)
+      .filter((acc) => acc.volume > 0)
+      .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
+      .sort((a, b) => a - b);
+    if (rates.length) {
+      const mid = Math.floor(rates.length / 2);
+      traeRecognizedRate = rates.length % 2
+        ? rates[mid]
+        : (rates[mid - 1] + rates[mid]) / 2;
+    }
   } catch (_error) {
     // No cursors / malformed file: no self evidence, rows stay at ceiling.
   }
@@ -207,10 +225,15 @@ function traeFoldMap() {
 function foldTraeRowCost(row, cost) {
   const source = String(row?.source || "").toLowerCase();
   if (source !== "trae" && source !== "trae-cn") return cost;
-  const acc = traeFoldMap()[String(row?.model || "")];
-  if (!acc || !(acc.volume > 0)) return cost;
-  const h = Math.min(Math.max(acc.hits / acc.volume, 0), 1);
-  const pricing = getModelPricingInfo(String(row?.model || ""), { source: row.source });
+  const model = String(row?.model || "");
+  const acc = traeFoldMap()[model];
+  // Evidence priority: the model's own fielded history; without it, the
+  // recognized rate (median across the tool's fielded models).
+  const h = acc && acc.volume > 0
+    ? Math.min(Math.max(acc.hits / acc.volume, 0), 1)
+    : (traeRecognizedRate > 0 ? Math.min(Math.max(traeRecognizedRate, 0), 1) : 0);
+  if (!(h > 0)) return cost;
+  const pricing = getModelPricingInfo(model, { source: row.source });
   const inputRate = Number(pricing?.input);
   const cacheRate = Number(pricing?.cache_read);
   if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
