@@ -6072,8 +6072,7 @@ async function repairCodexLegacyUnknownDuplicates({ cursors, queuePath } = {}) {
   if (!cursors || typeof cursors !== "object" || typeof queuePath !== "string" || !queuePath) {
     return false;
   }
-  const migrations = (cursors.migrations ||= {});
-  if (migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY]) return false;
+  if (cursors.migrations?.[CODEX_LEGACY_UNKNOWN_REPAIR_KEY]) return false;
   // Never finalize while the observed upgrade is still pending: a parse that
   // threw after clearing bucket queuedKey would re-emit the unknown rows on the
   // next sync, and a burned key would leave that duplication permanent.
@@ -6081,15 +6080,11 @@ async function repairCodexLegacyUnknownDuplicates({ cursors, queuePath } = {}) {
   const upgradePending = !observed && Object.keys(cursors.hourly?.groupQueued || {})
     .some((key) => key.startsWith("codex|"));
   const legacyHours = codexLegacyUnknownHours(cursors.hourly);
-  if (legacyHours.size === 0) {
-    if (upgradePending) return false;
-    migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY] = {
-      appliedAt: new Date().toISOString(),
-      legacyHours: 0,
-      retracted: 0,
-    };
-    return true;
-  }
+  // Nothing to repair: stay out of the cursor snapshot entirely. Several sync
+  // tests assert exact persisted state, and a marker written for an empty set
+  // would be a mutation with no reparative value (the recomputation is just a
+  // walk over ~hundreds of buckets).
+  if (legacyHours.size === 0) return false;
 
   const rowsByHour = new Map();
   let handle = null;
@@ -6171,7 +6166,8 @@ async function repairCodexLegacyUnknownDuplicates({ cursors, queuePath } = {}) {
     }
   }
   if (!upgradePending) {
-    migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY] = {
+    cursors.migrations ||= {};
+    cursors.migrations[CODEX_LEGACY_UNKNOWN_REPAIR_KEY] = {
       appliedAt: new Date().toISOString(),
       legacyHours: legacyHours.size,
       retracted: retracted.length,
