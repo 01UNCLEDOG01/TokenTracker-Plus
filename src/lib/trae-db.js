@@ -194,6 +194,42 @@ function normalizeRequestPath(extra) {
   return null;
 }
 
+// The v1 exact_* fields (when the client writes them) split token_usage into
+// its provider-raw parts — verified against the real store:
+//   exact_prompt_tokens_v1  cache-INCLUSIVE prompt (OpenAI/DeepSeek semantics,
+//                           same reading the chat_turn leg's credits formula
+//                           confirmed: fresh + cache_read*(p/4) + output*q);
+//   exact_output_tokens_v1  completion (reasoning-INCLUSIVE per
+//                           exact_token_semantics_v1
+//                           provider_raw_usage_completion_includes_reasoning);
+//   exact_cache_read_input_tokens_v1  the cached subset of the prompt;
+//   exact_reasoning_tokens_v1         the reasoning subset of the output.
+// prompt + output == token_usage on every observed row, and that identity is
+// enforced here — a row failing it (half-migrated client, semantic drift)
+// falls back to the total-only estimate downstream rather than booking a
+// wrong split. JSON stores these as strings, so everything goes through
+// Number() first.
+function exactRequestInt(value, { max = null } = {}) {
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n < 0) return null;
+  if (max !== null && n > max) return null;
+  return n;
+}
+
+function extractRequestUsageFields(extraInfo, total) {
+  if (!extraInfo || typeof extraInfo !== "object") return null;
+  const prompt = exactRequestInt(extraInfo.exact_prompt_tokens_v1, { max: total });
+  const output = exactRequestInt(extraInfo.exact_output_tokens_v1, { max: total });
+  if (prompt === null && output === null) return null;
+  if (prompt !== null && output !== null && prompt + output !== total) return null;
+  return {
+    prompt,
+    output,
+    cacheRead: exactRequestInt(extraInfo.exact_cache_read_input_tokens_v1, { max: prompt }),
+    reasoning: exactRequestInt(extraInfo.exact_reasoning_tokens_v1, { max: output }),
+  };
+}
+
 async function projectTraeCnRequestRows(queryRows, watermark) {
   const tables = new Set((await queryRows(
     "SELECT name FROM sqlite_master WHERE type='table'",
@@ -230,7 +266,11 @@ async function projectTraeCnRequestRows(queryRows, watermark) {
         updated_at: row.updated_at,
         model: normalizeRequestModel(extraInfo),
         usage: valid
-          ? { total, output: Number.isSafeInteger(output) ? Math.min(Math.max(output, 0), total) : 0 }
+          ? {
+              total,
+              output: Number.isSafeInteger(output) ? Math.min(Math.max(output, 0), total) : 0,
+              exact: extractRequestUsageFields(extraInfo, total),
+            }
           : null,
         absolute_path: normalizeRequestPath(extraInfo),
       };
@@ -399,6 +439,8 @@ async function readTraeSessionRows(dbPath, { env = process.env, waitImpl, guardI
 
 module.exports = {
   resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeCnUsageRows, readTraeSessionRows,
+  // Test seam: the exact_* split extraction and its identity validation.
+  extractRequestUsageFields,
   // Test seam: the fallback warning is once-per-process; tests reset it to
   // assert the once-ness across reads.
   __resetTraeGuardFallbackWarnForTest: () => { guardFallbackWarned = false; },

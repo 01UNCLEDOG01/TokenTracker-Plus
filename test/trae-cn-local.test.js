@@ -24,14 +24,14 @@ const { parseTraeCnLocalIncremental } = require("../src/lib/rollout");
 const T0 = Math.floor(Date.UTC(2026, 9, 18, 10) / 1000); // seconds, like the store
 const HOUR = `${new Date(T0 * 1000).toISOString().slice(0, 13)}:00:00.000Z`;
 
-function row(id, { model = "deepseek-v4.1-flash", absPath = null, total = 150, output = 50, session = "sess-1", offset = 0 } = {}) {
+function row(id, { model = "deepseek-v4.1-flash", absPath = null, total = 150, output = 50, session = "sess-1", offset = 0, exact = null } = {}) {
   return {
     id: String(id),
     session_id: session,
     created_at: T0 + offset,
     updated_at: T0 + offset,
     model,
-    usage: { total, output },
+    usage: exact === null ? { total, output } : { total, output, exact },
     absolute_path: absPath,
   };
 }
@@ -110,7 +110,7 @@ test("TRAE CN request rows feed hourly/project queues and advance the rowid wate
   const res = await parseTraeCnLocalIncremental(args);
   assert.equal(res.recordsProcessed, 3);
   assert.equal(res.eventsAggregated, 3);
-  assert.equal(f.cursors.traeCnLocal.version, 3);
+  assert.equal(f.cursors.traeCnLocal.version, 4);
   assert.equal(f.cursors.traeCnLocal.lastRowId, 3);
 
   const hourly = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model.toLowerCase()}|${r.hour_start}`);
@@ -157,6 +157,105 @@ test("TRAE CN unchanged store is skipped; a grow books only the new calls", asyn
   assert.equal(latest.get("deepseek-v4.1-flash|" + HOUR).total_tokens, 500, "new call adds to the bucket");
 });
 
+test("TRAE CN exact_* rows book the provider-raw split including cache read", async (t) => {
+  const f = await fixture(t);
+  const rows = [
+    // Client-shaped row (values arrive as strings, like the real JSON):
+    // prompt 262922 cache-inclusive, cache_read 261000, output 1194
+    // reasoning-inclusive with a 998 reasoning subset; 262922 + 1194 = 264116.
+    // exact arrives already coerced by the reader layer (numbers); the mocked
+    // readRowsImpl here bypasses that layer, so the fixture feeds its output.
+    row(1, {
+      total: 264116,
+      output: 203,
+      exact: {
+        prompt: 262922,
+        output: 1194,
+        cacheRead: 261000,
+        reasoning: 998,
+      },
+    }),
+    // A cache-less exact row under a different model, so the buckets stay
+    // independent: prompt 5000 + output 500 = 5500, cache 0.
+    row(2, { total: 5500, output: 10, model: "kimi-k2.7-code", session: "sess-2", exact: { prompt: 5000, output: 500, cacheRead: 0, reasoning: null } }),
+  ];
+  const args = { ...f, readRowsImpl: makeReader(() => rows) };
+  const res = await parseTraeCnLocalIncremental(args);
+  assert.equal(res.recordsProcessed, 2);
+  assert.equal(res.eventsAggregated, 2);
+
+  const hourly = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model.toLowerCase()}|${r.hour_start}`);
+  const split = hourly.get("deepseek-v4.1-flash|" + HOUR);
+  assert.equal(split.cached_input_tokens, 261000, "cache read lands in its own column");
+  assert.equal(split.input_tokens, 262922 - 261000, "fresh input = cache-inclusive prompt minus cache read");
+  assert.equal(split.output_tokens, 1194, "exact output wins over the item_token_usage estimate");
+  assert.equal(split.reasoning_output_tokens, 998, "reasoning subset is split out for display");
+  assert.equal(split.total_tokens, 264116);
+
+  const plain = traeHourly(readRows(f.queuePath)).find((r) => r.model.toLowerCase() === "kimi-k2.7-code");
+  assert.equal(plain.cached_input_tokens, 0, "a zero-cache exact row books zero cache");
+  assert.equal(plain.input_tokens, 5000);
+  assert.equal(plain.output_tokens, 500);
+  assert.equal(plain.reasoning_output_tokens, 0);
+});
+
+test("TRAE CN request reader rejects exact_* splits that fail the identity", async (t) => {
+  const { extractRequestUsageFields } = require("../src/lib/trae-db");
+  const T = 264116;
+  // The happy path (values arrive as strings, like the real JSON).
+  assert.deepEqual(extractRequestUsageFields(
+    { exact_prompt_tokens_v1: "262922", exact_output_tokens_v1: "1194", exact_cache_read_input_tokens_v1: "261000", exact_reasoning_tokens_v1: "998" },
+    T,
+  ), { prompt: 262922, output: 1194, cacheRead: 261000, reasoning: 998 });
+  // prompt + output != total: the split cannot be trusted — null sends the
+  // row to the total-only estimate (input = total - item output, cache 0).
+  assert.equal(extractRequestUsageFields(
+    { exact_prompt_tokens_v1: "9999", exact_output_tokens_v1: "1194", exact_cache_read_input_tokens_v1: "8000", exact_reasoning_tokens_v1: "998" },
+    T,
+  ), null);
+  // A cache-read larger than the cache-inclusive prompt is semantically
+  // impossible and drops just that field.
+  assert.deepEqual(extractRequestUsageFields(
+    { exact_prompt_tokens_v1: "262922", exact_output_tokens_v1: "1194", exact_cache_read_input_tokens_v1: "999999" },
+    T,
+  ), { prompt: 262922, output: 1194, cacheRead: null, reasoning: null });
+  // Negative or non-numeric values reject that field only (null), leaving a
+  // valid output for the consumer to derive the prompt from total - output.
+  assert.deepEqual(extractRequestUsageFields(
+    { exact_prompt_tokens_v1: "-5", exact_output_tokens_v1: "1194" },
+    T,
+  ), { prompt: null, output: 1194, cacheRead: null, reasoning: null });
+  // A split where every field is invalid carries nothing.
+  assert.equal(extractRequestUsageFields(
+    { exact_prompt_tokens_v1: "-5", exact_output_tokens_v1: "-6" },
+    T,
+  ), null);
+  // Rows without any exact fields carry no split at all.
+  assert.equal(extractRequestUsageFields({ config_name: "deepseek-v4.1-flash" }, T), null);
+});
+
+test("TRAE CN v3 request ledger (pre-cache) migrates by full rebuild", async (t) => {
+  const f = await fixture(t);
+  f.cursors.traeCnLocal = { version: 3, lastRowId: 9, signature: "old-request-ledger" };
+  f.cursors.hourly = {
+    version: 1,
+    buckets: {
+      [`trae-cn|deepseek-v4.1-flash|${HOUR}`]: { totals: { input_tokens: 150, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 150, billable_total_tokens: 150, total_cost_usd: 0, conversation_count: 1 } },
+    },
+    groupQueued: {},
+  };
+  const rows = [row(10, { total: 264116, output: 203, exact: { prompt: 262922, output: 1194, cacheRead: 261000, reasoning: 998 } })];
+  const args = { ...f, readRowsImpl: makeReader(() => rows) };
+  const res = await parseTraeCnLocalIncremental(args);
+  assert.equal(f.cursors.traeCnLocal.version, 4, "ledger upgrades to v4");
+  const hourly = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model.toLowerCase()}|${r.hour_start}`);
+  const bucket = hourly.get("deepseek-v4.1-flash|" + HOUR);
+  // Rebuild REPLACES the old total-only booking; the cache split lands.
+  assert.equal(bucket.total_tokens, 264116);
+  assert.equal(bucket.cached_input_tokens, 261000);
+  assert.equal(bucket.input_tokens, 1922);
+});
+
 test("TRAE CN migrates the v2 per-turn ledger by replacing, never stacking", async (t) => {
   const f = await fixture(t);
   f.cursors.traeCnLocal = { version: 2, lastId: 9, signature: "legacy-turn-ledger" };
@@ -171,7 +270,7 @@ test("TRAE CN migrates the v2 per-turn ledger by replacing, never stacking", asy
   const args = { ...f, readRowsImpl: makeReader(() => rows) };
 
   await parseTraeCnLocalIncremental(args);
-  assert.equal(f.cursors.traeCnLocal.version, 3);
+  assert.equal(f.cursors.traeCnLocal.version, 4);
   assert.equal(bookedTotal(f.cursors), 200, "old per-turn booking is replaced by the request-log totals");
   const latest = latestByKey(traeHourly(readRows(f.queuePath)), (r) => `${r.model}|${r.hour_start}`);
   assert.equal(latest.get("old-model|" + HOUR).total_tokens, 0, "retired model bucket is zeroed");

@@ -25942,7 +25942,11 @@ async function parseTraeCnApiIncremental({
 //     pruned from the local store cannot drift;
 //   - cloud-only canonical sessions (observations not present in the local
 //     request log) stay booked, so an opted-in cloud snapshot is not lost.
-const TRAE_CN_LOCAL_LEDGER_VERSION = 3;
+// v4: the request ledger started booking the client's exact_* split (cache
+// read, exact prompt/output/reasoning) instead of the total-only estimate.
+// Bumping the version forces one full rebuild so cached_input_tokens lands
+// for every historical row that carries the fields.
+const TRAE_CN_LOCAL_LEDGER_VERSION = 4;
 const TRAE_CN_FULL_RESCAN_MS = 24 * 60 * 60 * 1000;
 
 function traeCnStatOptional(file) {
@@ -25983,8 +25987,12 @@ async function parseTraeCnLocalIncremental({
   const stored = cursors.traeCnLocal && typeof cursors.traeCnLocal === "object"
     ? cursors.traeCnLocal
     : {};
-  if (stored.version !== undefined && stored.version !== 2 &&
-      stored.version !== TRAE_CN_LOCAL_LEDGER_VERSION) {
+  // Accept any earlier request-ledger version (2 = per-turn, 3 = per-request
+  // total-only) — each older version migrates via the full rebuild below, and
+  // throwing here would wedge every installed client mid-version on upgrade.
+  if (stored.version !== undefined &&
+      (stored.version < 2 || stored.version > TRAE_CN_LOCAL_LEDGER_VERSION ||
+        !Number.isSafeInteger(stored.version))) {
     throw new Error("Unsupported TRAE CN local request ledger.");
   }
   const storedLastRow = Number.isSafeInteger(stored.lastRowId) && stored.lastRowId > 0
@@ -26063,13 +26071,44 @@ async function parseTraeCnLocalIncremental({
       continue;
     }
     const model = normalizeTraeModel(row.model);
-    const output = Number.isSafeInteger(row.usage.output) && row.usage.output >= 0
-      ? Math.min(row.usage.output, totalTokens)
-      : 0;
+    // Rows carrying the client's exact_* split book the real provider-raw
+    // parts: cache-INCLUSIVE prompt peeled into cached + fresh (the chat_turn
+    // leg's credits formula semantics), reasoning-INCLUSIVE output, and the
+    // reasoning subset split out for display. Rows without the exact fields
+    // (most of history — the client started writing them recently) keep the
+    // total-only estimate: input = total - item output, cache 0.
+    const exactRaw = row.usage?.exact && typeof row.usage.exact === "object" ? row.usage.exact : null;
+    // The reader layer (extractRequestUsageFields) has already validated the
+    // identity and clamped the ranges; this re-check only guards the numeric
+    // types against a malformed hand-fed row.
+    const exact = exactRaw ? {
+      prompt: Number.isSafeInteger(exactRaw.prompt) ? exactRaw.prompt : null,
+      output: Number.isSafeInteger(exactRaw.output) ? exactRaw.output : null,
+      cacheRead: Number.isSafeInteger(exactRaw.cacheRead) ? exactRaw.cacheRead : null,
+      reasoning: Number.isSafeInteger(exactRaw.reasoning) ? exactRaw.reasoning : null,
+    } : null;
+    let outputTokens;
+    let freshInput;
+    let cachedInput = 0;
+    let reasoningOutput = 0;
+    if (exact && (exact.prompt !== null || exact.output !== null)) {
+      const prompt = exact.prompt !== null ? exact.prompt : Math.max(0, totalTokens - (exact.output || 0));
+      outputTokens = exact.output !== null ? exact.output : Math.max(0, totalTokens - prompt);
+      cachedInput = Math.min(prompt, exact.cacheRead || 0);
+      reasoningOutput = exact.reasoning || 0;
+      freshInput = prompt - cachedInput;
+    } else {
+      outputTokens = Number.isSafeInteger(row.usage.output) && row.usage.output >= 0
+        ? Math.min(row.usage.output, totalTokens)
+        : 0;
+      freshInput = totalTokens - outputTokens;
+    }
     const totals = {
       ...initTotals(),
-      input_tokens: totalTokens - output,
-      output_tokens: output,
+      input_tokens: freshInput,
+      output_tokens: outputTokens,
+      cached_input_tokens: cachedInput,
+      reasoning_output_tokens: reasoningOutput,
       total_tokens: totalTokens,
       billable_total_tokens: totalTokens,
       conversation_count: 1,
