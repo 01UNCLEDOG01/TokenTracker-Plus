@@ -1281,13 +1281,18 @@ export function DashboardPage({
   // How much the hero total drops once TRAE's all-uncached ceiling is replaced
   // by the folded estimate (0 when no peer evidence was available).
   const traeEstimateCostDelta = useMemo(() => {
-    const trae = (Array.isArray(fleetData) ? fleetData : []).find(
-      (provider) => String(provider?.source || "").trim().toLowerCase() === "trae",
-    );
-    const ceiling = Number(trae?.ceilingUsd);
-    const estimated = Number(trae?.usd);
-    if (!Number.isFinite(ceiling) || !Number.isFinite(estimated)) return 0;
-    return Math.max(0, ceiling - estimated);
+    // Both TRAE editions estimate cache costs (owner ruling 2026-11-07):
+    // the hero must drop each edition's ceiling->estimate delta, not just
+    // the international one — otherwise the total stays at list price while
+    // the cards and the breakdown show folded figures.
+    return (Array.isArray(fleetData) ? fleetData : []).reduce((sum, provider) => {
+      const source = String(provider?.source || "").trim().toLowerCase();
+      if (source !== "trae" && source !== "trae-cn") return sum;
+      const ceiling = Number(provider?.ceilingUsd);
+      const estimated = Number(provider?.usd);
+      if (!Number.isFinite(ceiling) || !Number.isFinite(estimated)) return sum;
+      return sum + Math.max(0, ceiling - estimated);
+    }, 0);
   }, [fleetData]);
 
   const summaryCostValue = useMemo(() => {
