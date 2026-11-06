@@ -4052,7 +4052,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         // stable; the card shows the model Qoder's own client texts name.
         const mdl = (src === "qoder" || src === "qoder-cn") ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
         if (!bySource.has(src))
-          bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" }, models: new Map() });
+          bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0", cache_observed_input_tokens: 0 }, models: new Map() });
         const sa = bySource.get(src);
         sa.totals.total_tokens += row.total_tokens || 0;
         sa.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
@@ -4061,12 +4061,19 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         sa.totals.cached_input_tokens += row.cached_input_tokens || 0;
         sa.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
         sa.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+        // Cache-coverage signal (TRAE CN request ledger only): input-side
+        // volume from rows actually carrying the client's exact_* fields.
+        // Undefined on every other source's rows, so the sum stays 0 there.
+        if (row.cache_observed_input_tokens != null) {
+          sa.totals.cache_observed_input_tokens = (sa.totals.cache_observed_input_tokens || 0) +
+            (Number(row.cache_observed_input_tokens) || 0);
+        }
         // Request-only sources (#948: credit-billed transcripts that report no
         // tokens) carry their activity solely as conversation_count — thread it
         // through so the dashboard can surface "0 tokens / N requests".
         sa.totals.conversation_count += row.conversation_count || 0;
         if (!sa.models.has(mdl))
-          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0" }, speed_tiers: { priority: emptySpeedTierAccumulator(), ultrafast: emptySpeedTierAccumulator() } });
+          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0", cache_observed_input_tokens: 0 }, speed_tiers: { priority: emptySpeedTierAccumulator(), ultrafast: emptySpeedTierAccumulator() } });
         const ma = sa.models.get(mdl);
         // #975: Codex Fast/Ultrafast subsets ride queue rows only when nonzero
         // (other sources never carry them). Aggregate tokens per tier; the
@@ -4087,6 +4094,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         ma.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
         ma.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
         ma.totals.conversation_count += row.conversation_count || 0;
+        if (row.cache_observed_input_tokens != null) {
+          ma.totals.cache_observed_input_tokens = (ma.totals.cache_observed_input_tokens || 0) +
+            (Number(row.cache_observed_input_tokens) || 0);
+        }
         // Price each row, exactly as aggregateByDay does for the hero (#653).
         // computeRowCost is not linear for models with a Fast tier or
         // long-context rates: priority_* / long_context_* mark a subset of the

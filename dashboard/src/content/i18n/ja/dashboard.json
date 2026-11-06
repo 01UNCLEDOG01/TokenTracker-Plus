@@ -11,6 +11,8 @@
   "usage.overview.devin_notice_title": "料金は未算出です",
   "usage.overview.trae_cn_notice_title": "TRAE CN のキャッシュは推定値",
   "usage.overview.trae_cn_notice_body": "Trae クライアントの 2026-09 アップデート以降、ローカルのリクエストログにキャッシュ読み取りフィールドが書き込まれなくなり、実際のキャッシュを取得できません。ヒット率は他ソースで同じモデルを使った実測値の中央値から推定し、トークン総数は実測のまま、費用はその推定で算出します。",
+"usage.overview.trae_cn_notice_body_unestimated": "Trae クライアントはキャッシュ読取フィールドを書かなくなり、この期間は他ソースの同モデル実測もないため、キャッシュは実測値のまま表示され推計は行われません。費用は未キャッシュの定価です。",
+"usage.overview.trae_cn_notice_title_unestimated": "TRAE CN のキャッシュ報告",
   "usage.overview.devin_notice_body": "Devin は実際のローカルトークン数を報告しますが、このビルドには swe-2、swe-2-high、compactor の料金データがないため、これらの使用量はドル換算の推定から除外されます。$0 と表示されても無料とは限りません。",
   "stats.period.today": "今日",
   "stats.period.week": "今週",

@@ -83,6 +83,10 @@ const TOKEN_TOTAL_KEYS = [
   // Not a token measure, but it rides the same totals plumbing so alias
   // merging keeps request-only providers intact (issue 948).
   "conversation_count",
+  // Cache-coverage signal (TRAE CN request ledger): must survive alias
+  // merging for the estimate gate — without it a hit-rate-derived ratio would
+  // stand in for real coverage (owner ruling 2026-11-07).
+  "cache_observed_input_tokens",
 ];
 
 // Token-type split keys as carried on provider/all-model entries (`tokens`
@@ -138,6 +142,17 @@ function emptyTotals() {
 // Merge API sources whose canonical name collides after alias resolution
 // (e.g. a stale "deepseek" plus the current "dsh"), summing totals and
 // combining per-model rows keyed by model id.
+// Merge the cache-coverage signal across contributing rows. undefined = "no
+// signal" (pre-v5 buckets, other providers): as an accumulator start it
+// absorbs the other side, but once a real signal exists, mixing in a
+// signal-less row destroys it — a partially-unmeasured merge must not read as
+// fully measured. Result: number, or null when no trustworthy signal remains.
+function mergeObservedSignal(a: any, b: any): number | null {
+  if (a == null) return b == null ? null : Number(b);
+  if (b == null) return null;
+  return Number(a) + Number(b);
+}
+
 function mergeSourcesByAlias(sources: any[]) {
   const bySource = new Map();
   for (const entry of sources || []) {
@@ -149,6 +164,10 @@ function mergeSourcesByAlias(sources: any[]) {
       bySource.set(source, merged);
     }
     addTotalsInto(merged.totals, entry?.totals);
+    merged.totals.cache_observed_input_tokens = mergeObservedSignal(
+      merged.totals.cache_observed_input_tokens,
+      entry?.totals?.cache_observed_input_tokens,
+    );
     for (const model of Array.isArray(entry?.models) ? entry.models : []) {
       const id = model?.model_id || model?.model || "";
       if (!id) continue;
@@ -158,6 +177,10 @@ function mergeSourcesByAlias(sources: any[]) {
         merged.models.set(id, modelRow);
       }
       addTotalsInto(modelRow.totals, model?.totals);
+      modelRow.totals.cache_observed_input_tokens = mergeObservedSignal(
+        modelRow.totals.cache_observed_input_tokens,
+        model?.totals?.cache_observed_input_tokens,
+      );
     }
   }
   return Array.from(bySource.values()).map((s) => ({
@@ -259,6 +282,12 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
             cached: Math.max(0, toFiniteNumber(rawTotals?.cached_input_tokens) ?? 0),
             cacheCreate: Math.max(0, toFiniteNumber(rawTotals?.cache_creation_input_tokens) ?? 0),
             reasoning: Math.max(0, toFiniteNumber(rawTotals?.reasoning_output_tokens) ?? 0),
+            // True measured-coverage signal (TRAE CN request ledger only):
+            // input-side volume from rows actually carrying the client's
+            // exact_* fields. undefined when the ledger didn't report it —
+            // the estimate gate then keeps the conservative "measured wins"
+            // behavior instead of guessing a coverage ratio from a hit rate.
+            cacheObservedInput: toFiniteNumber(rawTotals?.cache_observed_input_tokens),
           };
           // Per-model input-side cache hit rate, same semantics as the
           // source-level figure: cache reads / all input-side tokens. null when
@@ -406,8 +435,22 @@ function computeTraeFold(provider: any, fleetData: any) {
     const t = model?.tokens || {};
     const reportedCache = (Number(t.cached) || 0) + (Number(t.cacheCreate) || 0);
     const inputSide = (Number(t.input) || 0) + reportedCache;
-    const cacheCoverage = inputSide > 0 ? reportedCache / inputSide : 0;
-    const discount = cacheCoverage >= TRAE_MEASURED_COVERAGE_MIN ? null : cacheDiscountFor(model);
+    // True coverage: measured-cache-carrying input volume over the whole
+    // input side, reported by the ledger itself (cacheObservedInput). A ratio
+    // derived from the hit rate cannot tell "fully measured, low hit rate"
+    // from "mostly unmeasured" — folding the former would overwrite real
+    // measurements with someone else's median. When the ledger supplies no
+    // signal (other providers, pre-v5 buckets), keep the conservative stance:
+    // any measured cache wins and nothing is folded.
+    // Number(null) === 0 in JS: the null sentinel must be checked before
+    // coercion, or "no signal" would read as "zero coverage" and fold.
+    const observed = t.cacheObservedInput == null ? null : Number(t.cacheObservedInput);
+    const hasObservedSignal = observed != null && Number.isFinite(observed) && inputSide > 0;
+    const measuredCoverage = hasObservedSignal ? Math.min(observed / inputSide, 1) : null;
+    const discount =
+      measuredCoverage != null
+        ? measuredCoverage >= TRAE_MEASURED_COVERAGE_MIN ? null : cacheDiscountFor(model)
+        : reportedCache > 0 ? null : cacheDiscountFor(model);
     const rates =
       discount == null
         ? null

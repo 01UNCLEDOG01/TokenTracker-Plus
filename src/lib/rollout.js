@@ -3718,6 +3718,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
           billable_total_tokens: zeroTotals.billable_total_tokens,
           total_cost_usd: zeroTotals.total_cost_usd,
           conversation_count: zeroTotals.conversation_count,
+          cache_observed_input_tokens: zeroTotals.cache_observed_input_tokens || undefined,
         }));
       }
       for (const bucket of group.buckets.values()) {
@@ -3742,6 +3743,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
           total_tokens: totals.total_tokens,
           billable_total_tokens: totals.billable_total_tokens ?? totals.total_tokens,
           total_cost_usd: totals.total_cost_usd || 0,
+          cache_observed_input_tokens: totals.cache_observed_input_tokens || undefined,
           usage_precision: usagePrecision || undefined,
           ...metadata,
           ...prioritySubsetOf(totals),
@@ -3832,6 +3834,7 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
             total_tokens: totals.total_tokens,
             billable_total_tokens: totals.billable_total_tokens ?? totals.total_tokens,
             total_cost_usd: totals.total_cost_usd || 0,
+            cache_observed_input_tokens: totals.cache_observed_input_tokens || undefined,
             usage_precision: usagePrecision || undefined,
             ...metadata,
             ...prioritySubsetOf(totals),
@@ -4645,6 +4648,14 @@ function addTotals(target, delta) {
   target.input_tokens += delta.input_tokens || 0;
   target.cached_input_tokens += delta.cached_input_tokens || 0;
   target.cache_creation_input_tokens += delta.cache_creation_input_tokens || 0;
+  // Cache-coverage signal (TRAE CN request ledger only): the input-side volume
+  // that came from rows actually carrying the client's exact_* fields. Absent
+  // (undefined) on every other provider and on legacy buckets — the dashboard
+  // treats an absent signal as "measured, don't fold".
+  if (delta.cache_observed_input_tokens != null) {
+    target.cache_observed_input_tokens = (Number(target.cache_observed_input_tokens) || 0) +
+      Number(delta.cache_observed_input_tokens) || 0;
+  }
   target.output_tokens += delta.output_tokens || 0;
   target.reasoning_output_tokens += delta.reasoning_output_tokens || 0;
   target.total_tokens += delta.total_tokens || 0;
@@ -4712,6 +4723,9 @@ function totalsKey(totals) {
   let key = base;
   if (priority.some((value) => value > 0)) key += `|p:${priority.join(",")}`;
   if (ultrafast.some((value) => value > 0)) key += `|u:${ultrafast.join(",")}`;
+  // The cache-coverage signal rides the same treatment: only appended when
+  // present, so non-TRAE-CN buckets keep their stable queuedKey.
+  if (Number(totals.cache_observed_input_tokens) > 0) key += `|o:${totals.cache_observed_input_tokens}`;
   return key;
 }
 
@@ -25944,9 +25958,13 @@ async function parseTraeCnApiIncremental({
 //     request log) stay booked, so an opted-in cloud snapshot is not lost.
 // v4: the request ledger started booking the client's exact_* split (cache
 // read, exact prompt/output/reasoning) instead of the total-only estimate.
-// Bumping the version forces one full rebuild so cached_input_tokens lands
-// for every historical row that carries the fields.
-const TRAE_CN_LOCAL_LEDGER_VERSION = 4;
+// v5: adds cache_observed_input_tokens per bucket — the input-side volume from
+// rows actually carrying the exact fields, which the dashboard's estimate gate
+// needs as a true coverage signal (a hit-rate-derived ratio cannot distinguish
+// "fully measured, low hit rate" from "mostly unmeasured").
+// Bumping the version forces one full rebuild so the signal lands for every
+// historical bucket.
+const TRAE_CN_LOCAL_LEDGER_VERSION = 5;
 const TRAE_CN_FULL_RESCAN_MS = 24 * 60 * 60 * 1000;
 
 function traeCnStatOptional(file) {
@@ -26112,6 +26130,12 @@ async function parseTraeCnLocalIncremental({
       total_tokens: totalTokens,
       billable_total_tokens: totalTokens,
       conversation_count: 1,
+      // Coverage signal for the dashboard's estimate gate: the input-side
+      // volume of rows that actually carried the client's exact_* split.
+      cache_observed_input_tokens:
+        exact && (exact.prompt !== null || exact.output !== null)
+          ? freshInput + cachedInput
+          : 0,
     };
     usageRows += 1;
     eventsAggregated += 1;

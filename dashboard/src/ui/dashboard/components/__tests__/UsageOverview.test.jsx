@@ -663,7 +663,10 @@ describe("UsageOverview", () => {
         ]}
       />,
     );
-    const notice = copy("usage.overview.trae_notice_body");
+    // No traeEstimate on the fixture: the unestimated variant of the notice
+    // renders (owner ruling — "cache is estimated" would contradict a card
+    // that shows its measured 0%).
+    const notice = copy("usage.overview.trae_notice_body_unestimated");
     const hint = copy("usage.overview.trae_card_hint");
     const count = copy("usage.overview.model_count", { count: 1 });
     // The combined-totals panel stays clean.

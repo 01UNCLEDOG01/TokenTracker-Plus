@@ -1130,9 +1130,20 @@ function TraePricingNotice({ estimate = null, variant = "intl" }) {
   return (
     <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
       <span className="font-medium text-oai-gray-500 dark:text-oai-gray-400">
-        {copy(isCn ? "usage.overview.trae_cn_notice_title" : "usage.overview.trae_notice_title")}.
+        {estimateLine
+          ? copy(isCn ? "usage.overview.trae_cn_notice_title" : "usage.overview.trae_notice_title")
+          : copy(isCn
+              ? "usage.overview.trae_cn_notice_title_unestimated"
+              : "usage.overview.trae_notice_title_unestimated")}
+        .
       </span>{" "}
-      {copy(isCn ? "usage.overview.trae_cn_notice_body" : "usage.overview.trae_notice_body")}
+      {estimateLine
+        ? copy(isCn ? "usage.overview.trae_cn_notice_body" : "usage.overview.trae_notice_body")
+        : // No estimate ran (no same-model peer evidence this period): saying
+          // "cache is estimated" would contradict the measured-0% card.
+          copy(isCn
+            ? "usage.overview.trae_cn_notice_body_unestimated"
+            : "usage.overview.trae_notice_body_unestimated")}
       {estimateLine ? (
         <span className="block mt-0.5">
           {estimateLine}{" "}

@@ -295,7 +295,7 @@ describe("buildAllModels", () => {
         usage: 300,
         requests: 0,
         cost: 0,
-        tokens: { input: 100, output: 20, cached: 170, cacheCreate: 5, reasoning: 5 },
+        tokens: { input: 100, output: 20, cached: 170, cacheCreate: 5, reasoning: 5, cacheObservedInput: null },
         // Input-side cache hit rate: 170/(100+170+5) = 61.8 -> 62.
         cacheHitRate: 62,
         pricing: null,
@@ -754,7 +754,7 @@ describe("applyTraeEstimatedCosts", () => {
               model_id: "deepseek-v4.1-flash",
               name: "deepseek-v4.1-flash",
               pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
-              totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174 },
+              totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174, cache_observed_input_tokens: 44_000 },
             },
           ],
         },
@@ -783,19 +783,55 @@ describe("applyTraeEstimatedCosts", () => {
     expect(cn.traeEstimate.medianHitRate).toBe(90);
   });
 
-  it("never replaces measured cache with an estimate", () => {
-    const measured = {
+  it("keeps a pre-v5 model (no observed signal) untouched even when a peer exists", () => {
+    // The sprinkle fixture WITHOUT its observed signal = a pre-v5 bucket:
+    // coverage is genuinely unknown (the hit rate cannot stand in for it), so
+    // the conservative stance wins and nothing is folded.
+    const preV5 = {
       pricing: { pricing_mode: "usd" },
       sources: [
         {
           source: "trae-cn",
-          totals: { total_cost_usd: 8, input_tokens: 5_000_000, cached_input_tokens: 45_000_000, cache_creation_input_tokens: 0, conversation_count: 100 },
+          totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, conversation_count: 174 },
           models: [
             {
               model_id: "deepseek-v4.1-flash",
               name: "deepseek-v4.1-flash",
               pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
-              totals: { total_cost_usd: 8, input_tokens: 5_000_000, cached_input_tokens: 45_000_000, cache_creation_input_tokens: 0, conversation_count: 100 },
+              totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174 },
+            },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(preV5));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    const model = cn.models[0];
+    expect(model.cost).toBeCloseTo(18, 5);
+    expect(model.cacheEstimated).toBeUndefined();
+    expect(cn.traeEstimate).toBeUndefined();
+  });
+
+  it("never replaces measured cache with an estimate (no observed signal: pre-v5 ledger keeps the conservative stance)", () => {
+    const measured = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 8, input_tokens: 5_000_000, cached_input_tokens: 45_000_000, cache_creation_input_tokens: 0, conversation_count: 100, cache_observed_input_tokens: 50_000_000 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              totals: { total_cost_usd: 8, input_tokens: 5_000_000, cached_input_tokens: 45_000_000, cache_creation_input_tokens: 0, conversation_count: 100, cache_observed_input_tokens: 50_000_000 },
             },
           ],
         },

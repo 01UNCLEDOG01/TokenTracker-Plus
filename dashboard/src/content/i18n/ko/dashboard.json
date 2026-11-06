@@ -11,6 +11,8 @@
   "usage.overview.devin_notice_title": "비용 미산정",
   "usage.overview.trae_cn_notice_title": "TRAE CN 캐시는 추정값",
   "usage.overview.trae_cn_notice_body": "Trae 클라이언트 2026-09 업데이트 이후 로컬 요청 로그에 캐시 읽기 필드가 기록되지 않아 실제 캐시를 읽을 수 없습니다. 적중률은 다른 소스에서 같은 모델로 측정한 중앙값으로 추정하며, 토큰 총량은 측정값 그대로이고 비용은 이 추정치로 계산합니다.",
+"usage.overview.trae_cn_notice_body_unestimated": "Trae 클라이언트가 캐시 읽기 필드를 더 이상 기록하지 않고 이 기간에 다른 소스의 동일 모델 실측도 없어, 캐시는 측정값 그대로 표시되며 추정하지 않습니다. 비용은 비캐시 정가입니다.",
+"usage.overview.trae_cn_notice_title_unestimated": "TRAE CN 캐시 보고",
   "usage.overview.devin_notice_body": "Devin은 실제 로컬 토큰 사용량을 보고하지만, 이 빌드에는 swe-2, swe-2-high, compactor의 가격 정보가 없어 달러 추정치에서 제외됩니다. $0로 표시돼도 무료 사용을 의미하지는 않습니다.",
   "stats.period.today": "오늘",
   "stats.period.week": "이번 주",
