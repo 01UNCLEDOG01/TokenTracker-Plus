@@ -4108,22 +4108,29 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       }
       if (pricingRevision !== getPricingRevision()) return handleLocalApi(req, res, url);
 
-      // All-time self-observed hit rate for the TRAE family, measured over the
-      // UNFILTERED queue (a day view's own fielded rows are too few to be
-      // evidence — the model's fielded history is the evidence; owner ruling
-      // 2026-11-07). Measured rows only: those actually carrying the client's
-      // exact_* coverage signal.
+      // All-time self-observed hit rate for the TRAE family, measured from the
+      // BOOKED buckets in cursors.json (authoritative, one row per bucket, no
+      // queue append duplicates). Measured buckets only: those whose totals
+      // carry the client's exact_* coverage signal. A day view's own fielded
+      // rows are too few to be evidence — the model's fielded history is the
+      // evidence (owner ruling 2026-11-07).
       const observedHitsByModel = new Map();
-      for (const row of allRows) {
-        const rowSource = String(row.source || "").toLowerCase();
-        if (rowSource !== "trae" && rowSource !== "trae-cn") continue;
-        const observedVolume = Number(row.cache_observed_input_tokens) || 0;
-        if (!(observedVolume > 0)) continue;
-        const observedModel = row.model || "unknown";
-        const acc = observedHitsByModel.get(observedModel) || { hits: 0, volume: 0 };
-        acc.hits += Number(row.cached_input_tokens) || 0;
-        acc.volume += observedVolume;
-        observedHitsByModel.set(observedModel, acc);
+      try {
+        const cursorsData = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "cursors.json"), "utf8"));
+        for (const [bucketKey, bucket] of Object.entries(cursorsData?.hourly?.buckets || {})) {
+          if (!bucketKey.startsWith("trae-cn|")) continue;
+          const bucketTotals = bucket?.totals || {};
+          const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
+          if (!(observedVolume > 0)) continue;
+          const observedModel = bucketKey.split("|")[1] || "unknown";
+          const acc = observedHitsByModel.get(observedModel) || { hits: 0, volume: 0 };
+          acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
+          acc.volume += observedVolume;
+          observedHitsByModel.set(observedModel, acc);
+        }
+      } catch (_error) {
+        // A malformed cursors file just means no self evidence — the fold keeps
+        // its "nothing fabricated" fallbacks.
       }
 
       const sources = Array.from(bySource.values()).map((s) => {

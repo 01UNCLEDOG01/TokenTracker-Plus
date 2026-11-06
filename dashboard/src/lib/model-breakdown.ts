@@ -462,14 +462,15 @@ function computeTraeFold(provider: any, fleetData: any) {
         : hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
     // Other TRAE-card models also observe the model (TRAE CN): they count as
     // peer evidence even though the card itself reports no cache fields.
-    // Owner ruling 2026-11-07: when the current period has no same-model peer
-    // at all, the model's own fielded history is still real evidence — the
-    // estimate runs with it rather than leaving the card at a measured 0%.
-    const hitRate = rates && rates.length
-      ? median(rates)
-      : Number.isFinite(Number(t.cacheObservedHitRate)) && Number(t.cacheObservedHitRate) > 0
-        ? Number(t.cacheObservedHitRate)
-        : null;
+    // Owner ruling 2026-11-07, evidence priority: the model's OWN fielded
+    // history (same tool, same model, measured — Sep/Oct 95-97%) outranks
+    // current-period peers, whose small samples (another tool's odd 0.1%
+    // DeepSeek day) say nothing about TRAE's cache behavior. Peers fill in
+    // only when the model has no fielded history.
+    const selfRate = Number(t.cacheObservedHitRate);
+    const hitRate = Number.isFinite(selfRate) && selfRate > 0
+      ? selfRate
+      : rates && rates.length ? median(rates) : null;
     if (hitRate == null || !Number.isFinite(hitRate) || hitRate <= 0) {
       estimatedCost += modelCost;
       perModel.push({ model, originalCost: modelCost, foldedCost: modelCost, hitRate: null });
