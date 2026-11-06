@@ -4100,6 +4100,34 @@ test("readZcodeDbMessages keeps Z.ai/BigModel + third-party rows, drops bundled 
   }
 });
 
+test("readZcodeDbMessages accepts the renamed providerId field (ZCode 2026-09-15 spelling)", async () => {
+  // Upstream issue 1008: ZCode renamed the message-JSON field providerID ->
+  // providerId (lowercase d) around 2026-09-15. Rows written after the rename
+  // carry ONLY the new spelling; the discriminator must keep treating them as
+  // native rows or the usage silently disappears from the ledger. A real box
+  // straddles the rename, so legacy and renamed rows must coexist.
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-zcode-rename-"));
+  try {
+    const dbPath = path.join(tmp, "db.sqlite");
+    await fs.writeFile(dbPath, "", "utf8");
+
+    const base = {
+      created: "2026-10-01T09:00:00.000Z",
+      completed: "2026-10-01T09:00:12.000Z",
+      tokens: { input: 100, output: 20, reasoning: 0, cached: 50, cacheWrite: 0 },
+    };
+    const oldRow = { ...buildOpencodeMessage({ ...base, modelID: "GLM-5.2" }), id: "old-z1", sessionID: "s1", providerID: "builtin:zai-start-plan" };
+    const renamedNative = { ...buildOpencodeMessage({ ...base, modelID: "GLM-5.3" }), id: "new-z1", sessionID: "s1", providerId: "account:bigmodel-start-plan" };
+    const renamedCustom = { ...buildOpencodeMessage({ ...base, modelID: "mimo-v2.5-pro" }), id: "new-m1", sessionID: "s5", providerId: "265956bf-e1b9-491d-879a-28a7944ff1b9" };
+    const renamedSubAgent = { ...buildOpencodeMessage({ ...base, modelID: "claude-opus-4-8" }), id: "new-a1", sessionID: "s2", providerId: "anthropic" };
+
+    const rows = readZcodeDbMessages(dbPath, fakeZcodeSqliteOptions(dbPath, [oldRow, renamedNative, renamedCustom, renamedSubAgent]));
+    assert.deepEqual(rows.map((row) => row.id).sort(), ["new-m1", "new-z1", "old-z1"]);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test("parseOpencodeDbIncremental aggregates ZCode GLM rows into source=zcode buckets (idempotent)", async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tokentracker-zcode-parse-"));
   try {

@@ -5714,10 +5714,13 @@ function detectOpencodeMessageLayout(dbPath, sqliteOptions = {}, { propagateRead
 }
 
 // Shared provider resolver: v1 rows carry a top-level providerID, v2 rows nest
-// it under model.providerID. Used by the mimo/zcode discriminators so they work
-// against both generations without duplicating the resolution logic.
+// it under model.providerID. ZCode renamed that top-level field to `providerId`
+// (lowercase d) around 2026-09-15 (upstream issue 1008); rows written after the
+// rename carry ONLY the new spelling, so missing it makes the mimo/zcode
+// discriminators return false for every native row and silently drops the
+// usage. Accept both spellings — normalizeOpencodeModelFields already does.
 function opencodeMessageProvider(data) {
-  return data?.providerID || data?.model?.providerID || "";
+  return data?.providerID || data?.model?.providerID || data?.providerId || "";
 }
 
 // readSqliteJsonRows wraps its two backend errors into the thrown Error, so a
