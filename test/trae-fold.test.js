@@ -130,6 +130,28 @@ test("an off-peak row folds at its own effective input price (no negative folds)
     "the output cost delta must survive the fold unchanged off-peak");
 });
 
+test("a bucket with cache-creation volume never folds negative", () => {
+  // Legacy-shaped bucket: cache_creation rides the input side but not the
+  // fresh column; unclamped, the unmeasured share exceeded fresh and the
+  // proportional fold over-drew the input leg (deepseek-v4-flash -43.22).
+  const cc = 600_000;
+  const r = row({
+    input_tokens: 200_000,
+    cached_input_tokens: 0,
+    cache_creation_input_tokens: cc,
+    cache_observed_input_tokens: 0,
+  });
+  const base = computeRowCost(r);
+  const folded = foldTraeRowCost(r, base);
+  assert.ok(folded > 0, `folded must stay positive, got ${folded}`);
+  // Clamped to fresh: only the 200k fresh input folds, at the effective
+  // input price; the creation leg keeps its computeRowCost pricing.
+  const foldFactor = (1 - 0.952) + 0.952 * (0.006 / 0.3);
+  const inputLeg = base - computeRowCost({ ...r, input_tokens: 0 });
+  const expected = base - inputLeg + inputLeg * foldFactor;
+  assert.ok(Math.abs(folded - expected) < 1e-9, `folded ${folded} vs expected ${expected}`);
+});
+
 test("models without evidence or official cache pricing stay at the ceiling", () => {
   // No fielded history and no recognized rate: nothing to fold with.
   __setTraeFoldStateForTest({ byModel: {}, recognizedRate: 0 });

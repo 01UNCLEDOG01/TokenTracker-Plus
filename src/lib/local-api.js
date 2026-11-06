@@ -242,7 +242,12 @@ function foldTraeRowCost(row, cost) {
     : Math.max(0, Number(row.cache_observed_input_tokens) || 0);
   const coverage = Math.min(observed / inputSide, 1);
   if (coverage >= 0.5) return cost; // measured truth — priced by computeRowCost already
-  const unmeasured = inputSide - observed;
+  // Clamp to the fresh input column: cache-creation volume (legacy/chat_turn
+  // buckets) is part of the input side but not of the fresh column, and an
+  // unclamped unmeasured could exceed it — the proportional fold would then
+  // over-draw the input leg and go negative (owner data: deepseek-v4-flash
+  // -43.22). Under-folding by the creation share is the conservative side.
+  const unmeasured = Math.min(inputSide - observed, Number(row?.input_tokens) || 0);
   if (!(unmeasured > 0)) return cost;
   const acc = traeFoldMap()[model];
   // Evidence priority: the model's own fielded history; without it, the
