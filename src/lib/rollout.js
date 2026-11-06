@@ -60,7 +60,7 @@ const {
   buildDevinUsageEvents,
 } = require("./devin-usage");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
-const { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows } = require("./trae-db");
+const { resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnUsageRows } = require("./trae-db");
 const { normalizeTraeUsage, normalizeTraeModel, traeTimestamp } = require("./trae-usage");
 
 const DEFAULT_SOURCE = "codex";
@@ -25920,94 +25920,49 @@ async function parseTraeCnApiIncremental({
 
 // ── TRAE CN merged-app local database (companion to the cloud bill above) ──
 //
-// The unified Trae CN IDE keeps its turns in
+// The unified Trae CN IDE keeps its own request log in
 // %APPDATA%/Trae CN/ModularData/ai-agent/database.db (SQLCipher, streamed page
-// by page). Those sessions are disjoint from the SOLO CN cloud bill (verified:
-// zero session-id overlap), and the bill's rolling window never sees them, so
-// this store is the only path for that usage. A changed store re-observes turns:
-// existing rowids can receive usage or corrections after the initial insert.
-// Only normalized per-turn contributions are retained, never raw context.
-async function readTraeCnCloudMigrationState(queuePath, cursors) {
-  // Orphaned account observations are not committed usage. A retired/missing
-  // cloud cursor must not resurrect those old snapshots into local buckets.
-  if (!cursors.traeCn) return [];
-  const cloud = normalizeTraeCnState(cursors.traeCn);
-  const observations = new Map();
+// by page). `chat_turn.context.token_usage` holds only the LAST LLM call of a
+// turn, while an agent turn issues many calls; the same store records every
+// call in `server_history_info` (token_usage = prompt + completion for that
+// request, item_token_usage = that message's own output). Booking per-turn
+// rows therefore under-counted multi-call turns by an order of magnitude
+// (measured 2026-11-06: 10.2M vs 146.8M tokens for one day, 14.4x).
+//
+// v3 books per-request rows:
+//   - incremental reads advance a rowid watermark, so a sync only touches the
+//     pages of newly written calls instead of re-scanning the multi-GB
+//     SQLCipher table (a full read of the request log takes ~45s);
+//   - a full rebuild (first run after upgrade, store replacement, project
+//     output (re)enabled, or once per TRAE_CN_FULL_RESCAN_MS) re-derives every
+//     trae-cn bucket from the request log, so late usage corrections and rows
+//     pruned from the local store cannot drift;
+//   - cloud-only canonical sessions (observations not present in the local
+//     request log) stay booked, so an opted-in cloud snapshot is not lost.
+const TRAE_CN_LOCAL_LEDGER_VERSION = 3;
+const TRAE_CN_FULL_RESCAN_MS = 24 * 60 * 60 * 1000;
+
+function traeCnStatOptional(file) {
   try {
-    const stream = fssync.createReadStream(queuePath);
-    for await (const record of physicalJsonlRecords(stream, { maxPhysicalBytes: 512 * 1024 * 1024, maxRecordBytes: 1024 * 1024 })) {
-      if (!record.line?.trim()) continue;
-      const row = JSON.parse(record.line);
-      if (row.kind !== "account_session_state" || row.source !== TRAE_CN_SOURCE) continue;
-      if (typeof row.session_id !== "string" || !row.session_id) throw new Error("TRAE CN cloud migration identity is malformed.");
-      const stamp = Date.parse(row.snapshot_verified_at);
-      if (!Number.isFinite(stamp)) throw new Error("TRAE CN cloud migration timestamp is malformed.");
-      const entry = {model:row.model,bucketStart:row.bucket_start,totals:{
-        input_tokens:row.input_tokens,cached_input_tokens:row.cached_input_tokens,
-        cache_creation_input_tokens:row.cache_creation_input_tokens,output_tokens:row.output_tokens,
-        reasoning_output_tokens:row.reasoning_output_tokens,total_tokens:row.total_tokens,
-        billable_total_tokens:row.total_tokens,conversation_count:1,
-      }};
-      validateTraeCnStoredContribution(entry);
-      const pruneCutoff = cloud.prunedBeforeMs - 30 * 60 * 1000;
-      if (cloud.sessions[row.session_id] || Date.parse(entry.bucketStart) > pruneCutoff) continue;
-      const previous = observations.get(row.session_id);
-      if (!previous || stamp > previous.stamp) observations.set(row.session_id, {stamp,entry});
-      else if (stamp === previous.stamp && !isDeepStrictEqual(entry, previous.entry)) {
-        throw new Error("TRAE CN cloud migration contains conflicting observations.");
-      }
-    }
-  } catch (err) { if (err.code !== "ENOENT") throw err; }
-  // Active cursor contributions have committed; queue observations additionally
-  // recover old cloud sessions already pruned from the rolling cursor window.
-  if (cloud.prunedBeforeMs > 0 && observations.size === 0 && Object.keys(cloud.sessions).length === 0) {
-    throw new Error("TRAE CN migration needs retained cloud session observations; existing usage was preserved.");
+    return fssync.statSync(file, { bigint: true });
+  } catch (err) {
+    if (err.code === "ENOENT" || err.code === "ENOTDIR") return null;
+    throw err;
   }
-  for (const [id, entry] of Object.entries(cloud.sessions)) {
-    validateTraeCnStoredContribution(entry);
-    observations.set(id, {entry});
-  }
-  const retained = normalizeHourlyState(cursors.hourly).buckets;
-  const grouped = new Map();
-  for (const {entry} of observations.values()) {
-    const key = bucketKey(TRAE_CN_SOURCE,entry.model,entry.bucketStart);
-    if (!grouped.has(key)) grouped.set(key,initTotals());
-    addTotals(grouped.get(key),entry.totals);
-  }
-  for (const [key,totals] of grouped) {
-    const recorded = retained[key]?.totals;
-    if (!recorded) throw new Error("TRAE CN migration cannot establish committed cloud contributions; existing usage was preserved.");
-    assertTraeCnBucketCovers(recorded,totals);
-  }
-  return [...observations.values()].map(({entry})=>entry);
 }
 
-function validateTraeCnLocalContribution(entry) {
-  if (!entry || typeof entry !== "object" || typeof entry.model !== "string" ||
-      normalizeTraeModel(entry.model) !== entry.model || !isValidTraeCnBucketStart(entry.bucketStart) ||
-      !entry.totals || typeof entry.totals !== "object") {
-    throw new Error("TRAE CN local contribution is malformed.");
-  }
-  const fields = ["input_tokens","cached_input_tokens","cache_creation_input_tokens","output_tokens","reasoning_output_tokens","total_tokens"];
-  for (const field of fields) if (!Number.isSafeInteger(entry.totals[field]) || entry.totals[field] < 0) {
-    throw new Error("TRAE CN local contribution totals are malformed.");
-  }
-  const sum = fields.slice(0,-1).reduce((n,field)=>n+entry.totals[field],0);
-  if ((entry.totals.billable_total_tokens !== undefined && entry.totals.billable_total_tokens !== sum) ||
-      (entry.totals.total_cost_usd !== undefined && entry.totals.total_cost_usd !== 0) ||
-      (entry.totals.conversation_count !== undefined && entry.totals.conversation_count !== 0)) {
-    throw new Error("TRAE CN local contribution billing metadata is malformed.");
-  }
-  if (sum !== entry.totals.total_tokens || (entry.project &&
-      (typeof entry.project.projectKey !== "string" || !entry.project.projectKey || !entry.project.projectRef))) {
-    throw new Error("TRAE CN local contribution attribution is malformed.");
-  }
-  if (entry.projectContribution) {
-    if (entry.projectContribution.projectContribution || !entry.projectContribution.project) {
-      throw new Error("TRAE CN local project contribution is malformed.");
-    }
-    validateTraeCnLocalContribution(entry.projectContribution);
-  }
+// Store identity changes when the database file is replaced (reinstall,
+// backup restore). A reused rowid in a different store is NOT the same call, so
+// identity drift forces a full rebuild instead of trusting the watermark.
+function traeCnStoreIdentity(stat) {
+  return `${stat.dev}:${stat.ino}`;
+}
+
+function traeCnStoreSignature(stat, walStat) {
+  const wal = walStat
+    ? `${Number(walStat.size)}:${Number(walStat.mtimeNs)}:${Number(walStat.ctimeNs)}`
+    : "absent";
+  return `v4:${Number(stat.size)}:${Number(stat.mtimeNs)}:${Number(stat.ctimeNs)}:${wal}`;
 }
 
 async function parseTraeCnLocalIncremental({
@@ -26017,153 +25972,113 @@ async function parseTraeCnLocalIncremental({
   projectQueuePath,
   publicRepoResolver,
   onProgress,
-  readRowsImpl = readTraeCnLocalRows,
+  readRowsImpl = readTraeCnUsageRows,
+  nowMs = Date.now(),
 } = {}) {
   await ensureDir(path.dirname(queuePath));
   if (!cursors || typeof cursors !== "object") cursors = {};
-  const traeCnLocalState = cursors.traeCnLocal &&
-    typeof cursors.traeCnLocal === "object"
+  const stored = cursors.traeCnLocal && typeof cursors.traeCnLocal === "object"
     ? cursors.traeCnLocal
     : {};
-  if (traeCnLocalState.version !== undefined && traeCnLocalState.version !== 2) {
-    throw new Error("Unsupported TRAE CN local contribution ledger.");
+  if (stored.version !== undefined && stored.version !== 2 &&
+      stored.version !== TRAE_CN_LOCAL_LEDGER_VERSION) {
+    throw new Error("Unsupported TRAE CN local request ledger.");
   }
-  if (traeCnLocalState.lastId !== undefined && (!Number.isSafeInteger(traeCnLocalState.lastId) || traeCnLocalState.lastId < 0)) {
-    throw new Error("TRAE CN local watermark is malformed.");
-  }
-  if (traeCnLocalState.version === 2 && (!traeCnLocalState.turns ||
-      typeof traeCnLocalState.turns !== "object" || Array.isArray(traeCnLocalState.turns))) {
-    throw new Error("TRAE CN local contribution ledger is malformed.");
-  }
-  const turns = {...traeCnLocalState.turns};
-  for (const [identity,entry] of Object.entries(turns)) {
-    if (!/^[A-Za-z0-9_-]{43}$/.test(identity)) throw new Error("TRAE CN local ledger identity is malformed.");
-    validateTraeCnLocalContribution(entry);
-  }
+  const storedLastRow = Number.isSafeInteger(stored.lastRowId) && stored.lastRowId > 0
+    ? stored.lastRowId
+    : 0;
+  const storedFullScanAt = Number.isFinite(stored.lastFullScanAt) ? stored.lastFullScanAt : 0;
+
   const hourlyState = normalizeHourlyState(cursors?.hourly);
   hourlyState.buckets = Object.fromEntries(Object.entries(hourlyState.buckets || {}).map(([key, bucket]) => [
-    key, key.startsWith("trae-cn|") ? { ...bucket, totals: { ...bucket.totals } } : bucket,
+    key, key.startsWith(`${TRAE_CN_SOURCE}|`) ? { ...bucket, totals: { ...bucket.totals } } : bucket,
   ]));
   hourlyState.groupQueued = { ...(hourlyState.groupQueued || {}) };
   const touchedBuckets = new Set();
   const projectEnabled = typeof projectQueuePath === "string" && projectQueuePath.length > 0;
   const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
   if (projectState) projectState.buckets = Object.fromEntries(Object.entries(projectState.buckets).map(([key,bucket])=>[
-    key,bucket?.source === TRAE_CN_SOURCE ? {...bucket,totals:{...bucket.totals}} : bucket,
+    key, bucket?.source === TRAE_CN_SOURCE ? {...bucket,totals:{...bucket.totals}} : bucket,
   ]));
   const projectTouchedBuckets = projectEnabled ? new Set() : null;
   const projectMetaCache = projectEnabled ? new Map() : null;
   const publicRepoCache = projectEnabled ? new Map() : null;
 
-  // The store is ~GBs of SQLCipher pages: skip the whole decrypt when the file
-  // is byte-identical to the last successful read.
   let stat = null;
-  try { stat = fssync.statSync(dbPath); } catch { stat = null; }
+  try { stat = fssync.statSync(dbPath, { bigint: true }); } catch { stat = null; }
   if (!stat || !stat.isFile()) {
-    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0, recordsSkipped: 0 };
   }
-  let walStat = null;
-  try { walStat = fssync.statSync(`${dbPath}-wal`); }
-  catch (error) {
-    if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
-  }
-  // v3 invalidates the old rowid-only cursor, including unchanged stores.
-  const signature = `v3:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}:${walStat ? `${walStat.size}:${walStat.mtimeMs}:${walStat.ctimeMs}` : "absent"}`;
-  const lastId = Number.isSafeInteger(traeCnLocalState.lastId) ? traeCnLocalState.lastId : 0;
-  if (traeCnLocalState.version === 2 && traeCnLocalState.signature === signature &&
-      (!projectEnabled || traeCnLocalState.projectOutputEnabled)) {
-    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
+  const walStat = traeCnStatOptional(`${dbPath}-wal`);
+  const identity = traeCnStoreIdentity(stat);
+  const signature = traeCnStoreSignature(stat, walStat);
+  if (stored.version === TRAE_CN_LOCAL_LEDGER_VERSION && stored.signature === signature) {
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0, recordsSkipped: 0 };
   }
 
-  const rows = await readRowsImpl(dbPath, { lastId: 0 });
-  if (!Array.isArray(rows)) throw new Error("TRAE CN local snapshot must be an array.");
-  const migrating = lastId > 0 && (traeCnLocalState.version !== 2 ||
-    /^v2:/.test(traeCnLocalState.signature || ""));
-  // A stable empty snapshot (readStableTraeSnapshot only returns consistent
-  // reads) means the store currently projects no usage rows — a reinstalled
-  // or schema-drifted Trae CN. Throwing here deadlocked every later sync
-  // with nothing to collect: the legacy cursor never retired, so "migration
-  // received an empty snapshot" re-threw forever.
-  //
-  // Retiring on the FIRST empty read, however, is its own trap: the legacy
-  // ledger carries no per-turn identities, so a store whose rows come back
-  // afterwards (backup restore, schema drift repaired) would re-book on top
-  // of the preserved totals — a silent permanent double-count. Hold for one
-  // cycle instead, and only retire after two consecutive stable empty reads.
-  // Retirement itself falls through to the normal migration block below:
-  // reset the booked trae-cn buckets, re-book the retained cloud
-  // contributions, and re-derive everything the store still evidences. That
-  // can never double-count (the reset wipes before the re-book), matches the
-  // end state the first non-empty read would have produced anyway, and a
-  // later verbatim restore re-books its rows through the same path.
-  if (migrating && rows.length === 0) {
-    // Clamp like lastId above: a corrupt streak must not skip the hold or
-    // count down from garbage. Any non-positive/garbage value restarts at a
-    // fresh hold, which still terminates (the next empty read retires).
-    const heldStreak = traeCnLocalState.traeCnEmptyStreak;
-    const emptyStreak = (Number.isSafeInteger(heldStreak) && heldStreak > 0 ? heldStreak : 0) + 1;
-    if (emptyStreak < 2) {
-      // Hold: one empty sync may be a transient store state. Keep the legacy
-      // fields untouched (a non-empty read still migrates through the normal
-      // path below) and record the streak for the next cycle.
-      cursors.traeCnLocal = { ...traeCnLocalState, traeCnEmptyStreak: emptyStreak };
-      return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0 };
-    }
-    // Confirmed empty: retire through the normal machinery. The tail write
-    // drops traeCnEmptyStreak along with the legacy fields. If the retained
-    // cloud contributions cannot be established, readTraeCnCloudMigrationState
-    // throws and the hold repeats — the same fail-closed guard the first
-    // non-empty read would have hit, so no new failure class is introduced.
+  const fullRescan = stored.version !== TRAE_CN_LOCAL_LEDGER_VERSION ||
+    stored.identity !== identity ||
+    !storedLastRow ||
+    stored.projectOutputEnabled !== projectEnabled ||
+    (nowMs - storedFullScanAt) >= TRAE_CN_FULL_RESCAN_MS;
+
+  const readResult = await readRowsImpl(dbPath, { lastRowId: fullRescan ? 0 : storedLastRow });
+  if (!readResult || !Array.isArray(readResult.rows)) {
+    throw new Error("TRAE CN local request snapshot must be an array.");
   }
-  const migrateProjects = projectEnabled && (migrating || traeCnLocalState.projectMigrationPending);
-  if (migrating) {
-    for (const identity of Object.keys(turns)) delete turns[identity];
-    const cloud = await readTraeCnCloudMigrationState(queuePath, cursors);
-    for (const [key,bucket] of Object.entries(hourlyState.buckets)) {
-      if (!key.startsWith(`${TRAE_CN_SOURCE}|`)) continue;
-      bucket.totals = initTotals();
-      touchedBuckets.add(key);
-    }
-    for (const contribution of cloud) {
-      const bucket = getHourlyBucket(hourlyState,TRAE_CN_SOURCE,contribution.model,contribution.bucketStart);
-      addTotals(bucket.totals,contribution.totals);
-      touchedBuckets.add(bucketKey(TRAE_CN_SOURCE,contribution.model,contribution.bucketStart));
-    }
+  const maxRowId = Number(readResult.maxRowId);
+  if (!Number.isSafeInteger(maxRowId) || maxRowId < 0) {
+    throw new Error("TRAE CN local request watermark is malformed.");
   }
-  if (migrateProjects) {
-    for (const identity of Object.keys(turns)) turns[identity] = {...turns[identity],projectContribution:null};
-    for (const [key,bucket] of Object.entries(projectState.buckets)) {
-      if (bucket.source !== TRAE_CN_SOURCE) continue;
-      bucket.totals = initTotals();
-      projectTouchedBuckets.add(key);
-    }
-  }
+
+  // Aggregation is per half-hour + model (hourly) and per project + half-hour
+  // (project queue). Full rescans replace the booked totals; incremental runs
+  // add only the newly written calls.
+  const hourlyAdds = new Map(); // bucketKey -> {model, bucketStart, totals}
+  const projectAdds = new Map(); // projectBucketKey -> {projectKey, projectRef, bucketStart, totals}
+  const localSessionIds = new Set();
   let recordsProcessed = 0;
   let eventsAggregated = 0;
   let recordsSkipped = 0;
-  let maxRowId = lastId;
+  let usageRows = 0;
   const cb = typeof onProgress === "function" ? onProgress : null;
-  const total = Array.isArray(rows) ? rows.length : 0;
-  const observed = new Map();
+  const total = readResult.rows.length;
 
-  for (const row of Array.isArray(rows) ? rows : []) {
+  for (const row of readResult.rows) {
     recordsProcessed += 1;
     if (cb) cb({ index: recordsProcessed, total, recordsProcessed, eventsAggregated });
-    const totals = normalizeTraeUsage(row.usage, { model: row.model });
-    const timestamp = traeTimestamp(row.created_at) || traeTimestamp(row.updated_at);
-    const bucketStart = timestamp && toUtcHalfHourStart(timestamp);
-    const rowId = Number(row.id);
-    const model = normalizeTraeModel(row.model);
-    if (!totals || !bucketStart) {
+    if (typeof row.session_id === "string" && row.session_id) localSessionIds.add(row.session_id);
+    const totalTokens = row.usage?.total;
+    if (!Number.isSafeInteger(totalTokens) || totalTokens <= 0) {
       recordsSkipped += 1;
       continue;
     }
-    if (!Number.isSafeInteger(rowId) || rowId <= 0) throw new Error("TRAE CN local row identity is malformed.");
-    if (rowId > maxRowId) maxRowId = rowId;
-    // A recreated database can reuse numeric ids for a different session.
-    const identity = crypto.createHash("sha256").update(JSON.stringify([path.resolve(dbPath),row.session_id || "",rowId])).digest("base64url");
-    const previous = turns[identity];
-    let project = null;
+    const timestamp = traeTimestamp(row.created_at) || traeTimestamp(row.updated_at);
+    const bucketStart = timestamp && toUtcHalfHourStart(timestamp);
+    if (!bucketStart) {
+      recordsSkipped += 1;
+      continue;
+    }
+    const model = normalizeTraeModel(row.model);
+    const output = Number.isSafeInteger(row.usage.output) && row.usage.output >= 0
+      ? Math.min(row.usage.output, totalTokens)
+      : 0;
+    const totals = {
+      ...initTotals(),
+      input_tokens: totalTokens - output,
+      output_tokens: output,
+      total_tokens: totalTokens,
+      billable_total_tokens: totalTokens,
+      conversation_count: 1,
+    };
+    usageRows += 1;
+    eventsAggregated += 1;
+    const key = bucketKey(TRAE_CN_SOURCE, model, bucketStart);
+    if (!hourlyAdds.has(key)) {
+      hourlyAdds.set(key, { model, bucketStart, totals: initTotals() });
+    }
+    addTotals(hourlyAdds.get(key).totals, totals);
+
     if (projectEnabled && typeof row.absolute_path === "string" && row.absolute_path) {
       let cached = projectMetaCache.get(row.absolute_path);
       if (!cached) {
@@ -26181,44 +26096,87 @@ async function parseTraeCnLocalIncremental({
         projectMetaCache.set(row.absolute_path, cached);
       }
       if (cached.projectRef && cached.projectKey) {
-        project = cached;
+        const pkey = projectBucketKey(cached.projectKey, TRAE_CN_SOURCE, bucketStart);
+        if (!projectAdds.has(pkey)) {
+          projectAdds.set(pkey, {
+            projectKey: cached.projectKey,
+            projectRef: cached.projectRef,
+            bucketStart,
+            totals: initTotals(),
+          });
+        }
+        addTotals(projectAdds.get(pkey).totals, totals);
       }
     }
-    // Disabling project output must not forget an attribution already booked.
-    if (!projectEnabled) project = previous?.project || null;
-    const projectContribution = projectEnabled
-      ? (project ? {model,bucketStart,totals:{...totals},project} : null)
-      : previous?.projectContribution || null;
-    const next = {model,bucketStart,totals:{...totals},project,projectContribution};
-    if (observed.has(identity) && !isDeepStrictEqual(observed.get(identity),next)) {
-      throw new Error("TRAE CN local snapshot contains conflicting row observations.");
+  }
+
+  // A stable read that projects no request rows while trae-cn history is
+  // already booked looks like schema drift or a mid-restore store: hold the
+  // existing totals instead of wiping them, and retry on the next sync.
+  if (fullRescan && usageRows === 0) {
+    const booked = Object.keys(hourlyState.buckets).filter((key) =>
+      key.startsWith(`${TRAE_CN_SOURCE}|`) && (hourlyState.buckets[key]?.totals?.total_tokens || 0) > 0);
+    if (booked.length > 0) {
+      return { recordsProcessed, eventsAggregated: 0, bucketsQueued: 0, projectBucketsQueued: 0, recordsSkipped };
     }
-    observed.set(identity,next);
-    if (previous && isDeepStrictEqual(previous,next)) continue;
-    if (previous) {
-      const old = getHourlyBucket(hourlyState,TRAE_CN_SOURCE,previous.model,previous.bucketStart);
-      for (const field of Object.keys(initTotals())) {
-        if ((old.totals[field]||0) < (previous.totals[field]||0)) throw new Error("TRAE CN local contribution exceeds its bucket.");
+  }
+
+  // Cloud-only sessions are canonical observations the local request log never
+  // saw; preserve them in a full rebuild so an opted-in snapshot survives.
+  if (fullRescan && cursors.traeCn) {
+    let cloud;
+    try {
+      cloud = normalizeTraeCnState(cursors.traeCn);
+    } catch (err) {
+      throw new Error("TRAE CN cloud ledger is malformed; existing usage was preserved.");
+    }
+    for (const [sessionId, entry] of Object.entries(cloud.sessions || {})) {
+      if (localSessionIds.has(sessionId)) continue;
+      validateTraeCnStoredContribution(entry);
+      const key = bucketKey(TRAE_CN_SOURCE, entry.model, entry.bucketStart);
+      if (!hourlyAdds.has(key)) {
+        hourlyAdds.set(key, { model: entry.model, bucketStart: entry.bucketStart, totals: initTotals() });
       }
-      subtractTotals(old.totals,previous.totals);
-      touchedBuckets.add(bucketKey(TRAE_CN_SOURCE,previous.model,previous.bucketStart));
-      if (projectEnabled && previous.projectContribution) {
-        const contribution = previous.projectContribution;
-        const oldProject = getProjectBucket(projectState,contribution.project.projectKey,TRAE_CN_SOURCE,contribution.bucketStart,contribution.project.projectRef);
-        subtractTotals(oldProject.totals,contribution.totals);
-        projectTouchedBuckets.add(projectBucketKey(contribution.project.projectKey,TRAE_CN_SOURCE,contribution.bucketStart));
+      addTotals(hourlyAdds.get(key).totals, entry.totals);
+    }
+  }
+
+  if (fullRescan) {
+    for (const [key, bucket] of Object.entries(hourlyState.buckets)) {
+      if (!key.startsWith(`${TRAE_CN_SOURCE}|`) || hourlyAdds.has(key)) continue;
+      bucket.totals = initTotals();
+      touchedBuckets.add(key);
+    }
+    for (const [key, add] of hourlyAdds) {
+      const bucket = getHourlyBucket(hourlyState, TRAE_CN_SOURCE, add.model, add.bucketStart);
+      bucket.totals = { ...add.totals };
+      touchedBuckets.add(key);
+    }
+    if (projectState) {
+      for (const [key, bucket] of Object.entries(projectState.buckets)) {
+        if (bucket?.source !== TRAE_CN_SOURCE || projectAdds.has(key)) continue;
+        bucket.totals = initTotals();
+        projectTouchedBuckets.add(key);
+      }
+      for (const [key, add] of projectAdds) {
+        const bucket = getProjectBucket(projectState, add.projectKey, TRAE_CN_SOURCE, add.bucketStart, add.projectRef);
+        bucket.totals = { ...add.totals };
+        projectTouchedBuckets.add(key);
       }
     }
-    const bucket = getHourlyBucket(hourlyState, TRAE_CN_SOURCE, model, bucketStart);
-    addTotals(bucket.totals, totals);
-    touchedBuckets.add(bucketKey(TRAE_CN_SOURCE, model, bucketStart));
-    if (projectEnabled && project) {
-      const projectBucket = getProjectBucket(projectState,project.projectKey,TRAE_CN_SOURCE,bucketStart,project.projectRef);
-      addTotals(projectBucket.totals,totals);
-      projectTouchedBuckets.add(projectBucketKey(project.projectKey,TRAE_CN_SOURCE,bucketStart));
+  } else {
+    for (const [key, add] of hourlyAdds) {
+      const bucket = getHourlyBucket(hourlyState, TRAE_CN_SOURCE, add.model, add.bucketStart);
+      addTotals(bucket.totals, add.totals);
+      touchedBuckets.add(key);
     }
-    turns[identity] = next;
-    eventsAggregated += 1;
+    if (projectState) {
+      for (const [key, add] of projectAdds) {
+        const bucket = getProjectBucket(projectState, add.projectKey, TRAE_CN_SOURCE, add.bucketStart, add.projectRef);
+        addTotals(bucket.totals, add.totals);
+        projectTouchedBuckets.add(key);
+      }
+    }
   }
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
@@ -26232,9 +26190,14 @@ async function parseTraeCnLocalIncremental({
     projectState.updatedAt = updatedAt;
     cursors.projectHourly = projectState;
   }
-  cursors.traeCnLocal = {version:2,lastId:maxRowId,signature,updatedAt,turns,
-    projectOutputEnabled:projectEnabled,
-    projectMigrationPending:!projectEnabled && (migrating || Boolean(traeCnLocalState.projectMigrationPending)),
+  cursors.traeCnLocal = {
+    version: TRAE_CN_LOCAL_LEDGER_VERSION,
+    lastRowId: maxRowId,
+    identity,
+    signature,
+    lastFullScanAt: fullRescan ? nowMs : storedFullScanAt,
+    updatedAt,
+    projectOutputEnabled: projectEnabled,
   };
 
   return { recordsProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued, recordsSkipped };

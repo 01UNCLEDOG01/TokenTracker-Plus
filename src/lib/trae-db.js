@@ -6,6 +6,7 @@ const { setTimeout: wait } = require("node:timers/promises");
 const { openTraeSnapshot } = require("./trae-snapshot");
 const { withTraeSqlite } = require("./trae-sqlite");
 const { acquireTraeReadGuard } = require("./trae-read-guard");
+const { normalizeTraeUsage } = require("./trae-usage");
 
 const TOKEN_FIELDS = [
   "prompt_tokens", "prompt_tokens_total", "input_tokens",
@@ -160,6 +161,111 @@ async function readTraeCnLocalRows(dbPath, { lastId = 0, env = process.env, wait
     queryRows => projectTraeCnLocalRows(queryRows, watermark), waitImpl, guardImpl);
 }
 
+// ── TRAE CN per-request usage (the merged app's own request log) ──
+// `chat_turn.context.token_usage` only carries the last LLM call of a turn;
+// an agent turn can issue dozens of calls (verified: one 137-call turn whose
+// chat_turn row held 195k tokens while the request log held 17.9M). The
+// app's own `server_history_info` table records every call with
+// token_usage (= prompt + completion for that request) and
+// item_token_usage (= that message's own output), plus model attribution in
+// extra_info (config_name / auto_router_model_name_v1) — coverage verified as
+// 100% of usage rows on the real store. This reader returns those calls
+// incrementally by rowid so a sync only touches newly written pages instead of
+// re-scanning the multi-GB SQLCipher table.
+//
+// Older stores without server_history_info fall back to the chat_turn
+// projection (one row per turn, last-call totals) so nothing regresses on
+// stores that never shipped the request log.
+function normalizeRequestModel(extra) {
+  if (!extra || typeof extra !== "object") return "trae-unknown";
+  const router = extra.auto_router_model_name_v1;
+  const config = extra.config_name;
+  if (typeof router === "string" && router.trim()) return router.trim();
+  if (typeof config === "string" && config.trim()) return config.trim();
+  return "trae-unknown";
+}
+
+function normalizeRequestPath(extra) {
+  if (!extra || typeof extra !== "object") return null;
+  for (const field of ["workspace_path", "workspace_folder"]) {
+    const value = extra[field];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+async function projectTraeCnRequestRows(queryRows, watermark) {
+  const tables = new Set((await queryRows(
+    "SELECT name FROM sqlite_master WHERE type='table'",
+  )).map((row) => row.name));
+  if (!tables.has("server_history_info")) return null;
+  const columns = new Set((await queryRows("PRAGMA table_info(server_history_info)")).map((row) => row.name));
+  if (!columns.has("token_usage")) return null;
+  const maxRowId = Number((await queryRows("SELECT max(rowid) AS m FROM server_history_info"))[0]?.m || 0);
+  const item = columns.has("item_token_usage") ? "t.item_token_usage" : "0";
+  const extra = columns.has("extra_info") ? "t.extra_info" : "NULL";
+  const session = columns.has("conversation_id")
+    ? "t.conversation_id"
+    : columns.has("session_id") ? "t.session_id" : "NULL";
+  const rows = await queryRows(`SELECT CAST(t.rowid AS TEXT) AS id, ${session} AS session_id,
+    COALESCE(t.created_at, t.updated_at) AS created_at, t.updated_at AS updated_at,
+    t.token_usage AS total_tokens, ${item} AS output_tokens, ${extra} AS extra_info
+    FROM server_history_info t
+    WHERE t.rowid > ${watermark} AND t.token_usage > 0
+    ORDER BY t.rowid ASC`);
+  return {
+    maxRowId,
+    rows: rows.map((row) => {
+      let extraInfo = null;
+      if (typeof row.extra_info === "string") {
+        try { extraInfo = JSON.parse(row.extra_info); } catch (_error) { extraInfo = null; }
+      }
+      const total = Number(row.total_tokens);
+      const output = Number(row.output_tokens);
+      const valid = Number.isSafeInteger(total) && total >= 0;
+      return {
+        id: row.id,
+        session_id: row.session_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        model: normalizeRequestModel(extraInfo),
+        usage: valid
+          ? { total, output: Number.isSafeInteger(output) ? Math.min(Math.max(output, 0), total) : 0 }
+          : null,
+        absolute_path: normalizeRequestPath(extraInfo),
+      };
+    }),
+  };
+}
+
+async function projectTraeCnLegacyRows(queryRows, watermark) {
+  const rows = await projectTraeCnLocalRows(queryRows, watermark);
+  const maxRowId = Number((await queryRows("SELECT max(rowid) AS m FROM chat_turn"))[0]?.m || 0);
+  return {
+    maxRowId,
+    rows: rows.map((row) => {
+      const totals = row.usage ? normalizeTraeUsage(row.usage, { model: row.model }) : null;
+      return {
+        id: row.id,
+        session_id: row.session_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        model: row.model,
+        usage: totals ? { total: totals.total_tokens, output: totals.output_tokens } : null,
+        absolute_path: row.absolute_path,
+      };
+    }),
+  };
+}
+
+async function readTraeCnUsageRows(dbPath, { lastRowId = 0, env = process.env, waitImpl, guardImpl } = {}) {
+  const watermark = Number.isSafeInteger(lastRowId) && lastRowId > 0 ? lastRowId : 0;
+  return readStableTraeSnapshot(dbPath, env, async (queryRows) => {
+    const requestRows = await projectTraeCnRequestRows(queryRows, watermark);
+    return requestRows || projectTraeCnLegacyRows(queryRows, watermark);
+  }, waitImpl, guardImpl);
+}
+
 // ── TRAE CN merged-app local database ──
 // The unified "Trae CN" IDE (the Work CN × CN merge) keeps its turns in
 // %APPDATA%/Trae CN/ModularData/ai-agent/database.db. The SOLO CN cloud bill
@@ -292,7 +398,7 @@ async function readTraeSessionRows(dbPath, { env = process.env, waitImpl, guardI
 }
 
 module.exports = {
-  resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeSessionRows,
+  resolveTraeDbPaths, readTraeUsageRows, resolveTraeCnLocalDbPath, readTraeCnLocalRows, readTraeCnUsageRows, readTraeSessionRows,
   // Test seam: the fallback warning is once-per-process; tests reset it to
   // assert the once-ness across reads.
   __resetTraeGuardFallbackWarnForTest: () => { guardFallbackWarned = false; },

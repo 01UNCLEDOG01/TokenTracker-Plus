@@ -468,7 +468,7 @@ test("native background sync collects the local TRAE CN store without cloud opt-
     const first = readQueueRows(home).filter(r => r.source === "trae-cn");
     assert.equal(first.length, 1, "the native refresh must collect the local turn");
     assert.equal(first[0].total_tokens, 120);
-    assert.equal(readCursors(home).traeCnLocal.lastId, 1);
+    assert.equal(readCursors(home).traeCnLocal.lastRowId, 1);
     await cmdSync(["--auto", "--background", "--all-local-sources"], context);
     await cmdSync(["--auto", "--background", "--source=trae-cn"], context);
     assert.deepEqual(readQueueRows(home).filter(r => r.source === "trae-cn"), first);
