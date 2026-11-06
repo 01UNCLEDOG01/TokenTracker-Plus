@@ -4098,13 +4098,6 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           ma.totals.cache_observed_input_tokens = (ma.totals.cache_observed_input_tokens || 0) +
             (Number(row.cache_observed_input_tokens) || 0);
         }
-        // Self-observed hit rate (TRAE CN fielded rows only): the model's own
-        // measured hit rate across its history, exposed as estimate evidence
-        // for periods where no other source observed the same model.
-        if ((Number(row.cache_observed_input_tokens) || 0) > 0) {
-          ma.cache_observed_hits = (ma.cache_observed_hits || 0) + (Number(row.cached_input_tokens) || 0);
-          ma.cache_observed_volume = (ma.cache_observed_volume || 0) + Number(row.cache_observed_input_tokens);
-        }
         // Price each row, exactly as aggregateByDay does for the hero (#653).
         // computeRowCost is not linear for models with a Fast tier or
         // long-context rates: priority_* / long_context_* mark a subset of the
@@ -4115,14 +4108,35 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       }
       if (pricingRevision !== getPricingRevision()) return handleLocalApi(req, res, url);
 
+      // All-time self-observed hit rate for the TRAE family, measured over the
+      // UNFILTERED queue (a day view's own fielded rows are too few to be
+      // evidence — the model's fielded history is the evidence; owner ruling
+      // 2026-11-07). Measured rows only: those actually carrying the client's
+      // exact_* coverage signal.
+      const observedHitsByModel = new Map();
+      for (const row of allRows) {
+        const rowSource = String(row.source || "").toLowerCase();
+        if (rowSource !== "trae" && rowSource !== "trae-cn") continue;
+        const observedVolume = Number(row.cache_observed_input_tokens) || 0;
+        if (!(observedVolume > 0)) continue;
+        const observedModel = row.model || "unknown";
+        const acc = observedHitsByModel.get(observedModel) || { hits: 0, volume: 0 };
+        acc.hits += Number(row.cached_input_tokens) || 0;
+        acc.volume += observedVolume;
+        observedHitsByModel.set(observedModel, acc);
+      }
+
       const sources = Array.from(bySource.values()).map((s) => {
         s.models = Array.from(s.models.values())
           .map((m) => ({
             ...m,
             speed_tiers: hasObservedSpeedTiers(m.speed_tiers) ? m.speed_tiers : null,
-            cache_observed_hit_rate: (m.cache_observed_volume || 0) > 0
-              ? Math.round(((m.cache_observed_hits || 0) / m.cache_observed_volume) * 1000) / 10
-              : null,
+            cache_observed_hit_rate: (() => {
+              const all = observedHitsByModel.get(m.model_id);
+              return all && all.volume > 0
+                ? Math.round((all.hits / all.volume) * 1000) / 10
+                : null;
+            })(),
             totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
           }))
           .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);
