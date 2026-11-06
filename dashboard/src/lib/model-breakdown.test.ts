@@ -507,20 +507,22 @@ describe("buildTraeCostInterval", () => {
     { source: "deepseek", models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 5, cacheHitRate: 90 }] },
     // WorkBuddy observes it too; median of [90, 94] = 92.
     { source: "workbuddy", models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 8, cacheHitRate: 94 }] },
-    // TRAE CN also observes it but is the same product family — still a peer.
+    // TRAE CN observes it too but is the same product family — excluded from
+    // its own peer pool (its figure during a dry spell is itself an estimate,
+    // and letting a provider testify for itself is circular).
     { source: "trae-cn", models: [{ id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", cost: 3, cacheHitRate: 80 }] },
   ];
 
   it("builds an interval from the same model's median hit rate at other sources", () => {
     const interval = buildTraeCostInterval(traeCard, [traeCard, ...peers]);
     if (!interval) throw new Error("expected an interval for TRAE with peer evidence");
-    // Median of [90, 94, 80] = 90 -> low = 16.2 * (0.1 + 0.9 * (0.006/0.3))
+    // trae-cn is family-excluded: median of [90, 94] = 92 ->
+    // low = 16.2 * (0.08 + 0.92 * (0.006/0.3))
     expect(interval.high).toBeCloseTo(16.2, 5);
-    expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
+    expect(interval.low).toBeCloseTo(16.2 * (0.08 + 0.92 * 0.02), 5);
     expect(interval.low).toBeLessThan(interval.high);
-    expect(interval.peerSources).toBe(1);
-    // The median hit rate that produced the lower bound: median of [90,94,80].
-    expect(interval.medianHitRate).toBe(90);
+    // The median hit rate that produced the lower bound: median of [90,94].
+    expect(interval.medianHitRate).toBe(92);
   });
 
   it("returns null when no other source observed the model (no fabricated floor)", () => {
@@ -732,6 +734,52 @@ describe("applyTraeEstimatedCosts", () => {
     expect(model.tokens.input).toBeCloseTo(6_000_000, 0);
     expect(model.cacheHitRate).toBe(90);
     expect(model.cacheEstimated).toBe(true);
+    expect(cn.traeEstimate.medianHitRate).toBe(90);
+  });
+
+  it("folds a below-gate sprinkle of measured rows instead of trusting it as 'measured'", () => {
+    // Production shape 2026-11-07: the client writes the cache fields only on
+    // a few small requests (44k measured against 74.2M input ≈ 0.06%), so the
+    // old any-measured-row gate kept the whole card at the uncached ceiling.
+    // Below the 50% coverage gate the peer-median fold must take over and the
+    // estimate must absorb the sprinkle (volume-conserving).
+    const sprinkle = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, conversation_count: 174 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174 },
+            },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(sprinkle));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    if (!cn) throw new Error("expected a TRAE CN provider");
+    const model = cn.models[0];
+    // Coverage 44k/74.22M = 0.06% < 50% gate -> peer median 90% folds the cost.
+    expect(model.cost).toBeCloseTo(18 * (0.1 + 0.9 * 0.02), 5);
+    expect(model.cacheEstimated).toBe(true);
+    // Volume-conserving rewrite: the 44k measured sprinkle is absorbed — the
+    // volume (74.176M + 44k) splits 90/10, not stacked on top of the estimate.
+    const volume = 74_176_000 + 44_000;
+    expect(model.tokens.cached).toBeCloseTo(volume * 0.9, 0);
+    expect(model.tokens.input).toBeCloseTo(volume * 0.1, 0);
+    expect(model.cacheHitRate).toBe(90);
     expect(cn.traeEstimate.medianHitRate).toBe(90);
   });
 

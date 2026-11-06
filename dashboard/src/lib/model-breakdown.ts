@@ -331,6 +331,15 @@ const UNKNOWN_CACHE_DISCOUNT: Record<string, number> = {
   "deepseek-v4.1-flash": 0.006 / 0.3, // $0.006 cache read / $0.30 input per MTok
 };
 
+// Measured-cache coverage gate (owner ruling 2026-11-07): measured rows must
+// cover at least half of a model's input-side volume for the model to count as
+// "measured". Below that the volume is in the client's stopped-reporting
+// regime (TRAE CN now writes the fields only on rare small requests — a
+// sprinkle of measured rows must not switch the whole model to "measured"
+// while 99%+ of its input rides the uncached rate), and the peer-median fold
+// takes over with its estimate absorbing the sprinkle.
+const TRAE_MEASURED_COVERAGE_MIN = 0.5;
+
 function normalizeIntervalModelName(name: any) {
   return String(name || "").trim().toLowerCase();
 }
@@ -365,7 +374,10 @@ function computeTraeFold(provider: any, fleetData: any) {
   const hitRatesByModel = new Map();
   for (const peer of peers) {
     const peerSource = String(peer?.source || peer?.label || "").trim().toLowerCase();
-    if (peerSource === "trae") continue;
+    // Both TRAE editions are excluded from their own peer pool: a provider's
+    // own near-zero cache figure (the sprinkle the coverage gate is folding)
+    // must not drag the median it is being folded with.
+    if (peerSource === "trae" || peerSource === "trae-cn") continue;
     for (const model of Array.isArray(peer?.models) ? peer.models : []) {
       if (model?.cacheHitRate == null) continue;
       const name = normalizeIntervalModelName(model.name || model.id);
@@ -390,12 +402,12 @@ function computeTraeFold(provider: any, fleetData: any) {
     const modelCost = Number(model?.cost);
     if (!Number.isFinite(modelCost) || modelCost < 0) continue;
     ceilingCost += modelCost;
-    // Reported cache activity is measured truth: never overwrite it with an
-    // estimate. Only models whose provider omitted the cache fields (TRAE CN
-    // stopped writing them after the 2026-09 client update) are folded.
+    // Measured-cache coverage gate: see TRAE_MEASURED_COVERAGE_MIN above.
     const t = model?.tokens || {};
     const reportedCache = (Number(t.cached) || 0) + (Number(t.cacheCreate) || 0);
-    const discount = reportedCache > 0 ? null : cacheDiscountFor(model);
+    const inputSide = (Number(t.input) || 0) + reportedCache;
+    const cacheCoverage = inputSide > 0 ? reportedCache / inputSide : 0;
+    const discount = cacheCoverage >= TRAE_MEASURED_COVERAGE_MIN ? null : cacheDiscountFor(model);
     const rates =
       discount == null
         ? null
@@ -495,23 +507,27 @@ export function applyTraeEstimatedCosts(fleetData: any) {
     }
     // Source-line cache stats get the same treatment (owner ruling: the cached
     // token quantity must be estimated, not the ~0 figure TRAE's blend reports).
-    // Covered models treat their reported input as the whole input-side volume
-    // T: cache reads = T*H, fresh = T*(1-H). Uncovered models keep their real
-    // reported cache fields. The denominator is volume-conserving, so it matches
-    // what the source line showed before.
+    // Covered models treat their whole input-side volume (fresh + measured
+    // cache + cache-write) as T: cache reads = T*H, fresh = T*(1-H). Folding a
+    // below-gate model absorbs its sprinkle of measured rows into the estimate
+    // (the rewrite below does the same), keeping card totals and model rows on
+    // one consistent, volume-conserving denominator. Uncovered models keep
+    // their real reported cache fields.
     let estReused = 0;
     let estFresh = 0;
     let estCC = 0;
     for (const entry of fold.perModel) {
       const t = entry.model?.tokens || {};
       const input = Math.max(0, Number(t.input) || 0);
+      const cached = Math.max(0, Number(t.cached) || 0);
       const cc = Math.max(0, Number(t.cacheCreate) || 0);
       if (entry.hitRate != null) {
+        const volume = input + cached;
         const h = Math.min(Math.max(entry.hitRate / 100, 0), 1);
-        estReused += input * h;
-        estFresh += input * (1 - h);
+        estReused += volume * h;
+        estFresh += volume * (1 - h);
       } else {
-        estReused += Math.max(0, Number(t.cached) || 0);
+        estReused += cached;
         estFresh += input;
       }
       estCC += cc;
