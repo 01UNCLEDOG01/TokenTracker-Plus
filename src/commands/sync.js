@@ -169,6 +169,7 @@ const {
   hasZcodeCursorState,
   resolveZcodeInstallPaths,
 } = require("../lib/rollout");
+const { parseTraeRequestsIncremental } = require("../lib/trae-requests");
 const { computeClaudeGroundTruthBuckets } = require("../lib/claude-categorizer");
 const { createProgress, renderBar, formatNumber, formatBytes } = require("../lib/progress");
 const {
@@ -2394,9 +2395,30 @@ async function cmdSync(argv, context = {}) {
     let traeResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     if (sourceAllowed("trae")) {
       try {
-        traeResult = await parseTraeIncremental({
-          cursors, queuePath, onProgress: makeProviderProgress("TRAE"),
+        // The desktop app's own request log carries every model call; the
+        // legacy chat_turn reader only sees the last call of a turn. Stores
+        // without that table fall back to the per-turn parser below.
+        const requestResult = await parseTraeRequestsIncremental({
+          cursors, queuePath, env: process.env, onProgress: makeProviderProgress("TRAE"),
         });
+        if (requestResult.supported) {
+          traeResult = {
+            recordsProcessed: requestResult.recordsProcessed,
+            eventsAggregated: requestResult.eventsAggregated,
+            bucketsQueued: requestResult.bucketsQueued,
+            errors: [],
+            recordsSkipped: 0,
+            estimatedRecords: 0,
+            unpricedRecords: 0,
+          };
+        } else {
+          traeResult = await parseTraeIncremental({
+            cursors, queuePath, onProgress: makeProviderProgress("TRAE"),
+          });
+        }
+        if (requestResult.supported && requestResult.error) {
+          process.stderr.write(`TRAE sync: could not rebuild the request log: ${requestResult.error}. Will retry on the next sync.\n`);
+        }
         for (const { database, message } of traeResult.errors) {
           process.stderr.write(`TRAE sync: could not read ${database}: ${message}. Will retry on the next sync.\n`);
         }
