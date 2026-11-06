@@ -256,18 +256,17 @@ function foldTraeRowCost(row, cost) {
   const cacheRate = Number(pricing?.cache_read);
   if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
   const discount = Math.min(cacheRate / inputRate, 1);
-  // Fold ONLY the unmeasured input-side volume: reprice it standalone, fold
-  // that, and splice it into the real cost — measured cache, output and
-  // reasoning keep their computeRowCost pricing untouched.
-  const unmeasuredCost = computeRowCost({
-    input_tokens: unmeasured,
-    output_tokens: 0,
-    cached_input_tokens: 0,
-    cache_creation_input_tokens: 0,
-    reasoning_output_tokens: 0,
-    model,
-    source: row.source,
-  });
+  // Fold ONLY the unmeasured input-side volume, at the row's OWN effective
+  // input price: derive it from the row (cost minus the cost of everything
+  // but input) so time-of-use and other row-level rate adjustments are
+  // inherited — repricing at the naive list rate produced negative folds on
+  // off-peak DeepSeek rows (owner-reported 2026-11-07).
+  const fresh = Number(row?.input_tokens) || 0;
+  if (!(fresh > 0)) return cost;
+  const costWithoutInput = computeRowCost({ ...row, input_tokens: 0 });
+  const inputLegCost = cost - costWithoutInput;
+  if (!(inputLegCost > 0)) return cost;
+  const unmeasuredCost = inputLegCost * (unmeasured / fresh);
   const foldFactor = (1 - h) + h * discount;
   return cost - unmeasuredCost + unmeasuredCost * foldFactor;
 }

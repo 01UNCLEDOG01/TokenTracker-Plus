@@ -107,6 +107,29 @@ test("a sprinkled row folds just its unmeasured remainder (partial coverage belo
   assert.ok(Math.abs(foldTraeRowCost(r, base) - expected) < 1e-9);
 });
 
+test("an off-peak row folds at its own effective input price (no negative folds)", () => {
+  // DeepSeek bills off-peak hours at half price via the row's hour_start. The
+  // naive synthetic reprice used the full list rate, so the unmeasured cost
+  // exceeded the row's real cost and the fold went NEGATIVE on off-peak rows.
+  // The fold now scales the row's own input-leg cost proportionally.
+  // Off-peak: 12:00 UTC on a weekday (peak = 01:00-04:00 / 06:00-10:00 UTC).
+  const r = row({ hour_start: "2026-11-04T12:00:00.000Z" });
+  const base = computeRowCost(r);
+  const foldFactor = (1 - 0.952) + 0.952 * (0.006 / 0.3);
+  const folded = foldTraeRowCost(r, base);
+  // Off-peak input leg = 1M * (0.3/2) / 1e6 = 0.15; folded = base - 0.15 + 0.15*f.
+  const expected = base - 0.15 + 0.15 * foldFactor;
+  assert.ok(Math.abs(folded - expected) < 1e-9, `folded ${folded} vs expected ${expected}`);
+  assert.ok(folded > 0, "the fold must stay positive on discounted rows");
+  // The output leg still survives proportionally.
+  const r2 = row({ hour_start: "2026-11-04T12:00:00.000Z", output_tokens: 300_000 });
+  const base2 = computeRowCost(r2);
+  const expected2 = base2 - 0.15 + 0.15 * foldFactor;
+  assert.ok(Math.abs(foldTraeRowCost(r2, base2) - expected2) < 1e-9);
+  assert.ok(Math.abs((foldTraeRowCost(r2, base2) - folded) - (base2 - base)) < 1e-9,
+    "the output cost delta must survive the fold unchanged off-peak");
+});
+
 test("models without evidence or official cache pricing stay at the ceiling", () => {
   // No fielded history and no recognized rate: nothing to fold with.
   __setTraeFoldStateForTest({ byModel: {}, recognizedRate: 0 });
