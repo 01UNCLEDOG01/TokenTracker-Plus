@@ -137,6 +137,17 @@ dashboard.speed.tps,ui,DataDetails,DataDetails,column_tps,"Avg Speed (tok/s)",,a
 dashboard.speed.ttft,ui,DataDetails,DataDetails,column_ttft,"Avg First Response (ms)",,active
 dashboard.speed.empty,ui,DataDetails,DataDetails,empty,"No completed Agent2API requests in this range.",,active
 dashboard.speed.unavailable,ui,DataDetails,DataDetails,unavailable,"Agent2API gateway database unavailable (local only).",,active
+dashboard.models.title,ui,DataDetails,DataDetails,title,"Models",,active
+dashboard.models.col.model,ui,DataDetails,DataDetails,column_model,"Model",,active
+dashboard.models.col.share,ui,DataDetails,DataDetails,column_share,"Share",,active
+dashboard.models.col.cost,ui,DataDetails,DataDetails,column_cost,"Cost",,active
+dashboard.models.empty,ui,DataDetails,DataDetails,empty,"No model usage in this range yet.",,active
+dashboard.tools.title,ui,DataDetails,DataDetails,title,"Tools",,active
+dashboard.tools.col.tool,ui,DataDetails,DataDetails,column_tool,"Tool",,active
+dashboard.tools.col.share,ui,DataDetails,DataDetails,column_share,"Share",,active
+dashboard.tools.col.cost,ui,DataDetails,DataDetails,column_cost,"Cost",,active
+dashboard.tools.col.models,ui,DataDetails,DataDetails,column_models,"Models",,active
+dashboard.tools.empty,ui,DataDetails,DataDetails,empty,"No tool usage in this range yet.",,active
 dashboard.projects.sources_more,ui,DataDetails,DataDetails,sources_more,"+{{n}}",,active
 dashboard.projects.detail.badge,ui,DataDetails,ProjectDetailModal,badge,"Project",,active
 dashboard.projects.detail.close_aria,ui,DataDetails,ProjectDetailModal,close_aria,"Close project details",,active

@@ -353,6 +353,7 @@ export function DashboardView(props) {
             <DataDetails
               projectEntries={projectUsageEntries}
               projectLimit={projectUsageLimit}
+              fleetData={fleetData}
               agent2ApiSpeedModels={agent2ApiSpeedModels}
               agent2ApiSpeedAvailable={agent2ApiSpeedAvailable}
               agent2ApiSpeedLoading={agent2ApiSpeedLoading}

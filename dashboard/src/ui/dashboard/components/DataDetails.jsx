@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, Select } from "../../components";
-import { toFiniteNumber } from "../../../lib/format";
+import { formatUsdCurrency, toFiniteNumber } from "../../../lib/format";
+import { buildAllModels } from "../../../lib/model-breakdown";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
+import { useCurrency } from "../../../hooks/useCurrency.js";
 import { ProviderIcon } from "./ProviderIcon";
 import { ProjectDetailModal } from "./ProjectDetailModal.jsx";
 import {
@@ -11,6 +13,26 @@ import {
 } from "./project-usage-utils.jsx";
 
 const PROJECT_SOURCE_ICON_LIMIT = 5;
+
+// Provider-card parity for the Tools tab: a percent under 0.01 renders as the
+// same below-threshold marker the usage cards show, so a tiny tool doesn't
+// read as a rounded "0.00".
+function formatToolPercent(provider, copy) {
+  const raw = Number(provider?.totalPercentValue ?? provider?.totalPercent);
+  const value = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  if (value > 0 && !(value >= 0.01)) return copy("usage.overview.percent_below_threshold");
+  return value.toFixed(2);
+}
+
+// fleetData arrives sorted by tokens from buildFleetData, but the Tools tab
+// must not depend on the producer's ordering contract: sort defensively,
+// tokens first. A plain function expression — the ui-hardcode scanner reads
+// arrow functions as JSX text spans.
+function toolsByUsageDesc(fleetData) {
+  return (Array.isArray(fleetData) ? fleetData.slice() : []).sort(function (a, b) {
+    return (Number(b?.usage) || 0) - (Number(a?.usage) || 0);
+  });
+}
 
 function ProjectRow({ entry, maxTokens, copy, formatTokens, formatTokensTooltip, onSelect }) {
   const projectKey = typeof entry?.project_key === "string" ? entry.project_key : "";
@@ -91,6 +113,9 @@ export function DataDetails({
   // { from, to, timeZone, tzOffsetMinutes } — forwarded to the per-project
   // drill-down modal so it queries the same range the panel shows.
   projectDetailQuery = {},
+  // Provider-oriented fleet rows (buildFleetData output, TRAE estimates
+  // already applied upstream) feeding the Models / Tools rankings.
+  fleetData = [],
   agent2ApiSpeedModels = [],
   agent2ApiSpeedAvailable = true,
   agent2ApiSpeedLoading = false,
@@ -123,6 +148,20 @@ export function DataDetails({
   const [activeTab, setActiveTab] = useState("daily");
   const [detailEntry, setDetailEntry] = useState(null);
   const { formatTokens, formatTokensTooltip } = useTokenFormat();
+  // The Models / Tools cost columns must follow the settings currency (¥ when
+  // 人民币 is selected), same as every other cost surface on the dashboard.
+  const { currency, rate } = useCurrency();
+  // buildAllModels already merges the same model across tools (case-
+  // insensitive) and sorts by usage descending — the ranking the Models tab
+  // shows verbatim. toolsByUsageDesc does the same for the Tools tab.
+  const allModels = useMemo(
+    function () { return buildAllModels(fleetData); },
+    [fleetData],
+  );
+  const toolRows = useMemo(
+    function () { return toolsByUsageDesc(fleetData); },
+    [fleetData],
+  );
 
   return (
     <Card>
@@ -167,6 +206,32 @@ export function DataDetails({
             }`}
           >
             {copy("dashboard.speed.title")}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "models"}
+            type="button"
+            onClick={() => setActiveTab("models")}
+            className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
+              activeTab === "models"
+                ? "text-oai-black dark:text-oai-white bg-oai-gray-100 dark:bg-oai-gray-800"
+                : "text-oai-gray-500 dark:text-oai-gray-300 hover:text-oai-black dark:hover:text-oai-white hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/50"
+            }`}
+          >
+            {copy("dashboard.models.title")}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "tools"}
+            type="button"
+            onClick={() => setActiveTab("tools")}
+            className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
+              activeTab === "tools"
+                ? "text-oai-black dark:text-oai-white bg-oai-gray-100 dark:bg-oai-gray-800"
+                : "text-oai-gray-500 dark:text-oai-gray-300 hover:text-oai-black dark:hover:text-oai-white hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/50"
+            }`}
+          >
+            {copy("dashboard.tools.title")}
           </button>
         </div>
         {activeTab === "projects" && (
@@ -271,6 +336,137 @@ export function DataDetails({
                         : entry.avg_first_response_ms >= 1000
                           ? `${(entry.avg_first_response_ms / 1000).toFixed(1)} s`
                           : `${entry.avg_first_response_ms} ms`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
+      {/* Models Tab — personal ranking merged across every tool */}
+      {activeTab === "models" && (() => {
+        if (allModels.length === 0) {
+          return (
+            <div className="oai-text-body-sm text-oai-gray-500 dark:text-oai-gray-300">
+              {copy("dashboard.models.empty")}
+            </div>
+          );
+        }
+        return (
+          <div className="overflow-auto max-h-[384px] -mx-4 oai-scrollbar">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-oai-gray-200 dark:border-oai-gray-700">
+                  {[
+                    "dashboard.models.col.model",
+                    "daily.sort.total.label",
+                    "dashboard.models.col.share",
+                    "dashboard.models.col.cost",
+                    "daily.sort.conversations.label",
+                  ].map((key) => (
+                    <th
+                      key={key}
+                      className="text-left px-2.5 sm:px-4 py-2 oai-text-caption font-semibold text-oai-gray-600 dark:text-oai-gray-300 bg-white dark:bg-oai-gray-900"
+                    >
+                      {copy(key)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {allModels.map((model) => (
+                  <tr
+                    key={model.id}
+                    className="border-b border-oai-gray-100 dark:border-oai-gray-800/60 hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40 transition-colors"
+                  >
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-black dark:text-oai-white font-mono">
+                      {model.name}
+                    </td>
+                    <td
+                      className="px-2.5 sm:px-4 py-2 oai-text-body-sm font-medium text-oai-black dark:text-oai-white tabular-nums"
+                      title={formatTokensTooltip(model.usage)}
+                    >
+                      {formatTokens(model.usage)}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200 tabular-nums">
+                      {model.share}%
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200 tabular-nums">
+                      {model.cost == null ? "—" : formatUsdCurrency(model.cost, { currency, rate })}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200 tabular-nums">
+                      {model.requests}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
+      {/* Tools Tab — one row per CLI/app, same numbers as the provider cards */}
+      {activeTab === "tools" && (() => {
+        if (toolRows.length === 0) {
+          return (
+            <div className="oai-text-body-sm text-oai-gray-500 dark:text-oai-gray-300">
+              {copy("dashboard.tools.empty")}
+            </div>
+          );
+        }
+        return (
+          <div className="overflow-auto max-h-[384px] -mx-4 oai-scrollbar">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-oai-gray-200 dark:border-oai-gray-700">
+                  {[
+                    "dashboard.tools.col.tool",
+                    "daily.sort.total.label",
+                    "dashboard.tools.col.share",
+                    "dashboard.tools.col.cost",
+                    "dashboard.tools.col.models",
+                  ].map((key) => (
+                    <th
+                      key={key}
+                      className="text-left px-2.5 sm:px-4 py-2 oai-text-caption font-semibold text-oai-gray-600 dark:text-oai-gray-300 bg-white dark:bg-oai-gray-900"
+                    >
+                      {copy(key)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {toolRows.map((tool) => (
+                  <tr
+                    key={String(tool?.source || tool?.label || "")}
+                    className="border-b border-oai-gray-100 dark:border-oai-gray-800/60 hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40 transition-colors"
+                  >
+                    <td className="px-2.5 sm:px-4 py-2">
+                      <span className="inline-flex items-center gap-2 oai-text-body-sm text-oai-black dark:text-oai-white">
+                        <ProviderIcon
+                          provider={tool?.source}
+                          size={14}
+                          className="text-oai-gray-500 dark:text-oai-gray-400"
+                        />
+                        {tool?.label || tool?.source || "—"}
+                      </span>
+                    </td>
+                    <td
+                      className="px-2.5 sm:px-4 py-2 oai-text-body-sm font-medium text-oai-black dark:text-oai-white tabular-nums"
+                      title={formatTokensTooltip(tool?.usage)}
+                    >
+                      {formatTokens(tool?.usage)}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200 tabular-nums">
+                      {formatToolPercent(tool, copy)}%
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200 tabular-nums">
+                      {formatUsdCurrency(tool?.usd, { currency, rate })}
+                    </td>
+                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200 tabular-nums">
+                      {Array.isArray(tool?.models) ? tool.models.length : 0}
                     </td>
                   </tr>
                 ))}
