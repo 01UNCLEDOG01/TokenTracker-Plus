@@ -409,6 +409,18 @@ function applyTraeEstimatedCacheStats(providers: any[]) {
   for (const provider of providers) {
     const source = String(provider?.source || provider?.label || "").trim().toLowerCase();
     if (source !== "trae" && source !== "trae-cn") continue;
+    // Same-tool measured floor: the median hit rate across THIS card's own
+    // fielded models. This is the hit rate the server's cost fold uses for
+    // models with no fielded history ("recognized rate"); it is a HIT RATE,
+    // unlike the official cache-read price ratio (a price discount). It keeps
+    // free/unpriced models from showing a 0 cache column once the card has any
+    // fielded history at all.
+    const toolRates: number[] = [];
+    for (const model of Array.isArray(provider?.models) ? provider.models : []) {
+      const r = Number(model?.tokens?.cacheObservedHitRate);
+      if (Number.isFinite(r) && r > 0) toolRates.push(Math.min(Math.max(r / 100, 0), 1));
+    }
+    const toolRate = toolRates.length ? median(toolRates) : null;
     let estReused = 0;
     let estFresh = 0;
     let estCC = 0;
@@ -420,23 +432,24 @@ function applyTraeEstimatedCacheStats(providers: any[]) {
       const cc = Math.max(0, Number(t.cacheCreate) || 0);
       const inputSide = input + cached;
       // Same gate as the server fold: below 50% measured coverage the blend is
-      // estimate territory; at/above it the measured figures are truth.
+      // estimate territory; at/above it the measured figures are truth. With
+      // no coverage signal (pre-v5 / cloud rows) a measured cache also wins;
+      // only a model with neither signal nor measured cache is estimated.
       const observed = t.cacheObservedInput == null ? null : Number(t.cacheObservedInput);
       const coverage = observed != null && inputSide > 0 ? Math.min(observed / inputSide, 1) : null;
+      const measured = coverage != null ? coverage >= TRAE_MEASURED_COVERAGE_MIN : cached + cc > 0;
       const selfRate = Number(t.cacheObservedHitRate);
       const rates = hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
-      // Owner ruling 2026-11-07, full chain: own fielded rate -> peer median
-      // -> official/mainstream cache rate. The terminal fallback is this
-      // model's published cache-read price ratio (cacheDiscountFor) — a
-      // conservative mainstream hit-rate floor from official pricing, never
-      // a fabricated number.
-      const h = coverage != null && coverage < 0.5
-        ? (Number.isFinite(selfRate) && selfRate > 0
+      // Evidence chain: own fielded rate -> peer median -> same-tool measured
+      // median -> official cache-read price ratio (a conservative last resort
+      // when the card has no fielded history at all).
+      const h = measured
+        ? null
+        : (Number.isFinite(selfRate) && selfRate > 0
             ? Math.min(Math.max(selfRate / 100, 0), 1)
             : rates && rates.length
               ? Math.min(Math.max(median(rates) / 100, 0), 1)
-              : (cacheDiscountFor(model) ?? null))
-        : null;
+              : (toolRate ?? cacheDiscountFor(model) ?? null));
       if (h == null) {
         estReused += cached;
         estFresh += input;

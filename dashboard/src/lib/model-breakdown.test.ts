@@ -869,6 +869,46 @@ describe("applyTraeEstimatedCosts", () => {
     expect(cn.cacheReusedTokens).toBeCloseTo(volume * (0.26 / 1.4), 5);
   });
 
+  it("uses the card's own measured median for models with no cache pricing at all", () => {
+    // Total-view shape: free/unpriced models (browser_use_subagent and friends)
+    // carry no cache-read price and no fielded history, so the official-price
+    // fallback cannot fire and the cache column used to stay 0 even though the
+    // card has a measured median from its sibling fielded models.
+    const payload = {
+      trae_estimate_applied: true,
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 1, input_tokens: 11_000_000, cached_input_tokens: 100_000, cache_creation_input_tokens: 0, conversation_count: 20, cache_observed_input_tokens: 100_000 },
+          models: [
+            {
+              model_id: "browser_use_subagent",
+              name: "browser_use_subagent",
+              pricing: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+              totals: { total_cost_usd: 0, input_tokens: 1_000_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 10, cache_observed_input_tokens: 0 },
+            },
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              cache_observed_hit_rate: 96,
+              totals: { total_cost_usd: 1, input_tokens: 10_000_000, cached_input_tokens: 100_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 10, cache_observed_input_tokens: 100_000 },
+            },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(payload));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    if (!cn) throw new Error("expected a TRAE CN provider");
+    const free = cn.models.find((m: any) => m.name === "browser_use_subagent");
+    if (!free) throw new Error("expected the free model row");
+    expect(free.cacheEstimated).toBe(true);
+    expect(free.tokens.cached).toBeCloseTo(1_000_000 * 0.96, 0);
+    expect(free.tokens.input).toBeCloseTo(1_000_000 * 0.04, 0);
+    expect(free.cacheHitRate).toBe(96);
+  });
+
   it("keeps a pre-v5 model (no observed signal) untouched even when a peer exists", () => {
     // The sprinkle fixture WITHOUT its observed signal = a pre-v5 bucket:
     // coverage is genuinely unknown (the hit rate cannot stand in for it), so
