@@ -379,6 +379,83 @@ function normalizeIntervalModelName(name: any) {
   return String(name || "").trim().toLowerCase();
 }
 
+/**
+ * Rewrite the TRAE-family cache statistics for a server-folded payload so the
+ * card's hit rate and cached-token columns reflect the estimate, not TRAE's
+ * dry-spell blend (owner ruling: the cached quantity must be estimated).
+ * Evidence per model — the model's own fielded rate (cacheObservedHitRate),
+ * else the recognized median via the peer pool, else left as measured; costs
+ * are NEVER touched here (the server already folded them).
+ */
+function applyTraeEstimatedCacheStats(providers: any[]) {
+  const peers: any[] = Array.isArray(providers) ? providers : [];
+  const hitRatesByModel = new Map();
+  for (const peer of peers) {
+    const peerSource = String(peer?.source || peer?.label || "").trim().toLowerCase();
+    if (peerSource === "trae" || peerSource === "trae-cn") continue;
+    for (const model of Array.isArray(peer?.models) ? peer.models : []) {
+      if (model?.cacheHitRate == null) continue;
+      const name = normalizeIntervalModelName(model.name || model.id);
+      if (!name) continue;
+      if (!hitRatesByModel.has(name)) hitRatesByModel.set(name, []);
+      hitRatesByModel.get(name).push(Number(model.cacheHitRate));
+    }
+  }
+  const median = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
+  for (const provider of providers) {
+    const source = String(provider?.source || provider?.label || "").trim().toLowerCase();
+    if (source !== "trae" && source !== "trae-cn") continue;
+    let estReused = 0;
+    let estFresh = 0;
+    let estCC = 0;
+    let estimated = false;
+    for (const model of Array.isArray(provider?.models) ? provider.models : []) {
+      const t = model?.tokens || {};
+      const input = Math.max(0, Number(t.input) || 0);
+      const cached = Math.max(0, Number(t.cached) || 0);
+      const cc = Math.max(0, Number(t.cacheCreate) || 0);
+      const inputSide = input + cached;
+      // Same gate as the server fold: below 50% measured coverage the blend is
+      // estimate territory; at/above it the measured figures are truth.
+      const observed = t.cacheObservedInput == null ? null : Number(t.cacheObservedInput);
+      const coverage = observed != null && inputSide > 0 ? Math.min(observed / inputSide, 1) : null;
+      const selfRate = Number(t.cacheObservedHitRate);
+      const rates = hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
+      const h = coverage != null && coverage < 0.5
+        ? (Number.isFinite(selfRate) && selfRate > 0
+            ? Math.min(Math.max(selfRate / 100, 0), 1)
+            : rates && rates.length
+              ? Math.min(Math.max(median(rates) / 100, 0), 1)
+              : null)
+        : null;
+      if (h == null) {
+        estReused += cached;
+        estFresh += input;
+        estCC += cc;
+        continue;
+      }
+      const volume = input + cached;
+      estReused += volume * h;
+      estFresh += volume * (1 - h);
+      estCC += cc;
+      model.tokens = { ...t, input: volume * (1 - h), cached: volume * h };
+      model.cacheHitRate = Math.round(h * 100);
+      model.cacheEstimated = true;
+      estimated = true;
+    }
+    const estInputSide = estFresh + estReused + estCC;
+    if (!estimated || estInputSide <= 0) continue;
+    provider.cacheReusedTokens = estReused;
+    provider.cacheInputTokens = estInputSide;
+    provider.cacheHitRate =
+      estReused > 0 ? Math.round((estReused / estInputSide) * 100) : null;
+  }
+}
+
 // Cache-read price as a fraction of the uncached input price. Prefer the
 // per-model pricing payload (the API already returns input/output/cache_read
 // rates), so every model with published cache pricing can be folded; fall
@@ -547,8 +624,18 @@ export function buildTraeCostInterval(provider: any, fleetData: any) {
 export function applyTraeEstimatedCosts(fleetData: any) {
   const providers: any[] = Array.isArray(fleetData) ? fleetData : [];
   // The server now folds TRAE-family costs before the payload leaves
-  // (trae_estimate_applied): client-side folding would double-discount.
-  if (providers.some((p) => p?.trae_estimate_applied === true || p?.__trae_estimate_applied)) {
+  // (trae_estimate_applied): client-side COST folding would double-discount,
+  // so the raw measured cache stats below keep their ceiling-shaped blend —
+  // but the OWNER RULING stands: the card's cached-token quantity and hit
+  // rate must be ESTIMATED, not the ~0 figure TRAE's dry-spell blend reports.
+  // Rewrite the cache stats with the same evidence chain the server fold
+  // used (self fielded rate, recognized median for unused models, official
+  // discount per model) without touching the already-folded costs.
+  const serverFolded = providers.some(
+    (p) => p?.trae_estimate_applied === true || p?.__trae_estimate_applied,
+  );
+  if (serverFolded) {
+    applyTraeEstimatedCacheStats(providers);
     return providers;
   }
   for (const provider of providers) {

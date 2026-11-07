@@ -783,6 +783,57 @@ describe("applyTraeEstimatedCosts", () => {
     expect(cn.traeEstimate.medianHitRate).toBe(90);
   });
 
+  it("rewrites cache stats (not costs) when the payload is already server-folded", () => {
+    // The server folded the costs (trae_estimate_applied) and the client must
+    // not touch them — but the card's cached-token quantity and hit rate are
+    // still TRAE's dry-spell blend (0.06% cached over 5.8亿 input), which the
+    // owner ruling requires to be estimated. The rewrite uses the model's own
+    // fielded rate; the provider hit rate follows.
+    // Construct the fleet the way buildFleetData would emit it, then stamp
+    // the server's folded cost and flag the way the page does before calling
+    // applyTraeEstimatedCosts.
+    const rawPayload = {
+      trae_estimate_applied: true,
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 2.124, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, conversation_count: 174, cache_observed_input_tokens: 44_000 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              cache_observed_hit_rate: 95.2,
+              totals: { total_cost_usd: 2.124, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174, cache_observed_input_tokens: 44_000 },
+            },
+          ],
+        },
+      ],
+    };
+    const fleet = buildFleetData(rawPayload);
+    // Server folded: totals/cost already carry the estimate.
+    const cnBefore = fleet.find((f: any) => f.source === "trae-cn");
+    if (!cnBefore) throw new Error("expected a TRAE CN provider");
+    expect(cnBefore.usd).toBeCloseTo(2.124, 5);
+    const fleet2 = applyTraeEstimatedCosts(fleet);
+    const cn = fleet2.find((f: any) => f.source === "trae-cn");
+    if (!cn) throw new Error("expected a TRAE CN provider");
+    const model = cn.models[0];
+    // Cost untouched (server folded).
+    expect(model.cost).toBeCloseTo(2.124, 5);
+    expect(model.ceilingCost).toBeUndefined();
+    expect(cn.usd).toBeCloseTo(2.124, 5);
+    // Cache stats estimated with the self rate (volume-conserving).
+    const volume = 74_176_000 + 44_000;
+    expect(model.tokens.cached).toBeCloseTo(volume * 0.952, 0);
+    expect(model.tokens.input).toBeCloseTo(volume * 0.048, 0);
+    expect(model.cacheEstimated).toBe(true);
+    expect(model.cacheHitRate).toBe(95);
+    // Provider line follows the estimate.
+    expect(cn.cacheHitRate).toBe(95);
+    expect(cn.cacheReusedTokens).toBeCloseTo(volume * 0.952, 0);
+  });
+
   it("keeps a pre-v5 model (no observed signal) untouched even when a peer exists", () => {
     // The sprinkle fixture WITHOUT its observed signal = a pre-v5 bucket:
     // coverage is genuinely unknown (the hit rate cannot stand in for it), so
