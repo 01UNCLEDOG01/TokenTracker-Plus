@@ -44,6 +44,12 @@ export function useUsageModelBreakdown({
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed || !parsed.breakdown) return null;
+      // Payloads from before the server-side fold (and before the coverage
+      // signal) predate the current estimate semantics — serving them pinned
+      // the cards to the old measured blend with 0% hit rates and list-price
+      // costs until the exact from/to window recurred (owner-reported). A
+      // cache entry without the flag is a miss.
+      if (parsed.breakdown.trae_estimate_applied !== true) return null;
       return parsed;
     } catch (_e) {
       return null;
