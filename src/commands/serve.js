@@ -781,6 +781,14 @@ function resolveDefaultPort(env = process.env, readFileFn) {
   return isRunningUnderWsl(env, readFileFn) ? WSL_DEFAULT_PORT : DEFAULT_PORT;
 }
 
+// Native app shells (C# host, macOS bar, Linux Tauri) launch `serve` as a
+// child process; a browser popping open next to the app window is a bug
+// there (upstream v1.5.12). The C# host also passes --no-open explicitly,
+// but the env guard keeps any other launch path honest by default.
+function isNativeAppShell(env = process.env) {
+  return ["macos", "windows", "linux"].includes(env.TOKENTRACKER_APP_SHELL);
+}
+
 function parseArgs(argv, env = process.env) {
   const envPort = parsePort(env.PORT);
   const defaultPort = resolveDefaultPort(env);
@@ -788,7 +796,7 @@ function parseArgs(argv, env = process.env) {
     port: envPort || defaultPort,
     portExplicit: Boolean(envPort),
     wslDefaultPort: !envPort && defaultPort === WSL_DEFAULT_PORT,
-    open: true,
+    open: !isNativeAppShell(env),
     sync: true,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -812,6 +820,7 @@ function parseArgs(argv, env = process.env) {
 module.exports = {
   cmdServe,
   buildPortInUseHint,
+  isNativeAppShell,
   NPM_PACKAGE_NAME,
   LOCAL_BIND_HOST,
   isPortUnavailableError,

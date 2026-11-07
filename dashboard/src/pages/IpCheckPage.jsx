@@ -951,7 +951,9 @@ export default function IpCheckPage() {
       }
       history.unshift(entry);
       if (history.length > IP_HISTORY_MAX) history.length = IP_HISTORY_MAX;
-      localStorage.setItem(IP_HISTORY_KEY, JSON.stringify(history));
+      // Storage can be full or blocked (private mode, quota errors): history
+      // persistence is optional and must not break the page.
+      try { localStorage.setItem(IP_HISTORY_KEY, JSON.stringify(history)); } catch { /* keep the in-memory copy */ }
       renderIPHistory();
     }
     function renderIPHistory() {
@@ -985,7 +987,7 @@ export default function IpCheckPage() {
       }</ul>`;
     }
     root.__clearIPHistory = () => {
-      localStorage.removeItem(IP_HISTORY_KEY);
+      try { localStorage.removeItem(IP_HISTORY_KEY); } catch { /* clear whatever is still readable below */ }
       renderIPHistory();
     };
 

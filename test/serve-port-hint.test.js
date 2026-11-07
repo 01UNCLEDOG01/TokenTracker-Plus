@@ -17,6 +17,7 @@ const {
   NPM_PACKAGE_NAME,
   parseServeScriptPath,
   parseArgs,
+  isNativeAppShell,
   isRunningUnderWsl,
   resolveDefaultPort,
 } = require("../src/commands/serve");
@@ -127,6 +128,21 @@ test("serve respects explicit port from --port and PORT env", (t) => {
     open: true,
     sync: true,
   });
+});
+
+// Upstream v1.5.12: a desktop shell that starts `serve` as a child process
+// must not pop a browser next to the app window. The env guard is the
+// default; an explicit --no-open still wins everywhere else.
+test("serve does not open a browser when started by a native app shell", () => {
+  for (const shell of ["macos", "windows", "linux"]) {
+    assert.equal(parseArgs([], { TOKENTRACKER_APP_SHELL: shell }).open, false, shell);
+  }
+  assert.equal(parseArgs([], {}).open, true);
+  assert.equal(parseArgs([], { TOKENTRACKER_APP_SHELL: "cli" }).open, true);
+  assert.equal(parseArgs(["--no-open"], {}).open, false);
+  // The C# host keeps its explicit belt-and-braces --no-open; the guard is
+  // defense in depth, not a replacement.
+  assert.equal(parseArgs(["--no-open"], { TOKENTRACKER_APP_SHELL: "windows" }).open, false);
 });
 
 // #267: Windows Delivery Optimization (DoSvc) holds 0.0.0.0:7680 on the host,

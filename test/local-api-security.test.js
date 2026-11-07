@@ -1682,3 +1682,47 @@ test("qoder-cookie route saves a cookie only for an authenticated loopback POST"
   }), badRes, url);
   assert.equal(badRes.statusCode, 400);
 });
+
+test("opendesign-cookie route saves a cookie only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+  const token = await getLocalAuthToken(handler);
+  const url = new URL("http://127.0.0.1/functions/tokentracker-opendesign-cookie");
+
+  // Wrong method is rejected before any credential work.
+  const getRes = createResponse();
+  await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+  assert.equal(getRes.statusCode, 405);
+
+  // Unauthenticated POST is rejected.
+  const anonRes = createResponse();
+  await handler(createRequest({ method: "POST", body: JSON.stringify({ cookie: "session=x" }) }), anonRes, url);
+  assert.equal(anonRes.statusCode, 401);
+
+  // Authenticated POST writes the 0600 credentials file (never echoed back).
+  const okRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ cookie: "Cookie: session=abc; other=1" }),
+  }), okRes, url);
+  assert.equal(okRes.statusCode, 200);
+  const okBody = JSON.parse(okRes.body.toString("utf8"));
+  assert.deepEqual(okBody, { saved: true });
+  // Same root as minimax-credentials.json (the .tokentracker root, not the
+  // tracker sub-tree the cookie files live in).
+  const credFile = path.join(process.env.HOME, ".tokentracker", "opendesign-credentials.json");
+  const stored = JSON.parse(fs.readFileSync(credFile, "utf8"));
+  assert.equal(stored.cookie, "session=abc; other=1");
+
+  // A malformed cookie is rejected with 400 (not a fake-success 200) — the
+  // paste box keys its "Saved" state off the HTTP status.
+  const badRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ cookie: "bare-token-no-equals" }),
+  }), badRes, url);
+  assert.equal(badRes.statusCode, 400);
+  assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_cookie" });
+});

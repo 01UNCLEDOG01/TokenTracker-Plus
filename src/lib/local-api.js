@@ -5367,6 +5367,39 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- opendesign-cookie (POST) ---
+    // Persist a hand-copied open-design.ai Cookie header from the limits
+    // page paste box. Same contract as qoder-cookie: loopback auth required,
+    // POST only, the value is never echoed back.
+    if (p === "/functions/tokentracker-opendesign-cookie") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const cookie = typeof body?.cookie === "string" ? body.cookie : "";
+        const { writeCookieFile } = require("./opendesign-limits");
+        const result = writeCookieFile({ home: os.homedir(), cookie });
+        // A normalized-but-rejected cookie must not masquerade as success:
+        // the paste box keys its "Saved" state off HTTP status, so an
+        // invalid cookie answers 400 like qoder-cookie does.
+        if (result.saved === false) {
+          json(res, { error: "invalid_cookie" }, 400);
+          return true;
+        }
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save cookie" }, 400);
+      }
+      return true;
+    }
+
     // --- qoder-cookie (POST) ---
     // Persist a hand-copied Qoder website cookie from the limits page paste
     // box. The cookie is a session credential, so this is a local mutation:

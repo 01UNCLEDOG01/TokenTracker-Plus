@@ -399,12 +399,13 @@ const REAUTH_CLI_COMMANDS = {
 // just isn't installed. Everything else reads the tool's own local state.
 const MANUAL_CREDENTIAL_IDS = new Set([
   "minimax",
-  "agentrouter",
+  "agentRouter",
   "apigoto",
   "deepseek",
   "sensenova",
   "qoder",
   "qoderCn",
+  "opendesign",
 ]);
 
 function StatusBadge({ label, age = null, tone = "live", tooltip = null }) {
@@ -1110,6 +1111,7 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       {expanded ? <LimitDetail rows={rows} mode={mode} now={now} /> : null}
       {id === "qoderCn" ? <QoderCookieInput namespace="cn" onSaved={onKeySaved} /> : null}
       {id === "qoder" ? <QoderCookieInput namespace="intl" onSaved={onKeySaved} /> : null}
+      {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
       {id === "zcode" && data.start_plan?.configured ? (
         <ZcodeStartPlanSection data={data.start_plan} mode={mode} now={now} />
       ) : null}
@@ -1149,6 +1151,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         ) : null}
         {id === "qoderCn" ? <QoderCookieInput namespace="cn" onSaved={onKeySaved} /> : null}
         {id === "qoder" ? <QoderCookieInput namespace="intl" onSaved={onKeySaved} /> : null}
+        {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
         {id === "opencodeGo" ? <OpenCodeGoSetupHint /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
@@ -1191,6 +1194,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
         {id === "agentPlan" ? <ArkAgentPlanSetupHint /> : null}
         {id === "devin" ? <DevinSetupHint /> : null}
+        {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
       </>,
       expanded,
       onToggle,
@@ -1752,6 +1756,78 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
   );
 }
 
+// Paste box for the hand-copied open-design.ai Cookie. Same contract as the
+// Qoder box: a session credential only the user's own browser holds, saved by
+// the loopback backend to the same file the usage fetch reads
+// (opendesign-credentials.json). Never echoed back; sent only to the local API.
+function OpenDesignCookieInput({ onSaved }) {
+  const [cookie, setCookie] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = cookie.trim();
+    if (!value || status === "saving") return;
+    setStatus("saving");
+    setError(false);
+    try {
+      const res = await fetch("/functions/tokentracker-opendesign-cookie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ cookie: value }),
+      });
+      if (!res.ok) throw new Error();
+      setCookie("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("idle");
+      setError(true);
+    }
+  };
+
+  return (
+    <form
+      className="mt-1.5 space-y-1.5"
+      onSubmit={onSubmit}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={cookie}
+          onChange={(e) => {
+            setCookie(e.target.value);
+            setStatus("idle");
+            setError(false);
+          }}
+          placeholder={copy("limits.opendesignCookie.placeholder")}
+          aria-label={copy("limits.opendesignCookie.placeholder")}
+          autoComplete="new-password"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[11px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+        />
+        <button
+          type="submit"
+          disabled={!cookie.trim() || status === "saving"}
+          className="shrink-0 rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.qoderCookie.saving")
+            : status === "saved"
+              ? copy("limits.qoderCookie.saved")
+              : copy("limits.qoderCookie.save")}
+        </button>
+      </div>
+      <div className="text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+        {error ? copy("limits.qoderCookie.save_failed") : copy("limits.opendesignCookie.note")}
+      </div>
+    </form>
+  );
+}
+
 // Paste box for the hand-copied Qoder website cookie. The cookie is a session
 // credential only the user's own browser holds, so it cannot be auto-collected
 // (the httpOnly session cookie is invisible to page JS and to the tray). The
@@ -1831,8 +1907,8 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, order, visibility, displayMode, onProviderKeySaved = null }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, order, visibility, displayMode, onProviderKeySaved = null }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
   // the six-row cap and would lock the picker. Prune it and persist the
@@ -1856,7 +1932,7 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
       if (pruned.length === prev.length) return prev;
       return writePetLimitSelection(pruned);
     });
-  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter]);
+  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign]);
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

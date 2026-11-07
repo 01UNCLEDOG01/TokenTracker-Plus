@@ -432,6 +432,17 @@ export const PROVIDER_LIMIT_SPECS = {
       return [];
     },
   },
+  opendesign: {
+    // OpenDesign subscription: 5-hour session + weekly allowance windows,
+    // same primary/secondary shape MiniMax/Codex render. Credits are
+    // allowance units, not money — plain percent bars, no currency line.
+    windows(data) {
+      return [
+        { key: "5h", labelKey: "limits.label.opendesign_5h", window: data.primary_window, windowSecondsField: "limit_window_seconds" },
+        { key: "weekly", labelKey: "limits.label.opendesign_weekly", window: data.secondary_window, windowSecondsField: "limit_window_seconds" },
+      ];
+    },
+  },
 };
 
 const GROK_PRODUCT_LABEL_KEYS = {
@@ -535,5 +546,8 @@ export function usageLimitsLabelCopyAnchor() {
     copy("limits.provider.raccoon"),
     copy("limits.label.raccoon_wallets"),
     copy("limits.label.apigoto_subscription"),
+    copy("limits.provider.opendesign"),
+    copy("limits.label.opendesign_5h"),
+    copy("limits.label.opendesign_weekly"),
   ];
 }

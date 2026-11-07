@@ -2075,3 +2075,8 @@ perks.claim.monthly_mark,ui,PerksPage,PerksPage,claim_monthly_mark,"Not claimed 
 perks.claim.monthly_claimed,ui,PerksPage,PerksPage,claim_monthly_claimed,"Claimed this month ({{date}})",,active
 
 sessions.page.cached,ui,SessionsPage,SessionsPage,cached,"Cached snapshot from {{date}}. Refresh to check for newer sessions.",,active
+limits.provider.opendesign,ui,LimitsPage,UsageLimitsPanel,provider_opendesign,"OpenDesign",,active
+limits.label.opendesign_5h,ui,LimitsPage,UsageLimitsPanel,opendesign_5h,"5h",,active
+limits.label.opendesign_weekly,ui,LimitsPage,UsageLimitsPanel,opendesign_weekly,"Weekly",,active
+limits.opendesignCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,opendesign_cookie_placeholder,"Paste the open-design.ai cookie (whole Cookie: line)",,active
+limits.opendesignCookie.note,ui,LimitsPage,UsageLimitsPanel,opendesign_cookie_note,"Manual entry required: the open-design.ai session cookie is invisible to page scripts, so copy the whole Cookie line from your browser's developer tools and paste it here.",,active

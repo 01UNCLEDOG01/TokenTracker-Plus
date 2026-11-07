@@ -53,6 +53,7 @@ const { fetchDeepSeekLimits } = require("./deepseek-limits");
 const { fetchMinimaxLimits } = require("./minimax-limits");
 const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchVyceAiLimits } = require("./vyceai-limits");
+const { fetchOpendesignLimits } = require("./opendesign-limits");
 const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
@@ -92,7 +93,7 @@ const USAGE_LIMITS_PROVIDER_IDS = Object.freeze([
   "antigravity", "apigoto", "sensenova", "zcode", "opencodeGo", "commandCode",
   "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy",
   "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae",
-  "codearts", "clinePass", "agentRouter", "vyceai",
+  "codearts", "clinePass", "agentRouter", "vyceai", "opendesign",
 ]);
 
 // Normalize a caller-supplied hidden-provider list (array, Set, or
@@ -4895,7 +4896,7 @@ async function fetchUsageLimitsUncached({
   // (#956).
   const hiddenSentinel = Promise.resolve({ configured: false });
   const hiddenSettled = Promise.resolve({ status: "fulfilled", value: { configured: false } });
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -5057,6 +5058,9 @@ async function fetchUsageLimitsUncached({
     // AgentRouter.org panel balance (New API access token + user id).
     hiddenSet.has("agentRouter") ? hiddenSentinel : fetchAgentRouterLimits({ home, fetchImpl: providerFetch, nowMs }),
     hiddenSet.has("vyceai") ? hiddenSentinel : fetchVyceAiLimits({ home, fetchImpl: providerFetch, nowMs }),
+    // OpenDesign subscription quota (5h + weekly), keyed by a hand-copied
+    // open-design.ai Cookie (see opendesign-credentials.json).
+    hiddenSet.has("opendesign") ? hiddenSentinel : fetchOpendesignLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;
@@ -5593,6 +5597,7 @@ async function fetchUsageLimitsUncached({
     clinePass: withPlanLabel(clinePassGateway, clinePassGateway?.plan_name, "Cline Pass"),
     agentRouter: withPlanLabel(agentRouter, agentRouter?.plan_name, "AgentRouter"),
     vyceai,
+    opendesign: withPlanLabel(opendesign, opendesign?.plan_name, "OpenDesign"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

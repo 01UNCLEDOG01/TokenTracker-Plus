@@ -336,6 +336,17 @@ function KilocodeIcon({ size = 16, className = "" }) {
   );
 }
 
+// OpenDesign (open-design.ai) — no official square mark shipped, so the card
+// carries a mono "O" ring letterform matching the site favicon's circular
+// glyph, drawn in currentColor like the other inline mono icons.
+function OpenDesignIcon({ size = 16, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="3.5" />
+    </svg>
+  );
+}
+
 // Zed Agent — official Zed logomark from zed-industries/zed assets.
 // A stylized "Z" with grid accents, mono with currentColor for dark/light.
 function ZedIcon({ size = 16, className = "" }) {
@@ -407,6 +418,7 @@ const PROVIDER_ICON_MAP = {
   MINIMAX: MinimaxIcon,
   // MiniMax Code (desktop agent) ships under the MiniMax brand mark.
   "MINIMAX-CODE": MinimaxIcon,
+  OPENDESIGN: OpenDesignIcon,
   OPENCODE: OpenCodeIcon,
   OMP: OmpIcon,
   PI: PiIcon,

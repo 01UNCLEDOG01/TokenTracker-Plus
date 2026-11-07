@@ -142,6 +142,7 @@ describe("useLimitsDisplayPrefs", () => {
         "codearts",
         "clinePass",
         "agentRouter",
+        "opendesign",
         "claude",
         "codex",
         "codingPlan",

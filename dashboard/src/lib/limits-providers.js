@@ -31,6 +31,7 @@ export const LIMIT_PROVIDER_IDS = [
   "codearts",
   "clinePass",
   "agentRouter",
+  "opendesign",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -85,6 +86,9 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   clinePass: "CLINE-PASS",
   // AgentRouter.org (New API panel) balance — official site logo.
   agentRouter: "AGENTROUTER",
+  // OpenDesign subscription quota — inline mono "O" brand mark (no official
+  // logo asset shipped yet; the letterform matches open-design.ai favicon).
+  opendesign: "OPENDESIGN",
 };
 
 export function limitProviderIconKey(id) {
@@ -151,6 +155,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.cline_pass");
     case "agentRouter":
       return copy("limits.provider.agentrouter");
+    case "opendesign":
+      return copy("limits.provider.opendesign");
     default:
       return String(id || "");
   }
