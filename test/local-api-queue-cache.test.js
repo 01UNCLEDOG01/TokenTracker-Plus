@@ -83,10 +83,16 @@ test("local usage endpoints reuse one parsed queue until the file changes", asyn
     assert.equal(summary.totals.total_tokens, 100);
     assert.equal(daily.data[0].total_tokens, 100);
     const coldReadBytes = queueBytes;
+    assert.ok(coldReadBytes >= Buffer.byteLength(queueContents),
+      "the first parse reads the whole queue exactly once");
+    // The signature-keyed scoped-rows memo sits above the reader: every call
+    // in the same fan-out shares ONE validation, so repeat reads within the
+    // memo TTL touch zero queue bytes. Any append/rewrite changes the file
+    // signature and recomputes immediately (asserted below).
     await callEndpoint(handler, "/functions/tokentracker-usage-summary?tz=UTC");
     const validationBytes = queueBytes - coldReadBytes;
-    assert.equal(validationBytes, Buffer.byteLength(queueContents),
-      "unchanged snapshots validate every byte before reusing parsed rows");
+    assert.equal(validationBytes, 0,
+      "repeat reads within the memo TTL share the one validation");
 
     // Appending invalidates the signature. Verify the old prefix and then
     // parse the new tail without parsing the old rows again.

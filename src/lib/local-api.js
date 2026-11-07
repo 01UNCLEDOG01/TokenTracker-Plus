@@ -114,6 +114,330 @@ const PROJECT_USAGE_MAX_ENTRIES = 10;
 const MAX_TIME_ZONE_CACHE_ENTRIES = 16;
 const AGGREGATION_BATCH_ROWS = 256;
 
+// One dashboard refresh fans out ~6 concurrent aggregate requests over the
+// same queue generation. The queue reader already shares one parsed rows
+// array per file signature, but everything DOWNSTREAM of it used to be
+// recomputed per request: the derived-row merge (Qoder estimates/credits,
+// JoyCode, 浣熊) and each endpoint's full O(rows) aggregation. Memoize those
+// per (rows identity, params) so the fan-out shares one computation.
+//
+// The TTL is load-bearing for correctness, not just hygiene: the derived
+// sources read their OWN files (JoyCode task history, Qoder spend/cookies,
+// Raccoon) which can change while queue.jsonl stands still, so caching purely
+// on queue identity could serve stale derived rows indefinitely. 10s bounds
+// that staleness far below the dashboard's own 30s auto-refresh cadence, and
+// any queue append changes the rows identity and invalidates immediately.
+const READ_MEMO_TTL_MS = 10_000;
+const READ_MEMO_MAX_KEYS = 16;
+
+// Shared entry lifecycle for both memo flavors below. An entry is shareable
+// while IN FLIGHT regardless of age (a slow machine's multi-second aggregation
+// must not fork into duplicate computations), and its freshness clock starts
+// when the compute SETTLES. Settled entries past the TTL are swept on the next
+// insertion into the same bucket, so expired results don't pin their (large)
+// row-array shells until an eviction cap happens to fire.
+function memoRead(byKey, innerKey, compute) {
+  const memo = byKey.get(innerKey);
+  if (memo && (!memo.settled || Date.now() - memo.at < READ_MEMO_TTL_MS)) return memo.value;
+  const now = Date.now();
+  for (const [key, entry] of byKey) {
+    if (entry.settled && now - entry.at >= READ_MEMO_TTL_MS) byKey.delete(key);
+  }
+  const entry = { at: now, settled: false, value: null };
+  const pending = Promise.resolve()
+    .then(compute)
+    .then((value) => {
+      entry.at = Date.now();
+      entry.settled = true;
+      return value;
+    });
+  entry.value = pending;
+  byKey.set(innerKey, entry);
+  // A failed computation must not poison the key for the TTL window: drop it
+  // so the next request retries, while concurrent awaiters still share this
+  // attempt's result (the rejected promise).
+  pending.catch(() => {
+    if (byKey.get(innerKey)?.value === pending) byKey.delete(innerKey);
+  });
+  return pending;
+}
+
+function createReadMemo() {
+  const outer = new WeakMap();
+  return function readMemo(outerKey, innerKey, compute) {
+    let byKey = outer.get(outerKey);
+    if (!byKey) {
+      byKey = new Map();
+      outer.set(outerKey, byKey);
+    }
+    return memoRead(byKey, innerKey, compute);
+  };
+}
+
+// Same contract as createReadMemo, but the outer key is a queue-file signature
+// STRING (dev:ino:size:mtimeNs:ctimeNs — the same fields the queue reader
+// validates). Keying on the signature lets the memoized compute own the
+// readQueueData call itself: a memo hit costs one lstat instead of a full
+// 276MB/710MB SHA-256 re-validation, while any append/rewrite/replacement
+// changes the signature and recomputes immediately.
+function createSignatureReadMemo({ maxOuterKeys = 8 } = {}) {
+  const outer = new Map();
+  return function readMemo(outerKey, innerKey, compute) {
+    let byKey = outer.get(outerKey);
+    if (!byKey) {
+      if (outer.size >= maxOuterKeys) outer.delete(outer.keys().next().value);
+      byKey = new Map();
+      outer.set(outerKey, byKey);
+    }
+    return memoRead(byKey, innerKey, compute);
+  };
+}
+
+const scopedRowsReadMemo = createSignatureReadMemo();
+const projectRowsReadMemo = createSignatureReadMemo();
+const modelBreakdownReadMemo = createReadMemo();
+const projectSummaryReadMemo = createReadMemo();
+
+// One lstat, not a read: the same signature fields createAsyncQueueReader
+// validates, used purely as a memo key. "missing" for a not-yet-created queue
+// (an empty read result keys identically, which is correct — no data).
+function queueFileSignature(queuePath) {
+  try {
+    const stat = fs.statSync(queuePath, { bigint: true });
+    return `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+  } catch {
+    return "missing";
+  }
+}
+
+// Sentinel thrown by the memoized aggregates when the pricing catalog reloads
+// mid-computation. The read-memo drops the throwing entry, so the endpoint's
+// retry (handleLocalApi re-entry) recomputes against the new revision instead
+// of serving a mix of two pricing catalogs.
+const PRICING_REVISION_CHANGED = Symbol("pricing_revision_changed");
+
+function cursorsMtimeMs(qp) {
+  try {
+    return fs.statSync(path.join(path.dirname(qp), "cursors.json")).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Full per-row source/model aggregation behind /usage-model-breakdown.
+ * Extracted verbatim from the endpoint so the read-memo can reuse its result
+ * across the dashboard's request fan-out. Throws PRICING_REVISION_CHANGED
+ * when the pricing catalog reloads mid-loop (the endpoint then retries).
+ */
+async function computeUsageModelBreakdownSources({ scopedRows, timeZoneContext, from, to, qp }) {
+  const pricingRevision = getPricingRevision();
+  const bySource = new Map();
+  let processed = 0;
+  for (const row of scopedRows) {
+    if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
+    if (!row.hour_start) continue;
+    const day = rowDayKey(row, timeZoneContext);
+    if (day < from || day > to) continue;
+    const src = row.source || "unknown";
+    // Qoder's transcripts name their router, not a model ("gfmodel" for
+    // GLM-5.3-Flash). The row keeps that id so the cloud ingest key stays
+    // stable; the card shows the model Qoder's own client texts name.
+    const mdl = (src === "qoder" || src === "qoder-cn") ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
+    if (!bySource.has(src))
+      bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0", cache_observed_input_tokens: 0 }, models: new Map() });
+    const sa = bySource.get(src);
+    sa.totals.total_tokens += row.total_tokens || 0;
+    sa.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
+    sa.totals.input_tokens += row.input_tokens || 0;
+    sa.totals.output_tokens += row.output_tokens || 0;
+    sa.totals.cached_input_tokens += row.cached_input_tokens || 0;
+    sa.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
+    sa.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+    // Cache-coverage signal (TRAE CN request ledger only): input-side
+    // volume from rows actually carrying the client's exact_* fields.
+    // Undefined on every other source's rows, so the sum stays 0 there.
+    if (row.cache_observed_input_tokens != null) {
+      sa.totals.cache_observed_input_tokens = (sa.totals.cache_observed_input_tokens || 0) +
+        (Number(row.cache_observed_input_tokens) || 0);
+    }
+    // Request-only sources (#948: credit-billed transcripts that report no
+    // tokens) carry their activity solely as conversation_count — thread it
+    // through so the dashboard can surface "0 tokens / N requests".
+    sa.totals.conversation_count += row.conversation_count || 0;
+    if (!sa.models.has(mdl))
+      sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0", cache_observed_input_tokens: 0 }, speed_tiers: { priority: emptySpeedTierAccumulator(), ultrafast: emptySpeedTierAccumulator() } });
+    const ma = sa.models.get(mdl);
+    // #975: Codex Fast/Ultrafast subsets ride queue rows only when nonzero
+    // (other sources never carry them). Aggregate tokens per tier; the
+    // per-tier cost comes from differencing computeRowCost on synthetic
+    // rows, so the premium math stays single-sourced in the pricing module.
+    accumulateSpeedTiers(ma.speed_tiers, row);
+    // Same source list computeRowCost prices from, so a credits-derived
+    // source (qoder) is labelled as tool-reported instead of being called
+    // an estimate from model pricing it never had.
+    const reportedCost = hasAuthoritativeRowCost(src) && Number(row.total_cost_usd) > 0;
+    const costSource = reportedCost ? "provider_reported" : "model_pricing";
+    ma.cost_source = ma.cost_source && ma.cost_source !== costSource ? "mixed" : costSource;
+    ma.totals.total_tokens += row.total_tokens || 0;
+    ma.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
+    ma.totals.input_tokens += row.input_tokens || 0;
+    ma.totals.output_tokens += row.output_tokens || 0;
+    ma.totals.cached_input_tokens += row.cached_input_tokens || 0;
+    ma.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
+    ma.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
+    ma.totals.conversation_count += row.conversation_count || 0;
+    if (row.cache_observed_input_tokens != null) {
+      ma.totals.cache_observed_input_tokens = (ma.totals.cache_observed_input_tokens || 0) +
+        (Number(row.cache_observed_input_tokens) || 0);
+    }
+    // Price each row, exactly as aggregateByDay does for the hero (#653).
+    // computeRowCost is not linear for models with a Fast tier or
+    // long-context rates: priority_* / long_context_* mark a subset of the
+    // base columns rather than adding volume, so they survive only while the
+    // row is intact. Summing the base columns first and pricing once silently
+    // dropped every premium — same tokens, fewer dollars than the hero.
+    ma.totals.total_cost_usd = Number(ma.totals.total_cost_usd || 0) + foldTraeRowCost(row, computeRowCost(row));
+  }
+  if (pricingRevision !== getPricingRevision()) throw PRICING_REVISION_CHANGED;
+
+  // All-time self-observed hit rate for the TRAE family, measured from the
+  // BOOKED buckets in cursors.json (authoritative, one row per bucket, no
+  // queue append duplicates). Measured buckets only: those whose totals
+  // carry the client's exact_* coverage signal. A day view's own fielded
+  // rows are too few to be evidence — the model's fielded history is the
+  // evidence (owner ruling 2026-11-07).
+  const observedHitsByModel = new Map();
+  try {
+    const cursorsData = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "cursors.json"), "utf8"));
+    for (const [bucketKey, bucket] of Object.entries(cursorsData?.hourly?.buckets || {})) {
+      if (!bucketKey.startsWith("trae-cn|")) continue;
+      const bucketTotals = bucket?.totals || {};
+      const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
+      if (!(observedVolume > 0)) continue;
+      const observedModel = bucketKey.split("|")[1] || "unknown";
+      const acc = observedHitsByModel.get(observedModel) || { hits: 0, volume: 0 };
+      acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
+      acc.volume += observedVolume;
+      observedHitsByModel.set(observedModel, acc);
+    }
+  } catch (_error) {
+    // A malformed cursors file just means no self evidence — the fold keeps
+    // its "nothing fabricated" fallbacks.
+  }
+
+  const sources = Array.from(bySource.values()).map((s) => {
+    s.models = Array.from(s.models.values())
+      .map((m) => ({
+        ...m,
+        speed_tiers: hasObservedSpeedTiers(m.speed_tiers) ? m.speed_tiers : null,
+        cache_observed_hit_rate: (() => {
+          const all = observedHitsByModel.get(m.model_id);
+          return all && all.volume > 0
+            ? Math.round((all.hits / all.volume) * 1000) / 10
+            : null;
+        })(),
+        totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
+      }))
+      .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);
+    const sourceCost = s.models.reduce((sum, m) => sum + Number(m.totals.total_cost_usd), 0);
+    s.totals.total_cost_usd = sourceCost.toFixed(6);
+    return s;
+  });
+  return { sources };
+}
+
+/**
+ * Per-project token aggregation behind /project-usage-summary. Extracted
+ * verbatim from the endpoint so the read-memo can reuse its result across the
+ * dashboard's request fan-out and repeat period switches.
+ */
+async function computeProjectUsageEntries({ projectRows, timeZoneContext, from, to, limit, qp }) {
+  const hasRange = Boolean(from || to);
+  const dayInRange = (day) => {
+    if (!hasRange) return true;
+    if (!day) return false;
+    return (!from || day >= from) && (!to || day <= to);
+  };
+
+  const aggregateEntries = async (rows, keyOf, refOf) => {
+    const byKey = new Map();
+    let processed = 0;
+    for (const row of rows) {
+      if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
+      if (hasRange && !dayInRange(rowDayKey(row, timeZoneContext))) continue;
+      const key = keyOf(row);
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          project_key: key,
+          project_ref: refOf(row),
+          total_tokens: 0,
+          billable_total_tokens: 0,
+          input_tokens: 0,
+          output_tokens: 0,
+          cached_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          reasoning_output_tokens: 0,
+          conversation_count: 0,
+          sourceTotals: new Map(),
+        });
+      }
+      const agg = byKey.get(key);
+      agg.total_tokens += Number(row.total_tokens || 0);
+      agg.billable_total_tokens += Number(
+        row.billable_total_tokens ?? row.total_tokens ?? 0,
+      );
+      agg.input_tokens += Number(row.input_tokens || 0);
+      agg.output_tokens += Number(row.output_tokens || 0);
+      agg.cached_input_tokens += Number(row.cached_input_tokens || 0);
+      agg.cache_creation_input_tokens += Number(row.cache_creation_input_tokens || 0);
+      agg.reasoning_output_tokens += Number(row.reasoning_output_tokens || 0);
+      agg.conversation_count += Number(row.conversation_count || 0);
+      if (!agg.project_ref) agg.project_ref = refOf(row);
+      const src = row.source || "unknown";
+      agg.sourceTotals.set(
+        src,
+        (agg.sourceTotals.get(src) || 0) + Number(row.total_tokens || 0),
+      );
+    }
+    return Array.from(byKey.values())
+      .sort((a, b) => b.billable_total_tokens - a.billable_total_tokens)
+      .slice(0, limit)
+      .map(({ sourceTotals, ...entry }) => ({
+        ...entry,
+        total_tokens: String(entry.total_tokens),
+        billable_total_tokens: String(entry.billable_total_tokens),
+        sources: Array.from(sourceTotals.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([source, totalTokens]) => ({ source, total_tokens: totalTokens })),
+      }));
+  };
+
+  let entries = await aggregateEntries(
+    projectRows,
+    (row) => row.project_key || "unknown",
+    (row) => row.project_ref || "",
+  );
+
+  // If no project-attributed rows exist yet (user hasn't synced project
+  // attribution, or never used a project-capable CLI), fall back to
+  // per-source aggregation over the main queue so the panel isn't
+  // totally empty. This path used to also exist for the non-empty case
+  // and produce wrong numbers; keep it only as the empty fallback.
+  if (entries.length === 0 && projectRows.length === 0) {
+    entries = await aggregateEntries(
+      await readQueueData(qp),
+      (row) => row.source || "unknown",
+      // Synthetic source-only row: leave project_ref empty rather than
+      // fabricating `https://${src}.ai`, which resolves to unrelated
+      // domains (e.g. codex.ai, cursor.ai) and was sent to the
+      // dashboard as a clickable href before v0.11.1 / this commit.
+      () => "",
+    );
+  }
+  return entries;
+}
+
 // The native dashboard fans one refresh out across several local endpoints.
 // Keep one immutable, deduped view of the current queue so those endpoints do
 // not all read and JSON.parse the same append-only file. A file identity +
@@ -151,8 +475,15 @@ async function readProjectUsageContext(qp, url) {
     return (!from || day >= from) && (!to || day <= to);
   };
   const projectQueuePath = path.join(path.dirname(qp), "project.queue.jsonl");
-  const projectRows = (await readProjectQueueData(projectQueuePath)).filter(
-    (row) => row.project_key !== CLAUDE_MEM_OBSERVER_PROJECT_KEY,
+  // Same signature-memo pattern as scopedQueueRows: the 710MB project queue
+  // read lives inside the memo, so the project fan-out pays one validation.
+  const projectRows = await projectRowsReadMemo(
+    queueFileSignature(projectQueuePath),
+    "claude-mem-filtered",
+    async () => {
+      const rawProjectRows = await readProjectQueueData(projectQueuePath);
+      return rawProjectRows.filter((row) => row.project_key !== CLAUDE_MEM_OBSERVER_PROJECT_KEY);
+    },
   );
   return { from, to, timeZoneContext, hasRange, dayInRange, projectRows };
 }
@@ -595,35 +926,40 @@ function accumulateSpeedTiers(speedTiers, row) {
 
 async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
   const scope = getRequestedUsageScope(url);
-  const allRows = await readQueueData(queuePath);
-  // Qoder CN stopped storing token counts locally in 2026-07; its estimated
-  // per-day rows (see qoder-cn-estimate.js) are merged here so every usage
-  // endpoint — summary, daily, hourly, heatmap, model breakdown — counts the
-  // same spend. Estimated rows only fill the shortfall against local rows,
-  // so no day is ever double-counted.
-  const estimatedRows = qoderCnEstimatedRows(allRows);
-  // Qoder international charges in credits and writes no token counts, so its
-  // usage would otherwise never appear at all. The rows carry money only.
-  const intlCreditRows = qoderIntlCreditRows(allRows, {
-    projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
+  // Memoized per (queue-file signature, scope, includeJoycode) — the READ
+  // itself lives inside the memo, so a fan-out pays one queue validation
+  // instead of one per endpoint. See the signature-memo note above.
+  return scopedRowsReadMemo(queueFileSignature(queuePath), `${scope}|${includeJoycode}`, async () => {
+    const allRows = await readQueueData(queuePath);
+    // Qoder CN stopped storing token counts locally in 2026-07; its estimated
+    // per-day rows (see qoder-cn-estimate.js) are merged here so every usage
+    // endpoint — summary, daily, hourly, heatmap, model breakdown — counts the
+    // same spend. Estimated rows only fill the shortfall against local rows,
+    // so no day is ever double-counted.
+    const estimatedRows = qoderCnEstimatedRows(allRows);
+    // Qoder international charges in credits and writes no token counts, so its
+    // usage would otherwise never appear at all. The rows carry money only.
+    const intlCreditRows = qoderIntlCreditRows(allRows, {
+      projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
+    });
+    // Antigravity's native generation ledger is authoritative at every time
+    // granularity. External daily caches must not replace its measured buckets.
+    // JoyCode keeps provider-reported task totals outside the queue; derive them
+    // at read time so usage, sessions and the 京东 badge share one source.
+    const joycodeRows = includeJoycode ? joycodeTaskRows() : [];
+    // 商汤小浣熊's own agent trace (not gateway traffic): derived at read time so
+    // its card and the queue-backed cards share one aggregation path.
+    const raccoonRows = includeJoycode ? raccoonOfficeUsageRows() : [];
+    const mergedRows = estimatedRows.length || intlCreditRows.length || joycodeRows.length || raccoonRows.length
+      ? allRows.concat(estimatedRows, intlCreditRows, joycodeRows, raccoonRows)
+      : allRows;
+    return {
+      scope,
+      allRows: mergedRows,
+      rows: filterRowsByUsageScope(mergedRows, scope),
+      excludedSources: listExcludedSources(mergedRows, scope),
+    };
   });
-  // Antigravity's native generation ledger is authoritative at every time
-  // granularity. External daily caches must not replace its measured buckets.
-  // JoyCode keeps provider-reported task totals outside the queue; derive them
-  // at read time so usage, sessions and the 京东 badge share one source.
-  const joycodeRows = includeJoycode ? joycodeTaskRows() : [];
-  // 商汤小浣熊's own agent trace (not gateway traffic): derived at read time so
-  // its card and the queue-backed cards share one aggregation path.
-  const raccoonRows = includeJoycode ? raccoonOfficeUsageRows() : [];
-  const mergedRows = estimatedRows.length || intlCreditRows.length || joycodeRows.length || raccoonRows.length
-    ? allRows.concat(estimatedRows, intlCreditRows, joycodeRows, raccoonRows)
-    : allRows;
-  return {
-    scope,
-    allRows: mergedRows,
-    rows: filterRowsByUsageScope(mergedRows, scope),
-    excludedSources: listExcludedSources(mergedRows, scope),
-  };
 }
 
 // A source counts toward terminal_purist only when the tokens were burned in a
@@ -4149,122 +4485,25 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const to = url.searchParams.get("to") || "";
       const timeZoneContext = getTimeZoneContext(url);
       const { rows: scopedRows, scope, excludedSources } = await scopedRowsForUrl(url);
-      const pricingRevision = getPricingRevision();
-      const bySource = new Map();
-      let processed = 0;
-      for (const row of scopedRows) {
-        if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
-        if (!row.hour_start) continue;
-        const day = rowDayKey(row, timeZoneContext);
-        if (day < from || day > to) continue;
-        const src = row.source || "unknown";
-        // Qoder's transcripts name their router, not a model ("gfmodel" for
-        // GLM-5.3-Flash). The row keeps that id so the cloud ingest key stays
-        // stable; the card shows the model Qoder's own client texts name.
-        const mdl = (src === "qoder" || src === "qoder-cn") ? qoderIntlDisplayModel(row.model) : (row.model || "unknown");
-        if (!bySource.has(src))
-          bySource.set(src, { source: src, source_scope: getSourceScope(src), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0", cache_observed_input_tokens: 0 }, models: new Map() });
-        const sa = bySource.get(src);
-        sa.totals.total_tokens += row.total_tokens || 0;
-        sa.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
-        sa.totals.input_tokens += row.input_tokens || 0;
-        sa.totals.output_tokens += row.output_tokens || 0;
-        sa.totals.cached_input_tokens += row.cached_input_tokens || 0;
-        sa.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
-        sa.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
-        // Cache-coverage signal (TRAE CN request ledger only): input-side
-        // volume from rows actually carrying the client's exact_* fields.
-        // Undefined on every other source's rows, so the sum stays 0 there.
-        if (row.cache_observed_input_tokens != null) {
-          sa.totals.cache_observed_input_tokens = (sa.totals.cache_observed_input_tokens || 0) +
-            (Number(row.cache_observed_input_tokens) || 0);
-        }
-        // Request-only sources (#948: credit-billed transcripts that report no
-        // tokens) carry their activity solely as conversation_count — thread it
-        // through so the dashboard can surface "0 tokens / N requests".
-        sa.totals.conversation_count += row.conversation_count || 0;
-        if (!sa.models.has(mdl))
-          sa.models.set(mdl, { model: mdl, model_id: mdl, pricing: getModelPricingInfo(mdl, { source: src }), totals: { total_tokens: 0, billable_total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0, conversation_count: 0, total_cost_usd: "0", cache_observed_input_tokens: 0 }, speed_tiers: { priority: emptySpeedTierAccumulator(), ultrafast: emptySpeedTierAccumulator() } });
-        const ma = sa.models.get(mdl);
-        // #975: Codex Fast/Ultrafast subsets ride queue rows only when nonzero
-        // (other sources never carry them). Aggregate tokens per tier; the
-        // per-tier cost comes from differencing computeRowCost on synthetic
-        // rows, so the premium math stays single-sourced in the pricing module.
-        accumulateSpeedTiers(ma.speed_tiers, row);
-        // Same source list computeRowCost prices from, so a credits-derived
-        // source (qoder) is labelled as tool-reported instead of being called
-        // an estimate from model pricing it never had.
-        const reportedCost = hasAuthoritativeRowCost(src) && Number(row.total_cost_usd) > 0;
-        const costSource = reportedCost ? "provider_reported" : "model_pricing";
-        ma.cost_source = ma.cost_source && ma.cost_source !== costSource ? "mixed" : costSource;
-        ma.totals.total_tokens += row.total_tokens || 0;
-        ma.totals.billable_total_tokens += row.billable_total_tokens ?? row.total_tokens ?? 0;
-        ma.totals.input_tokens += row.input_tokens || 0;
-        ma.totals.output_tokens += row.output_tokens || 0;
-        ma.totals.cached_input_tokens += row.cached_input_tokens || 0;
-        ma.totals.cache_creation_input_tokens += row.cache_creation_input_tokens || 0;
-        ma.totals.reasoning_output_tokens += row.reasoning_output_tokens || 0;
-        ma.totals.conversation_count += row.conversation_count || 0;
-        if (row.cache_observed_input_tokens != null) {
-          ma.totals.cache_observed_input_tokens = (ma.totals.cache_observed_input_tokens || 0) +
-            (Number(row.cache_observed_input_tokens) || 0);
-        }
-        // Price each row, exactly as aggregateByDay does for the hero (#653).
-        // computeRowCost is not linear for models with a Fast tier or
-        // long-context rates: priority_* / long_context_* mark a subset of the
-        // base columns rather than adding volume, so they survive only while the
-        // row is intact. Summing the base columns first and pricing once silently
-        // dropped every premium — same tokens, fewer dollars than the hero.
-        ma.totals.total_cost_usd = Number(ma.totals.total_cost_usd || 0) + foldTraeRowCost(row, computeRowCost(row));
-      }
-      if (pricingRevision !== getPricingRevision()) return handleLocalApi(req, res, url);
-
-      // All-time self-observed hit rate for the TRAE family, measured from the
-      // BOOKED buckets in cursors.json (authoritative, one row per bucket, no
-      // queue append duplicates). Measured buckets only: those whose totals
-      // carry the client's exact_* coverage signal. A day view's own fielded
-      // rows are too few to be evidence — the model's fielded history is the
-      // evidence (owner ruling 2026-11-07).
-      const observedHitsByModel = new Map();
+      // The full O(rows) re-price is the heaviest aggregate on the dashboard
+      // (measured 2.4s+ even for a 7-day window, because the loop walks every
+      // row regardless of from/to). Memoized per (queue generation, params) —
+      // see the read-memo note near AGGREGATION_BATCH_ROWS. cursors.json's
+      // mtime joins the key: the TRAE self-evidence below is read from it, not
+      // from the queue.
+      let result;
       try {
-        const cursorsData = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "cursors.json"), "utf8"));
-        for (const [bucketKey, bucket] of Object.entries(cursorsData?.hourly?.buckets || {})) {
-          if (!bucketKey.startsWith("trae-cn|")) continue;
-          const bucketTotals = bucket?.totals || {};
-          const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
-          if (!(observedVolume > 0)) continue;
-          const observedModel = bucketKey.split("|")[1] || "unknown";
-          const acc = observedHitsByModel.get(observedModel) || { hits: 0, volume: 0 };
-          acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
-          acc.volume += observedVolume;
-          observedHitsByModel.set(observedModel, acc);
-        }
-      } catch (_error) {
-        // A malformed cursors file just means no self evidence — the fold keeps
-        // its "nothing fabricated" fallbacks.
+        result = await modelBreakdownReadMemo(
+          scopedRows,
+          `${timeZoneContextKey(timeZoneContext)}|${from}|${to}|${cursorsMtimeMs(qp)}`,
+          () => computeUsageModelBreakdownSources({ scopedRows, timeZoneContext, from, to, qp }),
+        );
+      } catch (error) {
+        if (error === PRICING_REVISION_CHANGED) return handleLocalApi(req, res, url);
+        throw error;
       }
-
-      const sources = Array.from(bySource.values()).map((s) => {
-        s.models = Array.from(s.models.values())
-          .map((m) => ({
-            ...m,
-            speed_tiers: hasObservedSpeedTiers(m.speed_tiers) ? m.speed_tiers : null,
-            cache_observed_hit_rate: (() => {
-              const all = observedHitsByModel.get(m.model_id);
-              return all && all.volume > 0
-                ? Math.round((all.hits / all.volume) * 1000) / 10
-                : null;
-            })(),
-            totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
-          }))
-          .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);
-        const sourceCost = s.models.reduce((sum, m) => sum + Number(m.totals.total_cost_usd), 0);
-        s.totals.total_cost_usd = sourceCost.toFixed(6);
-        return s;
-      });
-
       json(res, {
-        from, to, days: 0, scope, excluded_sources: excludedSources, sources, trae_estimate_applied: true,
+        from, to, days: 0, scope, excluded_sources: excludedSources, sources: result.sources, trae_estimate_applied: true,
         pricing: { model: "per-model", pricing_mode: "per_token_type", source: "litellm", effective_from: new Date().toISOString().slice(0, 10) },
       });
       return true;
@@ -4425,84 +4664,16 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const limit = Number.isFinite(limitParam) && limitParam > 0
         ? Math.min(Math.floor(limitParam), PROJECT_USAGE_MAX_ENTRIES)
         : PROJECT_USAGE_MAX_ENTRIES;
-      const { timeZoneContext, hasRange, dayInRange, projectRows } =
+      const { timeZoneContext, from, to, projectRows } =
         await readProjectUsageContext(qp, url);
-
-      const aggregateEntries = async (rows, keyOf, refOf) => {
-        const byKey = new Map();
-        let processed = 0;
-        for (const row of rows) {
-          if (++processed % AGGREGATION_BATCH_ROWS === 0) await yieldToRequests();
-          if (hasRange && !dayInRange(rowDayKey(row, timeZoneContext))) continue;
-          const key = keyOf(row);
-          if (!byKey.has(key)) {
-            byKey.set(key, {
-              project_key: key,
-              project_ref: refOf(row),
-              total_tokens: 0,
-              billable_total_tokens: 0,
-              input_tokens: 0,
-              output_tokens: 0,
-              cached_input_tokens: 0,
-              cache_creation_input_tokens: 0,
-              reasoning_output_tokens: 0,
-              conversation_count: 0,
-              sourceTotals: new Map(),
-            });
-          }
-          const agg = byKey.get(key);
-          agg.total_tokens += Number(row.total_tokens || 0);
-          agg.billable_total_tokens += Number(
-            row.billable_total_tokens ?? row.total_tokens ?? 0,
-          );
-          agg.input_tokens += Number(row.input_tokens || 0);
-          agg.output_tokens += Number(row.output_tokens || 0);
-          agg.cached_input_tokens += Number(row.cached_input_tokens || 0);
-          agg.cache_creation_input_tokens += Number(row.cache_creation_input_tokens || 0);
-          agg.reasoning_output_tokens += Number(row.reasoning_output_tokens || 0);
-          agg.conversation_count += Number(row.conversation_count || 0);
-          if (!agg.project_ref) agg.project_ref = refOf(row);
-          const src = row.source || "unknown";
-          agg.sourceTotals.set(
-            src,
-            (agg.sourceTotals.get(src) || 0) + Number(row.total_tokens || 0),
-          );
-        }
-        return Array.from(byKey.values())
-          .sort((a, b) => b.billable_total_tokens - a.billable_total_tokens)
-          .slice(0, limit)
-          .map(({ sourceTotals, ...entry }) => ({
-            ...entry,
-            total_tokens: String(entry.total_tokens),
-            billable_total_tokens: String(entry.billable_total_tokens),
-            sources: Array.from(sourceTotals.entries())
-              .sort((a, b) => b[1] - a[1])
-              .map(([source, totalTokens]) => ({ source, total_tokens: totalTokens })),
-          }));
-      };
-
-      let entries = await aggregateEntries(
+      // The 707MB project queue makes this the heaviest single request in the
+      // dashboard's fan-out (measured 3.6s all-time). Memoized per (queue
+      // generation, params) — see the read-memo note near AGGREGATION_BATCH_ROWS.
+      const entries = await projectSummaryReadMemo(
         projectRows,
-        (row) => row.project_key || "unknown",
-        (row) => row.project_ref || "",
+        `${timeZoneContextKey(timeZoneContext)}|${from}|${to}|${limit}`,
+        () => computeProjectUsageEntries({ projectRows, timeZoneContext, from, to, limit, qp }),
       );
-
-      // If no project-attributed rows exist yet (user hasn't synced project
-      // attribution, or never used a project-capable CLI), fall back to
-      // per-source aggregation over the main queue so the panel isn't
-      // totally empty. This path used to also exist for the non-empty case
-      // and produce wrong numbers; keep it only as the empty fallback.
-      if (entries.length === 0 && projectRows.length === 0) {
-        entries = await aggregateEntries(
-          await readQueueData(qp),
-          (row) => row.source || "unknown",
-          // Synthetic source-only row: leave project_ref empty rather than
-          // fabricating `https://${src}.ai`, which resolves to unrelated
-          // domains (e.g. codex.ai, cursor.ai) and was sent to the
-          // dashboard as a clickable href before v0.11.1 / this commit.
-          () => "",
-        );
-      }
 
       json(res, { generated_at: new Date().toISOString(), entries });
       return true;
