@@ -834,6 +834,41 @@ describe("applyTraeEstimatedCosts", () => {
     expect(cn.cacheReusedTokens).toBeCloseTo(volume * 0.952, 0);
   });
 
+  it("falls back to the official cache price ratio for models with no measured or peer evidence", () => {
+    // Owner ruling 2026-11-07: "用官方或主流的缓存率来兜底" — a server-folded
+    // payload where the unused model (glm-5.2, ratio 0.186) has no self rate
+    // and no peer still gets its cache column estimated from the official
+    // pricing, instead of showing a 0 cache read.
+    const payload = {
+      trae_estimate_applied: true,
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 9.43, input_tokens: 12_400_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, conversation_count: 14811, cache_observed_input_tokens: 0 },
+          models: [
+            {
+              model_id: "glm-5.2",
+              name: "glm-5.2",
+              pricing: { input: 1.4, output: 5.6, cache_read: 0.26, cache_write: 1.4 },
+              totals: { total_cost_usd: 9.43, input_tokens: 12_400_000, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 14811, cache_observed_input_tokens: 0 },
+            },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(payload));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    if (!cn) throw new Error("expected a TRAE CN provider");
+    const model = cn.models[0];
+    const volume = 12_400_000; // input + 0 measured cache
+    // No cached tokens measured and no observed signal: ratio = 0.186.
+    expect(model.tokens.cached).toBeCloseTo(volume * (0.26 / 1.4), 5);
+    expect(model.cacheEstimated).toBe(true);
+    expect(model.cacheHitRate).toBe(19);
+    expect(cn.cacheHitRate).toBe(19);
+    expect(cn.cacheReusedTokens).toBeCloseTo(volume * (0.26 / 1.4), 5);
+  });
+
   it("keeps a pre-v5 model (no observed signal) untouched even when a peer exists", () => {
     // The sprinkle fixture WITHOUT its observed signal = a pre-v5 bucket:
     // coverage is genuinely unknown (the hit rate cannot stand in for it), so

@@ -425,12 +425,17 @@ function applyTraeEstimatedCacheStats(providers: any[]) {
       const coverage = observed != null && inputSide > 0 ? Math.min(observed / inputSide, 1) : null;
       const selfRate = Number(t.cacheObservedHitRate);
       const rates = hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
+      // Owner ruling 2026-11-07, full chain: own fielded rate -> peer median
+      // -> official/mainstream cache rate. The terminal fallback is this
+      // model's published cache-read price ratio (cacheDiscountFor) — a
+      // conservative mainstream hit-rate floor from official pricing, never
+      // a fabricated number.
       const h = coverage != null && coverage < 0.5
         ? (Number.isFinite(selfRate) && selfRate > 0
             ? Math.min(Math.max(selfRate / 100, 0), 1)
             : rates && rates.length
               ? Math.min(Math.max(median(rates) / 100, 0), 1)
-              : null)
+              : (cacheDiscountFor(model) ?? null))
         : null;
       if (h == null) {
         estReused += cached;
