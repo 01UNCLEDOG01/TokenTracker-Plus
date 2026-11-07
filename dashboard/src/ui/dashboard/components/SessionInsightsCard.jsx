@@ -2,8 +2,10 @@ import React, { useEffect, useId, useMemo, useState } from "react";
 import { Card } from "../../components";
 import { copy } from "../../../lib/copy";
 import { getContextHealth, getSessionInsights } from "../../../lib/api";
+import { formatUsdCurrency } from "../../../lib/format";
 import { useSessionEfficiencyPref } from "../../../hooks/use-session-efficiency-pref.js";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
+import { useCurrency } from "../../../hooks/useCurrency.js";
 import { TOKEN_FORMAT_MODES } from "../../../lib/token-format.js";
 import { useLatestRequestGuard } from "../../../hooks/use-latest-request-guard";
 
@@ -13,9 +15,11 @@ function pct(value) {
   return value == null ? "—" : `${Math.round(value * 100)}%`;
 }
 
-function money(value) {
+// Settings-currency formatting (¥ when 人民币 is selected) — the card used to
+// hardcode "$", contradicting the currency picker for non-USD users.
+function money(value, { currency, rate }) {
   if (value == null) return "—";
-  return value < 1 ? `$${value.toFixed(4)}` : `$${value.toFixed(2)}`;
+  return formatUsdCurrency(value, { currency, rate, decimals: value < 1 ? 4 : 2 });
 }
 
 function count(value) {
@@ -55,6 +59,8 @@ export function SessionInsightsCard({ from, to }) {
   const { enabled } = useSessionEfficiencyPref();
   const beginRequest = useLatestRequestGuard([enabled, from, to]);
   const { formatTokens } = useTokenFormat();
+  // 单次编辑成本 follows the settings currency (¥ when 人民币 is selected).
+  const { currency, rate } = useCurrency();
   const formatCompactTokens = (value) => formatTokens(value, { mode: TOKEN_FORMAT_MODES.COMPACT });
   useEffect(() => {
     const isCurrent = beginRequest();
@@ -122,7 +128,7 @@ export function SessionInsightsCard({ from, to }) {
         />
         <Metric
           label={copy("sessions.card.cost_edit")}
-          value={money(summary.cost_per_edit)}
+          value={money(summary.cost_per_edit, { currency, rate })}
           detail={copy("sessions.card.edit_turn_count", { count: count(editTurns) })}
         />
       </div>
