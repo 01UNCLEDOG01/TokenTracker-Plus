@@ -44,6 +44,7 @@ import {
 import {
   getUserStatus,
   invalidateAccountResponseCache,
+  invalidateLocalUsageResponseCache,
   invalidateSessionInsightsCache,
   triggerLocalSync,
   renameAccountDevice,
@@ -928,7 +929,16 @@ export function DashboardPage({
 
   const refreshUsageStats = useCallback(async () => {
     return runSingleFlight(usageStatsFlightRef, refreshContextKey, async () => {
-      if (accountView) invalidateAccountResponseCache();
+      if (accountView) {
+        invalidateAccountResponseCache();
+        // On localhost the account aggregate is served by the local server
+        // through the same fetchLocalJson path as the local aggregates, so it
+        // rides the localUsageResponseCache too (?account=1 keys it
+        // separately). Without this, a 30s-cache hit would serve the
+        // pre-upload cross-device aggregate after a cloud sync — the freshness
+        // contract this refresher exists to keep.
+        invalidateLocalUsageResponseCache();
+      }
       if (!accountView) invalidateSessionInsightsCache();
       await Promise.all([
         refreshUsage(),

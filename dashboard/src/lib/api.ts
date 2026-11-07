@@ -32,6 +32,29 @@ const ACCOUNT_RESPONSE_STALE_IF_ERROR_MS = 5 * 60_000;
 const sessionInsightsResponseCache = new Map<string, { fetchedAt: number; value: any }>();
 const SESSION_INSIGHTS_RESPONSE_TTL_MS = 5 * 60_000;
 const SESSION_INSIGHTS_RESPONSE_STALE_IF_ERROR_MS = 15 * 60_000;
+// Local-mode mirror of the account cache above, for the dashboard's aggregate
+// fan-out only. In local mode every period switch re-fires ~6 full-scan
+// aggregations (queue.jsonl + project.queue.jsonl are re-read server-side each
+// time), which made re-selecting the 总计 period cost a multi-second stall
+// EVERY time. The TTL is deliberately BELOW the 30s auto-refresh cadence
+// (LOCAL_USAGE_REFRESH_INTERVAL_MS): fetchedAt is stamped when the fetch
+// SETTLES, so a 30s TTL would let the next tick (fired 30s after the previous
+// tick, fetch having taken a few seconds) hit the cache and silently halve the
+// real refresh rate. 20s keeps every scheduled tick on a real fetch while
+// still absorbing rapid back-and-forth period switches. Any local sync
+// (triggerLocalSync) invalidates immediately, so the manual refresh button and
+// the mount-time sync always fetch fresh.
+const localUsageResponseCache = new Map<string, { fetchedAt: number; value: any }>();
+const LOCAL_USAGE_RESPONSE_TTL_MS = 20_000;
+const LOCAL_USAGE_RESPONSE_STALE_IF_ERROR_MS = 10 * 60_000;
+const LOCAL_USAGE_CACHE_SLUGS = new Set<string>([
+  "tokentracker-usage-summary",
+  "tokentracker-usage-daily",
+  "tokentracker-usage-heatmap",
+  "tokentracker-usage-model-breakdown",
+  "tokentracker-usage-monthly",
+  "tokentracker-project-usage-summary",
+]);
 const verifiedAccountTokens = new Set<string>();
 let accountCacheGeneration = 0;
 function assertBackendInstance(baseUrl: string, anonKey: string) {
@@ -70,6 +93,49 @@ function coalesceJsonGet(key: string, request: () => Promise<any>) {
   };
   pending.then(cleanup, cleanup);
   return pending;
+}
+
+// Same contract as cachedAccountJsonGet, scoped to the local dashboard's
+// aggregate endpoints: TTL hit, in-flight coalesce, stale-if-error.
+function cachedLocalUsageJsonGet(url: URL, request: () => Promise<any>) {
+  const params = new URLSearchParams(url.searchParams);
+  params.sort();
+  const key = `${url.origin}${url.pathname}?${params}`;
+  const now = Date.now();
+  const cached = localUsageResponseCache.get(key);
+  if (cached && now - cached.fetchedAt < LOCAL_USAGE_RESPONSE_TTL_MS) {
+    return Promise.resolve(structuredClone(cached.value));
+  }
+  return coalesceJsonGet(`local-usage:${key}`, async () => {
+    try {
+      const value = await request();
+      // Store a clone, mirroring the account cache: the first caller receives
+      // this exact object, and any future in-place mutation of response rows
+      // (a sort on a cached array, say) must not poison TTL hits or the
+      // 10-minute stale-if-error fallback.
+      localUsageResponseCache.set(key, { fetchedAt: Date.now(), value: structuredClone(value) });
+      if (localUsageResponseCache.size > 48) {
+        const oldest = localUsageResponseCache.keys().next().value;
+        if (oldest) localUsageResponseCache.delete(oldest);
+      }
+      return value;
+    } catch (error) {
+      const status = Number((error as any)?.status) || 0;
+      const stale = localUsageResponseCache.get(key);
+      if (
+        stale &&
+        Date.now() - stale.fetchedAt < LOCAL_USAGE_RESPONSE_STALE_IF_ERROR_MS &&
+        (status === 0 || status >= 500)
+      ) {
+        return structuredClone(stale.value);
+      }
+      throw error;
+    }
+  });
+}
+
+export function invalidateLocalUsageResponseCache() {
+  localUsageResponseCache.clear();
 }
 
 function cachedAccountJsonGet(url: URL, accessToken: string, request: () => Promise<any>) {
@@ -246,6 +312,21 @@ async function fetchLocalJson(slug: string, params?: AnyRecord, options?: AnyRec
     }
   }
   const { accessToken: _omit, ...fetchOptions } = options || {};
+  if (LOCAL_USAGE_CACHE_SLUGS.has(slug)) {
+    return cachedLocalUsageJsonGet(url, async () => {
+      const response = await fetch(url.toString(), {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        ...fetchOptions,
+      });
+      if (!response.ok) {
+        const err: any = new Error(`Request failed with HTTP ${response.status}`);
+        err.status = response.status;
+        throw err;
+      }
+      return response.json();
+    });
+  }
   return coalesceJsonGet(url.toString(), async () => {
     const response = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
@@ -700,6 +781,10 @@ export async function triggerLocalSync({
     error.status = response.status;
     throw error;
   }
+  // A sync just re-read the provider ledgers, so everything the local usage
+  // cache holds predates it. Drop it — the manual refresh button and the
+  // mount-time sync must never serve pre-sync aggregates.
+  invalidateLocalUsageResponseCache();
   return payload;
 }
 

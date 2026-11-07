@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchCloudUsageSummary, fetchCloudUsageDaily, fetchCloudUsageHeatmap,
   getUsageHeatmap, getUsageLimits, getUserStatus, getUsageSummary, invalidateAccountResponseCache,
+  invalidateLocalUsageResponseCache,
 } from "./api";
 import { expandHeatmapCompact } from "./heatmap-compact";
 
@@ -27,9 +28,16 @@ const compact = {
   days: [["2026-09-28", 25, [0, 10, 1, 15]], ["2026-10-01", 100, [1, 100]], ["2026-10-02", 0, []]],
 };
 
-beforeEach(() => invalidateAccountResponseCache());
+beforeEach(() => {
+  invalidateAccountResponseCache();
+  // The local usage aggregate GETs carry their own 30s TTL cache; without this
+  // a localhost fetch from an earlier case would satisfy a later one and the
+  // fetch spy would see zero calls.
+  invalidateLocalUsageResponseCache();
+});
 afterEach(() => {
   invalidateAccountResponseCache();
+  invalidateLocalUsageResponseCache();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });

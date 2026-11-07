@@ -2,16 +2,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getSessionInsights,
   getUsageSummary,
+  invalidateLocalUsageResponseCache,
   invalidateSessionInsightsCache,
 } from "./api";
 
 describe("usage GET request coalescing", () => {
   afterEach(() => {
     invalidateSessionInsightsCache();
+    invalidateLocalUsageResponseCache();
     vi.unstubAllGlobals();
   });
 
-  it("shares an identical in-flight request but does not cache settled results", async () => {
+  // The local usage cache (30s TTL, invalidated by triggerLocalSync) now sits
+  // in front of the aggregate GETs: re-selecting a period the user just viewed
+  // must not re-pay the server's full-scan aggregation. The coalescing contract
+  // becomes: identical in-flight requests share one fetch, the settled result
+  // is reused until invalidated, and invalidation forces the refetch.
+  it("shares an identical in-flight request and reuses the settled result until invalidated", async () => {
     let resolveFirst: ((value: Response) => void) | null = null;
     const firstResponse = new Promise<Response>((resolve) => {
       resolveFirst = resolve;
@@ -39,6 +46,12 @@ describe("usage GET request coalescing", () => {
       { totals: { total_tokens: 1 } },
     ]);
 
+    // Still within the TTL: the settled aggregate is reused, no second fetch.
+    await expect(getUsageSummary(params)).resolves.toEqual({ totals: { total_tokens: 1 } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // A sync/manual refresh invalidates the cache and fetches fresh.
+    invalidateLocalUsageResponseCache();
     await expect(getUsageSummary(params)).resolves.toEqual({ totals: { total_tokens: 2 } });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
