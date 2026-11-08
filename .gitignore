@@ -169,3 +169,9 @@ FORK_STATUS.md
 KNOWN_ISSUES.md
 HANDOFF.md
 GATE_REGISTRY.md
+
+# PowerShell writes its module analysis cache next to the working directory
+# on first run; a494842 accidentally committed one such cache generated during
+# the 1.20.0 installer build. Ignore the pattern so a release build can never
+# smuggle it in again.
+Microsoft/
