@@ -137,6 +137,9 @@ dashboard.speed.tps,ui,DataDetails,DataDetails,column_tps,"Avg Speed (tok/s)",,a
 dashboard.speed.ttft,ui,DataDetails,DataDetails,column_ttft,"Avg First Response (ms)",,active
 dashboard.speed.empty,ui,DataDetails,DataDetails,empty,"No completed Agent2API requests in this range.",,active
 dashboard.speed.unavailable,ui,DataDetails,DataDetails,unavailable,"Agent2API gateway database unavailable (local only).",,active
+dashboard.speed.session_note,ui,DataDetails,DataDetails,session_note,"Rows marked Session are estimated from session wall-clock time (no gateway data for them); unmarked rows are measured by the Agent2API gateway.",,active
+dashboard.speed.session_badge,ui,DataDetails,DataDetails,session_badge,"Session",,active
+dashboard.speed.session_badge_title,ui,DataDetails,DataDetails,session_badge_title,"Estimated from session wall-clock time — the gateway has no requests for this model",,active
 dashboard.models.title,ui,DataDetails,DataDetails,title,"Models",,active
 dashboard.models.col.model,ui,DataDetails,DataDetails,column_model,"Model",,active
 dashboard.models.col.share,ui,DataDetails,DataDetails,column_share,"Share",,active

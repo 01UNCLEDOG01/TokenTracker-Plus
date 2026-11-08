@@ -34,6 +34,14 @@ function toolsByUsageDesc(fleetData) {
   });
 }
 
+// True when any speed row comes from the session sidecar rather than the
+// gateway — those rows carry the "Session" badge and the explanatory note.
+function speedModelsIncludeSession(models) {
+  return (Array.isArray(models) ? models : []).some(function (entry) {
+    return entry?.speed_source === "session";
+  });
+}
+
 function ProjectRow({ entry, maxTokens, copy, formatTokens, formatTokensTooltip, onSelect }) {
   const projectKey = typeof entry?.project_key === "string" ? entry.project_key : "";
   const projectRef = typeof entry?.project_ref === "string" ? entry.project_ref : "";
@@ -281,7 +289,10 @@ export function DataDetails({
         );
       })()}
 
-      {/* Speed Tab — Agent2API gateway-native measurements */}
+      {/* Speed Tab — gateway-native measurements, plus the session sidecar's
+          wall-clock estimates for models the gateway never sees. Each row is
+          labelled with its evidence tier so the two kinds of number are never
+          read as the same kind of measurement. */}
       {activeTab === "speed" && (() => {
         if (!agent2ApiSpeedAvailable) {
           return (
@@ -297,8 +308,14 @@ export function DataDetails({
             </div>
           );
         }
+        const hasSessionTier = speedModelsIncludeSession(agent2ApiSpeedModels);
         return (
           <div className="overflow-auto max-h-[384px] -mx-4 oai-scrollbar">
+            {hasSessionTier && (
+              <div className="px-2.5 sm:px-4 pb-2 oai-text-caption text-oai-gray-500 dark:text-oai-gray-400">
+                {copy("dashboard.speed.session_note")}
+              </div>
+            )}
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-oai-gray-200 dark:border-oai-gray-700">
@@ -318,8 +335,20 @@ export function DataDetails({
                     key={entry.model}
                     className="border-b border-oai-gray-100 dark:border-oai-gray-800/60 hover:bg-oai-gray-50 dark:hover:bg-oai-gray-800/40 transition-colors"
                   >
-                    <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-black dark:text-oai-white font-mono">
-                      {entry.model}
+                    <td className="px-2.5 sm:px-4 py-2">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="oai-text-body-sm text-oai-black dark:text-oai-white font-mono">
+                          {entry.model}
+                        </span>
+                        {entry.speed_source === "session" && (
+                          <span
+                            className="px-1 py-0.5 text-[9px] font-semibold tracking-wide rounded bg-oai-gray-100 text-oai-gray-500 dark:bg-oai-gray-800 dark:text-oai-gray-400"
+                            title={copy("dashboard.speed.session_badge_title")}
+                          >
+                            {copy("dashboard.speed.session_badge")}
+                          </span>
+                        )}
+                      </span>
                     </td>
                     <td className="px-2.5 sm:px-4 py-2 oai-text-body-sm text-oai-gray-700 dark:text-oai-gray-200">
                       {entry.requests}

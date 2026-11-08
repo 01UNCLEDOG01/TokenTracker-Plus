@@ -195,6 +195,7 @@ function createSignatureReadMemo({ maxOuterKeys = 8 } = {}) {
 
 const scopedRowsReadMemo = createSignatureReadMemo();
 const projectRowsReadMemo = createSignatureReadMemo();
+const speedSessionTierReadMemo = createSignatureReadMemo();
 const modelBreakdownReadMemo = createReadMemo();
 const projectSummaryReadMemo = createReadMemo();
 
@@ -436,6 +437,67 @@ async function computeProjectUsageEntries({ projectRows, timeZoneContext, from, 
     );
   }
   return entries;
+}
+
+/**
+ * Per-model wall-clock speed rows behind /agent2api-speed's session tier.
+ * Extracted so the read-memo can reuse it across mounts and period switches
+ * (the scan is synchronous and costs ~2s on a large sidecar).
+ *
+ * A multi-model session carries ONE wall-clock measurement for the whole
+ * session (the collector fills every model row with the session-level
+ * performance), so its duration is counted once per model row rather than
+ * summed per row — three rows each claiming the same 1.29s would triple the
+ * time and read as a third of the real speed. Output splits by each row's own
+ * share; requests take the model row's own event count.
+ */
+async function computeSpeedSessionTier({ qp, from, to, timeZoneContext }) {
+  const { readSessionSidecar, listSessionsForBrowser } = require("./session-analytics");
+  const sidecarPath = path.join(path.dirname(qp), "session.queue.jsonl");
+  const sessions = readSessionSidecar(sidecarPath);
+  const scoped = listSessionsForBrowser(sessions, { from, to, ...timeZoneContext }).sessions || [];
+  const bySessionModel = new Map();
+  for (const session of scoped) {
+    const usage = Array.isArray(session?.model_usage) ? session.model_usage : [];
+    const sessionPerf = session?.performance || null;
+    const rows = [];
+    for (const mu of usage) {
+      const model = String(mu?.model || session?.model || "").trim();
+      if (!model) continue;
+      rows.push({ model, output: Number(mu?.output_tokens) || 0, requests: Math.max(0, Number(mu?.usage_events) || 0) });
+    }
+    if (!rows.length) continue;
+    // Duration source, in priority order: the session-level measurement
+    // (counted once), else the single model row's own performance when the
+    // session carries only one model, else nothing.
+    let durationMs = Number(sessionPerf?.estimated_duration_ms) || 0;
+    if (durationMs <= 0 && rows.length === 1) {
+      durationMs = Number(usage[0]?.performance?.estimated_duration_ms) || 0;
+    }
+    if (durationMs <= 0) continue;
+    for (const { model, output, requests } of rows) {
+      if (output <= 0) continue;
+      let agg = bySessionModel.get(model);
+      if (!agg) {
+        agg = { requests: 0, output_tokens: 0, duration_ms: 0 };
+        bySessionModel.set(model, agg);
+      }
+      agg.requests += requests || 1;
+      agg.output_tokens += output;
+      agg.duration_ms += durationMs;
+    }
+  }
+  return [...bySessionModel.entries()].map(([model, agg]) => ({
+    model,
+    requests: agg.requests,
+    output_tokens: agg.output_tokens,
+    duration_ms: agg.duration_ms,
+    tokens_per_second: agg.duration_ms > 0
+      ? Math.round((agg.output_tokens * 1000 / agg.duration_ms) * 10) / 10
+      : null,
+    avg_first_response_ms: null,
+    speed_source: "session",
+  }));
 }
 
 // The native dashboard fans one refresh out across several local endpoints.
@@ -4580,12 +4642,56 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     // Per-model token speed from the gateway's own request ledger. Every 200
     // request carries duration_ms and (for streamed replies) first_response_ms
     // natively, so these are measured values — not timestamp-delta estimates.
-    // Local-only by nature: the gateway database lives on this machine.
+    // The gateway only sees requests routed through Agent2API, so models used
+    // directly by other CLIs never appear here; the session sidecar's
+    // wall-clock performance (the same numbers the sessions page shows) is
+    // folded in as a second evidence tier, clearly labelled. Gateway rows win
+    // for a model they both cover: gateway duration is a per-request measured
+    // value, the sidecar's is an active-time estimate.
+    // Local-only by nature: both databases live on this machine.
     if (p === "/functions/tokentracker-agent2api-speed") {
       const timeZoneContext = getTimeZoneContext(url);
+      const from = url.searchParams.get("from") || "";
+      const to = url.searchParams.get("to") || "";
+      const hasRange = Boolean(from || to);
+      const dayInRange = (day) => {
+        if (!hasRange) return true;
+        if (!day) return false;
+        return (!from || day >= from) && (!to || day <= to);
+      };
+      // The session tier is computed FIRST so it can also answer when the
+      // gateway database is missing or locked — a user with no Agent2API
+      // gateway at all still gets the sessions page's numbers here instead of
+      // a bare "unavailable". Gateway rows keep priority in the merge below.
+      //
+      // The aggregation runs inside a memo keyed on (sidecar file signature,
+      // range+timezone): readSessionSidecar parses ~1,500 session rows and
+      // listSessionsForBrowser re-derives day keys for all of them, ~2s of
+      // SYNCHRONOUS work on this machine (measured), and the endpoint refetches
+      // on every mount and every period switch — uncached that would stall the
+      // HTTP event loop for its full cost on each navigation. A sidecar append
+      // changes the signature and recomputes immediately; the 10s TTL bounds
+      // staleness for in-place rewrites that somehow keep the signature.
+      let sessionModels = [];
+      try {
+        const sidecarPath = path.join(path.dirname(qp), "session.queue.jsonl");
+        sessionModels = await speedSessionTierReadMemo(
+          queueFileSignature(sidecarPath),
+          `${timeZoneContextKey(timeZoneContext)}|${from}|${to}`,
+          () => computeSpeedSessionTier({ qp, from, to, timeZoneContext }),
+        );
+      } catch (error) {
+        // A malformed sidecar only shrinks the payload back to gateway rows.
+        console.warn("[local-api] agent2api-speed session tier unavailable:", error?.message || error);
+      }
+
       const dbPath = resolveAgent2ApiDbPath(process.env);
       if (!dbPath || !fs.existsSync(dbPath)) {
-        json(res, { generated_at: new Date().toISOString(), available: false, models: [] });
+        json(res, {
+          generated_at: new Date().toISOString(),
+          available: sessionModels.length > 0,
+          models: sessionModels,
+        });
         return true;
       }
       let rows = [];
@@ -4597,18 +4703,16 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           { label: "Agent2API speed", maxBuffer: 32 * 1024 * 1024, timeout: 30_000, readOnly: true },
         );
       } catch (err) {
-        // A writer lock on the gateway database must not 500 the dashboard.
-        json(res, { generated_at: new Date().toISOString(), available: false, models: [], error: String(err?.message || err) });
+        // A writer lock on the gateway database must not 500 the dashboard;
+        // the session tier still answers.
+        json(res, {
+          generated_at: new Date().toISOString(),
+          available: sessionModels.length > 0,
+          models: sessionModels,
+          error: String(err?.message || err),
+        });
         return true;
       }
-      const from = url.searchParams.get("from") || "";
-      const to = url.searchParams.get("to") || "";
-      const hasRange = Boolean(from || to);
-      const dayInRange = (day) => {
-        if (!hasRange) return true;
-        if (!day) return false;
-        return (!from || day >= from) && (!to || day <= to);
-      };
       const byModel = new Map();
       let matched = 0;
       for (const raw of rows) {
@@ -4630,6 +4734,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           entry.first_response_samples += 1;
         }
       }
+      // Gateway rows keep priority over the pre-computed session tier: a
+      // model the gateway measured shows per-request numbers, and the
+      // session tier only fills the models the gateway never saw.
       const models = [...byModel.values()].map((entry) => ({
         model: entry.model,
         requests: entry.requests,
@@ -4641,7 +4748,11 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         avg_first_response_ms: entry.first_response_samples > 0
           ? Math.round(entry.first_response_total_ms / entry.first_response_samples)
           : null,
-      })).sort((a, b) => b.output_tokens - a.output_tokens);
+        speed_source: "gateway",
+      // Gateway rows keep priority: the session tier only fills models the
+      // gateway never saw, so a model measured by both keeps its measured
+      // per-request numbers instead of a wall-clock estimate.
+      })).concat(sessionModels.filter((m) => !byModel.has(m.model))).sort((a, b) => b.output_tokens - a.output_tokens);
       json(res, {
         generated_at: new Date().toISOString(),
         available: true,
