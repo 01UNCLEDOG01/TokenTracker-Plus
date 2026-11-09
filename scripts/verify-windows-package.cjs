@@ -11,6 +11,14 @@ const reportPath = process.argv[3];
 const runtime = path.join(publish, "EmbeddedServer", "tokentracker");
 const required = ["TokenTracker.exe", "TokenTracker.dll", "EmbeddedServer/node.exe",
   "EmbeddedServer/tokentracker/bin/tracker.js", "EmbeddedServer/tokentracker/package-lock.json",
+  // Self-contained sentinels (2026-11-09): the shell is a .NET 8 app whose
+  // publish MUST carry the runtime. An FDD publish (`dotnet publish` without
+  // `-r win-x64 --self-contained true`) passes every source comparison below —
+  // the payload is still perfectly consistent — but the shell then dies at
+  // startup with "No frameworks were found" (real 1.24.2 near-miss: Setup
+  // shipped 41.8 MB instead of ~88 MB). These files only exist in a
+  // self-contained payload, so their absence fails loudly BEFORE ISCC.
+  "coreclr.dll", "hostfxr.dll", "hostpolicy.dll",
   // dist pages that the build actually emits (2026-11-01 alignment): 4 multi-page
   // inputs (index/pet/quota/share) + 2 route-SEO pages (ip-check/leaderboard)
   // emitted by vite.config.js, plus privacy.html. "pricing.html"/"terms.html"
