@@ -816,6 +816,8 @@ limits.label.wallet_credits,ui,LimitsPage,UsageLimitsPanel,wallet_credits,"Credi
 limits.label.wallet_balance,ui,LimitsPage,UsageLimitsPanel,wallet_balance,"Balance",,active
 limits.label.raccoon_daily,ui,LimitsPage,UsageLimitsPanel,raccoon_daily,"Daily points",,active
 limits.points.detail,ui,LimitsPage,UsageLimitsPanel,points_detail,"{{used}} / {{limit}} points used · {{remaining}} left",,active
+limits.cookieToggle.cookie,ui,LimitsPage,UsageLimitsPanel,cookieToggle_cookie,"Cookie sign-in · click to expand",,active
+limits.cookieToggle.api,ui,LimitsPage,UsageLimitsPanel,cookieToggle_api,"API credentials · click to expand",,active
 limits.pet.toggle_aria,ui,LimitsPage,UsageLimitsPanel,pet_toggle_aria,"Show {{label}} in the pet hover card",,active
 limits.pet.toggle_hint,ui,LimitsPage,UsageLimitsPanel,pet_toggle_hint,"Show in pet hover card (max 6)",,active
 limits.label.qoder_pool_plan,ui,LimitsPage,UsageLimitsPanel,qoder_pool_plan,"Included",,active

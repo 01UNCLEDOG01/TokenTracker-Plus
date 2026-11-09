@@ -1119,11 +1119,31 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
         <EnvCredentialNotice providerId={id} data={data} onSaved={onKeySaved} />
       ) : null}
       {expanded ? <LimitDetail rows={rows} mode={mode} now={now} /> : null}
-      {id === "qoderCn" ? <QoderCookieInput namespace="cn" onSaved={onKeySaved} /> : null}
-      {id === "qoder" ? <QoderCookieInput namespace="intl" onSaved={onKeySaved} /> : null}
-      {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
-      {id === "mistral" ? <MistralCookieInput onSaved={onKeySaved} /> : null}
-      {id === "openaiCredits" ? <OpenaiCreditsCredentialsInput onSaved={onKeySaved} /> : null}
+      {id === "qoderCn" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <QoderCookieInput namespace="cn" onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
+      {id === "qoder" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <QoderCookieInput namespace="intl" onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
+      {id === "opendesign" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <OpenDesignCookieInput onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
+      {id === "mistral" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <MistralCookieInput onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
+      {id === "openaiCredits" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.api">
+          <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
       {id === "zcode" && data.start_plan?.configured ? (
         <ZcodeStartPlanSection data={data.start_plan} mode={mode} now={now} />
       ) : null}
@@ -1161,11 +1181,31 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {MANUAL_CREDENTIAL_IDS.has(id) ? (
           <StatusLine>{copy("limits.status.manual_credential")}</StatusLine>
         ) : null}
-        {id === "qoderCn" ? <QoderCookieInput namespace="cn" onSaved={onKeySaved} /> : null}
-        {id === "qoder" ? <QoderCookieInput namespace="intl" onSaved={onKeySaved} /> : null}
-        {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
-      {id === "mistral" ? <MistralCookieInput onSaved={onKeySaved} /> : null}
-      {id === "openaiCredits" ? <OpenaiCreditsCredentialsInput onSaved={onKeySaved} /> : null}
+        {id === "qoderCn" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <QoderCookieInput namespace="cn" onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
+        {id === "qoder" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <QoderCookieInput namespace="intl" onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
+        {id === "opendesign" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <OpenDesignCookieInput onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
+        {id === "mistral" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <MistralCookieInput onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
+        {id === "openaiCredits" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.api" defaultExpanded>
+            <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
         {id === "opencodeGo" ? <OpenCodeGoSetupHint /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
@@ -1776,6 +1816,33 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
 // Qoder box: a session credential only the user's own browser holds, saved by
 // the loopback backend to the same file the usage fetch reads
 // (opendesign-credentials.json). Never echoed back; sent only to the local API.
+// Credential paste boxes (Qoder CN/Intl, OpenDesign, Mistral, OpenAI credits)
+// collapse to a one-line toggle by default: five boxes each carrying an input
+// row plus a multi-line hint buried the quota bars the page exists for. The
+// form mounts lazily on expand; an unlinked card expands by default because
+// there the paste box IS the setup action, not decoration.
+function CollapsibleCredentialSection({ labelKey, defaultExpanded = false, children }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        data-credential-toggle=""
+        aria-expanded={expanded}
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((value) => !value);
+        }}
+        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] font-medium text-oai-gray-500 transition-colors hover:text-oai-gray-700 dark:text-oai-gray-400 dark:hover:text-oai-gray-200"
+      >
+        <ChevronDown size={13} aria-hidden className={`shrink-0 text-oai-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        <span className="truncate">{copy(labelKey)}</span>
+      </button>
+      {expanded ? children : null}
+    </div>
+  );
+}
+
 function OpenDesignCookieInput({ onSaved }) {
   const [cookie, setCookie] = useState("");
   const [status, setStatus] = useState("idle");

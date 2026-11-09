@@ -438,6 +438,8 @@
   "limits.label.raccoon_wallets": "{{wallets}}, insgesamt {{total}} {{unit}}",
   "limits.label.raccoon_daily": "Tägliche Punkte",
   "limits.points.detail": "Heute {{used}} / {{limit}} Punkte verbraucht · {{remaining}} übrig",
+  "limits.cookieToggle.cookie": "Cookie-Anmeldung · zum Aufklappen klicken",
+  "limits.cookieToggle.api": "API-Anmeldeinformationen · zum Aufklappen klicken",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "Allgemein 5h",
   "limits.label.sensenova_general_weekly": "Allgemein wöchentlich",

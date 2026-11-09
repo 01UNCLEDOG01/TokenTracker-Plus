@@ -192,6 +192,8 @@
   "limits.label.raccoon_wallets": "{{wallets}}, 총 {{total}} {{unit}}",
   "limits.label.raccoon_daily": "데일리 포인트",
   "limits.points.detail": "오늘 {{used}} / {{limit}} 포인트 사용 · 남음 {{remaining}}",
+  "limits.cookieToggle.cookie": "Cookie 로그인 · 클릭하여 펼치기",
+  "limits.cookieToggle.api": "API 자격 증명 · 클릭하여 펼치기",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "일반 5h",
   "limits.label.sensenova_general_weekly": "일반 주간",

@@ -220,6 +220,8 @@
   "limits.label.raccoon_wallets": "{{wallets}}，合计 {{total}} {{unit}}",
   "limits.label.raccoon_daily": "每日积分",
   "limits.points.detail": "今日已用 {{used}} / {{limit}} 积分 · 剩余 {{remaining}}",
+  "limits.cookieToggle.cookie": "Cookie 登录 · 点击展开",
+  "limits.cookieToggle.api": "API 凭据 · 点击展开",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "通用 5h",
   "limits.label.sensenova_general_weekly": "通用周",

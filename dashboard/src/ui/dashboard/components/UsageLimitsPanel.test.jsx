@@ -1587,6 +1587,9 @@ describe("QoderCookieInput", () => {
       />,
     );
 
+    // The box collapses by default; expand it before pasting.
+    fireEvent.click(document.querySelector('[data-credential-toggle]'));
+
     // The manual-entry note explains why the cookie cannot be auto-collected.
     expect(screen.getByText(/manual entry required/i)).toBeTruthy();
 
@@ -1620,6 +1623,7 @@ describe("QoderCookieInput", () => {
       />,
     );
 
+    fireEvent.click(document.querySelector('[data-credential-toggle]'));
     const input = screen.getByLabelText(/paste the qoder website cookie/i);
     fireEvent.change(input, { target: { value: "qoder_session_cookie=bad" } });
     fireEvent.click(screen.getAllByText("Save cookie")[0].closest("button"));
@@ -1627,5 +1631,32 @@ describe("QoderCookieInput", () => {
     await waitFor(() => {
       expect(screen.getByText(/could not save the cookie/i)).toBeTruthy();
     });
+  });
+
+  it("collapses the credential box on a configured card until toggled", () => {
+    render(
+      <UsageLimitsPanel
+        order={["qoderCn"]}
+        qoderCn={{
+          configured: true,
+          primary_window: { used_percent: 10, used_credits: 10, limit_credits: 100, remaining_credits: 90 },
+        }}
+      />,
+    );
+    // Default collapsed: five always-open paste boxes buried the quota bars.
+    const toggle = document.querySelector('[data-credential-toggle]');
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByLabelText(/paste the qoder website cookie/i)).toBeNull();
+    fireEvent.click(toggle);
+    expect(document.querySelector('[data-credential-toggle]').getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByLabelText(/paste the qoder website cookie/i)).toBeTruthy();
+    fireEvent.click(document.querySelector('[data-credential-toggle]'));
+    expect(screen.queryByLabelText(/paste the qoder website cookie/i)).toBeNull();
+  });
+
+  it("expands the credential box by default on an unlinked card, where it is the setup action", () => {
+    render(<UsageLimitsPanel order={["qoderCn"]} qoderCn={{ configured: false }} />);
+    expect(document.querySelector('[data-credential-toggle]').getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByLabelText(/paste the qoder website cookie/i)).toBeTruthy();
   });
 });
