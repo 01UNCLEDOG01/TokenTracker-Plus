@@ -6,6 +6,14 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.23.0] - 2026-11-09
+
+- **限额追踪新增 2 个来源（30 → 32）**：①Mistral 订阅额度——在限额页粘贴 Mistral Admin 后台的整行 Cookie 后，显示「包含的 API 额度」「包含的 Vibe Code 额度」两条月度进度条和钱包余额，重置日期跟随 Mistral 官方标注；②OpenAI Platform API 余额——粘贴账单页 credit_grants 请求的 Authorization 与 OpenAI-Organization 两个请求头后，显示剩余额度与最早一批赠金的到期日（该端点未公开记载，可能随官方改动失效；进度条只在赠金明细能与总余额对上账时才显示，对不上就只显示余额，不编造总额）。
+- **用量统计新增 3 个工具源 + 1 个子代理车道**：Mistral Vibe（`~/.vibe` 会话累计统计，按快照差分记账，不怕工具原地改写统计文件）、Jcode（`~/.jcode` 快照+journal 边车，自动区分 Anthropic 与 OpenAI 两种缓存记账形态）、GitHub Copilot CLI 的 session-state 事件流（与既有 OTel 车道同源聚合）；Prime Agent 现在也会扫描 RLM 子代理转录（session-artifacts 树）和独立 usage 记录，`rlm-subagents.jsonl` 索引文件不计入。
+- **修复：同步进行中正在写入的记录不再丢失**。WorkBuddy、AutoClaw/Cola/团结 Cowork、CodeBuddy 的扫描器此前遇到「读到一半、最后一行还没写完」的文件时，会把进度推过这半行——之后工具把它写完整，也永远不会被重新读到，这一次调用的用量就永久丢了。现在扫描器只提交完整写完的行，半行留给下一次同步；已完成但还没换行的最后一行会计入且不会重复计。
+
+（本版为功能版本：MINOR 1.22.0 → 1.23.0，热更批次；内容随下一个安装包进入安装器。）
+
 ## [1.22.0] - 2026-11-08
 
 - **Token 速率页签覆盖全部工具**：此前速率只统计经 Agent2API 网关的请求，不经网关的工具（DeepSeek Harness、Codex、CodeArts 等）明明有速率（会话页能显示）却不出现在这张表里。现在速率分两档证据：网关请求保持逐请求实测（耗时/首响，不标注）；其余模型按会话墙钟时间估算速率，行内标注「会话」并在表头上方说明——两类数字从此可分辨，估算方向一律保守（宁低报不高报）。完全没有网关的用户也能看到会话层的速率表，不再只有「网关不可用」。
