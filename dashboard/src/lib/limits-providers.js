@@ -34,6 +34,7 @@ export const LIMIT_PROVIDER_IDS = [
   "opendesign",
   "mistral",
   "openaiCredits",
+  "minimaxCode",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -98,6 +99,9 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   // OpenAI Platform API credits — inline mono coin mark (balance meter, not a
   // plan; the OpenAI knot needs a color asset we do not ship).
   openaiCredits: "OPENAI-CREDITS",
+  // MiniMax Code quota lane shares the desktop brand mark (same convention as
+  // MiniMax Code CLI sessions reusing the MiniMax icon).
+  minimaxCode: "MINIMAX-CODE",
 };
 
 export function limitProviderIconKey(id) {
@@ -170,6 +174,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.mistral");
     case "openaiCredits":
       return copy("limits.provider.openai_credits");
+    case "minimaxCode":
+      return copy("limits.provider.minimax_code");
     default:
       return String(id || "");
   }

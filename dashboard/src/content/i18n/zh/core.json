@@ -986,5 +986,10 @@
   "limits.label.mistral_vibe": "包含的 Vibe Code 额度",
   "limits.label.mistral_balance": "{{currency}} {{balance}}",
   "limits.label.openai_credits_meter": "API 额度",
-  "limits.label.openai_credits_balance": "{{currency}} {{balance}} · {{date}} 到期"
+  "limits.label.openai_credits_balance": "{{currency}} {{balance}} · {{date}} 到期",
+  "limits.provider.minimax_code": "MiniMax Code",
+  "limits.label.minimax_code_points": "剩余 {{points}} 积分",
+  "limits.label.minimax_code_5h": "5 小时",
+  "limits.label.minimax_code_weekly": "每周",
+  "limits.label.minimax_code_video": "视频生成"
 }

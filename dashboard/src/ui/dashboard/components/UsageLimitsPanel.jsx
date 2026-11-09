@@ -933,6 +933,17 @@ function renderProviderExtra(kind, data, picker = null) {
       </StatusLine>
     );
   }
+  if (kind === "minimax_code_points" && Number.isFinite(Number(data.minimax_code_points))) {
+    // Points are allowance units, not money (TM convention): no currency
+    // conversion, no fake meter — one status line, expiry note when present.
+    return (
+      <StatusLine>
+        {copy("limits.label.minimax_code_points", {
+          points: formatCreditAmount(Number(data.minimax_code_points), { maximumFractionDigits: 0 }),
+        })}
+      </StatusLine>
+    );
+  }
   if (kind === "openai_credits_balance" && Number.isFinite(Number(data.openai_credits_available))) {
     // A wallet, not a plan: the balance plus the earliest active grant expiry
     // (blank when every remaining grant is perpetual). The meter bar above,
@@ -2102,8 +2113,8 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, order, visibility, displayMode, onProviderKeySaved = null }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, order, visibility, displayMode, onProviderKeySaved = null }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
   // the six-row cap and would lock the picker. Prune it and persist the
@@ -2127,7 +2138,7 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
       if (pruned.length === prev.length) return prev;
       return writePetLimitSelection(pruned);
     });
-  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits]);
+  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode]);
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

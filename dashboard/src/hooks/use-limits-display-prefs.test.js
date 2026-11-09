@@ -145,6 +145,7 @@ describe("useLimitsDisplayPrefs", () => {
         "opendesign",
         "mistral",
         "openaiCredits",
+        "minimaxCode",
         "claude",
         "codex",
         "codingPlan",

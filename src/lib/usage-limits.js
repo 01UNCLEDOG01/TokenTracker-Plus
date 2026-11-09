@@ -56,6 +56,7 @@ const { fetchVyceAiLimits } = require("./vyceai-limits");
 const { fetchOpendesignLimits } = require("./opendesign-limits");
 const { fetchMistralLimits } = require("./mistral-limits");
 const { fetchOpenaiCreditsLimits } = require("./openai-credits-limits");
+const { fetchMinimaxCodeLimits } = require("./minimax-code-limits");
 const { fetchTraeLimits, fetchTraeMainLimits, fetchCodeartsLimits, fetchClinePassLimits } = require("./gateway-limits");
 const { fetchArkCodingPlanLimits } = require("./ark-coding-plan-limits");
 const { fetchArkAgentPlanLimits } = require("./ark-agent-plan-limits");
@@ -96,7 +97,7 @@ const USAGE_LIMITS_PROVIDER_IDS = Object.freeze([
   "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy",
   "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae",
   "codearts", "clinePass", "agentRouter", "vyceai", "opendesign",
-  "mistral", "openaiCredits",
+  "mistral", "openaiCredits", "minimaxCode",
 ]);
 
 // Normalize a caller-supplied hidden-provider list (array, Set, or
@@ -4899,7 +4900,7 @@ async function fetchUsageLimitsUncached({
   // (#956).
   const hiddenSentinel = Promise.resolve({ configured: false });
   const hiddenSettled = Promise.resolve({ status: "fulfilled", value: { configured: false } });
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -5064,12 +5065,14 @@ async function fetchUsageLimitsUncached({
     // OpenDesign subscription quota (5h + weekly), keyed by a hand-copied
     // open-design.ai Cookie (see opendesign-credentials.json).
     hiddenSet.has("opendesign") ? hiddenSentinel : fetchOpendesignLimits({ home, fetchImpl: providerFetch, nowMs }),
-    // The two entries below append after opendesign so the positional
-    // destructure above ([..., vyceai, opendesign, mistral, openaiCredits])
-    // stays aligned — these array positions feed named variables, so order is
-    // load-bearing here.
+    // The entries below append after opendesign so the positional
+    // destructure above ([..., vyceai, opendesign, mistral, openaiCredits,
+    // minimaxCode]) stays aligned — these array positions feed named
+    // variables, so order is load-bearing here (guarded by
+    // test/usage-limits-provider-order.test.js).
     hiddenSet.has("mistral") ? hiddenSentinel : fetchMistralLimits({ home, fetchImpl: providerFetch, nowMs }),
     hiddenSet.has("openaiCredits") ? hiddenSentinel : fetchOpenaiCreditsLimits({ home, fetchImpl: providerFetch, nowMs }),
+    hiddenSet.has("minimaxCode") ? hiddenSentinel : fetchMinimaxCodeLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;
@@ -5609,6 +5612,7 @@ async function fetchUsageLimitsUncached({
     opendesign: withPlanLabel(opendesign, opendesign?.plan_name, "OpenDesign"),
     mistral: withPlanLabel(mistral, mistral?.plan_name, "Mistral"),
     openaiCredits: withPlanLabel(openaiCredits, openaiCredits?.plan_name, "OpenAI API Credits"),
+    minimaxCode: withPlanLabel(minimaxCode, minimaxCode?.plan_name, "MiniMax Code"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

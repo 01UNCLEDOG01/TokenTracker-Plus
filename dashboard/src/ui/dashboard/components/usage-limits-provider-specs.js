@@ -469,6 +469,20 @@ export const PROVIDER_LIMIT_SPECS = {
       ];
     },
   },
+  minimaxCode: {
+    // MiniMax Code quota lane (OAuth session, zero-config): used-percent plan
+    // windows plus a video generation count row and the points balance. The
+    // plan can be unlimited (status 3) — the fetcher then returns no meter
+    // values and only the points status line renders.
+    extra: "minimax_code_points",
+    windows(data) {
+      return [
+        { key: "5h", labelKey: "limits.label.minimax_code_5h", window: data.primary_window, windowSecondsField: "limit_window_seconds" },
+        { key: "weekly", labelKey: "limits.label.minimax_code_weekly", window: data.secondary_window, windowSecondsField: "limit_window_seconds" },
+        { key: "video", labelKey: "limits.label.minimax_code_video", window: data.minimax_code_video_window, windowSecondsField: "limit_window_seconds" },
+      ];
+    },
+  },
 };
 
 const GROK_PRODUCT_LABEL_KEYS = {

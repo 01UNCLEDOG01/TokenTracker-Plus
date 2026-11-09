@@ -49,11 +49,12 @@ test("usage-limits Promise.all argument order matches the positional destructure
   );
 
   // The tail-4 alignment above is the load-bearing lock (it is where the
-  // real bug lived). Additionally pin the four newest providers explicitly
-  // so a future tail-only reordering of any of them fails with a clear name.
-  for (const name of ["vyceai", "opendesign", "mistral", "openaiCredits"]) {
+  // real bug lived). Additionally pin the providers this guard was written
+  // for explicitly, so a future reorder of any of them fails with a clear
+  // name regardless of where they sit in the tail.
+  for (const name of ["vyceai", "opendesign", "mistral", "openaiCredits", "minimaxCode"]) {
     assert.ok(fetchIds.includes(name), `fetch list must contain '${name}'`);
-    assert.ok(nameTail.includes(name), `destructure must contain '${name}'`);
+    assert.ok(names.includes(name), `destructure must contain '${name}'`);
     assert.equal(fetchIds.indexOf(name), fetchIds.lastIndexOf(name), `'${name}' appears exactly once in the fetch list`);
   }
 });

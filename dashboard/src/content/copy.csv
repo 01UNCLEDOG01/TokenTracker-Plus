@@ -136,7 +136,6 @@ dashboard.speed.output,ui,DataDetails,DataDetails,column_output,"Output Tokens",
 dashboard.speed.tps,ui,DataDetails,DataDetails,column_tps,"Avg Speed (tok/s)",,active
 dashboard.speed.ttft,ui,DataDetails,DataDetails,column_ttft,"Avg First Response (ms)",,active
 dashboard.speed.empty,ui,DataDetails,DataDetails,empty,"No completed Agent2API requests in this range.",,active
-dashboard.speed.unavailable,ui,DataDetails,DataDetails,unavailable,"Agent2API gateway database unavailable (local only).",,active
 dashboard.speed.session_note,ui,DataDetails,DataDetails,session_note,"Rows marked Session are estimated from session wall-clock time (no gateway data for them); unmarked rows are measured by the Agent2API gateway.",,active
 dashboard.speed.session_badge,ui,DataDetails,DataDetails,session_badge,"Session",,active
 dashboard.speed.session_badge_title,ui,DataDetails,DataDetails,session_badge_title,"Estimated from session wall-clock time — the gateway has no requests for this model",,active
@@ -2106,3 +2105,10 @@ limits.label.mistral_vibe,ui,LimitsPage,UsageLimitsPanel,mistral_vibe,"Included 
 limits.label.mistral_balance,ui,LimitsPage,UsageLimitsPanel,mistral_balance,"{{currency}} {{balance}}",,active
 limits.label.openai_credits_meter,ui,LimitsPage,UsageLimitsPanel,openai_credits_meter,"API credits",,active
 limits.label.openai_credits_balance,ui,LimitsPage,UsageLimitsPanel,openai_credits_balance,"{{currency}} {{balance}} · expires {{date}}",,active
+limits.provider.minimax_code,ui,LimitsPage,UsageLimitsPanel,provider_minimax_code,"MiniMax Code",,active
+limits.label.minimax_code_points,ui,LimitsPage,UsageLimitsPanel,minimax_code_points,"{{points}} points remaining",,active
+limits.label.minimax_code_5h,ui,LimitsPage,UsageLimitsPanel,minimax_code_5h,"5h",,active
+limits.label.minimax_code_weekly,ui,LimitsPage,UsageLimitsPanel,minimax_code_weekly,"Weekly",,active
+limits.label.minimax_code_video,ui,LimitsPage,UsageLimitsPanel,minimax_code_video,"Video",,active
+dashboard.speed.fetch_failed,ui,DashboardPage,DataDetails,speed_fetch_failed,"Speed data failed to load this time.",,active
+dashboard.speed.retry,ui,DashboardPage,DataDetails,speed_retry,"Retry",,active
