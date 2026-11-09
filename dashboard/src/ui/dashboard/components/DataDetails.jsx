@@ -125,7 +125,8 @@ export function DataDetails({
   // already applied upstream) feeding the Models / Tools rankings.
   fleetData = [],
   agent2ApiSpeedModels = [],
-  agent2ApiSpeedAvailable = true,
+  agent2ApiSpeedError = false,
+  onAgent2ApiSpeedRetry,
   agent2ApiSpeedLoading = false,
   // Daily breakdown props
   copy,
@@ -290,14 +291,26 @@ export function DataDetails({
       })()}
 
       {/* Speed Tab — gateway-native measurements, plus the session sidecar's
-          wall-clock estimates for models the gateway never sees. Each row is
+          wall-clock estimates for models the gateway never sees (a machine
+          without the gateway at all still gets the session tier). Each row is
           labelled with its evidence tier so the two kinds of number are never
-          read as the same kind of measurement. */}
+          read as the same kind of measurement. A failed load is a retry-able
+          error, not "no data": the hook only refetches on mount and period
+          changes otherwise, and a transient failure used to sit here forever. */}
       {activeTab === "speed" && (() => {
-        if (!agent2ApiSpeedAvailable) {
+        if (agent2ApiSpeedError) {
           return (
             <div className="oai-text-body-sm text-oai-gray-500 dark:text-oai-gray-300">
-              {copy("dashboard.speed.unavailable")}
+              {copy("dashboard.speed.fetch_failed")}
+              {onAgent2ApiSpeedRetry ? (
+                <button
+                  type="button"
+                  onClick={function handleSpeedRetry() { onAgent2ApiSpeedRetry(); }}
+                  className="ml-2 underline underline-offset-2 text-oai-gray-600 hover:text-oai-black dark:text-oai-gray-300 dark:hover:text-oai-white"
+                >
+                  {copy("dashboard.speed.retry")}
+                </button>
+              ) : null}
             </div>
           );
         }

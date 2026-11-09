@@ -2,9 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { getAgent2ApiSpeed } from "../lib/api";
 import { useLatestRequestGuard } from "./use-latest-request-guard";
 
-// Measured per-model token speed from the Agent2API gateway's own request
-// ledger (duration_ms / first_response_ms are gateway-native fields, not
-// timestamp deltas). Local-only: the gateway database lives on this machine.
+// Measured per-model token speed, two evidence tiers merged by the server:
+// the Agent2API gateway's own request ledger (duration_ms / first_response_ms
+// are gateway-native fields) plus the session sidecar's wall-clock estimates
+// for models the gateway never sees — so a machine without the gateway at all
+// still gets the sessions page's numbers here. Local-only: both data sources
+// live on this machine.
+//
+// `error` is deliberately separate from "no rows": a failed fetch used to pin
+// the tab on the gateway-blame empty copy forever, because this hook's only
+// fetch triggers are mount and a period change (no auto-refresh rode along).
 export function useAgent2ApiSpeed({
   from,
   to,
@@ -13,7 +20,7 @@ export function useAgent2ApiSpeed({
   enabled = true,
 }: any = {}) {
   const [models, setModels] = useState<any[]>([]);
-  const [available, setAvailable] = useState(true);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const beginRequest = useLatestRequestGuard([from, to, timeZone, tzOffsetMinutes]);
 
@@ -25,11 +32,11 @@ export function useAgent2ApiSpeed({
       const payload = await getAgent2ApiSpeed({ from, to, timeZone, tzOffsetMinutes });
       if (!isCurrent()) return;
       setModels(Array.isArray(payload?.models) ? payload.models : []);
-      setAvailable(payload?.available !== false);
+      setError(false);
     } catch {
       if (!isCurrent()) return;
       setModels([]);
-      setAvailable(false);
+      setError(true);
     } finally {
       if (isCurrent()) setLoading(false);
     }
@@ -39,5 +46,5 @@ export function useAgent2ApiSpeed({
     refresh();
   }, [refresh]);
 
-  return { models, available, loading, refresh };
+  return { models, error, loading, refresh };
 }

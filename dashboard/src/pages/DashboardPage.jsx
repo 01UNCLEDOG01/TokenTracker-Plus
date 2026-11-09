@@ -560,8 +560,9 @@ export function DashboardPage({
 
   const {
     models: agent2ApiSpeedModels,
-    available: agent2ApiSpeedAvailable,
+    error: agent2ApiSpeedError,
     loading: agent2ApiSpeedLoading,
+    refresh: refreshAgent2ApiSpeed,
   } = useAgent2ApiSpeed({
     from,
     to,
@@ -947,6 +948,12 @@ export function DashboardPage({
         refreshModelBreakdown(),
         refreshProjectUsage(),
         refreshDailyBreakdown(),
+        // The speed tab used to fetch exactly once per mount: a transient
+        // failure (app restart, busy event loop) then pinned it on the
+        // gateway-blame empty copy until the next period change. Ride the
+        // same refresh cycle as every other aggregate; no-op in account view
+        // (the hook is local-mode only).
+        refreshAgent2ApiSpeed(),
       ]);
     });
   }, [
@@ -957,6 +964,7 @@ export function DashboardPage({
     refreshProjectUsage,
     refreshTrend,
     refreshUsage,
+    refreshAgent2ApiSpeed,
     refreshContextKey,
   ]);
 
@@ -1453,7 +1461,8 @@ export function DashboardPage({
       projectUsageEntries={projectUsageEntries}
       projectUsageLimit={projectUsageLimit}
       agent2ApiSpeedModels={agent2ApiSpeedModels}
-      agent2ApiSpeedAvailable={agent2ApiSpeedAvailable}
+      agent2ApiSpeedError={agent2ApiSpeedError}
+      onAgent2ApiSpeedRetry={refreshAgent2ApiSpeed}
       agent2ApiSpeedLoading={agent2ApiSpeedLoading}
       setProjectUsageLimit={setProjectUsageLimit}
       projectDetailQuery={{ from, to, timeZone, tzOffsetMinutes }}

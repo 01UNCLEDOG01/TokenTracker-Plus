@@ -117,7 +117,8 @@ export function DashboardView(props) {
     projectUsageEntries,
     projectUsageLimit,
     agent2ApiSpeedModels,
-    agent2ApiSpeedAvailable,
+    agent2ApiSpeedError,
+    onAgent2ApiSpeedRetry,
     agent2ApiSpeedLoading,
     setProjectUsageLimit,
     projectDetailQuery,
@@ -355,7 +356,8 @@ export function DashboardView(props) {
               projectLimit={projectUsageLimit}
               fleetData={fleetData}
               agent2ApiSpeedModels={agent2ApiSpeedModels}
-              agent2ApiSpeedAvailable={agent2ApiSpeedAvailable}
+              agent2ApiSpeedError={agent2ApiSpeedError}
+              onAgent2ApiSpeedRetry={onAgent2ApiSpeedRetry}
               agent2ApiSpeedLoading={agent2ApiSpeedLoading}
               onProjectLimitChange={setProjectUsageLimit}
               projectDetailQuery={projectDetailQuery}
