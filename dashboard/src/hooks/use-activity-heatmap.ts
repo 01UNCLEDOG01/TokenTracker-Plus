@@ -13,7 +13,23 @@ import {
   getUsageDaily,
   getUsageHeatmap,
 } from "../lib/api";
+import { adoptOrphanCacheKeys, touchLocalStorageCacheKey } from "../lib/local-storage-lru";
 import { useLatestRequestGuard } from "./use-latest-request-guard";
+
+const HEATMAP_CACHE_INDEX_KEY = "tokentracker.heatmap-cache-index";
+const HEATMAP_CACHE_MAX_ENTRIES = 24;
+let heatmapOrphansAdopted = false;
+function ensureHeatmapOrphansAdopted(): void {
+  if (heatmapOrphansAdopted || typeof window === "undefined") return;
+  // Keys minted before the LRU existed would otherwise keep the storage full
+  // forever (2026-11-10 quota incident). Keep retrying until the prefix
+  // converges — see use-usage-model-breakdown.ts.
+  heatmapOrphansAdopted = adoptOrphanCacheKeys(
+    HEATMAP_CACHE_INDEX_KEY,
+    "tokentracker.heatmap.",
+    HEATMAP_CACHE_MAX_ENTRIES,
+  );
+}
 
 export function useActivityHeatmap({
   baseUrl,
@@ -85,11 +101,13 @@ export function useActivityHeatmap({
 
   const readCache = useCallback(() => {
     if (!storageKey || typeof window === "undefined") return null;
+    ensureHeatmapOrphansAdopted();
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed || !parsed.heatmap) return null;
+      touchLocalStorageCacheKey(HEATMAP_CACHE_INDEX_KEY, storageKey, HEATMAP_CACHE_MAX_ENTRIES);
       return parsed;
     } catch (_e) {
       return null;
@@ -99,8 +117,10 @@ export function useActivityHeatmap({
   const writeCache = useCallback(
     (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
+      ensureHeatmapOrphansAdopted();
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
+        touchLocalStorageCacheKey(HEATMAP_CACHE_INDEX_KEY, storageKey, HEATMAP_CACHE_MAX_ENTRIES);
       } catch (_e) {
         // ignore write errors (quota/private mode)
       }

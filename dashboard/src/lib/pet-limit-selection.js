@@ -79,7 +79,14 @@ export function readPetLimitSelection() {
 export function writePetLimitSelection(list) {
   if (typeof window === "undefined" || !window.localStorage) return list;
   const next = normalize(list) || [];
-  window.localStorage.setItem(PET_LIMIT_ROWS_KEY, JSON.stringify(next));
+  // 快照写入必须自吞异常：权威存储是本地 API（见上），localStorage 一旦被
+  // 响应缓存塞满，这里抛 QuotaExceededError 会把整个限额页渲染崩掉
+  // （2026-11-10 事故：勾选即「这个视图渲染失败了」）。
+  try {
+    window.localStorage.setItem(PET_LIMIT_ROWS_KEY, JSON.stringify(next));
+  } catch {
+    // 快照丢失可接受：远程保存照常发起，重载后由权威存储回填。
+  }
   // The pet window lives in a separate WebView2 profile: neither localStorage
   // nor the storage event reaches it (this used to be assumed otherwise, which
   // is why picked rows never showed up on the floating card). The local API is

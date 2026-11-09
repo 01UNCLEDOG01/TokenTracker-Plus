@@ -3,7 +3,24 @@ import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { isMockEnabled } from "../lib/mock-data";
 import { getTimeZoneCacheKey } from "../lib/timezone";
 import { fetchCloudUsageModelBreakdown, getUsageModelBreakdown } from "../lib/api";
+import { adoptOrphanCacheKeys, touchLocalStorageCacheKey } from "../lib/local-storage-lru";
 import { useLatestRequestGuard } from "./use-latest-request-guard";
+
+const MODEL_BREAKDOWN_CACHE_INDEX_KEY = "tokentracker.modelBreakdown-cache-index";
+const MODEL_BREAKDOWN_CACHE_MAX_ENTRIES = 24;
+let modelBreakdownOrphansAdopted = false;
+function ensureModelBreakdownOrphansAdopted(): void {
+  if (modelBreakdownOrphansAdopted || typeof window === "undefined") return;
+  // Keys minted before the LRU existed would otherwise keep the storage full
+  // forever (2026-11-10 quota incident). Keep retrying until the prefix
+  // converges: the first round's eviction frees space even when its index
+  // write hits the quota, so a later round lands.
+  modelBreakdownOrphansAdopted = adoptOrphanCacheKeys(
+    MODEL_BREAKDOWN_CACHE_INDEX_KEY,
+    "tokentracker.modelBreakdown.",
+    MODEL_BREAKDOWN_CACHE_MAX_ENTRIES,
+  );
+}
 
 export function useUsageModelBreakdown({
   baseUrl,
@@ -41,6 +58,7 @@ export function useUsageModelBreakdown({
 
   const readCache = useCallback(() => {
     if (!storageKey || typeof window === "undefined") return null;
+    ensureModelBreakdownOrphansAdopted();
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (!raw) return null;
@@ -52,6 +70,11 @@ export function useUsageModelBreakdown({
       // costs until the exact from/to window recurred (owner-reported). A
       // cache entry without the flag is a miss.
       if (parsed.breakdown.trae_estimate_applied !== true) return null;
+      touchLocalStorageCacheKey(
+        MODEL_BREAKDOWN_CACHE_INDEX_KEY,
+        storageKey,
+        MODEL_BREAKDOWN_CACHE_MAX_ENTRIES,
+      );
       return parsed;
     } catch (_e) {
       return null;
@@ -63,6 +86,11 @@ export function useUsageModelBreakdown({
       if (!storageKey || typeof window === "undefined") return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
+        touchLocalStorageCacheKey(
+          MODEL_BREAKDOWN_CACHE_INDEX_KEY,
+          storageKey,
+          MODEL_BREAKDOWN_CACHE_MAX_ENTRIES,
+        );
       } catch (_e) {
         // ignore write errors
       }
