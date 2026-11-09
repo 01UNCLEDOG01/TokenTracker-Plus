@@ -92,6 +92,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.widgetWindow?.window?.orderOut(nil)
             UserDefaults.standard.set(false, forKey: "TTPQuotaWidgetEnabled")
         }
+        var lastDrag: NSPoint?
+        PetSettingsController.shared.desktopPanelDrag = { [weak self] type, payload in
+            guard let self, let panel = self.desktopWidget?.window else { return }
+            if type == "panel:drag-end" { lastDrag = nil; return }
+            guard let x = payload["x"] as? Double, let y = payload["y"] as? Double else { return }
+            // screenX/Y are top-left origin; NSEvent.mouseLocation is bottom-left.
+            let mouse = NSPoint(x: x, y: NSScreen.screens[0].frame.height - y)
+            if let last = lastDrag {
+                let dx = mouse.x - last.x, dy = mouse.y - last.y
+                if hypot(dx, dy) < 300 {
+                    panel.setFrameOrigin(NSPoint(x: panel.frame.origin.x + dx,
+                                                 y: panel.frame.origin.y - dy))
+                }
+            }
+            lastDrag = mouse
+        }
 
         serverManager.start()
         Diag.info("Shell launched (v\(updateChecker.currentVersion))")

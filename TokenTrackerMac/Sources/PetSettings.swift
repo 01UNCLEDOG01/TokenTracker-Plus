@@ -37,6 +37,8 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
 
     /// Provided by AppDelegate: the pet panel (for size resize + context push).
     var petPanelProvider: (() -> PetPanelController?)?
+    /// Drag gesture from the desktop control panel page pointer stream.
+    var desktopPanelDrag: ((String, [String: Any]) -> Void)?
 
     private let sizeFrames: [String: NSRect] = [
         "small": NSRect(x: 0, y: 0, width: 240, height: 320),
@@ -74,6 +76,10 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         guard let type = obj["type"] as? String else { return }
         if type.hasPrefix("quota:"), let webView = message.webView {
             QuotaWidgetHost.shared.handle(type: type, payload: obj, webView: webView)
+            return
+        }
+        if type == "panel:drag" || type == "panel:drag-end" {
+            desktopPanelDrag?(type, obj)
             return
         }
         switch type {

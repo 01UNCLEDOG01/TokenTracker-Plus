@@ -33,7 +33,7 @@ enum WebHost {
     /// ATS: the shell loads plain http://127.0.0.1 — WKWebView allows loopback
     /// only with NSAllowsLocalNetworking (set in Info.plist), and this keeps the
     /// configuration in one place.
-    static func makeWebView(frame: NSRect) -> WKWebView {
+    static func makeWebView(frame: NSRect, headerDragRegion: Bool = false) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         // Pet-settings bridge shim: the dashboard's pet page posts to
@@ -56,6 +56,26 @@ enum WebHost {
         configuration.userContentController.addUserScript(
             WKUserScript(source: shim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         configuration.userContentController.add(PetSettingsController.shared, name: "petBridge")
+        if headerDragRegion {
+            // The webview covers the whole window, so isMovableByWindowBackground
+            // never sees a mousedown. Give the page's pointer stream a drag
+            // gesture that reports screen deltas to native.
+            let drag = """
+            (function () {
+              var last = null;
+              document.addEventListener('pointerdown', function (e) { last = { x: e.screenX, y: e.screenY }; }, true);
+              document.addEventListener('pointermove', function (e) {
+                if (last && (e.buttons & 1)) {
+                  window.chrome.webview.postMessage(JSON.stringify({ type: 'panel:drag', x: e.screenX, y: e.screenY }));
+                }
+                last = { x: e.screenX, y: e.screenY };
+              }, true);
+              document.addEventListener('pointerup', function (e) { last = null; window.chrome.webview.postMessage(JSON.stringify({ type: 'panel:drag-end' })); }, true);
+            })();
+            """
+            configuration.userContentController.addUserScript(
+                WKUserScript(source: drag, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
         let webView = WKWebView(frame: frame, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground") // transparent surface
         if #available(macOS 12.0, *) {
@@ -186,12 +206,15 @@ final class DesktopWidgetWindowController: NSWindowController {
         panel.isOpaque = false
         panel.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.92)
         panel.hasShadow = true
-        // Desktop level: above the wallpaper, below every normal window.
-        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+        // Desktop-icon level + 1: sitting at plain desktopWindow level puts the
+        // panel BELOW Finder's full-screen desktop backdrop, which eats every
+        // click (the "panel unclickable" report). One level above the icons keeps
+        // the panel behind all normal windows but lets clicks land.
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 21)  // icon level + 1 (header: icon = desktop + 20)
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
-        panel.contentView = WebHost.makeWebView(frame: rect)
+        panel.contentView = WebHost.makeWebView(frame: rect, headerDragRegion: true)
         super.init(window: panel)
         placeAtDefaultCorner()
     }
