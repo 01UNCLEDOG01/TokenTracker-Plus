@@ -49,6 +49,7 @@ const { enrichQoderCnSpend } = require("./qoder-cn-estimate");
 const { fetchApigotoLimits } = require("./apigoto-limits");
 const { fetchSensenovaLimits } = require("./sensenova-limits");
 const { fetchRaccoonLimits } = require("./raccoon-limits");
+const { fetchRaccoonDailyUsage } = require("./raccoon-daily-usage");
 const { fetchDeepSeekLimits } = require("./deepseek-limits");
 const { fetchMinimaxLimits } = require("./minimax-limits");
 const { fetchAgentRouterLimits } = require("./agentrouter-limits");
@@ -4709,6 +4710,24 @@ function withPlanLabel(obj, raw, brand) {
   return { ...obj, plan_label: normalizePlanLabel(raw, brand) };
 }
 
+// Enrich the gateway-fed raccoon card with the desktop session's daily
+// grant/used amounts. Balances-only payloads stay untouched, a gateway-less
+// install keeps its configured:false shape, and a bills-lane failure never
+// hides the gateway card — it just rides along as an error field for debugging.
+function attachRaccoonDailyUsage(raccoon, raccoonDaily) {
+  if (!raccoon || raccoon.configured !== true) return raccoon;
+  if (!raccoonDaily || raccoonDaily.configured !== true) return raccoon;
+  if (raccoonDaily.error) {
+    return { ...raccoon, raccoon_daily_usage_error: raccoonDaily.error };
+  }
+  if (!raccoonDaily.raccoon_daily_usage) return raccoon;
+  const out = { ...raccoon, raccoon_daily_usage: raccoonDaily.raccoon_daily_usage };
+  if (raccoonDaily.raccoon_daily_usage_window) {
+    out.raccoon_daily_usage_window = raccoonDaily.raccoon_daily_usage_window;
+  }
+  return out;
+}
+
 // Single-flight guard: concurrent cache misses share one upstream fetch instead of
 // each triggering the full 9-provider round (Claude's OAuth usage endpoint 429s when
 // hammered). Survives an external resetUsageLimitsCache() (refresh=1 path in
@@ -4900,7 +4919,7 @@ async function fetchUsageLimitsUncached({
   // (#956).
   const hiddenSentinel = Promise.resolve({ configured: false });
   const hiddenSettled = Promise.resolve({ status: "fulfilled", value: { configured: false } });
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, raccoonDaily, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -5048,6 +5067,10 @@ async function fetchUsageLimitsUncached({
     // 小浣熊 (Raccoon) credit balances read straight from the local Agent2API
     // gateway db — zero auth, no network, fail-soft inside the fetcher.
     hiddenSet.has("raccoon") ? hiddenSentinel : fetchRaccoonLimits({ home, env, nowMs }),
+    // 小浣熊 daily grant/used from the desktop app's own session — the gateway
+    // snapshot only carries balances, so the daily bar needs the bills
+    // endpoint. Enrichment: a gateway-less install keeps today's card shape.
+    hiddenSet.has("raccoon") ? hiddenSentinel : fetchRaccoonDailyUsage({ home, env, nowMs }),
     // DeepSeek open-platform balance, keyed by the user's own API key.
     hiddenSet.has("deepseek") ? hiddenSentinel : fetchDeepSeekLimits({ home, fetchImpl: providerFetch, nowMs }),
     // MiniMax Token Plan 5h/weekly quota or API balance, keyed by the user's own
@@ -5600,7 +5623,7 @@ async function fetchUsageLimitsUncached({
     workbuddyAi,
     // Balances, not windows: the fetcher never sets plan_name, so the panel
     // falls back to the bare brand and the wallets render as the status line.
-    raccoon: withPlanLabel(raccoon, raccoon?.plan_name, "Raccoon"),
+    raccoon: withPlanLabel(attachRaccoonDailyUsage(raccoon, raccoonDaily), raccoon?.plan_name, "Raccoon"),
     deepseek: withPlanLabel(deepseek, deepseek?.plan_name, "DeepSeek"),
     minimax: withPlanLabel(minimax, minimax?.plan_name, "MiniMax"),
     trae: withPlanLabel(traeGateway, traeGateway?.plan_name, "Trae"),
