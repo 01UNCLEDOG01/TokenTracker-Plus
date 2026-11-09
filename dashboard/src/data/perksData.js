@@ -1275,13 +1275,14 @@ export const PERK_PROVIDERS = [
       "大厂开放",
       "双池滚动",
       "12万积分/5h",
+      "新用户需邀请码",
       "OpenAI兼容"
     ],
-    "description": "**双泡池滚动赠送：通用积分池与 Flash-Lite 专属池各自每 5 小时滚动赠送 120,000 积分**（每周可领 120 万通用 + 120 万专属积分），登录控制台即用；兼容 OpenAI 接口规范。",
-    "tips": "额度按滑动窗口每 5 小时自动逐步恢复，无需手动重置；统一 Base URL 为 https://token.sensenova.cn/v1，完全兼容 OpenAI / Anthropic 规范。",
+    "description": "**双泡池滚动赠送：通用积分池与 Flash-Lite 专属池各自每 5 小时滚动赠送 120,000 积分**（每周可领 120 万通用 + 120 万专属积分），兼容 OpenAI 规范。2026-11-04 起平台暂停公开注册、转入邀请码注册阶段（新用户可在注册页申请通道提交审核），已注册老用户的登录、接口调用与滚动赠送权益不受影响。",
+    "tips": "额度按滑动窗口每 5 小时自动逐步恢复，统一 Base URL 为 https://token.sensenova.cn/v1。新用户需凭邀请码注册（可于注册页申请）；平台 2026-11-04 上线 GLM 5.3，旧版 glm-5.2 将于 2026-11-18 正式下线，需及时切换配置。",
     "officialUrl": "https://platform.sensenova.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-09",
     "sourceUrl": "https://www.sensenova.cn/token-plan"
   },
   {
