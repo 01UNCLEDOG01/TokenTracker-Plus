@@ -218,6 +218,8 @@
   "limits.label.cline_wallets": "{{wallets}}",
   "limits.provider.raccoon": "小浣熊",
   "limits.label.raccoon_wallets": "{{wallets}}，合計 {{total}} {{unit}}",
+  "limits.label.raccoon_daily": "每日積分",
+  "limits.points.detail": "今日已用 {{used}} / {{limit}} 積分 · 剩餘 {{remaining}}",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "通用 5h",
   "limits.label.sensenova_general_weekly": "通用週",

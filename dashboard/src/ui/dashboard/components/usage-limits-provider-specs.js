@@ -424,12 +424,24 @@ export const PROVIDER_LIMIT_SPECS = {
   },
   raccoon: {
     // 小浣熊 (Raccoon) credit wallets are pure balances with refill schedules
-    // of their own (the daily wallet accumulates per check-in, no fixed grant
-    // to pace against) — there is no honest used_percent, so no bar rows: the
-    // balances render as the raccoon_wallets status line below the header.
+    // of their own (the daily wallet accumulates per check-in) — the balances
+    // render as the raccoon_wallets status line below the header. The desktop
+    // session's bills lane (raccoon_daily_usage_window) adds the one honest
+    // percentage on this card: today's grant vs today's consumption, a real
+    // window that flows through LimitBar and follows the display mode like
+    // every other row.
     extra: "raccoon_wallets",
-    windows() {
-      return [];
+    windows(data) {
+      return data.raccoon_daily_usage_window
+        ? [
+          {
+            key: "daily",
+            labelKey: "limits.label.raccoon_daily",
+            window: data.raccoon_daily_usage_window,
+            windowSecondsField: "limit_window_seconds",
+          },
+        ]
+        : [];
     },
   },
   opendesign: {

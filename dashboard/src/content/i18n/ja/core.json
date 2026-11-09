@@ -190,6 +190,8 @@
   "limits.label.cline_wallets": "{{wallets}}",
   "limits.provider.raccoon": "Raccoon",
   "limits.label.raccoon_wallets": "{{wallets}}、合計 {{total}} {{unit}}",
+  "limits.label.raccoon_daily": "デイリーポイント",
+  "limits.points.detail": "本日 {{used}} / {{limit}} ポイント消費 · 残り {{remaining}}",
   "limits.provider.sensenova": "SenseNova",
   "limits.label.sensenova_general_5h": "汎用 5h",
   "limits.label.sensenova_general_weekly": "汎用 週間",

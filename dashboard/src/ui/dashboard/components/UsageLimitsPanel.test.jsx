@@ -119,9 +119,11 @@ describe("UsageLimitsPanel", () => {
     expect(screen.queryByText(copy("limits.label.trae_usage", {
       total: "3,950", used: "2,114.52",
     }))).toBeNull();
+    // Default (used) mode: 1,835.48 of 3,950 left -> 53.5% used, still green.
+    expect(screen.getByText("54%")).toBeInTheDocument();
     const greenBars = document.querySelectorAll(".bg-emerald-500");
     expect(greenBars).toHaveLength(1);
-    expect(greenBars[0].getAttribute("style")).toContain("46.4");
+    expect(greenBars[0].getAttribute("style")).toContain("53.5");
     const trackTitle = greenBars[0].closest(".group").querySelector('[role="tooltip"]').textContent;
     expect(trackTitle).toContain("1,835.48");
     expect(trackTitle).toContain("3,950");
@@ -130,6 +132,153 @@ describe("UsageLimitsPanel", () => {
     // The per-grant array is data only; listing it was the previous design.
     expect(screen.queryByText("签到奖励")).not.toBeInTheDocument();
     expect(screen.queryByText("每月登录赠送")).not.toBeInTheDocument();
+  });
+
+  it("reads a spent wallet as 100% red in used mode instead of 0% green", () => {
+    render(
+      <UsageLimitsPanel
+        order={["trae", "agentRouter"]}
+        displayMode="used"
+        trae={{
+          configured: true,
+          trae_available_points: 0,
+          trae_total_points: 2900,
+          trae_used_points: 2900,
+        }}
+        agentRouter={{
+          configured: true,
+          agentrouter_balance_usd: 49.77907,
+          agentrouter_used_usd: 2375.22093,
+        }}
+      />,
+    );
+    // Trae: 0 of 2,900 left -> the used bar must read 100% in red.
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    const redBar = document.querySelector(".bg-red-500");
+    expect(redBar).not.toBeNull();
+    expect(redBar.getAttribute("style")).toContain("100%");
+    // AgentRouter: $49.78 of $2,425 left -> 98% used, red too.
+    expect(screen.getByText("98%")).toBeInTheDocument();
+    expect(document.querySelectorAll(".bg-red-500")).toHaveLength(2);
+    expect(document.querySelectorAll(".bg-emerald-500")).toHaveLength(0);
+  });
+
+  it("reads nearly spent wallets amber in used mode", () => {
+    render(
+      <UsageLimitsPanel
+        order={["traeMain", "codearts"]}
+        displayMode="used"
+        traeMain={{
+          configured: true,
+          trae_available_points: 679,
+          trae_total_points: 3600,
+          trae_used_points: 2921.39,
+        }}
+        codearts={{
+          configured: true,
+          codearts_available_credits: 2143.2,
+          codearts_package: { remaining: 2143.2, total: 14600 },
+        }}
+      />,
+    );
+    // Trae main: 679/3600 left -> 81% used, amber; CodeArts: 2143.2/14600 -> 85%, amber.
+    expect(screen.getByText("81%")).toBeInTheDocument();
+    expect(screen.getByText("85%")).toBeInTheDocument();
+    const ambers = document.querySelectorAll(".bg-amber-500");
+    expect(ambers).toHaveLength(2);
+    expect(ambers[0].getAttribute("style")).toContain("81.1");
+  });
+
+  it("mirrors wallet colors in remaining mode: 19% left reads amber, not green", () => {
+    render(
+      <UsageLimitsPanel
+        order={["traeMain"]}
+        displayMode="remaining"
+        traeMain={{
+          configured: true,
+          trae_available_points: 679,
+          trae_total_points: 3600,
+          trae_used_points: 2921.39,
+        }}
+      />,
+    );
+    // Remaining orientation shows the 19% share, but 19% left is amber under
+    // the mirrored thresholds — a reassuring green here hid real exhaustion.
+    expect(screen.getByText("19%")).toBeInTheDocument();
+    expect(document.querySelector(".bg-amber-500")).not.toBeNull();
+    expect(document.querySelector(".bg-emerald-500")).toBeNull();
+  });
+
+  it("renders the raccoon daily bar mode-aware instead of a balance-only line", () => {
+    const raccoonPayload = {
+      configured: true,
+      raccoon_wallets: [{ type: "daily_points", name: "每日积分", balance: 2100 }],
+      raccoon_available_credits: 9516,
+      raccoon_unit: "积分",
+      raccoon_daily_usage: {
+        date: "2026-11-09",
+        grant_points: 300,
+        used_points: 270,
+        daily_balance: 2100,
+        source: "office-raccoon-desktop",
+        captured_at: "2026-11-09T16:30:00.000Z",
+      },
+      // reset_at omitted: the pace marker has its own suite (pace.test.js).
+      raccoon_daily_usage_window: {
+        kind: "daily",
+        used: 270,
+        limit: 300,
+        remaining: 30,
+        used_credits: 270,
+        limit_credits: 300,
+        remaining_credits: 30,
+        unit: "points",
+        used_percent: 90,
+        limit_window_seconds: 86400,
+      },
+    };
+    render(<UsageLimitsPanel order={["raccoon"]} displayMode="used" raccoon={raccoonPayload} />);
+    // Used mode: 270 of 300 spent -> 90% red, not a green balance-only card.
+    expect(screen.getByText("90%")).toBeInTheDocument();
+    const reds = document.querySelectorAll(".bg-red-500");
+    expect(reds).toHaveLength(1);
+    const tooltip = reds[0].closest(".group").querySelector('[role="tooltip"]').textContent;
+    expect(tooltip).toContain("270");
+    expect(tooltip).toContain("300");
+    // The wallet balances keep rendering as the status line under the bar.
+    expect(screen.getByText(/2,100/)).toBeInTheDocument();
+  });
+
+  it("mirrors the raccoon daily bar in remaining mode: 10% left reads red", () => {
+    render(
+      <UsageLimitsPanel
+        order={["raccoon"]}
+        displayMode="remaining"
+        raccoon={{
+          configured: true,
+          raccoon_wallets: [{ type: "daily_points", name: "每日积分", balance: 2100 }],
+          raccoon_available_credits: 9516,
+          raccoon_unit: "积分",
+          raccoon_daily_usage_window: {
+            kind: "daily",
+            used: 270,
+            limit: 300,
+            remaining: 30,
+            used_credits: 270,
+            limit_credits: 300,
+            remaining_credits: 30,
+            unit: "points",
+            used_percent: 90,
+            limit_window_seconds: 86400,
+          },
+        }}
+      />,
+    );
+    // Remaining orientation shows the 10% share, but 10% left is red under the
+    // mirrored thresholds.
+    expect(screen.getByText("10%")).toBeInTheDocument();
+    expect(document.querySelector(".bg-red-500")).not.toBeNull();
+    expect(document.querySelector(".bg-emerald-500")).toBeNull();
   });
 
   it("renders Qoder's three credit pools instead of one summed bar", () => {

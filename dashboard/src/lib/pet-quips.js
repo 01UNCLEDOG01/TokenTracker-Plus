@@ -317,8 +317,10 @@ const PET_LIMIT_PROVIDER_NAMES = {
   opencodeGo: "OpenCode Go",
   qoder: "Qoder",
   codingPlan: "Ark Coding Plan",
-  // 小浣熊 (Raccoon) — balance-only card, no windows: the name map entry keeps
-  // quips that mention the provider consistent with the Limits page title.
+  // 小浣熊 (Raccoon) — wallet balances stay a status line, but the desktop
+  // session's daily bar mirrors the panel spec (raccoon::daily). The name map
+  // entry keeps quips that mention the provider consistent with the Limits
+  // page title.
   raccoon: "Raccoon",
   deepseek: "DeepSeek",
   trae: "Trae",
@@ -585,11 +587,19 @@ function collectPetLimitRows(limits) {
     [copy("limits.label.workbuddy_reward"), limits.workbuddyAi?.reward_window, "reward"],
   ]);
 
+  // 小浣熊 daily bar mirrors the panel spec (raccoon::daily); the wallet
+  // balances themselves stay status-line only, so they have no row here.
+  addGeneric("raccoon", limits.raccoon, [
+    [copy("limits.label.raccoon_daily"), limits.raccoon?.raccoon_daily_usage_window, "daily"],
+  ]);
+
   // Wallet rows (Trae/CodeArts credits, AgentRouter balance) carry the
-  // REMAINING percent — that is what the page's wallet bar shows — and only
-  // ever surface when picked on the Limits page: a nearly full wallet is not
-  // "urgent", so they stay out of the default pool. The math mirrors the
-  // panel's wallet summaries; keep the two in step.
+  // REMAINING percent by pet-card convention — the hover card always frames a
+  // wallet as "how much is left", while the Limits page's own wallet bars now
+  // follow the used/remaining display mode. Pet rows only surface when picked
+  // on the Limits page: a nearly full wallet is not "urgent", so they stay out
+  // of the default pool. The math mirrors the panel's wallet summaries; keep
+  // the two in step.
   const walletRemaining = (providerId, compute) => {
     const provider = limits[providerId];
     if (provider?.configured !== true || provider?.error != null) return null;

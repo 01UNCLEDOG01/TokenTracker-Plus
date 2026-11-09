@@ -126,7 +126,9 @@ function buildQuotaDetail(window, maximumFractionDigits) {
   if (!used || !limit || !remaining) return null;
   const key = window.unit === "calls"
     ? "limits.qoder_calls.detail"
-    : "limits.codex_credits.detail";
+    : window.unit === "points"
+      ? "limits.points.detail"
+      : "limits.codex_credits.detail";
   return copy(key, { used, limit, remaining });
 }
 
@@ -508,47 +510,10 @@ function StatusLine({ children, tone = "neutral" }) {
 }
 
 // Wallet balances (Trae credits, CodeArts packages, AgentRouter cash) are not
-// window quotas, but their bars must sit on the same label/pct grid as the
-// quota rows — a full-bleed stripe reads as a different component.
-function WalletBar({ label, pct, title = null, picker = null }) {
-  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
-  const rounded = Math.round(clamped);
-  const labelPct = clamped > 0 && rounded === 0 ? copy("limits.bar.sub_one_percent") : `${rounded}%`;
-  return (
-    <div className="group relative mt-1 flex cursor-pointer items-center gap-2">
-      <HoverTooltip text={title} />
-      <span
-        data-limit-label=""
-        className="shrink-0 whitespace-nowrap text-[11px] text-oai-gray-500 dark:text-oai-gray-400"
-        style={{ width: "var(--tt-limits-label-w)" }}
-      >
-        {label}
-      </span>
-      <div className="relative flex-1 bg-oai-gray-100 dark:bg-oai-gray-700/50 rounded-full h-1.5 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-emerald-500 motion-safe:transition-[width] motion-safe:duration-500 ease-out motion-reduce:transition-none"
-          style={{ width: `${clamped}%`, minWidth: clamped > 0 ? "3px" : 0 }}
-        />
-      </div>
-      <span className="text-[11px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400 w-9 text-right shrink-0 whitespace-nowrap">
-        {labelPct}
-      </span>
-      {picker ? (
-        <input
-          type="checkbox"
-          checked={picker.checked}
-          disabled={!picker.checked && picker.full}
-          onChange={() => picker.onToggle(picker.providerId, picker.rowKey)}
-          aria-label={copy("limits.pet.toggle_aria", { label })}
-          title={copy("limits.pet.toggle_hint")}
-          className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-oai-gray-300 accent-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
-        />
-      ) : (
-        <span className="w-6 shrink-0" aria-hidden="true" />
-      )}
-    </div>
-  );
-}
+// window quotas: they hold a remaining share, so the callers flip it to the
+// used orientation once and hand LimitBar the same used-orientation pct that
+// window rows pass — mode flip, threshold color and the 0% tick then behave
+// identically on both row kinds.
 
 function LimitWindowSection({ rows, mode, extra = null, expanded = false, picker = null }) {
   const showEmpty = rows.length === 0 && !extra;
@@ -724,7 +689,8 @@ function ZcodeResetBankSection({ data }) {
 /**
  * TRAE SOLO's account summary lives at raw.entUsage.usage_summary. Compute it
  * here (kept out of JSX so the UI-hardcode scanner never sees a bare `>`
- * spanning into markup) and render one compact account row plus one green bar;
+ * spanning into markup) and render one compact account row plus one quota bar
+ * (mode-aware like the window rows, not a fixed green);
  * the per-grant list stays in the payload as data but is not listed.
  */
 function traeAccountSummary(data) {
@@ -772,16 +738,19 @@ function walletRowPicker(picker, rowKey) {
   };
 }
 
-function TraeWalletExtra({ data, picker }) {
+function TraeWalletExtra({ data, picker, mode = LIMIT_DISPLAY_MODES.USED }) {
   const { available, total, used, remainingPct, nearestExpireAt } =
     traeAccountSummary(data);
+  // remainingPct is a remaining share; LimitBar wants the used orientation.
+  const usedPct = remainingPct == null ? null : 100 - remainingPct;
 
   return (
     <>
-      {remainingPct != null ? (
-        <WalletBar
+      {usedPct != null ? (
+        <LimitBar
           label={copy("limits.label.wallet_credits")}
-          pct={remainingPct}
+          pct={usedPct}
+          mode={mode}
           picker={walletRowPicker(picker, "credits")}
           title={[
             copy("limits.label.trae_balance", { credits: formatTraeCredit(available) }),
@@ -802,19 +771,21 @@ function TraeWalletExtra({ data, picker }) {
   );
 }
 
-function CodeArtsWalletExtra({ data, picker }) {
+function CodeArtsWalletExtra({ data, picker, mode = LIMIT_DISPLAY_MODES.USED }) {
   const available = Number(data.codearts_available_credits) || 0;
   const pkg = data.codearts_package;
   const total = Number(pkg?.total) || 0;
   const used = Math.max(0, total - available);
   const remainingPct = total ? Math.max(0, Math.min(100, (available / total) * 100)) : null;
+  const usedPct = remainingPct == null ? null : 100 - remainingPct;
 
   return (
     <>
-      {remainingPct != null ? (
-        <WalletBar
+      {usedPct != null ? (
+        <LimitBar
           label={copy("limits.label.wallet_credits")}
-          pct={remainingPct}
+          pct={usedPct}
+          mode={mode}
           picker={walletRowPicker(picker, "credits")}
           title={[
             copy("limits.label.codearts_wallets", {
@@ -832,18 +803,20 @@ function CodeArtsWalletExtra({ data, picker }) {
   );
 }
 
-function AgentRouterWalletExtra({ data, picker }) {
+function AgentRouterWalletExtra({ data, picker, mode = LIMIT_DISPLAY_MODES.USED }) {
   const balance = Number(data.agentrouter_balance_usd) || 0;
   const used = Number(data.agentrouter_used_usd) || 0;
   const total = balance + used;
   const remainingPct = total ? Math.max(0, Math.min(100, (balance / total) * 100)) : null;
+  const usedPct = remainingPct == null ? null : 100 - remainingPct;
 
   return (
     <>
-      {remainingPct != null ? (
-        <WalletBar
+      {usedPct != null ? (
+        <LimitBar
           label={copy("limits.label.wallet_balance")}
-          pct={remainingPct}
+          pct={usedPct}
+          mode={mode}
           picker={walletRowPicker(picker, "balance")}
           title={[
             copy("limits.label.agentrouter_balance", {
@@ -863,7 +836,7 @@ function AgentRouterWalletExtra({ data, picker }) {
   );
 }
 
-function renderProviderExtra(kind, data, picker = null) {
+function renderProviderExtra(kind, data, picker = null, mode = LIMIT_DISPLAY_MODES.USED) {
   if (kind === "zcode_reset_bank") {
     if (!data.reset_credits) return null;
     // A spent bank must pass a real null through so the no-data line renders
@@ -911,7 +884,7 @@ function renderProviderExtra(kind, data, picker = null) {
     );
   }
   if (kind === "agentrouter_balance" && Number.isFinite(Number(data.agentrouter_balance_usd))) {
-    return <AgentRouterWalletExtra data={data} picker={picker} />;
+    return <AgentRouterWalletExtra data={data} picker={picker} mode={mode} />;
   }
   if (kind === "minimax_balance" && Number.isFinite(Number(data.minimax_balance))) {
     return (
@@ -973,10 +946,10 @@ function renderProviderExtra(kind, data, picker = null) {
     // Older cached payloads carry only the nearest-expiry summary; keep that
     // line until the next fetch supplies trae_grants (then the per-batch bars
     // replace it). An empty grants array means every batch already expired.
-    return <TraeWalletExtra data={data} picker={picker} />;
+    return <TraeWalletExtra data={data} picker={picker} mode={mode} />;
   }
   if (kind === "codearts_wallets" && Number.isFinite(Number(data.codearts_available_credits))) {
-    return <CodeArtsWalletExtra data={data} picker={picker} />;
+    return <CodeArtsWalletExtra data={data} picker={picker} mode={mode} />;
   }
   if (kind === "cline_wallets" && Array.isArray(data.cline_wallets) && data.cline_wallets.length) {
     const summary = data.cline_wallets
@@ -1128,7 +1101,7 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
     .windows(data)
     .filter((s) => s.window)
     .map((s) => ({ spec: s, pace: paceForSpec(s, mode, now) }));
-  const extra = renderProviderExtra(spec.extra, data, petPicker ? { providerId: id, ...petPicker } : null);
+  const extra = renderProviderExtra(spec.extra, data, petPicker ? { providerId: id, ...petPicker } : null, mode);
   return (
     <ToolGroup
       key={id}
