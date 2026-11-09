@@ -11058,6 +11058,10 @@ async function parseCodebuddyIncremental({
         start: startOffset,
       });
     } catch { continue; }
+    // Attach before readline so no chunk escapes the tail tracking; this
+    // reader must keep readline because .log lines are not JSON, so
+    // scanOmpLikeTranscript would never deliver them to the callback.
+    const tailTracker = trackJsonlTerminatedTail(stream, startOffset);
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
     const isLogFile = filePath.endsWith(".log");
@@ -11369,10 +11373,14 @@ async function parseCodebuddyIncremental({
       }
     }
 
+    tailTracker.detach();
+
     let postStat = stat;
     try { postStat = fssync.statSync(filePath); } catch {}
     fileOffsets[filePath] = {
-      size: postStat.size,
+      // Never commit past the last newline-terminated line: a tail written
+      // without its newline yet stays visible to the next sync.
+      size: Math.min(tailTracker.consumedOffset(), postStat.size),
       mtimeMs: postStat.mtimeMs,
       ino: postStat.ino,
     };
@@ -11937,107 +11945,107 @@ async function parseWorkbuddyIncremental({
     const startOffset = stat.size < prevSize || inodeChanged ? 0 : prevSize;
     if (stat.size <= startOffset) continue;
 
-    let stream;
-    try {
-      stream = fssync.createReadStream(filePath, {
-        encoding: "utf8",
-        start: startOffset,
-      });
-    } catch { continue; }
-    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    // Byte-exact scan with tail protection, shared with the project pass
+    // below: a record appended while this pass runs, or a half-written tail
+    // line, stays visible to the next sync instead of being skipped forever
+    // once the cursor advances past it. Both queues therefore commit
+    // identical record sets and never diverge on a torn tail.
+    const committedEndOffset = await scanOmpLikeTranscript(
+      filePath,
+      startOffset,
+      OMP_LIKE_MAX_RECORD_BYTES,
+      (entry) => {
+        if (!entry || typeof entry !== "object") return;
 
-    for await (const line of rl) {
-      if (!line || !line.trim()) continue;
-      let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
-      if (!entry || typeof entry !== "object") continue;
+        // Usage is carried on ANY record with providerData.rawUsage — assistant
+        // messages AND function_call records. Aggregate them all; dedup per id.
+        const provider = entry.providerData;
+        const rawUsage = provider && typeof provider === "object" ? provider.rawUsage : null;
+        if (!rawUsage || typeof rawUsage !== "object") return;
 
-      // Usage is carried on ANY record with providerData.rawUsage — assistant
-      // messages AND function_call records. Aggregate them all; dedup per id.
-      const provider = entry.providerData;
-      const rawUsage = provider && typeof provider === "object" ? provider.rawUsage : null;
-      if (!rawUsage || typeof rawUsage !== "object") continue;
+        const sessionId =
+          typeof entry.sessionId === "string" && entry.sessionId
+            ? entry.sessionId
+            : path.basename(filePath, ".jsonl");
+        const sqliteSession = sqliteSessions[sessionId];
+        if (sqliteSession?.detailed || tracedSessionIds.has(sessionId)) {
+          return;
+        }
+        const tsMs =
+          Number.isFinite(Number(entry.timestamp)) && Number(entry.timestamp) > 0
+            ? Number(entry.timestamp)
+            : null;
+        // One usage record per LLM round-trip; providerData.messageId is the
+        // response-level id shared by function_call/message records and must win
+        // over the per-record append id. Fall back to entry.uuid/id only when the
+        // response-level id is absent.
+        const messageId =
+          typeof provider?.messageId === "string" && provider.messageId
+              ? provider.messageId
+              : typeof entry.uuid === "string" && entry.uuid
+                ? entry.uuid
+                : typeof entry.id === "string" && entry.id
+                  ? entry.id
+                  : tsMs != null
+                    ? `${sessionId}:${tsMs}`
+                    : null;
+        if (!messageId) return;
+        if (seenIds.has(messageId)) return;
 
-      const sessionId =
-        typeof entry.sessionId === "string" && entry.sessionId
-          ? entry.sessionId
-          : path.basename(filePath, ".jsonl");
-      const sqliteSession = sqliteSessions[sessionId];
-      if (sqliteSession?.detailed || tracedSessionIds.has(sessionId)) {
-        continue;
-      }
-      const tsMs =
-        Number.isFinite(Number(entry.timestamp)) && Number(entry.timestamp) > 0
-          ? Number(entry.timestamp)
-          : null;
-      // One usage record per LLM round-trip; providerData.messageId is the
-      // response-level id shared by function_call/message records and must win
-      // over the per-record append id. Fall back to entry.uuid/id only when the
-      // response-level id is absent.
-      const messageId =
-        typeof provider?.messageId === "string" && provider.messageId
-            ? provider.messageId
-            : typeof entry.uuid === "string" && entry.uuid
-              ? entry.uuid
-              : typeof entry.id === "string" && entry.id
-                ? entry.id
-                : tsMs != null
-                  ? `${sessionId}:${tsMs}`
-                  : null;
-      if (!messageId) continue;
-      if (seenIds.has(messageId)) continue;
+        recordsProcessed++;
 
-      recordsProcessed++;
+        const delta = workbuddyUsageDelta(rawUsage);
+        if (delta.total_tokens === 0) {
+          seenIds.add(messageId);
+          return;
+        }
 
-      const delta = workbuddyUsageDelta(rawUsage);
-      if (delta.total_tokens === 0) {
+        if (tsMs == null) {
+          seenIds.add(messageId);
+          return;
+        }
+        const tsIso = new Date(tsMs).toISOString();
+        const bucketStart = toUtcHalfHourStart(tsIso);
+        if (!bucketStart) return;
+
+        const model =
+          normalizeModelInput(provider.model) ||
+          normalizeModelInput(provider.requestModelId) ||
+          normalizeModelInput(entry.model) ||
+          fallbackModel;
+
+        const bucket = getHourlyBucket(hourlyState, variant, model, bucketStart);
+        addTotals(bucket.totals, delta);
+        touchedBuckets.add(bucketKey(variant, model, bucketStart));
+
         seenIds.add(messageId);
-        continue;
-      }
+        // Keep legacy entry-id keys alongside the response id so upgrading a
+        // cursor cannot replay a row that an older build already counted.
+        if (typeof entry.id === "string" && entry.id && entry.id !== messageId) {
+          seenIds.add(entry.id);
+        }
+        detailedSessions[sessionId] = true;
+        detailedSessionsWithUsage.add(sessionId);
+        eventsAggregated++;
 
-      if (tsMs == null) {
-        seenIds.add(messageId);
-        continue;
-      }
-      const tsIso = new Date(tsMs).toISOString();
-      const bucketStart = toUtcHalfHourStart(tsIso);
-      if (!bucketStart) continue;
-
-      const model =
-        normalizeModelInput(provider.model) ||
-        normalizeModelInput(provider.requestModelId) ||
-        normalizeModelInput(entry.model) ||
-        fallbackModel;
-
-      const bucket = getHourlyBucket(hourlyState, variant, model, bucketStart);
-      addTotals(bucket.totals, delta);
-      touchedBuckets.add(bucketKey(variant, model, bucketStart));
-
-      seenIds.add(messageId);
-      // Keep legacy entry-id keys alongside the response id so upgrading a
-      // cursor cannot replay a row that an older build already counted.
-      if (typeof entry.id === "string" && entry.id && entry.id !== messageId) {
-        seenIds.add(entry.id);
-      }
-      detailedSessions[sessionId] = true;
-      detailedSessionsWithUsage.add(sessionId);
-      eventsAggregated++;
-
-      if (cb) {
-        cb({
-          index: fileIdx + 1,
-          total: files.length,
-          recordsProcessed,
-          eventsAggregated,
-          bucketsQueued: touchedBuckets.size,
-        });
-      }
-    }
+        if (cb) {
+          cb({
+            index: fileIdx + 1,
+            total: files.length,
+            recordsProcessed,
+            eventsAggregated,
+            bucketsQueued: touchedBuckets.size,
+          });
+        }
+      },
+    );
 
     let postStat = stat;
     try { postStat = fssync.statSync(filePath); } catch {}
     fileOffsets[filePath] = {
-      size: postStat.size,
+      // Never commit past the last fully-scanned record: if the file was
+      // truncated mid-read, postStat.size is the conservative bound.
+      size: Math.min(committedEndOffset, postStat.size),
       mtimeMs: postStat.mtimeMs,
       ino: postStat.ino,
     };
@@ -12582,35 +12590,30 @@ async function parseAgentJsonlIncremental({
     const startOffset = stat.size < prevSize || inodeChanged ? 0 : prevSize;
     if (stat.size <= startOffset) continue;
 
-    let stream;
-    try {
-      stream = fssync.createReadStream(filePath, { encoding: "utf8", start: startOffset });
-    } catch { continue; }
-    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-
-    let consumed = startOffset;
+    // Byte-exact scan with tail protection (see scanOmpLikeTranscript): a
+    // half-written tail line stays visible to the next sync instead of being
+    // skipped forever once the cursor advances past it.
     let sawRecord = false;
-    for await (const line of rl) {
-      consumed += Buffer.byteLength(line, "utf8") + 1;
-      if (!line || !line.trim()) continue;
-      let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
-
+    const committedEndOffset = await scanOmpLikeTranscript(
+      filePath,
+      startOffset,
+      OMP_LIKE_MAX_RECORD_BYTES,
+      (entry) => {
       const record = adapt(entry);
       // A user record carries no usage; only assistant replies open a bucket.
-      if (!record || record.type !== "assistant" || !record.message?.usage) continue;
+      if (!record || record.type !== "assistant" || !record.message?.usage) return;
 
       const usage = record.message.usage;
       const messageId = record.message.id;
       // responseId is the provider's round-trip id. Without it the same reply
       // would be re-counted on every rescan, so an unlabelled record is skipped
       // rather than counted twice.
-      if (typeof messageId !== "string" || !messageId || seenIds.has(messageId)) continue;
+      if (typeof messageId !== "string" || !messageId || seenIds.has(messageId)) return;
 
       const ts = record.timestamp;
       const tsIso = typeof ts === "number" ? new Date(ts).toISOString() : String(ts || "");
       const bucketStart = toUtcHalfHourStart(tsIso);
-      if (!bucketStart) continue;
+      if (!bucketStart) return;
 
       const model = normalizeModelInput(record.message.model) || "unknown";
       const delta = {
@@ -12630,11 +12633,12 @@ async function parseAgentJsonlIncremental({
       seenIds.add(messageId);
       eventsAggregated += 1;
       sawRecord = true;
-    }
+      },
+    );
 
-    if (sawRecord || consumed > startOffset) {
+    if (sawRecord || committedEndOffset > startOffset) {
       filesProcessed += 1;
-      fileOffsets[filePath] = { size: consumed, ino: stat.ino, mtime: Math.round(stat.mtimeMs) };
+      fileOffsets[filePath] = { size: committedEndOffset, ino: stat.ino, mtime: Math.round(stat.mtimeMs) };
     }
     if (cb) cb({ index: i + 1, total: files.length });
   }
@@ -12652,6 +12656,583 @@ async function parseAgentJsonlIncremental({
   };
 
   return { recordsProcessed: eventsAggregated, eventsAggregated, bucketsQueued, filesProcessed };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mistral Vibe — passive reader (~/.vibe/logs/session/..., VIBE_HOME override)
+//
+// Vibe 2.x writes one directory per session whose meta.json holds root-level
+// CUMULATIVE session stats; Vibe 1.x left flat <agent>_*.json files at the
+// session root with the same stats under a top-level `metadata` key. The
+// harness rewrites meta.json in place as the session grows, so per-file
+// baselines subtract the already-counted totals — re-parsing a rewritten
+// snapshot must never add the same tokens twice (seen-id dedup cannot work:
+// the stats carry no per-message ids). messages.jsonl exists but is
+// deliberately not read: the stats are the authoritative totals.
+//   session_prompt_tokens includes session_cached_tokens, so
+//   input = prompt − cached; output; cache_read = cached. No reasoning.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VIBE_SOURCE = "vibe";
+const VIBE_DEFAULT_MODEL = "mistral-medium-latest";
+const VIBE_MAX_SESSION_DEPTH = 4;
+
+function resolveVibeSessionFiles(env = process.env) {
+  const home = env.HOME || require("node:os").homedir();
+  const vibeHome = env.VIBE_HOME
+    ? expandHomePath(env.VIBE_HOME, env)
+    : (process.platform === "win32"
+      ? pickWin32ProviderPath({ env, nativeValue: path.join(home, ".vibe"), wslProviderDir: ".vibe" })
+      : path.join(home, ".vibe"));
+  if (!vibeHome) return [];
+  const root = path.join(vibeHome, "logs", "session");
+  if (!fssync.existsSync(root)) return [];
+  const files = [];
+  const walk = (dir, depth) => {
+    let entries;
+    try { entries = fssync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full, depth + 1);
+        const meta = path.join(full, "meta.json");
+        if (fssync.existsSync(meta)) files.push(meta);
+      } else if (
+        entry.isFile()
+        && depth === 0
+        && /_.*\.json$/.test(entry.name)
+        && !entry.name.endsWith(".json.tmp")
+        && entry.name !== "session_index.json"
+      ) {
+        // Vibe 1.x legacy: flat <agent>_<id>.json at the session root. The
+        // prefix is the agent (subagent) name, so only the underscore and the
+        // exclusions separate these from unrelated JSON the user dropped here.
+        files.push(full);
+      }
+    }
+  };
+  walk(root, 0);
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+function vibeStatsFromDocument(doc) {
+  if (!doc || typeof doc !== "object") return null;
+  const stats = (doc.stats && typeof doc.stats === "object" && doc.stats)
+    || (doc.metadata && typeof doc.metadata === "object" && doc.metadata.stats && typeof doc.metadata.stats === "object" && doc.metadata.stats)
+    || null;
+  if (!stats) return null;
+  const int = (value) => (Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0);
+  const prompt = int(stats.session_prompt_tokens);
+  const completion = int(stats.session_completion_tokens);
+  const cached = Math.min(prompt, int(stats.session_cached_tokens));
+  return {
+    input_tokens: prompt - cached,
+    cached_input_tokens: cached,
+    cache_creation_input_tokens: 0,
+    output_tokens: completion,
+    reasoning_output_tokens: 0,
+    total_tokens: (prompt - cached) + cached + completion,
+    conversation_count: 1,
+  };
+}
+
+function vibeModelFromDocument(doc) {
+  const config = (doc && typeof doc === "object" && doc.config && typeof doc.config === "object") ? doc.config : null;
+  const metaConfig = (doc && typeof doc === "object" && doc.metadata && typeof doc.metadata === "object" && doc.metadata.config && typeof doc.metadata.config === "object") ? doc.metadata.config : null;
+  for (const source of [config, metaConfig]) {
+    if (!source) continue;
+    if (typeof source.active_model === "string" && source.active_model.trim()) {
+      return source.active_model;
+    }
+    if (Array.isArray(source.models) && source.models.length === 1 && source.models[0] && typeof source.models[0].alias === "string") {
+      return source.models[0].alias;
+    }
+  }
+  return VIBE_DEFAULT_MODEL;
+}
+
+function vibeTimestampMs(doc, stat) {
+  const raw = (doc && typeof doc === "object" && (doc.end_time || doc.start_time))
+    || (doc && doc.metadata && (doc.metadata.end_time || doc.metadata.start_time))
+    || null;
+  const parsed = typeof raw === "string" ? Date.parse(raw) : Number(raw);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return stat.mtimeMs;
+}
+
+async function parseVibeIncremental({ sessionFiles, cursors, queuePath, onProgress, env } = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const state = cursors.vibe && typeof cursors.vibe === "object" ? cursors.vibe : {};
+  const fileState =
+    state.files && typeof state.files === "object" ? { ...state.files } : {};
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+
+  const files = Array.isArray(sessionFiles)
+    ? sessionFiles
+    : resolveVibeSessionFiles(env || process.env);
+
+  for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+    const filePath = files[fileIdx];
+    let stat;
+    try { stat = fssync.statSync(filePath); } catch { continue; }
+
+    const prev = fileState[filePath] || {};
+    const unchanged =
+      Number(prev.size) === stat.size &&
+      Number(prev.mtimeMs) === stat.mtimeMs &&
+      typeof prev.baseline === "object" && prev.baseline;
+    if (unchanged) continue;
+
+    let doc;
+    try {
+      doc = JSON.parse(fssync.readFileSync(filePath, "utf8"));
+    } catch {
+      // A meta.json rewritten mid-read is not authoritative; retry next sync
+      // with the old baseline intact instead of committing a partial delta.
+      continue;
+    }
+
+    const totals = vibeStatsFromDocument(doc);
+    if (!totals) {
+      // Not a Vibe session document (legacy-prefix false positive, index
+      // file, user JSON). Remember its identity so it is not re-read every
+      // sync, but never invent a baseline for it.
+      fileState[filePath] = { size: stat.size, mtimeMs: stat.mtimeMs, ino: stat.ino, baseline: { input_tokens: 0, cached_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 } };
+      continue;
+    }
+
+    const base = prev.baseline && typeof prev.baseline === "object" ? prev.baseline : {};
+    const delta = {
+      input_tokens: Math.max(0, totals.input_tokens - (Number(base.input_tokens) || 0)),
+      cached_input_tokens: Math.max(0, totals.cached_input_tokens - (Number(base.cached_input_tokens) || 0)),
+      cache_creation_input_tokens: 0,
+      output_tokens: Math.max(0, totals.output_tokens - (Number(base.output_tokens) || 0)),
+      reasoning_output_tokens: 0,
+      conversation_count: Math.max(0, 1),
+    };
+    delta.total_tokens = delta.input_tokens + delta.cached_input_tokens + delta.output_tokens;
+
+    if (delta.total_tokens > 0) {
+      const tsMs = vibeTimestampMs(doc, stat);
+      const tsIso = new Date(tsMs).toISOString();
+      const bucketStart = toUtcHalfHourStart(tsIso);
+      if (bucketStart) {
+        const model = normalizeModelInput(vibeModelFromDocument(doc)) || VIBE_DEFAULT_MODEL;
+        const bucket = getHourlyBucket(hourlyState, VIBE_SOURCE, model, bucketStart);
+        addTotals(bucket.totals, delta);
+        touchedBuckets.add(bucketKey(VIBE_SOURCE, model, bucketStart));
+        recordsProcessed += 1;
+        eventsAggregated += 1;
+      }
+    }
+
+    fileState[filePath] = {
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      ino: stat.ino,
+      baseline: {
+        input_tokens: totals.input_tokens,
+        cached_input_tokens: totals.cached_input_tokens,
+        cache_creation_input_tokens: 0,
+        output_tokens: totals.output_tokens,
+        reasoning_output_tokens: 0,
+      },
+    };
+
+    if (cb) {
+      cb({ index: fileIdx + 1, total: files.length, recordsProcessed, eventsAggregated, bucketsQueued: touchedBuckets.size });
+    }
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  cursors.vibe = { ...state, files: fileState, updatedAt };
+  return { recordsProcessed, eventsAggregated, bucketsQueued, filesProcessed: files.length };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Jcode — passive reader (~/.jcode/sessions/..., JCODE_HOME override)
+//
+// Each session is a JSON snapshot (session_<id>.json) plus an append-only
+// journal sidecar (session_<id>.journal.jsonl) whose lines carry messages the
+// snapshot does not have yet. Snapshots are rewritten, journals grow — so
+// snapshots re-parse on identity change while journals advance by byte offset.
+// Both share one dedup namespace keyed on the session file stem, so a message
+// that migrates from journal into a rewritten snapshot cannot count twice.
+// Dual cache accounting: Anthropic-shaped token_usage preserves
+// cache_creation_input_tokens (four buckets read as-is); OpenAI-shaped
+// token_usage omits the creation field and reports cache reads as a subset of
+// input_tokens (input = input_tokens − min(cache_read, input_tokens)).
+// reasoning_output_tokens is an independent bucket, disjoint from output.
+// Known limitation: a journal line that CORRECTS an already-counted message
+// (same id, different tokens) is not retro-applied — first-wins dedup.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const JCODE_SOURCE = "jcode";
+const JCODE_MAX_SEEN_IDS = 20_000;
+
+function resolveJcodeHome(env = process.env) {
+  if (env.TOKENTRACKER_JCODE_HOME) return expandHomePath(env.TOKENTRACKER_JCODE_HOME, env);
+  const home = env.HOME || require("node:os").homedir();
+  if (process.platform === "win32") {
+    return pickWin32ProviderPath({ env, nativeValue: path.join(home, ".jcode"), wslProviderDir: ".jcode" });
+  }
+  return path.join(home, ".jcode");
+}
+
+function resolveJcodeSessionFiles(env = process.env) {
+  const jcodeHome = resolveJcodeHome(env);
+  if (!jcodeHome) return [];
+  const sessionsDir = path.join(jcodeHome, "sessions");
+  let entries;
+  try { entries = fssync.readdirSync(sessionsDir, { withFileTypes: true }); } catch { return []; }
+  const files = [];
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    if (entry.name.startsWith("session_") && entry.name.endsWith(".json")) files.push(path.join(sessionsDir, entry.name));
+    if (entry.name.startsWith("session_") && entry.name.endsWith(".journal.jsonl")) files.push(path.join(sessionsDir, entry.name));
+  }
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+function jcodeSessionKey(filePath) {
+  return path.basename(filePath).replace(/\.journal\.jsonl$/, "").replace(/\.json$/, "");
+}
+
+function jcodeTimestampMs(raw, fallbackMs) {
+  if (typeof raw === "string" && raw.trim()) {
+    let text = raw.trim();
+    // Naive local timestamps are UTC in this format; Date.parse would read
+    // them as local time and skew half-hour buckets across time zones.
+    if (/^\d{4}-\d{2}-\d{2}T[\d:.]+$/.test(text) && !/(Z|[+-]\d{2}:?\d{2})$/.test(text)) text += "Z";
+    const parsed = Date.parse(text);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  if (Number.isFinite(Number(raw)) && Number(raw) > 0) return Number(raw);
+  return fallbackMs;
+}
+
+// Returns queue delta fields for one token_usage, or null when it is empty.
+function jcodeDeltaFromUsage(tokenUsage) {
+  if (!tokenUsage || typeof tokenUsage !== "object") return null;
+  const int = (value) => (Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0);
+  const reportedInput = int(tokenUsage.input_tokens);
+  const output = int(tokenUsage.output_tokens);
+  const cacheRead = Math.min(int(tokenUsage.cache_read_input_tokens), reportedInput);
+  const hasCreationField = Object.prototype.hasOwnProperty.call(tokenUsage, "cache_creation_input_tokens");
+  let input;
+  let cacheWrite;
+  if (hasCreationField || int(tokenUsage.cache_read_input_tokens) > reportedInput) {
+    // Split accounting: all four buckets are independent.
+    input = reportedInput;
+    cacheWrite = int(tokenUsage.cache_creation_input_tokens);
+  } else {
+    // Subset accounting: cache reads ride inside input_tokens.
+    input = reportedInput - cacheRead;
+    cacheWrite = 0;
+  }
+  const reasoning = int(tokenUsage.reasoning_output_tokens);
+  const total = input + output + cacheRead + cacheWrite + reasoning;
+  if (total <= 0) return null;
+  return {
+    input_tokens: input,
+    cached_input_tokens: cacheRead,
+    cache_creation_input_tokens: cacheWrite,
+    output_tokens: output,
+    reasoning_output_tokens: reasoning,
+    total_tokens: total,
+    conversation_count: 1,
+  };
+}
+
+async function parseJcodeIncremental({ sessionFiles, cursors, queuePath, onProgress, env } = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const state = cursors.jcode && typeof cursors.jcode === "object" ? cursors.jcode : {};
+  const seenIds = new Set(Array.isArray(state.seenIds) ? state.seenIds : []);
+  const fileState =
+    state.files && typeof state.files === "object" ? { ...state.files } : {};
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+
+  const files = Array.isArray(sessionFiles)
+    ? sessionFiles
+    : resolveJcodeSessionFiles(env || process.env);
+
+  const countMessage = (sessionKey, message, modelFallback, fallbackMs) => {
+    if (!message || typeof message !== "object") return false;
+    if (message.role !== "assistant") return false;
+    const delta = jcodeDeltaFromUsage(message.token_usage);
+    if (!delta) return false;
+    // One namespace across snapshots and journals: a message that migrates
+    // from the journal into a rewritten snapshot must not count twice.
+    const messageKey = (typeof message.id === "string" && message.id)
+      || `${message.timestamp || ""}|${delta.total_tokens}`;
+    const dedupKey = `jcode:${sessionKey}:${messageKey}`;
+    if (seenIds.has(dedupKey)) return false;
+    seenIds.add(dedupKey);
+
+    const tsMs = jcodeTimestampMs(message.timestamp, fallbackMs);
+    const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
+    if (!bucketStart) return true;
+    const model = normalizeModelInput(modelFallback) || "jcode-unknown";
+    const bucket = getHourlyBucket(hourlyState, JCODE_SOURCE, model, bucketStart);
+    addTotals(bucket.totals, delta);
+    touchedBuckets.add(bucketKey(JCODE_SOURCE, model, bucketStart));
+    eventsAggregated += 1;
+    return true;
+  };
+
+  for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+    const filePath = files[fileIdx];
+    const isJournal = filePath.endsWith(".journal.jsonl");
+    let stat;
+    try { stat = fssync.statSync(filePath); } catch { continue; }
+
+    const prev = fileState[filePath] || {};
+    if (isJournal) {
+      const inodeChanged = typeof prev.ino === "number" && prev.ino !== stat.ino;
+      const startOffset = stat.size < Number(prev.size) || inodeChanged ? 0 : Number(prev.size) || 0;
+      if (stat.size <= startOffset) continue;
+      const sessionKey = jcodeSessionKey(filePath);
+      let journalModel = null;
+      const committedEndOffset = await scanOmpLikeTranscript(
+        filePath,
+        startOffset,
+        OMP_LIKE_MAX_RECORD_BYTES,
+        (entry) => {
+          if (!entry || typeof entry !== "object") return;
+          const meta = entry.meta && typeof entry.meta === "object" ? entry.meta : {};
+          if (typeof meta.model === "string" && meta.model) journalModel = meta.model;
+          const messages = Array.isArray(entry.append_messages) ? entry.append_messages : [];
+          for (const message of messages) {
+            if (countMessage(sessionKey, message, meta.model || journalModel, stat.mtimeMs)) {
+              recordsProcessed += 1;
+            }
+          }
+        },
+      );
+      fileState[filePath] = {
+        size: Math.min(committedEndOffset, stat.size),
+        mtimeMs: stat.mtimeMs,
+        ino: stat.ino,
+      };
+    } else {
+      const unchanged =
+        Number(prev.size) === stat.size &&
+        Number(prev.mtimeMs) === stat.mtimeMs &&
+        prev.scanned === true;
+      if (unchanged) continue;
+      let doc;
+      try {
+        doc = JSON.parse(fssync.readFileSync(filePath, "utf8"));
+      } catch {
+        continue; // Snapshot rewritten mid-read; retry next sync.
+      }
+      const sessionKey = jcodeSessionKey(filePath);
+      const messages = Array.isArray(doc?.messages) ? doc.messages : [];
+      for (const message of messages) {
+        if (countMessage(sessionKey, message, doc?.model, stat.mtimeMs)) {
+          recordsProcessed += 1;
+        }
+      }
+      fileState[filePath] = { size: stat.size, mtimeMs: stat.mtimeMs, ino: stat.ino, scanned: true };
+    }
+
+    if (cb) {
+      cb({ index: fileIdx + 1, total: files.length, recordsProcessed, eventsAggregated, bucketsQueued: touchedBuckets.size });
+    }
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  const seenArr = Array.from(seenIds);
+  cursors.jcode = {
+    ...state,
+    seenIds: seenArr.length > JCODE_MAX_SEEN_IDS ? seenArr.slice(seenArr.length - JCODE_MAX_SEEN_IDS) : seenArr,
+    files: fileState,
+    updatedAt,
+  };
+  return { recordsProcessed, eventsAggregated, bucketsQueued };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GitHub Copilot CLI session-state lane (~/.copilot/session-state/...)
+//
+// Each session writes <session-id>/events.jsonl (plus occasional stray *.jsonl
+// at the root): an event stream whose usage_record events carry one LLM turn's
+// tokens. Input is INCLUSIVE — input = inputTokens − cacheRead − cacheWrite —
+// and reasoning is an independent bucket. session.shutdown carries cumulative
+// modelMetrics that would need running-peak differencing across syncs; only
+// usage_record lanes count for now, so sessions that never emit usage_record
+// are not covered (deliberate v1 scope, matching the OTel lane's opt-in
+// nature). Buckets join the existing `copilot` source so both lanes aggregate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const COPILOT_SESSION_STATE_MAX_SEEN_IDS = 20_000;
+
+function resolveCopilotSessionStateFiles(env = process.env) {
+  const home = env.HOME || require("node:os").homedir();
+  let copilotHome;
+  if (env.TOKENTRACKER_COPILOT_HOME) {
+    copilotHome = expandHomePath(env.TOKENTRACKER_COPILOT_HOME, env);
+  } else if (process.platform === "win32") {
+    copilotHome = pickWin32ProviderPath({ env, nativeValue: path.join(home, ".copilot"), wslProviderDir: ".copilot" });
+  } else {
+    copilotHome = path.join(home, ".copilot");
+  }
+  if (!copilotHome) return [];
+  const root = path.join(copilotHome, "session-state");
+  let entries;
+  try { entries = fssync.readdirSync(root, { withFileTypes: true }); } catch { return []; }
+  const files = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const events = path.join(root, entry.name, "events.jsonl");
+      if (fssync.existsSync(events)) files.push(events);
+    } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      files.push(path.join(root, entry.name));
+    }
+  }
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+async function parseCopilotSessionStateIncremental({ sessionFiles, cursors, queuePath, onProgress, env } = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const state =
+    cursors.copilotSessionState && typeof cursors.copilotSessionState === "object"
+      ? cursors.copilotSessionState
+      : {};
+  const seenIds = new Set(Array.isArray(state.seenIds) ? state.seenIds : []);
+  const fileState =
+    state.files && typeof state.files === "object" ? { ...state.files } : {};
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+
+  const files = Array.isArray(sessionFiles)
+    ? sessionFiles
+    : resolveCopilotSessionStateFiles(env || process.env);
+
+  for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+    const filePath = files[fileIdx];
+    let stat;
+    try { stat = fssync.statSync(filePath); } catch { continue; }
+
+    const prev = fileState[filePath] || {};
+    const inodeChanged = typeof prev.ino === "number" && prev.ino !== stat.ino;
+    const startOffset = stat.size < Number(prev.size) || inodeChanged ? 0 : Number(prev.size) || 0;
+    if (stat.size <= startOffset) continue;
+
+    // Per-file scan state: the session id (fallback: the directory name) and
+    // the model chosen by the latest session.model_change event ("auto" stays
+    // unknown — the usage record's own model wins when present).
+    let sessionId = path.basename(path.dirname(filePath));
+    if (sessionId === "session-state" || sessionId.endsWith(".jsonl")) {
+      sessionId = path.basename(filePath, ".jsonl");
+    }
+    let currentModel = null;
+    let lineOrdinal = 0;
+    const committedEndOffset = await scanOmpLikeTranscript(
+      filePath,
+      startOffset,
+      OMP_LIKE_MAX_RECORD_BYTES,
+      (entry) => {
+        if (!entry || typeof entry !== "object") return;
+        lineOrdinal += 1;
+        const data = entry.data && typeof entry.data === "object" ? entry.data : null;
+        if (entry.type === "session.start" && typeof data?.sessionId === "string" && data.sessionId) {
+          sessionId = data.sessionId;
+          return;
+        }
+        if (entry.type === "session.model_change") {
+          const next = typeof data?.newModel === "string" && data.newModel.trim() && data.newModel !== "auto"
+            ? data.newModel
+            : null;
+          if (next) currentModel = next;
+          return;
+        }
+        if (entry.type !== "session.usage_record") return;
+        const usage = (data?.usage && typeof data.usage === "object" && data.usage)
+          || (entry.usage && typeof entry.usage === "object" && entry.usage)
+          || null;
+        if (!usage) return;
+        const int = (value) => (Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0);
+        const reportedInput = int(usage.inputTokens);
+        const cacheRead = Math.min(int(usage.cacheReadTokens), reportedInput);
+        const cacheWrite = Math.min(int(usage.cacheWriteTokens), reportedInput - cacheRead);
+        const output = int(usage.outputTokens);
+        const reasoning = int(usage.reasoningTokens);
+        const input = Math.max(0, reportedInput - cacheRead - cacheWrite);
+        const total = input + output + cacheRead + cacheWrite + reasoning;
+        if (total <= 0) return;
+
+        const eventId = (typeof entry.id === "string" && entry.id)
+          || `${entry.timestamp || ""}|${total}`;
+        const dedupKey = `copilot-session-event:${sessionId}:${eventId}`;
+        if (seenIds.has(dedupKey)) return;
+        seenIds.add(dedupKey);
+
+        const tsMs = jcodeTimestampMs(entry.timestamp, stat.mtimeMs);
+        const bucketStart = toUtcHalfHourStart(new Date(tsMs).toISOString());
+        if (!bucketStart) return;
+        const model = normalizeModelInput(
+          (typeof usage.model === "string" && usage.model && usage.model !== "auto" ? usage.model : null) || currentModel,
+        ) || "unknown";
+        const bucket = getHourlyBucket(hourlyState, "copilot", model, bucketStart);
+        addTotals(bucket.totals, {
+          input_tokens: input,
+          cached_input_tokens: cacheRead,
+          cache_creation_input_tokens: cacheWrite,
+          output_tokens: output,
+          reasoning_output_tokens: reasoning,
+          total_tokens: total,
+          conversation_count: 1,
+        });
+        touchedBuckets.add(bucketKey("copilot", model, bucketStart));
+        recordsProcessed += 1;
+        eventsAggregated += 1;
+      },
+    );
+
+    fileState[filePath] = {
+      size: Math.min(committedEndOffset, stat.size),
+      mtimeMs: stat.mtimeMs,
+      ino: stat.ino,
+    };
+
+    if (cb) {
+      cb({ index: fileIdx + 1, total: files.length, recordsProcessed, eventsAggregated, bucketsQueued: touchedBuckets.size });
+    }
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  const seenArr = Array.from(seenIds);
+  cursors.copilotSessionState = {
+    ...state,
+    seenIds: seenArr.length > COPILOT_SESSION_STATE_MAX_SEEN_IDS
+      ? seenArr.slice(seenArr.length - COPILOT_SESSION_STATE_MAX_SEEN_IDS)
+      : seenArr,
+    files: fileState,
+    updatedAt,
+  };
+  return { recordsProcessed, eventsAggregated, bucketsQueued };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18199,6 +18780,32 @@ async function scanOmpLikeTranscript(filePath, startOffset, maxRecordBytes, onEn
   return committedEndOffset;
 }
 
+// readline yields a file's final line even when its trailing newline has not
+// been written yet. Committing those bytes would let a torn tail — a record
+// half-written while this scan ran — be skipped forever: the cursor advances
+// past it, the writer completes the line, and the completion is never read.
+// Track the byte offset just past the last newline instead; un-terminated
+// bytes stay unconsumed and the next pass re-reads them (per-record id dedup
+// absorbs a complete-but-unterminated final line). For parsers that must keep
+// readline because their streams mix in non-JSON lines that
+// scanOmpLikeTranscript would never deliver to onEntry.
+function trackJsonlTerminatedTail(stream, startOffset) {
+  let terminatedEnd = -1;
+  let bytesSeen = 0;
+  const onChunk = (chunk) => {
+    const nl = chunk.lastIndexOf("\n");
+    if (nl >= 0) {
+      terminatedEnd = bytesSeen + Buffer.byteLength(chunk.slice(0, nl + 1), "utf8");
+    }
+    bytesSeen += Buffer.byteLength(chunk, "utf8");
+  };
+  stream.on("data", onChunk);
+  return {
+    consumedOffset: () => startOffset + Math.max(terminatedEnd, 0),
+    detach: () => stream.off("data", onChunk),
+  };
+}
+
 // Shared implementation for the oh-my-pi session format. omp and omo both
 // persist it verbatim, so they differ only in where the sessions live, which
 // cursor namespace they own, and how reasoning tokens are spelled.
@@ -18710,8 +19317,6 @@ function resolvePrimeAgentDir(env = process.env) {
 function resolvePrimeAgentSessionFiles(env = process.env) {
   const agentDir = resolvePrimeAgentDir(env);
   if (!agentDir) return [];
-  const sessionsDir = path.join(agentDir, "sessions");
-  if (!fssync.existsSync(sessionsDir)) return [];
   const files = [];
   const walk = (dir) => {
     let entries;
@@ -18722,8 +19327,17 @@ function resolvePrimeAgentSessionFiles(env = process.env) {
       else if (entry.isFile() && entry.name.endsWith(".jsonl")) files.push(full);
     }
   };
-  walk(sessionsDir);
-  return files.sort((a, b) => a.localeCompare(b));
+  // RLM child transcripts live in the sibling session-artifacts tree and are
+  // regular Pi sessions: their header carries parentSession/rlmDepth and each
+  // child's assistant messages count its own usage. rlm-subagents.jsonl is an
+  // index, not a transcript.
+  for (const sub of ["sessions", "session-artifacts"]) {
+    const dir = path.join(agentDir, sub);
+    if (fssync.existsSync(dir)) walk(dir);
+  }
+  return files
+    .filter((filePath) => path.basename(filePath) !== "rlm-subagents.jsonl")
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function resolvePrimeAgentDefaultModel() {
@@ -18766,6 +19380,30 @@ function readPiMessageEntry(entry) {
     message: entry.message,
     timestamp: entry.timestamp,
   };
+}
+
+// Prime Agent RLM adds standalone usage records ({ type: "usage", provider,
+// model, usage, ... }) beside pi's message lines. child_usage_attributed
+// metadata is never counted: each child transcript carries its own usage
+// under its own session, so counting the attribution rows too would double
+// the children's tokens.
+function readPrimeAgentEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  if (entry.type === "message") return readPiMessageEntry(entry);
+  if (entry.type === "usage" && entry.usage && typeof entry.usage === "object") {
+    return {
+      id: typeof entry.id === "string" && entry.id ? entry.id : null,
+      message: {
+        role: "assistant",
+        provider: entry.provider,
+        model: entry.model,
+        usage: entry.usage,
+        timestamp: entry.timestamp,
+      },
+      timestamp: entry.timestamp,
+    };
+  }
+  return null;
 }
 
 async function parsePiLikeIncremental({
@@ -19155,6 +19793,7 @@ async function parsePrimeAgentIncremental(options = {}) {
     resolveSessionFiles: resolvePrimeAgentSessionFiles,
     resolveDefaultModel: resolvePrimeAgentDefaultModel,
     sourceForProvider: primeAgentSourceForProvider,
+    readEntry: readPrimeAgentEntry,
   });
 }
 
@@ -28461,6 +29100,12 @@ module.exports = {
   resolveWorkbuddyDefaultModel,
   parseWorkbuddyIncremental,
   parseAgentJsonlIncremental,
+  resolveVibeSessionFiles,
+  parseVibeIncremental,
+  resolveJcodeSessionFiles,
+  parseJcodeIncremental,
+  resolveCopilotSessionStateFiles,
+  parseCopilotSessionStateIncremental,
   WORKBUDDY_VARIANTS,
   resolveWorkbuddyVariant,
   resolveKiroCliSessionFiles,

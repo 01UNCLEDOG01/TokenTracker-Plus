@@ -92,6 +92,8 @@ const NON_TERMINAL_SOURCES = new Map([
   ["cline", "VS Code 扩展（无自己的终端会话）"],
   ["roo", "VS Code 扩展（Roo Code，无自己的终端会话）"],
   ["kilo-code", "VS Code 扩展（注意与 kilo-cli 区分：后者是 CLI）"],
+  ["vibe", "Mistral Vibe CLI：~/.vibe/logs/session/**/meta.json（累计会话统计按基线差分；1.x 遗留为根级 <agent>_*.json）"],
+  ["jcode", "Jcode CLI：~/.jcode/sessions/session_*.json 快照 + .journal.jsonl 边车（journal 增量）"],
 ]);
 
 // ── 待核实：形态像终端程序，但本机没装、拿不到证据 ─────────────────────────

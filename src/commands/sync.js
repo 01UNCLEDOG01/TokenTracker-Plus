@@ -119,6 +119,9 @@ const {
   resolveWorkbuddyProjectFiles,
   parseWorkbuddyIncremental,
   parseAgentJsonlIncremental,
+  parseVibeIncremental,
+  parseJcodeIncremental,
+  parseCopilotSessionStateIncremental,
   resolveKiroCliSessionFiles,
   resolveKiroCliDbPath,
   parseKiroCliIncremental,
@@ -419,6 +422,8 @@ const AUTO_SYNC_SOURCES = new Set([
   "trae",
   "tuanjie-cowork",
   "unsloth",
+  "vibe",
+  "jcode",
   "workbuddy",
   "workbuddy-ai",
   "zcode",
@@ -3004,7 +3009,75 @@ async function cmdSync(argv, context = {}) {
         }
       }
 
-    // ── oh-my-pi (passive ~/.omp/agent/sessions/**/*.jsonl reader) ──
+      // ── Mistral Vibe / Jcode / Copilot CLI session-state (passive readers) ──
+      // Vibe rewrites cumulative meta.json snapshots (baseline subtraction),
+      // Jcode pairs JSON snapshots with journal sidecars, and the Copilot CLI
+      // session-state lane appends usage_record events alongside the existing
+      // OTel lane under the same `copilot` source.
+      let vibeResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+      if (sourceAllowed("vibe")) {
+        if (progress?.enabled) progress.start(`Parsing Mistral Vibe ${renderBar(0)} | buckets 0`);
+        try {
+          vibeResult = await parseVibeIncremental({
+            cursors,
+            queuePath,
+            env: process.env,
+            onProgress: (p) => {
+              if (!progress?.enabled) return;
+              const pct = p.total > 0 ? p.index / p.total : 1;
+              progress.update(
+                `Parsing Mistral Vibe ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(p.bucketsQueued)}`,
+              );
+            },
+          });
+        } catch (err) {
+          warnProviderParseFailure("Mistral Vibe", err, opts);
+        }
+      }
+
+      let jcodeResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+      if (sourceAllowed("jcode")) {
+        if (progress?.enabled) progress.start(`Parsing Jcode ${renderBar(0)} | buckets 0`);
+        try {
+          jcodeResult = await parseJcodeIncremental({
+            cursors,
+            queuePath,
+            env: process.env,
+            onProgress: (p) => {
+              if (!progress?.enabled) return;
+              const pct = p.total > 0 ? p.index / p.total : 1;
+              progress.update(
+                `Parsing Jcode ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(p.bucketsQueued)}`,
+              );
+            },
+          });
+        } catch (err) {
+          warnProviderParseFailure("Jcode", err, opts);
+        }
+      }
+
+      let copilotSessionStateResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+      if (sourceAllowed("copilot")) {
+        if (progress?.enabled) progress.start(`Parsing Copilot CLI sessions ${renderBar(0)} | buckets 0`);
+        try {
+          copilotSessionStateResult = await parseCopilotSessionStateIncremental({
+            cursors,
+            queuePath,
+            env: process.env,
+            onProgress: (p) => {
+              if (!progress?.enabled) return;
+              const pct = p.total > 0 ? p.index / p.total : 1;
+              progress.update(
+                `Parsing Copilot CLI sessions ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(p.bucketsQueued)}`,
+              );
+            },
+          });
+        } catch (err) {
+          warnProviderParseFailure("Copilot CLI sessions", err, opts);
+        }
+      }
+
+      // ── oh-my-pi (passive ~/.omp/agent/sessions/**/*.jsonl reader) ──
     // Task-subagent transcripts (nested below the cwd level) are scanned too,
     // so their usage counts toward the omp totals.
     let ompResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
@@ -3732,6 +3805,9 @@ async function cmdSync(argv, context = {}) {
       omoResult.recordsProcessed +
       piResult.recordsProcessed +
       primeAgentResult.recordsProcessed +
+      vibeResult.recordsProcessed +
+      jcodeResult.recordsProcessed +
+      copilotSessionStateResult.recordsProcessed +
       minimaxCodeResult.recordsProcessed +
       craftResult.recordsProcessed +
       reasonixResult.recordsProcessed +
@@ -3782,6 +3858,9 @@ async function cmdSync(argv, context = {}) {
       omoResult.bucketsQueued +
       piResult.bucketsQueued +
       primeAgentResult.bucketsQueued +
+      vibeResult.bucketsQueued +
+      jcodeResult.bucketsQueued +
+      copilotSessionStateResult.bucketsQueued +
       minimaxCodeResult.bucketsQueued +
       craftResult.bucketsQueued +
       reasonixResult.bucketsQueued +
