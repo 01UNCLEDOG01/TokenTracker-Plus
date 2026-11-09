@@ -175,3 +175,9 @@ GATE_REGISTRY.md
 # the 1.20.0 installer build. Ignore the pattern so a release build can never
 # smuggle it in again.
 Microsoft/
+
+# queue snapshot sidecars (auto-generated perf cache, 2026-11-09)
+*.snapshot.json
+
+# Vite build temp chunk
+.lp-chunk.js

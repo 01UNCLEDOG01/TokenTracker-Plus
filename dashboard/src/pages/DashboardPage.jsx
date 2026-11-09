@@ -42,6 +42,12 @@ import {
   getLocalDayKey,
 } from "../lib/timezone";
 import {
+  fetchCloudUsageDaily,
+  fetchCloudUsageModelBreakdown,
+  fetchCloudUsageSummary,
+  getUsageDaily,
+  getUsageModelBreakdown,
+  getUsageSummary,
   getUserStatus,
   invalidateAccountResponseCache,
   invalidateLocalUsageResponseCache,
@@ -1019,6 +1025,64 @@ export function DashboardPage({
       active = false;
     };
   }, [isLocalMode, mockEnabled, accountView]);
+
+  // Pre-warm other common periods (day/week/month/total) in the background so when the user
+  // flips tabs, the payloads are already in localStorage / in-memory cache and render instantly.
+  useEffect(() => {
+    if (mockEnabled) return;
+    const timer = setTimeout(async () => {
+      try {
+        const resolvedToken = await resolveAuthAccessToken(accessToken);
+        if (!resolvedToken && !isLocalMode && !accountView) return;
+        const summaryFetcher = accountView ? fetchCloudUsageSummary : getUsageSummary;
+        const dailyFetcher = accountView ? fetchCloudUsageDaily : getUsageDaily;
+        const breakdownFetcher = accountView ? fetchCloudUsageModelBreakdown : getUsageModelBreakdown;
+        const tokenForFetch = accountView ? await resolveAuthAccessToken(accountAccessToken) : resolvedToken;
+
+        const candidatePeriods = ["day", "week", "month", "total"].filter((p) => p !== period);
+        for (const p of candidatePeriods) {
+          const range = getRangeForPeriod(p, {
+            timeZone,
+            offsetMinutes: tzOffsetMinutes,
+            now: mockNow,
+          });
+          summaryFetcher({
+            baseUrl,
+            accessToken: tokenForFetch,
+            from: range.from,
+            to: range.to,
+            device: selectedDevice,
+            timeZone,
+            tzOffsetMinutes,
+            rolling: true,
+          }).catch(() => {});
+          if (p !== "total") {
+            dailyFetcher({
+              baseUrl,
+              accessToken: tokenForFetch,
+              from: range.from,
+              to: range.to,
+              device: selectedDevice,
+              timeZone,
+              tzOffsetMinutes,
+            }).catch(() => {});
+            breakdownFetcher({
+              baseUrl,
+              accessToken: tokenForFetch,
+              from: range.from,
+              to: range.to,
+              device: selectedDevice,
+              timeZone,
+              tzOffsetMinutes,
+            }).catch(() => {});
+          }
+        }
+      } catch {
+        // silent pre-warm
+      }
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [accountAccessToken, accountView, baseUrl, isLocalMode, mockEnabled, mockNow, period, selectedDevice, timeZone, tzOffsetMinutes, accessToken]);
 
   // Provider hooks update the queue quickly, while the native server also
   // performs a once-per-minute all-source fallback scan. Re-read the

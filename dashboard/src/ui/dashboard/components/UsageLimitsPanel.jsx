@@ -1698,27 +1698,48 @@ function ArkAgentPlanSetupHint() {
  */
 function useWidestLabelWidth(containerRef) {
   const [labelWidth, setLabelWidth] = useState(0);
+  // Re-measure only when the measured input (label texts × canvas font)
+  // actually changes. The effect deliberately has no dependency array (it
+  // must observe every committed DOM), which makes a bare setState here one
+  // half of any nested-update storm (React issue 185) another effect can start —
+  // measuring identical inputs must schedule nothing at all.
+  const measuredSignatureRef = useRef("");
+  const [fontEpoch, setFontEpoch] = useState(0);
+  useEffect(() => {
+    const fonts = typeof document !== "undefined" ? document.fonts : null;
+    if (!fonts) return undefined;
+    // A late-loading webfont changes measureText widths without changing the
+    // font string; force one re-measure when a load settles.
+    const onLoadingDone = () => setFontEpoch((epoch) => epoch + 1);
+    fonts.addEventListener("loadingdone", onLoadingDone);
+    return () => fonts.removeEventListener("loadingdone", onLoadingDone);
+  }, []);
   useLayoutEffect(() => {
     const root = containerRef.current;
     if (!root) return;
     const labels = [...root.querySelectorAll("[data-limit-label]")]
       .filter((label) => label.closest("[data-limit-label-group]") === root);
+    // An empty frame (provider data mid-swap) must not zero the column width.
+    if (labels.length === 0) return;
     let max = 0;
     let ctx = null;
-    if (labels.length > 0) {
-      try {
-        ctx = document.createElement("canvas").getContext("2d");
-      } catch (_e) {
-        ctx = null;
-      }
+    try {
+      ctx = document.createElement("canvas").getContext("2d");
+    } catch (_e) {
+      ctx = null;
     }
+    let font = "";
     if (ctx) {
       const style = window.getComputedStyle(labels[0]);
-      ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      ctx.font = font;
       for (const el of labels) {
         max = Math.max(max, ctx.measureText(el.textContent).width);
       }
     }
+    const signature = `${fontEpoch}|${font}|${labels.map((el) => el.textContent).join("\n")}`;
+    if (measuredSignatureRef.current === signature) return;
+    measuredSignatureRef.current = signature;
     const next = Math.ceil(max);
     setLabelWidth((prev) => (prev === next ? prev : next));
   });

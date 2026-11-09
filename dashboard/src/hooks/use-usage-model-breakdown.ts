@@ -26,6 +26,8 @@ export function useUsageModelBreakdown({
   const [source, setSource] = useState<string>("edge");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasDataRef = useRef(false);
+  hasDataRef.current = breakdown != null;
   const mockEnabled = isMockEnabled();
   const tokenReady = isAccessTokenReady(accessToken);
   const cacheAllowed = !guestAllowed;
@@ -126,7 +128,9 @@ export function useUsageModelBreakdown({
     }
     const tokenForFetch = useCloud ? cloudToken : resolvedToken;
     const breakdownFetcher = useCloud ? fetchCloudUsageModelBreakdown : getUsageModelBreakdown;
-    setLoading(true);
+    if (!hasDataRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await breakdownFetcher({
@@ -214,14 +218,15 @@ export function useUsageModelBreakdown({
         setBreakdown(cached.breakdown);
         setSource("cache");
         setError(null);
+        setLoading(false);
       } else {
         // Provider cards must never keep the previous range's breakdown.
         setBreakdown(null);
         setSource("edge");
         setError(null);
+        setLoading(true);
       }
     }
-    setLoading(true);
     refresh();
   }, [
     accessToken,

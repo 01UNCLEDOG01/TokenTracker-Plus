@@ -44,6 +44,8 @@ export function useUsageData({
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasDataRef = useRef(false);
+  hasDataRef.current = summary != null || (Array.isArray(daily) && daily.length > 0);
   const mockEnabled = isMockEnabled();
   const tokenReady = isAccessTokenReady(accessToken);
   const cacheAllowed = !guestAllowed && !mockEnabled;
@@ -79,18 +81,82 @@ export function useUsageData({
     if (!storageKey || typeof window === "undefined") return null;
     try {
       const raw = window.localStorage.getItem(storageKey);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      const hasRequestedData = includeSummary
-        ? Boolean(parsed?.summary)
-        : Array.isArray(parsed?.daily);
-      if (!parsed || !hasRequestedData) return null;
-      touchLocalStorageCacheKey(USAGE_CACHE_INDEX_KEY, storageKey, USAGE_CACHE_MAX_ENTRIES);
-      return parsed;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const hasRequestedData = includeSummary
+          ? Boolean(parsed?.summary)
+          : Array.isArray(parsed?.daily);
+        if (parsed && hasRequestedData) {
+          touchLocalStorageCacheKey(USAGE_CACHE_INDEX_KEY, storageKey, USAGE_CACHE_MAX_ENTRIES);
+          return parsed;
+        }
+      }
+      // SWR fallback for long range / total period when today has no exact match yet:
+      if (cacheKey && from && storageKey.includes("." + from + ".")) {
+        const host = safeHost(baseUrl) || "default";
+        const prefix = `tokentracker.usage.${cacheKey}.${scopeKey}.${host}.${from}.`;
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(prefix) && k.endsWith(`.${deviceScope}`)) {
+            const candidateRaw = window.localStorage.getItem(k);
+            if (candidateRaw) {
+              const candidate = JSON.parse(candidateRaw);
+              if (candidate && (includeSummary ? Boolean(candidate.summary) : Array.isArray(candidate.daily))) {
+                return candidate;
+              }
+            }
+          }
+        }
+      }
+      // SWR fallback for sub-ranges (e.g. day or week from an already-cached month):
+      if (cacheKey && from && to) {
+        const host = safeHost(baseUrl) || "default";
+        const scopePrefix = `tokentracker.usage.${cacheKey}.${scopeKey}.${host}.`;
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.startsWith(scopePrefix) && k.endsWith(`.${deviceScope}`)) {
+            const parts = k.slice(scopePrefix.length).split(".");
+            if (parts.length >= 2) {
+              const cFrom = parts[0];
+              const cTo = parts[1];
+              if (cFrom <= from && cTo >= to && (cFrom !== from || cTo !== to)) {
+                const candidateRaw = window.localStorage.getItem(k);
+                if (candidateRaw) {
+                  try {
+                    const candidate = JSON.parse(candidateRaw);
+                    if (Array.isArray(candidate?.daily) && candidate.daily.length > 0) {
+                      const slicedDaily = candidate.daily.filter((d: any) => d.day >= from && d.day <= to);
+                      if (slicedDaily.length > 0) {
+                        const subTotals = slicedDaily.reduce((acc: any, r: any) => {
+                          acc.total_tokens += Number(r.total_tokens) || 0;
+                          acc.billable_total_tokens += Number(r.billable_total_tokens) || 0;
+                          acc.total_cost_usd += Number(r.total_cost_usd) || 0;
+                          acc.input_tokens += Number(r.input_tokens) || 0;
+                          acc.output_tokens += Number(r.output_tokens) || 0;
+                          acc.cached_input_tokens += Number(r.cached_input_tokens) || 0;
+                          acc.conversation_count += Number(r.conversation_count) || 0;
+                          return acc;
+                        }, { total_tokens: 0, billable_total_tokens: 0, total_cost_usd: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0, conversation_count: 0 });
+                        subTotals.total_cost_usd = String(Number(subTotals.total_cost_usd).toFixed(6));
+                        return {
+                          daily: slicedDaily,
+                          summary: { from, to, days: slicedDaily.length, totals: subTotals, rolling: candidate.summary?.rolling },
+                          fetchedAt: candidate.fetchedAt,
+                        };
+                      }
+                    }
+                  } catch {}
+                }
+              }
+            }
+          }
+        }
+      }
+      return null;
     } catch (_e) {
       return null;
     }
-  }, [includeSummary, storageKey]);
+  }, [baseUrl, cacheKey, deviceScope, from, includeSummary, scopeKey, storageKey, to]);
 
   const writeCache = useCallback(
     (payload: any) => {
@@ -159,7 +225,9 @@ export function useUsageData({
     const dailyFetcher = useCloud ? fetchCloudUsageDaily : getUsageDaily;
     const summaryFetcher = useCloud ? fetchCloudUsageSummary : getUsageSummary;
     const tokenForFetch = useCloud ? cloudToken : resolvedToken;
-    setLoading(true);
+    if (!hasDataRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       let dailyRes = null;
@@ -382,6 +450,7 @@ export function useUsageData({
         setSource("cache");
         setFetchedAt(cached.fetchedAt || null);
         setError(null);
+        setLoading(false);
       } else {
         // The selected range has no matching cache. Remove the previous
         // range immediately so its numbers never render under the new tab.
@@ -391,9 +460,9 @@ export function useUsageData({
         setSource("edge");
         setFetchedAt(null);
         setError(null);
+        setLoading(true);
       }
     }
-    setLoading(true);
     refresh();
   }, [
     accessToken,

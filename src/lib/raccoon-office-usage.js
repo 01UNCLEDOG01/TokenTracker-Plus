@@ -99,6 +99,16 @@ function raccoonOfficeUsageRows({ home = os.homedir() } = {}) {
   const cacheKey = `${dir}|${stat.join("|")}`;
   if (cache && cache.key === cacheKey) return cache.rows;
 
+  const snapPath = path.join(dir, "sessions.snapshot.json");
+  try {
+    const raw = fs.readFileSync(snapPath, "utf8");
+    const snap = JSON.parse(raw);
+    if (snap && snap.key === cacheKey && Array.isArray(snap.rows)) {
+      cache = { key: cacheKey, rows: snap.rows };
+      return snap.rows;
+    }
+  } catch {}
+
   const buckets = new Map();
   let readFailed = false;
   for (const name of names) {
@@ -163,7 +173,14 @@ function raccoonOfficeUsageRows({ home = os.homedir() } = {}) {
 
   // Never cache a pass that failed to read: an empty result frozen here would
   // keep the card hidden until the fingerprint changed again.
-  if (!readFailed) cache = { key: cacheKey, rows };
+  if (!readFailed) {
+    cache = { key: cacheKey, rows };
+    try {
+      const tmpPath = `${snapPath}.tmp.${Date.now()}`;
+      fs.writeFileSync(tmpPath, JSON.stringify({ key: cacheKey, rows }), "utf8");
+      fs.renameSync(tmpPath, snapPath);
+    } catch {}
+  }
   return rows;
 }
 
