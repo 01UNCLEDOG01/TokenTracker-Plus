@@ -1659,4 +1659,62 @@ describe("QoderCookieInput", () => {
     expect(document.querySelector('[data-credential-toggle]').getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByLabelText(/paste the qoder website cookie/i)).toBeTruthy();
   });
+
+  it("keeps picked rows for a configured provider whose windows are momentarily absent", () => {
+    // A failed refresh drops a provider's windows for one cycle; the purge
+    // used to read that gap as "the row is gone" and silently rewrote the
+    // shared pet-prefs file, eating the user's picks (the pet kept showing
+    // six rows while the page showed two checked). Absence is not evidence.
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.localStorage.setItem("tt.pet.limitRows", JSON.stringify([
+      "antigravity::gemini-weekly",
+      "antigravity::gemini-5h",
+      "apigoto::weekly",
+    ]));
+
+    render(
+      <UsageLimitsPanel
+        order={["antigravity", "apigoto"]}
+        antigravity={{ configured: true, error: "refresh failed" }}
+        apigoto={{ configured: true, primary_window: { used_percent: 10 } }}
+      />,
+    );
+
+    const prunePosts = fetchMock.mock.calls.filter(
+      ([url, options]) => url === "/functions/tokentracker-pet-prefs" && options?.method === "POST",
+    );
+    expect(prunePosts).toHaveLength(0);
+    expect(window.localStorage.getItem("tt.pet.limitRows")).toContain("gemini-weekly");
+    expect(window.localStorage.getItem("tt.pet.limitRows")).toContain("apigoto::weekly");
+    window.localStorage.removeItem("tt.pet.limitRows");
+  });
+
+  it("still prunes a picked key that a healthy provider no longer renders", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.localStorage.setItem("tt.pet.limitRows", JSON.stringify(["antigravity::gemini-weekly"]));
+
+    render(
+      <UsageLimitsPanel
+        order={["antigravity"]}
+        antigravity={{
+          configured: true,
+          primary_window: { used_percent: 10 },
+        }}
+      />,
+    );
+
+    // The healthy antigravity card renders windows but not gemini-weekly —
+    // positive evidence that the picked row is gone; the prune may run.
+    await waitFor(() => {
+      const prunePosts = fetchMock.mock.calls.filter(
+        ([url, options]) => url === "/functions/tokentracker-pet-prefs" && options?.method === "POST",
+      );
+      expect(prunePosts.length).toBeGreaterThanOrEqual(1);
+      const lastPost = prunePosts[prunePosts.length - 1];
+      expect(JSON.parse(lastPost[1].body).limitRows).not.toContain("antigravity::gemini-weekly");
+    });
+    window.localStorage.removeItem("tt.pet.limitRows");
+  });
 });

@@ -2180,8 +2180,16 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
   // could not migrate, or a provider since unconfigured) still counts against
   // the six-row cap and would lock the picker. Prune it and persist the
   // pruned list — the pet then shows exactly what the checkboxes show.
+  //
+  // Pruning needs POSITIVE evidence. A configured provider whose windows are
+  // momentarily absent (a failed refresh, a cached gap, a daily grant that has
+  // not landed yet) has not proven its row is gone — pruning on absence ate
+  // the user's picks on every partial refresh and silently rewrote the shared
+  // pet-prefs file. Providers without healthy window rows therefore protect
+  // their picked keys instead of surrendering them.
   useEffect(() => {
     const known = new Set(WALLET_ROW_KEYS);
+    const healthyRows = new Set();
     for (const [id, provider] of Object.entries(dataById)) {
       if (provider?.configured !== true || provider?.error != null) continue;
       const spec = PROVIDER_LIMIT_SPECS[id];
@@ -2192,14 +2200,20 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
       } catch {
         continue;
       }
+      if (rows.length === 0) continue;
+      healthyRows.add(id);
       for (const s of rows) known.add(petLimitRowKey(id, s.key));
     }
     setPetLimitRows((prev) => {
-      const pruned = prev.filter((key) => known.has(key));
+      const pruned = prev.filter((key) => {
+        const providerId = key.slice(0, key.indexOf("::"));
+        if (providerId && !healthyRows.has(providerId)) return true;
+        return known.has(key);
+      });
       if (pruned.length === prev.length) return prev;
       return writePetLimitSelection(pruned);
     });
-  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode]);
+  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode, dataById.raccoon]);
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);
