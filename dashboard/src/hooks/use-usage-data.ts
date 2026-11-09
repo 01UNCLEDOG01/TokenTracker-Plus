@@ -10,12 +10,24 @@ import {
   getUsageSummary,
 } from "../lib/api";
 import { useLatestRequestGuard } from "./use-latest-request-guard";
-import { touchLocalStorageCacheKey } from "../lib/local-storage-lru";
+import { adoptOrphanCacheKeys, touchLocalStorageCacheKey } from "../lib/local-storage-lru";
 
 // Bounds the per-range response cache keys (they embed from/to/tz/device, so
 // every period/device switch mints one) — see lib/local-storage-lru.ts.
 const USAGE_CACHE_INDEX_KEY = "tokentracker.usage-cache-index";
 const USAGE_CACHE_MAX_ENTRIES = 24;
+let usageOrphansAdopted = false;
+function ensureUsageOrphansAdopted(): void {
+  if (usageOrphansAdopted || typeof window === "undefined") return;
+  // Keys minted before this hook was wired into the LRU would otherwise keep
+  // the storage full forever (2026-11-10 quota incident). Retries until the
+  // prefix converges — see use-usage-model-breakdown.ts.
+  usageOrphansAdopted = adoptOrphanCacheKeys(
+    USAGE_CACHE_INDEX_KEY,
+    "tokentracker.usage.",
+    USAGE_CACHE_MAX_ENTRIES,
+  );
+}
 
 export function useUsageData({
   baseUrl,
@@ -79,6 +91,7 @@ export function useUsageData({
 
   const readCache = useCallback(() => {
     if (!storageKey || typeof window === "undefined") return null;
+    ensureUsageOrphansAdopted();
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (raw) {
@@ -161,6 +174,7 @@ export function useUsageData({
   const writeCache = useCallback(
     (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
+      ensureUsageOrphansAdopted();
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
         touchLocalStorageCacheKey(USAGE_CACHE_INDEX_KEY, storageKey, USAGE_CACHE_MAX_ENTRIES);

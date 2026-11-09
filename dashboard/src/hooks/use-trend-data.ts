@@ -12,7 +12,7 @@ import {
   getUsageMonthly,
 } from "../lib/api";
 import { useLatestRequestGuard } from "./use-latest-request-guard";
-import { touchLocalStorageCacheKey } from "../lib/local-storage-lru";
+import { adoptOrphanCacheKeys, touchLocalStorageCacheKey } from "../lib/local-storage-lru";
 
 const DEFAULT_MONTHS = 24;
 type AnyRecord = Record<string, any>;
@@ -20,6 +20,18 @@ type AnyRecord = Record<string, any>;
 // Same bounded-LRU scheme as use-usage-data (keys embed range/tz/device).
 const TREND_CACHE_INDEX_KEY = "tokentracker.trend-cache-index";
 const TREND_CACHE_MAX_ENTRIES = 24;
+let trendOrphansAdopted = false;
+function ensureTrendOrphansAdopted(): void {
+  if (trendOrphansAdopted || typeof window === "undefined") return;
+  // Keys minted before this hook was wired into the LRU would otherwise keep
+  // the storage full forever (2026-11-10 quota incident). Retries until the
+  // prefix converges — see use-usage-model-breakdown.ts.
+  trendOrphansAdopted = adoptOrphanCacheKeys(
+    TREND_CACHE_INDEX_KEY,
+    "tokentracker.trend.",
+    TREND_CACHE_MAX_ENTRIES,
+  );
+}
 
 export function useTrendData({
   baseUrl,
@@ -90,6 +102,7 @@ export function useTrendData({
 
   const readCache = useCallback(() => {
     if (!storageKey || typeof window === "undefined") return null;
+    ensureTrendOrphansAdopted();
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (!raw) return null;
@@ -108,6 +121,7 @@ export function useTrendData({
   const writeCache = useCallback(
     (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
+      ensureTrendOrphansAdopted();
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
         touchLocalStorageCacheKey(TREND_CACHE_INDEX_KEY, storageKey, TREND_CACHE_MAX_ENTRIES);
