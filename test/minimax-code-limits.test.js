@@ -67,7 +67,7 @@ function happyRoutes() {
   return [
     {
       match: "get_user_extra_info",
-      response: mockResponse({ json: { data: { workspaces: [{ workspace_id: "ws-personal", workspace_type: 0 }, { workspace_id: "ws-team", workspace_type: 1 }] }, base_resp: { status_code: 0 } } }),
+      response: mockResponse({ json: { user_extra: {}, workspaces: [{ workspace_id: 0, workspace_type: 0 }, { workspace_id: "ws-team", workspace_type: 1 }], base_resp: { status_code: 0 } } }),
     },
     {
       match: "get_membership_info",
@@ -146,9 +146,11 @@ test("fetchMinimaxCodeLimits renders windows, video, points, and never leaks the
   // The X-Group-Id header rides only on the remains call.
   const remainsCall = fetchImpl.calls.find((call) => call.url.includes("remains_percent"));
   assert.equal(remainsCall.options.headers["X-Group-Id"], "grp-123");
-  // Workspace body carries the personal workspace id.
+  // Workspace body carries the personal workspace id as a NUMBER — the
+  // commerce endpoints reject stringified ids (HTTP 400) and a real install
+  // returns workspace_id: 0 for the personal workspace.
   const membershipCall = fetchImpl.calls.find((call) => call.url.includes("get_membership_info"));
-  assert.deepEqual(JSON.parse(membershipCall.options.body), { workspace_id: "ws-personal" });
+  assert.deepEqual(JSON.parse(membershipCall.options.body), { workspace_id: 0 });
   // Token is never echoed in the result.
   assert.equal(JSON.stringify(result).includes("mmoat-test-token"), false);
 });

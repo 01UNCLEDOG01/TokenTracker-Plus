@@ -359,8 +359,16 @@ async function fetchMinimaxCodeLimits({
   const userInfo = envelope(extraInfo);
   const workspaces = Array.isArray(userInfo?.data?.workspaces) ? userInfo.data.workspaces : [];
   const personal = workspaces.filter((workspace) => Number(workspace?.workspace_type) === 0);
-  const workspaceId = clean(personal[0]?.workspace_id || personal[0]?.workspaceId);
-  if (!workspaceId) {
+  // A personal workspace id can legitimately be the NUMBER 0 — routing it
+  // through the string cleaner would drop it and misreport a missing
+  // workspace. The commerce endpoints reject stringified ids (HTTP 400), so
+  // the numeric value is preserved for the request body.
+  const rawWorkspaceId = personal[0]?.workspace_id ?? personal[0]?.workspaceId;
+  const workspaceIdNum = Number(rawWorkspaceId);
+  const hasWorkspaceId =
+    rawWorkspaceId !== undefined && rawWorkspaceId !== null && rawWorkspaceId !== ""
+    && Number.isFinite(workspaceIdNum);
+  if (!hasWorkspaceId) {
     return { configured: true, error: "MiniMax Code account has no personal workspace" };
   }
 
@@ -370,7 +378,7 @@ async function fetchMinimaxCodeLimits({
       fetchImpl,
       `${endpoints.agent}/matrix/api/v1/commerce/get_membership_info`,
       session.accessToken,
-      { workspace_id: workspaceId },
+      { workspace_id: workspaceIdNum },
       timeoutMs,
     );
     if (businessCode(membership) === 1004) return unauthorized();
