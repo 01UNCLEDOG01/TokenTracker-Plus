@@ -73,6 +73,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return views
         }
         PetSettingsController.shared.petPanelProvider = { [weak self] in self?.petPanel }
+        PetSettingsController.shared.setMonitor = { [weak self] monitor in
+            guard let self, let desktopWidget = self.desktopWidget else { return }
+            if monitor {
+                desktopWidget.show()
+                UserDefaults.standard.set(true, forKey: "TTPDesktopWidgetEnabled")
+            } else {
+                desktopWidget.window?.orderOut(nil)
+                UserDefaults.standard.set(false, forKey: "TTPDesktopWidgetEnabled")
+            }
+        }
+        PetSettingsController.shared.currentMonitor = { [weak self] in
+            self?.desktopWidget?.window?.isVisible ?? false
+        }
+        QuotaWidgetHost.shared.windowProvider = { [weak self] in self?.widgetWindow?.window }
+        QuotaWidgetHost.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
+        QuotaWidgetHost.shared.onClose = { [weak self] in
+            self?.widgetWindow?.window?.orderOut(nil)
+            UserDefaults.standard.set(false, forKey: "TTPQuotaWidgetEnabled")
+        }
 
         serverManager.start()
         Diag.info("Shell launched (v\(updateChecker.currentVersion))")

@@ -39,10 +39,20 @@ enum WebHost {
         // Pet-settings bridge shim: the dashboard's pet page posts to
         // `window.chrome.webview` (a WebView2-only object). Mirror it onto the
         // WKWebView message handler so the settings page sees a native host.
+        // Shim v2: two-way chrome.webview — postMessage out, addEventListener +
+        // native dispatch in (the quota widget listens for quota:context pushes).
         let shim = "window.chrome = window.chrome || {};" +
-            "window.chrome.webview = { postMessage: function (msg) {" +
-            "try { window.webkit.messageHandlers.petBridge.postMessage(typeof msg === 'string' ? msg : JSON.stringify(msg)); } catch (e) {}" +
-            "} };"
+            "(function () {" +
+            "  var listeners = {};" +
+            "  window.chrome.webview = {" +
+            "    postMessage: function (msg) {" +
+            "      try { window.webkit.messageHandlers.petBridge.postMessage(typeof msg === 'string' ? msg : JSON.stringify(msg)); } catch (e) {}" +
+            "    }," +
+            "    addEventListener: function (type, fn) { (listeners[type] = listeners[type] || []).push(fn); }," +
+            "    removeEventListener: function (type, fn) { var a = listeners[type] || []; var i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); }," +
+            "    __dispatch: function (payload) { var a = (listeners['message'] || []).slice(); for (var i = 0; i < a.length; i++) { try { a[i]({ data: payload }); } catch (e) {} } }" +
+            "  };" +
+            "})();"
         configuration.userContentController.addUserScript(
             WKUserScript(source: shim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         configuration.userContentController.add(PetSettingsController.shared, name: "petBridge")
@@ -169,9 +179,10 @@ final class DesktopWidgetWindowController: NSWindowController {
     init(serverURL: URL) {
         self.serverURL = serverURL
         let rect = NSRect(x: 0, y: 0, width: 360, height: 480)
-        let panel = NSPanel(contentRect: rect,
-                            styleMask: [.borderless, .nonactivatingPanel],
-                            backing: .buffered, defer: false)
+        let panel = InteractiveDesktopPanel(contentRect: rect,
+                                            styleMask: [.borderless, .nonactivatingPanel],
+                                            backing: .buffered, defer: false)
+        panel.isMovableByWindowBackground = true
         panel.isOpaque = false
         panel.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.92)
         panel.hasShadow = true
@@ -202,4 +213,13 @@ final class DesktopWidgetWindowController: NSWindowController {
                              y: screen.visibleFrame.maxY - frame.height - 12)
         window.setFrameOrigin(origin)
     }
+}
+
+
+/// Desktop-level panels can't become key by default, which swallowed every
+/// click into the webview; this subclass makes the desktop control panel
+/// interactive (clicks, scrolling, buttons) while staying at desktop level.
+final class InteractiveDesktopPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }

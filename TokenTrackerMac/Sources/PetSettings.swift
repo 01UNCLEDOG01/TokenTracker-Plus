@@ -28,6 +28,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     /// Provided by AppDelegate: show/hide the pet panel + current visibility.
     var setVisible: ((Bool) -> Void)?
     var currentVisible: (() -> Bool)?
+    /// The「用量悬浮窗」toggle (Windows MonitorWidgetWindow) = the desktop panel.
+    var setMonitor: ((Bool) -> Void)?
+    var currentMonitor: (() -> Bool)?
 
     /// Provided by AppDelegate: every live app webview (bridge replies go to all).
     var webViewProvider: (() -> [WKWebView])?
@@ -57,10 +60,22 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         guard message.name == "petBridge",
-              let body = message.body as? String,
-              let data = body.data(using: .utf8),
-              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let type = obj["type"] as? String else { return }
+              let body = message.body as? String else { return }
+        // Bare strings are real messages too ("quota:ready", "quota:drag"…);
+        // only structured posts arrive as JSON.
+        let obj: [String: Any]
+        if let data = body.data(using: .utf8),
+           let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           parsed["type"] is String {
+            obj = parsed
+        } else {
+            obj = ["type": body]
+        }
+        guard let type = obj["type"] as? String else { return }
+        if type.hasPrefix("quota:"), let webView = message.webView {
+            QuotaWidgetHost.shared.handle(type: type, payload: obj, webView: webView)
+            return
+        }
         switch type {
         case "getPetSettings":
             broadcastSettings()
@@ -94,6 +109,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             guard let botColor = value as? String else { return }
             settings.botColor = botColor
             d.set(botColor, forKey: "TTPPetBotColor")
+        case "monitor":
+            let monitor = (value as? Bool) ?? false
+            setMonitor?(monitor)
         default:
             Diag.info("Pet setting ignored: \(key)")
         }
@@ -109,7 +127,7 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             "character": settings.character,
             "size": settings.size,
             "botColor": settings.botColor,
-            "monitor": false,
+            "monitor": currentMonitor?() ?? false,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: detail),
               let json = String(data: data, encoding: .utf8) else { return "{}" }
@@ -134,6 +152,7 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             "window.__ttPetBotColor=\"\(settings.botColor)\";" +
             "window.__ttPetSize=\"\(settings.size)\";" +
             "window.__ttPetDark=\(dark ? "true" : "false");" +
+            "window.dispatchEvent(new Event('pet:character'));" +
             "window.dispatchEvent(new Event('pet:settings'));"
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
