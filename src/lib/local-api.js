@@ -5682,6 +5682,67 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- mistral-cookie (POST) ---
+    // Persist a hand-copied Mistral Admin Cookie header. Same contract as
+    // opendesign-cookie: loopback auth, POST only, never echoed back, and a
+    // normalized-but-rejected value answers 400 instead of a fake 200.
+    if (p === "/functions/tokentracker-mistral-cookie") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const cookie = typeof body?.cookie === "string" ? body.cookie : "";
+        const { writeCookieFile } = require("./mistral-limits");
+        const result = writeCookieFile({ home: os.homedir(), cookie });
+        if (result.saved === false) {
+          json(res, { error: "invalid_cookie" }, 400);
+          return true;
+        }
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save cookie" }, 400);
+      }
+      return true;
+    }
+
+    // --- openai-credits-credentials (POST) ---
+    // Persist the OpenAI Platform session bearer and organization id copied
+    // from the billing page's credit_grants request. Both fields are session
+    // credentials: loopback auth, POST only, never echoed back.
+    if (p === "/functions/tokentracker-openai-credits-credentials") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const sessionBearer = typeof body?.sessionBearer === "string" ? body.sessionBearer : "";
+        const organization = typeof body?.organization === "string" ? body.organization : "";
+        const { writeCredentialsFile } = require("./openai-credits-limits");
+        const result = writeCredentialsFile({ home: os.homedir(), sessionBearer, organization });
+        if (result.saved === false) {
+          json(res, { error: result.error || "invalid_credentials" }, 400);
+          return true;
+        }
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save credentials" }, 400);
+      }
+      return true;
+    }
+
     // --- qoder-cookie (POST) ---
     // Persist a hand-copied Qoder website cookie from the limits page paste
     // box. The cookie is a session credential, so this is a local mutation:

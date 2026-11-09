@@ -641,5 +641,17 @@
   "perks.claim.monthly_claimed": "今月受取済み（{{date}}）",
   "perks.filter.unclaimed": "未受取",
   "sessions.page.cached": "{{date}} のキャッシュを表示中です。更新して最新のセッションを確認できます。",
-  "global_models.credit_aihot": "AIHOT のデータは、数字生命卡兹克（Kazik）が公開するオープンソースプロジェクト AIHOT（aihot.news）から取得しています。データを公開している作者に感謝します。"
+  "global_models.credit_aihot": "AIHOT のデータは、数字生命卡兹克（Kazik）が公開するオープンソースプロジェクト AIHOT（aihot.news）から取得しています。データを公開している作者に感謝します。",
+  "limits.provider.mistral": "Mistral",
+  "limits.provider.openai_credits": "OpenAI API クレジット",
+  "limits.mistralCookie.placeholder": "Mistral Admin の Cookie を貼り付け（Cookie: 行全体）",
+  "limits.mistralCookie.note": "手動入力が必要です：セッション Cookie はページスクリプトから読めません。ブラウザの開発者ツールで admin.mistral.ai の Cookie 行全体をコピーして貼り付けてください。",
+  "limits.openaiCredits.session_placeholder": "credit_grants リクエストの Authorization ヘッダーを貼り付け",
+  "limits.openaiCredits.org_placeholder": "OpenAI-Organization ヘッダーの値を貼り付け",
+  "limits.openaiCredits.note": "手動入力が必要です：ブラウザの開発者ツールで platform.openai.com の請求ページにある credit_grants リクエストの 2 つのヘッダー値をコピーしてください。このエンドポイントは非公開のもので、変更または利用不能になる可能性があります。",
+  "limits.label.mistral_api": "付属 API",
+  "limits.label.mistral_vibe": "付属 Vibe Code",
+  "limits.label.mistral_balance": "{{currency}} {{balance}}",
+  "limits.label.openai_credits_meter": "API クレジット",
+  "limits.label.openai_credits_balance": "{{currency}} {{balance}} · {{date}} に失効"
 }

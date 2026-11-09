@@ -2094,3 +2094,15 @@ limits.label.opendesign_5h,ui,LimitsPage,UsageLimitsPanel,opendesign_5h,"5h",,ac
 limits.label.opendesign_weekly,ui,LimitsPage,UsageLimitsPanel,opendesign_weekly,"Weekly",,active
 limits.opendesignCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,opendesign_cookie_placeholder,"Paste the open-design.ai cookie (whole Cookie: line)",,active
 limits.opendesignCookie.note,ui,LimitsPage,UsageLimitsPanel,opendesign_cookie_note,"Manual entry required: the open-design.ai session cookie is invisible to page scripts, so copy the whole Cookie line from your browser's developer tools and paste it here.",,active
+limits.provider.mistral,ui,LimitsPage,UsageLimitsPanel,provider_mistral,"Mistral",,active
+limits.mistralCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,mistral_cookie_placeholder,"Paste the Mistral Admin cookie (whole Cookie: line)",,active
+limits.mistralCookie.note,ui,LimitsPage,UsageLimitsPanel,mistral_cookie_note,"Manual entry required: the Mistral session cookie is invisible to page scripts, so copy the whole Cookie line from admin.mistral.ai in your browser's developer tools and paste it here.",,active
+limits.provider.openai_credits,ui,LimitsPage,UsageLimitsPanel,provider_openai_credits,"OpenAI API Credits",,active
+limits.openaiCredits.session_placeholder,ui,LimitsPage,UsageLimitsPanel,openai_credits_session_placeholder,"Paste the Authorization header from the credit_grants request",,active
+limits.openaiCredits.org_placeholder,ui,LimitsPage,UsageLimitsPanel,openai_credits_org_placeholder,"Paste the OpenAI-Organization header value",,active
+limits.openaiCredits.note,ui,LimitsPage,UsageLimitsPanel,openai_credits_note,"Manual entry required: copy both header values from the credit_grants request on platform.openai.com's billing page in your browser's developer tools. This endpoint is undocumented and may change or stop working.",,active
+limits.label.mistral_api,ui,LimitsPage,UsageLimitsPanel,mistral_api,"Included API",,active
+limits.label.mistral_vibe,ui,LimitsPage,UsageLimitsPanel,mistral_vibe,"Included Vibe Code",,active
+limits.label.mistral_balance,ui,LimitsPage,UsageLimitsPanel,mistral_balance,"{{currency}} {{balance}}",,active
+limits.label.openai_credits_meter,ui,LimitsPage,UsageLimitsPanel,openai_credits_meter,"API credits",,active
+limits.label.openai_credits_balance,ui,LimitsPage,UsageLimitsPanel,openai_credits_balance,"{{currency}} {{balance}} · expires {{date}}",,active

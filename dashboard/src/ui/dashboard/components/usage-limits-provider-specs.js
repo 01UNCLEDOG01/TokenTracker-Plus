@@ -443,6 +443,32 @@ export const PROVIDER_LIMIT_SPECS = {
       ];
     },
   },
+  mistral: {
+    // Mistral subscription: two monthly allowances read from the subscription
+    // page's budget objects (Included API + Included Vibe Code), plus the
+    // wallet balance. Reset dates come from Mistral — no fixed monthly
+    // duration is assumed, so the windows carry no window seconds and pace
+    // purely off their reset timestamps. The vibe fallback is percent-only.
+    extra: "mistral_balance",
+    windows(data) {
+      return [
+        { key: "api", labelKey: "limits.label.mistral_api", window: data.primary_window },
+        { key: "vibe", labelKey: "limits.label.mistral_vibe", window: data.secondary_window },
+      ];
+    },
+  },
+  openaiCredits: {
+    // OpenAI Platform API credits: a prepaid wallet balance with the earliest
+    // active grant expiry. The meter bar only renders when the grant list
+    // reconciled with total_available (the fetcher returns a null window
+    // otherwise), so the status line alone never implies a fake limit.
+    extra: "openai_credits_balance",
+    windows(data) {
+      return [
+        { key: "credits", labelKey: "limits.label.openai_credits_meter", window: data.primary_window, timeKind: "expiry" },
+      ];
+    },
+  },
 };
 
 const GROK_PRODUCT_LABEL_KEYS = {

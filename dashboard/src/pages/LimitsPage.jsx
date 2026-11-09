@@ -269,6 +269,8 @@ export function LimitsPage() {
                 clinePass={usageLimits?.clinePass}
                 agentRouter={usageLimits?.agentRouter}
                 opendesign={usageLimits?.opendesign}
+                mistral={usageLimits?.mistral}
+                openaiCredits={usageLimits?.openaiCredits}
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}

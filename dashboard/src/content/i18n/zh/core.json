@@ -974,5 +974,17 @@
   "perks.claim.daily_claimed": "今日已领取（{{date}}）",
   "perks.claim.monthly_mark": "本月未领取 · 标记已领取",
   "perks.claim.monthly_claimed": "本月已领取（{{date}}）",
-  "sessions.page.cached": "正在显示 {{date}} 的缓存快照；可刷新检查最新会话。"
+  "sessions.page.cached": "正在显示 {{date}} 的缓存快照；可刷新检查最新会话。",
+  "limits.provider.mistral": "Mistral",
+  "limits.provider.openai_credits": "OpenAI API 额度",
+  "limits.mistralCookie.placeholder": "粘贴 Mistral Admin 的 Cookie（整行 Cookie: 行）",
+  "limits.mistralCookie.note": "必须手动填入才能生效：Mistral 的会话 Cookie 页面脚本读不到，只能从浏览器开发者工具复制 admin.mistral.ai 的整行 Cookie，粘到这里。",
+  "limits.openaiCredits.session_placeholder": "粘贴 credit_grants 请求的 Authorization 头",
+  "limits.openaiCredits.org_placeholder": "粘贴 OpenAI-Organization 头的值",
+  "limits.openaiCredits.note": "必须手动填入才能生效：从浏览器开发者工具复制 platform.openai.com 账单页 credit_grants 请求的两个请求头值。该端点未公开记载，可能变更或失效。",
+  "limits.label.mistral_api": "包含的 API 额度",
+  "limits.label.mistral_vibe": "包含的 Vibe Code 额度",
+  "limits.label.mistral_balance": "{{currency}} {{balance}}",
+  "limits.label.openai_credits_meter": "API 额度",
+  "limits.label.openai_credits_balance": "{{currency}} {{balance}} · {{date}} 到期"
 }

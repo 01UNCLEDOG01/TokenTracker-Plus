@@ -347,6 +347,30 @@ function OpenDesignIcon({ size = 16, className = "" }) {
   );
 }
 
+// Mistral — inline mono "M" letterform. The official striped mark needs a
+// color asset we do not ship; the unambiguous letterform follows currentColor
+// like the other mono marks.
+function MistralIcon({ size = 16, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
+      <path d="M3.5 19.5v-15l8.5 9 8.5-9v15" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// OpenAI Platform API credits — inline mono coin mark. This provider tracks a
+// prepaid balance (not a plan), so a stacked-coin glyph reads better than the
+// OpenAI knot, which would need a color asset we do not ship.
+function OpenaiCreditsIcon({ size = 16, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
+      <ellipse cx="12" cy="7.25" rx="8" ry="3.25" stroke="currentColor" strokeWidth="2" />
+      <path d="M4 7.25v9.5c0 1.795 3.582 3.25 8 3.25s8-1.455 8-3.25v-9.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M4 12c0 1.795 3.582 3.25 8 3.25s8-1.455 8-3.25" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
 // Zed Agent — official Zed logomark from zed-industries/zed assets.
 // A stylized "Z" with grid accents, mono with currentColor for dark/light.
 function ZedIcon({ size = 16, className = "" }) {
@@ -419,6 +443,8 @@ const PROVIDER_ICON_MAP = {
   // MiniMax Code (desktop agent) ships under the MiniMax brand mark.
   "MINIMAX-CODE": MinimaxIcon,
   OPENDESIGN: OpenDesignIcon,
+  MISTRAL: MistralIcon,
+  "OPENAI-CREDITS": OpenaiCreditsIcon,
   OPENCODE: OpenCodeIcon,
   OMP: OmpIcon,
   PI: PiIcon,

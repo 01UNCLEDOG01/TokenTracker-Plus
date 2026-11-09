@@ -32,6 +32,8 @@ export const LIMIT_PROVIDER_IDS = [
   "clinePass",
   "agentRouter",
   "opendesign",
+  "mistral",
+  "openaiCredits",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -89,6 +91,13 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   // OpenDesign subscription quota — inline mono "O" brand mark (no official
   // logo asset shipped yet; the letterform matches open-design.ai favicon).
   opendesign: "OPENDESIGN",
+  // Mistral subscription quota — inline mono "M" letterform (the striped
+  // official mark needs a color asset we do not ship; the letterform is
+  // unambiguous next to the other provider marks).
+  mistral: "MISTRAL",
+  // OpenAI Platform API credits — inline mono coin mark (balance meter, not a
+  // plan; the OpenAI knot needs a color asset we do not ship).
+  openaiCredits: "OPENAI-CREDITS",
 };
 
 export function limitProviderIconKey(id) {
@@ -157,6 +166,10 @@ export function limitProviderName(id) {
       return copy("limits.provider.agentrouter");
     case "opendesign":
       return copy("limits.provider.opendesign");
+    case "mistral":
+      return copy("limits.provider.mistral");
+    case "openaiCredits":
+      return copy("limits.provider.openai_credits");
     default:
       return String(id || "");
   }

@@ -1726,3 +1726,78 @@ test("opendesign-cookie route saves a cookie only for an authenticated loopback 
   assert.equal(badRes.statusCode, 400);
   assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_cookie" });
 });
+
+test("mistral-cookie route saves a cookie only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+  const token = await getLocalAuthToken(handler);
+  const url = new URL("http://127.0.0.1/functions/tokentracker-mistral-cookie");
+
+  const getRes = createResponse();
+  await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+  assert.equal(getRes.statusCode, 405);
+
+  const anonRes = createResponse();
+  await handler(createRequest({ method: "POST", body: JSON.stringify({ cookie: "ory_session_x=1" }) }), anonRes, url);
+  assert.equal(anonRes.statusCode, 401);
+
+  const okRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ cookie: "Cookie: ory_session_mistralstaging=abc; csrftoken=xyz" }),
+  }), okRes, url);
+  assert.equal(okRes.statusCode, 200);
+  assert.deepEqual(JSON.parse(okRes.body.toString("utf8")), { saved: true });
+  const credFile = path.join(process.env.HOME, ".tokentracker", "mistral-credentials.json");
+  const stored = JSON.parse(fs.readFileSync(credFile, "utf8"));
+  assert.equal(stored.cookie, "ory_session_mistralstaging=abc; csrftoken=xyz");
+
+  // A cookie without any ory_session_* pair is rejected with 400.
+  const badRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ cookie: "session=abc" }),
+  }), badRes, url);
+  assert.equal(badRes.statusCode, 400);
+  assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_cookie" });
+});
+
+test("openai-credits route saves both credential fields only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+  const token = await getLocalAuthToken(handler);
+  const url = new URL("http://127.0.0.1/functions/tokentracker-openai-credits-credentials");
+
+  const getRes = createResponse();
+  await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+  assert.equal(getRes.statusCode, 405);
+
+  const anonRes = createResponse();
+  await handler(createRequest({ method: "POST", body: JSON.stringify({ sessionBearer: "Bearer x", organization: "org" }) }), anonRes, url);
+  assert.equal(anonRes.statusCode, 401);
+
+  const okRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ sessionBearer: "Bearer sk-proj-session-token", organization: "org-demo-1" }),
+  }), okRes, url);
+  assert.equal(okRes.statusCode, 200);
+  assert.deepEqual(JSON.parse(okRes.body.toString("utf8")), { saved: true });
+  const credFile = path.join(process.env.HOME, ".tokentracker", "openai-credits-credentials.json");
+  const stored = JSON.parse(fs.readFileSync(credFile, "utf8"));
+  // The Bearer prefix is normalized away — the fetcher adds its own.
+  assert.equal(stored.sessionBearer, "sk-proj-session-token");
+  assert.equal(stored.organization, "org-demo-1");
+
+  // A missing organization is rejected with 400, not a fake success.
+  const badRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ sessionBearer: "sk-proj-session-token", organization: "" }),
+  }), badRes, url);
+  assert.equal(badRes.statusCode, 400);
+});

@@ -638,5 +638,17 @@
   "perks.claim.monthly_claimed": "Diesen Monat erhalten ({{date}})",
   "perks.filter.unclaimed": "Noch offen",
   "sessions.page.cached": "Zwischengespeicherter Stand vom {{date}}. Aktualisieren prüft auf neue Sitzungen.",
-  "global_models.credit_aihot": "Die AIHOT-Daten stammen aus dem Open-Source-Projekt AIHOT (aihot.news) von Kazik (数字生命卡兹克). Vielen Dank für die öffentlich zugänglichen Daten."
+  "global_models.credit_aihot": "Die AIHOT-Daten stammen aus dem Open-Source-Projekt AIHOT (aihot.news) von Kazik (数字生命卡兹克). Vielen Dank für die öffentlich zugänglichen Daten.",
+  "limits.provider.mistral": "Mistral",
+  "limits.provider.openai_credits": "OpenAI API-Guthaben",
+  "limits.mistralCookie.placeholder": "Mistral-Admin-Cookie einfügen (komplette Cookie:-Zeile)",
+  "limits.mistralCookie.note": "Manuelle Eingabe nötig: das Sitzungs-Cookie ist für Seitenskripte unsichtbar. Kopiere die komplette Cookie-Zeile von admin.mistral.ai in den Entwicklertools des Browsers und füge sie hier ein.",
+  "limits.openaiCredits.session_placeholder": "Authorization-Header der credit_grants-Anfrage einfügen",
+  "limits.openaiCredits.org_placeholder": "Wert des OpenAI-Organization-Headers einfügen",
+  "limits.openaiCredits.note": "Manuelle Eingabe nötig: kopiere beide Header-Werte aus der credit_grants-Anfrage auf der Abrechnungsseite von platform.openai.com in den Entwicklertools des Browsers. Dieser Endpunkt ist undokumentiert und kann sich ändern oder entfallen.",
+  "limits.label.mistral_api": "Enthaltene API",
+  "limits.label.mistral_vibe": "Enthaltene Vibe Code",
+  "limits.label.mistral_balance": "{{currency}} {{balance}}",
+  "limits.label.openai_credits_meter": "API-Guthaben",
+  "limits.label.openai_credits_balance": "{{currency}} {{balance}} · läuft {{date}} ab"
 }

@@ -641,5 +641,17 @@
   "perks.claim.monthly_claimed": "이번 달 수령 완료 ({{date}})",
   "perks.filter.unclaimed": "미수령",
   "sessions.page.cached": "{{date}}의 캐시 스냅샷입니다. 새로 고침으로 최신 세션을 확인할 수 있습니다.",
-  "global_models.credit_aihot": "AIHOT 순위 데이터는 디지털 생명 카즈크(Kazik)의 오픈 소스 프로젝트 AIHOT(aihot.news)에서 제공합니다. 데이터를 공개해 주신 제작자에게 감사드립니다."
+  "global_models.credit_aihot": "AIHOT 순위 데이터는 디지털 생명 카즈크(Kazik)의 오픈 소스 프로젝트 AIHOT(aihot.news)에서 제공합니다. 데이터를 공개해 주신 제작자에게 감사드립니다.",
+  "limits.provider.mistral": "Mistral",
+  "limits.provider.openai_credits": "OpenAI API 크레딧",
+  "limits.mistralCookie.placeholder": "Mistral Admin 쿠키 붙여넣기(Cookie: 줄 전체)",
+  "limits.mistralCookie.note": "수동 입력이 필요합니다. 세션 쿠키는 페이지 스크립트로 읽을 수 없으므로 브라우저 개발자 도구에서 admin.mistral.ai의 Cookie 줄 전체를 복사해 여기에 붙여넣으세요.",
+  "limits.openaiCredits.session_placeholder": "credit_grants 요청의 Authorization 헤더 붙여넣기",
+  "limits.openaiCredits.org_placeholder": "OpenAI-Organization 헤더 값 붙여넣기",
+  "limits.openaiCredits.note": "수동 입력이 필요합니다. 브라우저 개발자 도구에서 platform.openai.com 결제 페이지의 credit_grants 요청에 담긴 두 헤더 값을 복사하세요. 이 엔드포인트는 비공개 문서로, 변경되거나 중단될 수 있습니다.",
+  "limits.label.mistral_api": "포함 API",
+  "limits.label.mistral_vibe": "포함 Vibe Code",
+  "limits.label.mistral_balance": "{{currency}} {{balance}}",
+  "limits.label.openai_credits_meter": "API 크레딧",
+  "limits.label.openai_credits_balance": "{{currency}} {{balance}} · {{date}} 만료"
 }

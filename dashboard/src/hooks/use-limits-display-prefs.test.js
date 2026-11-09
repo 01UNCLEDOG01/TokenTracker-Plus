@@ -143,6 +143,8 @@ describe("useLimitsDisplayPrefs", () => {
         "clinePass",
         "agentRouter",
         "opendesign",
+        "mistral",
+        "openaiCredits",
         "claude",
         "codex",
         "codingPlan",
