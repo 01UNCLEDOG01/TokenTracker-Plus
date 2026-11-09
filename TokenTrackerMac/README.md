@@ -1,6 +1,11 @@
 # TokenTrackerMac（macOS 客户端，通用二进制）
 
-原生 Swift 菜单栏壳，镜像 `TokenTrackerWin/` 的架构（托盘→菜单栏、WebView2→WKWebView），复用 dashboard 的三个页面产物（`pet.html` / `quota.html` / dashboard）。
+**两条构建链：**
+
+1. **原生 SwiftUI 客户端（主链，`BarSources/`）**——整体 vendor 自上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) 的 `TokenTrackerBar`（MIT，126 文件 ~30k 行：原生菜单栏 + 原生宠物精灵 + 悬浮岛 + 原生设置页），fork 适配仅三处已标记（更新源指向本 fork、包名/版本注入）。**编译需要完整 Xcode**（SwiftUI 宏插件 SwiftUIMacros 与 actool 只随 Xcode 分发；Vortex 粒子库已移除并 stub 同接口）。构建走 `xcodebuild` 直编 SwiftPM 清单（无需 XcodeGen）。
+2. **webview 壳（legacy，`Sources/`）**——v1 过渡实现（镜像 TokenTrackerWin 架构，WKWebView 三浮面 + 宠物桥），构建链在 `scripts/package-macos-legacy.sh`。原生链验证通过后退役。
+
+共享基建：`scripts/bundle-node.sh`（PET dashboard 构建 + 双架构 Node 22.22.2）产出的 `EmbeddedServer/` 两链通用。
 
 ## 功能（v1）
 
