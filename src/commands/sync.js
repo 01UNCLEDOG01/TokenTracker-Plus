@@ -590,6 +590,11 @@ async function acquireSyncLock(
 }
 
 const SYNC_SKIP_MARKER = "sync.skip.json";
+// Mid-run cursor checkpoint cadence (see createCursorCommitThrottle). 30s
+// bounds the worst-case lost progress of a killed run to half a minute while
+// keeping the atomic 20MB+ cursors write rare enough not to matter on a
+// five-minute cadence.
+const CURSOR_CHECKPOINT_INTERVAL_MS = 30_000;
 
 // A skipped sync used to exit 0 with no output whatsoever, so lock debris left
 // by a killed run stalled every parse for a day with no visible signal and
@@ -621,6 +626,44 @@ async function clearSyncSkip(trackerDir) {
   }
 }
 
+// Mid-run cursor checkpoints. A full --all-local-sources sync can outlive the
+// Windows host's five-minute background deadline (stale cursors force slow
+// rescans), and a run that dies before the tail commit loses every parser's
+// in-memory progress — cursors.json then stays frozen and every later run
+// rescans from the same old watermark forever. The checkpoint persists
+// progress periodically so an interrupted run still advances the watermark
+// and the next run only parses the remainder. Checkpoints are best-effort:
+// serialization keeps two atomic writes from interleaving, and a failed
+// checkpoint is swallowed because the tail commit is the one that surfaces
+// real write failures.
+function createCursorCommitThrottle({ commit, intervalMs = 30_000, clock = Date.now } = {}) {
+  let inFlight = null;
+  let lastAt = 0;
+  const run = async () => {
+    try {
+      await commit();
+    } catch { /* best-effort — the tail commit surfaces real failures */ }
+  };
+  return {
+    async checkpoint(force = false) {
+      if (inFlight) await inFlight;
+      const now = clock();
+      if (!force && now - lastAt < intervalMs) return;
+      lastAt = now;
+      const pending = run();
+      inFlight = pending;
+      try {
+        await pending;
+      } finally {
+        if (inFlight === pending) inFlight = null;
+      }
+    },
+    get lastAt() {
+      return lastAt;
+    },
+  };
+}
+
 async function cmdSync(argv, context = {}) {
   context = context && typeof context === "object" ? context : {};
   const opts = parseArgs(argv);
@@ -640,6 +683,24 @@ async function cmdSync(argv, context = {}) {
   const traeCnNowMs = context && typeof context === "object"
     ? context.traeCnNowMs
     : undefined;
+  // Mid-run cursor checkpoint state. Declared at function scope so the
+  // finally block can stop the timer and force a final checkpoint even when
+  // the run dies before the cursor store exists (early lock failure).
+  let cursorCommitThrottle = null;
+  let cursorCheckpointTimer = null;
+  const startCursorCheckpointTimer = () => {
+    if (cursorCheckpointTimer || !cursorCommitThrottle) return;
+    cursorCheckpointTimer = setInterval(() => {
+      void cursorCommitThrottle.checkpoint();
+    }, CURSOR_CHECKPOINT_INTERVAL_MS);
+    if (typeof cursorCheckpointTimer.unref === "function") cursorCheckpointTimer.unref();
+  };
+  const stopCursorCheckpointTimer = () => {
+    if (cursorCheckpointTimer) {
+      clearInterval(cursorCheckpointTimer);
+      cursorCheckpointTimer = null;
+    }
+  };
   const cursorSyncDeps = context && typeof context.cursorSyncDeps === "object"
     ? context.cursorSyncDeps
     : {};
@@ -740,6 +801,15 @@ async function cmdSync(argv, context = {}) {
         : {}),
     });
     const cursors = cursorStore.cursors;
+    // Mid-run checkpointing (see createCursorCommitThrottle): a timer beats
+    // per-source instrumentation because the source list keeps growing and a
+    // rescan spends unpredictable time in any of them. The timer never holds
+    // the process open (unref) — process exit still beats a pending write,
+    // which the finally-block checkpoint below covers.
+    cursorCommitThrottle = createCursorCommitThrottle({
+      commit: () => cursorStore.commit(cursors),
+    });
+    startCursorCheckpointTimer();
     const uploadThrottle = normalizeUploadState(await readJson(uploadThrottlePath));
     let uploadThrottleState = uploadThrottle;
     let grokHookSignal = null;
@@ -3909,6 +3979,9 @@ async function cmdSync(argv, context = {}) {
       !codexLegacyUnknownRepair &&
       !opts.repairGrok;
 
+    // Stop the checkpoint timer before the tail commits so they cannot race
+    // an in-flight checkpoint write on the same file.
+    stopCursorCheckpointTimer();
     if (syncDiagnostics) {
       syncDiagnostics.cursor_commits = Number(syncDiagnostics.cursor_commits || 0);
       syncDiagnostics.cursor_bytes = Number(syncDiagnostics.cursor_bytes || 0);
@@ -4170,6 +4243,14 @@ async function cmdSync(argv, context = {}) {
     // sync of the day, and maybeSendHeartbeat never throws.
     await maybeSendHeartbeat({ trackerDir });
   } finally {
+    stopCursorCheckpointTimer();
+    // A run killed before the tail commit loses everything parsed since the
+    // last checkpoint; force one here so the finally path (error, deadline
+    // kill, signal) still advances the watermark. Skipped when the run never
+    // got a cursor store (early lock failure) — nothing to persist.
+    try {
+      await cursorCommitThrottle?.checkpoint(true);
+    } catch { /* the tail commit above already reported real failures */ }
     progress?.stop();
     await lock.release();
   }
@@ -4288,6 +4369,7 @@ function recordCodexColdScanAudit(
 module.exports = {
   formatSyncUploadSummaryLine,
   cmdSync,
+  createCursorCommitThrottle,
   warnProviderParseFailure,
   setAutoParseFailureLogDir,
   acquireSyncLock,
