@@ -24,7 +24,8 @@ const required = [
   // Runtime sentinels: the embedded node binary and the PET dashboard pages the
   // desktop pet/widget load. A non-PET dist or a missing node binary passes every
   // source comparison below and still kills the shell at startup.
-  path.join(resources, "node"),
+  path.join(resources, "node-arm64"),
+  path.join(resources, "node-x64"),
   path.join(runtime, "bin", "tracker.js"),
   path.join(runtime, "package-lock.json"),
   ...["index.html", "pet.html", "quota.html", "share.html", "privacy.html", "ip-check.html", "leaderboard.html"]
@@ -33,8 +34,9 @@ const required = [
 for (const file of required) {
   assert.ok(fs.existsSync(file) && fs.statSync(file).isFile(), `Missing ${path.relative(appDir, file)}`);
 }
-// The embedded node must actually run and match the pinned version.
-const bundledNode = path.join(resources, "node");
+// The embedded native-arch node must actually run and match the pinned version.
+const nativeTag = process.arch === "arm64" ? "node-arm64" : "node-x64";
+const bundledNode = path.join(resources, nativeTag);
 const nodeVersion = execFileSync(bundledNode, ["-p", "process.versions.node"], { encoding: "utf8" }).trim();
 assert.equal(nodeVersion, "22.22.2", `Bundled Node drifted: ${nodeVersion}`);
 
@@ -77,7 +79,7 @@ const report = {
   sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
   version: packageVersion,
   matchedInputs: matched,
-  nodeVersion,
+  nodeVersion, nativeTag,
   files: packageFiles.map(file => {
     const bytes = fs.readFileSync(file);
     return { path: path.relative(appDir, file), bytes: bytes.length,
@@ -86,4 +88,4 @@ const report = {
 };
 if (reportPath) fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify({ sourceSha: report.sourceSha, version: report.version,
-  matchedInputs: matched, nodeVersion, packageFiles: packageFiles.length }));
+  matchedInputs: matched, nodeVersion, nativeTag, packageFiles: packageFiles.length }));

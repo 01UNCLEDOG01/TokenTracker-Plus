@@ -46,11 +46,15 @@ final class ServerManager {
     private func findRuntime() -> Runtime? {
         if let resources = Bundle.main.resourceURL {
             let embed = resources.appendingPathComponent("EmbeddedServer", isDirectory: true)
-            let node = embed.appendingPathComponent("node")
             let entry = embed.appendingPathComponent("tokentracker/bin/tracker.js")
-            if FileManager.default.fileExists(atPath: node.path)
+            // The bundle carries both architectures (universal .app); pick by machine.
+            let arch = Self.machineArch == "x86_64" ? "node-x64" : "node-arm64"
+            let node = embed.appendingPathComponent(arch)
+            let fallback = embed.appendingPathComponent("node")
+            let nodeURL = FileManager.default.fileExists(atPath: node.path) ? node : fallback
+            if FileManager.default.fileExists(atPath: nodeURL.path)
                 && FileManager.default.fileExists(atPath: entry.path) {
-                return Runtime(nodeURL: node, entryURL: entry)
+                return Runtime(nodeURL: nodeURL, entryURL: entry)
             }
         }
         let env = ProcessInfo.processInfo.environment
@@ -65,6 +69,15 @@ final class ServerManager {
         guard let nodePath, FileManager.default.isExecutableFile(atPath: nodePath) else { return nil }
         return Runtime(nodeURL: URL(fileURLWithPath: nodePath),
                        entryURL: URL(fileURLWithPath: entryPath))
+    }
+
+    /// "arm64" or "x86_64" — decides which embedded Node binary runs.
+    static var machineArch: String {
+        var sysinfo = utsname()
+        uname(&sysinfo)
+        return withUnsafeBytes(of: &sysinfo.machine) { raw in
+            String(cString: raw.baseAddress!.assumingMemoryBound(to: CChar.self))
+        }
     }
 
     /// Minimal PATH lookup — the shell must not depend on the user's login shell

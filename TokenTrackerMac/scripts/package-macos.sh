@@ -26,8 +26,9 @@ VERSION="$(node -p "JSON.parse(require('fs').readFileSync('$REPO_ROOT/package.js
 echo "[package] version = $VERSION"
 
 EMBED_DIR="$MAC_DIR/EmbeddedServer"
-if [ ! -x "$EMBED_DIR/node" ] || [ ! -f "$EMBED_DIR/tokentracker/bin/tracker.js" ]; then
-  echo "ERROR: EmbeddedServer missing — run scripts/bundle-node.sh first" >&2
+if [ ! -x "$EMBED_DIR/node-arm64" ] || [ ! -x "$EMBED_DIR/node-x64" ] \
+   || [ ! -f "$EMBED_DIR/tokentracker/bin/tracker.js" ]; then
+  echo "ERROR: EmbeddedServer missing or incomplete — run scripts/bundle-node.sh first" >&2
   exit 1
 fi
 if [ ! -f "$EMBED_DIR/tokentracker/dashboard/dist/pet.html" ]; then
@@ -40,10 +41,20 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 # 1. Compile the shell directly into the bundle.
 echo "[package] swiftc -> Contents/MacOS/$APP_NAME"
+# Universal binary: one .app runs on Apple silicon and Intel Macs. The Swift
+# driver takes a single -target per invocation, so build each slice then lipo.
+mkdir -p "$BUILD_DIR"
 swiftc -O -target arm64-apple-macos13.0 \
   -framework AppKit -framework WebKit -framework ServiceManagement \
   "$MAC_DIR"/Sources/*.swift \
-  -o "$APP_DIR/Contents/MacOS/$APP_NAME"
+  -o "$BUILD_DIR/TokenTracker-plus-arm64"
+swiftc -O -target x86_64-apple-macos13.0 \
+  -framework AppKit -framework WebKit -framework ServiceManagement \
+  "$MAC_DIR"/Sources/*.swift \
+  -o "$BUILD_DIR/TokenTracker-plus-x64"
+lipo -create "$BUILD_DIR/TokenTracker-plus-arm64" "$BUILD_DIR/TokenTracker-plus-x64" \
+  -output "$APP_DIR/Contents/MacOS/$APP_NAME"
+lipo -info "$APP_DIR/Contents/MacOS/$APP_NAME"
 
 # 2. Icon: app-icon.png -> iconset -> icns (sizes required by iconutil).
 ICON_SRC="$REPO_ROOT/dashboard/public/app-icon.png"
@@ -79,6 +90,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>LSUIElement</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHumanReadableCopyright</key><string>TokenTracker Plus fork — see LICENSE</string>
   <key>NSAppTransportSecurity</key>
@@ -106,7 +118,7 @@ hdiutil create -volname "TokenTracker Plus $VERSION" -srcfolder "$STAGE" -ov -fo
 rm -rf "$STAGE"
 
 cd "$BUILD_DIR"
-zip -qry "$ARTIFACTS_DIR/TokenTracker-plus-mac-arm64-$VERSION.zip" "$APP_NAME.app"
+zip -qry "$ARTIFACTS_DIR/TokenTracker-plus-macos-universal-$VERSION.zip" "$APP_NAME.app"
 cd "$MAC_DIR"
 
 echo

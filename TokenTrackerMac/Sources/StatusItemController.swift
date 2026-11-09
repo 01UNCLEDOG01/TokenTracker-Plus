@@ -1,32 +1,45 @@
 import AppKit
 import WebKit
 
-/// Menu bar + quota panel — counterpart of TrayApplicationContext.cs. Left-click
-/// toggles the quota panel under the icon; right-click pops the shell menu.
-final class StatusItemController: NSObject, NSWindowDelegate {
+/// Menu bar controller — counterpart of TrayApplicationContext.cs. Left-click
+/// toggles the dashboard window (the Windows tray does exactly that), right-click
+/// pops the shell menu.
+final class StatusItemController: NSObject {
     private let serverManager: ServerManager
     private let updateChecker: UpdateChecker
-    private let launchAtLogin: LaunchAtLogin.Type = LaunchAtLogin.self
 
     private var statusItem: NSStatusItem?
-    private var panel: QuotaPanel?
-    private var panelPinned = false
     private var menu: NSMenu?
 
     private var onOpenDashboard: (() -> Void)?
     private var onOpenWidget: (() -> Void)?
     private var onTogglePet: (() -> Void)?
+    private var onToggleDesktopWidget: (() -> Void)?
+    private var onToggleQuotaWidget: (() -> Void)?
+    private var isDesktopWidgetVisible: (() -> Bool)?
+    private var isPetVisible: (() -> Bool)?
+    private var isQuotaWidgetVisible: (() -> Bool)?
 
     init(serverManager: ServerManager,
          updateChecker: UpdateChecker,
          onOpenDashboard: @escaping () -> Void,
          onOpenWidget: @escaping () -> Void,
-         onTogglePet: @escaping () -> Void) {
+         onTogglePet: @escaping () -> Void,
+         onToggleDesktopWidget: @escaping () -> Void,
+         onToggleQuotaWidget: @escaping () -> Void,
+         isDesktopWidgetVisible: @escaping () -> Bool,
+         isPetVisible: @escaping () -> Bool,
+         isQuotaWidgetVisible: @escaping () -> Bool) {
         self.serverManager = serverManager
         self.updateChecker = updateChecker
         self.onOpenDashboard = onOpenDashboard
         self.onOpenWidget = onOpenWidget
         self.onTogglePet = onTogglePet
+        self.onToggleDesktopWidget = onToggleDesktopWidget
+        self.onToggleQuotaWidget = onToggleQuotaWidget
+        self.isDesktopWidgetVisible = isDesktopWidgetVisible
+        self.isPetVisible = isPetVisible
+        self.isQuotaWidgetVisible = isQuotaWidgetVisible
         super.init()
     }
 
@@ -58,74 +71,12 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         // them as a plain left click so the shell stays scriptable. Real clicks
         // with the right button pop the menu.
         guard let event = NSApp.currentEvent, event.type == .rightMouseUp else {
-            Diag.info("Status item clicked (no right-button event) -> toggle panel")
-            togglePanel()
+            Diag.info("Status item left-clicked -> toggle dashboard (Windows tray parity)")
+            onOpenDashboard?()
             return
         }
         Diag.info("Status item right-clicked -> menu")
         popMenu()
-    }
-
-    // MARK: Quota panel
-
-    private func togglePanel() {
-        if let panel, panel.isVisible {
-            panel.orderOut(nil)
-            return
-        }
-        showPanel()
-    }
-
-    private func showPanel() {
-        Diag.info("showPanel enter (pinned=\(panelPinned))")
-        let panel = self.panel ?? makePanel()
-        self.panel = panel
-        if WebHost.webView(in: panel) == nil {
-            panel.contentView = WebHost.makeWebView(frame: panel.contentRect(forFrameRect: panel.frame))
-        }
-        if let webView = WebHost.webView(in: panel) {
-            WebHost.load(webView, path: "/quota", on: serverManager.serverURL)
-        }
-        positionPanel(panel)
-        panel.orderFrontRegardless()
-        panel.makeKey()
-        Diag.info("showPanel done frame=\(panel.frame) visible=\(panel.isVisible)")
-    }
-
-    private func makePanel() -> QuotaPanel {
-        let rect = NSRect(x: 0, y: 0, width: 420, height: 560)
-        // Borderless + nonactivating is the canonical floating-panel recipe;
-        // .titled mixed with .borderless produces undefined frame behavior.
-        let panel = QuotaPanel(contentRect: rect,
-                               styleMask: [.borderless, .nonactivatingPanel],
-                               backing: .buffered, defer: false)
-        panel.isOpaque = false
-        // Translucent backdrop: the quota page paints its own content on top, and
-        // a fully clear window would be invisible whenever the webview is empty
-        // (slow load, navigation error) — an "invisible panel" bug is undiagnosable.
-        panel.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.88)
-        panel.hasShadow = true
-        panel.level = .floating
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
-        panel.delegate = self
-        return panel
-    }
-
-    private func positionPanel(_ panel: NSPanel) {
-        let buttonWindow = statusItem?.button?.window
-        let panelWidth = panel.frame.width
-        if let screen = buttonWindow?.screen ?? NSScreen.main {
-            let anchorX = buttonWindow?.frame.midX ?? screen.visibleFrame.midX
-            let x = min(max(screen.visibleFrame.minX + 8, anchorX - panelWidth / 2),
-                        screen.visibleFrame.maxX - panelWidth - 8)
-            let anchorY = buttonWindow?.frame.minY ?? screen.visibleFrame.maxY
-            let y = anchorY - panel.frame.height - 6
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-        } else {
-            panel.center()
-        }
     }
 
     // MARK: Context menu (shared by status item right-click and pet right-click)
@@ -149,21 +100,26 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         dashboard.target = self
         let pet = NSMenuItem(title: "宠物悬浮窗", action: #selector(togglePet), keyEquivalent: "p")
         pet.target = self
-        let widget = NSMenuItem(title: "额度窗", action: #selector(openWidget), keyEquivalent: "q")
+        pet.state = (isPetVisible?() ?? false) ? .on : .off
+        let island = NSMenuItem(title: "桌面控制面板", action: #selector(toggleDesktopWidget), keyEquivalent: "w")
+        island.target = self
+        island.state = (isDesktopWidgetVisible?() ?? false) ? .on : .off
+        let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "q")
         widget.target = self
+        widget.state = (isQuotaWidgetVisible?() ?? false) ? .on : .off
         let sync = NSMenuItem(title: "立即同步", action: #selector(syncNow), keyEquivalent: "s")
         sync.target = self
         let login = NSMenuItem(title: "开机启动", action: #selector(toggleLoginItem), keyEquivalent: "")
         login.target = self
-        login.state = launchAtLogin.isEnabled ? .on : .off
-        login.isEnabled = launchAtLogin.isSupported
+        login.state = LaunchAtLogin.isEnabled ? .on : .off
+        login.isEnabled = LaunchAtLogin.isSupported
         let update = NSMenuItem(title: "检查更新…", action: #selector(checkUpdates), keyEquivalent: "")
         update.target = self
         let quit = NSMenuItem(title: "退出 TokenTracker Plus", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         quit.keyEquivalentModifierMask = [.command, .shift]
 
-        [dashboard, pet, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
+        [dashboard, pet, island, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
          login, update, NSMenuItem.separator(), quit].forEach { menu.addItem($0) }
         return menu
     }
@@ -171,7 +127,8 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     // MARK: Actions
 
     @objc private func openDashboard() { onOpenDashboard?() }
-    @objc private func openWidget() { onOpenWidget?() }
+    @objc private func toggleDesktopWidget() { onToggleDesktopWidget?() }
+    @objc private func toggleQuotaWidget() { onToggleQuotaWidget?() }
     @objc private func togglePet() { onTogglePet?() }
     @objc private func syncNow() { serverManager.syncNow() }
     @objc private func checkUpdates() { updateChecker.checkAndPrompt() }
@@ -186,18 +143,4 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     @objc private func quit() {
         NSApp.terminate(nil)
     }
-
-    // MARK: NSWindowDelegate
-
-    func windowDidResignKey(_ notification: Notification) {
-        // Click-outside dismisses the panel unless it was opened pinned from the
-        // widget menu entry (pinned panels survive focus loss).
-        guard let panel, !panelPinned else { return }
-        panel.orderOut(nil)
-    }
-}
-
-/// Borderless panels only receive key focus when canBecomeKey is overridden.
-final class QuotaPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
 }

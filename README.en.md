@@ -26,7 +26,7 @@
 
 > **Prerequisites**: running from source requires Node.js **20+**; SQLite-backed sources (opencode/zcode/loomy/trae, etc.) additionally need Node.js **22.5+** (uses the built-in `node:sqlite`) or a `sqlite3` CLI on PATH. The Windows installer bundles Node and the .NET runtime; users need Windows 10/11 and WebView2 Runtime. The .NET 8 SDK is required only to build the desktop app.
 
-**Windows / macOS users — no build needed**: download from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install — `TokenTracker-Setup.exe` on Windows, or on Apple-silicon macOS the `TokenTracker-plus-1.25.0.dmg` (drag into Applications). The packages bundle their own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+**Windows / macOS users — no build needed**: download from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install — `TokenTracker-Setup.exe` on Windows, or on macOS the universal `TokenTracker-plus-1.25.0.dmg` (drag into Applications; runs on Apple silicon and Intel). The packages bundle their own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
 
 > 💡 **About the Windows SmartScreen prompt**: This is an individual open-source project without a paid code-signing certificate, so Windows SmartScreen may show an "Unknown publisher" warning on first install. This is normal — click "More info" → "Run anyway" to proceed. The code is 100% open source and all data stays on your machine.
 > 💡 **About the macOS Gatekeeper prompt**: the macOS build is unsigned too. If first launch says "cannot verify the developer", right-click the app → Open, or run `xattr -cr /Applications/TokenTracker-plus.app` and open again.
@@ -55,8 +55,8 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 > **Looking for native desktop apps?**
 > - **Windows** — Run `TokenTrackerWin` (C# .NET 8 + WebView2 system tray app), bundled with desktop pets, quota cards, and an always-on-top usage pill. See [TokenTrackerWin/README.md](./TokenTrackerWin/README.md).
-> - **macOS (Apple silicon)** — Run `TokenTrackerMac` (native Swift menu-bar app): menu-bar quota panel, floating desktop pet, quota and dashboard windows, embedded server with zero dependencies. See [TokenTrackerMac/README.md](./TokenTrackerMac/README.md).
-> - **Other Platforms** — Run from source (`git clone` then `node bin/tracker.js`); no installers and no compatibility guarantee; the desktop application currently covers Windows and macOS (Apple silicon).
+> - **macOS** — Run `TokenTrackerMac` (native Swift menu-bar app, universal binary): menu-bar icon (left-click opens the dashboard), floating desktop pet, widget and dashboard windows, embedded server with zero dependencies. See [TokenTrackerMac/README.md](./TokenTrackerMac/README.md).
+> - **Other Platforms** — Run from source (`git clone` then `node bin/tracker.js`); no installers and no compatibility guarantee; the desktop application currently covers Windows and macOS.
 
 ---
 

@@ -9,7 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updateChecker = UpdateChecker()
     private var statusItemController: StatusItemController?
     private var dashboardWindow: DashboardWindowController?
-    private var widgetWindow: WidgetWindowController?
+    private var widgetWindow: QuotaWidgetWindowController?
+    private var desktopWidget: DesktopWidgetWindowController?
     private var petPanel: PetPanelController?
     private var didShowPetOnReady = false
 
@@ -20,26 +21,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.statusItemController?.popMenu(at: point)
         }
 
+        self.desktopWidget = DesktopWidgetWindowController(serverURL: serverManager.serverURL)
+        self.widgetWindow = QuotaWidgetWindowController(serverURL: serverManager.serverURL)
+
         statusItemController = StatusItemController(
             serverManager: serverManager,
             updateChecker: updateChecker,
             onOpenDashboard: { [weak self] in self?.openDashboard() },
             onOpenWidget: { [weak self] in self?.openWidget() },
-            onTogglePet: { [weak self] in self?.petPanel?.toggle() })
+            onTogglePet: { [weak self] in self?.togglePet() },
+            onToggleDesktopWidget: { [weak self] in self?.toggleDesktopWidget() },
+            onToggleQuotaWidget: { [weak self] in self?.toggleQuotaWidget() },
+            isDesktopWidgetVisible: { [weak self] in self?.isDesktopWidgetVisible ?? false },
+            isPetVisible: { [weak self] in self?.isPetVisible ?? false },
+            isQuotaWidgetVisible: { [weak self] in self?.isQuotaWidgetVisible ?? false })
         statusItemController?.install()
 
         serverManager.onHealthChange = { [weak self] health in
             self?.statusItemController?.updateHealth(health)
             if health == .running {
                 self?.refreshVisibleWebViews()
-                // Windows parity: the desktop pet is visible as soon as the
-                // server is up on first launch (toggled off and back on via menu).
+                // Windows parity: all three floating surfaces appear on the first
+                // healthy poll (stored prefs win from the second launch on).
                 if let self, !self.didShowPetOnReady {
                     self.didShowPetOnReady = true
-                    self.petPanel?.show()
+                    // Stored prefs win once the user has toggled anything;
+                    // only the very first launch falls back to show-all.
+                    let stored: (String) -> Bool = { key in
+                        UserDefaults.standard.object(forKey: key) == nil
+                            ? true : UserDefaults.standard.bool(forKey: key)
+                    }
+                    if stored("TTPPetEnabled") { self.petPanel?.show() }
+                    if stored("TTPDesktopWidgetEnabled") { self.desktopWidget?.show() }
+                    if stored("TTPQuotaWidgetEnabled") { self.widgetWindow?.presentWindow() }
                 }
             }
         }
+
+        PetSettingsController.shared.load()
+        PetSettingsController.shared.setVisible = { [weak self] visible in
+            if visible { self?.petPanel?.show() } else { self?.petPanel?.hide() }
+        }
+        PetSettingsController.shared.currentVisible = { [weak self] in self?.petPanel?.isVisible ?? false }
+        PetSettingsController.shared.webViewProvider = { [weak self] in
+            guard let self else { return [] }
+            var views: [WKWebView] = []
+            for window in NSApp.windows {
+                if let view = WebHost.webView(in: window) { views.append(view) }
+            }
+            if let panel = self.petPanel?.panel, let view = WebHost.webView(in: panel) { views.append(view) }
+            return views
+        }
+        PetSettingsController.shared.petPanelProvider = { [weak self] in self?.petPanel }
 
         serverManager.start()
         Diag.info("Shell launched (v\(updateChecker.currentVersion))")
@@ -68,10 +101,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openWidget() {
-        let controller = widgetWindow ?? WidgetWindowController(serverURL: serverManager.serverURL)
+        let controller = widgetWindow ?? QuotaWidgetWindowController(serverURL: serverManager.serverURL)
         widgetWindow = controller
         controller.presentWindow()
     }
+
+    private func toggleDesktopWidget() {
+        guard let desktopWidget else { return }
+        let isVisible = desktopWidget.window?.isVisible ?? false
+        if isVisible {
+            desktopWidget.window?.orderOut(nil)
+            UserDefaults.standard.set(false, forKey: "TTPDesktopWidgetEnabled")
+        } else {
+            desktopWidget.show()
+            UserDefaults.standard.set(true, forKey: "TTPDesktopWidgetEnabled")
+        }
+    }
+
+    /// Menu toggle for the floating pet — persists like the other surfaces so the
+    /// startup behavior follows whatever the user last chose.
+    private func togglePet() {
+        let isVisible = petPanel?.isVisible ?? false
+        PetSettingsController.shared.apply(key: "visible", value: !isVisible)
+    }
+
+    /// Menu toggle for the quota widget window — same persistence contract.
+    private func toggleQuotaWidget() {
+        guard let controller = widgetWindow else { return }
+        let isVisible = controller.window?.isVisible ?? false
+        if isVisible {
+            controller.window?.orderOut(nil)
+            UserDefaults.standard.set(false, forKey: "TTPQuotaWidgetEnabled")
+        } else {
+            controller.presentWindow()
+            UserDefaults.standard.set(true, forKey: "TTPQuotaWidgetEnabled")
+        }
+    }
+
+    var isDesktopWidgetVisible: Bool {
+        desktopWidget?.window?.isVisible ?? false
+    }
+
+    var isPetVisible: Bool { petPanel?.isVisible ?? false }
+
+    var isQuotaWidgetVisible: Bool { widgetWindow?.window?.isVisible ?? false }
 
     /// Pages loaded while the server was still starting sit on an error; once the
     /// health poll reports running, reload whatever is on screen.
@@ -83,11 +156,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let window = widgetWindow?.window, window.isVisible,
            let webView = WebHost.webView(in: window) {
-            WebHost.load(webView, path: "/quota", on: serverURL)
+            WebHost.load(webView, path: "/quota.html?app=1", on: serverURL)
         }
         if let panel = petPanel?.panel, panel.isVisible,
            let webView = WebHost.webView(in: panel) {
-            WebHost.load(webView, path: "/pet", on: serverURL)
+            WebHost.load(webView, path: "/pet.html?app=1", on: serverURL)
         }
     }
 }

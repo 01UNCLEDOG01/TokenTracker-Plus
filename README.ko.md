@@ -33,7 +33,7 @@
 
 ## ⚡ 빠른 시작
 
-> **실행 환경**: 소스에서 실행하려면 Node.js **20+**가 필요합니다. SQLite 소스(opencode/zcode/loomy/trae 등)는 Node.js **22.5+**(내장 `node:sqlite` 사용) 또는 `sqlite3` 명령어 설치가 별도로 필요합니다. Windows 설치 프로그램에는 Node가 포함되어 있으며, macOS(Apple silicon)용 설치 패키지도 Node를 포함해 macOS 13+ M 시리즈 Mac에서 동작합니다.
+> **실행 환경**: 소스에서 실행하려면 Node.js **20+**가 필요합니다. SQLite 소스(opencode/zcode/loomy/trae 등)는 Node.js **22.5+**(내장 `node:sqlite` 사용) 또는 `sqlite3` 명령어 설치가 별도로 필요합니다. Windows 설치 프로그램에는 Node가 포함되어 있으며, macOS용 범용 설치 패키지도 Node를 포함해 macOS 13+ Apple silicon/Intel Mac에서 동작합니다.
 
 **Windows/macOS는 빌드 불필요**: [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases)에서 내려받아 설치하세요. Windows는 `TokenTracker-Setup.exe`, macOS(Apple silicon)는 `TokenTracker-plus-1.25.0.dmg`를 "응용 프로그램"으로 드래그. macOS 빌드는 서명되지 않았으므로 첫 실행에 "개발자를 확인할 수 없습니다"가 나오면 우클릭 → "열기" 또는 `xattr -cr /Applications/TokenTracker-plus.app` 실행 후 여세요. 처음이라면 [입문 가이드](./docs/getting-started.zh-CN.md)(중국어)를 먼저 읽어보세요.
 

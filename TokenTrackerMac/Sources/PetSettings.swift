@@ -1,0 +1,152 @@
+import AppKit
+import WebKit
+
+/// Native pet-settings bridge — the macOS counterpart of TokenTrackerWin's
+/// WebView2 host contract (TrayApplicationContext.PushDashboardPetSettings +
+/// PetWindow.FlushContextAsync).
+///
+/// The dashboard's pet settings page talks to `window.chrome.webview` (a
+/// WebView2-only object): it posts `{type:"getPetSettings"}` /
+/// `{type:"setPetSetting",key,value}` JSON and listens for a
+/// `native:petSettings` DOM event carrying the settings detail. Without a host
+/// the page hides its controls ("请在 TokenTracker 桌面 App 中打开此页面").
+/// Here we shim `window.chrome.webview` onto `webkit.messageHandlers.petBridge`,
+/// answer the queries, and push `window.__ttPet*` globals into the pet page —
+/// the same globals the Windows host flushes (character/botColor/dark/size…).
+final class PetSettingsController: NSObject, WKScriptMessageHandler {
+    static let shared = PetSettingsController()
+
+    struct Settings {
+        var visible: Bool = true
+        var character: String = "clawd"
+        var size: String = "medium"
+        var botColor: String = "auto"
+    }
+
+    private(set) var settings = Settings()
+
+    /// Provided by AppDelegate: show/hide the pet panel + current visibility.
+    var setVisible: ((Bool) -> Void)?
+    var currentVisible: (() -> Bool)?
+
+    /// Provided by AppDelegate: every live app webview (bridge replies go to all).
+    var webViewProvider: (() -> [WKWebView])?
+
+    /// Provided by AppDelegate: the pet panel (for size resize + context push).
+    var petPanelProvider: (() -> PetPanelController?)?
+
+    private let sizeFrames: [String: NSRect] = [
+        "small": NSRect(x: 0, y: 0, width: 240, height: 320),
+        "medium": NSRect(x: 0, y: 0, width: 320, height: 420),
+        "large": NSRect(x: 0, y: 0, width: 420, height: 560),
+    ]
+
+    func load() {
+        let d = UserDefaults.standard
+        let character = d.string(forKey: "TTPPetCharacter") ?? "clawd"
+        let size = d.string(forKey: "TTPPetSize") ?? "medium"
+        let botColor = d.string(forKey: "TTPPetBotColor") ?? "auto"
+        settings = Settings(visible: true, character: character,
+                            size: sizeFrames.keys.contains(size) ? size : "medium",
+                            botColor: botColor)
+        Diag.info("Pet settings loaded: \(settings.character)/\(settings.size)")
+    }
+
+    // MARK: WKScriptMessageHandler ("petBridge")
+
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        guard message.name == "petBridge",
+              let body = message.body as? String,
+              let data = body.data(using: .utf8),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let type = obj["type"] as? String else { return }
+        switch type {
+        case "getPetSettings":
+            broadcastSettings()
+        case "setPetSetting":
+            apply(key: obj["key"] as? String ?? "", value: obj["value"])
+        case "refreshPetCatalog":
+            broadcastSettings()  // catalog lives server-side; nothing to refresh natively
+        default:
+            Diag.info("Pet bridge message: \(type)")
+        }
+    }
+
+    func apply(key: String, value: Any?) {
+        let d = UserDefaults.standard
+        switch key {
+        case "visible":
+            let visible = (value as? Bool) ?? false
+            settings.visible = visible
+            setVisible?(visible)
+            d.set(visible, forKey: "TTPPetEnabled")
+        case "character":
+            guard let character = value as? String, !character.isEmpty else { return }
+            settings.character = character
+            d.set(character, forKey: "TTPPetCharacter")
+        case "size":
+            guard let size = value as? String, sizeFrames.keys.contains(size) else { return }
+            settings.size = size
+            d.set(size, forKey: "TTPPetSize")
+            resizePetPanel()
+        case "botColor":
+            guard let botColor = value as? String else { return }
+            settings.botColor = botColor
+            d.set(botColor, forKey: "TTPPetBotColor")
+        default:
+            Diag.info("Pet setting ignored: \(key)")
+        }
+        pushToPetPage()
+        broadcastSettings()
+    }
+
+    // MARK: Reply channels
+
+    private var settingsDetailJSON: String {
+        let detail: [String: Any] = [
+            "visible": currentVisible?() ?? settings.visible,
+            "character": settings.character,
+            "size": settings.size,
+            "botColor": settings.botColor,
+            "monitor": false,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: detail),
+              let json = String(data: data, encoding: .utf8) else { return "{}" }
+        return json
+    }
+
+    /// Answer every open app surface (the settings page can live in the dashboard,
+    /// the desktop panel or the quota window — all share the same origin).
+    func broadcastSettings() {
+        for webView in webViewProvider?() ?? [] {
+            let script = "window.dispatchEvent(new CustomEvent('native:petSettings',{detail:\(settingsDetailJSON)}));"
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+    }
+
+    /// Push the __ttPet* context the pet page renders from — the FlushContextAsync
+    /// counterpart. Called after the pet page loads and on every change.
+    func pushToPetPage() {
+        guard let petPanel = petPanelProvider?(), let webView = petPanelPanelWebView(petPanel) else { return }
+        let dark = NSApp.effectiveAppearance.name.rawValue.contains("Dark")
+        let script = "window.__ttPetCharacter=\"\(settings.character)\";" +
+            "window.__ttPetBotColor=\"\(settings.botColor)\";" +
+            "window.__ttPetSize=\"\(settings.size)\";" +
+            "window.__ttPetDark=\(dark ? "true" : "false");" +
+            "window.dispatchEvent(new Event('pet:settings'));"
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    private func petPanelPanelWebView(_ panel: PetPanelController) -> WKWebView? {
+        WebHost.webView(in: panel.panel)
+    }
+
+    /// Resize the pet panel for the chosen size bucket and re-dock it.
+    func resizePetPanel() {
+        guard let petPanel = petPanelProvider?(), let panel = petPanel.panel,
+              let frame = sizeFrames[settings.size] else { return }
+        panel.setContentSize(frame.size)
+        petPanel.placeAtDefaultCorner()
+    }
+}

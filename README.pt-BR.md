@@ -33,7 +33,7 @@
 
 ## ⚡ Início rápido
 
-> **Pré-requisitos**: para executar a partir do código-fonte é preciso Node.js **20+**; fontes SQLite (opencode/zcode/loomy/trae etc.) exigem, além disso, Node.js **22.5+** (usa o `node:sqlite` nativo) ou a instalação do comando `sqlite3`. O instalador do Windows já embute o Node; o pacote para macOS (Apple silicon) também embute o Node e roda em Macs M-series com macOS 13+.
+> **Pré-requisitos**: para executar a partir do código-fonte é preciso Node.js **20+**; fontes SQLite (opencode/zcode/loomy/trae etc.) exigem, além disso, Node.js **22.5+** (usa o `node:sqlite` nativo) ou a instalação do comando `sqlite3`. O instalador do Windows já embute o Node; o pacote universal para macOS também embute o Node e roda em Macs Apple silicon/Intel com macOS 13+.
 
 **No Windows/macOS, sem build**: baixe em [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) e instale — `TokenTracker-Setup.exe` no Windows; no macOS (Apple silicon), arraste o `TokenTracker-plus-1.25.0.dmg` para "Aplicativos". O build macOS não é assinado: se a primeira abertura avisar "não é possível verificar o desenvolvedor", clique com o botão direito → "Abrir", ou execute `xattr -cr /Applications/TokenTracker-plus.app`. Para o primeiro contato, veja o [guia para iniciantes](./docs/getting-started.zh-CN.md) (em chinês).
 

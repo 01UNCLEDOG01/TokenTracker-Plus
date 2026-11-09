@@ -1,4 +1,4 @@
-# TokenTrackerMac（macOS 客户端，Apple silicon）
+# TokenTrackerMac（macOS 客户端，通用二进制）
 
 原生 Swift 菜单栏壳，镜像 `TokenTrackerWin/` 的架构（托盘→菜单栏、WebView2→WKWebView），复用 dashboard 的三个页面产物（`pet.html` / `quota.html` / dashboard）。
 
@@ -22,11 +22,10 @@ bash scripts/package-macos.sh      # swiftc → TokenTracker-plus.app → ad-hoc
 node ../scripts/verify-macos-package.cjs   # 载荷哨兵：node 二进制 / pet+quota 页 / dist 指纹 / 版本一致
 ```
 
-产物：`artifacts/TokenTracker-plus-<版本>.dmg` 与 `TokenTracker-plus-mac-arm64-<版本>.zip`，记账大小 + SHA-256。
+产物：`artifacts/TokenTracker-plus-<版本>.dmg` 与 `TokenTracker-plus-macos-universal-<版本>.zip`（通用二进制，swiftc 双 target + lipo；EmbeddedServer 内嵌 node-arm64 与 node-x64，壳运行时按机器架构选），记账大小 + SHA-256。
 
 ## 已知限制（v1）
 
 - 未签名分发（ad-hoc）：首次打开需右键 → 打开，或 `xattr -cr`（与 Windows 版未签名策略同款）
 - 宠物悬浮窗背景暂为白色卡片（Windows 版是纯透明合成）——WKWebView 透明合成待打磨
 - WidgetKit 桌面小组件未做（需要完整 Xcode；当前只依赖 Command Line Tools）
-- 仅 Apple silicon（darwin-arm64）；x86_64 未打包

@@ -28,7 +28,10 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             panel.contentView = fresh
         }
         if let webView = WebHost.webView(in: panel) {
-            WebHost.load(webView, path: "/pet", on: serverURL)
+            // Windows PetWindow navigates to the STATIC pet page with the app-mode
+            // flag (/pet.html?app=1) — the bare /pet route is the SPA fallback and
+            // renders the whole dashboard (the "pet window shows a stats card" bug).
+            WebHost.load(webView, path: "/pet.html?app=1", on: serverURL)
         }
         panel.orderFrontRegardless()
     }

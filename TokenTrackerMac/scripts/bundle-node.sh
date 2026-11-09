@@ -19,12 +19,9 @@ set -euo pipefail
 # Keep this pinned version in sync with TokenTrackerWin/scripts/bundle-node.ps1.
 EXPECTED_NODE_VERSION='22.22.2'
 NODE_VERSION="${NODE_VERSION:-$EXPECTED_NODE_VERSION}"
-NODE_ARCH='darwin-arm64'   # v1 ships a single macOS payload (Apple silicon).
-
-if [ "$NODE_ARCH" != "darwin-arm64" ]; then
-  echo "Refusing to bundle for $NODE_ARCH: v1 ships darwin-arm64 only." >&2
-  exit 1
-fi
+# Universal payload: both architectures are embedded (node-arm64 / node-x64) and
+# the shell picks one at runtime by machine arch.
+NODE_ARCHS='darwin-arm64 darwin-x64'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAC_DIR="$(dirname "$SCRIPT_DIR")"
@@ -55,63 +52,76 @@ if [ ! -f "$REPO_ROOT/dashboard/dist/pet.html" ] || [ ! -f "$REPO_ROOT/dashboard
   exit 1
 fi
 
-# 2. Download pinned Node.js darwin-arm64 (+ SHASUMS256 verification, retries)
-ARCHIVE_NAME="node-v${NODE_VERSION}-${NODE_ARCH}.tar.gz"
-URL="https://nodejs.org/dist/v${NODE_VERSION}/${ARCHIVE_NAME}"
+# 2. Download pinned Node.js for BOTH architectures (universal payload) with
+#    SHASUMS256 verification + retries. The non-native binary is checksum-only
+#    (it cannot exec here without Rosetta); the native one is also exec-verified.
+NATIVE_SUFFIX="$(uname -m)"
+case "$NATIVE_SUFFIX" in
+  arm64) NATIVE_TAG='node-arm64'; NATIVE_DIST='darwin-arm64' ;;
+  x86_64) NATIVE_TAG='node-x64'; NATIVE_DIST='darwin-x64' ;;
+  *) echo "ERROR: unsupported host arch $NATIVE_SUFFIX" >&2; exit 1 ;;
+esac
+
 TMP="${NODE_CACHE_DIR:-$(mktemp -d /tmp/ttnode-${NODE_VERSION}.XXXXXX)}"
 mkdir -p "$TMP"
-ARCHIVE_PATH="$TMP/$ARCHIVE_NAME"
-SUMS_PATH="$TMP/SHASUMS256.txt"
-
-verified=0
-if [ -f "$ARCHIVE_PATH" ] && [ -f "$SUMS_PATH" ]; then
-  expected_hash="$(grep -F "$ARCHIVE_NAME" "$SUMS_PATH" | awk '{print $1}')"
-  actual_hash="$(shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1}')"
-  if [ -n "$expected_hash" ] && [ "$expected_hash" = "$actual_hash" ]; then
-    echo "Using cached Node.js v$NODE_VERSION (checksum verified)"
-    verified=1
-  else
-    rm -f "$ARCHIVE_PATH"
-  fi
-fi
 max_attempts=4
-for attempt in $(seq 1 $max_attempts); do
-  [ "$verified" = "1" ] && break
-  echo "Downloading Node.js v$NODE_VERSION ($NODE_ARCH)... (attempt $attempt/$max_attempts)"
-  if curl -sSLo "$ARCHIVE_PATH" "$URL" \
-     && curl -sSLo "$SUMS_PATH" "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"; then
-    expected_hash="$(grep -F "$ARCHIVE_NAME" "$SUMS_PATH" | awk '{print $1}')"
-    actual_hash="$(shasum -a 256 "$ARCHIVE_PATH" | awk '{print $1}')"
+
+fetch_and_verify() {  # $1=darwin dist tag, $2=dest binary name
+  local dist="$1" dest="$2"
+  local archive="node-v${NODE_VERSION}-${dist}.tar.gz"
+  local url="https://nodejs.org/dist/v${NODE_VERSION}/${archive}"
+  local sums="$TMP/SHASUMS256-${dist}.txt"
+  local verified=0
+  if [ -f "$TMP/$archive" ] && [ -f "$sums" ]; then
+    expected_hash="$(grep -F "$archive" "$sums" | awk '{print $1}')"
+    actual_hash="$(shasum -a 256 "$TMP/$archive" | awk '{print $1}')"
     if [ -n "$expected_hash" ] && [ "$expected_hash" = "$actual_hash" ]; then
-      echo "Checksum verified (SHA-256)"
+      echo "Using cached Node.js v$NODE_VERSION $dist (checksum verified)"
       verified=1
-      break
+    else
+      rm -f "$TMP/$archive"
     fi
-    echo "Checksum mismatch, retrying..."
-    rm -f "$ARCHIVE_PATH"
   fi
-  [ "$attempt" -lt "$max_attempts" ] && sleep $((attempt * 3))
-done
-if [ "$verified" != "1" ]; then
-  echo "ERROR: Failed to obtain a valid Node.js v$NODE_VERSION archive after $max_attempts attempts" >&2
-  exit 1
-fi
+  for attempt in $(seq 1 $max_attempts); do
+    [ "$verified" = "1" ] && break
+    echo "Downloading Node.js v$NODE_VERSION ($dist)... (attempt $attempt/$max_attempts)"
+    if curl -sSLo "$TMP/$archive" "$url" \
+       && curl -sSLo "$sums" "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"; then
+      expected_hash="$(grep -F "$archive" "$sums" | awk '{print $1}')"
+      actual_hash="$(shasum -a 256 "$TMP/$archive" | awk '{print $1}')"
+      if [ -n "$expected_hash" ] && [ "$expected_hash" = "$actual_hash" ]; then
+        echo "Checksum verified (SHA-256): $dist"
+        verified=1
+        break
+      fi
+      echo "Checksum mismatch, retrying..."
+      rm -f "$TMP/$archive"
+    fi
+    [ "$attempt" -lt "$max_attempts" ] && sleep $((attempt * 3))
+  done
+  if [ "$verified" != "1" ]; then
+    echo "ERROR: Failed to obtain a valid Node.js v$NODE_VERSION $dist archive after $max_attempts attempts" >&2
+    exit 1
+  fi
+  tar -xzf "$TMP/$archive" -C "$TMP"
+  local bin="$TMP/node-v${NODE_VERSION}-${dist}/bin/node"
+  if [ ! -x "$bin" ]; then
+    echo "ERROR: node binary not found in $dist archive" >&2
+    exit 1
+  fi
+  cp "$bin" "$EMBED_DIR/$dest"
+  chmod +x "$EMBED_DIR/$dest"
+}
 
-tar -xzf "$ARCHIVE_PATH" -C "$TMP"
-NODE_BIN="$TMP/node-v${NODE_VERSION}-${NODE_ARCH}/bin/node"
-if [ ! -x "$NODE_BIN" ]; then
-  echo "ERROR: node binary not found in archive" >&2
-  exit 1
-fi
-cp "$NODE_BIN" "$EMBED_DIR/node"
-chmod +x "$EMBED_DIR/node"
+fetch_and_verify 'darwin-arm64' 'node-arm64'
+fetch_and_verify 'darwin-x64'  'node-x64'
 
-bundled_version="$("$EMBED_DIR/node" -p 'process.versions.node')"
+bundled_version="$("$EMBED_DIR/$NATIVE_TAG" -p 'process.versions.node')"
 if [ "$bundled_version" != "$EXPECTED_NODE_VERSION" ]; then
   echo "ERROR: Bundled Node drifted: expected v$EXPECTED_NODE_VERSION, got v$bundled_version" >&2
   exit 1
 fi
-echo "Node.js ready - v$bundled_version"
+echo "Node.js ready - v$bundled_version ($NATIVE_TAG exec-verified; both archs embedded)"
 
 # 3. Bundle tokentracker source (mirror of the Windows script's layout)
 TT_DIR="$EMBED_DIR/tokentracker"

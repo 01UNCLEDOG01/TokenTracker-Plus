@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import WebKit
 
 /// Logs WKWebView navigation outcomes — without this, an unpainted webview in a
@@ -12,6 +13,9 @@ final class WebNavLogger: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
         Diag.info("[web] done \(webView.url?.absoluteString ?? "?") title=\(webView.title ?? "")")
+        if webView.url?.path.hasSuffix("/pet.html") == true {
+            PetSettingsController.shared.pushToPetPage()
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation?, withError error: Error) {
@@ -32,6 +36,16 @@ enum WebHost {
     static func makeWebView(frame: NSRect) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        // Pet-settings bridge shim: the dashboard's pet page posts to
+        // `window.chrome.webview` (a WebView2-only object). Mirror it onto the
+        // WKWebView message handler so the settings page sees a native host.
+        let shim = "window.chrome = window.chrome || {};" +
+            "window.chrome.webview = { postMessage: function (msg) {" +
+            "try { window.webkit.messageHandlers.petBridge.postMessage(typeof msg === 'string' ? msg : JSON.stringify(msg)); } catch (e) {}" +
+            "} };"
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: shim, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        configuration.userContentController.add(PetSettingsController.shared, name: "petBridge")
         let webView = WKWebView(frame: frame, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground") // transparent surface
         if #available(macOS 12.0, *) {
@@ -105,10 +119,9 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
     }
 }
 
-/// Standalone quota widget window — counterpart of MonitorWidgetWindow.cs.
-/// v1 keeps it a small titled window hosting quota.html (the deskband/dock-style
-/// pinned widget from Windows is a later batch).
-final class WidgetWindowController: NSWindowController, NSWindowDelegate {
+/// Quota widget window — counterpart of TokenTrackerWin's QuotaWidgetWindow.cs
+/// (loads the static quota page in app mode: /quota.html?app=1).
+final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
     private let serverURL: URL
 
     init(serverURL: URL) {
@@ -133,7 +146,7 @@ final class WidgetWindowController: NSWindowController, NSWindowDelegate {
             window.contentView = WebHost.makeWebView(frame: window.contentRect(forFrameRect: window.frame))
         }
         if let webView = WebHost.webView(in: window) {
-            WebHost.load(webView, path: "/quota", on: serverURL)
+            WebHost.load(webView, path: "/quota.html?app=1", on: serverURL)
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -141,5 +154,52 @@ final class WidgetWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window?.contentView = nil
+    }
+}
+
+
+/// Desktop control panel — counterpart of TokenTrackerWin's MonitorWidgetWindow
+/// (the always-visible desktop widget). Frameless, non-activating, pinned at the
+/// desktop window level so it sits behind normal windows but stays on screen;
+/// hosts the ROOT page in app mode (/?app=1) — the same contract as the upstream
+/// macOS shell's dashboard surface.
+final class DesktopWidgetWindowController: NSWindowController {
+    private let serverURL: URL
+
+    init(serverURL: URL) {
+        self.serverURL = serverURL
+        let rect = NSRect(x: 0, y: 0, width: 360, height: 480)
+        let panel = NSPanel(contentRect: rect,
+                            styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.92)
+        panel.hasShadow = true
+        // Desktop level: above the wallpaper, below every normal window.
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.contentView = WebHost.makeWebView(frame: rect)
+        super.init(window: panel)
+        placeAtDefaultCorner()
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    func show() {
+        guard let window else { return }
+        if let webView = WebHost.webView(in: window) {
+            WebHost.load(webView, path: "/?app=1", on: serverURL)
+        }
+        window.orderFrontRegardless()
+    }
+
+    func placeAtDefaultCorner() {
+        guard let window, let screen = NSScreen.main else { return }
+        let frame = window.frame
+        let origin = NSPoint(x: screen.visibleFrame.maxX - frame.width - 16,
+                             y: screen.visibleFrame.maxY - frame.height - 12)
+        window.setFrameOrigin(origin)
     }
 }

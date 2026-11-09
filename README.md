@@ -24,9 +24,9 @@
 
 ## ⚡ 快速开始
 
-> **环境要求**：源码运行需要 Node.js **20+**；SQLite 数据源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（走内置 `node:sqlite`）或系统装有 `sqlite3` 命令。Windows 安装包自带 Node 与 .NET 运行时，只需 Windows 10/11 与 WebView2 Runtime；macOS 安装包自带 Node 运行时，只需 Apple silicon（M 系）Mac 与 macOS 13+；只有自行构建桌面端才需要 .NET 8 SDK（Windows）或 Xcode Command Line Tools（macOS）。
+> **环境要求**：源码运行需要 Node.js **20+**；SQLite 数据源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（走内置 `node:sqlite`）或系统装有 `sqlite3` 命令。Windows 安装包自带 Node 与 .NET 运行时，只需 Windows 10/11 与 WebView2 Runtime；macOS 安装包自带 Node 运行时（通用二进制，Apple silicon 与 Intel 皆可），只需 macOS 13+；只有自行构建桌面端才需要 .NET 8 SDK（Windows）或 Xcode Command Line Tools（macOS）。
 
-**Windows / macOS 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载安装即可——Windows 下载 `TokenTracker-Setup.exe`，macOS（Apple silicon）下载 `TokenTracker-plus-1.25.0.dmg` 拖进「应用程序」——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
+**Windows / macOS 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载安装即可——Windows 下载 `TokenTracker-Setup.exe`，macOS 下载 `TokenTracker-plus-1.25.0.dmg` 拖进「应用程序」（通用二进制）——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
 
 > 💡 **关于 Windows Defender / SmartScreen 提示**：本软件为个人开源作品，尚未购买企业数字签名证书，初次安装时 Windows SmartScreen 可能会提示「已保护你的电脑（未知发布者）」。此为正常安全机制，点击「更多信息」→「仍要运行」即可完成安装；代码 100% 开源，数据 100% 留在本机，请放心使用。
 > 💡 **关于 macOS Gatekeeper 提示**：macOS 版同为未签名分发，首次打开若提示「无法验证开发者」，在应用上**右键 → 打开**，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再打开即可。
@@ -55,8 +55,8 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **macOS（Apple silicon）** —— 运行 `TokenTrackerMac`（原生 Swift 菜单栏 App）：菜单栏 ⚡ 额度面板、桌面宠物悬浮窗、额度窗与面板窗，内嵌服务器零依赖。构建方式见 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
-> - **其他平台** —— 仅提供源码运行（`git clone` 后执行 `node bin/tracker.js`），不提供安装包，也不做兼容性保证；桌面端目前覆盖 Windows 与 macOS（Apple silicon）。
+> - **macOS** —— 运行 `TokenTrackerMac`（原生 Swift 菜单栏 App，通用二进制）：菜单栏 ⚡ 图标（左键开面板）、桌面宠物悬浮窗、额度窗与面板窗，内嵌服务器零依赖。构建方式见 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
+> - **其他平台** —— 仅提供源码运行（`git clone` 后执行 `node bin/tracker.js`），不提供安装包，也不做兼容性保证；桌面端目前覆盖 Windows 与 macOS。
 
 ---
 
