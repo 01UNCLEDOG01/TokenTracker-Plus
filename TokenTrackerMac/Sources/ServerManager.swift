@@ -8,16 +8,19 @@ import Foundation
 ///   Contents/Resources/EmbeddedServer/tokentracker/bin/tracker.js
 ///   Contents/Resources/EmbeddedServer/tokentracker/dashboard/dist/...
 ///
-/// Port: macOS has no Windows Delivery Optimization holding :7680, so the bare
-/// CLI default is used directly. An explicit --port keeps serve.js's strict
-/// behavior (it errors when busy instead of silently hopping ports) — a busy
-/// port is surfaced as a health state, never hidden.
+/// Port: 17680, matching the Windows shell and the mac handover order
+/// (mac-盘点交接 §macOS 壳开发建议 #1, "first priority"): the bare CLI default
+/// 7680 collides with macOS **AirPlay Receiver** (on by default), which kills
+/// the server at bind time and puts the shell into an endless restart loop.
+/// An explicit --port keeps serve.js's strict behavior (it errors when busy
+/// instead of silently hopping ports) — a busy port is surfaced as a health
+/// state, never hidden.
 final class ServerManager {
     enum Health: String {
         case idle, starting, running, crashed, failed
     }
 
-    static let preferredPort: Int = 7680
+    static let preferredPort: Int = 17680
 
     private(set) var health: Health = .idle
     private(set) var port: Int = ServerManager.preferredPort
@@ -29,6 +32,9 @@ final class ServerManager {
     private var healthTimer: Timer?
     private var isSupposedToRun = false
     private let queue = DispatchQueue(label: "com.tokentrackerplus.servermanager")
+    /// Human-readable cause of the latest failure, surfaced in the menu-bar
+    /// tooltip while the health is crashed/failed (e.g. an occupied port).
+    private(set) var lastFailureReason: String?
 
     /// Fired on the main thread whenever the health state changes.
     var onHealthChange: ((Health) -> Void)?
@@ -110,13 +116,19 @@ final class ServerManager {
         healthTimer?.invalidate()
         if let process = process, process.isRunning {
             process.terminate()
-            // Hard kill after a grace period; the app is quitting anyway.
-            let pid = process.processIdentifier
-            DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-                if kill(pid, 0) == 0 {
-                    kill(pid, SIGKILL)
-                }
+            // Wait synchronously (bounded) for SIGTERM to land. The app is
+            // quitting anyway — an asyncAfter SIGKILL fallback would never run
+            // after process exit, leaving an orphaned node holding the port and
+            // dooming the next launch to a busy-port restart loop.
+            let deadline = Date().addingTimeInterval(2.0)
+            while process.isRunning && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.05)
             }
+            if process.isRunning {
+                Diag.error("Server ignored SIGTERM for 2s — SIGKILL")
+                kill(process.processIdentifier, SIGKILL)
+            }
+            process.waitUntilExit()
         }
         process = nil
         setHealth(.idle)
@@ -141,10 +153,13 @@ final class ServerManager {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
-        pipe.fileHandleForReading.readabilityHandler = { handle in
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             if !data.isEmpty, let text = String(data: data, encoding: .utf8) {
                 Diag.info("[server] \(text.trimmingCharacters(in: .whitespacesAndNewlines))")
+                DispatchQueue.main.async { [weak self] in
+                    self?.observeDiagnostics(from: text)
+                }
             }
         }
 
@@ -167,8 +182,20 @@ final class ServerManager {
             return
         }
         self.process = process
+        lastFailureReason = nil
         setHealth(.starting)
         Diag.info("Server spawned: node \(runtime.entryURL.path) --port \(port)")
+    }
+
+    /// Watches the server's stderr for the busy-port signature so the crashed
+    /// state can say *why* instead of just "crashed" (AirPlay on :7680 was the
+    /// 2026-11-10 incident that made the shell look permanently broken).
+    private func observeDiagnostics(from text: String) {
+        if text.contains("EADDRINUSE") || text.contains("EADDR") {
+            lastFailureReason = "端口 \(port) 被占用（EADDRINUSE）——多半是 AirPlay 接收或另一个 server 实例"
+        } else if text.lowercased().contains("error") && lastFailureReason == nil {
+            lastFailureReason = "server 启动报错，详见 shell.log"
+        }
     }
 
     private func scheduleRestart() {

@@ -60,8 +60,23 @@ final class StatusItemController: NSObject {
     }
 
     func updateHealth(_ health: ServerManager.Health) {
-        statusItem?.button?.appearsDisabled = (health == .crashed || health == .failed)
-        statusItem?.button?.toolTip = "TokenTracker Plus — server \(health.rawValue)"
+        let broken = (health == .crashed || health == .failed)
+        if let button = statusItem?.button {
+            // Crashed/failed must be legible at a glance — a mere grayed-out
+            // bolt read as "nothing happened" while the server was in a
+            // restart loop (2026-11-10 incident).
+            let symbolName = broken ? "bolt.badge.xmark" : "bolt.fill"
+            if let image = NSImage(systemSymbolName: symbolName,
+                                   accessibilityDescription: "TokenTracker Plus — server \(health.rawValue)") {
+                button.image = image
+            }
+            button.appearsDisabled = broken
+            if broken, let reason = serverManager.lastFailureReason {
+                button.toolTip = "TokenTracker Plus — server \(health.rawValue)：\(reason)"
+            } else {
+                button.toolTip = "TokenTracker Plus — server \(health.rawValue)"
+            }
+        }
     }
 
     // MARK: Click handling
@@ -104,7 +119,9 @@ final class StatusItemController: NSObject {
         let island = NSMenuItem(title: "桌面控制面板", action: #selector(toggleDesktopWidget), keyEquivalent: "w")
         island.target = self
         island.state = (isDesktopWidgetVisible?() ?? false) ? .on : .off
-        let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "q")
+        // No bare "q" shortcut: with the default command modifier it hijacked
+        // Cmd+Q while the menu was open — muscle memory for quitting any app.
+        let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "")
         widget.target = self
         widget.state = (isQuotaWidgetVisible?() ?? false) ? .on : .off
         let sync = NSMenuItem(title: "立即同步", action: #selector(syncNow), keyEquivalent: "s")
