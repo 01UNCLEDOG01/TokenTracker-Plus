@@ -5061,11 +5061,15 @@ async function fetchUsageLimitsUncached({
     // AgentRouter.org panel balance (New API access token + user id).
     hiddenSet.has("agentRouter") ? hiddenSentinel : fetchAgentRouterLimits({ home, fetchImpl: providerFetch, nowMs }),
     hiddenSet.has("vyceai") ? hiddenSentinel : fetchVyceAiLimits({ home, fetchImpl: providerFetch, nowMs }),
-    hiddenSet.has("mistral") ? hiddenSentinel : fetchMistralLimits({ home, fetchImpl: providerFetch, nowMs }),
-    hiddenSet.has("openaiCredits") ? hiddenSentinel : fetchOpenaiCreditsLimits({ home, fetchImpl: providerFetch, nowMs }),
     // OpenDesign subscription quota (5h + weekly), keyed by a hand-copied
     // open-design.ai Cookie (see opendesign-credentials.json).
     hiddenSet.has("opendesign") ? hiddenSentinel : fetchOpendesignLimits({ home, fetchImpl: providerFetch, nowMs }),
+    // The two entries below append after opendesign so the positional
+    // destructure above ([..., vyceai, opendesign, mistral, openaiCredits])
+    // stays aligned — these array positions feed named variables, so order is
+    // load-bearing here.
+    hiddenSet.has("mistral") ? hiddenSentinel : fetchMistralLimits({ home, fetchImpl: providerFetch, nowMs }),
+    hiddenSet.has("openaiCredits") ? hiddenSentinel : fetchOpenaiCreditsLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;

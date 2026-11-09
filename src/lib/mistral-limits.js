@@ -122,7 +122,11 @@ function httpErrorStatus(error) {
 function parseMistralSubscription(html) {
   if (typeof html !== "string" || !html) return null;
   const chunks = [];
-  const pushPattern = /self\.__next_f\.push\((\[[\s\S]*?\])\)/g;
+  // Each push ends right before </script>. Anchoring the tail there (instead
+  // of stopping at the first "])" anywhere) keeps chunks intact when the
+  // embedded JSON itself contains "])" — Next escapes "</script>" inside
+  // inline JSON as <\/script>, so the anchor cannot appear mid-string.
+  const pushPattern = /self\.__next_f\.push\((\[[\s\S]*?\])\)\s*<\/script>/g;
   for (const match of html.matchAll(pushPattern)) {
     let payload;
     try { payload = JSON.parse(match[1]); } catch { continue; }

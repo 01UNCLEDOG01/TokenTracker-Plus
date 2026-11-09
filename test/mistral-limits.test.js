@@ -86,6 +86,11 @@ test("mistral subscription parser reassembles flight chunks and rejects ambiguit
   const html = `${flightRow("1:T5,AAAAA")}${subscriptionHtml({ api_budget: budgetFixture() })}`;
   assert.ok(parseMistralSubscription(html)?.api_budget);
 
+  // The embedded JSON contains "])" — the push boundary must be found at
+  // </script>, not at the first bracket pair inside the string.
+  const bracketTrap = flightRow(`prefix("x])y")"budget":${JSON.stringify({ api_budget: budgetFixture() })}`);
+  assert.ok(parseMistralSubscription(bracketTrap)?.api_budget, "]) inside the JSON does not truncate the chunk");
+
   // Two different budget objects mean the parse is ambiguous.
   const mixed = `${subscriptionHtml({ api_budget: budgetFixture() })}${subscriptionHtml({ api_budget: budgetFixture(99, 999) })}`;
   assert.equal(parseMistralSubscription(mixed), null);
