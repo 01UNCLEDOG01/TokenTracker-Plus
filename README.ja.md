@@ -33,9 +33,9 @@
 
 ## ⚡ クイックスタート
 
-> **環境要件**：ソースから実行するには Node.js **20+** が必要です。SQLite データソース（opencode/zcode/loomy/trae など）は、Node.js **22.5+**（組み込みの `node:sqlite` を利用）または `sqlite3` コマンドの導入が別途必要です。Windows インストーラーには Node を同梱しています。
+> **環境要件**：ソースから実行するには Node.js **20+** が必要です。SQLite データソース（opencode/zcode/loomy/trae など）は、Node.js **22.5+**（組み込みの `node:sqlite` を利用）または `sqlite3` コマンドの導入が別途必要です。Windows インストーラーには Node を同梱しています。macOS（Apple silicon）向けインストーラーも Node を同梱し、macOS 13+ の M シリーズ Mac で動作します。
 
-**Windows はビルド不要**：[Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) から `TokenTracker-Setup.exe` をダウンロードしてインストールするだけです。初めての方は[はじめてのガイド](./docs/getting-started.zh-CN.md)（中国語）へ。
+**Windows / macOS はビルド不要**：[Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) からダウンロードしてインストールするだけです。Windows は `TokenTracker-Setup.exe`、macOS（Apple silicon）は `TokenTracker-plus-1.25.0.dmg` を「アプリケーション」へドラッグ。初めての方は[はじめてのガイド](./docs/getting-started.zh-CN.md)（中国語）へ。macOS 版は未署名のため、初回起動に「開発元を検証できません」と出たら右クリック →「開く」、または `xattr -cr /Applications/TokenTracker-plus.app` を実行してから開いてください。
 
 ```bash
 git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git

@@ -181,3 +181,8 @@ Microsoft/
 
 # Vite build temp chunk
 .lp-chunk.js
+
+# macOS client build outputs (2026-11-10)
+TokenTrackerMac/EmbeddedServer/
+TokenTrackerMac/build/
+TokenTrackerMac/artifacts/

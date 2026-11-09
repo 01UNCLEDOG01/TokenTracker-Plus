@@ -6,6 +6,17 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.25.0] - 2026-11-10
+
+- **新增：macOS 客户端首发（Apple silicon）**。此前本项目的桌面端仅覆盖 Windows；现在提供原生 macOS 菜单栏应用，功能对齐 Windows 壳：
+  - 菜单栏 ⚡ 图标：左键弹出额度面板（本地额度窗），右键菜单可打开面板 / 宠物悬浮窗 / 额度窗 / 立即同步 / 开机启动 / 检查更新 / 退出；
+  - 桌面宠物悬浮窗（服务就绪后自动出现，可拖拽，右键弹菜单）；
+  - 内嵌服务器：应用自带 pinned Node 运行时与全部仪表盘产物，无需安装 Node，退出时自动清理子进程；
+  - 服务器健康巡检与崩溃退避自动重启；
+  - 启动时检查 GitHub Releases 新版本并引导下载。
+  - 发布物：`TokenTracker-plus-1.25.0.dmg`（拖进「应用程序」即装）与 zip 绿色包，附 SHA-256。应用为未签名分发（与 Windows 版同策略），首次打开若被 Gatekeeper 拦截：右键 → 打开，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再开。
+- 限说明：macOS 版宠物悬浮窗背景暂以白色卡片呈现（Windows 版为纯透明合成），外观打磨随后续批次；`dashboard:build` 的 PET 开关（宠物页产物）在 macOS 打包链中同样强制开启。
+
 ## [1.24.2] - 2026-11-09
 
 - **定价修复：Antigravity 后端变体 `gemini-4-argon-b` / `gemini-4-argon-trial`（含点分拼写 `gemini-4.argon-*`）现按 Gemini 4 Argon 已刊牌价计费**（$2/M 输入、$0.1/M 缓存读、$10/M 输出），此前仅裸名有价、带后缀的变体会落空显示零费用（移植自上游 #1072/#1075；该价为 Google 限时挂牌价，至 2026-11-30）。

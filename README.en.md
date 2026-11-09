@@ -8,7 +8,7 @@
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
     <a href="#-supported-ai-tools-55"><img src="https://img.shields.io/badge/AI%20Tools-55%20Supported-brightgreen.svg" alt="55 Supported AI Tools" /></a>
-    <a href="#-quick-start"><img src="https://img.shields.io/badge/Desktop-Windows-9cf.svg" alt="Desktop" /></a>
+    <a href="#-quick-start"><img src="https://img.shields.io/badge/Desktop-Windows%20%7C%20macOS-9cf.svg" alt="Desktop" /></a>
     <a href="#-data--privacy"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-key-features"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
     <a href="#-heatmap-tiers--data-analytics"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
@@ -26,9 +26,10 @@
 
 > **Prerequisites**: running from source requires Node.js **20+**; SQLite-backed sources (opencode/zcode/loomy/trae, etc.) additionally need Node.js **22.5+** (uses the built-in `node:sqlite`) or a `sqlite3` CLI on PATH. The Windows installer bundles Node and the .NET runtime; users need Windows 10/11 and WebView2 Runtime. The .NET 8 SDK is required only to build the desktop app.
 
-**Windows users — no build needed**: download `TokenTracker-Setup.exe` from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install. The setup bundles its own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+**Windows / macOS users — no build needed**: download from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install — `TokenTracker-Setup.exe` on Windows, or on Apple-silicon macOS the `TokenTracker-plus-1.25.0.dmg` (drag into Applications). The packages bundle their own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
 
 > 💡 **About the Windows SmartScreen prompt**: This is an individual open-source project without a paid code-signing certificate, so Windows SmartScreen may show an "Unknown publisher" warning on first install. This is normal — click "More info" → "Run anyway" to proceed. The code is 100% open source and all data stays on your machine.
+> 💡 **About the macOS Gatekeeper prompt**: the macOS build is unsigned too. If first launch says "cannot verify the developer", right-click the app → Open, or run `xattr -cr /Applications/TokenTracker-plus.app` and open again.
 
 ```bash
 # 1. Clone the repository and install dependencies
@@ -54,7 +55,8 @@ node bin/tracker.js doctor     # System diagnostics and health check
 
 > **Looking for native desktop apps?**
 > - **Windows** — Run `TokenTrackerWin` (C# .NET 8 + WebView2 system tray app), bundled with desktop pets, quota cards, and an always-on-top usage pill. See [TokenTrackerWin/README.md](./TokenTrackerWin/README.md).
-> - **Other Platforms** — Run from source (`git clone` then `node bin/tracker.js`); no installers and no compatibility guarantee; the desktop application is currently Windows-only.
+> - **macOS (Apple silicon)** — Run `TokenTrackerMac` (native Swift menu-bar app): menu-bar quota panel, floating desktop pet, quota and dashboard windows, embedded server with zero dependencies. See [TokenTrackerMac/README.md](./TokenTrackerMac/README.md).
+> - **Other Platforms** — Run from source (`git clone` then `node bin/tracker.js`); no installers and no compatibility guarantee; the desktop application currently covers Windows and macOS (Apple silicon).
 
 ---
 

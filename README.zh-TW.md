@@ -8,7 +8,7 @@
   <p>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
     <a href="#-支援的-ai-工具列表55-款"><img src="https://img.shields.io/badge/AI%20Tools-55%20Supported-brightgreen.svg" alt="55 Supported AI Tools" /></a>
-    <a href="#-快速開始"><img src="https://img.shields.io/badge/Desktop-Windows-9cf.svg" alt="Desktop" /></a>
+    <a href="#-快速開始"><img src="https://img.shields.io/badge/Desktop-Windows%20%7C%20macOS-9cf.svg" alt="Desktop" /></a>
     <a href="#-數據與隱私準則"><img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-success.svg" alt="100% Offline First" /></a>
     <a href="#-核心特性"><img src="https://img.shields.io/badge/Speed%20Engine-tok%2Fs%20Capture-orange.svg" alt="Speed Engine" /></a>
     <a href="#-熱力圖色階與數據分析"><img src="https://img.shields.io/badge/Heatmap-Lv0~Lv7%208--tier-blueviolet.svg" alt="8-tier Heatmap" /></a>
@@ -24,11 +24,12 @@
 
 ## ⚡ 快速開始
 
-> **環境要求**：從原始碼執行需要 Node.js **20+**；SQLite 資料源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（使用內建 `node:sqlite`）或系統安裝 `sqlite3` 命令。Windows 安裝包內建 Node 與 .NET 執行環境，只需 Windows 10/11 與 WebView2 Runtime；自行構建桌面端才需要 .NET 8 SDK。
+> **環境要求**：從原始碼執行需要 Node.js **20+**；SQLite 資料源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（使用內建 `node:sqlite`）或系統安裝 `sqlite3` 命令。Windows 安裝包內建 Node 與 .NET 執行環境，只需 Windows 10/11 與 WebView2 Runtime；macOS 安裝包內建 Node 執行環境，只需 Apple silicon（M 系）Mac 與 macOS 13+；自行構建桌面端才需要 .NET 8 SDK（Windows）或 Xcode Command Line Tools（macOS）。
 
-**Windows 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下載 `TokenTracker-Setup.exe` 安裝即可——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
+**Windows / macOS 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下載安裝即可——Windows 下載 `TokenTracker-Setup.exe`；macOS（Apple silicon）下載 `TokenTracker-plus-1.25.0.dmg` 拖進「應用程式」——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
 
 > 💡 **關於 Windows Defender / SmartScreen 提示**：本軟體為個人開源作品，尚未購買企業數位簽章憑證，初次安裝時 Windows SmartScreen 可能會提示「已保護你的電腦（未知發佈者）」。此為正常安全機制，點擊「更多資訊」→「仍要執行」即可完成安裝；程式碼 100% 開源，資料 100% 留在本機，請放心使用。
+> 💡 **關於 macOS Gatekeeper 提示**：macOS 版同為未簽名發行，首次開啟若提示「無法驗證開發者」，在應用程式上**右鍵 → 打開**，或執行 `xattr -cr /Applications/TokenTracker-plus.app` 後再開啟即可。
 
 ```bash
 # 1. 複製代碼倉庫並安裝依賴
@@ -54,7 +55,8 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 > **想要原生桌面端？**
 > - **Windows** —— 運行 `TokenTrackerWin`（C# .NET 8 + WebView2 系統匣 App），附帶動態桌寵、桌面額度小組件與置頂用量藥丸。構建方式見 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **其他平台** —— 僅提供源碼運行（`git clone` 後執行 `node bin/tracker.js`），不提供安裝包，也不做相容性保證；桌面端目前只有 Windows 版本。
+> - **macOS（Apple silicon）** —— 運行 `TokenTrackerMac`（原生 Swift 選單列 App）：選單列 ⚡ 額度面板、桌面寵物懸浮窗、額度窗與面板窗，內嵌伺服器零依賴。構建方式見 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
+> - **其他平台** —— 僅提供源碼運行（`git clone` 後執行 `node bin/tracker.js`），不提供安裝包，也不做相容性保證；桌面端目前覆蓋 Windows 與 macOS（Apple silicon）。
 
 ---
 
