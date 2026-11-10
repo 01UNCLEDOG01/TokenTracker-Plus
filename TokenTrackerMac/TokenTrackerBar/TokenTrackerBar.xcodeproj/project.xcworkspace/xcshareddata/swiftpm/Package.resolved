@@ -1,0 +1,14 @@
+{
+  "originHash" : "9e2099a11ff6c486a51e444065aff23489c57fa086da02df42f4b085881b2831",
+  "pins" : [
+    {
+      "identity" : "vortex",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/zats/Vortex.git",
+      "state" : {
+        "revision" : "ef5392088d4aeb255c4eee83157dbdafcd31bf07"
+      }
+    }
+  ],
+  "version" : 3
+}

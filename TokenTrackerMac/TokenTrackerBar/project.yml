@@ -1,0 +1,67 @@
+name: TokenTrackerBar
+options:
+  bundleIdPrefix: com.tokentrackerplus
+  deploymentTarget:
+    macOS: "12.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "12.0"
+
+packages:
+  Vortex:
+    url: https://github.com/zats/Vortex.git
+    revision: ef5392088d4aeb255c4eee83157dbdafcd31bf07
+
+targets:
+  TokenTrackerBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: TokenTrackerBar
+        excludes:
+          - "EmbeddedServer/**"
+      - path: Shared
+    dependencies:
+      - target: TokenTrackerWidget
+      - package: Vortex
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tokentrackerplus.mac
+        PRODUCT_NAME: TokenTracker Plus
+        MARKETING_VERSION: "1.25.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_ALLOWED: YES
+        INFOPLIST_KEY_LSUIElement: YES
+    info:
+      path: TokenTrackerBar/Info.plist
+      properties:
+        CFBundleDisplayName: TokenTracker Plus
+        LSUIElement: true
+        NSHumanReadableCopyright: TokenTracker Plus fork — see LICENSE
+
+  TokenTrackerWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: TokenTrackerWidget
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tokentrackerplus.mac.widget
+        MARKETING_VERSION: "1.25.0"
+        CURRENT_PROJECT_VERSION: "1"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_APP_SANDBOX: YES
+        SKIP_INSTALL: YES
+    info:
+      path: TokenTrackerWidget/Info.plist

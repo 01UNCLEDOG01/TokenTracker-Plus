@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────
 # package-macos.sh — build the NATIVE macOS client (vendored upstream
-# TokenTrackerBar SwiftUI app, SwiftPM manifest at BarSources/Package.swift).
+# TokenTrackerBar SwiftUI app, XcodeGen manifest at TokenTrackerBar/).
 #
 #   bash scripts/package-macos.sh            # .app + dmg + zip into artifacts/
 #
@@ -60,7 +60,7 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 # 2. Compile via xcodebuild against the SwiftPM manifest (handles SwiftUI macros
 #    and the Vortex-less dependency graph; no XcodeGen/pbxproj needed).
 echo "[package] xcodebuild (SwiftPM manifest)..."
-cd "$MAC_DIR/BarSources"
+cd "$MAC_DIR/TokenTrackerBar"
 xcodebuild -scheme TokenTrackerBar -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$BUILD_DIR/derived" build 2>&1 | tail -3
@@ -90,11 +90,11 @@ cd "$MAC_DIR"
 echo "[package] actool Assets.xcassets -> Assets.car"
 "$ACTOOL" --compile "$APP_DIR/Contents/Resources" \
   --platform macosx --minimum-deployment-target 12.0 \
-  BarSources/Resources/Assets.xcassets >/dev/null
+  TokenTrackerBar/TokenTrackerBar/Assets.xcassets >/dev/null
 [ -f "$APP_DIR/Contents/Resources/Assets.car" ] && echo "[package] Assets.car OK"
 # Loose copies: NSImage(named:) resolves bundle files by basename too — belt and
 # suspenders in case a catalog member fails to compile.
-ASSETS_ROOT="$MAC_DIR/BarSources/Resources/Assets.xcassets" \
+ASSETS_ROOT="$MAC_DIR/TokenTrackerBar/TokenTrackerBar/Assets.xcassets" \
 OUT_DIR="$APP_DIR/Contents/Resources" \
 python3 - <<'PY'
 import json, os, shutil, sys
@@ -127,9 +127,9 @@ print(f'[package] loose imageset copies: {count}')
 PY
 
 # Runtime resources the app reads from Bundle.main.
-cp BarSources/Resources/BotFrames.json "$APP_DIR/Contents/Resources/BotFrames.json"
-cp -R BarSources/Resources/PetSprites "$APP_DIR/Contents/Resources/PetSprites"
-cp BarSources/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
+cp TokenTrackerBar/TokenTrackerBar/BotFrames.json "$APP_DIR/Contents/Resources/BotFrames.json"
+cp -R TokenTrackerBar/TokenTrackerBar/PetSprites "$APP_DIR/Contents/Resources/PetSprites"
+cp TokenTrackerBar/TokenTrackerBar/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null || echo "WARN: no AppIcon.icns"
 
 # 4. Info.plist (LSUIElement menu-bar app, version injected from package.json).
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
