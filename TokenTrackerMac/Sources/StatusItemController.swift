@@ -14,9 +14,7 @@ final class StatusItemController: NSObject {
     private var onOpenDashboard: (() -> Void)?
     private var onOpenWidget: (() -> Void)?
     private var onTogglePet: (() -> Void)?
-    private var onToggleDesktopWidget: (() -> Void)?
     private var onToggleQuotaWidget: (() -> Void)?
-    private var isDesktopWidgetVisible: (() -> Bool)?
     private var isPetVisible: (() -> Bool)?
     private var isQuotaWidgetVisible: (() -> Bool)?
 
@@ -25,9 +23,7 @@ final class StatusItemController: NSObject {
          onOpenDashboard: @escaping () -> Void,
          onOpenWidget: @escaping () -> Void,
          onTogglePet: @escaping () -> Void,
-         onToggleDesktopWidget: @escaping () -> Void,
          onToggleQuotaWidget: @escaping () -> Void,
-         isDesktopWidgetVisible: @escaping () -> Bool,
          isPetVisible: @escaping () -> Bool,
          isQuotaWidgetVisible: @escaping () -> Bool) {
         self.serverManager = serverManager
@@ -35,9 +31,7 @@ final class StatusItemController: NSObject {
         self.onOpenDashboard = onOpenDashboard
         self.onOpenWidget = onOpenWidget
         self.onTogglePet = onTogglePet
-        self.onToggleDesktopWidget = onToggleDesktopWidget
         self.onToggleQuotaWidget = onToggleQuotaWidget
-        self.isDesktopWidgetVisible = isDesktopWidgetVisible
         self.isPetVisible = isPetVisible
         self.isQuotaWidgetVisible = isQuotaWidgetVisible
         super.init()
@@ -116,9 +110,6 @@ final class StatusItemController: NSObject {
         let pet = NSMenuItem(title: "宠物悬浮窗", action: #selector(togglePet), keyEquivalent: "p")
         pet.target = self
         pet.state = (isPetVisible?() ?? false) ? .on : .off
-        let island = NSMenuItem(title: "桌面控制面板", action: #selector(toggleDesktopWidget), keyEquivalent: "w")
-        island.target = self
-        island.state = (isDesktopWidgetVisible?() ?? false) ? .on : .off
         // No bare "q" shortcut: with the default command modifier it hijacked
         // Cmd+Q while the menu was open — muscle memory for quitting any app.
         let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "")
@@ -136,7 +127,7 @@ final class StatusItemController: NSObject {
         quit.target = self
         quit.keyEquivalentModifierMask = [.command, .shift]
 
-        [dashboard, pet, island, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
+        [dashboard, pet, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
          login, update, NSMenuItem.separator(), quit].forEach { menu.addItem($0) }
         return menu
     }
@@ -144,7 +135,6 @@ final class StatusItemController: NSObject {
     // MARK: Actions
 
     @objc private func openDashboard() { onOpenDashboard?() }
-    @objc private func toggleDesktopWidget() { onToggleDesktopWidget?() }
     @objc private func toggleQuotaWidget() { onToggleQuotaWidget?() }
     @objc private func togglePet() { onTogglePet?() }
     @objc private func syncNow() { serverManager.syncNow() }

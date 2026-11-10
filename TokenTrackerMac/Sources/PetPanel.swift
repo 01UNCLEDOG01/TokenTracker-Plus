@@ -34,10 +34,83 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             WebHost.load(webView, path: "/pet.html?app=1", on: serverURL)
         }
         panel.orderFrontRegardless()
+        startHoverTracking()
     }
 
     func hide() {
         panel?.orderOut(nil)
+        if lastHover { lastHover = false; pushHover(false) }
+    }
+
+    // MARK: Hover tracking (PetWindow.cs counterpart)
+
+    private var hoverTimer: Timer?
+    private var lastHover = false
+
+    /// The page does NOT track the mouse itself — DOM mouse-leave is unreliable
+    /// on this transparent, never-activated panel (pet.jsx says so verbatim).
+    /// The host polls the OS cursor against the window rect and pushes
+    /// window.__ttPetHover + a pet:hover event, exactly like PetWindow.cs.
+    func startHoverTracking() {
+        guard hoverTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.pollHover()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        hoverTimer = timer
+    }
+
+    private func pollHover() {
+        guard let panel, panel.isVisible else {
+            if lastHover { lastHover = false; pushHover(false) }
+            return
+        }
+        let inside = panel.frame.contains(NSEvent.mouseLocation)
+        if inside != lastHover {
+            lastHover = inside
+            pushHover(inside)
+        }
+    }
+
+    private func pushHover(_ hovering: Bool) {
+        guard let webView = WebHost.webView(in: panel) else {
+            Diag.error("Pet hover push: no webview in panel")
+            return
+        }
+        let script = "window.__ttPetHover=\(hovering ? "true" : "false");" +
+            "window.dispatchEvent(new Event('pet:hover'));" +
+            "JSON.stringify({hover: window.__ttPetHover, tokens: window.__ttPetTokens, band: window.__ttPetBubbleBand})"
+        webView.evaluateJavaScript(script) { result, error in
+            if let error {
+                Diag.error("Pet hover JS failed: \(error.localizedDescription)")
+            } else if let json = result as? String {
+                Diag.info("Pet page state: \(json)")
+            }
+        }
+        Diag.info("Pet hover -> \(hovering)")
+    }
+
+    /// Base sprite window height (bubble/popup height is added on top).
+    static let baseHeight: CGFloat = 340
+
+    /// The bubble band the PAGE measured (pet:bubble-height:<n>) — the host
+    /// stores it and re-pushes it; hardcoding a value here clobbers the page's
+    /// own layout and clips the bubble at the window top edge.
+    private(set) var bubbleBand: CGFloat = 64
+
+    /// Grow the transparent host upward for the bubble / hover limits popup —
+    /// the page measures its own content (pet:bubble-height:<n>) and the native
+    /// side just obeys, keeping the sprite anchored at the bottom edge.
+    func resizeForBubble(band: CGFloat) {
+        bubbleBand = max(64, band)
+        guard let panel else { return }
+        let target = PetPanelController.baseHeight + bubbleBand
+        var frame = panel.frame
+        guard abs(frame.height - target) > 1 else { return }
+        frame.origin.y += frame.height - target  // keep the bottom edge (sprite) anchored
+        frame.size.height = target
+        panel.setFrame(frame, display: true)
+        Diag.info("Pet window resized for bubble band \(Int(bubbleBand)) -> \(Int(target))")
     }
 
     func toggle() {
@@ -94,6 +167,12 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tt.postMessage(name);
           });
         });
+        // The page measures its hover limits popup / bubble and asks the host to
+        // grow the window upward (PetWindow.cs: pet:bubble-height:<n>).
+        window.addEventListener('pet:bubble-height', function (e) {
+          var h = e && e.detail && Number(e.detail.height);
+          window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tt.postMessage('pet:bubble-height:' + (Number.isFinite(h) ? h : 0));
+        });
         """
         let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         webView.configuration.userContentController.addUserScript(script)
@@ -111,6 +190,11 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         case "menu":
             onContextMenu?(NSEvent.mouseLocation)
         default:
+            if body.hasPrefix("pet:bubble-height:") {
+                let value = Int(body.dropFirst("pet:bubble-height:".count)) ?? 0
+                resizeForBubble(band: CGFloat(value))
+                return
+            }
             Diag.info("Pet bridge message: \(body)")
         }
     }

@@ -10,7 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var dashboardWindow: DashboardWindowController?
     private var widgetWindow: QuotaWidgetWindowController?
-    private var desktopWidget: DesktopWidgetWindowController?
     private var petPanel: PetPanelController?
     private var didShowPetOnReady = false
 
@@ -21,7 +20,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.statusItemController?.popMenu(at: point)
         }
 
-        self.desktopWidget = DesktopWidgetWindowController(serverURL: serverManager.serverURL)
         self.widgetWindow = QuotaWidgetWindowController(serverURL: serverManager.serverURL)
 
         statusItemController = StatusItemController(
@@ -30,9 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onOpenDashboard: { [weak self] in self?.openDashboard() },
             onOpenWidget: { [weak self] in self?.openWidget() },
             onTogglePet: { [weak self] in self?.togglePet() },
-            onToggleDesktopWidget: { [weak self] in self?.toggleDesktopWidget() },
             onToggleQuotaWidget: { [weak self] in self?.toggleQuotaWidget() },
-            isDesktopWidgetVisible: { [weak self] in self?.isDesktopWidgetVisible ?? false },
             isPetVisible: { [weak self] in self?.isPetVisible ?? false },
             isQuotaWidgetVisible: { [weak self] in self?.isQuotaWidgetVisible ?? false })
         statusItemController?.install()
@@ -45,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // healthy poll (stored prefs win from the second launch on).
                 if let self, !self.didShowPetOnReady {
                     self.didShowPetOnReady = true
+                    IslandStats.shared.start()
                     // Stored prefs win once the user has toggled anything;
                     // only the very first launch falls back to show-all.
                     let stored: (String) -> Bool = { key in
@@ -52,7 +49,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             ? true : UserDefaults.standard.bool(forKey: key)
                     }
                     if stored("TTPPetEnabled") { self.petPanel?.show() }
-                    if stored("TTPDesktopWidgetEnabled") { self.desktopWidget?.show() }
                     if stored("TTPQuotaWidgetEnabled") { self.widgetWindow?.presentWindow() }
                 }
             }
@@ -73,40 +69,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return views
         }
         PetSettingsController.shared.petPanelProvider = { [weak self] in self?.petPanel }
-        PetSettingsController.shared.setMonitor = { [weak self] monitor in
-            guard let self, let desktopWidget = self.desktopWidget else { return }
-            if monitor {
-                desktopWidget.show()
-                UserDefaults.standard.set(true, forKey: "TTPDesktopWidgetEnabled")
-            } else {
-                desktopWidget.window?.orderOut(nil)
-                UserDefaults.standard.set(false, forKey: "TTPDesktopWidgetEnabled")
-            }
+        PetSettingsController.shared.setMonitor = { monitor in
+            IslandStats.shared.setBubbleEnabled(monitor)
         }
-        PetSettingsController.shared.currentMonitor = { [weak self] in
-            self?.desktopWidget?.window?.isVisible ?? false
+        PetSettingsController.shared.currentMonitor = { IslandStats.shared.bubbleEnabled }
+        IslandStats.shared.load()
+        IslandStats.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
+        IslandStats.shared.petWebViewProvider = { [weak self] in
+            guard let self, let panel = self.petPanel?.panel else { return nil }
+            return WebHost.webView(in: panel)
+        }
+        IslandStats.shared.bubbleBandProvider = { [weak self] in
+            self?.petPanel?.bubbleBand ?? 64
         }
         QuotaWidgetHost.shared.windowProvider = { [weak self] in self?.widgetWindow?.window }
         QuotaWidgetHost.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
         QuotaWidgetHost.shared.onClose = { [weak self] in
             self?.widgetWindow?.window?.orderOut(nil)
             UserDefaults.standard.set(false, forKey: "TTPQuotaWidgetEnabled")
-        }
-        var lastDrag: NSPoint?
-        PetSettingsController.shared.desktopPanelDrag = { [weak self] type, payload in
-            guard let self, let panel = self.desktopWidget?.window else { return }
-            if type == "panel:drag-end" { lastDrag = nil; return }
-            guard let x = payload["x"] as? Double, let y = payload["y"] as? Double else { return }
-            // screenX/Y are top-left origin; NSEvent.mouseLocation is bottom-left.
-            let mouse = NSPoint(x: x, y: NSScreen.screens[0].frame.height - y)
-            if let last = lastDrag {
-                let dx = mouse.x - last.x, dy = mouse.y - last.y
-                if hypot(dx, dy) < 300 {
-                    panel.setFrameOrigin(NSPoint(x: panel.frame.origin.x + dx,
-                                                 y: panel.frame.origin.y - dy))
-                }
-            }
-            lastDrag = mouse
         }
 
         serverManager.start()
@@ -141,26 +121,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.presentWindow()
     }
 
-    private func toggleDesktopWidget() {
-        guard let desktopWidget else { return }
-        let isVisible = desktopWidget.window?.isVisible ?? false
-        if isVisible {
-            desktopWidget.window?.orderOut(nil)
-            UserDefaults.standard.set(false, forKey: "TTPDesktopWidgetEnabled")
-        } else {
-            desktopWidget.show()
-            UserDefaults.standard.set(true, forKey: "TTPDesktopWidgetEnabled")
-        }
-    }
-
-    /// Menu toggle for the floating pet — persists like the other surfaces so the
-    /// startup behavior follows whatever the user last chose.
     private func togglePet() {
         let isVisible = petPanel?.isVisible ?? false
         PetSettingsController.shared.apply(key: "visible", value: !isVisible)
     }
 
-    /// Menu toggle for the quota widget window — same persistence contract.
     private func toggleQuotaWidget() {
         guard let controller = widgetWindow else { return }
         let isVisible = controller.window?.isVisible ?? false
@@ -171,10 +136,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.presentWindow()
             UserDefaults.standard.set(true, forKey: "TTPQuotaWidgetEnabled")
         }
-    }
-
-    var isDesktopWidgetVisible: Bool {
-        desktopWidget?.window?.isVisible ?? false
     }
 
     var isPetVisible: Bool { petPanel?.isVisible ?? false }
