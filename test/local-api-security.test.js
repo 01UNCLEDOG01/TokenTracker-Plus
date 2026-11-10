@@ -1727,6 +1727,88 @@ test("opendesign-cookie route saves a cookie only for an authenticated loopback 
   assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_cookie" });
 });
 
+test("opencode-go-key route saves an API key only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const { credentialsPath } = require("../src/lib/opencode-go-limits");
+  const prevRoot = process.env.TOKENTRACKER_HOME;
+  process.env.TOKENTRACKER_HOME = process.env.HOME;
+  try {
+    const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+    const token = await getLocalAuthToken(handler);
+    const url = new URL("http://127.0.0.1/functions/tokentracker-opencode-go-key");
+
+    // Wrong method is rejected before any credential work.
+    const getRes = createResponse();
+    await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+    assert.equal(getRes.statusCode, 405);
+
+    // Unauthenticated POST is rejected.
+    const anonRes = createResponse();
+    await handler(createRequest({ method: "POST", body: JSON.stringify({ apiKey: "sk-go-key" }) }), anonRes, url);
+    assert.equal(anonRes.statusCode, 401);
+
+    // Authenticated POST writes the key file and never echoes the key back.
+    const okRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ apiKey: "  sk-go-key  " }),
+    }), okRes, url);
+    assert.equal(okRes.statusCode, 200);
+    assert.deepEqual(JSON.parse(okRes.body.toString("utf8")), { saved: true });
+    assert.equal(okRes.body.toString("utf8").includes("sk-go-key"), false);
+    const stored = JSON.parse(fs.readFileSync(credentialsPath(process.env.HOME), "utf8"));
+    assert.deepEqual(stored, { apiKey: "sk-go-key" });
+
+    // A pasted shell line (not a bare key) is rejected with 400, so the paste
+    // box never reports a fake success.
+    const badRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ apiKey: 'setx OPENCODE_GO_API_KEY "sk-go-key"' }),
+    }), badRes, url);
+    assert.equal(badRes.statusCode, 400);
+    assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_api_key" });
+
+    // The same route takes a browser cookie for users who never created a key.
+    const cookieRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ cookie: "Cookie: auth=session-value; other=1" }),
+    }), cookieRes, url);
+    assert.equal(cookieRes.statusCode, 200);
+    const withCookie = JSON.parse(fs.readFileSync(credentialsPath(process.env.HOME), "utf8"));
+    // Saving the cookie keeps the key, so either path remains available.
+    assert.equal(withCookie.apiKey, "sk-go-key");
+    assert.equal(withCookie.authCookie, "auth=session-value; other=1");
+
+    // A value that is not a cookie header is rejected instead of stored.
+    const badCookieRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ cookie: "not-a-cookie" }),
+    }), badCookieRes, url);
+    assert.equal(badCookieRes.statusCode, 400);
+    assert.deepEqual(JSON.parse(badCookieRes.body.toString("utf8")), { error: "invalid_cookie" });
+
+    // "Clear" forgets both, so a rejected key stops shadowing the cookie path.
+    const clearRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ clear: true }),
+    }), clearRes, url);
+    assert.equal(clearRes.statusCode, 200);
+    assert.equal(fs.existsSync(credentialsPath(process.env.HOME)), false);
+  } finally {
+    if (prevRoot === undefined) delete process.env.TOKENTRACKER_HOME;
+    else process.env.TOKENTRACKER_HOME = prevRoot;
+  }
+});
+
 test("mistral-cookie route saves a cookie only for an authenticated loopback POST", async () => {
   const { createLocalApiHandler } = require("../src/lib/local-api");
   const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });

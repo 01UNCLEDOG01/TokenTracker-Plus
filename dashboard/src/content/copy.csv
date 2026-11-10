@@ -1279,8 +1279,18 @@ limits.opencodeGo.setupHint.subtitle,ui,LimitsPage,UsageLimitsPanel,opencode_go_
 limits.opencodeGo.setupHint.step1,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_step1,"Sign in at opencode.ai and subscribe to Go.",,active
 limits.opencodeGo.setupHint.cta,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_cta,"Open opencode.ai",,active
 limits.opencodeGo.setupHint.step2,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_step2,"Create and copy an API key in the console.",,active
-limits.opencodeGo.setupHint.step3,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_step3,"Run this command, paste your API key (input stays invisible), then restart TokenTracker:",,active
-limits.opencodeGo.setupHint.note_app,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_note_app,"macOS app: use the launchctl setenv line, then reopen the app.",,active
+limits.opencodeGo.setupHint.step3,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_step3,"Paste the key here — it is saved on this machine and takes effect right away:",,active
+limits.opencodeGo.setupHint.step4,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_step4,"Or set it from a terminal (optional, needs an app restart):",,active
+limits.opencodeGo.setupHint.snippet_windows,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_snippet_windows,"setx OPENCODE_GO_API_KEY ""sk-...""",,active
+limits.opencodeGo.setupHint.snippet_macos,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_snippet_macos,"launchctl setenv OPENCODE_GO_API_KEY ""sk-...""",,active
+limits.opencodeGo.setupHint.snippet_linux,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_snippet_linux,"export OPENCODE_GO_API_KEY=""sk-...""",,active
+limits.opencodeGo.setupHint.cli_note,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_cli_note,"The paste box above needs no restart; the command line applies from the next app start.",,active
+limits.apiKey.save_failed_detail,ui,LimitsPage,UsageLimitsPanel,api_key_save_failed_detail,"Could not save: {{detail}}",,active
+limits.opencodeGo.cookie.toggle,ui,LimitsPage,UsageLimitsPanel,opencode_go_cookie_toggle,"Use a cookie instead (no API key)",,active
+limits.opencodeGo.cookie.placeholder,ui,LimitsPage,UsageLimitsPanel,opencode_go_cookie_placeholder,"Paste the opencode.ai auth cookie value",,active
+limits.opencodeGo.cookie.save,ui,LimitsPage,UsageLimitsPanel,opencode_go_cookie_save,"Save cookie",,active
+limits.opencodeGo.cookie.clear,ui,LimitsPage,UsageLimitsPanel,opencode_go_cookie_clear,"Clear saved credential",,active
+limits.opencodeGo.cookie.hint,ui,LimitsPage,UsageLimitsPanel,opencode_go_cookie_hint,"Cookie mode reads the signed-in workspace page; it is used only when no API key is saved.",,active
 limits.opencodeGo.setupHint.copy,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_copy,"Copy",,active
 limits.opencodeGo.setupHint.copied,ui,LimitsPage,UsageLimitsPanel,opencode_go_hint_copied,"Copied",,active
 settings.menubar.updates.checking,ui,SettingsPage,NativeAppFooter,updates_checking,"Checking upstream...","正在检查上游...",active

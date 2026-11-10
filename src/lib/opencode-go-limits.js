@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const fssync = require("node:fs");
 const path = require("node:path");
+const { getTrackerRootDir } = require("./tracker-paths");
 const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 
 // OpenCode Go usage limits.
@@ -10,7 +11,11 @@ const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 //   1. The official OpenCode Go usage API
 //      (GET https://opencode.ai/zen/go/v1/usage) with
 //      `Authorization: Bearer <OPENCODE_GO_API_KEY>`. It returns the server's
-//      authoritative rolling (5h), weekly, and monthly usage windows.
+//      authoritative rolling (5h), weekly, and monthly usage windows. The key
+//      comes from the process environment or from the key saved by the limits
+//      page paste box (~/.tokentracker/opencode-go-credentials.json) — the
+//      paste box exists so Windows users never have to set an env var and
+//      restart the app (the macOS launchctl hint never worked there).
 //
 //   2. Web scrape of the workspace dashboard
 //      (https://opencode.ai/workspace/<id>/go) for existing users configured
@@ -69,16 +74,18 @@ function detectSubscriptionStatus(html) {
     : "unknown";
 }
 
-function readConfig(env = process.env) {
-  if (!env || typeof env !== "object") return null;
+function readConfig(env = process.env, { home } = {}) {
+  const stored = home ? readStoredCredentials({ home }) : {};
+  const envConfig = env && typeof env === "object" ? env : {};
   const workspaceId =
-    typeof env.OPENCODE_GO_WORKSPACE_ID === "string"
-      ? env.OPENCODE_GO_WORKSPACE_ID.trim()
+    typeof envConfig.OPENCODE_GO_WORKSPACE_ID === "string" && envConfig.OPENCODE_GO_WORKSPACE_ID.trim()
+      ? envConfig.OPENCODE_GO_WORKSPACE_ID.trim()
+      : stored.workspaceId || "";
+  const envCookie =
+    typeof envConfig.OPENCODE_GO_AUTH_COOKIE === "string"
+      ? envConfig.OPENCODE_GO_AUTH_COOKIE.trim()
       : "";
-  const authCookie =
-    typeof env.OPENCODE_GO_AUTH_COOKIE === "string"
-      ? env.OPENCODE_GO_AUTH_COOKIE.trim()
-      : "";
+  const authCookie = envCookie || stored.authCookie || "";
   if (!authCookie) return null;
   return { workspaceId, authCookie };
 }
@@ -88,6 +95,122 @@ function readApiKey(env = process.env) {
   return typeof env.OPENCODE_GO_API_KEY === "string"
     ? env.OPENCODE_GO_API_KEY.trim()
     : "";
+}
+
+// --- Locally saved API key (limits-page paste box) --------------------------
+//
+// The API key can arrive two ways. The process environment (OPENCODE_GO_API_KEY)
+// is what wrapper scripts and headless installs use; the paste box on the
+// limits page writes this file instead, so saving a key takes effect on the
+// next poll without an app restart. The env var keeps precedence — it is an
+// explicit global setting, and the panel surfaces an override notice when it is
+// what is actually in use (credential_source: "env").
+const CREDENTIALS_FILE = "opencode-go-credentials.json";
+
+function credentialsPath(home) {
+  return path.join(getTrackerRootDir({ home }), CREDENTIALS_FILE);
+}
+
+function normalizeApiKey(value) {
+  if (typeof value !== "string") return "";
+  // Copying a key out of the console often drags in a line break; a key never
+  // contains whitespace, so drop it before validating. Quotes mean the user
+  // pasted a shell line (`setx … "sk-…"`) instead of the bare key. Everything
+  // else is accepted on purpose: keys are opaque, and a wrong-but-well-formed
+  // key must fail at the API with a readable auth error, not be rejected here.
+  const compact = value.replace(/\s+/g, "");
+  return /^[^\s"']{8,}$/.test(compact) ? compact : "";
+}
+
+function readStoredCredentials({ home } = {}) {
+  try {
+    const raw = JSON.parse(fssync.readFileSync(credentialsPath(home), "utf8"));
+    if (!raw || typeof raw !== "object") return {};
+    return {
+      apiKey: normalizeApiKey(raw.apiKey),
+      authCookie: normalizeAuthCookie(raw.authCookie),
+      workspaceId: typeof raw.workspaceId === "string" ? raw.workspaceId.trim() : "",
+    };
+  } catch (_e) {
+    return {};
+  }
+}
+
+// A cookie paste box hands us either the bare `auth=…` value or a whole
+// `Cookie: a=b; c=d` header; both were produced by the same user action.
+// Control characters are stripped because this string is later sent verbatim as
+// a `Cookie` request header — a newline pasted from a wrapped console line must
+// not turn into a header-injection attempt (undici would reject it with an
+// opaque TypeError instead of a readable error).
+function normalizeAuthCookie(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim()
+    .replace(/^cookie\s*:\s*/i, "");
+  return trimmed.includes("=") ? trimmed : "";
+}
+
+// Returns the key actually used plus where it came from. `source` is "env",
+// "stored", or "" when neither is configured. The saved file is only consulted
+// when the caller threads an explicit `home` (every production poll does), so a
+// unit test without one can never read the developer's real credentials.
+function resolveApiKey(env = process.env, { home } = {}) {
+  const fromEnv = readApiKey(env);
+  if (fromEnv) return { apiKey: fromEnv, source: "env" };
+  const stored = home ? readStoredCredentials({ home }).apiKey : "";
+  if (stored) return { apiKey: stored, source: "stored" };
+  return { apiKey: "", source: "" };
+}
+
+function readStoredApiKey({ home } = {}) {
+  return readStoredCredentials({ home }).apiKey || "";
+}
+
+// Both paste boxes write the same file, and each save must keep the other
+// field (switching from a key to a cookie used to blank it out).
+function writeCredentialsFile({ home, apiKey, authCookie, workspaceId } = {}) {
+  const next = {};
+  const normalizedKey = apiKey === undefined ? undefined : normalizeApiKey(apiKey);
+  const normalizedCookie = authCookie === undefined ? undefined : normalizeAuthCookie(authCookie);
+  if (normalizedKey === "") return { saved: false, error: "invalid_api_key" };
+  if (normalizedCookie === "") return { saved: false, error: "invalid_cookie" };
+  const prev = readStoredCredentials({ home });
+  const nextKey = normalizedKey === undefined ? prev.apiKey : normalizedKey;
+  const nextCookie = normalizedCookie === undefined ? prev.authCookie : normalizedCookie;
+  if (typeof nextKey === "string" && nextKey) next.apiKey = nextKey;
+  if (typeof nextCookie === "string" && nextCookie) next.authCookie = nextCookie;
+  const nextWorkspace = typeof workspaceId === "string" ? workspaceId.trim() : prev.workspaceId;
+  if (nextWorkspace) next.workspaceId = nextWorkspace;
+  if (!next.apiKey && !next.authCookie) return { saved: false, error: "empty_credentials" };
+  const file = credentialsPath(home);
+  try {
+    fssync.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    fssync.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+    try { fssync.chmodSync(file, 0o600); } catch (_e) { /* best effort on platforms without fchmod */ }
+  } catch (error) {
+    return { saved: false, error: error?.code === "EACCES" ? "forbidden" : "write_failed" };
+  }
+  return { saved: true };
+}
+
+function writeApiKeyFile({ home, apiKey } = {}) {
+  return writeCredentialsFile({ home, apiKey });
+}
+
+function writeAuthCookieFile({ home, authCookie, workspaceId } = {}) {
+  return writeCredentialsFile({ home, authCookie, workspaceId });
+}
+
+// "Forget the credential" action on the card: an API key that the API rejects
+// must not keep blocking the cookie path forever.
+function clearCredentials({ home } = {}) {
+  try {
+    fssync.unlinkSync(credentialsPath(home));
+  } catch (_e) {
+    /* already gone */
+  }
+  return { saved: true, cleared: true };
 }
 
 function clampPercent(value) {
@@ -741,8 +864,8 @@ async function fetchOpencodeGoLimits({
   timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
   sqliteOptions = {},
 } = {}) {
-  const apiKey = readApiKey(env);
-  const cfg = readConfig(env);
+  const { apiKey, source: credentialSource } = resolveApiKey(env, { home });
+  const cfg = readConfig(env, { home });
   const allowLocalEstimate = localEstimateEnabled(env);
 
   // Prefer the documented API whenever an API key is explicitly configured.
@@ -752,12 +875,16 @@ async function fetchOpencodeGoLimits({
   if (apiKey) {
     const api = await fetchOpencodeGoApiLimits({ apiKey, fetchImpl, nowMs, timeoutMs });
     if (!api?.error && (api.primary_window || api.secondary_window || api.tertiary_window)) {
-      return { ...api, source: "api" };
+      return { ...api, source: "api", credential_source: credentialSource };
     }
     if (api?.auth_error) {
-      return { ...api, source: "api" };
+      return { ...api, source: "api", credential_source: credentialSource };
     }
-    if (!cfg) return api || { configured: true, error: "OpenCode Go unavailable" };
+    if (!cfg) {
+      return api
+        ? { ...api, credential_source: credentialSource }
+        : { configured: true, error: "OpenCode Go unavailable" };
+    }
   }
 
   // Keep the cookie-backed dashboard path for existing configurations and as a
@@ -788,6 +915,16 @@ module.exports = {
   fetchOpencodeGoApiLimits,
   readConfig,
   readApiKey,
+  resolveApiKey,
+  readStoredApiKey,
+  readStoredCredentials,
+  writeApiKeyFile,
+  writeAuthCookieFile,
+  writeCredentialsFile,
+  clearCredentials,
+  normalizeAuthCookie,
+  credentialsPath,
+  normalizeApiKey,
   localEstimateEnabled,
   detectSubscriptionStatus,
   extractWindows,

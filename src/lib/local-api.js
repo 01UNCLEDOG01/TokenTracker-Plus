@@ -5787,6 +5787,55 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- opencode-go-key (POST) ---
+    // Persist the OpenCode Go credential pasted into the limits page card.
+    // Same contract as the cookie paste boxes: loopback auth required, POST
+    // only, never echoed back. Two shapes are accepted and share one file
+    // (~/.tokentracker/opencode-go-credentials.json):
+    //   { apiKey }  — the official usage API key (authoritative)
+    //   { cookie }  — the signed-in opencode.ai `auth` cookie (legacy scrape)
+    // so a user without an API key can still get the three windows, and saving
+    // either one keeps the other. The previous macOS-only `launchctl setenv`
+    // hint was unusable on Windows, which is why this route exists.
+    if (p === "/functions/tokentracker-opencode-go-key") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const {
+          writeCredentialsFile,
+          clearCredentials,
+        } = require("./opencode-go-limits");
+        if (body?.clear === true) {
+          json(res, clearCredentials({ home: os.homedir() }));
+          return true;
+        }
+        const result = writeCredentialsFile({
+          home: os.homedir(),
+          apiKey: typeof body?.apiKey === "string" ? body.apiKey : undefined,
+          authCookie: typeof body?.cookie === "string" ? body.cookie : undefined,
+          workspaceId: typeof body?.workspaceId === "string" ? body.workspaceId : undefined,
+        });
+        // The paste box keys its "Saved" state off the HTTP status, so a
+        // rejected value must answer 400 rather than a fake-success 200.
+        if (result.saved === false) {
+          json(res, { error: result.error || "invalid_credentials" }, 400);
+          return true;
+        }
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save credential" }, 400);
+      }
+      return true;
+    }
+
     // --- qoder-cookie (POST) ---
     // Persist a hand-copied Qoder website cookie from the limits page paste
     // box. The cookie is a session credential, so this is a local mutation:

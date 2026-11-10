@@ -2,6 +2,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UsageLimitsPanel } from "./UsageLimitsPanel.jsx";
 
+// Credential POSTs are loopback mutations and need the per-process token; stub
+// the helper so these tests stay about the paste box, not the auth handshake.
+vi.mock("../../../lib/local-api-auth", () => ({
+  getLocalApiAuthHeaders: async () => ({ "x-tokentracker-local-auth": "test-token" }),
+  clearLocalApiAuthToken: () => {},
+}));
+
 const okData = {
   configured: true,
   error: null,

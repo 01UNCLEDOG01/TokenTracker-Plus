@@ -275,6 +275,10 @@ export function LimitsPage() {
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}
+                // A credential saved from a card (OpenCode Go key, cookies)
+                // should show its numbers right away in the embedded app, so
+                // reuse the manual-refresh chain instead of asking for F5.
+                onProviderKeySaved={handleManualRefresh}
               />
             </>
           )}
