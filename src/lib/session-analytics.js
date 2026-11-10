@@ -163,7 +163,11 @@ const {
 // 30 of 77 sessions here). A single distinct bucket timestamp now means "no
 // interval information" — speed_active_ms stays 0 and the wall-clock fallback
 // uses the measured active_ms span instead.
-const SIDECAR_VERSION = 47;
+// v48 excludes DSH failed-retry steps (v4 assistant/attempt; v1 assistant/
+// chunk finish with error/aborted) from speed samples — the retry span
+// includes failed work and backoff. Tokens were and stay booked; unchanged
+// logs rebuild so historical sessions lose the retry drag.
+const SIDECAR_VERSION = 48;
 const EDIT_TOOLS = new Set([
   "apply_patch",
   "edit",
@@ -1469,6 +1473,22 @@ function consumeDshRecord(state, record) {
     const win = state.stepWindows.get(`${data?.turn}:${data?.step}`);
     if (win) win.start = Number(record.time);
     else state.stepWindows.set(`${data?.turn}:${data?.step}`, { start: Number(record.time), end: null, out: 0, chunkStart: null });
+  } else if (type === "assistant/attempt" || type === "assistant/chunk") {
+    // Failed-retry exclusion (upstream #1080): v4 records the failed try as
+    // an assistant/attempt; v1 has no attempt event — the failed try ends as
+    // a top-level assistant/chunk whose chunk is a finish with an error or
+    // aborted reason. A retry's span includes the failed work and backoff, so
+    // it cannot be a clean speed sample even when the eventual message
+    // reports usage. Tokens stay booked (assistant/message adds them); only
+    // the TIMING sample is dropped at finalize.
+    const win = state.stepWindows.get(`${data?.turn}:${data?.step}`);
+    if (win) {
+      const chunk = data?.chunk;
+      const failedFinish = type === "assistant/chunk"
+        && chunk?.type === "finish"
+        && (chunk?.reason?.kind === "error" || chunk?.reason?.kind === "aborted");
+      if (type === "assistant/attempt" || failedFinish) win.failed = true;
+    }
   } else if (type === "assistant/message") {
     const usage = dshUsageTotals(data?.usage);
     if (!usage || usage.total_tokens <= 0) return;
@@ -1540,6 +1560,10 @@ function finalizeDshState(state, filePath) {
   let timedSpan = 0;
   let timedSteps = 0;
   for (const win of state.stepWindows.values()) {
+    // A failed-retry step (assistant/attempt / v1 failed-finish chunk) has its
+    // tokens booked above, but its span includes failed work and backoff —
+    // never a clean speed sample.
+    if (win.failed) continue;
     if (!(win.out > 0) || win.end == null) continue;
     const start = Number.isFinite(win.start) ? win.start : win.chunkStart;
     if (!Number.isFinite(start) || win.end <= start) continue;

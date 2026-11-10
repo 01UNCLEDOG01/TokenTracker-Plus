@@ -373,3 +373,43 @@ test("dsh falls back to the chunk span when a step carries no start event", asyn
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
+
+test("DSH failed-retry steps (v4 attempt / v1 failed-finish chunk) drop the speed sample but keep tokens", async () => {
+  // Upstream #1080 follow-through: v4 records the failed try as
+  // assistant/attempt; v1 has no attempt event — the failed try ends as a
+  // top-level assistant/chunk whose chunk is a finish with an error or
+  // aborted reason. The retry span includes failed work and backoff, so the
+  // step can never be a clean sample even though the eventual message books
+  // its tokens.
+  const { home, dir } = sandbox();
+  try {
+    const start = 1791590000000;
+    const lines = [
+      sessionHeader("fail-retry", { createdAt: start }),
+      record("request/context", 10, start + 40, { provider: "apigoto", model: "deepseek-flash", contextWindow: 1000000 }),
+      // Step 1: starts, dies with a v1-style error finish chunk, and the
+      // retried attempt books usage under the same turn/step.
+      record("step/start", 11, start + 1000, { turn: 1, step: 1 }),
+      record("assistant/chunk", 12, start + 2000, { turn: 1, step: 1, chunk: { type: "finish", reason: { kind: "error" } } }),
+      record("assistant/message", 13, start + 5000, { turn: 1, step: 1, message: { role: "assistant", content: [] }, usage: usage(1000, 300, 1300, 0), stream: [{ time: start + 4900 }, { time: start + 4950 }] }),
+      // Step 2: clean — the only honest sample.
+      record("step/start", 14, start + 6000, { turn: 1, step: 2 }),
+      record("assistant/message", 15, start + 8000, { turn: 1, step: 2, message: { role: "assistant", content: [] }, usage: usage(500, 200, 700, 0), stream: [{ time: start + 7100 }, { time: start + 8000 }] }),
+      // Step 3: v4-style attempt failure marker.
+      record("step/start", 16, start + 9000, { turn: 1, step: 3 }),
+      record("assistant/attempt", 17, start + 9500, { turn: 1, step: 3 }),
+      record("assistant/message", 18, start + 12000, { turn: 1, step: 3, message: { role: "assistant", content: [] }, usage: usage(500, 150, 650, 0), stream: [{ time: start + 11000 }, { time: start + 11500 }] }),
+      record("turn/end", 19, start + 13000, { turn: 1, reason: { kind: "completed" } }),
+    ];
+    fs.writeFileSync(path.join(dir, "session.v4.jsonl"), lines.join("\n") + "\n");
+    const row = (await rowsFrom(home))[0];
+    // All three steps' tokens stay booked — only the TIMING samples drop.
+    assert.equal(row.tokens.output_tokens, 650);
+    const perf = row.performance;
+    assert.equal(perf.estimated_request_count, 1, "failed steps (v1 chunk + v4 attempt) must not become samples");
+    assert.equal(perf.estimated_output_tokens, 200);
+    assert.equal(perf.estimated_tokens_per_second, 100, "step 2: 200 tokens over 2s");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
