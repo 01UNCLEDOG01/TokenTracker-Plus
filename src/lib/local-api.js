@@ -3489,10 +3489,14 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const descriptor = { baseUrl: normalizeInstanceBaseUrl(selectedRuntime.baseUrl) || "",
         anonKey: selectedRuntime.configurationError ? null : selectedRuntime.anonKey,
         dashboardUrl: normalizeInstanceBaseUrl(selectedRuntime.dashboardUrl) || "", configurationError: selectedRuntime.configurationError,
-        // Capability flags: this origin is the local CLI, so social surfaces
-        // read local history and cloud-only chrome is hidden in this build.
-        localHistory: true,
-        localOnly: true };
+        // Capability flags follow the configuration. Unconfigured = the
+        // 2026-11-01 local-first flip: social surfaces read local history and
+        // cloud-only chrome stays hidden. A CONFIGURED instance (self-host) is
+        // the whole point of configuring one — the dashboard must flip to it
+        // (account sign-in, the instance leaderboard) instead of staying
+        // pinned to 本机历史 forever.
+        localHistory: !normalizeInstanceBaseUrl(selectedRuntime.baseUrl),
+        localOnly: !normalizeInstanceBaseUrl(selectedRuntime.baseUrl) };
       const value = JSON.stringify(descriptor).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       res.end(`window.__TOKENTRACKER_RUNTIME_CONFIG__=${value};`);
