@@ -174,6 +174,9 @@ final class QuotaWidgetHost {
         }
         guard NSEvent.pressedMouseButtons != 0 else {
             stopDrag()
+            // Borderless window: no titlebar to grab it back, so never let a fling
+            // leave it fully off-screen.
+            clampToVisible(window)
             return
         }
         let mouse = NSEvent.mouseLocation
@@ -185,5 +188,16 @@ final class QuotaWidgetHost {
         dragTimer?.invalidate()
         dragTimer = nil
         dragAnchor = nil
+    }
+
+    private func clampToVisible(_ window: NSWindow) {
+        guard let screen = window.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        var frame = window.frame
+        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+        if frame.origin != window.frame.origin {
+            window.setFrameOrigin(frame.origin)
+        }
     }
 }

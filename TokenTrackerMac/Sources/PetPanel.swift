@@ -7,7 +7,10 @@ import WebKit
 final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler {
     /// NSWindow frame autosave slot (Window placement memory, Windows Parity).
     private static let frameAutosaveName = "TTPPetPanel"
-    private let serverURL: URL
+    /// Resolved lazily: ServerManager picks the first free port in start(), so a
+    /// URL captured in the initializer would point at a port the server does not
+    /// own (pet/quota then load an orphan server or a blank page).
+    private let serverURLProvider: () -> URL
     private(set) var panel: NSPanel?
     /// Size bucket driving the window's fixed width + base height (Windows
     /// PetWindow.CurrentSize parity).
@@ -17,8 +20,8 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     /// Fired on right-click inside the pet (the host shows the context menu).
     var onContextMenu: ((NSPoint) -> Void)?
 
-    init(serverURL: URL, sizePreset: PetSizePreset = .medium) {
-        self.serverURL = serverURL
+    init(serverURLProvider: @escaping () -> URL, sizePreset: PetSizePreset = .medium) {
+        self.serverURLProvider = serverURLProvider
         self.sizePreset = sizePreset
         super.init()
     }
@@ -40,7 +43,7 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             if webView.url == nil {
                 // Windows PetWindow navigates to the STATIC pet page with the
                 // app-mode flag (/pet.html?app=1).
-                WebHost.load(webView, path: "/pet.html?app=1", on: serverURL)
+                WebHost.load(webView, path: "/pet.html?app=1", on: serverURLProvider())
             } else {
                 lastHover = false
                 pushHover(false)
@@ -59,6 +62,7 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         panel?.orderOut(nil)
         stopHoverTracking()
         if lastHover { lastHover = false; pushHover(false) }
+        lastLookDirection = -1
         // A hide mid-drag must not leave the 60Hz loop running.
         dragTimer?.invalidate()
         dragTimer = nil
@@ -76,6 +80,8 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     private var lastMouseActive = Date()
     private var lastMousePos = NSPoint(x: -1, y: -1)
     private var mouseIdle = false
+    /// Last 16-way look cell pushed to the page (Windows PetWindow._lastLookDirection).
+    private var lastLookDirection = -1
 
     /// The page does NOT track the mouse itself — DOM mouse-leave is unreliable
     /// on this transparent, never-activated panel (pet.jsx says so verbatim).
@@ -118,6 +124,29 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             lastHover = inside
             pushHover(inside)
         }
+        updateLookDirection()
+    }
+
+    /// Windows PetWindow LookTick: V2 atlases expose sixteen cursor-facing cells
+    /// at 22.5° steps. The page (pet.jsx `pet:look`) only applies it for V2 pets,
+    /// and it wants the direction even when the cursor is outside the window.
+    private func updateLookDirection() {
+        guard let panel, panel.isVisible else { return }
+        let mouse = NSEvent.mouseLocation
+        let frame = panel.frame
+        // Windows PointToScreen(ActualWidth/2, (band + height)/2); mac origin is
+        // bottom-left, so that top-down Y is mirrored below.
+        let center = NSPoint(x: frame.midX,
+                             y: frame.minY + (frame.height - bubbleBand) / 2)
+        let dx = mouse.x - center.x
+        let dyUp = mouse.y - center.y          // Windows uses -dy with Y growing down
+        let degrees = (atan2(dx, dyUp) * 180 / .pi + 360).truncatingRemainder(dividingBy: 360)
+        let direction = Int((degrees / 22.5).rounded()) % 16
+        guard direction != lastLookDirection else { return }
+        lastLookDirection = direction
+        pushPetEvent("window.__ttPetLookDirectionIndex=\(direction);" +
+                     "window.dispatchEvent(new Event('pet:look'));")
+        Diag.info("Pet look -> \(direction)")
     }
 
     /// Windows PetWindow.ClickThroughTick: skip while a drag is in flight (the
@@ -427,12 +456,17 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     }
 }
 
-/// The three desktop-pet size buckets — Windows PetWindow.SizeDimensions parity.
-/// Every preset shares one window width (the 340pt bubble needs the room; the
-/// surplus area is transparent and click-through), and each base height already
-/// includes the 138pt bubble band. The live window only adds band growth above
-/// that base, so `height - band` — the value pet.jsx derives the sprite size
-/// from — stays constant: a bubble appearing can never resize or move the pet.
+/// The three desktop-pet size buckets. Sizes follow the UPSTREAM macOS client
+/// (TokenTrackerBar DesktopPetWindowController.PetSizePreset: scales
+/// 1.0 / 1.4 / 1.85 on the 15x16 artboard at 4pt per unit = 60 / 84 / 111pt),
+/// so the webview pet reads the same size as the author's native mac build.
+///
+/// The webview geometry itself follows Windows PetWindow: one shared window
+/// width (the 340pt bubble needs the room; the surplus is transparent and
+/// click-through), and pet.jsx derives the sprite from `min(width, height - band)
+/// - 8`, so `baseHeight = sprite + band + 8`. The live window only adds band
+/// growth above that base, so `height - band` — the sprite input — stays
+/// constant: a bubble appearing can never resize or move the pet.
 enum PetSizePreset: String, CaseIterable {
     case small, medium, large
 
@@ -440,13 +474,22 @@ enum PetSizePreset: String, CaseIterable {
     /// its shadow never hit the layered-window edge.
     static let windowWidth: CGFloat = 400
 
-    /// Windows PetWindow.SizeDimensions (measured with MinBubbleBand reserved).
-    var baseHeight: CGFloat {
+    /// The pet.jsx inset (sizeFor(): `- 8`).
+    static let pageSpriteInset: CGFloat = 8
+
+    /// Painted sprite box, matching the upstream native scales.
+    var spriteSize: CGFloat {
         switch self {
-        case .small: return 230
-        case .medium: return 254
-        case .large: return 286
+        case .small: return 60   // 15 * 4 * 1.0
+        case .medium: return 84  // 15 * 4 * 1.4
+        case .large: return 111  // 15 * 4 * 1.85
         }
+    }
+
+    /// Window base height (MinBubbleBand reserved) that makes pet.jsx paint the
+    /// sprite at `spriteSize`: sizeFor() = (height - band) - 8.
+    var baseHeight: CGFloat {
+        spriteSize + PetPanelController.minBubbleBand + Self.pageSpriteInset
     }
 
     /// Stored prefs may hold anything (older builds, hand edits); fall back to

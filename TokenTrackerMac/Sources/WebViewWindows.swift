@@ -109,10 +109,12 @@ enum WebHost {
 
 /// The full dashboard in a regular titled window — counterpart of DashboardWindow.cs.
 final class DashboardWindowController: NSWindowController, NSWindowDelegate {
-    private let serverURL: URL
+    /// Live provider: ServerManager may fall back to another port before/after
+    /// this window exists (see PetPanelController.serverURLProvider).
+    private let serverURLProvider: () -> URL
 
-    init(serverURL: URL) {
-        self.serverURL = serverURL
+    init(serverURLProvider: @escaping () -> URL) {
+        self.serverURLProvider = serverURLProvider
         let rect = NSRect(x: 0, y: 0, width: 1280, height: 840)
         let window = NSWindow(contentRect: rect,
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -139,7 +141,7 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
             // (isNativeApp() -> native layout + pet/tray controls). Loading plain
             // /dashboard on a fresh install left those controls disabled behind the
             // "open this page in the desktop app" hint.
-            WebHost.load(webView, path: "/?app=1", on: serverURL)
+            WebHost.load(webView, path: "/?app=1", on: serverURLProvider())
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -158,12 +160,12 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
 /// its own rounded card, so a titled/resizable mac window both clipped the
 /// compact row (112pt) and left the expanded card mostly empty (600pt).
 final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
-    private let serverURL: URL
+    private let serverURLProvider: () -> URL
     /// Compact size is the mount state of the page (quota:ready -> compact).
     private static let compactSize = NSSize(width: 320, height: 144)
 
-    init(serverURL: URL) {
-        self.serverURL = serverURL
+    init(serverURLProvider: @escaping () -> URL) {
+        self.serverURLProvider = serverURLProvider
         let rect = NSRect(origin: .zero, size: Self.compactSize)
         let panel = NSPanel(contentRect: rect,
                             styleMask: [.borderless, .nonactivatingPanel],
@@ -197,11 +199,25 @@ final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
         var frame = window.frame
         frame.size = Self.compactSize
         window.setFrame(frame, display: false)
+        clampToVisibleScreen(window)
         if let webView = WebHost.webView(in: window) {
-            WebHost.load(webView, path: "/quota.html?app=1", on: serverURL)
+            WebHost.load(webView, path: "/quota.html?app=1", on: serverURLProvider())
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// A borderless window has no titlebar to grab, so a stale autosaved origin
+    /// (or a drag flung past the edge) must never leave it stranded off-screen.
+    private func clampToVisibleScreen(_ window: NSWindow) {
+        guard let screen = window.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        var frame = window.frame
+        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+        if frame.origin != window.frame.origin {
+            window.setFrameOrigin(frame.origin)
+        }
     }
 
     func windowWillClose(_ notification: Notification) {

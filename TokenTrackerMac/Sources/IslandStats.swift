@@ -389,24 +389,38 @@ final class IslandStats: NSObject {
                 return
             }
             DispatchQueue.main.async {
-                // Unlike the old read, the unit system is NOT gated on the currency
-                // key: a user who never touched the currency picker still gets K/M/B.
-                let code = CurrencyPreferences.normalizeCode(obj["c"] as? String)
-                let rates = obj["r"] as? [String: Double] ?? [:]
-                let rate = rates[code] ?? CurrencyPreferences.defaultRates[code] ?? self.currencyRate
-                let unit = (obj["u"] as? String).map {
-                    Self.normalizeUnitSystem($0, fallback: self.tokenUnitSystem)
-                } ?? self.tokenUnitSystem
-                let changed = code != self.currencyCode
-                    || unit != self.tokenUnitSystem
-                    || abs(rate - self.currencyRate) > 0.0001
-                guard changed else {
-                    Diag.info("Pet prefs mirror: unchanged (\(code) \(unit) \(rate))")
+                // A fresh storage origin (e.g. the server fell back to another port,
+                // which is a new localStorage origin) has no keys at all. Treating
+                // that as "USD" and persisting it overwrote the user's real currency
+                // — keep the persisted defaults until something is actually stored.
+                let storedCurrency = obj["c"] as? String
+                let storedUnit = obj["u"] as? String
+                guard storedCurrency != nil || storedUnit != nil else {
+                    Diag.info("Pet prefs mirror: origin has no stored prefs — keeping persisted values")
                     return
                 }
-                self.applyCurrency(code: code, rate: rate)
-                self.applyTokenUnitSystem(unit)
-                Diag.info("Pet pill currency: \(self.currencySymbol) rate \(self.currencyRate) units \(self.tokenUnitSystem)")
+                var changed = false
+                if let storedCurrency {
+                    let code = CurrencyPreferences.normalizeCode(storedCurrency)
+                    let rates = obj["r"] as? [String: Double] ?? [:]
+                    let rate = rates[code] ?? CurrencyPreferences.defaultRates[code] ?? self.currencyRate
+                    if code != self.currencyCode || abs(rate - self.currencyRate) > 0.0001 {
+                        self.applyCurrency(code: code, rate: rate)
+                        changed = true
+                    }
+                }
+                if let storedUnit {
+                    let unit = Self.normalizeUnitSystem(storedUnit, fallback: self.tokenUnitSystem)
+                    if unit != self.tokenUnitSystem {
+                        self.applyTokenUnitSystem(unit)
+                        changed = true
+                    }
+                }
+                guard changed else {
+                    Diag.info("Pet prefs mirror: unchanged")
+                    return
+                }
+                Diag.info("Pet prefs -> \(self.currencyCode)/\(self.currencySymbol) rate \(self.currencyRate) units \(self.tokenUnitSystem)")
                 self.publishDisplayChange()
             }
         }

@@ -10,8 +10,26 @@ import AppKit
 final class IslandCapsuleController: NSObject, NSWindowDelegate {
     private(set) var panel: NSPanel?
     private var dotLayer: CAShapeLayer?
+    private var dotView: NSView?
+    private var petImageView: NSImageView?
+    private var catTimer: Timer?
+    private var catFrameIndex = 0
     private var textLabel: NSTextField?
     private var mouseDownLocation: NSPoint?
+
+    /// The pill appearance inputs (Windows MonitorWidgetWindow keeps the same
+    /// three values privately and re-derives the dot on every ApplyStyle).
+    /// Cached so a change made while the pill is hidden/not-yet-created still
+    /// lands when it is shown.
+    struct PillAppearance: Equatable {
+        var character: String = "clawd"
+        var botColor: String = "auto"
+        var trayStyle: String = "cat"
+    }
+    private var appearance = PillAppearance()
+    /// Signature of the last logged/applied appearance — repeated applies (startup,
+    /// health, settings echoes) must not spam the diag log.
+    private var lastAppearanceSignature = ""
 
     /// Assigned by AppDelegate — Windows MonitorWidgetWindow opens the dashboard
     /// on a click without drag.
@@ -64,6 +82,7 @@ final class IslandCapsuleController: NSObject, NSWindowDelegate {
     func show() {
         let panel = self.panel ?? makePanel()
         self.panel = panel
+        applyAppearance()
         isApplyingPlacement = true
         if islandMode {
             placeTopCenter(panel, force: true)
@@ -126,25 +145,100 @@ final class IslandCapsuleController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        stopCatAnimation()
         panel?.orderOut(nil)
     }
 
-    /// Accent dot tinted to the companion (MonitorWidgetWindow.ApplyStyle):
-    /// hues follow each character's own art; unknown ids keep neutral gray.
+    /// Authoritative appearance entry point (Windows ApplyStyle). Precedence:
+    /// tray style `cat` -> animated cat frames in place of the dot,
+    /// `lightning` -> fixed amber dot, anything else (mascot/unknown) ->
+    /// per-character dot: built-ins use their own art colour, bot follows its
+    /// body colour (pinned palette id, or theme-independent ink/cream for
+    /// "auto" — wait, the auto ends are theme-based on Windows, but this pill
+    /// backdrop is always dark, so auto resolves to cream like the pet bubble),
+    /// and unknown/community pets keep the neutral gray — that is why yeacat is
+    /// orange-yellow and 庚戌/gengxu is gray.
+    func setAppearance(character: String, botColor: String, trayStyle: String) {
+        appearance = PillAppearance(character: character, botColor: botColor, trayStyle: trayStyle)
+        applyAppearance()
+    }
+
+    /// Character+bot-colour convenience (keeps the tray style from settings).
+    func setPet(character: String, botColor: String) {
+        setAppearance(character: character,
+                      botColor: botColor,
+                      trayStyle: PetSettingsController.shared.settings.trayStyle)
+    }
+
+    /// Character-only convenience for call sites without the other values.
     func setCharacter(_ character: String) {
-        let rgb: (Int, Int, Int)
-        switch character {
-        case "clawd": rgb = (217, 119, 87)
-        case "byte": rgb = (96, 165, 250)
-        case "sprout": rgb = (74, 222, 128)
-        case "ember": rgb = (248, 113, 113)
-        case "gengxu": rgb = (167, 139, 250)
-        default: rgb = (156, 163, 175)
+        setAppearance(character: character,
+                      botColor: PetSettingsController.shared.settings.botColor,
+                      trayStyle: PetSettingsController.shared.settings.trayStyle)
+    }
+
+    private func applyAppearance() {
+        // Windows ApplyStyle opens with the cat branch: the dot is hidden and a
+        // 5-frame RunCat animation takes its place in the pill.
+        if appearance.trayStyle == "cat", let frames = Self.catFrames() {
+            dotView?.isHidden = true
+            showCatFrames(frames)
+            return
         }
-        guard let dotLayer else { return }
-        dotLayer.fillColor = NSColor(calibratedRed: CGFloat(rgb.0) / 255,
-                                     green: CGFloat(rgb.1) / 255,
-                                     blue: CGFloat(rgb.2) / 255, alpha: 1).cgColor
+        stopCatAnimation()
+        dotView?.isHidden = false
+        let rgb: PetPillAppearance.RGB
+        if appearance.trayStyle == "lightning" {
+            rgb = PetPillAppearance.RGB(r: 234, g: 179, b: 8)   // Windows #eab308
+        } else {
+            rgb = PetPillAppearance.dotColor(character: appearance.character,
+                                             botColor: appearance.botColor,
+                                             isDark: true)
+        }
+        dotLayer?.fillColor = PetPillAppearance.nsColor(rgb).cgColor
+        let signature = "\(appearance.trayStyle)|\(appearance.character)|\(appearance.botColor)|\(rgb.r),\(rgb.g),\(rgb.b)"
+        guard signature != lastAppearanceSignature else { return }
+        lastAppearanceSignature = signature
+        Diag.info("Capsule dot -> style=\(appearance.trayStyle) \(appearance.character)/\(appearance.botColor) rgb(\(rgb.r),\(rgb.g),\(rgb.b))")
+    }
+
+    private func showCatFrames(_ frames: [NSImage]) {
+        guard let petImageView else { return }
+        petImageView.isHidden = false
+        petImageView.image = frames[catFrameIndex % frames.count]
+        if lastAppearanceSignature != "cat" {
+            lastAppearanceSignature = "cat"
+            Diag.info("Capsule pill -> cat animation")
+        }
+        guard catTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
+            guard let self, let petImageView = self.petImageView else { return }
+            self.catFrameIndex = (self.catFrameIndex + 1) % frames.count
+            petImageView.image = frames[self.catFrameIndex]
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        catTimer = timer
+    }
+
+    private func stopCatAnimation() {
+        catTimer?.invalidate()
+        catTimer = nil
+        petImageView?.isHidden = true
+    }
+
+    /// RunnerCat frames are black silhouettes; the mac pill backdrop is always
+    /// dark, so tint them white (Windows uses its white cat set on the dark pill).
+    private static func catFrames() -> [NSImage]? {
+        let frames = (0..<5).compactMap { index -> NSImage? in
+            guard let image = NSImage(named: "cat\(index)"), let copy = image.copy() as? NSImage else { return nil }
+            copy.isTemplate = true
+            return copy
+        }
+        return frames.count == 5 ? frames : nil
+    }
+
+    private static var isDarkAppearance: Bool {
+        NSApp.effectiveAppearance.name.rawValue.contains("Dark")
     }
 
     func setText(_ text: String) {
@@ -199,7 +293,17 @@ final class IslandCapsuleController: NSObject, NSWindowDelegate {
         dot.layer?.addSublayer(shape)
         shape.fillColor = NSColor(calibratedWhite: 0.6, alpha: 1).cgColor
         self.dotLayer = shape
+        self.dotView = dot
         dot.autoresizingMask = [.minYMargin]
+
+        // Cat tray style: the 5 RunCat frames replace the dot (Windows pill
+        // parity). Hidden by default; applyAppearance decides.
+        let petImage = NSImageView(frame: NSRect(x: 11, y: 9, width: 22, height: 16))
+        petImage.imageScaling = .scaleProportionallyUpOrDown
+        petImage.contentTintColor = .white
+        petImage.isHidden = true
+        petImage.autoresizingMask = [.minYMargin]
+        self.petImageView = petImage
 
         let label = NSTextField(labelWithString: "—")
         label.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -209,8 +313,12 @@ final class IslandCapsuleController: NSObject, NSWindowDelegate {
         self.textLabel = label
 
         capsule.addSubview(dot)
+        capsule.addSubview(petImage)
         capsule.addSubview(label)
         panel.contentView = capsule
+        // Apply the cached appearance now: changes made before the panel existed
+        // (e.g. pill hidden at launch) used to be swallowed by the nil dotLayer.
+        applyAppearance()
 
         // No placement here: show() applies the mode (island pin / free
         // restore) under the isApplyingPlacement guard — placing here fired

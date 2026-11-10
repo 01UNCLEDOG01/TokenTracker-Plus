@@ -23,14 +23,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the first show on (the old shell ignored it until the settings page was
         // touched, so a restart always came back at the medium 320x340 default).
         petPanel = PetPanelController(
-            serverURL: serverManager.serverURL,
+            serverURLProvider: { [weak self] in
+                self?.serverManager.serverURL ?? URL(string: "http://127.0.0.1:17680")!
+            },
             sizePreset: PetSizePreset.normalize(PetSettingsController.shared.settings.size))
         petPanel?.onOpenDashboard = { [weak self] in self?.openDashboard() }
         petPanel?.onContextMenu = { [weak self] point in
             self?.statusItemController?.popMenu(at: point)
         }
 
-        self.widgetWindow = QuotaWidgetWindowController(serverURL: serverManager.serverURL)
+        self.widgetWindow = QuotaWidgetWindowController(serverURLProvider: { [weak self] in
+            self?.serverManager.serverURL ?? URL(string: "http://127.0.0.1:17680")!
+        })
 
         statusItemController = StatusItemController(
             serverManager: serverManager,
@@ -66,7 +70,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if stored("TTPPetEnabled") { self.petPanel?.show() }
                     if stored("TTPCapsuleEnabled") { self.capsule?.show() }
                     if stored("TTPQuotaWidgetEnabled") { self.widgetWindow?.presentWindow() }
-                    capsule?.setCharacter(PetSettingsController.shared.settings.character)
+                    capsule?.setPet(character: PetSettingsController.shared.settings.character,
+                                    botColor: PetSettingsController.shared.settings.botColor)
                 }
             }
         }
@@ -97,6 +102,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PetSettingsController.shared.currentQuota = { [weak self] in
             self?.widgetWindow?.window?.isVisible ?? false
         }
+        // Shell-level settings the dashboard's App & Updates section reads
+        // (Windows NativeBridge.pushSettings parity). Before this, getSettings was
+        // never answered, so the launch-at-login toggle and the check-for-updates
+        // button were rendered but dead.
+        PetSettingsController.shared.shellSettingsProvider = { [weak self] in
+            var payload: [String: Any] = [
+                "platform": "macos",
+                "launchAtLogin": LaunchAtLogin.isEnabled,
+                "launchAtLoginSupported": LaunchAtLogin.isSupported,
+                "toastOnReset": UserDefaults.standard.object(forKey: "TTPShell_toastOnReset") == nil
+                    ? true : UserDefaults.standard.bool(forKey: "TTPShell_toastOnReset"),
+                "confettiOnReset": UserDefaults.standard.object(forKey: "TTPShell_confettiOnReset") == nil
+                    ? true : UserDefaults.standard.bool(forKey: "TTPShell_confettiOnReset"),
+                "autoUpdateEnabled": UserDefaults.standard.bool(forKey: "TTPShell_autoUpdateEnabled"),
+                "hideMenuBarIcon": false,
+                "isSyncing": IslandStats.shared.syncing,
+                "dynamicIslandEnabled": self?.capsule?.isVisible ?? false,
+                "updateBusy": false,
+            ]
+            if let self { payload["version"] = self.updateChecker.currentVersion }
+            return payload
+        }
+        PetSettingsController.shared.nativeActionHandler = { [weak self] name in
+            guard let self else { return false }
+            switch name {
+            case "checkForUpdates":
+                self.updateChecker.checkAndPrompt()
+                return true
+            case "syncNow":
+                self.serverManager.syncNow()
+                return true
+            case "quit":
+                NSApp.terminate(nil)
+                return true
+            case "openDashboard":
+                self.openDashboard()
+                return true
+            default:
+                return false   // openWidgetGallery / openAbout have no surface here
+            }
+        }
         IslandStats.shared.load()
         IslandStats.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
         IslandStats.shared.petWebViewProvider = { [weak self] in
@@ -116,7 +162,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         PetSettingsController.shared.characterChanged = { [weak self] character in
-            self?.capsule?.setCharacter(character)
+            self?.capsule?.setPet(character: character,
+                                  botColor: PetSettingsController.shared.settings.botColor)
+        }
+        // bot's dot is its body colour, so a palette change must retint the pill
+        // even though the character itself did not change.
+        PetSettingsController.shared.botColorChanged = { [weak self] botColor in
+            self?.capsule?.setPet(character: PetSettingsController.shared.settings.character,
+                                  botColor: botColor)
         }
         PetSettingsController.shared.islandModeChanged = { [weak self] island in
             self?.capsule?.setIslandMode(island)
@@ -145,8 +198,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         PetSettingsController.shared.trayStyleChanged = { [weak self] style in
             self?.statusItemController?.setTrayStyle(style)
+            // Windows SetTrayStyle also re-styles the pill: cat -> cat animation,
+            // lightning -> amber dot, mascot -> pet-coloured dot.
+            let settings = PetSettingsController.shared.settings
+            self?.capsule?.setAppearance(character: settings.character,
+                                         botColor: settings.botColor,
+                                         trayStyle: style)
         }
         capsule.setIslandMode(PetSettingsController.shared.settings.islandMode)
+        // Seed the pill appearance from the persisted settings even before the
+        // first show (Windows ctor ApplyStyle).
+        capsule.setAppearance(character: PetSettingsController.shared.settings.character,
+                              botColor: PetSettingsController.shared.settings.botColor,
+                              trayStyle: PetSettingsController.shared.settings.trayStyle)
         QuotaWidgetHost.shared.windowProvider = { [weak self] in self?.widgetWindow?.window }
         QuotaWidgetHost.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
         QuotaWidgetHost.shared.onClose = { [weak self] in
@@ -180,6 +244,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidChangeEffectiveAppearance(_ notification: Notification) {
         PetSettingsController.shared.pushToPetPage()
         PetSettingsController.shared.broadcastSettings()
+        // bot "auto" body colour flips with the theme, so the pill dot follows.
+        let settings = PetSettingsController.shared.settings
+        capsule?.setPet(character: settings.character, botColor: settings.botColor)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -190,13 +257,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Window management
 
     private func openDashboard() {
-        let controller = dashboardWindow ?? DashboardWindowController(serverURL: serverManager.serverURL)
+        let controller = dashboardWindow ?? DashboardWindowController(serverURLProvider: { [weak self] in
+            self?.serverManager.serverURL ?? URL(string: "http://127.0.0.1:17680")!
+        })
         dashboardWindow = controller
         controller.presentWindow()
     }
 
     private func openWidget() {
-        let controller = widgetWindow ?? QuotaWidgetWindowController(serverURL: serverManager.serverURL)
+        let controller = widgetWindow ?? QuotaWidgetWindowController(serverURLProvider: { [weak self] in
+            self?.serverManager.serverURL ?? URL(string: "http://127.0.0.1:17680")!
+        })
         widgetWindow = controller
         controller.presentWindow()
     }

@@ -41,24 +41,39 @@ test('macOS window width matches the Windows surface width', () => {
   assert.strictEqual(macWidth, win);
 });
 
-test('macOS base heights match Windows SizeDimensions for every preset', () => {
-  const winDimensions = windows.match(
-    /private static \(double Width, double Height\) SizeDimensions\(string size\) => size switch[\s\S]*?\};/,
-  );
-  assert.ok(winDimensions, 'PetWindow.cs SizeDimensions not found');
-  const winSmall = Number(winDimensions[0].match(/SizeSmall => \(WindowWidth, (\d+)\)/)[1]);
-  const winLarge = Number(winDimensions[0].match(/SizeLarge => \(WindowWidth, (\d+)\)/)[1]);
-  const winMedium = Number(winDimensions[0].match(/_ => \(WindowWidth, (\d+)\)/)[1]);
+test('macOS sprite sizes mirror the upstream native client scales', () => {
+  // Upstream: ClawdCompanionView paints 15 * px(4) = 60pt at floatingScale 1.0.
+  const upstream = read('TokenTrackerMac/BarSources/Sources/TokenTrackerBar/Services/DesktopPetWindowController.swift');
+  const scaleBlock = upstream.match(/var scale: CGFloat \{([\s\S]*?)\n    \}/);
+  assert.ok(scaleBlock, 'upstream PetSizePreset.scale not found');
+  const upstreamScale = {};
+  for (const preset of ['small', 'medium', 'large']) {
+    const m = scaleBlock[1].match(new RegExp('case \\.' + preset + ':\\s*return ([\\d.]+)'));
+    assert.ok(m, 'upstream scale for ' + preset + ' not found');
+    upstreamScale[preset] = Number(m[1]);
+  }
 
-  const macBlock = mac.match(/enum PetSizePreset[\s\S]*?var baseHeight: CGFloat \{([\s\S]*?)\n    \}/);
-  assert.ok(macBlock, 'PetPanel.swift baseHeight switch not found');
-  const macHeights = {};
+  const macBlock = mac.match(/enum PetSizePreset[\s\S]*?var spriteSize: CGFloat \{([\s\S]*?)\n    \}/);
+  assert.ok(macBlock, 'PetPanel.swift spriteSize switch not found');
+  const macSprite = {};
   for (const preset of ['small', 'medium', 'large']) {
     const m = macBlock[1].match(new RegExp('case \\.' + preset + ': return (\\d+)'));
-    assert.ok(m, 'mac baseHeight for ' + preset + ' not found');
-    macHeights[preset] = Number(m[1]);
+    assert.ok(m, 'mac spriteSize for ' + preset + ' not found');
+    macSprite[preset] = Number(m[1]);
   }
-  assert.deepStrictEqual(macHeights, { small: winSmall, medium: winMedium, large: winLarge });
+
+  const artboardWidth = 15;
+  const pointsPerUnit = 4; // ClawdCompanionView.px
+  for (const preset of ['small', 'medium', 'large']) {
+    const expected = artboardWidth * pointsPerUnit * upstreamScale[preset];
+    assert.strictEqual(macSprite[preset], expected,
+      preset + ' sprite should match the upstream mac client (' + expected + 'pt)');
+  }
+});
+
+test('macOS base height derives from pet.jsx geometry (sprite + band + inset)', () => {
+  assert.match(mac, /var baseHeight: CGFloat \{\s*\n\s*spriteSize \+ PetPanelController\.minBubbleBand \+ Self\.pageSpriteInset/);
+  assert.match(mac, /static let pageSpriteInset: CGFloat = 8/);
 });
 
 test('bubble-band growth keeps height - band constant on both hosts', () => {
