@@ -38,6 +38,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     /// The「用量悬浮窗」toggle (Windows MonitorWidgetWindow) = the desktop panel.
     var setMonitor: ((Bool) -> Void)?
     var currentMonitor: (() -> Bool)?
+    /// The「桌面限额」toggle (Windows _quotaWindow.Enabled): read live, else closing
+    /// the quota window with its own close button left the settings switch ON.
+    var currentQuota: (() -> Bool)?
 
     /// Provided by AppDelegate: every live app webview (bridge replies go to all).
     var webViewProvider: (() -> [WKWebView])?
@@ -52,12 +55,6 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     var islandModeChanged: ((Bool) -> Void)?
     var quotaChanged: ((Bool) -> Void)?
     var trayStyleChanged: ((String) -> Void)?
-
-    private let sizeFrames: [String: NSRect] = [
-        "small": NSRect(x: 0, y: 0, width: 240, height: 320),
-        "medium": NSRect(x: 0, y: 0, width: 320, height: 420),
-        "large": NSRect(x: 0, y: 0, width: 420, height: 560),
-    ]
 
     func load() {
         let d = UserDefaults.standard
@@ -75,7 +72,7 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         let monitor = d.object(forKey: "TTPCapsuleEnabled") == nil
             ? true : d.bool(forKey: "TTPCapsuleEnabled")
         settings = Settings(visible: true, character: character,
-                            size: sizeFrames.keys.contains(size) ? size : "medium",
+                            size: PetSizePreset.normalize(size).rawValue,
                             botColor: botColor,
                             islandMode: islandMode,
                             quota: quota,
@@ -119,6 +116,17 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             return
         }
         switch type {
+        case "setSetting":
+            // The dashboard's appearance controls (currency, unit system, locale)
+            // post the Windows native-bridge shape. They used to be dropped here,
+            // so the pet/capsule kept ¥/万/亿 and a 7.2x guess until a dashboard
+            // window happened to be open and the 60s localStorage mirror ran.
+            IslandStats.shared.applyDashboardSetting(key: obj["key"] as? String ?? "",
+                                                     value: obj["value"])
+        case "getSettings", "nativeSetting":
+            // Windows-only request shapes (theme/native settings); no menu-bar
+            // surface in this shell, and the dashboard falls back to localStorage.
+            break
         case "getPetSettings":
             broadcastSettings()
         case "setPetSetting":
@@ -152,8 +160,8 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             d.set(character, forKey: "TTPPetCharacter")
             characterChanged?(character)
         case "size":
-            guard let size = value as? String, sizeFrames.keys.contains(size) else { return }
-            settings.size = size
+            guard let size = value as? String, PetSizePreset(rawValue: size) != nil else { return }
+            settings.size = PetSizePreset.normalize(size).rawValue
             d.set(size, forKey: "TTPPetSize")
             resizePetPanel()
         case "botColor":
@@ -205,7 +213,7 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             "botColor": settings.botColor,
             "monitor": currentMonitor?() ?? settings.monitor,
             "islandMode": settings.islandMode,
-            "quota": settings.quota,
+            "quota": currentQuota?() ?? settings.quota,
             "trayStyle": settings.trayStyle,
             "actionLock": settings.actionLock,
         ]
@@ -245,11 +253,13 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         WebHost.webView(in: panel.panel)
     }
 
-    /// Resize the pet panel for the chosen size bucket and re-dock it.
+    /// Resize the pet panel for the chosen size bucket. The window keeps the
+    /// position the user docked it at (Windows ApplySize keeps the bottom edge;
+    /// only the first launch parks at the default corner), so picking a size
+    /// never teleports the pet.
     func resizePetPanel() {
-        guard let petPanel = petPanelProvider?(), let panel = petPanel.panel,
-              let frame = sizeFrames[settings.size] else { return }
-        panel.setContentSize(frame.size)
-        petPanel.placeAtDefaultCorner()
+        guard let petPanel = petPanelProvider?() else { return }
+        settings.size = PetSizePreset.normalize(settings.size).rawValue
+        petPanel.setSize(PetSizePreset.normalize(settings.size))
     }
 }

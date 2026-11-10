@@ -5,15 +5,21 @@ import WebKit
 /// panel hosting pet.html. v1 interaction: draggable by background, left-click
 /// actions come from the page's pet:* events, right-click opens the shell menu.
 final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler {
+    /// NSWindow frame autosave slot (Window placement memory, Windows Parity).
+    private static let frameAutosaveName = "TTPPetPanel"
     private let serverURL: URL
     private(set) var panel: NSPanel?
+    /// Size bucket driving the window's fixed width + base height (Windows
+    /// PetWindow.CurrentSize parity).
+    private(set) var sizePreset: PetSizePreset
     /// Fired when the page asks to open the dashboard (pet:open-dashboard).
     var onOpenDashboard: (() -> Void)?
     /// Fired on right-click inside the pet (the host shows the context menu).
     var onContextMenu: ((NSPoint) -> Void)?
 
-    init(serverURL: URL) {
+    init(serverURL: URL, sizePreset: PetSizePreset = .medium) {
         self.serverURL = serverURL
+        self.sizePreset = sizePreset
         super.init()
     }
 
@@ -45,7 +51,13 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     }
 
     func hide() {
+        // A hide mid-drag must clear the page's run pose (PetWindow.HidePet pushes
+        // drag-state null); otherwise the pet runs forever when re-shown.
+        if dragStartMouse != nil {
+            pushPetEvent("window.__ttPetDragState=null;window.dispatchEvent(new Event('pet:drag-end'));")
+        }
         panel?.orderOut(nil)
+        stopHoverTracking()
         if lastHover { lastHover = false; pushHover(false) }
         // A hide mid-drag must not leave the 60Hz loop running.
         dragTimer?.invalidate()
@@ -57,6 +69,7 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     // MARK: Hover tracking (PetWindow.cs counterpart)
 
     private var hoverTimer: Timer?
+    private var clickThroughTimer: Timer?
     private var lastHover = false
     // Mouse idle / wake tracking (PetWindow.cs: >=60s stillness -> pet:sleep,
     // first movement afterwards -> pet:wake).
@@ -66,15 +79,32 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
 
     /// The page does NOT track the mouse itself — DOM mouse-leave is unreliable
     /// on this transparent, never-activated panel (pet.jsx says so verbatim).
-    /// The host polls the OS cursor against the window rect and pushes
-    /// window.__ttPetHover + a pet:hover event, exactly like PetWindow.cs.
+    /// The host polls the OS cursor against the sprite square and pushes
+    /// window.__ttPetHover + a pet:hover event, exactly like PetWindow.HoverTick.
     func startHoverTracking() {
         guard hoverTimer == nil else { return }
-        let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
+        // Windows HoverTick interval (150ms).
+        let timer = Timer(timeInterval: 0.15, repeats: true) { [weak self] _ in
             self?.pollHover()
         }
         RunLoop.main.add(timer, forMode: .common)
         hoverTimer = timer
+        // Windows ClickThroughTick runs on its own 50ms timer: the transparent
+        // parts of the panel must not swallow clicks meant for whatever sits
+        // behind the pet.
+        guard clickThroughTimer == nil else { return }
+        let clickTimer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.pollClickThrough()
+        }
+        RunLoop.main.add(clickTimer, forMode: .common)
+        clickThroughTimer = clickTimer
+    }
+
+    private func stopHoverTracking() {
+        hoverTimer?.invalidate()
+        hoverTimer = nil
+        clickThroughTimer?.invalidate()
+        clickThroughTimer = nil
     }
 
     private func pollHover() {
@@ -83,11 +113,51 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             if lastHover { lastHover = false; pushHover(false) }
             return
         }
-        let inside = panel.frame.contains(NSEvent.mouseLocation)
+        let inside = isPointOnPet(NSEvent.mouseLocation)
         if inside != lastHover {
             lastHover = inside
             pushHover(inside)
         }
+    }
+
+    /// Windows PetWindow.ClickThroughTick: skip while a drag is in flight (the
+    /// moving window would otherwise thrash the hit test) and while hidden.
+    private func pollClickThrough() {
+        guard let panel, panel.isVisible else { return }
+        if dragTimer != nil { return }
+        let clickThrough = !isPointOnPet(NSEvent.mouseLocation)
+        if panel.ignoresMouseEvents != clickThrough {
+            panel.ignoresMouseEvents = clickThrough
+        }
+    }
+
+    /// Windows PetWindow.IsPointOnPet: the WebView surface is rectangular even
+    /// though most of it is transparent, so keep only the lower centered sprite
+    /// square mouse-active — the bubble band and the horizontal padding pass
+    /// through to whatever is behind.
+    private func isPointOnPet(_ screenPoint: NSPoint) -> Bool {
+        guard let panel else { return false }
+        let frame = panel.frame
+        guard frame.width > 0, frame.height > 0 else { return true }
+        guard frame.contains(screenPoint) else { return false }
+        let s = Self.spriteSize(width: frame.width, height: frame.height, band: bubbleBand)
+        let pad = max(8, s * 0.08)
+        let area = max(0, frame.height - bubbleBand)
+        let pageTop = bubbleBand + max(0, (area - s) / 2)
+        let top = frame.height - pageTop           // page top-left -> window bottom-left
+        let bottom = top - s
+        let left = (frame.width - s) / 2
+        let right = left + s
+        let dx = screenPoint.x - frame.minX
+        let dy = screenPoint.y - frame.minY
+        return dx >= left - pad && dx <= right + pad
+            && dy >= bottom - pad && dy <= top + pad
+    }
+
+    /// pet.jsx:sizeFor() — the page sizes the sprite from the live viewport, so
+    /// the host must use the identical formula for its hit rectangle.
+    static func spriteSize(width: CGFloat, height: CGFloat, band: CGFloat) -> CGFloat {
+        max(40, min(width, height - band) - 8)
     }
 
     // MARK: Native drag (WM_NCLBUTTONDOWN/HTCAPTION counterpart)
@@ -176,27 +246,77 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         Diag.info("Pet hover -> \(hovering)")
     }
 
-    /// Base sprite window height (bubble/popup height is added on top).
-    static let baseHeight: CGFloat = 340
+    /// Windows PetWindow.MinBubbleBand — pet.jsx:MIN_BUBBLE_BAND. The preset
+    /// base heights below are measured with this band already reserved.
+    static let minBubbleBand: CGFloat = 138
+
+    /// Base sprite-window height for the current preset (Windows
+    /// PetWindow.SizeDimensions; it already includes the 138pt bubble band).
+    private var baseHeight: CGFloat { sizePreset.baseHeight }
 
     /// The bubble band the PAGE measured (pet:bubble-height:<n>) — the host
     /// stores it and re-pushes it; hardcoding a value here clobbers the page's
     /// own layout and clips the bubble at the window top edge.
-    private(set) var bubbleBand: CGFloat = 64
+    private(set) var bubbleBand: CGFloat = PetPanelController.minBubbleBand
 
     /// Grow the transparent host upward for the bubble / hover limits popup —
     /// the page measures its own content (pet:bubble-height:<n>) and the native
     /// side just obeys, keeping the sprite anchored at the bottom edge.
+    ///
+    /// Windows ApplyBubbleBand parity: height = base + (band - MinBubbleBand).
+    /// Height and band must move together — pet.jsx derives the sprite size from
+    /// `innerHeight - band`, so adding the raw band to a fixed base (the old
+    /// 340 + band math) scaled the pet up and slid it off its feet on hover.
     func resizeForBubble(band: CGFloat) {
-        bubbleBand = max(64, band)
+        guard band.isFinite else { return }
+        let spriteArea = max(0, baseHeight - Self.minBubbleBand)
+        var maxBand = CGFloat.greatestFiniteMagnitude
+        if let screen = panel?.screen ?? NSScreen.main {
+            maxBand = max(Self.minBubbleBand, screen.visibleFrame.height - spriteArea)
+        }
+        let nextBand = min(max(Self.minBubbleBand, ceil(band)), maxBand)
+        guard abs(nextBand - bubbleBand) >= 0.5 else { return }
+        bubbleBand = nextBand
         guard let panel else { return }
-        let target = PetPanelController.baseHeight + bubbleBand
+        let target = baseHeight + (bubbleBand - Self.minBubbleBand)
         var frame = panel.frame
-        guard abs(frame.height - target) > 1 else { return }
-        frame.origin.y += frame.height - target  // keep the bottom edge (sprite) anchored
-        frame.size.height = target
+        frame.size = NSSize(width: PetSizePreset.windowWidth, height: target)
+        if let screen = panel.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            frame.origin.y = max(visible.minY, min(frame.origin.y, visible.maxY - frame.height))
+        }
         panel.setFrame(frame, display: true)
-        Diag.info("Pet window resized for bubble band \(Int(bubbleBand)) -> \(Int(target))")
+        pushBubbleBand()
+        Diag.info("Pet window sized for bubble band \(Int(bubbleBand)) -> \(Int(target))")
+    }
+
+    /// Windows PetWindow.PushBubbleBand — the page re-reads the band and
+    /// recomputes the sprite size from it.
+    private func pushBubbleBand() {
+        guard let panel, panel.isVisible, let webView = WebHost.webView(in: panel) else { return }
+        let script = "window.__ttPetBubbleBand=\(Int(bubbleBand));" +
+            "window.dispatchEvent(new Event('pet:bubble-band'));"
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Change the size bucket. Windows ApplySize parity: the window keeps its
+    /// bottom edge and x (the pet never jumps to a corner just because the user
+    /// picked a size); width does not change between presets.
+    func setSize(_ preset: PetSizePreset) {
+        guard preset != sizePreset else { return }
+        sizePreset = preset
+        guard let panel else { return }
+        let target = baseHeight + (bubbleBand - Self.minBubbleBand)
+        var frame = panel.frame
+        frame.size = NSSize(width: PetSizePreset.windowWidth, height: target)
+        if let screen = panel.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+            frame.origin.y = max(visible.minY, min(frame.origin.y, visible.maxY - frame.height))
+        }
+        panel.setFrame(frame, display: true)
+        panel.saveFrame(usingName: Self.frameAutosaveName)
+        Diag.info("Pet size -> \(preset.rawValue) (\(Int(frame.width))x\(Int(frame.height)))")
     }
 
     func toggle() {
@@ -233,7 +353,11 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     // MARK: Panel construction
 
     private func makePanel() -> NSPanel {
-        let rect = NSRect(x: 0, y: 0, width: 320, height: 340)
+        // Windows CreateWindow parity: the width is shared by every preset and
+        // the height is the preset's base (bubble band included). The old fixed
+        // 320x340 ignored both the saved size and the page's geometry.
+        let size = NSSize(width: PetSizePreset.windowWidth, height: baseHeight)
+        let rect = NSRect(origin: .zero, size: size)
         let panel = NSPanel(contentRect: rect,
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
@@ -247,14 +371,22 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         panel.isReleasedWhenClosed = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.delegate = self
-        panel.setFrameAutosaveName("TTPPetPanel")   // position memory (Windows saves placement)
+        panel.setFrameAutosaveName(Self.frameAutosaveName)   // position memory (Windows saves placement)
         self.panel = panel   // placeAtDefaultCorner reads self.panel — set before placing
         // A stored frame wins; only first launch falls back to the corner dock.
-        if UserDefaults.standard.dictionary(forKey: "NSWindow Frame TTPPetPanel") == nil {
-            placeAtDefaultCorner()
-        } else {
+        // NB: AppKit stores the autosaved frame as a STRING under
+        // "NSWindow Frame <name>", so a dictionary(forKey:) probe is always nil —
+        // that bug re-docked the pet at the corner on every launch.
+        if panel.setFrameUsingName(Self.frameAutosaveName) {
+            // Keep only the restored ORIGIN — the saved size may belong to another
+            // preset or to an older build whose window math was wrong.
+            var restored = panel.frame
+            restored.size = size
+            panel.setFrame(restored, display: false)
             clampIntoVisibleFrame(panel)
             Diag.info("Pet restored saved position \(panel.frame.origin)")
+        } else {
+            placeAtDefaultCorner()
         }
         return panel
     }
@@ -292,5 +424,35 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         default:
             Diag.info("Pet bridge message: \(body)")
         }
+    }
+}
+
+/// The three desktop-pet size buckets — Windows PetWindow.SizeDimensions parity.
+/// Every preset shares one window width (the 340pt bubble needs the room; the
+/// surplus area is transparent and click-through), and each base height already
+/// includes the 138pt bubble band. The live window only adds band growth above
+/// that base, so `height - band` — the value pet.jsx derives the sprite size
+/// from — stays constant: a bubble appearing can never resize or move the pet.
+enum PetSizePreset: String, CaseIterable {
+    case small, medium, large
+
+    /// Windows PetWindow.WindowWidth — wider than the sprite so the bubble and
+    /// its shadow never hit the layered-window edge.
+    static let windowWidth: CGFloat = 400
+
+    /// Windows PetWindow.SizeDimensions (measured with MinBubbleBand reserved).
+    var baseHeight: CGFloat {
+        switch self {
+        case .small: return 230
+        case .medium: return 254
+        case .large: return 286
+        }
+    }
+
+    /// Stored prefs may hold anything (older builds, hand edits); fall back to
+    /// the Windows default rather than leaving the panel un-sized.
+    static func normalize(_ raw: String?) -> PetSizePreset {
+        guard let raw, let preset = PetSizePreset(rawValue: raw) else { return .medium }
+        return preset
     }
 }

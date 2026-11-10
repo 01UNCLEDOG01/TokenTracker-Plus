@@ -19,7 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Settings must be loaded before the status item installs — the tray
         // style is read there (a late load made the persisted style ignored).
         PetSettingsController.shared.load()
-        petPanel = PetPanelController(serverURL: serverManager.serverURL)
+        // Windows CreateWindow parity: the saved size preset sizes the window from
+        // the first show on (the old shell ignored it until the settings page was
+        // touched, so a restart always came back at the medium 320x340 default).
+        petPanel = PetPanelController(
+            serverURL: serverManager.serverURL,
+            sizePreset: PetSizePreset.normalize(PetSettingsController.shared.settings.size))
         petPanel?.onOpenDashboard = { [weak self] in self?.openDashboard() }
         petPanel?.onContextMenu = { [weak self] point in
             self?.statusItemController?.popMenu(at: point)
@@ -42,6 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         serverManager.onHealthChange = { [weak self] health in
             self?.statusItemController?.updateHealth(health)
+            // The pet shows its offline pose when the embedded server is down
+            // (Windows ApplyConnected); this used to be hardcoded "connected".
+            IslandStats.shared.setConnected(health == .running)
             if health == .running {
                 self?.refreshVisibleWebViews()
                 // Windows parity: all three floating surfaces appear on the first
@@ -84,6 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PetSettingsController.shared.currentMonitor = { [weak self] in
             self?.capsule?.isVisible ?? false
         }
+        // Live「桌面限额」state — the settings page must see the quota window's real
+        // visibility, not the last value it itself wrote (Windows reads Enabled).
+        PetSettingsController.shared.currentQuota = { [weak self] in
+            self?.widgetWindow?.window?.isVisible ?? false
+        }
         IslandStats.shared.load()
         IslandStats.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
         IslandStats.shared.petWebViewProvider = { [weak self] in
@@ -91,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return WebHost.webView(in: panel)
         }
         IslandStats.shared.bubbleBandProvider = { [weak self] in
-            self?.petPanel?.bubbleBand ?? 64
+            self?.petPanel?.bubbleBand ?? PetPanelController.minBubbleBand
         }
 
         // Capsule (用量悬浮窗) — MonitorWidgetWindow counterpart.
@@ -140,6 +153,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.widgetWindow?.window?.orderOut(nil)
             UserDefaults.standard.set(false, forKey: "TTPQuotaWidgetEnabled")
             QuotaWidgetHost.shared.stop()
+            // Re-push the pet settings so the 桌面限额 switch turns itself off
+            // (Windows EnabledChanged -> PushDashboardPetSettings).
+            PetSettingsController.shared.apply(key: "quota", value: false)
         }
         QuotaWidgetHost.shared.onOpenDashboard = { [weak self] in
             self?.openDashboard()
@@ -156,6 +172,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.openDashboard()
             }
         }
+    }
+
+    /// Windows re-pushes the pet context when the system theme flips
+    /// (TrayApplicationContext -> PetWindow.ApplyTheme). Without this the pet
+    /// ignored a runtime light/dark switch until the next reload/settings change.
+    func applicationDidChangeEffectiveAppearance(_ notification: Notification) {
+        PetSettingsController.shared.pushToPetPage()
+        PetSettingsController.shared.broadcastSettings()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -218,7 +242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let serverURL = serverManager.serverURL
         if let window = dashboardWindow?.window, window.isVisible,
            let webView = WebHost.webView(in: window) {
-            WebHost.load(webView, path: "/dashboard", on: serverURL)
+            WebHost.load(webView, path: "/?app=1", on: serverURL)
         }
         if let window = widgetWindow?.window, window.isVisible,
            let webView = WebHost.webView(in: window) {

@@ -37,11 +37,19 @@ final class IslandStats: NSObject {
     private(set) var conversations: Double = 0
     private(set) var syncing = false
 
-    /// Currency mirrored from the dashboard webviews' localStorage (the same
-    /// store the settings page writes; the desktop panel proved it flows).
-    private(set) var currencySymbol = "¥"
-    private(set) var currencyRate: Double = 7.2
-    private(set) var tokenUnitSystem = "chinese"
+    /// Currency + unit system mirrored from the dashboard (localStorage mirror and
+    /// the dashboard's own setSetting bridge). Dashboard defaults are USD + K/M/B
+    /// (dashboard/src/lib/currency.ts, token-format.js) — seeding ¥/万/亿 here made
+    /// a fresh install show different units in the pet than in the dashboard.
+    private(set) var currencyCode = "USD"
+    private(set) var currencySymbol = "$"
+    private(set) var currencyRate: Double = 1.0
+    /// Page vocabulary: "chinese" (万/亿) or "western" (K/M/B).
+    private(set) var tokenUnitSystem = "western"
+    /// Locale the dashboard is rendering (the pet page formats with it too).
+    private(set) var localePreference = Locale.preferredLanguages.first ?? "en"
+    /// Embedded-server health — false shows the pet's offline pose (ApplyConnected).
+    private(set) var connected = true
 
     var serverURLProvider: (() -> URL?)?
     var petWebViewProvider: (() -> WKWebView?)?
@@ -50,8 +58,107 @@ final class IslandStats: NSObject {
     var bubbleBandProvider: (() -> CGFloat)?
 
     func load() {
-        bubbleEnabled = UserDefaults.standard.object(forKey: "TTPPetBubbleEnabled") == nil
-            || UserDefaults.standard.bool(forKey: "TTPPetBubbleEnabled")
+        let d = UserDefaults.standard
+        bubbleEnabled = d.object(forKey: "TTPPetBubbleEnabled") == nil
+            || d.bool(forKey: "TTPPetBubbleEnabled")
+        // Cold-launch cache: the dashboard's bridge may not have pushed yet, but a
+        // previous launch persisted the real choice (TokenUnits/Currency.cs parity).
+        currencyCode = CurrencyPreferences.normalizeCode(d.string(forKey: "TTPCurrencyCode"))
+        currencySymbol = d.string(forKey: "TTPCurrencySymbol") ?? CurrencyPreferences.symbol(for: currencyCode)
+        if let rate = d.object(forKey: "TTPExchangeRate") as? Double, rate.isFinite, rate > 0 {
+            currencyRate = rate
+        }
+        tokenUnitSystem = Self.normalizeUnitSystem(d.string(forKey: "TTPTokenUnitSystem"), fallback: "western")
+        if let saved = d.string(forKey: "TTPPetLocale"), !saved.isEmpty { localePreference = saved }
+    }
+
+    // MARK: Dashboard setting bridge (TrayApplicationContext + Currency/TokenUnits parity)
+
+    /// The dashboard posts {type:"setSetting", key, value} for the appearance
+    /// settings that affect the menu bar/pet; the mac shell used to drop all of
+    /// them (log: "Pet bridge message: setSetting"), so currency/unit changes
+    /// only landed after the next 60s localStorage mirror — and never for unit.
+    func applyDashboardSetting(key: String, value: Any?) {
+        switch key {
+        case "tokenUnitSystem":
+            guard let raw = value as? String else { return }
+            applyTokenUnitSystem(raw)
+        case "currency":
+            guard let raw = value as? String else { return }
+            applyCurrency(code: CurrencyPreferences.normalizeCode(raw))
+        case "currencySymbol":
+            guard let raw = value as? String, !raw.isEmpty else { return }
+            applyCurrencySymbol(raw)
+        case "exchangeRate":
+            let rate: Double?
+            if let d = value as? Double { rate = d }
+            else if let n = value as? NSNumber { rate = n.doubleValue }
+            else if let s = value as? String { rate = Double(s) }
+            else { rate = nil }
+            if let rate, rate.isFinite, rate > 0 { applyExchangeRate(rate) }
+        case "locale":
+            guard let raw = value as? String, !raw.isEmpty else { return }
+            applyLocale(raw)
+        default:
+            // Other Windows-only native settings (toasts, confetti, theme) have no
+            // menu-bar surface in this shell.
+            Diag.info("Dashboard setting ignored: \(key)")
+            return
+        }
+        publishDisplayChange()
+    }
+
+    func applyCurrency(code: String, rate: Double? = nil, persist: Bool = true) {
+        currencyCode = CurrencyPreferences.normalizeCode(code)
+        currencySymbol = CurrencyPreferences.symbol(for: currencyCode)
+        if let rate, rate.isFinite, rate > 0 { currencyRate = rate }
+        if persist {
+            UserDefaults.standard.set(currencyCode, forKey: "TTPCurrencyCode")
+            UserDefaults.standard.set(currencySymbol, forKey: "TTPCurrencySymbol")
+            UserDefaults.standard.set(currencyRate, forKey: "TTPExchangeRate")
+        }
+    }
+
+    func applyCurrencySymbol(_ symbol: String) {
+        currencySymbol = symbol
+        UserDefaults.standard.set(symbol, forKey: "TTPCurrencySymbol")
+    }
+
+    func applyExchangeRate(_ rate: Double) {
+        guard rate.isFinite, rate > 0 else { return }
+        currencyRate = rate
+        UserDefaults.standard.set(rate, forKey: "TTPExchangeRate")
+    }
+
+    func applyTokenUnitSystem(_ raw: String, persist: Bool = true) {
+        tokenUnitSystem = Self.normalizeUnitSystem(raw, fallback: tokenUnitSystem)
+        if persist { UserDefaults.standard.set(tokenUnitSystem, forKey: "TTPTokenUnitSystem") }
+    }
+
+    func applyLocale(_ raw: String) {
+        localePreference = raw
+        UserDefaults.standard.set(raw, forKey: "TTPPetLocale")
+    }
+
+    /// Unit-system normalisation shared by the bridge and the localStorage mirror.
+    static func normalizeUnitSystem(_ raw: String?, fallback: String = "western") -> String {
+        let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        if value == "chinese" { return "chinese" }
+        if value == "english" || value == "western" { return "western" }
+        return fallback
+    }
+
+    func setConnected(_ value: Bool) {
+        guard value != connected else { return }
+        connected = value
+        publishDisplayChange()
+    }
+
+    /// Push both surfaces after a display-affecting change: the pet page re-reads
+    /// the pushed globals, and the capsule re-renders its formatted line.
+    private func publishDisplayChange() {
+        pushPetBubble()
+        onStatsUpdated?()
     }
 
     func setBubbleEnabled(_ enabled: Bool) {
@@ -90,8 +197,10 @@ final class IslandStats: NSObject {
     }
 
     /// Capsule line: "1.8亿 · ¥50.46" (the capsule draws its own accent dot).
+    /// Units follow the dashboard's choice — a K/M/B user must not get 万/亿 here.
     var capsuleText: String {
-        "\(Self.tokensText(today.tokens)) · \(Self.costText(today.costUsd, symbol: currencySymbol, rate: currencyRate))"
+        "\(Self.tokensText(today.tokens, chineseUnits: tokenUnitSystem == "chinese")) · " +
+            Self.costText(today.costUsd, symbol: currencySymbol, rate: currencyRate)
     }
 
     /// Fired after every successful poll — the capsule listens.
@@ -107,9 +216,15 @@ final class IslandStats: NSObject {
         value.isFinite ? String(value) : "0"
     }
 
-    static func tokensText(_ tokens: Double) -> String {
-        if tokens >= 1e8 { return String(format: "%.1f亿", tokens / 1e8) }
-        if tokens >= 1e4 { return String(format: "%.0f万", tokens / 1e4) }
+    static func tokensText(_ tokens: Double, chineseUnits: Bool = true) -> String {
+        if chineseUnits {
+            if tokens >= 1e8 { return String(format: "%.1f亿", tokens / 1e8) }
+            if tokens >= 1e4 { return String(format: "%.0f万", tokens / 1e4) }
+            return String(format: "%.0f", tokens)
+        }
+        if tokens >= 1e9 { return String(format: "%.1fB", tokens / 1e9) }
+        if tokens >= 1e6 { return String(format: "%.1fM", tokens / 1e6) }
+        if tokens >= 1e3 { return String(format: "%.1fK", tokens / 1e3) }
         return String(format: "%.0f", tokens)
     }
 
@@ -118,11 +233,20 @@ final class IslandStats: NSObject {
     private func fetch() {
         refreshCurrencyFromWebViews()  // currency pref can change any time
         guard let base = serverURLProvider?() else { return }
+        // Windows UsagePoller parity: the "today" window is the USER's local day,
+        // sent with the IANA zone + numeric offset. Hardcoding Asia/Shanghai (and a
+        // locale-dependent date formatter) showed the wrong day for every non-UTC+8
+        // user and a non-Gregorian date string in th/ja/ar locales.
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
         formatter.dateFormat = "yyyy-MM-dd"
         let day = formatter.string(from: Date())
+        let tz = TimeZone.current
+        let tzId = tz.identifier.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? tz.identifier
+        let offsetMinutes = tz.secondsFromGMT() / 60
         let summary = URL(string: base.absoluteString +
-            "/functions/tokentracker-usage-summary?from=\(day)&to=\(day)&tz=Asia/Shanghai")
+            "/functions/tokentracker-usage-summary?from=\(day)&to=\(day)&tz=\(tzId)&tz_offset_minutes=\(offsetMinutes)")
         let limits = URL(string: base.absoluteString + "/functions/tokentracker-usage-limits")
 
         if let url = summary {
@@ -149,12 +273,17 @@ final class IslandStats: NSObject {
                                             costUsd: num(totals["total_cost_usd"]), fetched: true)
                     self.conversations = num(totals["conversation_count"])
                     if let rolling = payload["rolling"] as? [String: Any] {
+                        // The endpoint nests the token sums under "totals"
+                        // (local-api.js rolling.last_7d.totals.billable_total_tokens);
+                        // reading the parent kept 7d/30d at 0 so those quips never fired.
                         if let d7 = rolling["last_7d"] as? [String: Any] {
-                            self.last7dTokens = num(d7["billable_total_tokens"])
+                            let t7 = d7["totals"] as? [String: Any] ?? d7
+                            self.last7dTokens = num(t7["billable_total_tokens"])
                             self.last7dActiveDays = num(d7["active_days"])
                         }
                         if let d30 = rolling["last_30d"] as? [String: Any] {
-                            self.last30dTokens = num(d30["billable_total_tokens"])
+                            let t30 = d30["totals"] as? [String: Any] ?? d30
+                            self.last30dTokens = num(t30["billable_total_tokens"])
                             self.last30dAvgPerDay = num(d30["avg_per_active_day"])
                         }
                     }
@@ -199,17 +328,18 @@ final class IslandStats: NSObject {
             ]
             let statsLiteral = (try? JSONSerialization.data(withJSONObject: stats))
                 .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-            let symbol = currencySymbol == "¥" ? "¥" : currencySymbol
-            let locale = Locale.preferredLanguages.first ?? "en"
+            // Every string goes through jsString: the old raw interpolation meant a
+            // quote/backslash in a symbol or locale aborted the whole push script
+            // (silent staleness, and injection in the pathological case).
             script += "window.__ttPetTokens=\(Int(today.tokens));" +
                 "window.__ttPetCostUsd=\(today.costUsd);" +
                 "window.__ttPetStats=\(statsLiteral);" +
-                "window.__ttPetCurrency={symbol:\"\(symbol)\",rate:\(currencyRate)};" +
+                "window.__ttPetCurrency={symbol:\(WebHost.jsString(currencySymbol)),rate:\(currencyRate)};" +
                 "window.__ttPetLimits=\(limitsJSON);" +
-                "window.__ttPetBubbleBand=\(Int(bubbleBandProvider?() ?? 64));" +
-                "window.__ttPetLocale=\"\(locale)\";" +
-                "window.__ttPetTokenUnitSystem=\"\(tokenUnitSystem)\";" +
-                "window.__ttPetConnected=true;" +
+                "window.__ttPetBubbleBand=\(Int(bubbleBandProvider?() ?? PetPanelController.minBubbleBand));" +
+                "window.__ttPetLocale=\(WebHost.jsString(localePreference));" +
+                "window.__ttPetTokenUnitSystem=\(WebHost.jsString(tokenUnitSystem));" +
+                "window.__ttPetConnected=\(connected ? "true" : "false");" +
                 "window.__ttPetSyncing=\(syncing ? "true" : "false");"
         }
         // The page re-reads currency on pet:currency and locale+unitSystem on
@@ -235,43 +365,75 @@ final class IslandStats: NSObject {
         }
     }
 
-    /// Mirror the dashboard's currency preference out of its localStorage (the
-    /// settings page writes tokentracker-currency + exchange rates there).
+    /// Mirror the dashboard's appearance prefs out of localStorage. This is the
+    /// cold-start path when no dashboard window is open (the dashboard also pushes
+    /// the same values through setSetting, which lands immediately).
     func refreshCurrencyFromWebViews() {
-        var source: WKWebView?
-        for window in NSApp.windows {
-            if let view = WebHost.webView(in: window) { source = view; break }
-        }
-        guard let webView = source else { return }
+        // Only a page that actually navigated can read localStorage: the quota
+        // window's webview exists from launch but stays about:blank, and
+        // localStorage on about:blank throws SecurityError — picking it as the
+        // "first webview" made every mirror attempt fail with a JS exception.
+        let candidate = petWebViewProvider?().flatMap { $0.url?.scheme == "http" ? $0 : nil }
+            ?? NSApp.windows.compactMap({ WebHost.webView(in: $0) })
+                .first(where: { $0.url?.scheme == "http" })
+        guard let webView = candidate else { return }
         // The rates entry is either {rates:{...}} or the bare rates map
         // depending on where it was written — accept both shapes.
         let script = "JSON.stringify({c: localStorage.getItem('tokentracker-currency')," +
             "r: (function(){try{var d=JSON.parse(localStorage.getItem('tokentracker-exchange-rates')||'{}');return (d&&d.rates)||d||{};}catch(e){return {};}})()," +
             "u: localStorage.getItem('tt.tokenUnitSystem')})"
-        webView.evaluateJavaScript(script) { result, _ in
-            guard let json = result as? String,
-                  let obj = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
-                  let currency = obj["c"] as? String,
-                  let rates = obj["r"] as? [String: Double] else { return }
-            if let unit = obj["u"] as? String {
-                // Stored values are "english"/"chinese" (token-format.js); the
-                // page wants __ttPetTokenUnitSystem === "chinese" for 万/亿.
-                self.tokenUnitSystem = unit == "chinese" ? "chinese" : "western"
+        webView.evaluateJavaScript(script) { [weak self] result, error in
+            guard let self, let json = result as? String,
+                  let obj = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any] else {
+                Diag.info("Pet prefs mirror: nothing readable (err=\(error?.localizedDescription ?? "nil") result=\(String(describing: result)))")
+                return
             }
             DispatchQueue.main.async {
-                let code = currency.uppercased()
-                if code == "CNY" {
-                    self.currencySymbol = "¥"
-                    self.currencyRate = rates["CNY"] ?? 7.2
-                } else if code == "USD" {
-                    self.currencySymbol = "$"
-                    self.currencyRate = 1.0
-                } else {
-                    self.currencySymbol = code
-                    self.currencyRate = rates[code] ?? self.currencyRate
+                // Unlike the old read, the unit system is NOT gated on the currency
+                // key: a user who never touched the currency picker still gets K/M/B.
+                let code = CurrencyPreferences.normalizeCode(obj["c"] as? String)
+                let rates = obj["r"] as? [String: Double] ?? [:]
+                let rate = rates[code] ?? CurrencyPreferences.defaultRates[code] ?? self.currencyRate
+                let unit = (obj["u"] as? String).map {
+                    Self.normalizeUnitSystem($0, fallback: self.tokenUnitSystem)
+                } ?? self.tokenUnitSystem
+                let changed = code != self.currencyCode
+                    || unit != self.tokenUnitSystem
+                    || abs(rate - self.currencyRate) > 0.0001
+                guard changed else {
+                    Diag.info("Pet prefs mirror: unchanged (\(code) \(unit) \(rate))")
+                    return
                 }
-                Diag.info("Pet pill currency: \(self.currencySymbol) rate \(self.currencyRate)")
+                self.applyCurrency(code: code, rate: rate)
+                self.applyTokenUnitSystem(unit)
+                Diag.info("Pet pill currency: \(self.currencySymbol) rate \(self.currencyRate) units \(self.tokenUnitSystem)")
+                self.publishDisplayChange()
             }
         }
+    }
+}
+
+/// Currency table shared by the pet pill, the capsule and the dashboard bridge —
+/// mirrors dashboard/src/lib/currency.ts (CURRENCY_META / DEFAULT_RATES) so the
+/// native surfaces never invent a symbol (the old code pushed "EUR12.34") and a
+/// cold launch starts from the dashboard defaults (USD, no 7.2x guess).
+enum CurrencyPreferences {
+    static let supported = ["USD", "EUR", "GBP", "CNY", "JPY", "HKD"]
+
+    static let symbols: [String: String] = [
+        "USD": "$", "EUR": "€", "GBP": "£", "CNY": "¥", "JPY": "¥", "HKD": "HK$",
+    ]
+
+    static let defaultRates: [String: Double] = [
+        "USD": 1, "EUR": 0.92, "GBP": 0.79, "CNY": 7.2, "JPY": 155, "HKD": 7.8,
+    ]
+
+    static func normalizeCode(_ raw: String?) -> String {
+        let code = raw?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+        return supported.contains(code) ? code : "USD"
+    }
+
+    static func symbol(for code: String) -> String {
+        symbols[normalizeCode(code)] ?? "$"
     }
 }

@@ -26,6 +26,13 @@ final class ServerManager {
     private(set) var port: Int = ServerManager.preferredPort
     var serverURL: URL { URL(string: "http://127.0.0.1:\(port)")! }
 
+    /// Ports tried in order when the preferred one is taken. Windows
+    /// ServerManager.PickServerPort bind-probes for a free loopback port; the mac
+    /// shell used to hard-code 17680 and spin in spawn→exit(1) forever when an
+    /// orphaned server (or any other process) held it — while the health probe
+    /// happily reported "running" against the *other* process.
+    private static let portSearchRange = 10
+
     private var process: Process?
     private var restartAttempts = 0
     private var restartTimer: Timer?
@@ -142,6 +149,7 @@ final class ServerManager {
             return
         }
 
+        choosePort()
         let process = Process()
         process.executableURL = runtime.nodeURL
         process.arguments = [runtime.entryURL.path, "serve", "--port", String(port)]
@@ -168,8 +176,12 @@ final class ServerManager {
             self.queue.async {
                 guard self.isSupposedToRun else { return }
                 Diag.error("Server exited unexpectedly (status \(proc.terminationStatus))")
-                self.setHealth(.crashed)
-                self.scheduleRestart()
+                // onHealthChange drives AppKit (tray glyph, window reloads) — it must
+                // land on the main thread; this used to fire from the queue.
+                DispatchQueue.main.async {
+                    self.setHealth(.crashed)
+                    self.scheduleRestart()
+                }
             }
         }
 
@@ -198,9 +210,47 @@ final class ServerManager {
         }
     }
 
+    /// True when nothing is LISTENING on 127.0.0.1:<port>. Bind-probe only —
+    /// there is a theoretical race, but the child's EADDRINUSE path re-picks.
+    private func isPortFree(_ candidate: Int) -> Bool {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        var reuse: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(UInt16(candidate).bigEndian)
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let result = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        return result == 0
+    }
+
+    /// Prefer 17680 (Windows/handover parity) and fall back to the next free
+    /// loopback port — never silently accept another process as "our server".
+    private func choosePort() {
+        let candidates = [ServerManager.preferredPort]
+            + (1..<ServerManager.portSearchRange).map { ServerManager.preferredPort + $0 }
+        if let free = candidates.first(where: isPortFree) {
+            port = free
+        }
+    }
+
     private func scheduleRestart() {
         guard isSupposedToRun else { return }
         restartAttempts += 1
+        // Windows gives up after a few attempts and surfaces the failure; the mac
+        // shell retried forever, so a permanently broken install looked "starting".
+        if restartAttempts > 4 {
+            Diag.error("Server failed to start after (restartAttempts - 1) attempts — giving up")
+            lastFailureReason = lastFailureReason ?? "server 连续启动失败，详见 shell.log"
+            setHealth(.failed)
+            return
+        }
         let delay = min(pow(2.0, Double(restartAttempts)), 30.0)
         Diag.info("Restarting server in \(delay)s (attempt \(restartAttempts))")
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
@@ -227,8 +277,12 @@ final class ServerManager {
         URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
             guard let self = self else { return }
             DispatchQueue.main.async {
-                if let http = response as? HTTPURLResponse, error == nil,
-                   (200..<500).contains(http.statusCode) {
+                let httpOK = (response as? HTTPURLResponse).map { (200..<500).contains($0.statusCode) } ?? false
+                // The child must be OUR process: an orphan/stale server on the port
+                // would otherwise answer the SPA probe and the shell reported a
+                // healthy server it did not own (18:33 crash-loop incident).
+                let childAlive = self.process?.isRunning ?? false
+                if childAlive, error == nil, httpOK {
                     if self.health != .running {
                         self.restartAttempts = 0
                         Diag.info("Server healthy on port \(self.port)")
@@ -237,7 +291,7 @@ final class ServerManager {
                 } else if self.health == .starting || self.health == .running {
                     // A poll failure alone is not a crash: the process supervision
                     // (terminationHandler) decides between "slow" and "dead".
-                    if let process = self.process, !process.isRunning, self.health != .crashed {
+                    if !childAlive, self.health != .crashed {
                         self.setHealth(.crashed)
                     }
                 }

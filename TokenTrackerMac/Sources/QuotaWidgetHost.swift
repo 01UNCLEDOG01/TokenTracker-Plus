@@ -14,7 +14,14 @@ final class QuotaWidgetHost {
     private var ready = false
     private var pollTimer: Timer?
     private var lastLimitsJSON: String?
-    private var lastDragPoint: NSPoint?
+    /// Live drag state: the page posts ONE quota:drag when the grab passes its
+    /// threshold (quota.jsx onPointerMove), so the host has to run the follow loop
+    /// itself. The old delta arithmetic against a stale lastDragPoint made the
+    /// first drag a no-op and every later grab teleport.
+    private var dragTimer: Timer?
+    private var dragAnchor: (mouse: NSPoint, window: NSPoint)?
+    /// Expanded (360x340) vs compact (320x144) — Windows ResizeWidget parity.
+    private(set) var expanded = false
     private(set) var failed = false
     private(set) var limitsJSON: String? = "null"
 
@@ -44,7 +51,7 @@ final class QuotaWidgetHost {
         case "quota:collapse":
             resize(expanded: false)
         case "quota:drag":
-            dragWindow()
+            beginDrag()
         case "quota:close":
             ready = false
             pollTimer?.invalidate()
@@ -71,6 +78,14 @@ final class QuotaWidgetHost {
         ready = false
         pollTimer?.invalidate()
         pollTimer = nil
+        stopDrag()
+    }
+
+    /// Called by the window controller when the user closes the window with its
+    /// own close affordance — the page's quota:close path and this one converge.
+    func notifyWindowClosed() {
+        stop()
+        onClose?()
     }
 
     private func fetchAndPush() {
@@ -124,28 +139,51 @@ final class QuotaWidgetHost {
 
     // MARK: Window gestures
 
+    /// Windows QuotaWidgetWindow.ResizeWidget sizes: 320x144 compact, 360x340
+    /// expanded. The old 420x112/420x600 pair clipped the compact row and left a
+    /// large empty card when expanded.
     private func resize(expanded: Bool) {
+        self.expanded = expanded
         guard let window = windowProvider?() else { return }
         var frame = window.frame
-        let width: CGFloat = 420
-        let height: CGFloat = expanded ? 600 : 112
+        let width: CGFloat = expanded ? 360 : 320
+        let height: CGFloat = expanded ? 340 : 144
         frame.origin.y += frame.height - height  // keep the top edge anchored
-        frame.size.width = width
-        frame.size.height = height
+        frame.origin.x += (frame.width - width) / 2
+        frame.size = NSSize(width: width, height: height)
         window.setFrame(frame, display: true)
     }
 
-    private func dragWindow() {
+    /// Windows drags the borderless window with a modal WM_NCLBUTTONDOWN loop;
+    /// follow the cursor at 60Hz until the mouse button is released.
+    private func beginDrag() {
         guard let window = windowProvider?() else { return }
-        let mouse = NSEvent.mouseLocation
-        if let last = lastDragPoint {
-            let dx = mouse.x - last.x, dy = mouse.y - last.y
-            // A huge jump means a fresh grab — skip that first delta.
-            if hypot(dx, dy) < 200 {
-                window.setFrameOrigin(NSPoint(x: window.frame.origin.x + dx,
-                                              y: window.frame.origin.y + dy))
-            }
+        stopDrag()
+        dragAnchor = (mouse: NSEvent.mouseLocation, window: window.frame.origin)
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.stepDrag()
         }
-        lastDragPoint = mouse
+        RunLoop.main.add(timer, forMode: .common)
+        dragTimer = timer
+    }
+
+    private func stepDrag() {
+        guard let window = windowProvider?(), let anchor = dragAnchor else {
+            stopDrag()
+            return
+        }
+        guard NSEvent.pressedMouseButtons != 0 else {
+            stopDrag()
+            return
+        }
+        let mouse = NSEvent.mouseLocation
+        window.setFrameOrigin(NSPoint(x: anchor.window.x + (mouse.x - anchor.mouse.x),
+                                      y: anchor.window.y + (mouse.y - anchor.mouse.y)))
+    }
+
+    private func stopDrag() {
+        dragTimer?.invalidate()
+        dragTimer = nil
+        dragAnchor = nil
     }
 }

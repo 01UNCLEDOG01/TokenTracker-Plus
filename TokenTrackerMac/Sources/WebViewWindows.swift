@@ -17,6 +17,9 @@ final class WebNavLogger: NSObject, WKNavigationDelegate {
             PetSettingsController.shared.pushToPetPage()
             // Windows NavigationCompleted -> PushContext: without this every
             // reopen sat blank until the next 60s poll.
+            // The mirror runs first so the very first push already carries the real
+            // currency/units (otherwise the first minute showed the seed defaults).
+            IslandStats.shared.refreshCurrencyFromWebViews()
             IslandStats.shared.pushPetBubble()
         }
     }
@@ -132,7 +135,11 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
             window.contentView = WebHost.makeWebView(frame: window.contentRect(forFrameRect: window.frame))
         }
         if let webView = WebHost.webView(in: window) {
-            WebHost.load(webView, path: "/dashboard", on: serverURL)
+            // Windows DashboardWindow parity: the dashboard must boot with ?app=1
+            // (isNativeApp() -> native layout + pet/tray controls). Loading plain
+            // /dashboard on a fresh install left those controls disabled behind the
+            // "open this page in the desktop app" hint.
+            WebHost.load(webView, path: "/?app=1", on: serverURL)
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -146,21 +153,36 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
 
 /// Quota widget window — counterpart of TokenTrackerWin's QuotaWidgetWindow.cs
 /// (loads the static quota page in app mode: /quota.html?app=1).
+///
+/// Borderless like Windows (320x144 compact / 360x340 expanded): the page draws
+/// its own rounded card, so a titled/resizable mac window both clipped the
+/// compact row (112pt) and left the expanded card mostly empty (600pt).
 final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
     private let serverURL: URL
+    /// Compact size is the mount state of the page (quota:ready -> compact).
+    private static let compactSize = NSSize(width: 320, height: 144)
 
     init(serverURL: URL) {
         self.serverURL = serverURL
-        let rect = NSRect(x: 0, y: 0, width: 420, height: 560)
-        let window = NSWindow(contentRect: rect,
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                              backing: .buffered, defer: false)
-        window.title = "额度窗"
-        window.contentView = WebHost.makeWebView(frame: rect)
-        window.setFrameAutosaveName("TTPWidgetWindow")
-        window.center()
-        super.init(window: window)
-        window.delegate = self
+        let rect = NSRect(origin: .zero, size: Self.compactSize)
+        let panel = NSPanel(contentRect: rect,
+                            styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = false
+        panel.contentView = WebHost.makeWebView(frame: rect)
+        panel.setFrameAutosaveName("TTPWidgetWindow")
+        if !panel.setFrameUsingName("TTPWidgetWindow") {
+            panel.center()
+        }
+        super.init(window: panel)
+        panel.delegate = self
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -170,6 +192,11 @@ final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
         if WebHost.webView(in: window) == nil {
             window.contentView = WebHost.makeWebView(frame: window.contentRect(forFrameRect: window.frame))
         }
+        // A fresh load always mounts compact; force the size in case the autosaved
+        // frame came from an expanded (or older, bigger) window.
+        var frame = window.frame
+        frame.size = Self.compactSize
+        window.setFrame(frame, display: false)
         if let webView = WebHost.webView(in: window) {
             WebHost.load(webView, path: "/quota.html?app=1", on: serverURL)
         }
@@ -179,6 +206,10 @@ final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window?.contentView = nil
+        // Closing the 额度窗 must persist "off" and turn the pet-page toggle off
+        // (Windows Closing -> SetEnabled(false)); the old path silently left the
+        // switch ON and dropped the preference.
+        QuotaWidgetHost.shared.notifyWindowClosed()
     }
 }
 

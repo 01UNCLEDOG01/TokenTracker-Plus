@@ -125,22 +125,33 @@ final class StatusItemController: NSObject {
 
     func updateHealth(_ health: ServerManager.Health) {
         let broken = (health == .crashed || health == .failed)
-        if let button = statusItem?.button {
+        guard let button = statusItem?.button else { return }
+        if broken {
             // Crashed/failed must be legible at a glance — a mere grayed-out
             // bolt read as "nothing happened" while the server was in a
-            // restart loop (2026-11-10 incident).
-            let symbolName = broken ? "bolt.badge.xmark" : "bolt.fill"
+            // restart loop (2026-11-10 incident). Stop the cat animation so it
+            // cannot paint over the glyph half a second later.
+            catFrameTimer?.invalidate()
+            catFrameTimer = nil
+            let symbolName = "bolt.badge.xmark"
             if let image = NSImage(systemSymbolName: symbolName,
                                    accessibilityDescription: "TokenTracker Plus — server \(health.rawValue)") {
                 button.image = image
             }
-            button.appearsDisabled = broken
-            if broken, let reason = serverManager.lastFailureReason {
+            button.appearsDisabled = true
+            if let reason = serverManager.lastFailureReason {
                 button.toolTip = "TokenTracker Plus — server \(health.rawValue)：\(reason)"
             } else {
                 button.toolTip = "TokenTracker Plus — server \(health.rawValue)"
             }
+            return
         }
+        // Healthy/starting: restore the user's chosen style instead of leaving a
+        // plain bolt behind. The old code overwrote the cat/mascot every health
+        // change, so a mascot (static, no animation to restore it) never survived.
+        applyTrayStyle(PetSettingsController.shared.settings.trayStyle, button: button)
+        button.appearsDisabled = false
+        button.toolTip = "TokenTracker Plus — server \(health.rawValue)"
     }
 
     // MARK: Click handling
