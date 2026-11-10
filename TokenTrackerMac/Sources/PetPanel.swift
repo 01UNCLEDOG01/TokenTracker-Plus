@@ -46,6 +46,11 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
 
     private var hoverTimer: Timer?
     private var lastHover = false
+    // Mouse idle / wake tracking (PetWindow.cs: >=60s stillness -> pet:sleep,
+    // first movement afterwards -> pet:wake).
+    private var lastMouseActive = Date()
+    private var lastMousePos = NSPoint(x: -1, y: -1)
+    private var mouseIdle = false
 
     /// The page does NOT track the mouse itself — DOM mouse-leave is unreliable
     /// on this transparent, never-activated panel (pet.jsx says so verbatim).
@@ -61,6 +66,7 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     }
 
     private func pollHover() {
+        pollIdle()
         guard let panel, panel.isVisible else {
             if lastHover { lastHover = false; pushHover(false) }
             return
@@ -70,6 +76,68 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             lastHover = inside
             pushHover(inside)
         }
+    }
+
+    // MARK: Native drag (WM_NCLBUTTONDOWN/HTCAPTION counterpart)
+
+    private var dragTimer: Timer?
+    private var dragStartMouse: NSPoint?
+    private var dragStartFrame: NSPoint?
+
+    /// The page hands the press to the host once the pointer travels past its
+    /// drag threshold (pet.jsx: post "pet:drag-left/right"). Windows starts the
+    /// OS modal move loop; here a 60Hz cursor-follow loop plays that role and
+    /// the drag-state events drive the run animation.
+    private func beginNativeDrag(direction: String) {
+        guard let panel else { return }
+        dragTimer?.invalidate()
+        dragStartMouse = NSEvent.mouseLocation
+        dragStartFrame = panel.frame.origin
+        pushPetEvent("window.__ttPetDragState=\"\(direction)\";window.dispatchEvent(new Event('pet:drag-state'));")
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.stepNativeDrag()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        dragTimer = timer
+        Diag.info("Pet native drag started (\(direction))")
+    }
+
+    private func stepNativeDrag() {
+        guard let panel, let startMouse = dragStartMouse, let startFrame = dragStartFrame else { return }
+        if NSEvent.pressedMouseButtons == 0 {
+            dragTimer?.invalidate()
+            dragTimer = nil
+            dragStartMouse = nil
+            dragStartFrame = nil
+            pushPetEvent("window.__ttPetDragState=null;window.dispatchEvent(new Event('pet:drag-end'));")
+            Diag.info("Pet native drag ended at \(panel.frame.origin)")
+            return
+        }
+        let mouse = NSEvent.mouseLocation
+        panel.setFrameOrigin(NSPoint(x: startFrame.x + (mouse.x - startMouse.x),
+                                    y: startFrame.y + (mouse.y - startMouse.y)))
+    }
+
+    /// 60s mouse stillness -> pet:sleep; movement -> pet:wake (PetWindow.cs).
+    private func pollIdle() {
+        let now = NSEvent.mouseLocation
+        let moved = now != lastMousePos
+        if moved {
+            lastMousePos = now
+            lastMouseActive = Date()
+            if mouseIdle {
+                mouseIdle = false
+                pushPetEvent("window.dispatchEvent(new CustomEvent('pet:wake'));")
+            }
+        } else if !mouseIdle, Date().timeIntervalSince(lastMouseActive) >= 60 {
+            mouseIdle = true
+            pushPetEvent("window.dispatchEvent(new CustomEvent('pet:sleep', { detail: { phase: 'sleeping' } }));")
+        }
+    }
+
+    private func pushPetEvent(_ script: String) {
+        guard let webView = WebHost.webView(in: panel) else { return }
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     private func pushHover(_ hovering: Bool) {
@@ -148,8 +216,14 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         panel.isReleasedWhenClosed = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.delegate = self
+        panel.setFrameAutosaveName("TTPPetPanel")   // position memory (Windows saves placement)
         self.panel = panel   // placeAtDefaultCorner reads self.panel — set before placing
-        placeAtDefaultCorner()
+        // A stored frame wins; only first launch falls back to the corner dock.
+        if UserDefaults.standard.dictionary(forKey: "NSWindow Frame TTPPetPanel") == nil {
+            placeAtDefaultCorner()
+        } else {
+            Diag.info("Pet restored saved position \(panel.frame.origin)")
+        }
         return panel
     }
 
@@ -190,6 +264,11 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         case "menu":
             onContextMenu?(NSEvent.mouseLocation)
         default:
+            if body == "pet:drag" || body == "pet:drag-left" || body == "pet:drag-right" {
+                beginNativeDrag(direction: body == "pet:drag-left" ? "running-left"
+                                : body == "pet:drag-right" ? "running-right" : "running-right")
+                return
+            }
             if body.hasPrefix("pet:bubble-height:") {
                 let value = Int(body.dropFirst("pet:bubble-height:".count)) ?? 0
                 resizeForBubble(band: CGFloat(value))

@@ -84,6 +84,23 @@ final class IslandStats: NSObject {
 
     // MARK: Formatting (owner's 亿/万 idiom, same as the Windows pill)
 
+    /// USD -> preferred currency (Windows pill converts the same way).
+    static func costText(_ usd: Double, symbol: String, rate: Double) -> String {
+        "\(symbol)\(String(format: "%.2f", usd * rate))"
+    }
+
+    /// Capsule line: "1.8亿 · ¥50.46" (the capsule draws its own accent dot).
+    var capsuleText: String {
+        "\(Self.tokensText(today.tokens)) · \(Self.costText(today.costUsd, symbol: currencySymbol, rate: currencyRate))"
+    }
+
+    /// Fired after every successful poll — the capsule listens.
+    nonisolated var onStatsUpdated: (() -> Void)? {
+        get { _onStatsUpdated }
+        set { _onStatsUpdated = newValue }
+    }
+    private nonisolated(unsafe) var _onStatsUpdated: (() -> Void)?
+
     static func tokensText(_ tokens: Double) -> String {
         if tokens >= 1e8 { return String(format: "%.1f亿", tokens / 1e8) }
         if tokens >= 1e4 { return String(format: "%.0f万", tokens / 1e4) }
@@ -131,6 +148,7 @@ final class IslandStats: NSObject {
                         }
                     }
                     self.pushPetBubble()
+                    self.onStatsUpdated?()
                 }
             }.resume()
         }

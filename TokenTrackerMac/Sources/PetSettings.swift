@@ -21,6 +21,12 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         var character: String = "clawd"
         var size: String = "medium"
         var botColor: String = "auto"
+        // Capability-probe fields: the settings page only renders a control when
+        // its field is present in the native reply (use-pet-settings.js).
+        var islandMode: Bool = false       // 悬浮形态：顶部灵动岛 / 自由悬浮
+        var quota: Bool = true             // 桌面限额悬浮窗 (= 额度窗)
+        var trayStyle: String = "lightning" // 奔跑小猫 / 应用图标 / 经典闪电
+        var actionLock: String = "auto"    // 动作 picker
     }
 
     private(set) var settings = Settings()
@@ -39,6 +45,11 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     var petPanelProvider: (() -> PetPanelController?)?
     /// Drag gesture from the desktop control panel page pointer stream.
     var desktopPanelDrag: ((String, [String: Any]) -> Void)?
+    /// Pet character changed — the capsule dot tints to the companion.
+    var characterChanged: ((String) -> Void)?
+    var islandModeChanged: ((Bool) -> Void)?
+    var quotaChanged: ((Bool) -> Void)?
+    var trayStyleChanged: ((String) -> Void)?
 
     private let sizeFrames: [String: NSRect] = [
         "small": NSRect(x: 0, y: 0, width: 240, height: 320),
@@ -51,9 +62,19 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         let character = d.string(forKey: "TTPPetCharacter") ?? "clawd"
         let size = d.string(forKey: "TTPPetSize") ?? "medium"
         let botColor = d.string(forKey: "TTPPetBotColor") ?? "auto"
+        let trayStyle = d.string(forKey: "TTPTrayStyle") ?? "lightning"
+        let actionLock = d.string(forKey: "TTPPetActionLock") ?? "auto"
+        let islandMode = d.object(forKey: "TTPCapsuleIslandMode") == nil
+            ? false : d.bool(forKey: "TTPCapsuleIslandMode")
+        let quota = d.object(forKey: "TTPQuotaWidgetEnabled") == nil
+            ? true : d.bool(forKey: "TTPQuotaWidgetEnabled")
         settings = Settings(visible: true, character: character,
                             size: sizeFrames.keys.contains(size) ? size : "medium",
-                            botColor: botColor)
+                            botColor: botColor,
+                            islandMode: islandMode,
+                            quota: quota,
+                            trayStyle: trayStyle,
+                            actionLock: actionLock)
         Diag.info("Pet settings loaded: \(settings.character)/\(settings.size)")
     }
 
@@ -106,6 +127,7 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             guard let character = value as? String, !character.isEmpty else { return }
             settings.character = character
             d.set(character, forKey: "TTPPetCharacter")
+            characterChanged?(character)
         case "size":
             guard let size = value as? String, sizeFrames.keys.contains(size) else { return }
             settings.size = size
@@ -118,6 +140,26 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         case "monitor":
             let monitor = (value as? Bool) ?? false
             setMonitor?(monitor)
+        case "islandMode":
+            let island = (value as? Bool) ?? false
+            settings.islandMode = island
+            d.set(island, forKey: "TTPCapsuleIslandMode")
+            islandModeChanged?(island)
+        case "quota":
+            let quota = (value as? Bool) ?? true
+            settings.quota = quota
+            d.set(quota, forKey: "TTPQuotaWidgetEnabled")
+            quotaChanged?(quota)
+        case "trayStyle":
+            guard let style = value as? String else { return }
+            settings.trayStyle = style
+            d.set(style, forKey: "TTPTrayStyle")
+            trayStyleChanged?(style)
+        case "actionLock":
+            guard let lock = value as? String else { return }
+            settings.actionLock = lock
+            d.set(lock, forKey: "TTPPetActionLock")
+            pushToPetPage()
         default:
             Diag.info("Pet setting ignored: \(key)")
         }
@@ -134,6 +176,10 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             "size": settings.size,
             "botColor": settings.botColor,
             "monitor": currentMonitor?() ?? false,
+            "islandMode": settings.islandMode,
+            "quota": settings.quota,
+            "trayStyle": settings.trayStyle,
+            "actionLock": settings.actionLock,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: detail),
               let json = String(data: data, encoding: .utf8) else { return "{}" }
@@ -157,8 +203,10 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         let script = "window.__ttPetCharacter=\"\(settings.character)\";" +
             "window.__ttPetBotColor=\"\(settings.botColor)\";" +
             "window.__ttPetSize=\"\(settings.size)\";" +
+            "window.__ttPetActionLock=\"\(settings.actionLock)\";" +
             "window.__ttPetDark=\(dark ? "true" : "false");" +
             "window.dispatchEvent(new Event('pet:character'));" +
+            "window.dispatchEvent(new Event('pet:action-lock'));" +
             "window.dispatchEvent(new Event('pet:settings'));"
         webView.evaluateJavaScript(script, completionHandler: nil)
     }

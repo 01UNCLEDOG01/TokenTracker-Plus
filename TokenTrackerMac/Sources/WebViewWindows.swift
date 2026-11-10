@@ -33,7 +33,7 @@ enum WebHost {
     /// ATS: the shell loads plain http://127.0.0.1 — WKWebView allows loopback
     /// only with NSAllowsLocalNetworking (set in Info.plist), and this keeps the
     /// configuration in one place.
-    static func makeWebView(frame: NSRect) -> WKWebView {
+    static func makeWebView(frame: NSRect, pointerDragReporting: Bool = false) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         // Pet-settings bridge shim: the dashboard's pet page posts to
@@ -166,4 +166,60 @@ final class QuotaWidgetWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         window?.contentView = nil
     }
+}
+
+
+/// Desktop control panel (its own menu item, default OFF — the owner called the
+/// early version 多余; persisted choice wins per the TTP*Enabled convention).
+/// Desktop-icon level + 1 so clicks land (below Finder's backdrop was the
+/// "unclickable panel" bug), pointer-drag moves the window.
+final class DesktopWidgetWindowController: NSWindowController {
+    private let serverURL: URL
+
+    init(serverURL: URL) {
+        self.serverURL = serverURL
+        let rect = NSRect(x: 0, y: 0, width: 360, height: 480)
+        let panel = InteractiveDesktopPanel(contentRect: rect,
+                                            styleMask: [.borderless, .nonactivatingPanel],
+                                            backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.92)
+        panel.hasShadow = true
+        // Icon level + 1: plain desktopWindow sits below Finder's full-screen
+        // backdrop which eats every click; +21 keeps it behind normal windows
+        // but interactive (header defines icon = desktop + 20).
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 21)
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = false  // webview covers the window
+        let webView = WebHost.makeWebView(frame: rect, pointerDragReporting: true)
+        panel.contentView = webView
+        super.init(window: panel)
+        placeAtDefaultCorner()
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    func show() {
+        guard let window else { return }
+        if let webView = WebHost.webView(in: window) {
+            WebHost.load(webView, path: "/?app=1", on: serverURL)
+        }
+        window.orderFrontRegardless()
+    }
+
+    func placeAtDefaultCorner() {
+        guard let window, let screen = NSScreen.main else { return }
+        let frame = window.frame
+        window.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - frame.width - 16,
+                                      y: screen.visibleFrame.maxY - frame.height - 12))
+    }
+}
+
+/// Desktop-level panels can't become key by default, which swallowed every
+/// click into the webview; this subclass makes the panel interactive.
+final class InteractiveDesktopPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }

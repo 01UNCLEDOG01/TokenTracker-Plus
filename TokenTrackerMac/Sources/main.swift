@@ -12,7 +12,7 @@ if !others.isEmpty {
 }
 
 let app = NSApplication.shared
-let delegate = AppDelegate()
+let delegate: AppDelegate = MainActor.assumeIsolated { AppDelegate() }
 app.delegate = delegate
 app.setActivationPolicy(.accessory)  // menu-bar app: no Dock icon (Windows tray parity)
 app.run()

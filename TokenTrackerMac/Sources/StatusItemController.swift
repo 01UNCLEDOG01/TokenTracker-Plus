@@ -15,8 +15,12 @@ final class StatusItemController: NSObject {
     private var onOpenWidget: (() -> Void)?
     private var onTogglePet: (() -> Void)?
     private var onToggleQuotaWidget: (() -> Void)?
+    private var onToggleCapsule: (() -> Void)?
+    private var onToggleDesktopWidget: (() -> Void)?
     private var isPetVisible: (() -> Bool)?
     private var isQuotaWidgetVisible: (() -> Bool)?
+    private var isCapsuleVisible: (() -> Bool)?
+    private var isDesktopWidgetVisible: (() -> Bool)?
 
     init(serverManager: ServerManager,
          updateChecker: UpdateChecker,
@@ -24,33 +28,58 @@ final class StatusItemController: NSObject {
          onOpenWidget: @escaping () -> Void,
          onTogglePet: @escaping () -> Void,
          onToggleQuotaWidget: @escaping () -> Void,
+         onToggleCapsule: @escaping () -> Void,
+         onToggleDesktopWidget: @escaping () -> Void,
          isPetVisible: @escaping () -> Bool,
-         isQuotaWidgetVisible: @escaping () -> Bool) {
+         isQuotaWidgetVisible: @escaping () -> Bool,
+         isCapsuleVisible: @escaping () -> Bool,
+         isDesktopWidgetVisible: @escaping () -> Bool) {
         self.serverManager = serverManager
         self.updateChecker = updateChecker
         self.onOpenDashboard = onOpenDashboard
         self.onOpenWidget = onOpenWidget
         self.onTogglePet = onTogglePet
         self.onToggleQuotaWidget = onToggleQuotaWidget
+        self.onToggleCapsule = onToggleCapsule
+        self.onToggleDesktopWidget = onToggleDesktopWidget
         self.isPetVisible = isPetVisible
         self.isQuotaWidgetVisible = isQuotaWidgetVisible
+        self.isCapsuleVisible = isCapsuleVisible
+        self.isDesktopWidgetVisible = isDesktopWidgetVisible
         super.init()
     }
 
     func install() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            if let image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus") {
-                button.image = image
-            } else {
-                button.title = "⚡"
-            }
+            applyTrayStyle(PetSettingsController.shared.settings.trayStyle, button: button)
             button.toolTip = "TokenTracker Plus"
             button.target = self   // status bar buttons are NOT in the responder chain
             button.action = #selector(statusItemClicked)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
+    }
+
+    /// 托盘图标风格: 经典闪电 (bolt) / 应用图标 (app icon) / 奔跑小猫 — the cat
+    /// frames ship only with the vendored native bar; the webview shell falls
+    /// back to the bolt so the menu item still does something visible.
+    func setTrayStyle(_ style: String) {
+        guard let button = statusItem?.button else { return }
+        applyTrayStyle(style, button: button)
+    }
+
+    private func applyTrayStyle(_ style: String, button: NSStatusBarButton) {
+        switch style {
+        case "icon":
+            button.image = NSImage(named: NSImage.applicationIconName)
+            button.image?.size = NSSize(width: 18, height: 18)
+        case "cat":
+            Diag.info("Tray style cat: frames live in the native bar; using bolt")
+            button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
+        default:
+            button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
+        }
     }
 
     func updateHealth(_ health: ServerManager.Health) {
@@ -112,6 +141,14 @@ final class StatusItemController: NSObject {
         pet.state = (isPetVisible?() ?? false) ? .on : .off
         // No bare "q" shortcut: with the default command modifier it hijacked
         // Cmd+Q while the menu was open — muscle memory for quitting any app.
+        // 用量悬浮窗 = the native capsule (MonitorWidgetWindow counterpart).
+        let capsule = NSMenuItem(title: "用量悬浮窗", action: #selector(toggleCapsule), keyEquivalent: "u")
+        capsule.target = self
+        capsule.state = (isCapsuleVisible?() ?? false) ? .on : .off
+        // Desktop control panel: own item, default OFF (owner called it 多余).
+        let island = NSMenuItem(title: "桌面控制面板", action: #selector(toggleDesktopWidget), keyEquivalent: "")
+        island.target = self
+        island.state = (isDesktopWidgetVisible?() ?? false) ? .on : .off
         let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "")
         widget.target = self
         widget.state = (isQuotaWidgetVisible?() ?? false) ? .on : .off
@@ -136,6 +173,8 @@ final class StatusItemController: NSObject {
 
     @objc private func openDashboard() { onOpenDashboard?() }
     @objc private func toggleQuotaWidget() { onToggleQuotaWidget?() }
+    @objc private func toggleCapsule() { onToggleCapsule?() }
+    @objc private func toggleDesktopWidget() { onToggleDesktopWidget?() }
     @objc private func togglePet() { onTogglePet?() }
     @objc private func syncNow() { serverManager.syncNow() }
     @objc private func checkUpdates() { updateChecker.checkAndPrompt() }
