@@ -44,11 +44,11 @@ struct GitHubRelease: Decodable {
 /// HTTP flow can be tested without launching the app.
 final class UpdateReleaseClient {
 
-    static let releasePageURL = "https://github.com/xiufengsun/TokenTracker/releases/latest"
-    private static let apiURL = "https://api.github.com/repos/xiufengsun/TokenTracker/releases/latest"
+    static let releasePageURL = "https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases/latest"
+    private static let apiURL = "https://api.github.com/repos/01UNCLEDOG01/TokenTracker-Plus/releases/latest"
     // TT-plus fork: tag path follows this fork.
     private static let tagPath = "/01UNCLEDOG01/TokenTracker-Plus/releases/tag/"
-    private static let downloadBase = "https://github.com/xiufengsun/TokenTracker/releases/download/"
+    private static let downloadBase = "https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases/download/"
     /// Single universal DMG built by release-dmg.yml; download URLs depend on
     /// this stable name (see the PRODUCT_NAME comment in project.yml).
     private static let dmgAssetName = "TokenTrackerBar.dmg"
