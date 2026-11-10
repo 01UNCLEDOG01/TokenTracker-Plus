@@ -273,6 +273,7 @@ export const PROVIDER_LIMIT_SPECS = {
       }
       return [
         { key: "credits", labelKey: "limits.label.qoder_credits", window: dropEmptyQoderWindow(data.primary_window) },
+        { key: "team", labelKey: "limits.label.qoder_team_credits", window: dropEmptyQoderWindow(data.quaternary_window) },
         { key: "addon", labelKey: "limits.label.qoder_addon_credits", window: dropEmptyQoderWindow(data.tertiary_window) },
         {
           key: "ultimate",
@@ -287,6 +288,7 @@ export const PROVIDER_LIMIT_SPECS = {
     windows(data) {
       const rows = [
         { key: "credits", labelKey: "limits.label.qoder_cn_credits", window: data.primary_window },
+        { key: "team", labelKey: "limits.label.qoder_team_credits", window: data.quaternary_window },
         { key: "addon", labelKey: "limits.label.qoder_cn_addon_credits", window: data.tertiary_window },
         {
           key: "ultimate",

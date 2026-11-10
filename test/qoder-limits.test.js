@@ -61,7 +61,11 @@ test("normalizeQoderUsageResponse keeps the three credit pools apart (captured 2
   assert.equal(sota.expires_at, new Date(expiresAt).toISOString());
 });
 
-test("normalizeQoderUsageResponse merges camel-case base and shared quotas", () => {
+test("normalizeQoderUsageResponse keeps personal and shared quotas as separate windows", () => {
+  // TM #1301: personal and shared allowances are separate billing windows —
+  // the old merge summed them into one Credits bar, pricing a team pool into
+  // the member's own window. The legacy inline sharedQuota is the fallback
+  // source for the team window.
   const result = normalizeQoderUsageResponse({
     totalQuota: {
       quotaSummary: {
@@ -84,11 +88,64 @@ test("normalizeQoderUsageResponse merges camel-case base and shared quotas", () 
   });
 
   assert.equal(result.configured, true);
-  assert.equal(result.primary_window.used_credits, 50);
-  assert.equal(result.primary_window.limit_credits, 300);
-  assert.equal(result.primary_window.remaining_credits, 250);
-  assert.ok(Math.abs(result.primary_window.used_percent - (50 / 3)) < 1e-12);
+  assert.equal(result.primary_window.used_credits, 20);
+  assert.equal(result.primary_window.limit_credits, 100);
+  assert.equal(result.primary_window.remaining_credits, 80);
+  assert.equal(result.primary_window.used_percent, 20);
   assert.equal(result.primary_window.reset_at, "2026-08-01T00:00:00.000Z");
+  const team = result.quaternary_window;
+  assert.ok(team, "a shared allowance must surface the Team credits window");
+  assert.equal(team.used_credits, 30);
+  assert.equal(team.limit_credits, 200);
+  assert.equal(team.remaining_credits, 170);
+  assert.equal(team.used_percent, 15);
+  assert.equal(team.reset_at, null, "no shared reset source — stay null, never borrow the personal reset");
+});
+
+test("normalizeQoderUsageResponse prefers the organization-shared endpoint and omits a zero-limit team", () => {
+  // TM #1301: shared_quota on the dedicated endpoint is THIS member's cap
+  // (organization_pool is the whole team's pool and must never be added to
+  // anything personal); a zero-limit shared allowance is omitted entirely.
+  const result = normalizeQoderUsageResponse(
+    {
+      totalQuota: {
+        quotaSummary: { usedValue: 42, limitValue: 100, remainingValue: 58, unit: "credits" },
+      },
+      // Legacy inline field must be ignored while the dedicated endpoint data
+      // is present.
+      sharedQuota: {
+        quotaSummary: { usedValue: 90, limitValue: 900, remainingValue: 810, unit: "credits" },
+      },
+      nextResetAt: "2026-06-01T00:00:00Z",
+    },
+    {
+      shared_quota: {
+        quotaSummary: { usedValue: 10, limitValue: 50, remainingValue: 40, unit: "credits" },
+      },
+      next_reset_at: 1_788_000_000_000,
+    },
+  );
+
+  assert.equal(result.primary_window.used_credits, 42);
+  const team = result.quaternary_window;
+  assert.ok(team, "endpoint data must surface the team window");
+  assert.equal(team.limit_credits, 50, "shared_quota is the member cap");
+  assert.equal(team.used_credits, 10);
+  assert.equal(team.reset_at, new Date(1_788_000_000_000).toISOString());
+
+  const noTeam = normalizeQoderUsageResponse(
+    {
+      totalQuota: {
+        quotaSummary: { usedValue: 0, limitValue: 0, remainingValue: 0, unit: "credits" },
+      },
+    },
+    {
+      shared_quota: {
+        quotaSummary: { usedValue: 0, limitValue: 0, remainingValue: 0, unit: "credits" },
+      },
+    },
+  );
+  assert.equal(noTeam.quaternary_window, undefined, "a zero-limit team allowance is omitted");
 });
 
 test("normalizeQoderUsageResponse accepts snake case and exhausted zero quota", () => {
@@ -174,9 +231,14 @@ test("Qoder caches add-on credits independently from plan and Ultimate expiry", 
 });
 
 test("fetchQoderUsage sends the CodeXbar-compatible browser request", async () => {
-  let captured;
+  const capturedUrls = [];
   const fetchImpl = async (url, options) => {
-    captured = { url, options };
+    capturedUrls.push({ url, options });
+    if (String(url).includes("organization-shared-usages")) {
+      // The shared-org endpoint may 404 on personal accounts; personal
+      // credits must survive regardless.
+      return { ok: false, status: 404 };
+    }
     return {
       ok: true,
       status: 200,
@@ -197,13 +259,17 @@ test("fetchQoderUsage sends the CodeXbar-compatible browser request", async () =
 
   const result = await fetchQoderUsage("session=secret", QODER_SITES.international, fetchImpl);
   assert.equal(result.primary_window.used_percent, 25);
-  assert.equal(captured.url, "https://qoder.com/api/v2/me/usages/big_model_credits");
+  assert.equal(result.quaternary_window, undefined, "a shared-endpoint miss leaves no team window");
+  const usageCall = capturedUrls.find((call) => call.url === "https://qoder.com/api/v2/me/usages/big_model_credits");
+  assert.ok(usageCall, "the usage endpoint must be called");
   assert.deepEqual(
-    captured.options.headers,
+    usageCall.options.headers,
     qoderRequestHeaders("session=secret", QODER_SITES.international),
   );
-  assert.equal(captured.options.headers["Bx-V"], "2.5.35");
-  assert.equal(captured.options.headers["X-Requested-With"], "XMLHttpRequest");
+  assert.equal(usageCall.options.headers["Bx-V"], "2.5.35");
+  assert.equal(usageCall.options.headers["X-Requested-With"], "XMLHttpRequest");
+  const sharedCall = capturedUrls.find((call) => String(call.url).includes("organization-shared-usages"));
+  assert.ok(sharedCall, "the shared-org endpoint must be attempted");
 });
 
 test("fetchQoderLimits keeps explicit QODER_COOKIE provider access", async (t) => {
@@ -758,6 +824,9 @@ test("fetchQoderCnLimits falls back to the qoder.cn site and its own cache names
       throw new Error("Qoder local service is not running.");
     },
     fetchImpl: async (url) => {
+      if (String(url).includes("organization-shared-usages")) {
+        return { ok: false, status: 404 };
+      }
       capturedUrl = url;
       return {
         ok: true,
@@ -940,6 +1009,9 @@ test("fetchQoderCnLimits stays on the china site even when QODER_SITE points els
       throw new Error("Qoder local service is not running.");
     },
     fetchImpl: async (url) => {
+      if (String(url).includes("organization-shared-usages")) {
+        return { ok: false, status: 404 };
+      }
       capturedUrl = url;
       return {
         ok: true,

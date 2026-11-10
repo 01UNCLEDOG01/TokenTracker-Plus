@@ -161,24 +161,32 @@ function poolExpiresAt(container) {
   return earliest;
 }
 
-function normalizeQoderUsageResponse(response) {
+function normalizeQoderUsageResponse(response, sharedOrgBody = null) {
   if (!response || typeof response !== "object") {
     throw new Error("Qoder usage response is not an object.");
   }
   const totalContainer = firstDefined(response, "totalQuota", "total_quota");
   const sharedContainer = firstDefined(response, "sharedQuota", "shared_quota");
   const base = normalizeQuotaSummary(quotaSummary(totalContainer));
-  const sharedSummary = quotaSummary(sharedContainer);
+
+  // TM #1301: personal and shared allowances are SEPARATE billing windows —
+  // the old merge summed them into one Credits bar, pricing a team pool into
+  // the member's own window. The shared window prefers the dedicated
+  // organization-shared-usages endpoint (its shared_quota is THIS member's
+  // cap; organization_pool is the whole team's pool and must never be added
+  // to anything personal) and falls back to the legacy inline sharedQuota
+  // field. Field shapes per TM #1301 — unverified against a live team
+  // account.
+  const sharedOrgContainer = sharedOrgBody
+    ? firstDefined(sharedOrgBody, "sharedQuota", "shared_quota")
+    : null;
+  const sharedSummary = quotaSummary(sharedOrgContainer) || quotaSummary(sharedContainer);
   const shared = sharedSummary ? normalizeQuotaSummary(sharedSummary) : null;
 
-  const used = base.used + (shared?.used || 0);
-  const total = base.total + (shared?.total || 0);
-  const remaining = base.remaining + (shared?.remaining || 0);
-  const usedPercent = shared
-    ? total > 0
-      ? (used / total) * 100
-      : 0
-    : base.usagePercentage;
+  const used = base.used;
+  const total = base.total;
+  const remaining = base.remaining;
+  const usedPercent = base.usagePercentage;
 
   const pools = QODER_POOL_DEFS.map(([key, camel, snake]) => {
     const container = firstDefined(response, camel, snake);
@@ -196,6 +204,30 @@ function normalizeQoderUsageResponse(response) {
     };
   }).filter(Boolean);
 
+  // Team credits window (TM #1301): a zero-limit allowance is omitted
+  // entirely — a 0/0 shared quota means no team plan, and rendering it as a
+  // 0% bar would read as a drained team. The shared reset stays honest:
+  // null unless the shared payload carries one (we have no plan-level
+  // next_refresh_date source; the renderer already decides how to treat a
+  // missing reset).
+  let teamWindow = null;
+  if (shared && shared.total > 0) {
+    const rawTeamReset = sharedOrgBody
+      ? firstDefined(sharedOrgBody, "nextResetAt", "next_reset_at")
+      : null;
+    const teamResetAt = typeof rawTeamReset === "number" && rawTeamReset <= 0
+      ? null
+      : normalizeResetAt(rawTeamReset);
+    teamWindow = {
+      used_percent: Math.max(0, Math.min(100, shared.usagePercentage)),
+      reset_at: teamResetAt,
+      used_credits: shared.used,
+      limit_credits: shared.total,
+      remaining_credits: shared.remaining,
+      unit: shared.unit || base.unit || null,
+    };
+  }
+
   return {
     configured: true,
     error: null,
@@ -208,8 +240,9 @@ function normalizeQoderUsageResponse(response) {
       used_credits: used,
       limit_credits: total,
       remaining_credits: remaining,
-      unit: base.unit || shared?.unit || null,
+      unit: base.unit || null,
     },
+    ...(teamWindow ? { quaternary_window: teamWindow } : {}),
     pools,
     user_id: typeof response.user_id === "string" ? response.user_id : undefined,
     source: "provider-api",
@@ -572,8 +605,9 @@ function readQoderLimitsCache({
     const primaryWindow = qoderCachedWindow(raw.primary_window, { cachedAtMs, nowMs });
     const secondaryWindow = qoderCachedWindow(raw.secondary_window, { cachedAtMs, nowMs });
     const tertiaryWindow = qoderCachedWindow(raw.tertiary_window, { cachedAtMs, nowMs });
-    if (!primaryWindow && !secondaryWindow && !tertiaryWindow) return null;
-    const hasUnexpiredDatedWindow = [primaryWindow, secondaryWindow, tertiaryWindow]
+    const quaternaryWindow = qoderCachedWindow(raw.quaternary_window, { cachedAtMs, nowMs });
+    if (!primaryWindow && !secondaryWindow && !tertiaryWindow && !quaternaryWindow) return null;
+    const hasUnexpiredDatedWindow = [primaryWindow, secondaryWindow, tertiaryWindow, quaternaryWindow]
       .some((window) => Number.isFinite(Date.parse(window?.reset_at || "")));
     if (nowMs - cachedAtMs > QODER_LIMITS_CACHE_MAX_AGE_MS && !hasUnexpiredDatedWindow) {
       return null;
@@ -593,6 +627,7 @@ function readQoderLimitsCache({
       primary_window: primaryWindow,
       secondary_window: secondaryWindow,
       ...(tertiaryWindow ? { tertiary_window: tertiaryWindow } : {}),
+      ...(quaternaryWindow ? { quaternary_window: quaternaryWindow } : {}),
       cached: true,
       stale: !fresh,
       cached_at: raw.cached_at,
@@ -638,7 +673,7 @@ function writeQoderLimitsCache(limits, {
   nowMs = Date.now(),
   namespace,
 } = {}) {
-  if (!limits?.configured || limits.error || (!limits.primary_window && !limits.secondary_window && !limits.tertiary_window)) return;
+  if (!limits?.configured || limits.error || (!limits.primary_window && !limits.secondary_window && !limits.tertiary_window && !limits.quaternary_window)) return;
   const cachePath = qoderLimitsCachePath({ home, namespace });
   const payload = {
     qoder: {
@@ -654,6 +689,7 @@ function writeQoderLimitsCache(limits, {
       spend_stale: limits.spend_stale === true,
       spend_cached_at: limits.spend_cached_at || null,
       ...(limits.tertiary_window ? { tertiary_window: limits.tertiary_window } : {}),
+      ...(limits.quaternary_window ? { quaternary_window: limits.quaternary_window } : {}),
       // Remember the winning source so a fresh re-serve keeps honest
       // provenance instead of always claiming "disk-cache" (PR 955).
       source: typeof limits.source === "string" ? limits.source : null,
@@ -771,6 +807,19 @@ async function fetchQoderUsage(cookieHeader, site, fetchImpl) {
     error.code = "AUTH_EXPIRED";
     throw error;
   }
+  // TM #1301: the member's shared organization allowance lives on its own
+  // endpoint. Fetched serially AFTER the usage call (Qoder's shared client
+  // times out on parallel requests) and allowed to fail silently — a shared
+  // endpoint miss must not kill personal credits; the parser falls back to
+  // the legacy inline sharedQuota field.
+  let sharedOrgBody = null;
+  try {
+    const sharedResponse = await fetchImpl(
+      `${site.origin}/api/v1/me/organization-shared-usages/big_model_credits`,
+      { method: "GET", headers: qoderRequestHeaders(cookieHeader, site) },
+    );
+    if (sharedResponse.ok) sharedOrgBody = await sharedResponse.json();
+  } catch (_error) {}
   if (!response.ok) {
     throw new Error(`Qoder usage API returned HTTP ${response.status}.`);
   }
