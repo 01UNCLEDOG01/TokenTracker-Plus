@@ -18,6 +18,7 @@
   - 启动时检查 GitHub Releases 新版本并引导下载。
   - 发布物：`TokenTracker-plus-1.25.0.dmg`（拖进「应用程序」即装）与 zip 绿色包，附 SHA-256。应用为未签名分发（与 Windows 版同策略），首次打开若被 Gatekeeper 拦截：右键 → 打开，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再开。
 - 限说明：`dashboard:build` 的 PET 开关（宠物页产物）在 macOS 打包链中同样强制开启。宠物/额度窗按 Windows 壳契约加载 `/pet.html?app=1` 与 `/?app=1`（紧凑模式），面板窗走常规 dashboard 路由。
+- **修复：TRAE 国际版（trae）断供期费用估算不再借用 CN 版的缓存命中率**。两版跑的模型组合不同，此前国际版行会被 CN 版的历史实测命中率（≈96%）折算、费用被系统性低估；现在两个版本各自维护证据池，没有自身实测历史的版本按未缓存牌价如实计费（不借用、不编造）。估算证据同时改读现役游标代次——此前直读的是 cursor-store-v2 启用后已冻结的旧副本，命中率证据停留在 11-07。
 
 ## [1.24.3] - 2026-11-10
 
