@@ -56,22 +56,68 @@ final class StatusItemController: NSObject {
         statusItem = item
     }
 
-    /// 托盘图标风格: 经典闪电 (bolt) / 应用图标 (app icon) / 奔跑小猫 — the cat
-    /// frames ship only with the vendored native bar; the webview shell falls
-    /// back to the bolt so the menu item still does something visible.
+    /// 托盘图标风格: 经典闪电 (bolt) / 应用图标 (app icon) / 奔跑小猫 (animated
+    /// RunnerCat0-4 frames, 0.15s cadence — MenuBarAnimator parity). The mac
+    /// menu bar status item is the system-tray equivalent, so the switcher
+    /// applies here exactly as it does on Windows.
     func setTrayStyle(_ style: String) {
         guard let button = statusItem?.button else { return }
         applyTrayStyle(style, button: button)
     }
 
+    private var catFrameTimer: Timer?
+    private var catFrameIndex = 0
+
+    private func restartCatTimer(frames: [NSImage], interval: TimeInterval) {
+        catFrameTimer?.invalidate()
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self, let button = self.statusItem?.button else { return }
+            self.catFrameIndex = (self.catFrameIndex + 1) % frames.count
+            button.image = frames[self.catFrameIndex]
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        catFrameTimer = timer
+    }
+
     private func applyTrayStyle(_ style: String, button: NSStatusBarButton) {
+        catFrameTimer?.invalidate()
+        catFrameTimer = nil
         switch style {
-        case "icon":
+        case "mascot":
+            // Windows: 应用图标 = the mascot PNG. No loose mascot in the shell
+            // bundle — reuse the app icon (same artwork family).
             button.image = NSImage(named: NSImage.applicationIconName)
             button.image?.size = NSSize(width: 18, height: 18)
         case "cat":
-            Diag.info("Tray style cat: frames live in the native bar; using bolt")
-            button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
+            // Upstream MenuBarAnimator.buildCatFrames: copy each RunCat frame,
+            // pin the canvas to 28x18 and mark it a TEMPLATE — without both the
+            // colored PNG renders as a giant black blob in the menu bar.
+            let frames = (0..<5).compactMap { n -> NSImage? in
+                guard let named = NSImage(named: "cat\(n)"),
+                      let copy = named.copy() as? NSImage else { return nil }
+                copy.size = NSSize(width: 28, height: 18)
+                copy.isTemplate = true
+                return copy
+            }
+            guard !frames.isEmpty else {
+                button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
+                return
+            }
+            catFrameIndex = 0
+            button.image = frames[0]
+            // RunCat cadence (MenuBarRunnerPace): idle 0.5s, syncing 0.2s.
+            let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self, weak button] _ in
+                guard let self, let button else { return }
+                self.catFrameIndex = (self.catFrameIndex + 1) % frames.count
+                button.image = frames[self.catFrameIndex]
+                // Speed up while a sync is in flight (upstream syncing = 0.2s).
+                let wanted: TimeInterval = IslandStats.shared.syncing ? 0.2 : 0.5
+                if abs(self.catFrameTimer?.timeInterval ?? wanted - wanted) > 0.01 {
+                    self.restartCatTimer(frames: frames, interval: wanted)
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            catFrameTimer = timer
         default:
             button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
         }

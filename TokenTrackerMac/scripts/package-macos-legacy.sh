@@ -72,6 +72,13 @@ else
   echo "WARN: app-icon.png missing — bundling without an icon"
 fi
 
+# 2b. Menu-bar cat frames (托盘图标风格 奔跑小猫) — NSImage(named: "catN").
+for n in 0 1 2 3 4; do
+  cp "BarSources/Assets.xcassets/RunnerCat${n}.imageset/cat${n}.png" \
+     "$APP_DIR/Contents/Resources/cat${n}.png" 2>/dev/null || true
+done
+ls "$APP_DIR/Contents/Resources"/cat*.png >/dev/null 2>&1 || echo "WARN: cat frames missing"
+
 # 3. Info.plist (version injected from package.json).
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

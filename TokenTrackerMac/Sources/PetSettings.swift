@@ -25,8 +25,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         // its field is present in the native reply (use-pet-settings.js).
         var islandMode: Bool = false       // 悬浮形态：顶部灵动岛 / 自由悬浮
         var quota: Bool = true             // 桌面限额悬浮窗 (= 额度窗)
-        var trayStyle: String = "lightning" // 奔跑小猫 / 应用图标 / 经典闪电
+        var trayStyle: String = "cat"      // 奔跑小猫 / 应用图标(mascot) / 经典闪电
         var actionLock: String = "auto"    // 动作 picker
+        var monitor: Bool = true           // 用量悬浮窗 = 灵动岛胶囊
     }
 
     private(set) var settings = Settings()
@@ -60,19 +61,23 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         let character = d.string(forKey: "TTPPetCharacter") ?? "clawd"
         let size = d.string(forKey: "TTPPetSize") ?? "medium"
         let botColor = d.string(forKey: "TTPPetBotColor") ?? "auto"
-        let trayStyle = d.string(forKey: "TTPTrayStyle") ?? "lightning"
+        // Windows defaults to "cat" (MonitorWidgetSettings.Load()?.TrayStyle ?? "cat").
+        let trayStyle = d.string(forKey: "TTPTrayStyle") ?? "cat"
         let actionLock = d.string(forKey: "TTPPetActionLock") ?? "auto"
         let islandMode = d.object(forKey: "TTPCapsuleIslandMode") == nil
             ? false : d.bool(forKey: "TTPCapsuleIslandMode")
         let quota = d.object(forKey: "TTPQuotaWidgetEnabled") == nil
             ? true : d.bool(forKey: "TTPQuotaWidgetEnabled")
+        let monitor = d.object(forKey: "TTPCapsuleEnabled") == nil
+            ? true : d.bool(forKey: "TTPCapsuleEnabled")
         settings = Settings(visible: true, character: character,
                             size: sizeFrames.keys.contains(size) ? size : "medium",
                             botColor: botColor,
                             islandMode: islandMode,
                             quota: quota,
                             trayStyle: trayStyle,
-                            actionLock: actionLock)
+                            actionLock: actionLock,
+                            monitor: monitor)
         Diag.info("Pet settings loaded: \(settings.character)/\(settings.size)")
     }
 
@@ -132,7 +137,12 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             settings.botColor = botColor
             d.set(botColor, forKey: "TTPPetBotColor")
         case "monitor":
+            // Windows TrayApplicationContext: case "monitor" -> _monitorWindow
+            // SetEnabled (MonitorWidgetWindow = the 灵动岛 capsule), NOT the pet
+            // bubble. The pet bubble/hover is always live.
             let monitor = (value as? Bool) ?? false
+            settings.monitor = monitor
+            d.set(monitor, forKey: "TTPCapsuleEnabled")
             setMonitor?(monitor)
         case "islandMode":
             let island = (value as? Bool) ?? false
@@ -169,7 +179,7 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             "character": settings.character,
             "size": settings.size,
             "botColor": settings.botColor,
-            "monitor": currentMonitor?() ?? false,
+            "monitor": currentMonitor?() ?? settings.monitor,
             "islandMode": settings.islandMode,
             "quota": settings.quota,
             "trayStyle": settings.trayStyle,

@@ -75,10 +75,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return views
         }
         PetSettingsController.shared.petPanelProvider = { [weak self] in self?.petPanel }
-        PetSettingsController.shared.setMonitor = { monitor in
-            IslandStats.shared.setBubbleEnabled(monitor)
+        PetSettingsController.shared.setMonitor = { [weak self] monitor in
+            guard let self, let capsule = self.capsule else { return }
+            if monitor { capsule.show() } else { capsule.hide() }
         }
-        PetSettingsController.shared.currentMonitor = { IslandStats.shared.bubbleEnabled }
+        PetSettingsController.shared.currentMonitor = { [weak self] in
+            self?.capsule?.isVisible ?? false
+        }
         IslandStats.shared.load()
         IslandStats.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
         IslandStats.shared.petWebViewProvider = { [weak self] in

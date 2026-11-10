@@ -176,7 +176,7 @@ final class IslandStats: NSObject {
     func pushPetBubble() {
         guard let webView = petWebViewProvider?() else { return }
         var script = ""
-        if bubbleEnabled {
+        do {
             let stats: [String: Any] = [
                 "todayTokens": today.tokens, "todayCostUsd": today.costUsd,
                 "conversations": conversations,
@@ -200,8 +200,6 @@ final class IslandStats: NSObject {
                 "window.__ttPetTokenUnitSystem=\"\(tokenUnitSystem)\";" +
                 "window.__ttPetConnected=true;" +
                 "window.__ttPetSyncing=\(syncing ? "true" : "false");"
-        } else {
-            script += "window.__ttPetBubbleBand=0;window.__ttPetLimits=null;"
         }
         // The page re-reads currency on pet:currency and locale+unitSystem on
         // pet:locale (pet.jsx: "PushContext dispatches pet:locale on every
