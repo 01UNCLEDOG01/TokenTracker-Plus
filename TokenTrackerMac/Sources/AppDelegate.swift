@@ -121,13 +121,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "confettiOnReset": UserDefaults.standard.object(forKey: "TTPShell_confettiOnReset") == nil
                     ? true : UserDefaults.standard.bool(forKey: "TTPShell_confettiOnReset"),
                 "autoUpdateEnabled": UserDefaults.standard.bool(forKey: "TTPShell_autoUpdateEnabled"),
-                "hideMenuBarIcon": false,
+                // Menu-bar contract consumed by the dashboard Widgets page
+                // (menu-bar-display.js): available items, max slots, chosen
+                // slots, and the strip toggle.
+                "showStats": self?.statusItemController?.menuBarShowStats ?? true,
+                "menuBarItems": (self?.statusItemController?.menuBarItems ?? MenuBarMetric.defaultItems).map { $0.rawValue },
+                "menuBarAvailableItems": MenuBarMetric.allCases.map { $0.descriptor },
+                "menuBarMaxItems": MenuBarMetric.maxItems,
+                "menuBarIconStyle": PetSettingsController.shared.settings.trayStyle,
+                "hideMenuBarIcon": self?.statusItemController?.hideMenuBarIcon ?? false,
+                "limitsDisplayMode": self?.statusItemController?.limitsDisplayMode ?? "used",
                 "isSyncing": IslandStats.shared.syncing,
                 "dynamicIslandEnabled": self?.capsule?.isVisible ?? false,
                 "updateBusy": false,
             ]
             if let self { payload["version"] = self.updateChecker.currentVersion }
             return payload
+        }
+        // Dashboard -> shell: apply the menu-bar / limits / reset surfaces the
+        // settings bridge used to only persist (KI-075).
+        PetSettingsController.shared.shellSettingApplier = { [weak self] key, value in
+            switch key {
+            case "showStats":
+                self?.statusItemController?.setShowStats((value as? Bool) ?? true)
+            case "menuBarItems":
+                self?.statusItemController?.setMenuBarItems(MenuBarMetric.parse(value))
+            case "hideMenuBarIcon":
+                self?.statusItemController?.setHideMenuBarIcon((value as? Bool) ?? false)
+            case "limitsDisplayMode":
+                self?.statusItemController?.setLimitsDisplayMode((value as? String) ?? "used")
+            case "toastOnReset":
+                self?.statusItemController?.setToastOnReset((value as? Bool) ?? true)
+            case "confettiOnReset":
+                self?.statusItemController?.setConfettiOnReset((value as? Bool) ?? true)
+            default:
+                break
+            }
         }
         PetSettingsController.shared.nativeActionHandler = { [weak self] name in
             guard let self else { return false }
@@ -164,6 +193,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.capsule = capsule
         IslandStats.shared.onStatsUpdated = { [weak self] in
             self?.capsule?.setText(IslandStats.shared.capsuleText)
+            // Live menu-bar metrics strip (dashboard Widgets contract).
+            self?.statusItemController?.refreshMenuBar()
         }
 
         PetSettingsController.shared.characterChanged = { [weak self] character in
