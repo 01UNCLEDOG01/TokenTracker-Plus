@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sizePreset: PetSizePreset.normalize(PetSettingsController.shared.settings.size))
         petPanel?.onOpenDashboard = { [weak self] in self?.openDashboard() }
         petPanel?.onContextMenu = { [weak self] point in
-            self?.statusItemController?.popMenu(at: point)
+            self?.statusItemController?.popPetMenu(at: point)
         }
 
         self.widgetWindow = QuotaWidgetWindowController(serverURLProvider: { [weak self] in

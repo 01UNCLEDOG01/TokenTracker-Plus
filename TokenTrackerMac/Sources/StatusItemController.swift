@@ -4,6 +4,7 @@ import WebKit
 /// Menu bar controller — counterpart of TrayApplicationContext.cs. Left-click
 /// toggles the dashboard window (the Windows tray does exactly that), right-click
 /// pops the shell menu.
+@MainActor
 final class StatusItemController: NSObject {
     private let serverManager: ServerManager
     private let updateChecker: UpdateChecker
@@ -89,6 +90,11 @@ final class StatusItemController: NSObject {
             }
         }
         walk(menu, "")
+        Diag.info("MENU --- pet right-click ---")
+        let petMenu = NSMenu()
+        let probe = item("打开面板", #selector(openDashboard), "")
+        petMenu.addItem(probe)
+        Diag.info("MENU pet-entry: \(probe.title)")
     }
 
     /// 托盘图标风格: 经典闪电 (bolt) / 应用图标 (app icon) / 奔跑小猫 (animated
@@ -225,6 +231,11 @@ final class StatusItemController: NSObject {
         menu.autoenablesItems = false
         let settings = PetSettingsController.shared.settings
 
+        // Upstream/Windows show a summary row at the top of the menu; ours is the
+        // capsule line (today's tokens + converted cost), refreshed on open.
+        let summary = NSMenuItem(title: IslandStats.shared.capsuleText, action: nil, keyEquivalent: "")
+        summary.isEnabled = false
+
         let dashboard = item("打开面板", #selector(openDashboard), "d")
         // 用量悬浮窗 submenu = Windows monitor context menu
         // (open / sync / island mode / free float / hide).
@@ -275,6 +286,10 @@ final class StatusItemController: NSObject {
             tray.submenu?.addItem(entry)
         }
 
+        let syncing = IslandStats.shared.syncing
+        let syncEntry = item(syncing ? "同步中…" : "立即同步", #selector(syncNow), "s")
+        syncEntry.isEnabled = !syncing
+
         let login = item("开机启动", #selector(toggleLoginItem), "")
         login.state = LaunchAtLogin.isEnabled ? .on : .off
         login.isEnabled = LaunchAtLogin.isSupported
@@ -286,8 +301,13 @@ final class StatusItemController: NSObject {
         let quit = item("退出 TokenTracker Plus", #selector(quit), "q")
         quit.keyEquivalentModifierMask = [.command, .shift]
 
+<<<<<<< HEAD
         [dashboard, .separator(), capsule, pet, quota,
          .separator(), item("立即同步", #selector(syncNow), "s"),
+=======
+        [summary, .separator(), dashboard, .separator(), capsule, pet, quota,
+         .separator(), syncEntry,
+>>>>>>> 04a1cb0 (feat(macos): pet-coloured island dot on every tray style, full tray/pet menus, fixed menu-bar slot)
          .separator(), tray,
          .separator(), login, update, about,
          .separator(), quit].forEach { menu.addItem($0) }
@@ -343,6 +363,35 @@ final class StatusItemController: NSObject {
             choices.append(PetChoice(id: current, title: current))
         }
         return choices
+    }
+
+    // MARK: Pet right-click (Windows _petMenu: a shorter pet-scoped menu)
+
+    func popPetMenu(at point: NSPoint) {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let open = item("打开面板", #selector(openDashboard), "")
+        let syncing = IslandStats.shared.syncing
+        let sync = item(syncing ? "同步中…" : "立即同步", #selector(syncNow), "")
+        sync.isEnabled = !syncing
+        let size = submenuItem("宠物大小")
+        for (id, title) in [("small", "小"), ("medium", "中"), ("large", "大")] {
+            let entry = item(title, #selector(setPetSizeFromMenu), "")
+            entry.representedObject = id
+            entry.state = PetSettingsController.shared.settings.size == id ? .on : .off
+            size.submenu?.addItem(entry)
+        }
+        let character = submenuItem("宠物角色")
+        for choice in petChoices() {
+            let entry = item(choice.title, #selector(setPetCharacterFromMenu), "")
+            entry.representedObject = choice.id
+            entry.state = PetSettingsController.shared.settings.character == choice.id ? .on : .off
+            character.submenu?.addItem(entry)
+        }
+        let close = item("关闭宠物", #selector(hidePet), "")
+        [open, sync, .separator(), size, character, .separator(), close].forEach { menu.addItem($0) }
+        self.menu = menu
+        menu.popUp(positioning: nil, at: point, in: nil)
     }
 
     // MARK: Actions
