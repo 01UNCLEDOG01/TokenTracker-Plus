@@ -318,7 +318,9 @@ for (const operation of ["list", "whoami"]) {
       assert.throws(() => wsl.discoverWslHome(".commandcode", { ...options, strict: true }), (error) => error === injected);
       fail = false;
       assert.equal(wsl.discoverWslHome(".commandcode", { ...options, strict: true }), "\\\\wsl$\\Synthetic\\home\\fixture\\.commandcode");
-      assert.equal(calls, 3, "strict recovery retries, without resetting unrelated caches");
+      assert.equal(calls, operation === "list" ? 4 : 3, "strict recovery retries, without resetting unrelated caches"
+        + " (list +1: TM #1438 adds one wsl -l --running probe per successful -l -v;"
+        + " whoami +0: its --running sibling is served by the 30s TTL cache)")
     });
   }
 }

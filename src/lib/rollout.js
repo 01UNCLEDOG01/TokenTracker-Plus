@@ -6178,6 +6178,8 @@ function hasZcodeCursorState(cursors) {
 // Sync, session discovery and status must select the same installs. Once sync
 // records a priority-mode choice, retain it: switching databases underneath a
 // flat cursor would accumulate both installs in the same usage ledger.
+// `\\wsl$\Distro\` (the shape wslUncRoot returns) -> "Distro".
+const WSL_UNC_DISTRO_RE = /^\\\\(?:wsl\$|wsl\.localhost)\\([^\\]+)\\$/i;
 function resolveZcodeInstallPaths({ nativeValue, wslValue } = {}, env = process.env, deps = {}) {
   const mode = wsl.getWslMode(env);
   const priorityMode = (deps.platform || process.platform) === "win32" && ["native-first", "wsl-first"].includes(mode);
@@ -6187,6 +6189,23 @@ function resolveZcodeInstallPaths({ nativeValue, wslValue } = {}, env = process.
       typeof selection.dbPath === "string" && selection.dbPath) {
     // A newly discovered or temporarily unavailable install must not change
     // the cursor's owner. Only an explicit mode/home override releases it.
+    // TM #1438 wake guard: a sticky selection may point at a WSL distro that
+    // has since STOPPED — reading its UNC db (snapshotSqliteDb → copyFile)
+    // would start the whole distro just to find no new sessions. When the
+    // running state is enumerable and the distro is down, yield nothing for
+    // this round; cursors stay untouched and the next tick after it starts
+    // resumes seamlessly. Unknown state (probe returned null) keeps the
+    // sticky path — the data flow must not die with a broken --running.
+    const stickyRoot = wsl.wslUncRoot(selection.dbPath);
+    if (stickyRoot) {
+      const runningNames = wsl.probeRunningWslNames();
+      if (runningNames != null) {
+        const match = WSL_UNC_DISTRO_RE.exec(stickyRoot);
+        if (match && !runningNames.includes(match[1])) {
+          return { native: null, wsl: null };
+        }
+      }
+    }
     return { native: selection.dbPath, wsl: null };
   }
   const paths = resolveInstallPaths({ nativeValue, wslValue }, env, deps);

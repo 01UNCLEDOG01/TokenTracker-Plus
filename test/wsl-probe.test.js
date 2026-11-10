@@ -381,3 +381,38 @@ test("discoverWslHome probes nothing when WSL reports no running distros", () =>
   assert.equal(hit, null);
   assert.equal(identityProbes, 0, "zero running distros means zero identity probes");
 });
+
+test("probeRunningWslNames decodes the localized empty-state failure as empty (review P1-D)", () => {
+  // Real builds (win32 19044 zh-CN) fail `wsl -l --running` with exit -1 and
+  // a localized "no running distributions" message on UTF-16 stdout when
+  // nothing runs. That is the EMPTY answer — an idle machine must not fall
+  // back to probing (and waking) every installed distro.
+  const fail = Object.assign(new Error("wsl failed"), { status: 4294967295 });
+  fail.stdout = Buffer.from("没有正在运行的分发。\u0000", "utf16le");
+  const names = probeRunningWslNames({ runWsl: () => { throw fail; } });
+  assert.deepEqual(names, []);
+
+  const failEn = Object.assign(new Error("wsl failed"), { status: 1 });
+  failEn.stdout = Buffer.from("There are no running distributions.\u0000", "utf16le");
+  assert.deepEqual(probeRunningWslNames({ runWsl: () => { throw failEn; } }), []);
+
+  // A genuinely unknown failure keeps the null fallback.
+  assert.equal(probeRunningWslNames({ runWsl: () => { throw Object.assign(new Error("disk"), { status: 1 }); } }), null);
+});
+
+test("probeRunningWslNames caches for 30s only when no runWsl dep is given", () => {
+  resetWslProbeCache();
+  let calls = 0;
+  const runWsl = (args) => {
+    if (args[0] === "-l") return args[1] === "--running" ? "Ubuntu\n" : "  NAME  STATE  VERSION\n* Ubuntu  Running  2\n";
+    return "u\n";
+  };
+  const first = probeRunningWslNames({ runWsl: (...a) => { calls += 1; return runWsl(...a); } });
+  assert.deepEqual(first, ["Ubuntu"]);
+  probeRunningWslNames({ runWsl: (...a) => { calls += 1; return runWsl(...a); } });
+  assert.equal(calls, 2, "deps-provided calls always run fresh (no cache)");
+  const cached = probeRunningWslNames();
+  const cachedAgain = probeRunningWslNames();
+  assert.equal(cachedAgain, cached, "cache hits return the identical snapshot, whatever the machine's WSL state");
+  resetWslProbeCache();
+});

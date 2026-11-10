@@ -1446,3 +1446,45 @@ sqliteTest("an incomplete source does not invalidate other sources' per-file cac
   const recovered = await buildSessionAnalytics({ home, cacheTtlMs: 0 });
   assert.equal(recovered.skippedFiles, 0);
 });
+
+test("a sticky zcode selection on a stopped WSL distro yields nothing for the round (review P1-B)", () => {
+  // TM #1438: the sticky install-selection keeps cursor ownership stable, but
+  // its persisted UNC dbPath must not be read when the distro has stopped —
+  // snapshotting the db over the UNC bridge would wake the whole distro for
+  // zero new sessions. When the running list is enumerable and the distro is
+  // down, the round yields no paths (cursors untouched; the next tick after
+  // the distro starts resumes). An unknown running state keeps the sticky
+  // path.
+  const wslDbPath = "\\\\wsl$\\Asleep\\home\\u\\.zcode\\cli\\db\\db.sqlite";
+  const cursors = { zcodeInstallSelection: { mode: "wsl-first", zcodeHome: null, dbPath: wslDbPath } };
+  const env = { TOKENTRACKER_WSL_MODE: "wsl-first" };
+  const wslProbe = require("../src/lib/wsl-probe");
+
+  // Distro is down (enumerable running list without it) -> nothing this round.
+  const originalProbe = wslProbe.probeRunningWslNames;
+  wslProbe.probeRunningWslNames = () => ["OtherDistro"];
+  try {
+    const down = resolveZcodeInstallPaths({ nativeValue: null, wslValue: null }, env, { platform: "win32", cursors });
+    assert.deepEqual(down, { native: null, wsl: null }, "a stopped sticky distro yields no paths");
+  } finally {
+    wslProbe.probeRunningWslNames = originalProbe;
+  }
+
+  // Distro is running again -> the sticky path flows as before.
+  wslProbe.probeRunningWslNames = () => ["Asleep"];
+  try {
+    const up = resolveZcodeInstallPaths({ nativeValue: null, wslValue: null }, env, { platform: "win32", cursors });
+    assert.deepEqual(Object.values(up).filter(Boolean), [wslDbPath]);
+  } finally {
+    wslProbe.probeRunningWslNames = originalProbe;
+  }
+
+  // Unknown running state -> keep the sticky path (no silent data-flow death).
+  wslProbe.probeRunningWslNames = () => null;
+  try {
+    const unknown = resolveZcodeInstallPaths({ nativeValue: null, wslValue: null }, env, { platform: "win32", cursors });
+    assert.deepEqual(Object.values(unknown).filter(Boolean), [wslDbPath]);
+  } finally {
+    wslProbe.probeRunningWslNames = originalProbe;
+  }
+});
