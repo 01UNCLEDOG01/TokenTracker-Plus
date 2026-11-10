@@ -1,14 +1,14 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
-import { PerksPage, buildPerksFeedbackUrl } from "./PerksPage.jsx";
+import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 import zhDashboard from "../content/i18n/zh/dashboard.json";
 import { PERK_PROVIDERS } from "../data/perksData.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
 import { getCopyLocale } from "../lib/copy";
-import { PERKS_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
+import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
 
 const ORDERED_IDS = [
   "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling", "apigoto",
@@ -243,11 +243,12 @@ describe("PerksPage", () => {
     fireEvent.click(within(agnesCard).getByRole("button", { name: "标记已领取" }));
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
     // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录。
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: getPerkClaimDay() } });
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1 } } });
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({});
+    // 取消只摘掉 last，lifetime count 保留（卡册亮度不回退）。
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { count: 1 } } });
   });
 
   it("领取状态筛选按钮能过滤已领取与未标记卡片", () => {
@@ -297,7 +298,7 @@ describe("PerksPage", () => {
   it("updates open pages across Beijing midnight without clearing monthly marks", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-03T15:59:59Z"));
-    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+    localStorage.setItem(PERKS_LEGACY_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
       workbuddy: { daily: "2026-11-03", monthly: "2026-11-01" },
     } }));
     render(<ToastProvider><PerksPage /></ToastProvider>);
@@ -311,7 +312,7 @@ describe("PerksPage", () => {
   it("refreshes monthly marks on the first and catches up after sleep on focus", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-31T15:59:59Z"));
-    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+    localStorage.setItem(PERKS_LEGACY_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
       ant_ling: { monthly: "2026-10-10" }, agentrouter: { daily: "2026-10-31" },
     } }));
     render(<ToastProvider><PerksPage /></ToastProvider>);
@@ -337,20 +338,23 @@ describe("PerksPage", () => {
     expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toBeInTheDocument();
     expect(localStorage.getItem("tokentracker.perks.claims.v1")).toBe(legacy);
     const migrated = JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY));
-    expect(migrated.schema).toBe(2);
-    expect(migrated.providers.agnes.once).toBe("2026-10-01");
+    expect(migrated.schema).toBe(3);
+    expect(migrated.providers.agnes.once).toEqual({ last: "2026-10-01", count: 1 });
     expect(migrated.providers.retired).toBeUndefined();
   });
 
   it("observes other windows and keeps unrelated cycle updates", () => {
     render(<ToastProvider><PerksPage /></ToastProvider>);
-    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+    localStorage.setItem(PERKS_LEGACY_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
       workbuddy: { monthly: getPerkClaimDay() },
     } }));
     act(() => { window.dispatchEvent(new StorageEvent("storage", { key: PERKS_CLAIMS_KEY })); });
     const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
     fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers.workbuddy).toEqual({ daily: getPerkClaimDay(), monthly: getPerkClaimDay() });
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers.workbuddy).toEqual({
+      daily: { last: getPerkClaimDay(), count: 1 },
+      monthly: { last: getPerkClaimDay(), count: 1 },
+    });
   });
 
   it("preserves both marks in memory when writes are blocked", () => {
@@ -384,4 +388,60 @@ describe("PerksPage", () => {
     expect(names).toEqual(ORDERED_IDS.map((id) => localizePerk(PERK_PROVIDERS.find((row) => row.id === id), "en").name));
     getCopyLocale.mockReturnValue("zh");
   });
+
+  it("卡册视图：切换、未领置灰、领取点亮置顶、连击角标、翻页", () => {
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        // qoder_cn：连领 8 次 → 银档（tier 2）
+        qoder_cn: { daily: { last: "2020-01-01", count: 8 } },
+        // minimax_code：连领 31 次 → 闪卡（tier 4）
+        minimax_code: { daily: { last: "2020-01-01", count: 31 } },
+        // agentrouter：领过 1 次 → tier 1
+        agentrouter: { daily: { last: "2020-01-01", count: 1 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "卡册" }));
+
+    // 第一页 6 张：排序应把有记录的排前 —— minimax_code(闪) > qoder_cn(银) > agentrouter(点) > 未领 A-Z
+    const album = document.querySelector(".tt-perks-page");
+    const names = [...album.querySelectorAll("button[aria-expanded]")].map((b) => b.textContent);
+    expect(names[0]).toContain("MiniMax Code");
+    expect(names[1]).toContain("Qoder CN");
+    expect(names[2]).toContain("Agent Router");
+    // 未领卡带置灰视觉（opacity-65）
+    const dimCard = [...album.querySelectorAll("button[aria-expanded]")].find((b) => b.textContent.includes("Agent2API"));
+    expect(dimCard.className).toContain("opacity-65");
+    // 翻页控件出现（53 张 → 9 页）
+    expect(screen.getByText("{{page}} / {{pages}}")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
+    expect(screen.getByText("{{page}} / {{pages}}")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "上一页" }));
+    expect(screen.getByText("{{page}} / {{pages}}")).toBeInTheDocument();
+
+    // 点开卡牌 → 完整卡片内联展开（可领取）
+    fireEvent.click([...album.querySelectorAll("button[aria-expanded]")].find((b) => b.textContent.includes("MiniMax Code")));
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toContain("MiniMax Code (智能编程助手)");
+  });
+
+  it("albumBrightnessTier：AIHOT 式 7/15/30 分档，once 领过即亮", () => {
+    expect(albumBrightnessTier(0)).toBe(0);
+    expect(albumBrightnessTier(1)).toBe(1);
+    expect(albumBrightnessTier(6)).toBe(1);
+    expect(albumBrightnessTier(7)).toBe(2);
+    expect(albumBrightnessTier(14)).toBe(2);
+    expect(albumBrightnessTier(15)).toBe(3);
+    expect(albumBrightnessTier(29)).toBe(3);
+    expect(albumBrightnessTier(30)).toBe(4);
+    expect(albumBrightnessTier(999)).toBe(4);
+    expect(albumBrightnessTier(-1)).toBe(0);
+    expect(albumBrightnessTier(NaN)).toBe(0);
+    expect(ALBUM_PAGE_SIZE).toBe(6);
+  });
+
 });

@@ -130,7 +130,9 @@ author) once per six-hour TTL window and caches it locally
 reference — verification badges, delisting hints, and candidate lists; the perk
 cards themselves remain hand-verified and owned by this fork, and AIHOT's own
 inclusion rules (which exclude referral/invite links) differ from ours, so
-their copy and conversions are never copied into the cards. Thanks again to
+their copy and conversions are never copied into the cards. The Perks Guide's
+album view (claim-to-light cards, brightness tiers, paged two-rows-per-page
+layout) is inspired by AIHOT's card-album interaction; thanks again to
 数字生命卡兹克 (Kazik) for publishing the data openly.
 
 ## Trademark Disclaimer
