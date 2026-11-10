@@ -166,3 +166,52 @@ test("models without evidence or official cache pricing stay at the ceiling", ()
     computeRowCost(noCachePricing),
   );
 });
+
+test("edition isolation: trae (intl) rows never fold on trae-cn evidence", () => {
+  // The intl edition has no fielded history of its own. The trae-cn pool is
+  // full of evidence (beforeEach), yet the intl row must stay at the uncached
+  // rate — the editions run different model fleets, and borrowing measured
+  // rates across them silently mispriced the intl dry spell (owner ruling
+  // 2026-11-10: split the pools).
+  const r = row({ source: "trae" });
+  const base = computeRowCost(r);
+  assert.equal(foldTraeRowCost(r, base), base,
+    "an intl row must not fold while only trae-cn has evidence");
+});
+
+test("edition isolation: trae (intl) rows fold on their own edition's pool", () => {
+  __setTraeFoldStateForTest({
+    byModel: { "deepseek-v4.1-flash": { hits: 40, volume: 100 } },
+    recognizedRate: 0.4,
+    edition: "trae",
+  });
+  const r = row({ source: "trae" });
+  const base = computeRowCost(r);
+  const folded = foldTraeRowCost(r, base);
+  assert.ok(folded < base, "intl evidence must fold intl rows");
+  const foldFactor = (1 - 0.4) + 0.4 * (0.006 / 0.3);
+  const inputLeg = base - computeRowCost({ ...r, input_tokens: 0 });
+  const expected = base - inputLeg + inputLeg * foldFactor;
+  assert.ok(Math.abs(folded - expected) < 1e-9, `folded ${folded} vs expected ${expected}`);
+});
+
+test("edition isolation: trae-cn rows ignore the trae (intl) pool", () => {
+  // Mirrored direction: a weak intl pool must not drag the CN evidence down.
+  __setTraeFoldStateForTest({
+    byModel: { "deepseek-v4.1-flash": { hits: 10, volume: 100 } },
+    recognizedRate: 0.1,
+    edition: "trae",
+  });
+  const r = row({ source: "trae-cn" });
+  const base = computeRowCost(r);
+  const folded = foldTraeRowCost(r, base);
+  // CN evidence is still the 952/1000 pool from beforeEach.
+  const cnFoldFactor = (1 - 0.952) + 0.952 * (0.006 / 0.3);
+  const intlFoldFactor = (1 - 0.1) + 0.1 * (0.006 / 0.3);
+  const inputLeg = base - computeRowCost({ ...r, input_tokens: 0 });
+  const cnExpected = base - inputLeg + inputLeg * cnFoldFactor;
+  const intlExpected = base - inputLeg + inputLeg * intlFoldFactor;
+  assert.ok(Math.abs(folded - cnExpected) < 1e-9, `folded ${folded} vs cn-expected ${cnExpected}`);
+  assert.ok(Math.abs(cnExpected - intlExpected) > 1e-6,
+    "the two editions' rates must be far enough apart to tell the pools apart");
+});

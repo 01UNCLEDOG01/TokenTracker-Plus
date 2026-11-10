@@ -34,6 +34,10 @@ export function LocalDataSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  // 队列超过单文件上限时分批搬运：记录上一批窗口，把 window.from 作为闭区间
+  // 上界传回服务端（边界小时的行会重发一次，导入端按 key 去重兜底）；
+  // 新窗口起点没有前移时视为没有更早数据，避免原地循环。
+  const [olderBatch, setOlderBatch] = useState(null);
 
   const load = useCallback(async () => {
     setStats(await call("GET"));
@@ -43,20 +47,38 @@ export function LocalDataSection() {
     load().catch(() => setError(copy("settings.local_data.error")));
   }, [load]);
 
-  async function exportSnapshot() {
+  async function exportSnapshot(before) {
     setBusy(true);
     setError("");
     setStatus("");
     try {
-      const { snapshot } = await call("POST", { action: "export" });
+      const result = await call("POST", before ? { action: "export", before } : { action: "export" });
+      const { snapshot } = result;
+      if (!snapshot.rows.length) {
+        setOlderBatch(null);
+        setStatus(copy("settings.local_data.no_older"));
+        return;
+      }
       const blob = new Blob([JSON.stringify(snapshot)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = `tokentracker-local-${snapshot.machine.id.slice(0, 12)}-${snapshot.exported_at.slice(0, 10)}.json`;
       link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setStatus(copy("settings.local_data.exported"));
+      // function 表达式而非箭头函数：ui-hardcode 扫描器会把 JSX 外的 `=>` 误当
+      // JSX 文本起点（仓库已知坑，见 AGENTS 教训），用 function 绕开。
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      const nextFrom = result.truncated ? snapshot.window?.from : null;
+      setOlderBatch(nextFrom && (before == null || nextFrom < before) ? { before: nextFrom } : null);
+      setStatus(
+        result.truncated
+          ? copy("settings.local_data.exported_window", {
+              rows: snapshot.rows.length.toLocaleString(),
+              total: Number(result.total_rows || 0).toLocaleString(),
+              from: snapshot.window?.from?.slice(0, 10) || "",
+            })
+          : copy("settings.local_data.exported"),
+      );
     } catch {
       setError(copy("settings.local_data.error"));
     } finally {
@@ -119,9 +141,16 @@ export function LocalDataSection() {
         <SettingsRow
           label={copy("settings.local_data.export")}
           control={
-            <Button variant="secondary" size="sm" disabled={busy} onClick={exportSnapshot}>
-              {copy("settings.local_data.export")}
-            </Button>
+            <div className="flex items-center gap-2">
+              {olderBatch && (
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => exportSnapshot(olderBatch.before)}>
+                  {copy("settings.local_data.export_older")}
+                </Button>
+              )}
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => exportSnapshot()}>
+                {copy("settings.local_data.export")}
+              </Button>
+            </div>
           }
         />
         <SettingsRow

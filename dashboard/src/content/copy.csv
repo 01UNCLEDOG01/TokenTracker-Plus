@@ -1990,6 +1990,9 @@ settings.local_data.preview_line,dashboard,*,SettingsPage,settings_local_data_pr
 settings.local_data.confirm,dashboard,*,SettingsPage,settings_local_data_confirm,"Import",,active
 settings.local_data.cancel,dashboard,*,SettingsPage,settings_local_data_cancel,"Cancel",,active
 settings.local_data.exported,dashboard,*,SettingsPage,settings_local_data_exported,"Snapshot exported",,active
+settings.local_data.exported_window,dashboard,*,SettingsPage,settings_local_data_exported_window,"Queue too large for one file: exported the newest {{rows}} of {{total}} rows (back to {{from}}). Use ""Export older batch"" to keep going.",,active
+settings.local_data.export_older,dashboard,*,SettingsPage,settings_local_data_export_older,"Export older batch",,active
+settings.local_data.no_older,dashboard,*,SettingsPage,settings_local_data_no_older,"No earlier rows left to export.",,active
 settings.local_data.done,dashboard,*,SettingsPage,settings_local_data_done,"Imported {{imported}} rows",,active
 settings.local_data.error,dashboard,*,SettingsPage,settings_local_data_error,"The transfer failed.",,active
 settings.local_data.self,dashboard,*,SettingsPage,settings_local_data_self,"This snapshot came from this machine.",,active

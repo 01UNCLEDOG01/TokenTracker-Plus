@@ -22,6 +22,7 @@ const { createCloudDeviceTokenStore } = require("./cloud-device-token");
 const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
 const { fetchProviderServiceStatus } = require("./provider-status");
+const { readCursorStateSummary } = require("./cursor-store");
 
 const SYNC_TIMEOUT_MS = 120_000;
 // A failed account-view request should not stall every dashboard refresh
@@ -571,49 +572,88 @@ const readProjectQueueData = createAsyncQueueReader({
 // rate (the ledger's coverage signal), halving nothing when no evidence
 // exists. Dashboard-side folding is skipped via the payload flag below.
 const TRAE_FOLD_REFRESH_MS = 5 * 60 * 1000;
-let traeFoldByModel = null;
-let traeRecognizedRate = 0;
+// Evidence pools are EDITION-SCOPED (owner ruling 2026-11-10): trae-cn rows
+// draw on the trae-cn fielded history, trae (intl) rows on their own. The two
+// editions run different model fleets with different cache behavior, so one
+// edition's measured rate must never price the other's dry spell. An edition
+// with no fielded history folds nothing (rows stay at the uncached rate) —
+// evidence is never borrowed across editions, never fabricated.
+const TRAE_EDITIONS = ["trae-cn", "trae"];
+function emptyTraeEditionState() {
+  return { byModel: {}, recognizedRate: 0 };
+}
+let traeFoldByEdition = null;
 let traeFoldLoadedAt = 0;
-function traeFoldMap() {
-  const now = Date.now();
-  if (traeFoldByModel && now - traeFoldLoadedAt < TRAE_FOLD_REFRESH_MS) return traeFoldByModel;
-  traeFoldByModel = {};
-  traeRecognizedRate = 0;
-  traeFoldLoadedAt = now;
-  try {
-    const cursorsPath = path.join(os.homedir(), ".tokentracker", "tracker", "cursors.json");
-    const cursorsData = JSON.parse(fs.readFileSync(cursorsPath, "utf8"));
-    for (const [bucketKey, bucket] of Object.entries(cursorsData?.hourly?.buckets || {})) {
-      if (!bucketKey.startsWith("trae-cn|")) continue;
-      const bucketTotals = bucket?.totals || {};
-      const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
-      if (!(observedVolume > 0)) continue;
-      const observedModel = bucketKey.split("|")[1] || "unknown";
-      const acc = traeFoldByModel[observedModel] || { hits: 0, volume: 0 };
-      acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
-      acc.volume += observedVolume;
-      traeFoldByModel[observedModel] = acc;
-    }
-    // Recognized hit rate (owner ruling 2026-11-07): the median across the
-    // tool's own fielded models' measured rates — same tool, same agent
-    // workload. Applied to models the owner never used (no fielded history),
-    // combined with each model's OFFICIAL cache-read price ratio from the
-    // pricing tables. Nothing is fabricated: no fielded models at all, or a
-    // model without official cache pricing, stays at the ceiling.
-    const rates = Object.values(traeFoldByModel)
+let traeFoldLoading = false;
+async function loadTraeFoldState() {
+  const state = {};
+  for (const edition of TRAE_EDITIONS) state[edition] = emptyTraeEditionState();
+  // Read the CURRENT cursor generation via cursor-store (AGENTS.md global
+  // rule: cursors.json is a frozen legacy compat copy once cursor-store-v2 is
+  // active — reading it directly prices the dry spell off stale evidence).
+  const summary = await readCursorStateSummary({
+    trackerDir: path.join(os.homedir(), ".tokentracker", "tracker"),
+  });
+  const buckets = summary?.cursors?.hourly?.buckets || {};
+  for (const [bucketKey, bucket] of Object.entries(buckets)) {
+    const edition = bucketKey.startsWith("trae-cn|")
+      ? "trae-cn"
+      : bucketKey.startsWith("trae|")
+        ? "trae"
+        : null;
+    if (!edition) continue;
+    const bucketTotals = bucket?.totals || {};
+    const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
+    if (!(observedVolume > 0)) continue;
+    const observedModel = bucketKey.split("|")[1] || "unknown";
+    const acc = state[edition].byModel[observedModel] || { hits: 0, volume: 0 };
+    acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
+    acc.volume += observedVolume;
+    state[edition].byModel[observedModel] = acc;
+  }
+  // Recognized hit rate (owner ruling 2026-11-07): the median across the
+  // edition's own fielded models' measured rates — same edition, same agent
+  // workload. Applied to models the owner never used (no fielded history),
+  // combined with each model's OFFICIAL cache-read price ratio from the
+  // pricing tables. Nothing is fabricated: no fielded models at all, or a
+  // model without official cache pricing, stays at the ceiling.
+  for (const edition of TRAE_EDITIONS) {
+    const rates = Object.values(state[edition].byModel)
       .filter((acc) => acc.volume > 0)
       .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
       .sort((a, b) => a - b);
     if (rates.length) {
       const mid = Math.floor(rates.length / 2);
-      traeRecognizedRate = rates.length % 2
+      state[edition].recognizedRate = rates.length % 2
         ? rates[mid]
         : (rates[mid - 1] + rates[mid]) / 2;
     }
-  } catch (_error) {
-    // No cursors / malformed file: no self evidence, rows stay at ceiling.
   }
-  return traeFoldByModel;
+  return state;
+}
+function traeFoldMap() {
+  const now = Date.now();
+  if (traeFoldByEdition && now - traeFoldLoadedAt < TRAE_FOLD_REFRESH_MS) return traeFoldByEdition;
+  // Stale-while-revalidate: readCursorStateSummary is async (v2 generation
+  // read) while every fold call site is sync. Serve the previous snapshot for
+  // this refresh window and replace it in the background; the first window
+  // after startup folds at the ceiling, which is the honest no-evidence side.
+  if (!traeFoldLoading) {
+    traeFoldLoading = true;
+    loadTraeFoldState()
+      .then((state) => {
+        traeFoldByEdition = state;
+        traeFoldLoadedAt = Date.now();
+        traeFoldLoading = false;
+      })
+      .catch(() => {
+        // No cursors / malformed state: keep serving whatever we had (or
+        // nothing) and throttle retries to one per refresh window.
+        traeFoldLoadedAt = Date.now();
+        traeFoldLoading = false;
+      });
+  }
+  return traeFoldByEdition;
 }
 function foldTraeRowCost(row, cost) {
   const source = String(row?.source || "").toLowerCase();
@@ -642,12 +682,16 @@ function foldTraeRowCost(row, cost) {
   // -43.22). Under-folding by the creation share is the conservative side.
   const unmeasured = Math.min(inputSide - observed, Number(row?.input_tokens) || 0);
   if (!(unmeasured > 0)) return cost;
-  const acc = traeFoldMap()[model];
-  // Evidence priority: the model's own fielded history; without it, the
-  // recognized rate (median across the tool's fielded models).
+  // Evidence priority, scoped to the row's OWN edition: the model's own
+  // fielded history; without it, the edition's recognized rate (median across
+  // that edition's fielded models). Never the other edition's pool.
+  const editionState = traeFoldMap()?.[source];
+  const acc = editionState?.byModel?.[model];
   const h = acc && acc.volume > 0
     ? Math.min(Math.max(acc.hits / acc.volume, 0), 1)
-    : (traeRecognizedRate > 0 ? Math.min(Math.max(traeRecognizedRate, 0), 1) : 0);
+    : (editionState && editionState.recognizedRate > 0
+        ? Math.min(Math.max(editionState.recognizedRate, 0), 1)
+        : 0);
   if (!(h > 0)) return cost;
   const pricing = getModelPricingInfo(model, { source: row.source });
   const inputRate = Number(pricing?.input);
@@ -4427,8 +4471,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const transfer = require("./local-usage-transfer");
       res.setHeader("Cache-Control", "no-store");
       try {
+        // All transfer calls stream the queue — it outgrew one-shot reads
+        // (540MB > Node max string length); see local-usage-transfer.js.
         if (req.method === "GET") {
-          json(res, transfer.describeLocalUsage());
+          json(res, await transfer.describeLocalUsage());
           return true;
         }
         if (req.method !== "POST") {
@@ -4445,15 +4491,16 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         }
         const action = body?.action;
         if (action === "export") {
-          json(res, transfer.buildSnapshot());
+          const before = typeof body.before === "string" && body.before ? body.before : undefined;
+          json(res, await transfer.buildSnapshot({ before }));
           return true;
         }
         if (action === "preview") {
-          json(res, transfer.previewSnapshot(body.snapshot));
+          json(res, await transfer.previewSnapshot(body.snapshot));
           return true;
         }
         if (action === "import") {
-          json(res, transfer.importSnapshot(body.snapshot, body.token));
+          json(res, await transfer.importSnapshot(body.snapshot, body.token));
           return true;
         }
         json(res, { code: "unknown_action", error: "Unknown action" }, 400);
@@ -5823,9 +5870,13 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
   };
 }
 
-function __setTraeFoldStateForTest({ byModel = null, recognizedRate = 0 } = {}) {
-  traeFoldByModel = byModel || {};
-  traeRecognizedRate = Number(recognizedRate) || 0;
+function __setTraeFoldStateForTest({ byModel = null, recognizedRate = 0, edition = "trae-cn" } = {}) {
+  traeFoldByEdition = traeFoldByEdition || {
+    "trae-cn": emptyTraeEditionState(),
+    trae: emptyTraeEditionState(),
+  };
+  if (!traeFoldByEdition[edition]) traeFoldByEdition[edition] = emptyTraeEditionState();
+  traeFoldByEdition[edition] = { byModel: byModel || {}, recognizedRate: Number(recognizedRate) || 0 };
   traeFoldLoadedAt = Date.now();
 }
 

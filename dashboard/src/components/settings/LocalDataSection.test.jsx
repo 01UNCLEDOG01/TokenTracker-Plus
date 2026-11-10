@@ -1,5 +1,5 @@
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { copy } from "../../lib/copy";
 
@@ -14,9 +14,19 @@ function jsonResponse(status, body) {
   return { ok: status === 200, status, json: async () => body };
 }
 
+const urlBackups = { createObjectURL: URL.createObjectURL, revokeObjectURL: URL.revokeObjectURL };
+
 describe("LocalDataSection", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    // jsdom has no blob URL plumbing; the component only needs the calls to exist.
+    URL.createObjectURL = vi.fn(() => "blob:mock");
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = urlBackups.createObjectURL;
+    URL.revokeObjectURL = urlBackups.revokeObjectURL;
   });
 
   it("shows the local queue size and the transfer controls", async () => {
@@ -25,6 +35,70 @@ describe("LocalDataSection", () => {
     await waitFor(() => expect(screen.getByText(/1,234/)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: copy("settings.local_data.export") })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: copy("settings.local_data.choose") })).toBeInTheDocument();
+  });
+
+  it("exports, and when the queue overflows the cap offers an older batch with the window bound", async () => {
+    const truncatedBody = {
+      truncated: true,
+      total_rows: 50,
+      snapshot: {
+        kind: "tokentracker-local-usage",
+        version: 1,
+        exported_at: "2026-11-10T00:00:00.000Z",
+        machine: { id: "m1", name: "pc" },
+        rows: [{ source: "a", model: "m", hour_start: "2026-10-01T00:00:00.000Z" }],
+        total_rows: 50,
+        truncated: true,
+        window: { from: "2026-10-01T00:00:00.000Z", to: "2026-11-01T00:00:00.000Z" },
+      },
+    };
+    fetch
+      .mockResolvedValueOnce(jsonResponse(200, { machine: { id: "m1" }, rows: 50, bytes: 100 }))
+      .mockResolvedValueOnce(jsonResponse(200, truncatedBody))
+      .mockResolvedValueOnce(jsonResponse(200, truncatedBody));
+    render(<LocalDataSection />);
+    await waitFor(() => expect(screen.getByText(/50/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: copy("settings.local_data.export") }));
+    const windowText = copy("settings.local_data.exported_window", { rows: "1", total: "50", from: "2026-10-01" });
+    await waitFor(() => expect(screen.getByText(windowText)).toBeInTheDocument());
+    expect(fetch.mock.calls[1][1].body).toBe(JSON.stringify({ action: "export" }));
+
+    fireEvent.click(screen.getByRole("button", { name: copy("settings.local_data.export_older") }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    expect(fetch.mock.calls[2][1].body).toBe(JSON.stringify({ action: "export", before: "2026-10-01T00:00:00.000Z" }));
+  });
+
+  it("stops offering older batches when the window no longer advances", async () => {
+    const truncatedBody = {
+      truncated: true,
+      total_rows: 50,
+      snapshot: {
+        kind: "tokentracker-local-usage",
+        version: 1,
+        exported_at: "2026-11-10T00:00:00.000Z",
+        machine: { id: "m1", name: "pc" },
+        rows: [{ source: "a", model: "m", hour_start: "2026-10-01T00:00:00.000Z" }],
+        total_rows: 50,
+        truncated: true,
+        window: { from: "2026-10-01T00:00:00.000Z", to: "2026-11-01T00:00:00.000Z" },
+      },
+    };
+    fetch
+      .mockResolvedValueOnce(jsonResponse(200, { machine: { id: "m1" }, rows: 50, bytes: 100 }))
+      .mockResolvedValueOnce(jsonResponse(200, truncatedBody))
+      .mockResolvedValueOnce(jsonResponse(200, truncatedBody));
+    render(<LocalDataSection />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: copy("settings.local_data.export") }));
+    await waitFor(() => expect(screen.getByRole("button", { name: copy("settings.local_data.export_older") })));
+
+    // Same window.from as the first batch → no progress → button disappears.
+    fireEvent.click(screen.getByRole("button", { name: copy("settings.local_data.export_older") }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: copy("settings.local_data.export_older") })).not.toBeInTheDocument(),
+    );
   });
 
   it("explains that a snapshot from this machine is rejected", async () => {
