@@ -2126,3 +2126,4 @@ limits.label.minimax_code_weekly,ui,LimitsPage,UsageLimitsPanel,minimax_code_wee
 limits.label.minimax_code_video,ui,LimitsPage,UsageLimitsPanel,minimax_code_video,Video,,active
 dashboard.speed.fetch_failed,ui,DashboardPage,DataDetails,speed_fetch_failed,Speed data failed to load this time.,,active
 dashboard.speed.retry,ui,DashboardPage,DataDetails,speed_retry,Retry,,active
+limits.label.qoder_team_credits,ui,LimitsPage,UsageLimitsPanel,qoder_team_credits,Team Credits,,active
