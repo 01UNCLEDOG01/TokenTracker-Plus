@@ -266,17 +266,17 @@ describe("PerksPage", () => {
 
     // 切到「已领取」：只剩被标记的那张卡（其他卡不可见）
     fireEvent.click(screen.getByText("已领取").closest("button"));
-    expect(screen.getByText("Agnes AI")).toBeInTheDocument();
-    expect(screen.queryByText(/硅基流动/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Agnes AI").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByText(/硅基流动/).length).toBe(0);
 
     // 切到「未标记」：标记过的卡隐藏
     fireEvent.click(screen.getByText("待领取").closest("button"));
-    expect(screen.queryByText("Agnes AI")).not.toBeInTheDocument();
-    expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+    expect(screen.queryAllByText("Agnes AI").length).toBe(0);
+    expect(screen.getAllByText(/硅基流动/).length).toBeGreaterThanOrEqual(1);
 
     // 回到「全部」：全量恢复
     fireEvent.click(screen.getByText("全部").closest("button"));
-    expect(screen.getByText("Agnes AI")).toBeInTheDocument();
+    expect(screen.getAllByText("Agnes AI").length).toBeGreaterThanOrEqual(1);
   });
 
   it("keeps daily and monthly marks independent and filters the selected cycle", () => {
@@ -290,7 +290,7 @@ describe("PerksPage", () => {
     fireEvent.change(screen.getByPlaceholderText(/搜索服务商/), { target: { value: "WorkBuddy" } });
     fireEvent.click(screen.getByText("每月福利").closest("button"));
     fireEvent.click(screen.getByText("已领取").closest("button"));
-    expect(screen.getByRole("heading", { name: "WorkBuddy 国内版" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "WorkBuddy 国内版" }).length).toBeGreaterThanOrEqual(1);
     fireEvent.click(screen.getByText("每日可领取积分").closest("button"));
     expect(screen.queryByRole("heading", { name: "WorkBuddy 国内版" })).not.toBeInTheDocument();
   });
@@ -389,7 +389,7 @@ describe("PerksPage", () => {
     getCopyLocale.mockReturnValue("zh");
   });
 
-  it("卡册视图：切换、未领置灰、领取点亮置顶、连击角标、翻页", () => {
+  it("AIHOT 式卡册：常驻页首、统计头、暗卡悬念、收卡进度、圆点翻页", () => {
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
@@ -397,8 +397,6 @@ describe("PerksPage", () => {
         qoder_cn: { daily: { last: "2020-01-01", count: 8 } },
         // minimax_code：连领 31 次 → 闪卡（tier 4）
         minimax_code: { daily: { last: "2020-01-01", count: 31 } },
-        // agentrouter：领过 1 次 → tier 1
-        agentrouter: { daily: { last: "2020-01-01", count: 1 } },
       },
     }));
     render(
@@ -406,27 +404,35 @@ describe("PerksPage", () => {
         <PerksPage />
       </ToastProvider>
     );
-    fireEvent.click(screen.getByRole("button", { name: "卡册" }));
 
-    // 第一页 6 张：排序应把有记录的排前 —— minimax_code(闪) > qoder_cn(银) > agentrouter(点) > 未领 A-Z
-    const album = document.querySelector(".tt-perks-page");
-    const names = [...album.querySelectorAll("button[aria-expanded]")].map((b) => b.textContent);
-    expect(names[0]).toContain("MiniMax Code");
-    expect(names[1]).toContain("Qoder CN");
-    expect(names[2]).toContain("Agent Router");
-    // 未领卡带置灰视觉（opacity-65）
-    const dimCard = [...album.querySelectorAll("button[aria-expanded]")].find((b) => b.textContent.includes("Agent2API"));
-    expect(dimCard.className).toContain("opacity-65");
-    // 翻页控件出现（53 张 → 9 页）
-    expect(screen.getByText("{{page}} / {{pages}}")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "下一页" }));
-    expect(screen.getByText("{{page}} / {{pages}}")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "上一页" }));
-    expect(screen.getByText("{{page}} / {{pages}}")).toBeInTheDocument();
+    // 卡册常驻：不需要切换按钮，页首直接有「我的卡册」+ 统计头
+    expect(screen.getByText("我的卡册")).toBeInTheDocument();
+    expect(screen.getByText("今天还能领")).toBeInTheDocument();
+    expect(screen.getByText("本月已领到")).toBeInTheDocument();
+    expect(screen.getByText("下次刷新")).toBeInTheDocument();
+    expect(screen.getByText("{{collected}} / {{total}} 张已收")).toBeInTheDocument();
+    // 倒计时按 HH:MM:SS 每秒跳
+    expect(document.body.textContent).toMatch(/\d{2}:\d{2}:\d{2}/);
 
-    // 点开卡牌 → 完整卡片内联展开（可领取）
-    fireEvent.click([...album.querySelectorAll("button[aria-expanded]")].find((b) => b.textContent.includes("MiniMax Code")));
-    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toContain("MiniMax Code (智能编程助手)");
+    // 卡牌带：已收亮卡在前（minimax_code 闪 > qoder_cn 银 > 未收 A-Z 暗卡）
+    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    const cards = [...album.querySelectorAll(":scope > div:nth-child(2) .rounded-xl")];
+    expect(cards.length).toBe(18); // 每页 18 张（两排×9）
+    expect(cards[0].textContent).toContain("MiniMax Code");
+    expect(cards[1].textContent).toContain("Qoder CN");
+    // 已收亮卡：白底带品牌名；未收暗卡：深色渐变底、藏品牌
+    expect(cards[0].className).toContain("bg-white");
+    const darkCard = cards.find((card) => card.className.includes("from-slate-700"));
+    expect(darkCard).toBeTruthy();
+    expect(darkCard.textContent).not.toContain("Agent Router"); // 暗卡藏品牌（悬念）
+
+    // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
+    const dots = [...album.querySelectorAll("button")].filter((b) => b.className.includes("rounded-full") && !b.querySelector("svg"));
+    expect(dots.length).toBe(3);
+    fireEvent.click(dots[2]);
+    // 翻到第 3 页后暗卡里能看到 A-Z 尾部的品牌
+    const lastPageDark = [...album.querySelectorAll(".rounded-xl")].filter((card) => card.className.includes("from-slate-700"));
+    expect(lastPageDark.length).toBeGreaterThan(0);
   });
 
   it("albumBrightnessTier：AIHOT 式 7/15/30 分档，once 领过即亮", () => {
@@ -441,7 +447,7 @@ describe("PerksPage", () => {
     expect(albumBrightnessTier(999)).toBe(4);
     expect(albumBrightnessTier(-1)).toBe(0);
     expect(albumBrightnessTier(NaN)).toBe(0);
-    expect(ALBUM_PAGE_SIZE).toBe(6);
+    expect(ALBUM_PAGE_SIZE).toBe(18);
   });
 
 });

@@ -194,14 +194,19 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot }) {
 
   const getBadgeStyle = (type) => {
     switch (type) {
+      // badgeType = 福利价值六档（灰→绿→蓝→紫→粉→琥珀）。暗模式底色用 /30 级：
+      // 原 /15 在暗背景下近乎隐形，站主 2026-11-11 反馈「琥珀看着像灰」——
+      // 等级色必须一眼可辨。
       case "success":
-        return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
+        return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-500/30 dark:text-emerald-200 dark:border-emerald-400/50";
       case "amber":
-        return "bg-amber-500/10 text-amber-700 border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
+        return "bg-amber-500/15 text-amber-700 border-amber-500/25 dark:bg-amber-500/30 dark:text-amber-200 dark:border-amber-400/60";
       case "purple":
-        return "bg-purple-500/10 text-purple-700 border-purple-500/20 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30";
+        return "bg-purple-500/10 text-purple-700 border-purple-500/20 dark:bg-purple-500/30 dark:text-purple-200 dark:border-purple-400/50";
+      case "rose":
+        return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:bg-rose-500/30 dark:text-rose-200 dark:border-rose-400/50";
       case "blue":
-        return "bg-sky-500/10 text-sky-700 border-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
+        return "bg-sky-500/10 text-sky-700 border-sky-500/20 dark:bg-sky-500/30 dark:text-sky-200 dark:border-sky-400/50";
       default:
         return "bg-oai-gray-100 text-oai-gray-700 border-oai-gray-200 dark:bg-oai-gray-800 dark:text-oai-gray-300 dark:border-oai-gray-700";
     }
@@ -395,10 +400,11 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot }) {
   );
 }
 
-// --- 卡册（学 AIHOT「越领越亮」，站主 2026-11-11 拍板）---
-// 亮度只看累计领取次数（claims v3 的 lifetime count，不回退）：
-// 1-6 次=点亮、7-14=银、15-29=金、30+=闪；once 卡领过即恒亮。
-export const ALBUM_PAGE_SIZE = 6;
+// --- 卡册（AIHOT 式复刻，站主 2026-11-11 拍板「照着他做」）---
+// AIHOT 的灵魂：统计头（今天还能领/本月已领到/下次刷新倒计时）+ 常驻卡牌带
+// （扑克式小卡：面值角标+logo+品牌名；未收=暗卡藏品牌，收了才揭晓）+
+// 「N 张收了 M 张」进度 + 圆点翻页。亮度档沿用累计领取 7/15/30 次。
+export const ALBUM_PAGE_SIZE = 18;
 
 export function albumBrightnessTier(streak) {
   if (!Number.isFinite(streak) || streak <= 0) return 0;
@@ -408,154 +414,187 @@ export function albumBrightnessTier(streak) {
   return 1;
 }
 
-// badgeType 等级 → 卡牌描边色（与徽章配色同色系）。
-const TIER_BORDER = {
-  neutral: "border-oai-gray-300/70 dark:border-oai-gray-600/70",
-  success: "border-emerald-400/60 dark:border-emerald-500/50",
-  blue: "border-sky-400/60 dark:border-sky-500/50",
-  purple: "border-purple-400/60 dark:border-purple-500/50",
-  rose: "border-rose-400/60 dark:border-rose-500/50",
-  amber: "border-amber-400/70 dark:border-amber-500/60",
-};
-
 const BRIGHTNESS_RING = [
-  "", // 0 未点亮：靠 opacity 表达
-  "", // 1 点亮
-  "ring-2 ring-oai-gray-300/70 dark:ring-oai-gray-500/60", // 2 银
-  "ring-2 ring-amber-400/80 dark:ring-amber-500/70 shadow-md shadow-amber-500/10", // 3 金
-  "ring-2 ring-amber-400 dark:ring-amber-400/90 shadow-lg shadow-amber-400/20 animate-pulse", // 4 闪
+  "", // 0 未收：暗卡
+  "", // 1 已收
+  "ring-2 ring-oai-gray-300/80 dark:ring-oai-gray-400/60", // 2 银
+  "ring-2 ring-amber-400/90 dark:ring-amber-500/70 shadow-md shadow-amber-500/10", // 3 金
+  "ring-2 ring-amber-400 shadow-lg shadow-amber-400/25 animate-pulse", // 4 闪
 ];
 
-function AlbumCard({ item, tier, claimedNow, streak, expanded, onToggleExpand }) {
+function formatCountdown(msLeft) {
+  const total = Math.max(0, Math.floor(msLeft / 1000));
+  const hh = String(Math.floor(total / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const ss = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
-  const initial = item.name.charAt(0).toUpperCase();
   return (
-    <button
-      type="button"
-      aria-expanded={expanded}
-      onClick={onToggleExpand}
+    <div
       className={cn(
-        "group relative flex h-44 flex-col items-center justify-between overflow-hidden rounded-2xl border-2 bg-white p-3 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-oai-gray-900/80",
-        TIER_BORDER[item.badgeType] || TIER_BORDER.neutral,
-        BRIGHTNESS_RING[tier],
-        tier === 0 && "opacity-65 grayscale-[35%] dark:opacity-60",
+        "relative flex h-[104px] w-full flex-col items-center justify-between overflow-hidden rounded-xl border p-1.5 text-center transition-all duration-200",
+        collected
+          ? cn("border-oai-gray-200/80 bg-white shadow-xs dark:border-oai-gray-700 dark:bg-oai-gray-900", BRIGHTNESS_RING[tier])
+          : "border-oai-gray-700/40 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950",
       )}
     >
-      {/* 连击角标 */}
-      {streak !== 0 && (
-        <span className="absolute right-1.5 top-1.5 rounded-md bg-oai-gray-900/80 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white dark:bg-white/85 dark:text-oai-black">
-          {streak}
+      {collected ? (
+        <>
+          {faceValue && (
+            <span className="absolute left-1 top-1 max-w-full truncate rounded-md bg-oai-gray-900/85 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-white dark:bg-white/90 dark:text-oai-black">
+              {faceValue}
+            </span>
+          )}
+          {claimedNow && (
+            <span className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-white">
+              <Check className="h-2.5 w-2.5" aria-hidden />
+            </span>
+          )}
+          <span className="mt-3 flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-xs">
+            {hasIcon ? (
+              <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />
+            ) : (
+              <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>
+            )}
+          </span>
+          <span className="w-full truncate pb-0.5 text-[10px] font-medium leading-tight text-oai-gray-700 dark:text-oai-gray-300">
+            {item.name}
+          </span>
+          {streak !== 0 && streak !== 1 && (
+            <span className="absolute bottom-0.5 right-1 text-[9px] font-semibold tabular-nums text-oai-gray-400 dark:text-oai-gray-500">
+              ×{streak}
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="flex h-full w-full flex-col items-center justify-center text-slate-400/70">
+          <Gift className="h-6 w-6" aria-hidden />
         </span>
       )}
-      {claimedNow && (
-        <span className="absolute left-1.5 top-1.5 inline-flex items-center rounded-md bg-emerald-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          <Check className="h-2.5 w-2.5" aria-hidden />
-        </span>
-      )}
-      <span className="mt-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-oai-gray-200/80 bg-white p-1 dark:border-oai-gray-700 dark:bg-oai-gray-900">
-        {hasIcon ? (
-          <ProviderIcon provider={item.provider} size={30} className="object-contain" loading="lazy" />
-        ) : (
-          <span className="font-mono text-sm font-bold text-oai-gray-700 dark:text-oai-gray-300">{initial}</span>
-        )}
-      </span>
-      <span className="line-clamp-2 text-xs font-semibold leading-tight text-oai-black dark:text-white">
-        {item.name}
-      </span>
-      <span className="line-clamp-2 pb-1 text-[10px] leading-tight text-oai-gray-500 dark:text-oai-gray-400">
-        {item.badge}
-      </span>
-    </button>
+    </div>
   );
 }
 
-function AlbumView({ items, claims, claimDay, selectedCategory, expandedId, onToggleExpand, onToggleClaim, page, onPageChange }) {
+function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected, total }) {
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const money = (value) => `¥${Math.round(value).toLocaleString()}`;
+  return (
+    <div className="flex w-full shrink-0 flex-col justify-center gap-3 rounded-2xl border border-oai-gray-200/80 bg-white p-4 dark:border-oai-gray-800 dark:bg-oai-gray-900/70 sm:w-52">
+      <div>
+        <p className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">{copy("perks.album.claimable")}</p>
+        <p className="text-2xl font-semibold tracking-tight text-oai-black dark:text-white">
+          {claimableTodayYuan > 0 ? money(claimableTodayYuan) : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">{copy("perks.album.month")}</p>
+        <p className="text-lg font-semibold text-oai-black dark:text-white">
+          {claimedMonthYuan > 0 ? money(claimedMonthYuan) : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">{copy("perks.album.refresh")}</p>
+        <p className="font-mono text-base font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+          {formatCountdown(
+            Date.parse(`${claimDay}T00:00:00+08:00`) + 86_400_000 - nowMs,
+          )}
+        </p>
+      </div>
+      <p className="text-[10px] leading-tight text-oai-gray-400 dark:text-oai-gray-500">
+        {copy("perks.album.note")}
+      </p>
+      <p className="text-[11px] font-medium text-oai-gray-600 dark:text-oai-gray-300">
+        {copy("perks.album.collected", { collected, total })}
+      </p>
+    </div>
+  );
+}
+
+function AlbumStrip({ items, claimDay, page, onPageChange }) {
   const totalPages = Math.max(1, Math.ceil(items.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
-  const expandedItem = items.find(function (entry) { return entry.item.id === expandedId; });
+  const collected = items.filter((entry) => entry.collected).length;
+  const claimableTodayYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanDaily || 0); }, 0);
+  const claimedMonthYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanMonthlyClaimed || 0); }, 0);
   return (
-    <div>
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-oai-gray-200 py-16 text-center dark:border-oai-gray-800">
-          <LayoutGrid className="h-8 w-8 text-oai-gray-400" />
-          <p className="mt-2 text-sm font-medium text-oai-gray-600 dark:text-oai-gray-300">
-            {copy("perks.empty.title")}
-          </p>
-          <p className="text-xs text-oai-gray-400">{copy("perks.empty.desc")}</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {pageItems.map(({ item, tier, claimedNow, streak }) => (
-              <AlbumCard
-                key={item.id}
-                item={localizePerk(item, getCopyLocale())}
-                tier={tier}
-                claimedNow={claimedNow}
-                streak={streak}
-                expanded={item.id === expandedId}
-                onToggleExpand={() => onToggleExpand(item.id)}
-              />
-            ))}
-          </div>
-
-          {/* 展开的完整卡片：占满整行，领取按钮照常可用 */}
-          {expandedItem && (
-            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              <PerkCard
-                item={localizePerk(expandedItem.item, getCopyLocale())}
-                claims={claims}
-                claimDay={claimDay}
-                onToggleClaim={onToggleClaim}
-                aihot={expandedItem.aihot}
-              />
-            </div>
-          )}
-
-          {/* 翻页：两排一页，越亮越靠前 */}
+    <div className="mb-8 flex flex-col gap-4 lg:flex-row">
+      <AlbumStats
+        claimableTodayYuan={claimableTodayYuan}
+        claimedMonthYuan={claimedMonthYuan}
+        claimDay={claimDay}
+        collected={collected}
+        total={items.length}
+      />
+      <div className="min-w-0 flex-1 rounded-2xl border border-oai-gray-200/80 bg-oai-gray-50/60 p-4 dark:border-oai-gray-800 dark:bg-oai-gray-950/50">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-oai-black dark:text-white">{copy("perks.album.title")}</h2>
           {totalPages !== 1 && (
-            <div className="mt-6 flex items-center justify-center gap-3">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 aria-label={copy("perks.album.prev")}
                 disabled={safePage === 0}
                 onClick={() => onPageChange(safePage - 1)}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition",
+                  "flex h-6 w-6 items-center justify-center rounded-full border transition",
                   safePage === 0
                     ? "border-oai-gray-200 text-oai-gray-300 dark:border-oai-gray-700 dark:text-oai-gray-600"
-                    : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-50 dark:border-oai-gray-600 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800",
+                    : "border-oai-gray-300 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-600 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800",
                 )}
               >
                 <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-                <span>{copy("perks.album.prev")}</span>
               </button>
-              <span className="text-xs tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
-                {copy("perks.album.page", { page: safePage + 1, pages: totalPages })}
-              </span>
+              {Array.from({ length: totalPages }, (_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  aria-label={copy("perks.album.page", { page: idx + 1, pages: totalPages })}
+                  onClick={() => onPageChange(idx)}
+                  className={cn(
+                    "h-1.5 w-4 rounded-full transition",
+                    idx === safePage ? "bg-oai-gray-800 dark:bg-white" : "bg-oai-gray-300 dark:bg-oai-gray-600",
+                  )}
+                />
+              ))}
               <button
                 type="button"
                 aria-label={copy("perks.album.next")}
                 disabled={safePage >= totalPages - 1}
                 onClick={() => onPageChange(safePage + 1)}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition",
+                  "flex h-6 w-6 items-center justify-center rounded-full border transition",
                   safePage >= totalPages - 1
                     ? "border-oai-gray-200 text-oai-gray-300 dark:border-oai-gray-700 dark:text-oai-gray-600"
-                    : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-50 dark:border-oai-gray-600 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800",
+                    : "border-oai-gray-300 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-600 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800",
                 )}
               >
-                <span>{copy("perks.album.next")}</span>
                 <ChevronRight className="h-3.5 w-3.5" aria-hidden />
               </button>
             </div>
           )}
-          <p className="mt-3 text-center text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
-            {copy("perks.album.hint")}
-          </p>
-        </>
-      )}
+        </div>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+          {pageItems.map((entry) => (
+            <AlbumMiniCard
+              key={entry.item.id}
+              item={entry.item}
+              collected={entry.collected}
+              tier={entry.tier}
+              streak={entry.streak}
+              claimedNow={entry.claimedNow}
+              faceValue={entry.faceValue}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -568,11 +607,8 @@ export function PerksPage() {
   const [claimDay, setClaimDay] = useState(getPerkClaimDay);
   const unsavedClaims = useRef(null);
   const [claimFilter, setClaimFilter] = useState("all");
-  // 卡册视图（学 AIHOT 集卡）：viewMode 切换列表/卡册；albumPage 记翻页位置；
-  // expandedId 是卡册里展开完整卡片的卡。
-  const [viewMode, setViewMode] = useState("list");
+  // 卡册（AIHOT 式，常驻页首）：albumPage 记卡牌带翻页位置。
   const [albumPage, setAlbumPage] = useState(0);
-  const [expandedId, setExpandedId] = useState(null);
   // AIHOT 快照只做后台对时：页面先用静态数据整页渲染，快照回来后才补角标，
   // 任何失败都静默保持原样（信源挂了不影响福利指南本身）。
   const [aihotData, setAihotData] = useState(null);
@@ -680,21 +716,37 @@ export function PerksPage() {
     return claimFilter === "all" || (claimFilter === "claimed" ? claimed : !claimed);
   });
 
-  // 卡册排序：今日已领 > 累计亮度档 > A-Z 稳定序（AIHOT「越亮的越靠前」）。
+  // 卡册排序：已收亮卡 > 累计亮度档 > A-Z 稳定序（AIHOT「越亮的越靠前」，
+  // 截图里第一行亮卡第二行暗卡）。面值/折算值取映射 provider 的最新 AIHOT deal。
   const albumItems = useMemo(() => {
     const ranked = filteredItems.map((item) => {
       const streak = Math.max(...getPerkClaimCycles(item).map((cycle) => getPerkClaimStreak(item, claims, cycle)), 0);
       const claimedNow = isPerkClaimed(item, claims, claimDay, selectedCategory);
+      const deal = (() => {
+        const providers = PERKS_AIHOT_PROVIDERS[item.id];
+        if (!providers) return null;
+        let best = null;
+        for (const provider of providers) {
+          const candidate = aihotIndex.byProvider.get(provider);
+          if (candidate && (!best || (candidate.verified_at || "") > (best.verified_at || ""))) best = candidate;
+        }
+        return best;
+      })();
+      const monthlyClaimed = getPerkClaimCycles(item).includes("monthly")
+        && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
       return {
         item,
         streak,
         claimedNow,
         tier: albumBrightnessTier(streak),
-        aihot: buildAihotSignal(item, aihotIndex),
+        collected: streak > 0,
+        faceValue: deal?.label || null,
+        dealYuanDaily: deal && deal.kind === "daily" && Number.isFinite(deal.yuan) ? deal.yuan : 0,
+        dealYuanMonthlyClaimed: deal && Number.isFinite(deal.yuan) && monthlyClaimed ? deal.yuan : 0,
       };
     });
     ranked.sort((a, b) =>
-      (a.claimedNow === b.claimedNow ? 0 : a.claimedNow ? -1 : 1)
+      (a.collected === b.collected ? 0 : a.collected ? -1 : 1)
       || b.tier - a.tier
       || comparePerks(a.item, b.item),
     );
@@ -739,6 +791,14 @@ export function PerksPage() {
               </span>
             </div>
           </div>
+
+          {/* AIHOT 式卡册：统计头 + 扑克卡牌带，常驻页首（站主 2026-11-11 拍板照做） */}
+          <AlbumStrip
+            items={albumItems}
+            claimDay={claimDay}
+            page={albumPage}
+            onPageChange={setAlbumPage}
+          />
 
           {/* Top Disclaimer / Notice Banner */}
           <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-900/90 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-200">
@@ -879,57 +939,14 @@ export function PerksPage() {
                       className="h-9 w-full rounded-xl border border-oai-gray-200 bg-white pl-8 pr-3 text-xs text-oai-black placeholder-oai-gray-400 transition focus:border-emerald-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 dark:border-oai-gray-500 dark:bg-oai-gray-900 dark:text-white dark:placeholder-oai-gray-300"
                     />
                   </div>
-                  <div className="flex items-center gap-1 rounded-xl border border-oai-gray-200 bg-white p-0.5 dark:border-oai-gray-600 dark:bg-oai-gray-900">
-                    {[
-                      { id: "list", label: copy("perks.view.list"), icon: List },
-                      { id: "album", label: copy("perks.view.album"), icon: LayoutGrid },
-                    ].map((opt) => {
-                      const active = viewMode === opt.id;
-                      const Icon = opt.icon;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => setViewMode(opt.id)}
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
-                            active
-                              ? "bg-oai-black text-white dark:bg-white dark:text-oai-black"
-                              : "text-oai-gray-500 hover:text-oai-gray-800 dark:text-oai-gray-400 dark:hover:text-oai-gray-200",
-                          )}
-                        >
-                          <Icon className="h-3.5 w-3.5" aria-hidden />
-                          <span>{opt.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Provider Cards: 列表视图 / 卡册视图（学 AIHOT 集卡，站主 2026-11-11）。
-              三块 && 条件渲染而非三元链：ui-hardcode 扫描器会把顶层比较符与自闭合
-              标签间的代码误报成 JSX 文本（仓库已知坑），条件用 === / !== 避开 > */}
-          {viewMode === "album" && (
-            <AlbumView
-              items={albumItems}
-              claims={claims}
-              claimDay={claimDay}
-              selectedCategory={selectedCategory}
-              expandedId={expandedId}
-              onToggleExpand={(id) => setExpandedId((current) => (current === id ? null : id))}
-              onToggleClaim={toggleClaim}
-              page={albumPage}
-              onPageChange={(nextPage) => {
-                setExpandedId(null); // 翻页后展开卡不在本页，收起避免悬空
-                setAlbumPage(nextPage);
-              }}
-            />
-          )}
-          {viewMode !== "album" && filteredItems.length === 0 && (
+          {/* Provider Cards Grid。三块 && 条件渲染而非三元链：ui-hardcode 扫描器会把
+              顶层比较符与自闭合标签间的代码误报成 JSX 文本（仓库已知坑），条件用 === / !== */}
+          {filteredItems.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-oai-gray-200 py-16 text-center dark:border-oai-gray-800">
               <SlidersHorizontal className="h-8 w-8 text-oai-gray-400" />
               <p className="mt-2 text-sm font-medium text-oai-gray-600 dark:text-oai-gray-300">
@@ -940,7 +957,7 @@ export function PerksPage() {
               </p>
             </div>
           )}
-          {viewMode !== "album" && filteredItems.length !== 0 && (
+          {filteredItems.length !== 0 && (
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => (
                 <PerkCard

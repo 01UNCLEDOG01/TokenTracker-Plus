@@ -89,7 +89,7 @@ describe("perk claim calendar and state (schema 3: {last, count})", () => {
     for (const locale of [zh, zhTw, ja, ko, de]) {
       for (const key of [
         "perks.claim.daily_mark", "perks.claim.daily_claimed", "perks.claim.monthly_mark", "perks.claim.monthly_claimed",
-        "perks.view.list", "perks.view.album", "perks.album.prev", "perks.album.next", "perks.album.hint",
+        "perks.album.title", "perks.album.collected", "perks.album.claimable", "perks.album.month", "perks.album.refresh", "perks.album.prev", "perks.album.next",
       ]) {
         expect(locale[key]).toBeTypeOf("string");
         expect(locale[key].length).toBeGreaterThan(0);

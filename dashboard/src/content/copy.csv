@@ -873,12 +873,15 @@ perks.disclaimer,ui,PerksPage,PerksPage,disclaimer,"📢 Notice & Disclaimer: ev
 perks.credit_aihot,ui,PerksPage,PerksPage,credit_aihot,"Perk data is hand-verified by the TT-plus author; AIHOT (aihot.news)'s daily free-token board serves as the freshness reference. Thanks to Kazik (数字生命卡兹克) for keeping the data open.",,active
 perks.aihot.badge,ui,PerksPage,PerksPage,aihot_badge,"AIHOT verified {{date}}",,active
 perks.aihot.dropped,ui,PerksPage,PerksPage,aihot_dropped,"AIHOT's latest snapshot no longer lists this provider",,active
-perks.view.list,ui,PerksPage,PerksPage,view_list,"List",,active
-perks.view.album,ui,PerksPage,PerksPage,view_album,"Album",,active
+perks.album.title,ui,PerksPage,PerksPage,album_title,"My album",,active
+perks.album.collected,ui,PerksPage,PerksPage,album_collected,"{{collected}} / {{total}} cards collected",,active
+perks.album.claimable,ui,PerksPage,PerksPage,album_claimable,"Claimable today",,active
+perks.album.month,ui,PerksPage,PerksPage,album_month,"Claimed this month",,active
+perks.album.note,ui,PerksPage,PerksPage,album_note,"CNY estimates follow AIHOT's conversion basis.",,active
+perks.album.page,ui,PerksPage,PerksPage,album_page,"Page {{page}} of {{pages}}",,active
+perks.album.refresh,ui,PerksPage,PerksPage,album_refresh,"Next refresh",,active
 perks.album.prev,ui,PerksPage,PerksPage,album_prev,"Previous page",,active
 perks.album.next,ui,PerksPage,PerksPage,album_next,"Next page",,active
-perks.album.page,ui,PerksPage,PerksPage,album_page,"{{page}} / {{pages}}",,active
-perks.album.hint,ui,PerksPage,PerksPage,album_hint,"The more you claim, the brighter the card: 7/15/30 claims earn silver, gold, and sparkle frames. Brightest first, two rows per page.",,active
 perks.card.checked,ui,PerksPage,PerksPage,card_checked,"Checked {{date}}",,active
 perks.card.source,ui,PerksPage,PerksPage,card_source,"Source",,active
 perks.card.feedback,ui,PerksPage,PerksPage,card_feedback,"Report a change",,active

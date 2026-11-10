@@ -1513,7 +1513,7 @@ export const PERK_PROVIDERS = [
       "featured"
     ],
     "badge": "周五晚常有限时 GLM-5.3-Flash 3 亿额度",
-    "badgeType": "amber",
+    "badgeType": "rose",
     "tags": [
       "智谱出品",
       "编程智能体",
