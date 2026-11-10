@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
+import Vortex
 
-/// Full-screen celebration overlay. Upstream renders two-stage Vortex fireworks;
-/// this SwiftPM/CLT build omits the particle layer (Vortex ships an asset catalog
-/// that requires full-Xcode actool) and keeps the provider toast.
+/// Full-screen celebration: a two-stage firework (rocket rises → bursts on death,
+/// with sparkle trails) built on the Vortex particle library — the same engine
+/// CodexBar builds its celebration on. An optional text toast names what reset.
 ///
 /// Each screen gets a borderless, click-through `NSPanel` floating at the
 /// status-bar level across all Spaces. Panels never take focus or mouse events,
@@ -142,6 +143,64 @@ final class ScreenConfettiOverlayController {
 /// A per-view system keeps every celebration independent, and also stops the
 /// multi-display case (one `VortexView` per screen) from driving one simulation
 /// object several times per frame.
+private func makeFireworksSystem() -> VortexSystem {
+    let sparkles = VortexSystem(
+        tags: ["circle"],
+        spawnOccasion: .onUpdate,
+        emissionLimit: 1,
+        lifespan: 0.5,
+        speed: 0.05,
+        angleRange: .degrees(90),
+        size: 0.05
+    )
+
+    let explosion = VortexSystem(
+        tags: ["circle"],
+        spawnOccasion: .onDeath,
+        position: [0.5, 1],
+        // Vortex's preset uses 100_000 here purely to mean "instantly". Because
+        // `createParticles()` iterates `birthRate * delta` times regardless of
+        // `emissionLimit`, that number is also the multiplier on any long frame
+        // delta. One emission limit's worth per frame at the 60fps `VortexView`
+        // renders at is just as instant and bounds the worst case ~3 orders of
+        // magnitude lower.
+        birthRate: Double(fireworksExplosionEmissionLimit * 60),
+        emissionLimit: fireworksExplosionEmissionLimit,
+        speed: 0.5,
+        speedVariation: 1,
+        angleRange: .degrees(360),
+        acceleration: [0, 1.5],
+        dampingFactor: 4,
+        colors: .randomRamp(
+            [.white, .pink, .pink],
+            [.white, .blue, .blue],
+            [.white, .green, .green],
+            [.white, .orange, .orange],
+            [.white, .cyan, .cyan]
+        ),
+        size: 0.15,
+        sizeVariation: 0.1,
+        sizeMultiplierAtDeath: 0
+    )
+
+    return VortexSystem(
+        tags: ["circle"],
+        secondarySystems: [sparkles, explosion],
+        position: [0.5, 1],
+        birthRate: 2,
+        emissionLimit: 1000,
+        speed: 1.5,
+        speedVariation: 0.75,
+        angleRange: .degrees(60),
+        dampingFactor: 2,
+        size: 0.15,
+        stretchFactor: 4
+    )
+}
+
+/// Particles in a single rocket burst.
+private let fireworksExplosionEmissionLimit = 500
+
 /// Borderless panel that never steals focus or mouse — a transparent overlay.
 private final class ClickThroughPanel: NSPanel {
     override var canBecomeKey: Bool { false }
@@ -157,14 +216,26 @@ private struct FireworkOverlayView: View {
     let showsConfetti: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var toastShown = false
+    @State private var fireworksShown = true
+    /// Owned by this view, never shared: see `makeFireworksSystem()`.
+    @State private var fireworks: VortexSystem = makeFireworksSystem()
+    private let fireworksDuration: TimeInterval = 5.0
     private let toastFadeDelay: TimeInterval = 8.0
 
     var body: some View {
         ZStack(alignment: .top) {
             Color.clear
-            // Particle fireworks (Vortex) are omitted in this SwiftPM/CLT build —
-            // the library ships an asset catalog that needs full-Xcode actool.
-            // The reset toast (the part users actually read) is untouched.
+            if showsConfetti && fireworksShown {
+                VortexView(fireworks)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + fireworksDuration) {
+                            withAnimation(.easeOut(duration: 0.5)) { fireworksShown = false }
+                        }
+                    }
+            }
+
             if showsToast, let message {
                 HStack(spacing: 10) {
                     LimitResetProviderIcon(provider: provider)

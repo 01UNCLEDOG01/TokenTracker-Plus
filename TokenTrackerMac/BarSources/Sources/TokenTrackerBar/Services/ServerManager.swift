@@ -107,9 +107,19 @@ final class ServerManager: ObservableObject {
     private func findEmbeddedServer() -> (nodePath: String, entryPath: String)? {
         guard let resourceURL = Bundle.main.resourceURL else { return nil }
 
-        let nodePath = resourceURL
-            .appendingPathComponent("EmbeddedServer/node")
+        // Fork bundle: dual-arch node binaries (node-arm64 / node-x64) —
+        // pick by machine arch, falling back to the upstream plain "node".
+        var sysinfo = utsname()
+        uname(&sysinfo)
+        let machine = withUnsafeBytes(of: &sysinfo.machine) { raw in
+            String(cString: raw.baseAddress!.assumingMemoryBound(to: CChar.self))
+        }
+        let preferred = resourceURL
+            .appendingPathComponent(machine == "x86_64" ? "EmbeddedServer/node-x64" : "EmbeddedServer/node-arm64")
             .path
+        let nodePath = FileManager.default.isExecutableFile(atPath: preferred)
+            ? preferred
+            : resourceURL.appendingPathComponent("EmbeddedServer/node").path
         let entryPath = resourceURL
             .appendingPathComponent("EmbeddedServer/tokentracker/bin/tracker.js")
             .path

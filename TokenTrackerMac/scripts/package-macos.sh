@@ -27,20 +27,18 @@ echo "[package] version = $VERSION"
 # 1. Locate full Xcode (DEVELOPER_DIR wins, then xcode-select -p).
 XC="${DEVELOPER_DIR:-}"
 if [ -z "$XC" ]; then
-  DEV="$(xcode-select -p 2>/dev/null || true)"
-  case "$DEV" in
+  XC="$(xcode-select -p 2>/dev/null || true)"
+  case "$XC" in
     *CommandLineTools*) echo "ERROR: active developer dir is CommandLineTools. Install full Xcode and either:" >&2
       echo "  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer   # or" >&2
       echo "  sudo xcode-select -s /Applications/Xcode.app" >&2
       exit 1 ;;
     "") echo "ERROR: no developer directory found — install Xcode" >&2; exit 1 ;;
-    *) XC="$DEV/.." ;;
   esac
 fi
-XC="$(cd "$XC" && pwd)"
 echo "[package] Xcode: $XC"
 export DEVELOPER_DIR="$XC"
-ACTOOL="$XC/usr/bin/actool"
+ACTOOL="$(xcrun -f actool 2>/dev/null || echo "$XC/usr/bin/actool")"
 
 command -v swiftc >/dev/null 2>&1 || { echo "ERROR: swiftc not on PATH" >&2; exit 1; }
 
@@ -64,8 +62,21 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 echo "[package] xcodebuild (SwiftPM manifest)..."
 cd "$MAC_DIR/BarSources"
 xcodebuild -scheme TokenTrackerBar -configuration Release \
+  -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$BUILD_DIR/derived" build 2>&1 | tail -3
 BUILT_BIN="$BUILD_DIR/derived/Build/Products/Release/TokenTrackerBar"
+# Universal: build the x86_64 slice too and lipo (single dmg for both archs).
+xcodebuild -scheme TokenTrackerBar -configuration Release \
+  -destination 'platform=macOS,arch=x86_64' \
+  -derivedDataPath "$BUILD_DIR/derived-x64" build 2>&1 | tail -3
+BUILT_BIN_X64="$BUILD_DIR/derived-x64/Build/Products/Release/TokenTrackerBar"
+if [ ! -f "$BUILT_BIN_X64" ]; then
+  echo "WARN: x86_64 slice missing — shipping arm64-only" >&2
+  cp "$BUILT_BIN" "$APP_DIR/Contents/MacOS/$EXEC_NAME"
+else
+  lipo -create "$BUILT_BIN" "$BUILT_BIN_X64" -output "$APP_DIR/Contents/MacOS/$EXEC_NAME"
+  lipo -info "$APP_DIR/Contents/MacOS/$EXEC_NAME"
+fi
 if [ ! -f "$BUILT_BIN" ]; then
   echo "ERROR: built binary not found at $BUILT_BIN" >&2
   exit 1
