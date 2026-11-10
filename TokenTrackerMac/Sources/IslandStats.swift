@@ -203,8 +203,15 @@ final class IslandStats: NSObject {
         } else {
             script += "window.__ttPetBubbleBand=0;window.__ttPetLimits=null;"
         }
+        // The page re-reads currency on pet:currency and locale+unitSystem on
+        // pet:locale (pet.jsx: "PushContext dispatches pet:locale on every
+        // push, so it also carries unit changes") — without these the pill
+        // keeps the mount-time defaults ($ / western).
         script += "window.dispatchEvent(new Event('pet:usage'));" +
-            "window.dispatchEvent(new Event('pet:bubble-band'));"
+            "window.dispatchEvent(new Event('pet:bubble-band'));" +
+            "window.dispatchEvent(new Event('pet:currency'));" +
+            "window.dispatchEvent(new Event('pet:locale'));" +
+            "window.dispatchEvent(new Event('pet:syncing'));"
         webView.evaluateJavaScript(script) { _, error in
             if let error {
                 Diag.error("Pet bubble push failed: \(error.localizedDescription)")
@@ -222,8 +229,10 @@ final class IslandStats: NSObject {
             if let view = WebHost.webView(in: window) { source = view; break }
         }
         guard let webView = source else { return }
+        // The rates entry is either {rates:{...}} or the bare rates map
+        // depending on where it was written — accept both shapes.
         let script = "JSON.stringify({c: localStorage.getItem('tokentracker-currency')," +
-            "r: JSON.parse(localStorage.getItem('tokentracker-exchange-rates') || '{}').rates || {}," +
+            "r: (function(){try{var d=JSON.parse(localStorage.getItem('tokentracker-exchange-rates')||'{}');return (d&&d.rates)||d||{};}catch(e){return {};}})()," +
             "u: localStorage.getItem('tt.tokenUnitSystem')})"
         webView.evaluateJavaScript(script) { result, _ in
             guard let json = result as? String,
@@ -231,7 +240,9 @@ final class IslandStats: NSObject {
                   let currency = obj["c"] as? String,
                   let rates = obj["r"] as? [String: Double] else { return }
             if let unit = obj["u"] as? String {
-                self.tokenUnitSystem = unit == "western" ? "western" : "chinese"
+                // Stored values are "english"/"chinese" (token-format.js); the
+                // page wants __ttPetTokenUnitSystem === "chinese" for 万/亿.
+                self.tokenUnitSystem = unit == "chinese" ? "chinese" : "western"
             }
             DispatchQueue.main.async {
                 let code = currency.uppercased()

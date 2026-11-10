@@ -11,11 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var dashboardWindow: DashboardWindowController?
     private var widgetWindow: QuotaWidgetWindowController?
-    private var desktopWidget: DesktopWidgetWindowController?
     private var capsule: IslandCapsuleController?
     private var petPanel: PetPanelController?
     private var didShowPetOnReady = false
-    var lastDrag: NSPoint?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         petPanel = PetPanelController(serverURL: serverManager.serverURL)
@@ -34,11 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onTogglePet: { [weak self] in self?.togglePet() },
             onToggleQuotaWidget: { [weak self] in self?.toggleQuotaWidget() },
             onToggleCapsule: { [weak self] in self?.toggleCapsule() },
-            onToggleDesktopWidget: { [weak self] in self?.toggleDesktopWidget() },
             isPetVisible: { [weak self] in self?.isPetVisible ?? false },
             isQuotaWidgetVisible: { [weak self] in self?.isQuotaWidgetVisible ?? false },
-            isCapsuleVisible: { [weak self] in self?.isCapsuleVisible ?? false },
-            isDesktopWidgetVisible: { [weak self] in self?.isDesktopWidgetVisible ?? false })
+            isCapsuleVisible: { [weak self] in self?.isCapsuleVisible ?? false })
         statusItemController?.install()
 
         serverManager.onHealthChange = { [weak self] health in
@@ -58,12 +54,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     if stored("TTPPetEnabled") { self.petPanel?.show() }
                     if stored("TTPCapsuleEnabled") { self.capsule?.show() }
-                    // Desktop panel defaults OFF (owner called it 多余); a
-                    // stored choice (either value) wins.
-                    let desktopStored = UserDefaults.standard.object(forKey: "TTPDesktopWidgetEnabled")
-                    if desktopStored != nil, UserDefaults.standard.bool(forKey: "TTPDesktopWidgetEnabled") {
-                        self.desktopWidget?.show()
-                    }
                     if stored("TTPQuotaWidgetEnabled") { self.widgetWindow?.presentWindow() }
                     capsule?.setCharacter(PetSettingsController.shared.settings.character)
                 }
@@ -107,23 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.capsule?.setText(IslandStats.shared.capsuleText)
         }
 
-        // Desktop control panel — its own checkable item (default OFF: the
-        // owner called the early full-dashboard card 多余; stored choice wins).
-        self.desktopWidget = DesktopWidgetWindowController(serverURL: serverManager.serverURL)
-        PetSettingsController.shared.desktopPanelDrag = { [weak self] type, payload in
-            guard let self, let panel = self.desktopWidget?.window else { return }
-            if type == "panel:drag-end" { self.lastDrag = nil; return }
-            guard let x = payload["x"] as? Double, let y = payload["y"] as? Double else { return }
-            let mouse = NSPoint(x: x, y: NSScreen.screens[0].frame.height - y)
-            if let last = self.lastDrag {
-                let dx = mouse.x - last.x, dy = mouse.y - last.y
-                if hypot(dx, dy) < 300 {
-                    panel.setFrameOrigin(NSPoint(x: panel.frame.origin.x + dx,
-                                                 y: panel.frame.origin.y - dy))
-                }
-            }
-            self.lastDrag = mouse
-        }
         PetSettingsController.shared.characterChanged = { [weak self] character in
             self?.capsule?.setCharacter(character)
         }
@@ -198,20 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func toggleDesktopWidget() {
-        guard let desktopWidget else { return }
-        let isVisible = desktopWidget.window?.isVisible ?? false
-        if isVisible {
-            desktopWidget.window?.orderOut(nil)
-            UserDefaults.standard.set(false, forKey: "TTPDesktopWidgetEnabled")
-        } else {
-            desktopWidget.show()
-            UserDefaults.standard.set(true, forKey: "TTPDesktopWidgetEnabled")
-        }
-    }
-
     var isCapsuleVisible: Bool { capsule?.isVisible ?? false }
-    var isDesktopWidgetVisible: Bool { desktopWidget?.window?.isVisible ?? false }
 
     private func toggleQuotaWidget() {
         guard let controller = widgetWindow else { return }

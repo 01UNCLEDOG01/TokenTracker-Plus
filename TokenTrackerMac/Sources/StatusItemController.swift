@@ -16,11 +16,9 @@ final class StatusItemController: NSObject {
     private var onTogglePet: (() -> Void)?
     private var onToggleQuotaWidget: (() -> Void)?
     private var onToggleCapsule: (() -> Void)?
-    private var onToggleDesktopWidget: (() -> Void)?
     private var isPetVisible: (() -> Bool)?
     private var isQuotaWidgetVisible: (() -> Bool)?
     private var isCapsuleVisible: (() -> Bool)?
-    private var isDesktopWidgetVisible: (() -> Bool)?
 
     init(serverManager: ServerManager,
          updateChecker: UpdateChecker,
@@ -29,11 +27,10 @@ final class StatusItemController: NSObject {
          onTogglePet: @escaping () -> Void,
          onToggleQuotaWidget: @escaping () -> Void,
          onToggleCapsule: @escaping () -> Void,
-         onToggleDesktopWidget: @escaping () -> Void,
          isPetVisible: @escaping () -> Bool,
          isQuotaWidgetVisible: @escaping () -> Bool,
          isCapsuleVisible: @escaping () -> Bool,
-         isDesktopWidgetVisible: @escaping () -> Bool) {
+         ) {
         self.serverManager = serverManager
         self.updateChecker = updateChecker
         self.onOpenDashboard = onOpenDashboard
@@ -41,11 +38,9 @@ final class StatusItemController: NSObject {
         self.onTogglePet = onTogglePet
         self.onToggleQuotaWidget = onToggleQuotaWidget
         self.onToggleCapsule = onToggleCapsule
-        self.onToggleDesktopWidget = onToggleDesktopWidget
         self.isPetVisible = isPetVisible
         self.isQuotaWidgetVisible = isQuotaWidgetVisible
         self.isCapsuleVisible = isCapsuleVisible
-        self.isDesktopWidgetVisible = isDesktopWidgetVisible
         super.init()
     }
 
@@ -145,10 +140,6 @@ final class StatusItemController: NSObject {
         let capsule = NSMenuItem(title: "用量悬浮窗", action: #selector(toggleCapsule), keyEquivalent: "u")
         capsule.target = self
         capsule.state = (isCapsuleVisible?() ?? false) ? .on : .off
-        // Desktop control panel: own item, default OFF (owner called it 多余).
-        let island = NSMenuItem(title: "桌面控制面板", action: #selector(toggleDesktopWidget), keyEquivalent: "")
-        island.target = self
-        island.state = (isDesktopWidgetVisible?() ?? false) ? .on : .off
         let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "")
         widget.target = self
         widget.state = (isQuotaWidgetVisible?() ?? false) ? .on : .off
@@ -174,7 +165,6 @@ final class StatusItemController: NSObject {
     @objc private func openDashboard() { onOpenDashboard?() }
     @objc private func toggleQuotaWidget() { onToggleQuotaWidget?() }
     @objc private func toggleCapsule() { onToggleCapsule?() }
-    @objc private func toggleDesktopWidget() { onToggleDesktopWidget?() }
     @objc private func togglePet() { onTogglePet?() }
     @objc private func syncNow() { serverManager.syncNow() }
     @objc private func checkUpdates() { updateChecker.checkAndPrompt() }

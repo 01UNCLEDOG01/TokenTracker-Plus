@@ -43,8 +43,6 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
 
     /// Provided by AppDelegate: the pet panel (for size resize + context push).
     var petPanelProvider: (() -> PetPanelController?)?
-    /// Drag gesture from the desktop control panel page pointer stream.
-    var desktopPanelDrag: ((String, [String: Any]) -> Void)?
     /// Pet character changed — the capsule dot tints to the companion.
     var characterChanged: ((String) -> Void)?
     var islandModeChanged: ((Bool) -> Void)?
@@ -97,10 +95,6 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         guard let type = obj["type"] as? String else { return }
         if type.hasPrefix("quota:"), let webView = message.webView {
             QuotaWidgetHost.shared.handle(type: type, payload: obj, webView: webView)
-            return
-        }
-        if type == "panel:drag" || type == "panel:drag-end" {
-            desktopPanelDrag?(type, obj)
             return
         }
         switch type {
