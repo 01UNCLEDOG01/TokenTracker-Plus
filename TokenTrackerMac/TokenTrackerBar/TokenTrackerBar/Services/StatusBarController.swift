@@ -1323,7 +1323,7 @@ final class StatusBarController: NSObject {
         menu.addItem(updateItem)
 
         let version = UpdateChecker.shared.currentVersion()
-        let aboutItem = NSMenuItem(title: "TokenTracker v\(version)", action: #selector(openAbout), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: "TT-Plus v\(version)", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
 
