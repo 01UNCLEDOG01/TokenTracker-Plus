@@ -27,7 +27,10 @@ test.beforeEach(() => {
 });
 
 test.afterEach(() => {
-  __setTraeFoldStateForTest({ byModel: {}, recognizedRate: 0 });
+  // Reset BOTH edition pools — tests that inject the trae (intl) pool must
+  // not leak module state into later tests in the same process.
+  __setTraeFoldStateForTest({ byModel: {}, recognizedRate: 0, edition: "trae-cn" });
+  __setTraeFoldStateForTest({ byModel: {}, recognizedRate: 0, edition: "trae" });
 });
 
 function row(overrides = {}) {

@@ -23,6 +23,7 @@ const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
 const { fetchProviderServiceStatus } = require("./provider-status");
 const { readCursorStateSummary } = require("./cursor-store");
+const { resolveTrackerPathsSync } = require("./tracker-paths");
 
 const SYNC_TIMEOUT_MS = 120_000;
 // A failed account-view request should not stall every dashboard refresh
@@ -592,7 +593,11 @@ async function loadTraeFoldState() {
   // rule: cursors.json is a frozen legacy compat copy once cursor-store-v2 is
   // active — reading it directly prices the dry spell off stale evidence).
   const summary = await readCursorStateSummary({
-    trackerDir: path.join(os.homedir(), ".tokentracker", "tracker"),
+    // Resolve via tracker-paths so TOKENTRACKER_HOME (tests, probes, alternate
+    // installs) points the fold evidence at the same root every other
+    // consumer reads — a raw homedir join reads the wrong root when the env
+    // override is set.
+    trackerDir: resolveTrackerPathsSync().trackerDir,
   });
   const buckets = summary?.cursors?.hourly?.buckets || {};
   for (const [bucketKey, bucket] of Object.entries(buckets)) {
@@ -647,8 +652,17 @@ function traeFoldMap() {
         traeFoldLoading = false;
       })
       .catch(() => {
-        // No cursors / malformed state: keep serving whatever we had (or
-        // nothing) and throttle retries to one per refresh window.
+        // Throttle the retry to one per refresh window. A snapshot from an
+        // earlier successful load keeps serving (stale evidence beats no
+        // evidence — transient EBUSY/EPERM on the store must not wipe it);
+        // only a never-loaded state installs an EMPTY pool instead of null,
+        // because null would re-trigger a load on every fold call while the
+        // failure persists. Both ways rows fold nothing until a real load
+        // lands.
+        if (!traeFoldByEdition) {
+          traeFoldByEdition = {};
+          for (const edition of TRAE_EDITIONS) traeFoldByEdition[edition] = emptyTraeEditionState();
+        }
         traeFoldLoadedAt = Date.now();
         traeFoldLoading = false;
       });
