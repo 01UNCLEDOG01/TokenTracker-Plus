@@ -392,9 +392,13 @@ internal sealed class DashboardWindow : Window
 
         var core = _webView.CoreWebView2;
         var view = _webView;
+        // 最小化后延迟 10 分钟才挂起渲染器：挂起省内存，但恢复要 1~3 秒，
+        // 每次从任务栏还原面板后的第一次切页都会撞上（2026-11-11 站主实测
+        // "切到宠物页卡好几秒"）。折叠组合视觉（幽灵窗口修复）仍然立即生效，
+        // 只有 sleep 被推迟——真在托盘放一小时照样释放内存。
         _activity = new WebViewActivity(
             visible => view.Visibility = visible ? Visibility.Visible : Visibility.Collapsed,
-            core.Resume, core.TrySuspendAsync, Log);
+            core.Resume, core.TrySuspendAsync, Log, TimeSpan.FromMinutes(10));
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
 
