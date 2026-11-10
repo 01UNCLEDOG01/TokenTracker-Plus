@@ -121,6 +121,18 @@ each category page is fetched once per six-hour TTL window, parsed server-side,
 and cached locally (`src/lib/aihot-models.js`). Thanks to the author for
 keeping the data public.
 
+## AIHOT free-tokens ("Token 羊毛") data
+
+The Perks Guide page additionally polls the public "Token 羊毛" board at
+[aihot.news/free-tokens](https://aihot.news/free-tokens) (same project, same
+author) once per six-hour TTL window and caches it locally
+(`src/lib/aihot-free-tokens.js`). AIHOT data is used strictly as a freshness
+reference — verification badges, delisting hints, and candidate lists; the perk
+cards themselves remain hand-verified and owned by this fork, and AIHOT's own
+inclusion rules (which exclude referral/invite links) differ from ours, so
+their copy and conversions are never copied into the cards. Thanks again to
+数字生命卡兹克 (Kazik) for publishing the data openly.
+
 ## Trademark Disclaimer
 
 All product names, logos, brands, and registered trademarks displayed in this project (including brand icons in `dashboard/public/brand-logos/`) are property of their respective owners. Their use in TokenTracker Plus is for identification and reference purposes only, and does not imply any affiliation, sponsorship, or endorsement by the trademark holders.

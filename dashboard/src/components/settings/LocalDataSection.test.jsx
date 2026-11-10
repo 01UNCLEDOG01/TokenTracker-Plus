@@ -114,4 +114,44 @@ describe("LocalDataSection", () => {
     fireEvent.change(input, { target: { files: [file] } });
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(copy("settings.local_data.self")));
   });
+
+  it("full backup export streams a gzipped download and reports its size", async () => {
+    fetch
+      .mockResolvedValueOnce(jsonResponse(200, { machine: { id: "m1" }, rows: 10, bytes: 100 }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        status: 200,
+        blob: async () => new Blob([new Uint8Array(2048)], { type: "application/gzip" }),
+      }));
+    render(<LocalDataSection />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: copy("settings.local_data.export_full") }));
+    await waitFor(() =>
+      expect(screen.getByText(copy("settings.local_data.export_full_done", { size: "2.0 KB" }))).toBeInTheDocument(),
+    );
+    expect(fetch.mock.calls[1][1].body).toBe(JSON.stringify({ action: "export_full" }));
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+
+  it("routes .gz imports through the full-backup preview/confirm path", async () => {
+    fetch
+      .mockResolvedValueOnce(jsonResponse(200, { machine: { id: "m1" }, rows: 10, bytes: 100 }))
+      .mockResolvedValueOnce(jsonResponse(200, { format: "ndjson-gzip", rows: 5, fresh: 5, duplicate: 0, token: "tok" }))
+      .mockResolvedValueOnce(jsonResponse(200, { imported: 5, skipped: 0 }));
+    const { container } = render(<LocalDataSection />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+
+    const file = new File([new Uint8Array(32)], "tokentracker-local-full-abc.json.gz", { type: "application/gzip" });
+    fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [file] } });
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(fetch.mock.calls[1][1].headers["x-tokentracker-backup-action"]).toBe("preview_full");
+    expect(fetch.mock.calls[1][1].headers["Content-Type"]).toBe("application/gzip");
+    expect(fetch.mock.calls[1][1].body).toBe(file);
+
+    fireEvent.click(screen.getByRole("button", { name: copy("settings.local_data.confirm") }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    expect(fetch.mock.calls[2][1].headers["x-tokentracker-backup-action"]).toBe("import_full");
+    expect(fetch.mock.calls[2][1].headers["x-tokentracker-import-token"]).toBe("tok");
+  });
 });

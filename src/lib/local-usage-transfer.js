@@ -18,6 +18,7 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const zlib = require("node:zlib");
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const SNAPSHOT_KIND = "tokentracker-local-usage";
@@ -30,10 +31,241 @@ const ENVELOPE_SLACK_BYTES = 4096;
 const WINDOW_CHUNK_ROWS = 512;
 const READ_CHUNK_BYTES = 1 << 20;
 
-function trackerDir(home = os.homedir()) {
+// --- Full backup (v2, "ndjson-gzip") ---
+// The 5MB windowed snapshot is the transport-safe fallback; real machine moves
+// want the whole queue in one file, so the full backup streams the queue
+// through gzip (pg_dump-style: compressed whole dump, dedup on restore). Wire
+// format: gzip( header line + one valid row per line + trailer line ). The
+// gzip upload body limit only guards the loopback endpoint — decompressed
+// content is capped separately to blunt zip bombs.
+const FULL_BACKUP_VERSION = 2;
+const FULL_BACKUP_FORMAT = "ndjson-gzip";
+const FULL_BACKUP_BODY_LIMIT = 256 * 1024 * 1024;
+const FULL_BACKUP_DECOMPRESSED_LIMIT = 1536 * 1024 * 1024;
+
+function fullBackupError(code, message) {
+  return Object.assign(new Error(message || code), { code, fullBackup: true });
+}
+
+// Write with backpressure — a 540MB queue through gzip.write without draining
+// would balloon memory.
+async function writeChunk(stream, chunk) {
+  if (!stream.write(chunk)) await new Promise((resolve) => stream.once("drain", resolve));
+}
+
+// Stream the entire queue as a gzipped NDJSON backup straight into res
+// (writable stream). No intermediate 540MB buffer anywhere. Returns counts for
+// logging; once headers are sent an error can only tear the connection down.
+async function streamFullBackup(res, { home } = {}) {
+  const machine = readMachine(home);
+  const gzip = zlib.createGzip({ level: 6 });
+  let headersSent = false;
+  try {
+    res.writeHead(200, {
+      "Content-Type": "application/gzip",
+      "Content-Disposition": `attachment; filename="tokentracker-local-full.json.gz"`,
+      "Cache-Control": "no-store",
+    });
+    headersSent = true;
+    gzip.pipe(res);
+    await writeChunk(
+      gzip,
+      `${JSON.stringify({
+        kind: SNAPSHOT_KIND,
+        version: FULL_BACKUP_VERSION,
+        format: FULL_BACKUP_FORMAT,
+        exported_at: new Date().toISOString(),
+        machine: { id: machine.id, name: machine.name },
+      })}\n`,
+    );
+    // Batch rows into ~64KB gzip writes: one stream.write per row means 1.7M
+    // calls (and backpressure waits) for a long-lived queue.
+    let batch = "";
+    const flushBatch = async () => {
+      if (!batch) return;
+      const chunk = batch;
+      batch = "";
+      await writeChunk(gzip, chunk);
+    };
+    const { valid } = await scanQueue(home, async (row) => {
+      batch += `${JSON.stringify(row)}\n`;
+      if (batch.length >= 65536) await flushBatch();
+    });
+    await flushBatch();
+    await writeChunk(gzip, `${JSON.stringify({ trailer: true, total_rows: valid })}\n`);
+    gzip.end();
+    await new Promise((resolve, reject) => {
+      gzip.on("error", reject);
+      res.on("error", reject);
+      res.on("close", resolve);
+      res.on("finish", resolve);
+    });
+    return { rows: valid };
+  } catch (error) {
+    if (!headersSent) throw error;
+    res.destroy();
+    console.warn("[local-usage] full backup stream failed mid-flight:", error?.message || error);
+    return { rows: null, error: error?.message || "stream failed" };
+  }
+}
+
+// Decompress + line-split a full backup, visiting every row. The header line
+// must be first (onHeader fires as soon as it is read, so callers can reject
+// self-imports before scanning 500MB); the trailer is optional but validated
+// when present.
+async function parseFullBackup(buffer, { visit, onHeader } = {}) {
+  const gunzip = zlib.createGunzip({ maxOutputLength: FULL_BACKUP_DECOMPRESSED_LIMIT });
+  let header = null;
+  let trailer = null;
+  let rows = 0;
+  let decompressed = 0;
+  let buf = "";
+  // Async so import visits (stream appends with backpressure) run in order —
+  // a floating visit promise would let writer.end() race ahead and drop rows.
+  const handleLine = async (line) => {
+    if (!line.trim()) return;
+    let parsed;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      // Malformed middle line: skip, same tolerance as the queue readers.
+      return;
+    }
+    if (!header) {
+      if (parsed?.kind !== SNAPSHOT_KIND || parsed?.version !== FULL_BACKUP_VERSION || parsed?.format !== FULL_BACKUP_FORMAT) {
+        throw fullBackupError("invalid_backup", "not a tokentracker full backup");
+      }
+      if (!parsed.machine || typeof parsed.machine.id !== "string" || !parsed.machine.id) {
+        throw fullBackupError("invalid_backup", "backup header missing machine id");
+      }
+      header = parsed;
+      if (onHeader) onHeader(header);
+      return;
+    }
+    if (parsed?.trailer === true) {
+      trailer = parsed;
+      return;
+    }
+    if (isValidRow(parsed)) {
+      rows += 1;
+      if (visit) await visit(parsed);
+    }
+  };
+  gunzip.end(buffer);
+  try {
+    for await (const chunk of gunzip) {
+      decompressed += chunk.length;
+      if (decompressed > FULL_BACKUP_DECOMPRESSED_LIMIT) {
+        throw fullBackupError("too_large", "backup decompresses beyond the limit");
+      }
+      buf += chunk.toString("utf8");
+      let idx;
+      while ((idx = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, idx);
+        buf = buf.slice(idx + 1);
+        await handleLine(line);
+      }
+    }
+    if (buf) await handleLine(buf);
+  } catch (error) {
+    if (error?.code === "ERR_BUFFER_TOO_LARGE") throw fullBackupError("too_large", "backup decompresses beyond the limit");
+    if (error?.fullBackup) throw error;
+    throw fullBackupError("invalid_backup", `corrupt gzip backup: ${error?.message || error}`);
+  }
+  if (!header) throw fullBackupError("invalid_backup", "backup header missing");
+  if (trailer && Number(trailer.total_rows) !== rows) {
+    throw fullBackupError("invalid_backup", `trailer mismatch: ${trailer.total_rows} claimed vs ${rows} found`);
+  }
+  return { header, trailer, rows };
+}
+
+async function previewFullBackup(buffer, { home } = {}) {
+  const existing = await collectExistingKeys(home);
+  let fresh = 0;
+  let duplicate = 0;
+  const seen = new Set();
+  let machineId = null;
+  const result = await parseFullBackup(buffer, {
+    // Reject this machine's own backup on the first line, before a long scan.
+    onHeader: (header) => {
+      machineId = header.machine.id;
+      if (machineId === readMachine(home).id) throw fullBackupError("self_import", "this backup came from this machine");
+    },
+    visit: (row) => {
+      const key = rowKey(row);
+      if (existing.has(key) || seen.has(key)) duplicate += 1;
+      else {
+        seen.add(key);
+        fresh += 1;
+      }
+    },
+  });
+  if (result.rows === 0) throw fullBackupError("empty_backup", "backup contains no rows");
+  const token = crypto.createHash("sha256").update(buffer).update(queueSignature(home)).digest("hex");
+  return {
+    format: FULL_BACKUP_FORMAT,
+    machine: result.header.machine,
+    exported_at: result.header.exported_at,
+    rows: fresh + duplicate,
+    fresh,
+    duplicate,
+    before: existing.size,
+    after: existing.size + fresh,
+    token,
+  };
+}
+
+async function importFullBackup(buffer, token, { home } = {}) {
+  const preview = await previewFullBackup(buffer, { home });
+  if (!token || token !== preview.token) {
+    throw fullBackupError("preview_changed", "backup changed since preview");
+  }
+  const qp = queuePath(home);
+  const existing = await collectExistingKeys(home);
+  const seen = new Set();
+  let appended = 0;
+  let skipped = 0;
+  // Stream appends: one write stream for the whole import, backup taken up
+  // front when anything is expected to land (token binds the queue signature).
+  let writer = null;
+  if (preview.fresh > 0) {
+    if (fs.existsSync(qp)) {
+      const backup = `${qp}.bak-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-import`;
+      fs.copyFileSync(qp, backup);
+    } else {
+      fs.mkdirSync(path.dirname(qp), { recursive: true });
+    }
+    writer = fs.createWriteStream(qp, { flags: "a" });
+  }
+  try {
+    await parseFullBackup(buffer, {
+      visit: async (row) => {
+        const key = rowKey(row);
+        if (existing.has(key) || seen.has(key)) {
+          skipped += 1;
+          return;
+        }
+        existing.add(key);
+        seen.add(key);
+        await writeChunk(writer, `${JSON.stringify(row)}\n`);
+        appended += 1;
+      },
+    });
+  } finally {
+    if (writer) await new Promise((resolve) => writer.end(resolve));
+  }
+  return { imported: appended, skipped, before: preview.before, after: existing.size };
+}
+
+
+// Explicit `home` argument wins over TOKENTRACKER_HOME — passing a sandbox
+// home while the env var points elsewhere must never silently write through to
+// the env location (same trap class as the 2026-11 探针 home2 incident).
+function trackerDir(home) {
+  if (home != null) return path.join(home, ".tokentracker", "tracker");
   const override = process.env.TOKENTRACKER_HOME;
   if (override) return path.join(path.resolve(override), "tracker");
-  return path.join(home, ".tokentracker", "tracker");
+  return path.join(os.homedir(), ".tokentracker", "tracker");
 }
 
 function queuePath(home) {
@@ -81,14 +313,16 @@ async function scanQueue(home, visit) {
   try {
     const stream = handle.createReadStream({ encoding: "utf8", highWaterMark: READ_CHUNK_BYTES });
     let buf = "";
-    const handleLine = (line) => {
+    // Async: streaming visits (gzip appends) must run in order and respect
+    // backpressure; sync visitors await to nothing.
+    const handleLine = async (line) => {
       if (!line.trim()) return;
       lines += 1;
       try {
         const row = JSON.parse(line);
         if (isValidRow(row)) {
           valid += 1;
-          if (visit) visit(row);
+          if (visit) await visit(row);
         }
       } catch { /* skip malformed */ }
     };
@@ -96,11 +330,12 @@ async function scanQueue(home, visit) {
       buf += chunk;
       let idx;
       while ((idx = buf.indexOf("\n")) >= 0) {
-        handleLine(buf.slice(0, idx));
+        const line = buf.slice(0, idx);
         buf = buf.slice(idx + 1);
+        await handleLine(line);
       }
     }
-    if (buf) handleLine(buf);
+    if (buf) await handleLine(buf);
   } finally {
     await handle.close();
   }
@@ -301,10 +536,18 @@ module.exports = {
   MAX_BYTES,
   SNAPSHOT_KIND,
   SNAPSHOT_VERSION,
+  FULL_BACKUP_VERSION,
+  FULL_BACKUP_FORMAT,
+  FULL_BACKUP_BODY_LIMIT,
+  FULL_BACKUP_DECOMPRESSED_LIMIT,
   trackerDir,
   buildSnapshot,
   previewSnapshot,
   importSnapshot,
   describeLocalUsage,
+  streamFullBackup,
+  parseFullBackup,
+  previewFullBackup,
+  importFullBackup,
   rowKey,
 };

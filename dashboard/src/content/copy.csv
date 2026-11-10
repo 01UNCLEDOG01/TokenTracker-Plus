@@ -870,6 +870,9 @@ perks.copy.success,ui,PerksPage,PerksPage,copy_success,"Copied {{name}} invitati
 perks.copy.failed,ui,PerksPage,PerksPage,copy_failed,"Copy failed, please select and copy manually",,active
 perks.action.copy_code,ui,PerksPage,PerksPage,action_copy_code,"Copy invitation code",,active
 perks.disclaimer,ui,PerksPage,PerksPage,disclaimer,"📢 Notice & Disclaimer: every card below carries the date its figures were checked and the page they came from — tap Source to verify against the original text. Vendor policies and promotions are subject to change without notice; final interpretation belongs to each respective vendor. This guide provides references only. Cards are sorted alphabetically (A-Z).",,active
+perks.credit_aihot,ui,PerksPage,PerksPage,credit_aihot,"Perk data is hand-verified by the TT-plus author; AIHOT (aihot.news)'s daily free-token board serves as the freshness reference. Thanks to Kazik (数字生命卡兹克) for keeping the data open.",,active
+perks.aihot.badge,ui,PerksPage,PerksPage,aihot_badge,"AIHOT verified {{date}}",,active
+perks.aihot.dropped,ui,PerksPage,PerksPage,aihot_dropped,"AIHOT's latest snapshot no longer lists this provider",,active
 perks.card.checked,ui,PerksPage,PerksPage,card_checked,"Checked {{date}}",,active
 perks.card.source,ui,PerksPage,PerksPage,card_source,"Source",,active
 perks.card.feedback,ui,PerksPage,PerksPage,card_feedback,"Report a change",,active
@@ -1989,6 +1992,8 @@ settings.local_data.preview,dashboard,*,SettingsPage,settings_local_data_preview
 settings.local_data.preview_line,dashboard,*,SettingsPage,settings_local_data_preview_line,"{{fresh}} new rows / {{dup}} already present",,active
 settings.local_data.confirm,dashboard,*,SettingsPage,settings_local_data_confirm,"Import",,active
 settings.local_data.cancel,dashboard,*,SettingsPage,settings_local_data_cancel,"Cancel",,active
+settings.local_data.export_full,dashboard,*,SettingsPage,settings_local_data_export_full,"Full backup (compressed)",,active
+settings.local_data.export_full_done,dashboard,*,SettingsPage,settings_local_data_export_full_done,"Full backup exported ({{size}})",,active
 settings.local_data.exported,dashboard,*,SettingsPage,settings_local_data_exported,"Snapshot exported",,active
 settings.local_data.exported_window,dashboard,*,SettingsPage,settings_local_data_exported_window,"Queue too large for one file: exported the newest {{rows}} of {{total}} rows (back to {{from}}). Use ""Export older batch"" to keep going.",,active
 settings.local_data.export_older,dashboard,*,SettingsPage,settings_local_data_export_older,"Export older batch",,active

@@ -631,6 +631,8 @@
   "settings.local_data.scope": "이 컴퓨터의 시간별 사용량을 내보내거나 다른 컴퓨터에서 가져옵니다. 가져오기는 누락된 시간 버킷만 추가하며 기존 행은 덮어쓰지 않습니다.",
   "settings.local_data.stats": "{{rows}}개 시간 버킷 · {{size}}",
   "settings.local_data.export": "스냅샷 내보내기",
+  "settings.local_data.export_full": "전체 백업(압축)",
+  "settings.local_data.export_full_done": "전체 백업을 내보냈습니다({{size}})",
   "settings.local_data.import": "스냅샷 가져오기",
   "settings.local_data.choose": "파일 선택",
   "settings.local_data.preview": "가져오기 미리보기",

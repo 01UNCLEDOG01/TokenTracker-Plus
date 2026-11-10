@@ -864,6 +864,8 @@
   "settings.local_data.scope": "匯出本機按小時彙總的用量，或在另一台機器上匯入；匯入只追加缺少的小時桶，絕不覆蓋既有列。",
   "settings.local_data.stats": "{{rows}} 個小時桶 · {{size}}",
   "settings.local_data.export": "匯出快照",
+  "settings.local_data.export_full": "完整備份（壓縮）",
+  "settings.local_data.export_full_done": "完整備份已匯出（{{size}}）",
   "settings.local_data.import": "匯入快照",
   "settings.local_data.choose": "選擇檔案",
   "settings.local_data.preview": "匯入預覽",

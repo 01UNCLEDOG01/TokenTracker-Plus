@@ -1,9 +1,10 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, within, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { PerksPage, buildPerksFeedbackUrl } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
+import zhDashboard from "../content/i18n/zh/dashboard.json";
 import { PERK_PROVIDERS } from "../data/perksData.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
 import { getCopyLocale } from "../lib/copy";
@@ -19,9 +20,10 @@ const ORDERED_IDS = [
   "unisound_maas", "vyceai", "workbuddy_intl", "workbuddy", "zcode",
 ];
 
-// Mock copy helper using real zh strings
+// Mock copy helper using real zh strings (raw templates — the house style here
+// asserts the template text, not interpolated values)
 vi.mock("../lib/copy", () => ({
-  copy: vi.fn((key) => zhCore[key] || key),
+  copy: vi.fn((key) => zhCore[key] || zhDashboard[key] || key),
   getCopyLocale: vi.fn(() => "zh"),
 }));
 
@@ -29,8 +31,10 @@ describe("PerksPage", () => {
   beforeEach(() => {
     localStorage.clear();
     getCopyLocale.mockReturnValue("zh");
+    // AIHOT 快照是后台补充：默认给个失败响应，别让 jsdom 真去发请求。
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false })));
   });
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
   it("renders all providers in bilingual A-Z order including usable Agent cards", () => {
     render(
       <ToastProvider>
@@ -55,6 +59,62 @@ describe("PerksPage", () => {
     expect(screen.getByText("全部服务商")).toBeInTheDocument();
     expect(screen.getByText(/智谱开放平台/)).toBeInTheDocument();
     expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+  });
+
+  it("shows the AIHOT freshness badge once the snapshot arrives, and a delisting hint when dropped", async () => {
+    fetch.mockImplementation((url) => {
+      if (String(url).includes("aihot-free-tokens")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            schema: 1,
+            items: [
+              { id: "doubao-daily-200", provider: "豆包", verified_at: "2026-11-10T02:00:00.000Z" },
+              { id: "trae-cn-monthly", provider: "字节 TRAE", verified_at: "2026-11-09T02:00:00.000Z" },
+            ],
+            dropped_providers: [],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    // 豆包工作 + TRAE CN + TRAE 国际版 三张卡拿到角标（copy 模板原文断言）
+    await waitFor(() => expect(screen.getAllByText("AIHOT 核对 {{date}}").length).toBe(3));
+    // 没覆盖的卡（如 Agent2API）不打角标 —— 缺席不算下架，不误报
+    const agent2apiCard = screen.getByText("Agent2API (开源本地网关)").closest("div.group");
+    expect(agent2apiCard.textContent).not.toContain("AIHOT 核对");
+  });
+
+  it("flags a delisted provider only when AIHOT covered it last snapshot and not now", async () => {
+    fetch.mockImplementation((url) => {
+      if (String(url).includes("aihot-free-tokens")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            schema: 1,
+            items: [
+              { id: "doubao-daily-200", provider: "豆包", verified_at: "2026-11-10T02:00:00.000Z" },
+            ],
+            dropped_providers: ["字节 TRAE"],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    // 字节 TRAE 上轮在架本轮消失 → TRAE 两张卡出下架提示；豆包还在架不出
+    await waitFor(() => expect(screen.getAllByText("AIHOT 最新快照已无此家福利").length).toBe(2));
+    const doubaoCard = screen.getByText("豆包工作 (Doubao Work)").closest("div.group");
+    expect(doubaoCard.textContent).not.toContain("AIHOT 最新快照已无此家福利");
   });
 
   it("builds a prefilled GitHub issue URL for a perk card", () => {

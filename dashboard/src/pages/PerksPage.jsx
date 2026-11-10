@@ -17,6 +17,7 @@ import { cn } from "../lib/cn";
 import { showToast } from "../ui/components/Toast.jsx";
 import { ProviderIcon, hasProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 import { PERK_CATEGORIES, PERK_PROVIDERS } from "../data/perksData.js";
+import { PERKS_AIHOT_PROVIDERS } from "../data/perks-aihot-map.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
 import {
   PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, getPerkClaimDay, nextPerkClaimDayDelay,
@@ -86,6 +87,32 @@ export function buildPerksFeedbackUrl(item) {
   return `https://github.com/01UNCLEDOG01/TokenTracker-Plus/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
 }
 
+// AIHOT 快照 → 卡片角标信号：日期取该卡映射的所有 AIHOT provider 里最新一次
+// 核对；「已无在架」要求映射的全部 provider 都从最新快照消失且出现在
+// dropped_providers（快照里上一轮还在、这一轮没了）——缺席本身不算下架，
+// AIHOT 没覆盖的家不打任何标。
+function beijingDate(iso) {
+  try {
+    return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  } catch {
+    return "";
+  }
+}
+
+function buildAihotSignal(item, aihotIndex) {
+  const providers = PERKS_AIHOT_PROVIDERS[item.id];
+  if (!providers || !aihotIndex) return null;
+  let latest = "";
+  for (const provider of providers) {
+    const deal = aihotIndex.byProvider.get(provider);
+    if (deal && (deal.verified_at || "") > latest) latest = deal.verified_at || "";
+  }
+  // 下架提示独立于在架日期：全部 provider 上轮在架、本轮消失也要出信号。
+  const dropped = providers.every((provider) => !aihotIndex.byProvider.has(provider)) && providers.every((provider) => aihotIndex.dropped.has(provider));
+  if (!latest && !dropped) return null;
+  return { date: latest ? beijingDate(latest) : "", dropped };
+}
+
 function ProviderLogo({ item }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const initial = item.name.charAt(0).toUpperCase();
@@ -119,7 +146,7 @@ function renderBoldText(text) {
   });
 }
 
-function PerkCard({ item, claims, claimDay, onToggleClaim }) {
+function PerkCard({ item, claims, claimDay, onToggleClaim, aihot }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = (e) => {
@@ -218,6 +245,16 @@ function PerkCard({ item, claims, claimDay, onToggleClaim }) {
         {item.checkedAt && item.sourceUrl && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-oai-gray-600 dark:text-oai-gray-300">
             <span>{copy("perks.card.checked", { date: item.checkedAt })}</span>
+            {aihot?.date && (
+              <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 font-medium text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+                {copy("perks.aihot.badge", { date: aihot.date })}
+              </span>
+            )}
+            {aihot?.dropped && (
+              <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                {copy("perks.aihot.dropped")}
+              </span>
+            )}
             <a
               href={item.sourceUrl}
               target="_blank"
@@ -349,6 +386,31 @@ export function PerksPage() {
   const [claimDay, setClaimDay] = useState(getPerkClaimDay);
   const unsavedClaims = useRef(null);
   const [claimFilter, setClaimFilter] = useState("all");
+  // AIHOT 快照只做后台对时：页面先用静态数据整页渲染，快照回来后才补角标，
+  // 任何失败都静默保持原样（信源挂了不影响福利指南本身）。
+  const [aihotData, setAihotData] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/functions/tokentracker-aihot-free-tokens", { cache: "no-store" })
+      .then((res) => (res && res.ok ? res.json() : null))
+      .then((data) => {
+        if (alive && data && Array.isArray(data.items)) setAihotData(data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const aihotIndex = useMemo(() => {
+    const byProvider = new Map();
+    for (const deal of aihotData?.items || []) {
+      const prev = byProvider.get(deal.provider);
+      if (!prev || (deal.verified_at || "") > (prev.verified_at || "")) byProvider.set(deal.provider, deal);
+    }
+    return { byProvider, dropped: new Set(aihotData?.dropped_providers || []) };
+  }, [aihotData]);
 
   useEffect(() => {
     document.title = `${copy("perks.title")} | TokenTracker`;
@@ -446,6 +508,9 @@ export function PerksPage() {
               </div>
               <p className="mt-1.5 max-w-2xl text-sm text-oai-gray-500 dark:text-oai-gray-300">
                 {copy("perks.subtitle")}
+              </p>
+              <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-oai-gray-400 dark:text-oai-gray-500">
+                {copy("perks.credit_aihot")}
               </p>
             </div>
 
@@ -619,6 +684,7 @@ export function PerksPage() {
                   claims={claims}
                   claimDay={claimDay}
                   onToggleClaim={toggleClaim}
+                  aihot={buildAihotSignal(item, aihotIndex)}
                 />
               ))}
             </div>

@@ -833,6 +833,8 @@
   "settings.local_data.scope": "导出本机按小时汇总的用量，或在另一台机器上导入；导入只追加缺失的小时桶，绝不覆盖已有行。",
   "settings.local_data.stats": "{{rows}} 个小时桶 · {{size}}",
   "settings.local_data.export": "导出快照",
+  "settings.local_data.export_full": "完整备份（压缩）",
+  "settings.local_data.export_full_done": "完整备份已导出（{{size}}）",
   "settings.local_data.import": "导入快照",
   "settings.local_data.choose": "选择文件",
   "settings.local_data.preview": "导入预览",

@@ -631,6 +631,8 @@
   "settings.local_data.scope": "このマシンの時間別使用量を書き出すか、別のマシンで読み込みます。読み込みは不足している時間バケットを追加するだけで、既存の行は上書きしません。",
   "settings.local_data.stats": "{{rows}} 時間バケット · {{size}}",
   "settings.local_data.export": "スナップショットを書き出す",
+  "settings.local_data.export_full": "完全バックアップ（圧縮）",
+  "settings.local_data.export_full_done": "完全バックアップを書き出しました（{{size}}）",
   "settings.local_data.import": "スナップショットを読み込む",
   "settings.local_data.choose": "ファイルを選択",
   "settings.local_data.preview": "読み込みプレビュー",

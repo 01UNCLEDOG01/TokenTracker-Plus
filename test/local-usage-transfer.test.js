@@ -204,3 +204,105 @@ test("export of an empty selection returns no window instead of throwing", async
   assert.equal(truncated, false);
   assert.equal(total_rows, 0);
 });
+
+// --- full backup (gzip, whole queue) ---
+// Same env convention as the windowed tests above: TOKENTRACKER_HOME points at
+// a root that contains tracker/queue.jsonl. Explicit {home} args mean the
+// $home/.tokentracker/tracker layout — do not mix the two conventions.
+
+const { PassThrough } = require("node:stream");
+
+async function collectFullBackup(home) {
+  process.env.TOKENTRACKER_HOME = home;
+  const sink = new PassThrough();
+  const chunks = [];
+  sink.on("data", (c) => chunks.push(c));
+  sink.writeHead = function (status, headers) {
+    this.status = status;
+    this.headers = headers;
+  };
+  const counts = await transfer.streamFullBackup(sink);
+  const buffer = Buffer.concat(chunks);
+  return { buffer, counts, sink };
+}
+
+test("full backup round trip: gzips the whole queue and imports with dedup", async () => {
+  const source = rootWithRows(Array.from({ length: 500 }, (_, i) => row(hourAt(i), i)));
+  const { buffer, counts, sink } = await collectFullBackup(source);
+  assert.equal(sink.status, 200);
+  assert.equal(sink.headers["Content-Type"], "application/gzip");
+  assert.equal(counts.rows, 500);
+  assert.ok(buffer.length < Buffer.byteLength(JSON.stringify(Array.from({ length: 500 }, (_, i) => row(hourAt(i), i)))), "gzip shrinks the payload");
+
+  const target = rootWithRows([row(hourAt(499), 499)]); // newest hour already present
+  process.env.TOKENTRACKER_HOME = target;
+  const preview = await transfer.previewFullBackup(buffer);
+  assert.equal(preview.format, "ndjson-gzip");
+  assert.equal(preview.rows, 500);
+  assert.equal(preview.fresh, 499);
+  assert.equal(preview.duplicate, 1);
+
+  const imported = await transfer.importFullBackup(buffer, preview.token);
+  assert.equal(imported.imported, 499);
+  assert.equal(imported.skipped, 1);
+  const lines = fs.readFileSync(path.join(target, "tracker", "queue.jsonl"), "utf8").trim().split("\n");
+  assert.equal(lines.length, 500);
+
+  const previewAgain = await transfer.previewFullBackup(buffer);
+  assert.equal(previewAgain.fresh, 0);
+  assert.equal(previewAgain.duplicate, 500);
+});
+
+test("full backup refuses this machine's own file before scanning rows", async () => {
+  const root = rootWithRows([row(hourAt(0))]);
+  const { buffer } = await collectFullBackup(root);
+  await assert.rejects(
+    () => transfer.previewFullBackup(buffer),
+    (error) => error.code === "self_import",
+  );
+});
+
+test("full backup rejects corrupt gzip and malformed headers", async () => {
+  const target = rootWithRows([row(hourAt(0))]);
+  process.env.TOKENTRACKER_HOME = target;
+  await assert.rejects(
+    () => transfer.previewFullBackup(Buffer.from("not gzip at all")),
+    (error) => error.code === "invalid_backup",
+  );
+  // Valid gzip of garbage: gunzip succeeds but the header line is wrong.
+  const zlib = require("node:zlib");
+  const garbage = zlib.gzipSync(JSON.stringify({ hello: "world" }) + "\n");
+  await assert.rejects(
+    () => transfer.previewFullBackup(garbage),
+    (error) => error.code === "invalid_backup",
+  );
+});
+
+test("full backup of an empty queue is rejected on import", async () => {
+  const source = rootWithRows([]);
+  const { buffer } = await collectFullBackup(source);
+  const target = rootWithRows([row(hourAt(0))]);
+  process.env.TOKENTRACKER_HOME = target;
+  await assert.rejects(
+    () => transfer.previewFullBackup(buffer),
+    (error) => error.code === "empty_backup",
+  );
+});
+
+test("full backup rejects a token minted for a different file or queue state", async () => {
+  const source = rootWithRows([row(hourAt(0)), row(hourAt(1))]);
+  const { buffer } = await collectFullBackup(source);
+  const target = rootWithRows([]);
+  process.env.TOKENTRACKER_HOME = target;
+  const preview = await transfer.previewFullBackup(buffer);
+  await assert.rejects(
+    () => transfer.importFullBackup(buffer, "bogus-token"),
+    (error) => error.code === "preview_changed",
+  );
+  // Same token, target queue grew since preview → signature mismatch.
+  fs.appendFileSync(path.join(target, "tracker", "queue.jsonl"), JSON.stringify(row(hourAt(2))) + "\n");
+  await assert.rejects(
+    () => transfer.importFullBackup(buffer, preview.token),
+    (error) => error.code === "preview_changed",
+  );
+});

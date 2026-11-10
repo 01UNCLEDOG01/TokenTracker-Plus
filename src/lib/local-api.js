@@ -4481,26 +4481,49 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           json(res, { code: "method_not_allowed", error: "POST required" }, 405);
           return true;
         }
-        const raw = await readBodyLimited(req, 6 * 1024 * 1024);
-        let body = {};
-        try {
-          body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
-        } catch {
-          json(res, { code: "invalid_snapshot", error: "Malformed JSON body" }, 400);
+        // Full-backup uploads arrive as application/gzip (whole-queue move);
+        // JSON actions keep the small body cap. The action for gzip uploads
+        // rides a header because the body is binary, not JSON.
+        const isGzipBody = String(req.headers["content-type"] || "").includes("application/gzip");
+        const raw = await readBodyLimited(req, isGzipBody ? transfer.FULL_BACKUP_BODY_LIMIT : 6 * 1024 * 1024);
+        let action;
+        if (isGzipBody) {
+          action = String(req.headers["x-tokentracker-backup-action"] || "");
+        } else {
+          let body = {};
+          try {
+            body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
+          } catch {
+            json(res, { code: "invalid_snapshot", error: "Malformed JSON body" }, 400);
+            return true;
+          }
+          action = body?.action;
+          if (action === "export") {
+            const before = typeof body.before === "string" && body.before ? body.before : undefined;
+            json(res, await transfer.buildSnapshot({ before }));
+            return true;
+          }
+          if (action === "preview") {
+            json(res, await transfer.previewSnapshot(body.snapshot));
+            return true;
+          }
+          if (action === "import") {
+            json(res, await transfer.importSnapshot(body.snapshot, body.token));
+            return true;
+          }
+        }
+        if (action === "export_full") {
+          // Streams the whole queue as one gzipped backup; response headers go
+          // out inside streamFullBackup.
+          await transfer.streamFullBackup(res);
           return true;
         }
-        const action = body?.action;
-        if (action === "export") {
-          const before = typeof body.before === "string" && body.before ? body.before : undefined;
-          json(res, await transfer.buildSnapshot({ before }));
+        if (action === "preview_full") {
+          json(res, await transfer.previewFullBackup(raw));
           return true;
         }
-        if (action === "preview") {
-          json(res, await transfer.previewSnapshot(body.snapshot));
-          return true;
-        }
-        if (action === "import") {
-          json(res, await transfer.importSnapshot(body.snapshot, body.token));
+        if (action === "import_full") {
+          json(res, await transfer.importFullBackup(raw, req.headers["x-tokentracker-import-token"]));
           return true;
         }
         json(res, { code: "unknown_action", error: "Unknown action" }, 400);
@@ -5590,6 +5613,17 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       json(res, await fetchAihotModels({
         home: os.homedir(),
         category: url.searchParams.get("category") || "overall",
+        fetchImpl: fetch,
+        force: url.searchParams.get("refresh") === "1",
+      }));
+      return true;
+    }
+
+    // --- AIHOT 「Token 羊毛」快照源（福利指南的时效参考信源，6h 缓存 + stale 回退）---
+    if (p === "/functions/tokentracker-aihot-free-tokens") {
+      const { fetchAihotFreeTokens } = require("./aihot-free-tokens");
+      json(res, await fetchAihotFreeTokens({
+        home: os.homedir(),
         fetchImpl: fetch,
         force: url.searchParams.get("refresh") === "1",
       }));
