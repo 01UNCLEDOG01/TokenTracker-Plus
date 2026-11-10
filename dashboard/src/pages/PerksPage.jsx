@@ -522,7 +522,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange }) {
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
-  const claimableTodayYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanDaily || 0); }, 0);
+  const claimableTodayYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanPending || 0); }, 0);
   const claimedMonthYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanMonthlyClaimed || 0); }, 0);
   return (
     <div className="mb-8 flex flex-col gap-4 lg:flex-row">
@@ -741,7 +741,9 @@ export function PerksPage() {
         tier: albumBrightnessTier(streak),
         collected: streak > 0,
         faceValue: deal?.label || null,
-        dealYuanDaily: deal && deal.kind === "daily" && Number.isFinite(deal.yuan) ? deal.yuan : 0,
+        // 「今天还能领」= 该卡映射 deal 的折算值（今日尚未领取时计入合计），
+        // 与 AIHOT 顶部口径一致：所有 counted 估值都算今天可领。
+        dealYuanPending: deal && Number.isFinite(deal.yuan) && !claimedNow ? deal.yuan : 0,
         dealYuanMonthlyClaimed: deal && Number.isFinite(deal.yuan) && monthlyClaimed ? deal.yuan : 0,
       };
     });
