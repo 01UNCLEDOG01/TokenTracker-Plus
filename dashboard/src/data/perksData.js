@@ -1195,11 +1195,13 @@ export const PERK_PROVIDERS = [
       "每日主动领取",
       "CLI 可查额度"
     ],
-    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**；新人下载登录另送 **300 Credits + 两周 Pro 试用**（高级模型要在 14 天 Pro 试用期内用，2026-11-10 核实）；邀请好友注册并在 7 天内完成一次任务，双方**各得 50 Credits**，邀请最多可得 10 次。",
-    "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效。",
+    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**；新人下载登录送 **300 Credits + 两周 Pro 试用**（高级模型要在 14 天 Pro 试用期内用）；**限时活动：匿名模型 Qoduck 每天限免**（与国际版同规则，选 Qoduck 免费调用、无需领取，用尽后按 0.5× 消耗 Credits）。**邀请活动 2026-11-11 已恢复**（端内活动页核实，三重好礼）：好友注册并下载 Qoder 后 7 天内完成一次对话或任务你得 **50 Credits**；好友注册后 7 天内累计 3 天完成对话或任务你得 **100 Credits**；好友注册后 30 天内完成首次订阅你得 **1,000 Credits**（好友另得 500）。",
+    "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效；邀请奖励在活动页「邀请好友接着赚」进度查看。",
     "officialUrl": "https://qoder.cn",
-    "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "inviteUrl": "https://qoder.cn/activities?referral_code=4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
+    "inviteCode": "4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
+    "hasInvite": true,
+    "checkedAt": "2026-11-11",
     "sourceUrl": "https://docs.qoder.cn/events/invite-friends"
   },
   {

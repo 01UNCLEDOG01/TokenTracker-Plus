@@ -778,14 +778,21 @@ function resolveQueueRow(existing, incoming) {
   return incoming;
 }
 
+// Fold key + skip list extracted so the compaction tool folds with the exact
+// same key semantics (normalize can merge model aliases — the RAW key must
+// never drift from the reader's, or compaction changes row counts).
+const QUEUE_SKIP_KINDS = new Set(["account_session_state", "account_sync_watermark"]);
+function queueRowFoldKey(row) {
+  if (row?.kind && QUEUE_SKIP_KINDS.has(row.kind)) return null;
+  return `${row.source || ""}|${row.model || ""}|${row.hour_start || ""}`;
+}
+
 const readQueueData = createAsyncQueueReader({
   label: "readQueueData",
   parseRow(row) {
-    if (row?.kind === "account_session_state" || row?.kind === "account_sync_watermark") return null;
-    return {
-      key: `${row.source || ""}|${row.model || ""}|${row.hour_start || ""}`,
-      row: normalizeQueueRow(row),
-    };
+    const key = queueRowFoldKey(row);
+    if (key === null) return null;
+    return { key, row: normalizeQueueRow(row) };
   },
   // A later append can carry the same hour with no token data at all (the
   // Antigravity estimate is the live case: every one of its hour keys ended on a
@@ -5916,6 +5923,12 @@ function __setTraeFoldStateForTest({ byModel = null, recognizedRate = 0, edition
 
 module.exports = {
   createLocalApiHandler,
+  // Compaction tool reuses the exact reader hooks so a compacted queue is
+  // byte-equivalent in semantics to what the live readers fold.
+  readQueueData,
+  resolveQueueRow,
+  normalizeQueueRow,
+  queueRowFoldKey,
   __setTraeFoldStateForTest,
   foldTraeRowCost,
   resolveAllowedInsforgeBaseUrl,
