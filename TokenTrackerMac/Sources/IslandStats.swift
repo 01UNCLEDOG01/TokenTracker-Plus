@@ -29,10 +29,19 @@ final class IslandStats: NSObject {
     }
     private(set) var today = TodayStats()
 
+    /// Rolling windows for the pet tap-quips (Windows UsagePoller parity).
+    private(set) var last7dTokens: Double = 0
+    private(set) var last7dActiveDays: Double = 0
+    private(set) var last30dTokens: Double = 0
+    private(set) var last30dAvgPerDay: Double = 0
+    private(set) var conversations: Double = 0
+    private(set) var syncing = false
+
     /// Currency mirrored from the dashboard webviews' localStorage (the same
     /// store the settings page writes; the desktop panel proved it flows).
     private(set) var currencySymbol = "¥"
     private(set) var currencyRate: Double = 7.2
+    private(set) var tokenUnitSystem = "chinese"
 
     var serverURLProvider: (() -> URL?)?
     var petWebViewProvider: (() -> WKWebView?)?
@@ -67,6 +76,12 @@ final class IslandStats: NSObject {
         pollTimer = nil
     }
 
+    /// Manual sync in flight — the pet shows a syncing state (ApplySyncing parity).
+    func setSyncing(_ value: Bool) {
+        syncing = value
+        pushPetBubble()
+    }
+
     // MARK: Formatting (owner's 亿/万 idiom, same as the Windows pill)
 
     static func tokensText(_ tokens: Double) -> String {
@@ -97,11 +112,24 @@ final class IslandStats: NSObject {
                     guard error == nil, httpOK, let data,
                           let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                           let totals = payload["totals"] as? [String: Any] else { return }
-                    var tokens = (totals["total_tokens"] as? NSNumber)?.doubleValue ?? 0
-                    if tokens == 0, let t = totals["total_tokens"] as? String { tokens = Double(t) ?? 0 }
-                    var cost = (totals["total_cost_usd"] as? NSNumber)?.doubleValue ?? 0
-                    if cost == 0, let c = totals["total_cost_usd"] as? String { cost = Double(c) ?? 0 }
-                    self.today = TodayStats(tokens: tokens, costUsd: cost, fetched: true)
+                    func num(_ v: Any?) -> Double {
+                        if let n = v as? NSNumber { return n.doubleValue }
+                        if let t = v as? String { return Double(t) ?? 0 }
+                        return 0
+                    }
+                    self.today = TodayStats(tokens: num(totals["total_tokens"]),
+                                            costUsd: num(totals["total_cost_usd"]), fetched: true)
+                    self.conversations = num(totals["conversation_count"])
+                    if let rolling = payload["rolling"] as? [String: Any] {
+                        if let d7 = rolling["last_7d"] as? [String: Any] {
+                            self.last7dTokens = num(d7["billable_total_tokens"])
+                            self.last7dActiveDays = num(d7["active_days"])
+                        }
+                        if let d30 = rolling["last_30d"] as? [String: Any] {
+                            self.last30dTokens = num(d30["billable_total_tokens"])
+                            self.last30dAvgPerDay = num(d30["avg_per_active_day"])
+                        }
+                    }
                     self.pushPetBubble()
                 }
             }.resume()
@@ -131,16 +159,29 @@ final class IslandStats: NSObject {
         guard let webView = petWebViewProvider?() else { return }
         var script = ""
         if bubbleEnabled {
-            let stats: [String: Any] = ["todayTokens": today.tokens, "todayCostUsd": today.costUsd]
+            let stats: [String: Any] = [
+                "todayTokens": today.tokens, "todayCostUsd": today.costUsd,
+                "conversations": conversations,
+                "last7dTokens": last7dTokens, "last7dActiveDays": last7dActiveDays,
+                "last30dTokens": last30dTokens, "last30dAvgPerDay": last30dAvgPerDay,
+                // streakDays/activeDaysAllTime/topModels need the heatmap
+                // aggregates (Windows UsagePoller computes them there); the
+                // page falls back to 0 — the pill and hover popup don't use them.
+            ]
             let statsLiteral = (try? JSONSerialization.data(withJSONObject: stats))
                 .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
             let symbol = currencySymbol == "¥" ? "¥" : currencySymbol
+            let locale = Locale.preferredLanguages.first ?? "en"
             script += "window.__ttPetTokens=\(Int(today.tokens));" +
                 "window.__ttPetCostUsd=\(today.costUsd);" +
                 "window.__ttPetStats=\(statsLiteral);" +
                 "window.__ttPetCurrency={symbol:\"\(symbol)\",rate:\(currencyRate)};" +
                 "window.__ttPetLimits=\(limitsJSON);" +
-                "window.__ttPetBubbleBand=\(Int(bubbleBandProvider?() ?? 64));"
+                "window.__ttPetBubbleBand=\(Int(bubbleBandProvider?() ?? 64));" +
+                "window.__ttPetLocale=\"\(locale)\";" +
+                "window.__ttPetTokenUnitSystem=\"\(tokenUnitSystem)\";" +
+                "window.__ttPetConnected=true;" +
+                "window.__ttPetSyncing=\(syncing ? "true" : "false");"
         } else {
             script += "window.__ttPetBubbleBand=0;window.__ttPetLimits=null;"
         }
@@ -164,12 +205,16 @@ final class IslandStats: NSObject {
         }
         guard let webView = source else { return }
         let script = "JSON.stringify({c: localStorage.getItem('tokentracker-currency')," +
-            "r: JSON.parse(localStorage.getItem('tokentracker-exchange-rates') || '{}').rates || {}})"
+            "r: JSON.parse(localStorage.getItem('tokentracker-exchange-rates') || '{}').rates || {}," +
+            "u: localStorage.getItem('tt.tokenUnitSystem')})"
         webView.evaluateJavaScript(script) { result, _ in
             guard let json = result as? String,
                   let obj = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
                   let currency = obj["c"] as? String,
                   let rates = obj["r"] as? [String: Double] else { return }
+            if let unit = obj["u"] as? String {
+                self.tokenUnitSystem = unit == "western" ? "western" : "chinese"
+            }
             DispatchQueue.main.async {
                 let code = currency.uppercased()
                 if code == "CNY" {

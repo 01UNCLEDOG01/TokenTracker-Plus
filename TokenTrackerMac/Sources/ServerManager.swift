@@ -273,6 +273,13 @@ final class ServerManager {
         do {
             try process.run()
             Diag.info("Manual sync started")
+            process.terminationHandler = { proc in
+                Diag.info("Manual sync finished (status \(proc.terminationStatus))")
+                DispatchQueue.main.async {
+                    IslandStats.shared.setSyncing(false)
+                }
+            }
+            DispatchQueue.main.async { IslandStats.shared.setSyncing(true) }
         } catch {
             Diag.error("Manual sync failed to launch: \(error.localizedDescription)")
         }
