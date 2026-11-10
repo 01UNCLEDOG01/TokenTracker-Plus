@@ -219,11 +219,21 @@ function queueFileSignature(queuePath) {
 const PRICING_REVISION_CHANGED = Symbol("pricing_revision_changed");
 
 function cursorsMtimeMs(qp) {
-  try {
-    return fs.statSync(path.join(path.dirname(qp), "cursors.json")).mtimeMs;
-  } catch {
-    return 0;
+  // AGENTS.md rule 36: once cursor-store-v2 is active the legacy cursors.json
+  // is a frozen compat copy — its mtime stops moving and this memo key would
+  // never invalidate, serving stale aggregates forever. The v2 manifest's
+  // mtime moves on every committed generation, so prefer it and keep the
+  // legacy stat as the fallback for installs that never adopted v2.
+  const dir = path.dirname(qp);
+  for (const signal of [
+    path.join(dir, "cursor-store-v2", "manifest.json"),
+    path.join(dir, "cursors.json"),
+  ]) {
+    try {
+      return fs.statSync(signal).mtimeMs;
+    } catch {}
   }
+  return 0;
 }
 
 /**
@@ -303,42 +313,32 @@ async function computeUsageModelBreakdownSources({ scopedRows, timeZoneContext, 
   }
   if (pricingRevision !== getPricingRevision()) throw PRICING_REVISION_CHANGED;
 
-  // All-time self-observed hit rate for the TRAE family, measured from the
-  // BOOKED buckets in cursors.json (authoritative, one row per bucket, no
-  // queue append duplicates). Measured buckets only: those whose totals
-  // carry the client's exact_* coverage signal. A day view's own fielded
-  // rows are too few to be evidence — the model's fielded history is the
-  // evidence (owner ruling 2026-11-07).
-  const observedHitsByModel = new Map();
-  try {
-    const cursorsData = JSON.parse(fs.readFileSync(path.join(path.dirname(qp), "cursors.json"), "utf8"));
-    for (const [bucketKey, bucket] of Object.entries(cursorsData?.hourly?.buckets || {})) {
-      if (!bucketKey.startsWith("trae-cn|")) continue;
-      const bucketTotals = bucket?.totals || {};
-      const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
-      if (!(observedVolume > 0)) continue;
-      const observedModel = bucketKey.split("|")[1] || "unknown";
-      const acc = observedHitsByModel.get(observedModel) || { hits: 0, volume: 0 };
-      acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
-      acc.volume += observedVolume;
-      observedHitsByModel.set(observedModel, acc);
-    }
-  } catch (_error) {
-    // A malformed cursors file just means no self evidence — the fold keeps
-    // its "nothing fabricated" fallbacks.
-  }
+  // All-time self-observed hit rate for TRAE-family models, measured from the
+  // BOOKED buckets in the CURRENT cursor generation (authoritative, one row
+  // per bucket, no queue append duplicates). Measured buckets only: those
+  // whose totals carry the client's exact_* coverage signal. A day view's own
+  // fielded rows are too few to be evidence — the model's fielded history is
+  // the evidence (owner ruling 2026-11-07).
+  //
+  // This used to re-read the legacy cursors.json on every memo miss — a
+  // frozen compat copy once cursor-store-v2 is active (AGENTS.md rule 36),
+  // so the evidence could never age past the day v2 shipped. It now shares
+  // traeFoldMap's 5-minute snapshot: same bucket accumulation, same edition
+  // scoping (the trae-cn pool), one loader instead of two.
+  const observedHitsByModel = traeFoldMap()?.["trae-cn"]?.byModel || {};
+  const observedHitOf = (modelId) => {
+    const acc = observedHitsByModel[modelId];
+    return acc && acc.volume > 0
+      ? Math.round((acc.hits / acc.volume) * 1000) / 10
+      : null;
+  };
 
   const sources = Array.from(bySource.values()).map((s) => {
     s.models = Array.from(s.models.values())
       .map((m) => ({
         ...m,
         speed_tiers: hasObservedSpeedTiers(m.speed_tiers) ? m.speed_tiers : null,
-        cache_observed_hit_rate: (() => {
-          const all = observedHitsByModel.get(m.model_id);
-          return all && all.volume > 0
-            ? Math.round((all.hits / all.volume) * 1000) / 10
-            : null;
-        })(),
+        cache_observed_hit_rate: observedHitOf(m.model_id),
         totals: { ...m.totals, total_cost_usd: Number(m.totals.total_cost_usd || 0).toFixed(6) },
       }))
       .sort((a, b) => b.totals.total_tokens - a.totals.total_tokens);
