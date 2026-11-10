@@ -51,6 +51,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     /// section reads (Windows NativeBridge.pushSettings parity). Without it the
     /// launch-at-login toggle and check-for-updates button render but do nothing.
     var shellSettingsProvider: (() -> [String: Any])?
+    /// Dashboard -> shell settings that have a native surface (menu-bar metrics,
+    /// hidden icon, limits display mode, reset toasts).
+    var shellSettingApplier: ((String, Any) -> Void)?
     /// Provided by AppDelegate: runs a dashboard `action` message. Returns false
     /// when this shell has no handler for it.
     var nativeActionHandler: ((String) -> Bool)?
@@ -245,11 +248,13 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             d.set(enabled, forKey: "TTPCapsuleEnabled")
             setMonitor?(enabled)
         case "toastOnReset", "confettiOnReset", "autoUpdateEnabled", "showStats",
-             "menuBarIconStyle", "menuBarItems", "hideMenuBarIcon", "autoCheckUpdates":
-            // Persist the dashboard's own echo so its optimistic UI converges. The
-            // reset toast/confetti, menu-bar metrics and hide-icon surfaces are not
-            // implemented in this shell yet (tracked in KNOWN_ISSUES).
+             "menuBarIconStyle", "menuBarItems", "hideMenuBarIcon", "autoCheckUpdates",
+             "limitsDisplayMode":
+            // Persist the dashboard's echo AND apply it: the reset toast/confetti,
+            // menu-bar metric slots, hide-icon toggle and limits display mode all
+            // have native surfaces now (StatusItemController).
             d.set(value, forKey: "TTPShell_\(key)")
+            shellSettingApplier?(key, value)
         default:
             Diag.info("Pet setting ignored: \(key)")
         }

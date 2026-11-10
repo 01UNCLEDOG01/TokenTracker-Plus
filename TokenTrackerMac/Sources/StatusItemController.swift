@@ -23,6 +23,15 @@ final class StatusItemController: NSObject {
     private var onSetCapsuleIslandMode: ((Bool) -> Void)?
     private var isCapsuleIslandMode: (() -> Bool)?
 
+    // MARK: Menu-bar metrics / icon visibility (dashboard Widgets + Labs contract)
+
+    private(set) var menuBarShowStats = true
+    private(set) var menuBarItems: [MenuBarMetric] = MenuBarMetric.defaultItems
+    private(set) var hideMenuBarIcon = false
+    private(set) var limitsDisplayMode = "used"
+    private(set) var toastOnReset = true
+    private(set) var confettiOnReset = true
+
     init(serverManager: ServerManager,
          updateChecker: UpdateChecker,
          onOpenDashboard: @escaping () -> Void,
@@ -49,6 +58,16 @@ final class StatusItemController: NSObject {
         self.onSetCapsuleIslandMode = onSetCapsuleIslandMode
         self.isCapsuleIslandMode = isCapsuleIslandMode
         super.init()
+        let defaults = UserDefaults.standard
+        menuBarShowStats = defaults.object(forKey: "TTPShell_showStats") == nil
+            ? true : defaults.bool(forKey: "TTPShell_showStats")
+        menuBarItems = MenuBarMetric.parse(defaults.object(forKey: "TTPShell_menuBarItems"))
+        hideMenuBarIcon = defaults.bool(forKey: "TTPShell_hideMenuBarIcon")
+        limitsDisplayMode = defaults.string(forKey: "TTPShell_limitsDisplayMode") ?? "used"
+        toastOnReset = defaults.object(forKey: "TTPShell_toastOnReset") == nil
+            ? true : defaults.bool(forKey: "TTPShell_toastOnReset")
+        confettiOnReset = defaults.object(forKey: "TTPShell_confettiOnReset") == nil
+            ? true : defaults.bool(forKey: "TTPShell_confettiOnReset")
     }
 
     /// Fixed status-item width. variableLength sized itself to the image, so
@@ -68,6 +87,14 @@ final class StatusItemController: NSObject {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
+        if hideMenuBarIcon {
+            // Dashboard Labs toggle: drop the item entirely; the pet's right-click
+            // menu and the dashboard can bring it back.
+            NSStatusBar.system.removeStatusItem(item)
+            statusItem = nil
+        } else {
+            applyMenuBarTitle(item.button)
+        }
 
         // Self-test hook (mirrors TOKENTRACKER_MAC_WEBTEST): dump the context
         // menu tree to the diag log so menu wiring can be verified without a
@@ -106,6 +133,108 @@ final class StatusItemController: NSObject {
         applyTrayStyle(style, button: button)
     }
 
+    // MARK: Menu-bar metrics strip (dashboard Widgets page contract)
+
+    private func metricText(_ metric: MenuBarMetric) -> String? {
+        let stats = IslandStats.shared
+        let chinese = stats.tokenUnitSystem == "chinese"
+        switch metric {
+        case .none:
+            return nil
+        case .todayTokens:
+            return IslandStats.tokensText(stats.today.tokens, chineseUnits: chinese)
+        case .todayCost:
+            return IslandStats.costText(stats.today.costUsd, symbol: stats.currencySymbol, rate: stats.currencyRate)
+        case .last7dTokens:
+            return IslandStats.tokensText(stats.last7dTokens, chineseUnits: chinese)
+        case .last30dTokens:
+            return IslandStats.tokensText(stats.last30dTokens, chineseUnits: chinese)
+        case .conversations:
+            return "\(Int(stats.conversations)) 对话"
+        }
+    }
+
+    /// Render the configured slots next to the icon (upstream menu-bar metrics).
+    /// showStats off, or both slots "none", restores the fixed 30pt icon slot.
+    private func applyMenuBarTitle(_ button: NSStatusBarButton?) {
+        guard let button else { return }
+        statusItem?.length = Self.statusItemWidth
+        let text = menuBarShowStats
+            ? menuBarItems.compactMap { metricText($0) }.filter { !$0.isEmpty }.joined(separator: " · ")
+            : ""
+        if text.isEmpty {
+            button.title = ""
+            statusItem?.length = Self.statusItemWidth
+            return
+        }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+        ]
+        button.attributedTitle = NSAttributedString(string: text, attributes: attributes)
+        button.imagePosition = .imageLeading
+        statusItem?.length = NSStatusItem.variableLength
+    }
+
+    /// Stats poll finished (or currency/unit changed) — the strip follows.
+    func refreshMenuBar() {
+        guard let button = statusItem?.button else { return }
+        applyMenuBarTitle(button)
+    }
+
+    func setShowStats(_ show: Bool) {
+        menuBarShowStats = show
+        UserDefaults.standard.set(show, forKey: "TTPShell_showStats")
+        refreshMenuBar()
+    }
+
+    func setMenuBarItems(_ items: [MenuBarMetric]) {
+        menuBarItems = Array(items.prefix(MenuBarMetric.maxItems))
+        UserDefaults.standard.set(menuBarItems.map(\.rawValue), forKey: "TTPShell_menuBarItems")
+        refreshMenuBar()
+    }
+
+    func setMenuBarSlot(_ index: Int, metric: MenuBarMetric) {
+        var items = menuBarItems
+        while items.count < MenuBarMetric.maxItems { items.append(.none) }
+        guard index >= 0 && index < MenuBarMetric.maxItems else { return }
+        items[index] = metric
+        setMenuBarItems(items)
+    }
+
+    func setHideMenuBarIcon(_ hidden: Bool) {
+        hideMenuBarIcon = hidden
+        UserDefaults.standard.set(hidden, forKey: "TTPShell_hideMenuBarIcon")
+        guard let item = statusItem else {
+            if !hidden { install() }
+            return
+        }
+        if hidden {
+            catFrameTimer?.invalidate()
+            catFrameTimer = nil
+            NSStatusBar.system.removeStatusItem(item)
+            statusItem = nil
+        }
+    }
+
+    func setLimitsDisplayMode(_ mode: String) {
+        guard mode == "used" || mode == "remaining" else { return }
+        limitsDisplayMode = mode
+        UserDefaults.standard.set(mode, forKey: "TTPShell_limitsDisplayMode")
+        PetSettingsController.shared.broadcastSettings()
+    }
+
+    func setToastOnReset(_ enabled: Bool) {
+        toastOnReset = enabled
+        UserDefaults.standard.set(enabled, forKey: "TTPShell_toastOnReset")
+        PetSettingsController.shared.broadcastSettings()
+    }
+
+    func setConfettiOnReset(_ enabled: Bool) {
+        confettiOnReset = enabled
+        UserDefaults.standard.set(enabled, forKey: "TTPShell_confettiOnReset")
+        PetSettingsController.shared.broadcastSettings()
+    }
+
     private var catFrameTimer: Timer?
     private var catFrameIndex = 0
 
@@ -127,9 +256,17 @@ final class StatusItemController: NSObject {
         switch style {
         case "mascot":
             // Windows: 应用图标 = the mascot PNG. No loose mascot in the shell
-            // bundle — reuse the app icon (same artwork family).
-            button.image = NSImage(named: NSImage.applicationIconName)
-            button.image?.size = NSSize(width: 18, height: 18)
+            // bundle — reuse the app icon (same artwork family). Copy first, size
+            // the copy, assign last: assigning the 128pt original and then
+            // resizing it left a 144pt first layout (the variableLength spacing
+            // bug owner reported) and also mutated the shared app-icon image.
+            if let icon = NSImage(named: NSImage.applicationIconName),
+               let copy = icon.copy() as? NSImage {
+                copy.size = NSSize(width: 18, height: 18)
+                button.image = copy
+            } else {
+                button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
+            }
         case "cat":
             // Upstream MenuBarAnimator.buildCatFrames: copy each RunCat frame,
             // pin the canvas to 28x18 and mark it a TEMPLATE — without both the
@@ -163,8 +300,9 @@ final class StatusItemController: NSObject {
         default:
             button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
         }
+        applyMenuBarTitle(button)
         let imageSize = button.image.map { "\(Int($0.size.width))x\(Int($0.size.height))" } ?? "nil"
-        Diag.info("Tray style \(style): image=\(imageSize) itemWidth=\(statusItem?.length ?? -1) buttonFrame=\(button.frame)")
+        Diag.info("Tray style \(style): image=\(imageSize) itemWidth=\(statusItem?.length ?? -1) title=\(button.title)")
     }
 
     func updateHealth(_ health: ServerManager.Health) {
@@ -290,6 +428,38 @@ final class StatusItemController: NSObject {
         let syncEntry = item(syncing ? "同步中…" : "立即同步", #selector(syncNow), "s")
         syncEntry.isEnabled = !syncing
 
+        // 菜单栏 submenu = the dashboard Widgets page contract, surfaced natively.
+        let menuBar = submenuItem("菜单栏")
+        let showStatsEntry = item("显示今日统计", #selector(toggleShowStats), "")
+        showStatsEntry.state = menuBarShowStats ? .on : .off
+        let slot1 = submenuItem("指标 1")
+        let slot2 = submenuItem("指标 2")
+        for (index, slot) in [slot1, slot2].enumerated() {
+            for metric in MenuBarMetric.allCases {
+                let entry = item(metric.descriptor["label"] ?? metric.rawValue, #selector(setMenuBarSlotFromMenu), "")
+                entry.representedObject = metric.rawValue
+                entry.tag = index
+                let current = index < menuBarItems.count ? menuBarItems[index] : .none
+                entry.state = current == metric ? .on : .off
+                slot.submenu?.addItem(entry)
+            }
+        }
+        let hideIconEntry = item("隐藏菜单栏图标", #selector(toggleHideMenuBarIcon), "")
+        hideIconEntry.state = hideMenuBarIcon ? .on : .off
+        let limitsMode = submenuItem("限额显示")
+        for (mode, title) in [("used", "已用量"), ("remaining", "剩余量")] {
+            let entry = item(title, #selector(setLimitsModeFromMenu), "")
+            entry.representedObject = mode
+            entry.state = limitsDisplayMode == mode ? .on : .off
+            limitsMode.submenu?.addItem(entry)
+        }
+        let toastEntry = item("重置时弹出提示", #selector(toggleToastOnReset), "")
+        toastEntry.state = toastOnReset ? .on : .off
+        let confettiEntry = item("重置时彩带特效", #selector(toggleConfettiOnReset), "")
+        confettiEntry.state = confettiOnReset ? .on : .off
+        menuBar.submenu?.items = [showStatsEntry, .separator(), slot1, slot2, .separator(),
+                                  hideIconEntry, limitsMode, .separator(), toastEntry, confettiEntry]
+
         let login = item("开机启动", #selector(toggleLoginItem), "")
         login.state = LaunchAtLogin.isEnabled ? .on : .off
         login.isEnabled = LaunchAtLogin.isSupported
@@ -303,7 +473,7 @@ final class StatusItemController: NSObject {
 
         [summary, .separator(), dashboard, .separator(), capsule, pet, quota,
          .separator(), syncEntry,
-         .separator(), tray,
+         .separator(), tray, menuBar,
          .separator(), login, update, about,
          .separator(), quit].forEach { menu.addItem($0) }
         return menu
@@ -384,7 +554,10 @@ final class StatusItemController: NSObject {
             character.submenu?.addItem(entry)
         }
         let close = item("关闭宠物", #selector(hidePet), "")
-        [open, sync, .separator(), size, character, .separator(), close].forEach { menu.addItem($0) }
+        var entries: [NSMenuItem] = [open, sync, .separator(), size, character, .separator()]
+        if hideMenuBarIcon { entries.append(item("显示菜单栏图标", #selector(showMenuBarIcon), "")) }
+        entries.append(close)
+        entries.forEach { menu.addItem($0) }
         self.menu = menu
         menu.popUp(positioning: nil, at: point, in: nil)
     }
@@ -422,6 +595,25 @@ final class StatusItemController: NSObject {
     @objc private func hidePet() {
         if isPetVisible?() ?? false { onTogglePet?() }
     }
+
+    @objc private func toggleShowStats() { setShowStats(!menuBarShowStats) }
+
+    @objc private func setMenuBarSlotFromMenu(_ sender: NSMenuItem) {
+        guard let metric = MenuBarMetric(rawValue: sender.representedObject as? String ?? "") else { return }
+        setMenuBarSlot(sender.tag, metric: metric)
+    }
+
+    @objc private func toggleHideMenuBarIcon() { setHideMenuBarIcon(!hideMenuBarIcon) }
+
+    @objc private func showMenuBarIcon() { setHideMenuBarIcon(false) }
+
+    @objc private func setLimitsModeFromMenu(_ sender: NSMenuItem) {
+        setLimitsDisplayMode((sender.representedObject as? String) ?? "used")
+    }
+
+    @objc private func toggleToastOnReset() { setToastOnReset(!toastOnReset) }
+
+    @objc private func toggleConfettiOnReset() { setConfettiOnReset(!confettiOnReset) }
 
     @objc private func toggleLoginItem() {
         let enabled = !LaunchAtLogin.isEnabled
