@@ -463,7 +463,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue })
           <span className="w-full truncate pb-0.5 text-[10px] font-medium leading-tight text-oai-gray-700 dark:text-oai-gray-300">
             {item.name}
           </span>
-          {streak !== 0 && streak !== 1 && (
+          {streak !== 0 && (
             <span className="absolute bottom-0.5 right-1 text-[9px] font-semibold tabular-nums text-oai-gray-400 dark:text-oai-gray-500">
               ×{streak}
             </span>

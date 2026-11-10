@@ -397,6 +397,8 @@ describe("PerksPage", () => {
         qoder_cn: { daily: { last: "2020-01-01", count: 8 } },
         // minimax_code：连领 31 次 → 闪卡（tier 4）
         minimax_code: { daily: { last: "2020-01-01", count: 31 } },
+        // agentrouter：领过 1 次（×1 应显示）
+        agentrouter: { daily: { last: "2020-01-01", count: 1 } },
       },
     }));
     render(
@@ -420,7 +422,10 @@ describe("PerksPage", () => {
     expect(cards.length).toBe(18); // 每页 18 张（两排×9）
     expect(cards[0].textContent).toContain("MiniMax Code");
     expect(cards[1].textContent).toContain("Qoder CN");
-    // 已收亮卡：白底带品牌名；未收暗卡：深色渐变底、藏品牌
+    // ×N 角标：every collected card carries it, including count==1
+    expect(cards[0].textContent).toContain("×31");
+    const x1Card = cards.find((c) => c.textContent.includes("Agent Router"));
+    expect(x1Card).toBeTruthy();
     expect(cards[0].className).toContain("bg-white");
     const darkCard = cards.find((card) => card.className.includes("from-slate-700"));
     expect(darkCard).toBeTruthy();
