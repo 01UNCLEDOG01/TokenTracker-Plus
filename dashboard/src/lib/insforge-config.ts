@@ -31,6 +31,15 @@ function localHost() {
 export function getInsforgeConfiguration() {
   const runtime = typeof window === "undefined" ? undefined : window.__TOKENTRACKER_RUNTIME_CONFIG__;
   if (runtime !== undefined) {
+    // The CLI injects `localOnly: true` with an empty baseUrl for its normal
+    // single-machine / offline run. That descriptor is a VALID "no cloud"
+    // state, not a misconfiguration: the operator never provided a backend, so
+    // there is nothing to validate and nothing to warn about. Only an explicit
+    // `configurationError` (malformed self-hosted config) or a descriptor that
+    // claims a usable deployment without a baseUrl is an error worth surfacing.
+    if (runtime?.localOnly === true && !runtime.configurationError && !runtime.baseUrl) {
+      return { baseUrl: "", anonKey: "", errorCode: null, source: "runtime" as const };
+    }
     if (!runtime || runtime.configurationError || !runtime.baseUrl) {
       return { baseUrl: "", anonKey: "", errorCode: "runtime_configuration_error", source: "runtime" as const };
     }
@@ -59,19 +68,29 @@ export function isLocalOnlyDeployment(): boolean {
 
 export function getInsforgeRemoteUrl(): string { return getInsforgeConfiguration().baseUrl; }
 export function getInsforgeAnonKey(): string { return getInsforgeConfiguration().anonKey; }
-export function isCloudInsforgeConfigured(): boolean { return !getInsforgeConfigurationError(); }
+/**
+ * A cloud backend exists only when the resolved base URL is non-empty. An empty
+ * base URL is the local-only/offline state: `errorCode` is null there by
+ * design, so `!errorCode` alone must never be read as "cloud configured".
+ */
+function hasInsforgeCloudBackend(config: { baseUrl?: string; errorCode?: string | null }): boolean {
+  return !config.errorCode && Boolean(config.baseUrl);
+}
+export function isCloudInsforgeConfigured(): boolean { return hasInsforgeCloudBackend(getInsforgeConfiguration()); }
 export function getInsforgeInstanceFingerprint(): string {
   return getInsforgeConfiguration().baseUrl;
 }
 export function isOfficialInsforgeInstance(): boolean {
-  // Local-first: an unconfigured deployment must not masquerade as the
-  // (now empty) official instance and activate official-only behaviors.
+  // Local-first: an unconfigured (or local-only) deployment must not masquerade
+  // as the official instance — which no longer exists and resolves to "" — and
+  // activate official-only behaviors. An empty base URL is "no cloud", never
+  // "the official instance".
   const config = getInsforgeConfiguration();
-  return !config.errorCode && config.baseUrl === PROD_INSFORGE_BASE_URL;
+  return hasInsforgeCloudBackend(config) && config.baseUrl === PROD_INSFORGE_BASE_URL;
 }
 export function getInsforgeConnectionHost(): string | null {
   const config = getInsforgeConfiguration();
-  if (config.errorCode || config.baseUrl === PROD_INSFORGE_BASE_URL) return null;
+  if (!hasInsforgeCloudBackend(config) || config.baseUrl === PROD_INSFORGE_BASE_URL) return null;
   return new URL(config.baseUrl).host;
 }
 
@@ -105,12 +124,12 @@ export function shouldRestoreInsforgeSession(): boolean { return !restoreBlocked
 export function allowInsforgeSessionRestore(): void { restoreBlocked = false; }
 export function isCurrentInsforgeClient(client: unknown): boolean {
   const config = getInsforgeConfiguration();
-  return !config.errorCode && client === insforgeClientSingleton && clientIdentity === `${config.baseUrl}\0${config.anonKey}`;
+  return hasInsforgeCloudBackend(config) && client === insforgeClientSingleton && clientIdentity === `${config.baseUrl}\0${config.anonKey}`;
 }
 
 export function getOrCreateInsforgeClient(): ReturnType<typeof createClient> | null {
   const config = getInsforgeConfiguration();
-  if (config.errorCode) {
+  if (!hasInsforgeCloudBackend(config)) {
     if (insforgeClientSingleton) resetInsforgeClientForInstanceChange();
     return null;
   }

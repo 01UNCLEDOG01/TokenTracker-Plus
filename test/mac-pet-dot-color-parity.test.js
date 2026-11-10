@@ -111,19 +111,25 @@ test('character RGB values match the Windows MonitorWidgetWindow literals', () =
     [Number(fallback[1]), Number(fallback[2]), Number(fallback[3])]);
 });
 
-test('tray-style precedence mirrors MonitorWidgetWindow.ApplyStyle', () => {
+test('mac divergence: island dot always follows the pet; tray style owns the menu bar only', () => {
   const windows = read('TokenTrackerWin/MonitorWidgetWindow.cs');
   const pill = read('TokenTrackerMac/Sources/IslandCapsule.swift');
-  // lightning -> fixed #eab308 on both sides
-  const winLightning = windows.match(/style == "lightning"[\s\S]*?FromRgb\((\d+), (\d+), (\d+)\)/);
-  assert.ok(winLightning, 'Windows lightning color not found');
-  const swiftLightning = pill.match(/appearance\.trayStyle == "lightning"[\s\S]*?RGB\(r: (\d+), g: (\d+), b: (\d+)\)/);
-  assert.ok(swiftLightning, 'mac lightning color not found');
-  assert.deepStrictEqual(swiftLightning.slice(1).map(Number), winLightning.slice(1).map(Number));
-  // cat -> the dot is replaced by the animation, before the lightning branch.
-  assert.ok(pill.indexOf('appearance.trayStyle == "cat"') < pill.indexOf('appearance.trayStyle == "lightning"'),
-    'cat branch must come first (MonitorWidgetWindow.ApplyStyle order)');
+  const tray = read('TokenTrackerMac/Sources/StatusItemController.swift');
+  // Windows ApplyStyle still conflates the two settings (reference contract).
+  assert.match(windows, /style == "lightning"\s*[\r\n]*[\s\S]*?FromRgb\(/);
   assert.match(windows, /_accent\.Visibility = Visibility\.Collapsed/);
-  assert.match(pill, /dotView\?\.isHidden = true/);
+  // The mac island dot has NO tray-style branch: every style keeps the
+  // per-character dot (owner request 2026-11-10, noted in the Swift comment).
+  assert.ok(!/appearance\.trayStyle/.test(pill),
+    'IslandCapsule dot must not branch on trayStyle');
+  assert.match(pill, /DELIBERATE macOS divergence from Windows/);
+  // The dot view is never swapped out for a cat animation anymore.
+  assert.match(pill, /dotView\?\.isHidden = false/);
+  // The tray style keeps its real job: the menu-bar icon (cat/mascot/lightning).
+  for (const style of ['"cat"', '"mascot"', 'default']) {
+    assert.ok(tray.includes(`case ${style}`) || style === 'default',
+      `tray style ${style} missing in StatusItemController`);
+  }
+  assert.match(tray, /catFrameTimer/);
+  assert.match(tray, /isTemplate = true/);
 });
-
