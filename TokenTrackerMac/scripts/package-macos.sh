@@ -57,116 +57,68 @@ APP_DIR="$BUILD_DIR/$APP_NAME.app"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
-# 2. Compile via xcodebuild against the SwiftPM manifest (handles SwiftUI macros
-#    and the Vortex-less dependency graph; no XcodeGen/pbxproj needed).
-echo "[package] xcodebuild (SwiftPM manifest)..."
+# 2. Compile via xcodebuild against the XcodeGen project (upstream recipe).
+#    Product = "TokenTracker Plus.app": widget appex in PlugIns/, Vortex bundle,
+#    Assets.car, TT-Plus strings. Dual-arch: build per destination, lipo both
+#    the main binary and the widget appex binary.
+echo "[package] xcodebuild (XcodeGen project)..."
 cd "$MAC_DIR/TokenTrackerBar"
 xcodebuild -scheme TokenTrackerBar -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$BUILD_DIR/derived" build 2>&1 | tail -3
-BUILT_BIN="$BUILD_DIR/derived/Build/Products/Release/TokenTrackerBar"
-# Universal: build the x86_64 slice too and lipo (single dmg for both archs).
+PRODUCT_APP="$BUILD_DIR/derived/Build/Products/Release/TokenTracker Plus.app"
 xcodebuild -scheme TokenTrackerBar -configuration Release \
   -destination 'platform=macOS,arch=x86_64' \
   -derivedDataPath "$BUILD_DIR/derived-x64" build 2>&1 | tail -3
-BUILT_BIN_X64="$BUILD_DIR/derived-x64/Build/Products/Release/TokenTrackerBar"
-if [ ! -f "$BUILT_BIN_X64" ]; then
-  echo "WARN: x86_64 slice missing — shipping arm64-only" >&2
-  cp "$BUILT_BIN" "$APP_DIR/Contents/MacOS/$EXEC_NAME"
-else
-  lipo -create "$BUILT_BIN" "$BUILT_BIN_X64" -output "$APP_DIR/Contents/MacOS/$EXEC_NAME"
-  lipo -info "$APP_DIR/Contents/MacOS/$EXEC_NAME"
-fi
-if [ ! -f "$BUILT_BIN" ]; then
-  echo "ERROR: built binary not found at $BUILT_BIN" >&2
-  exit 1
-fi
-lipo -info "$BUILT_BIN" || true
-cp "$BUILT_BIN" "$APP_DIR/Contents/MacOS/$EXEC_NAME"
+PRODUCT_APP_X64="$BUILD_DIR/derived-x64/Build/Products/Release/TokenTracker Plus.app"
 cd "$MAC_DIR"
 
-# 3. Asset catalog -> Assets.car (actool with full Xcode), plus the loose
-#    imageset PNGs: NSImage(named:) also resolves loose bundle files by name.
-echo "[package] actool Assets.xcassets -> Assets.car"
-"$ACTOOL" --compile "$APP_DIR/Contents/Resources" \
-  --platform macosx --minimum-deployment-target 12.0 \
-  TokenTrackerBar/TokenTrackerBar/Assets.xcassets >/dev/null
-[ -f "$APP_DIR/Contents/Resources/Assets.car" ] && echo "[package] Assets.car OK"
-# Loose copies: NSImage(named:) resolves bundle files by basename too — belt and
-# suspenders in case a catalog member fails to compile.
-ASSETS_ROOT="$MAC_DIR/TokenTrackerBar/TokenTrackerBar/Assets.xcassets" \
-OUT_DIR="$APP_DIR/Contents/Resources" \
-python3 - <<'PY'
-import json, os, shutil, sys
-src_root = os.environ.get('ASSETS_ROOT')
-out = os.environ.get('OUT_DIR')
-count = 0
-for name in sorted(os.listdir(src_root)):
-    iset = os.path.join(src_root, name)
-    if not name.endswith('.imageset') or not os.path.isdir(iset):
-        continue
-    contents = json.load(open(os.path.join(iset, 'Contents.json')))
-    # prefer universal non-retina png, else first image
-    chosen = None
-    for image in contents.get('images', []):
-        if image.get('scale') in (None, '1x') and image.get('filename'):
-            chosen = image['filename']; break
-    if not chosen:
-        for image in contents.get('images', []):
-            if image.get('filename'):
-                chosen = image['filename']; break
-    if not chosen:
-        continue
-    ext = os.path.splitext(chosen)[1].lower()
-    if ext not in ('.png', '.svg', '.pdf'):
-        continue
-    dest = os.path.join(out, name[:-len('.imageset')] + ('.png' if ext == '.png' else ext))
-    shutil.copyfile(os.path.join(iset, chosen), dest)
-    count += 1
-print(f'[package] loose imageset copies: {count}')
-PY
+[ -d "$PRODUCT_APP" ] || { echo "ERROR: product app missing: $PRODUCT_APP" >&2; exit 1; }
 
-# Runtime resources the app reads from Bundle.main.
-cp TokenTrackerBar/TokenTrackerBar/BotFrames.json "$APP_DIR/Contents/Resources/BotFrames.json"
-cp -R TokenTrackerBar/TokenTrackerBar/PetSprites "$APP_DIR/Contents/Resources/PetSprites"
-cp TokenTrackerBar/TokenTrackerBar/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns" 2>/dev/null || echo "WARN: no AppIcon.icns"
+# Assemble: arm64 product shell, lipo-merge main + appex binaries.
+rm -rf "$APP_DIR"
+ditto "$PRODUCT_APP" "$APP_DIR"
+MAIN_ARM="$PRODUCT_APP/Contents/MacOS/TokenTracker Plus"
+MAIN_X64="$PRODUCT_APP_X64/Contents/MacOS/TokenTracker Plus"
+APEX_ARM="$PRODUCT_APP/Contents/PlugIns/TokenTrackerWidget.appex/Contents/MacOS/TokenTrackerWidget"
+APEX_X64="$PRODUCT_APP_X64/Contents/PlugIns/TokenTrackerWidget.appex/Contents/MacOS/TokenTrackerWidget"
+lipo -create "$MAIN_ARM" "$MAIN_X64" -output "$APP_DIR/Contents/MacOS/TokenTracker Plus"
+if [ -f "$APEX_ARM" ] && [ -f "$APEX_X64" ]; then
+  lipo -create "$APEX_ARM" "$APEX_X64" \
+    -output "$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex/Contents/MacOS/TokenTrackerWidget"
+fi
+lipo -info "$APP_DIR/Contents/MacOS/TokenTracker Plus"
 
-# 4. Info.plist (LSUIElement menu-bar app, version injected from package.json).
-cat > "$APP_DIR/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleExecutable</key><string>${EXEC_NAME}</string>
-  <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
-  <key>CFBundleName</key><string>TokenTracker Plus</string>
-  <key>CFBundleDisplayName</key><string>TokenTracker Plus</string>
-  <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-  <key>CFBundleVersion</key><string>${VERSION}</string>
-  <key>CFBundleIconFile</key><string>AppIcon</string>
-  <key>CFBundleDevelopmentRegion</key><string>en</string>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
-  <key>LSUIElement</key><true/>
-  <key>NSHighResolutionCapable</key><true/>
-  <key>NSPrincipalClass</key><string>NSApplication</string>
-  <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-  <key>NSAppTransportSecurity</key>
-  <dict>
-    <key>NSAllowsLocalNetworking</key><true/>
-  </dict>
-</dict>
-</plist>
-PLIST
+# Version from package.json (xcodegen emits 1.0 by default).
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_DIR/Contents/Info.plist"
 
-# 5. Embedded server payload (same as the Windows shell).
+# 2b. Menu-bar cat frames (托盘图标风格 奔跑小猫) — NSImage(named: "catN").
+for n in 0 1 2 3 4; do
+  cp "BarSources/Package.swift" /dev/null 2>/dev/null || true
+done
+if [ -d "$MAC_DIR/TokenTrackerBar/TokenTrackerBar/Resources" ]; then
+  for n in 0 1 2 3 4; do
+    cp "$MAC_DIR/TokenTrackerBar/TokenTrackerBar/Resources/cat${n}.png" \
+       "$APP_DIR/Contents/Resources/cat${n}.png" 2>/dev/null || true
+  done
+fi
+
+# 3. Embedded server payload (same as the Windows shell).
 cp -R "$EMBED_DIR" "$APP_DIR/Contents/Resources/EmbeddedServer"
 
-# 6. Ad-hoc codesign.
-codesign --force --deep --sign - "$APP_DIR" 2>&1 | grep -v "replacing existing signature" || true
-codesign --verify --deep "$APP_DIR" && echo "[package] codesign OK (ad-hoc)"
+# 4. Ad-hoc codesign — upstream ordering: sign the appex first, then the app.
+#    NO --deep: it re-signs the appex and strips its entitlements, and pkd
+#    rejects the widget at runtime.
+APEX="$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
+if [ -d "$APEX" ]; then
+  codesign --force --sign - "$APEX" 2>&1 | grep -v replacing || true
+  codesign --verify "$APEX" && echo "[package] appex signed"
+fi
+codesign --force --sign - "$APP_DIR" 2>&1 | grep -v replacing || true
+codesign --verify "$APP_DIR" && echo "[package] codesign OK (ad-hoc)"
 
-# 7. Artifacts: dmg (drag-to-Applications layout) + universal zip.
+# 5. Artifacts: dmg (drag-to-Applications layout) + universal zip.
 rm -rf "$ARTIFACTS_DIR" && mkdir -p "$ARTIFACTS_DIR"
 STAGE="$(mktemp -d /tmp/ttp-dmg.XXXXXX)"
 cp -R "$APP_DIR" "$STAGE/$APP_NAME.app"
