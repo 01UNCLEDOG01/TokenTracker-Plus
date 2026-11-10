@@ -5,6 +5,8 @@ const cp = require("node:child_process");
 const {
   defaultRunWsl,
   parseWslListVerbose,
+  parseWslListRunning,
+  probeRunningWslNames,
   probeWslDistros,
   discoverWslHome,
   isUncPath,
@@ -311,4 +313,71 @@ test("resetWslProbeCache clears module-level cache", () => {
 
   // resetWslProbeCache should not throw
   assert.doesNotThrow(() => resetWslProbeCache());
+});
+
+test("parseWslListRunning accepts quiet and verbose shapes", () => {
+  assert.deepEqual(parseWslListRunning("Ubuntu\nDebian-22.04\n"), ["Ubuntu", "Debian-22.04"]);
+  assert.deepEqual(
+    parseWslListRunning("  NAME    STATE    VERSION\n* Ubuntu  Running  2\n"),
+    ["Ubuntu"],
+  );
+  assert.deepEqual(parseWslListRunning("* Ub\u0000untu Running 2\n"), ["Ubuntu"]);
+  assert.deepEqual(parseWslListRunning(""), []);
+  assert.deepEqual(parseWslListRunning(undefined), []);
+});
+
+test("discoverWslHome never wakes a stopped distro (TM #1438)", () => {
+  // The identity probe (`wsl -d <distro> -e whoami`) starts a stopped distro;
+  // a stopped distro is not writing sessions right now anyway, so probing it
+  // only costs a wake. Only RUNNING distros may be probed.
+  const list = "  NAME    STATE    VERSION\n* Ubuntu  Running  2\n  Asleep  Stopped  2\n";
+  const running = "Ubuntu\n";
+  const probedDistros = [];
+  const runWsl = (args) => {
+    if (args[0] === "-l") return args[1] === "--running" ? running : list;
+    probedDistros.push(args[1]);
+    return "alice\n";
+  };
+
+  const hit = discoverWslHome(".myapp", {
+    runWsl,
+    existsSync: (p) => p === "\\\\wsl$\\Ubuntu\\home\\alice\\.myapp",
+  });
+  assert.equal(hit, "\\\\wsl$\\Ubuntu\\home\\alice\\.myapp");
+  assert.ok(probedDistros.includes("Ubuntu"), "the running distro is probed");
+  assert.ok(!probedDistros.includes("Asleep"), "the stopped distro must NOT be probed");
+});
+
+test("discoverWslHome falls back to the installed list when the running state is unknown", () => {
+  // A broken WSL build or transient failure of `--running` must not silently
+  // kill data flow: a rare extra wake is better than never collecting again.
+  const list = "  NAME    STATE    VERSION\n  Solo  Stopped  2\n";
+  const probedDistros = [];
+  const runWsl = (args) => {
+    if (args[0] === "-l") {
+      if (args[1] === "--running") throw Object.assign(new Error("boom"), { status: 1 });
+      return list;
+    }
+    probedDistros.push(args[1]);
+    return "bob\n";
+  };
+  const hit = discoverWslHome(".myapp", {
+    runWsl,
+    existsSync: (p) => p === "\\\\wsl$\\Solo\\home\\bob\\.myapp",
+  });
+  assert.equal(hit, "\\\\wsl$\\Solo\\home\\bob\\.myapp");
+  assert.ok(probedDistros.includes("Solo"), "fallback probes the installed distro");
+});
+
+test("discoverWslHome probes nothing when WSL reports no running distros", () => {
+  const list = "  NAME    STATE    VERSION\n  Idle  Stopped  2\n";
+  let identityProbes = 0;
+  const runWsl = (args) => {
+    if (args[0] === "-l") return args[1] === "--running" ? "" : list;
+    identityProbes += 1;
+    return "u\n";
+  };
+  const hit = discoverWslHome(".myapp", { runWsl, existsSync: () => true });
+  assert.equal(hit, null);
+  assert.equal(identityProbes, 0, "zero running distros means zero identity probes");
 });

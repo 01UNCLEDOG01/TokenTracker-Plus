@@ -54,6 +54,43 @@ function parseWslListVerbose(raw) {
   return distros;
 }
 
+// Parse `wsl -l --running` output. Builds differ between the quiet shape
+// (bare names) and the verbose shape (NAME STATE VERSION) — only the first
+// cell matters either way, and NUL/BOM noise gets the same scrubbing as the
+// verbose parser.
+function parseWslListRunning(raw) {
+  if (typeof raw !== "string") return [];
+  const names = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const clean = cleanWslOutput(line);
+    if (!clean) continue;
+    const cells = clean.split(/\s+/).filter((cell) => cell && cell !== "*");
+    const name = cells[0];
+    if (!name || name.toUpperCase() === "NAME") continue;
+    names.push(name);
+  }
+  return names;
+}
+
+// TM #1438: a stopped distro is not writing sessions right now, and probing
+// it (`wsl -d <distro> -e whoami`, then the UNC bridge) STARTS it — background
+// collection must not wake stopped distributions just to find nothing new.
+// Returns the running names, [] when nothing runs, or null when the running
+// list cannot be enumerated (broken WSL build, transient failure) and the
+// caller should fall back to the installed list: a silent data-flow death is
+// worse than a rare extra wake.
+function probeRunningWslNames(deps = {}) {
+  const runWsl = deps.runWsl || defaultRunWsl;
+  let raw;
+  try {
+    raw = runWsl(["-l", "--running"], { utf16: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    return null;
+  }
+  return parseWslListRunning(raw);
+}
+
 function probeWslDistros(deps = {}) {
   const strict = deps.strict === true;
   const hasDeps = Object.keys(deps).some((key) => key !== "strict");
@@ -187,7 +224,15 @@ function discoverWslHome(providerDir, deps = {}) {
     ? probeWslDistros({ runWsl: deps.runWsl, strict })
     : probeWslDistros(strict ? { strict } : undefined);
   const useCache = !deps.runWsl;
-  for (const distro of distros) {
+  // TM #1438 wake prevention: only distros currently RUNNING get probed. The
+  // identity probe (`wsl -d <distro> -e whoami`) starts a stopped distro, and
+  // a stopped distro is not writing sessions right now anyway. Unknown
+  // running state (probe returned null) falls back to the installed list.
+  const runningNames = probeRunningWslNames(deps.runWsl ? { runWsl: deps.runWsl } : {});
+  const runnable = runningNames == null
+    ? distros
+    : distros.filter((distro) => runningNames.includes(distro.name));
+  for (const distro of runnable) {
     const user = lookupWslUser(distro.name, runWsl, useCache, strict);
     if (!user) continue;
     const roots = distro.version === 1
@@ -264,6 +309,8 @@ function snapshotSqliteDb(dbPath) {
 module.exports = {
   defaultRunWsl,
   parseWslListVerbose,
+  parseWslListRunning,
+  probeRunningWslNames,
   probeWslDistros,
   resetWslProbeCache,
   discoverWslHome,
