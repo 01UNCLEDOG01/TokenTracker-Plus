@@ -582,6 +582,139 @@ describe("fetchOpencodeGoLimits", () => {
   });
 });
 
+// The limits-page paste box writes this file; the env var keeps precedence so
+// wrapper/headless installs are unaffected.
+describe("saved API key", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const {
+    credentialsPath,
+    readStoredApiKey,
+    resolveApiKey,
+    writeApiKeyFile,
+    normalizeApiKey,
+  } = require("../src/lib/opencode-go-limits");
+
+  function withTempHome(fn) {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-opencode-go-key-"));
+    const prevRoot = process.env.TOKENTRACKER_HOME;
+    // getTrackerRootDir() reads process.env directly, so pin it to the fixture
+    // and never touch the developer's real ~/.tokentracker.
+    process.env.TOKENTRACKER_HOME = home;
+    try {
+      return fn(home);
+    } finally {
+      if (prevRoot === undefined) delete process.env.TOKENTRACKER_HOME;
+      else process.env.TOKENTRACKER_HOME = prevRoot;
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  }
+
+  it("normalizes keys and rejects shell lines instead of storing them", () => {
+    assert.equal(normalizeApiKey("  sk-go-key  "), "sk-go-key");
+    assert.equal(normalizeApiKey('setx OPENCODE_GO_API_KEY "sk-x"'), "");
+    assert.equal(normalizeApiKey("short"), "");
+    assert.equal(normalizeApiKey(12345), "");
+  });
+
+  it("writes the key file and reads it back", () => {
+    withTempHome((home) => {
+      assert.equal(readStoredApiKey({ home }), "");
+      assert.deepEqual(writeApiKeyFile({ home, apiKey: "sk-go-key" }), { saved: true });
+      assert.equal(readStoredApiKey({ home }), "sk-go-key");
+      const parsed = JSON.parse(fs.readFileSync(credentialsPath(home), "utf8"));
+      assert.deepEqual(parsed, { apiKey: "sk-go-key" });
+    });
+  });
+
+  it("refuses to write an invalid key", () => {
+    withTempHome((home) => {
+      assert.deepEqual(writeApiKeyFile({ home, apiKey: "  " }), {
+        saved: false,
+        error: "invalid_api_key",
+      });
+      assert.equal(fs.existsSync(credentialsPath(home)), false);
+    });
+  });
+
+  it("prefers the environment key over the saved file", () => {
+    withTempHome((home) => {
+      writeApiKeyFile({ home, apiKey: "sk-from-file" });
+      assert.deepEqual(resolveApiKey({ OPENCODE_GO_API_KEY: "sk-from-env" }, { home }), {
+        apiKey: "sk-from-env",
+        source: "env",
+      });
+      assert.deepEqual(resolveApiKey({}, { home }), { apiKey: "sk-from-file", source: "stored" });
+    });
+  });
+
+  it("stores a cookie without dropping a saved key (and vice versa)", () => {
+    withTempHome((home) => {
+      const { writeAuthCookieFile, clearCredentials, readConfig, writeCredentialsFile } = require("../src/lib/opencode-go-limits");
+      assert.deepEqual(writeApiKeyFile({ home, apiKey: "sk-go-key" }), { saved: true });
+      assert.deepEqual(writeAuthCookieFile({ home, authCookie: "Cookie: auth=abc; other=1" }), { saved: true });
+      const stored = JSON.parse(fs.readFileSync(credentialsPath(home), "utf8"));
+      assert.equal(stored.apiKey, "sk-go-key");
+      assert.equal(stored.authCookie, "auth=abc; other=1");
+
+      // The cookie is read the same way the env var is, so the legacy scrape
+      // path works from the paste box too.
+      assert.deepEqual(readConfig({}, { home }), { workspaceId: "", authCookie: "auth=abc; other=1" });
+
+      // A bare token without `=` is not a cookie header.
+      assert.deepEqual(writeAuthCookieFile({ home, authCookie: "not-a-cookie" }), {
+        saved: false,
+        error: "invalid_cookie",
+      });
+      // Newlines/control characters from a wrapped paste are stripped before the
+      // value can ever become a request header (header-injection hardening).
+      assert.deepEqual(
+        writeAuthCookieFile({ home, authCookie: "Cookie: auth=abc\r\nX-Evil: 1" }),
+        { saved: true },
+      );
+      assert.equal(
+        JSON.parse(fs.readFileSync(credentialsPath(home), "utf8")).authCookie,
+        "auth=abcX-Evil: 1",
+      );
+      // A payload with neither field is a no-op that keeps what is stored.
+      assert.deepEqual(writeCredentialsFile({ home }), { saved: true });
+      assert.equal(readStoredApiKey({ home }), "sk-go-key");
+
+      // Clearing forgets both so a rejected key stops blocking the cookie.
+      assert.deepEqual(clearCredentials({ home }), { saved: true, cleared: true });
+      assert.equal(readConfig({}, { home }), null);
+      assert.equal(readStoredApiKey({ home }), "");
+    });
+  });
+
+  it("falls back to the saved key when the env var is absent and reports its origin", async () => {
+    await withTempHome(async (home) => {
+      writeApiKeyFile({ home, apiKey: "sk-from-file" });
+      const out = await fetchOpencodeGoLimits({
+        home,
+        env: {},
+        fetchImpl: async (url, init) => {
+          assert.equal(url, "https://opencode.ai/zen/go/v1/usage");
+          assert.equal(init.headers.Authorization, "Bearer sk-from-file");
+          return {
+            status: 200,
+            ok: true,
+            async text() {
+              return JSON.stringify({
+                usage: { rolling: { percent: 42, resetsAt: "2026-08-21T18:00:00.000Z" } },
+              });
+            },
+          };
+        },
+        nowMs: Date.parse("2026-08-21T14:45:35.000Z"),
+      });
+      assert.equal(out.primary_window?.used_percent, 42);
+      assert.equal(out.credential_source, "stored");
+    });
+  });
+});
+
 describe("looksSignedOut", () => {
   it("detects real sign-out / auth-required responses", () => {
     assert.equal(looksSignedOut('actor of type "public" is not associated'), true);

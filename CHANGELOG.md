@@ -8,6 +8,8 @@
 
 ## [1.25.0] - 2026-11-10
 
+- **新增：限额页 OpenCode Go 卡片支持直接粘贴凭据**。此前接入 Go 用量只能设 `OPENCODE_GO_API_KEY` 环境变量并重启应用（旧提示给的三行 `launchctl` 命令在 Windows 上无法使用）；现在卡片内即可粘贴 API Key 或浏览器 `auth` Cookie（二选一，保存到本机 `~/.tokentracker/opencode-go-credentials.json`，仅本机后端会把它发给 opencode.ai 的用量接口，前端读不回、不回显），保存后自动刷新出 5h / 每周 / 每月三条窗口；卡片另提供「清除已保存的凭据」。命令行方式保留为可选路径，并按平台给出正确命令（Windows `setx` / macOS `launchctl` / Linux `export`）。
+- **修复：凭据粘贴框保存必然失败（Unauthorized）**。限额页五个存量粘贴框（Qoder CN / Qoder 国际 / OpenDesign / Mistral / OpenAI credits）与新加的 OpenCode Go 框此前请求本地 API 时都没带本机鉴权头，被 loopback 鉴权直接 401——请求从未到达对应服务商。现统一先取 `/api/local-auth` 再带 `x-tokentracker-local-auth` 头；保存失败时卡片显示后端返回的具体原因，而不是笼统的「保存失败」。
 - **新增：macOS 客户端首发（通用二进制，Apple silicon / Intel 皆可）**。此前本项目的桌面端仅覆盖 Windows；现在提供原生 macOS 菜单栏应用，功能对齐 Windows 壳：
   - 菜单栏 ⚡ 图标：**左键直接打开面板**（与 Windows 托盘一致），右键菜单可打开面板 / 宠物悬浮窗 / 额度窗 / 立即同步 / 开机启动 / 检查更新 / 退出；
   - 桌面宠物悬浮窗（服务就绪后自动出现，可拖拽，右键弹菜单）；

@@ -5,6 +5,14 @@ import { copy, setCopyLocale } from "../../../lib/copy";
 import { DE_LOCALE, EN_LOCALE, JA_LOCALE, KO_LOCALE, ZH_CN_LOCALE, ZH_TW_LOCALE } from "../../../lib/locale";
 import { UsageLimitsPanel } from "./UsageLimitsPanel.jsx";
 
+// The credential POSTs are local mutations: the loopback server rejects them
+// without the per-process token, so the panel asks this helper for it. Stub the
+// helper (not /api/local-auth) so the fetch mocks stay about one request.
+vi.mock("../../../lib/local-api-auth", () => ({
+  getLocalApiAuthHeaders: async () => ({ "x-tokentracker-local-auth": "test-token" }),
+  clearLocalApiAuthToken: () => {},
+}));
+
 function formatExpiry(iso) {
   return new Intl.DateTimeFormat(EN_LOCALE, {
     month: "numeric",
@@ -571,11 +579,14 @@ describe("UsageLimitsPanel", () => {
     expect(screen.getByText("Not connected")).toBeInTheDocument();
 
     // Setup hint teaches the official API key flow (follow-up to the closed
-    // PR about OpenCode Go direct fill).
+    // PR about OpenCode Go direct fill). The key is pasted into the card and
+    // saved locally — the command line is only the optional second path.
     expect(screen.getByText("Connect OpenCode Go")).toBeInTheDocument();
     expect(screen.getByText(/Sign in at opencode.ai and subscribe to Go\./)).toBeInTheDocument();
     expect(screen.getByText(/Create and copy an API key in the console\./)).toBeInTheDocument();
-    expect(screen.getByText(/Run this command, paste your API key \(input stays invisible\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Paste the key here/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/paste api key/i)).toBeInTheDocument();
+    expect(screen.getByText(/Or set it from a terminal/)).toBeInTheDocument();
   });
 
   it("cancels the OpenCode Go copied hint when its card unmounts", async () => {
@@ -608,14 +619,32 @@ describe("UsageLimitsPanel", () => {
       expect(writeText).toHaveBeenCalledTimes(1);
     });
     const snippet = writeText.mock.calls[0][0];
-    // The snippet reads the key interactively (`read -r -s`) so it never lands
-    // in shell history, then exports it for both the shell profile path and
-    // the macOS app (launchctl) path. It is a template only: no real key.
-    expect(snippet).toContain("read -r -s OPENCODE_GO_API_KEY");
-    expect(snippet).toContain("export OPENCODE_GO_API_KEY");
-    expect(snippet).toContain('launchctl setenv OPENCODE_GO_API_KEY "$OPENCODE_GO_API_KEY"');
-    expect(snippet).not.toMatch(/sk-/);
+    // jsdom reports neither Windows nor Linux, so this is the macOS branch:
+    // launchctl is what a GUI app actually reads. It is a template only — the
+    // placeholder is never a real key and nothing is sent anywhere.
+    expect(snippet).toContain('launchctl setenv OPENCODE_GO_API_KEY "sk-..."');
+    expect(snippet).not.toMatch(/sk-[A-Za-z0-9]{20,}/);
     expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("copies a Windows setx line on Windows instead of the macOS launchctl line", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TokenTracker",
+      clipboard: { writeText },
+    });
+
+    render(<UsageLimitsPanel opencodeGo={{ configured: false }} order={["opencodeGo"]} />);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledTimes(1);
+    });
+    const snippet = writeText.mock.calls[0][0];
+    expect(snippet).toBe('setx OPENCODE_GO_API_KEY "sk-..."');
+    expect(snippet).not.toContain("launchctl");
+    vi.unstubAllGlobals();
   });
 
   it("renders Command Code 5h / Weekly windows with the plan tier", () => {
@@ -1561,6 +1590,104 @@ describe("ZcodeOtherRegionSection (absorbed from upstream PR 942)", () => {
     fireEvent.click(screen.getByText("BigModel · Start"));
     expect(screen.getByText(/快照时间/)).toBeTruthy();
     unmountPanel();
+  });
+});
+
+describe("OpenCodeGoSetupHint", () => {
+  beforeEach(() => {
+    setCopyLocale(EN_LOCALE);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("offers a paste box that saves the key to the local backend and refreshes", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ saved: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onProviderKeySaved = vi.fn();
+
+    render(
+      <UsageLimitsPanel
+        order={["opencodeGo"]}
+        opencodeGo={{ configured: false }}
+        onProviderKeySaved={onProviderKeySaved}
+      />,
+    );
+
+    // The card is unlinked, so the setup guide (and its paste box) is shown.
+    expect(screen.getByText("Connect OpenCode Go")).toBeTruthy();
+    const input = screen.getByLabelText(/paste api key/i);
+    fireEvent.change(input, { target: { value: "sk-go-key" } });
+    fireEvent.click(screen.getByText("Save key").closest("button"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/functions/tokentracker-opencode-go-key",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const keyCall = fetchMock.mock.calls.find(([url]) => url === "/functions/tokentracker-opencode-go-key");
+    expect(JSON.parse(keyCall[1].body)).toEqual({ apiKey: "sk-go-key" });
+    expect(await screen.findByText("Saved")).toBeTruthy();
+    // Saving must drive a refresh, otherwise the card stays "not connected".
+    await waitFor(() => expect(onProviderKeySaved).toHaveBeenCalled());
+  });
+
+  it("surfaces a rejected key instead of pretending it was stored", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "invalid_api_key" }),
+    })));
+    const onProviderKeySaved = vi.fn();
+
+    render(
+      <UsageLimitsPanel
+        order={["opencodeGo"]}
+        opencodeGo={{ configured: false }}
+        onProviderKeySaved={onProviderKeySaved}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/paste api key/i), { target: { value: "sk-bad" } });
+    fireEvent.click(screen.getByText("Save key").closest("button"));
+
+    // The backend's reason must be visible, not a generic "failed" the user
+    // cannot act on.
+    expect(await screen.findByText(/could not save: invalid_api_key/i)).toBeTruthy();
+    expect(onProviderKeySaved).not.toHaveBeenCalled();
+  });
+
+  it("saves a browser cookie when the user has no API key", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ saved: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onProviderKeySaved = vi.fn();
+
+    render(
+      <UsageLimitsPanel
+        order={["opencodeGo"]}
+        opencodeGo={{ configured: false }}
+        onProviderKeySaved={onProviderKeySaved}
+      />,
+    );
+
+    // The cookie box is the secondary path and starts collapsed.
+    fireEvent.click(screen.getByText(/use a cookie instead/i));
+    fireEvent.change(screen.getByLabelText(/auth cookie value/i), {
+      target: { value: "auth=session-value; other=1" },
+    });
+    fireEvent.click(screen.getByText("Save cookie").closest("button"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/functions/tokentracker-opencode-go-key",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const call = fetchMock.mock.calls.find(([url]) => url === "/functions/tokentracker-opencode-go-key");
+    expect(JSON.parse(call[1].body)).toEqual({ cookie: "auth=session-value; other=1" });
+    await waitFor(() => expect(onProviderKeySaved).toHaveBeenCalled());
   });
 });
 

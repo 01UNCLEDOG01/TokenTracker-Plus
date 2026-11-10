@@ -16,7 +16,7 @@ The preferred source is OpenCode's official authenticated usage endpoint, `GET h
 
 | Priority | Source | Configuration | Semantics |
 |---|---|---|---|
-| 1 | Official OpenCode Go usage API | `OPENCODE_GO_API_KEY` | Authoritative subscription windows returned as JSON. |
+| 1 | Official OpenCode Go usage API | key saved by the limits-page paste box (`~/.tokentracker/opencode-go-credentials.json`) or `OPENCODE_GO_API_KEY` | Authoritative subscription windows returned as JSON. |
 | 2 | Signed-in workspace dashboard scrape | `OPENCODE_GO_AUTH_COOKIE`, optionally `OPENCODE_GO_WORKSPACE_ID` | Legacy compatibility fallback for existing users. |
 | 3 | Local `opencode.db` cost aggregation | `TOKENTRACKER_OPENCODE_GO_LOCAL_ESTIMATE=1` | An explicitly labeled historical estimate; it cannot establish current subscription entitlement. |
 
@@ -26,8 +26,20 @@ When an API key is present, TokenTracker calls the official endpoint first. A `4
 
 Configure secrets only in the local environment. API keys and cookies must never be committed, logged, displayed, or placed in client-side dashboard variables.
 
+**Preferred: paste the key into the OpenCode Go card on the limits page.** The loopback backend writes it to
+`~/.tokentracker/opencode-go-credentials.json` (mode 0600) through
+`POST /functions/tokentracker-opencode-go-key` (loopback auth required, POST only, value never echoed back), and
+the next poll uses it — no app restart. A key the API rejects answers 400, so the paste box never reports a fake
+success. This exists because the earlier setup hint only printed a macOS `launchctl setenv` line, which does
+nothing on Windows.
+
+The environment variable keeps precedence over the saved file (wrapper and headless installs). When the env var is
+what is in use, the API result carries `credential_source: "env"` and the panel offers to move the key into the
+local file. The copyable command is platform aware (`setx` on Windows, `launchctl setenv` on macOS, `export` on
+Linux):
+
 ```dotenv
-# Preferred: official OpenCode Go usage API.
+# Optional alternative to the paste box: official OpenCode Go usage API.
 OPENCODE_GO_API_KEY=
 
 # Legacy compatibility fallback: signed-in workspace dashboard scrape.

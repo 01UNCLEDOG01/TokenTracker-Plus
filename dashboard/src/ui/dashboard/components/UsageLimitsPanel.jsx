@@ -3,6 +3,7 @@ import { ChevronDown, Gift, Globe } from "lucide-react";
 import { Card } from "../../components";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
 import { copy, getCopyLocale } from "../../../lib/copy";
+import { getLocalApiAuthHeaders } from "../../../lib/local-api-auth";
 import { LIMIT_DISPLAY_MODES } from "../../../hooks/use-limits-display-prefs.js";
 import {
   MAX_PET_LIMIT_ROWS,
@@ -45,6 +46,16 @@ function commandCodeLoginSnippet() {
   return commandCodeSetupPlatform() === "windows"
     ? copy("limits.commandCode.setupHint.snippet_login_windows")
     : copy("limits.commandCode.setupHint.snippet_login");
+}
+
+// The optional command-line path to the same key. Windows gets `setx` (the
+// previous macOS-only launchctl line was dead on Windows) and macOS keeps
+// launchctl because a GUI app only sees launchd's environment.
+function openCodeGoSetupSnippet() {
+  const platform = commandCodeSetupPlatform();
+  if (platform === "windows") return copy("limits.opencodeGo.setupHint.snippet_windows");
+  if (platform === "linux") return copy("limits.opencodeGo.setupHint.snippet_linux");
+  return copy("limits.opencodeGo.setupHint.snippet_macos");
 }
 
 // `devin auth login` is registry-owned (limits.devin.setupHint.snippet_login)
@@ -1206,7 +1217,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
             <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
           </CollapsibleCredentialSection>
         ) : null}
-        {id === "opencodeGo" ? <OpenCodeGoSetupHint /> : null}
+        {id === "opencodeGo" ? <OpenCodeGoSetupHint onSaved={onKeySaved} /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
         {id === "agentPlan" ? <ArkAgentPlanSetupHint /> : null}
@@ -1243,7 +1254,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {id === "kiro"
           ? renderProviderExtra(PROVIDER_LIMIT_SPECS.kiro.extra, data)
           : null}
-        {id === "opencodeGo" ? <OpenCodeGoSetupHint /> : null}
+        {id === "opencodeGo" ? <OpenCodeGoSetupHint onSaved={onKeySaved} /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
         {id === "agentPlan" ? <ArkAgentPlanSetupHint /> : null}
@@ -1382,12 +1393,14 @@ function ExternalArrow() {
 }
 
 // OpenCode Go limits come from OpenCode's official authenticated usage API
-// (GET /zen/go/v1/usage, Bearer OPENCODE_GO_API_KEY) once the user subscribes.
-// The macOS/Windows apps have no settings field for it yet, so this inline
-// guide shows up wherever OpenCode Go is enabled but unconfigured (or errored):
-// sign in, create an API key in the console, paste it into a copyable command.
-// No credential ever passes through TokenTracker itself.
-function OpenCodeGoSetupHint() {
+// (GET /zen/go/v1/usage, Bearer API key) once the user subscribes. The key is
+// pasted straight into the box below and saved by the loopback backend to
+// ~/.tokentracker/opencode-go-credentials.json, so it takes effect on the next
+// refresh with no environment variable and no restart. The command-line path
+// stays as a secondary option for wrapper/headless installs and is now
+// platform aware — it used to print a macOS-only `launchctl setenv` line on
+// Windows, where it could never work.
+function OpenCodeGoSetupHint({ onSaved = null }) {
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
   const mounted = useRef(false);
@@ -1395,11 +1408,7 @@ function OpenCodeGoSetupHint() {
     mounted.current = true;
     return () => { mounted.current = false; clearTimeout(copyTimer.current); };
   }, []);
-  const snippet = [
-    "read -r -s OPENCODE_GO_API_KEY",
-    "export OPENCODE_GO_API_KEY",
-    'launchctl setenv OPENCODE_GO_API_KEY "$OPENCODE_GO_API_KEY"',
-  ].join("\n");
+  const snippet = openCodeGoSetupSnippet();
 
   const onCopy = async (e) => {
     e.stopPropagation();
@@ -1437,8 +1446,12 @@ function OpenCodeGoSetupHint() {
           <div>{copy("limits.opencodeGo.setupHint.step2")}</div>
         </HintStep>
         <HintStep n="3">
+          <div>{copy("limits.opencodeGo.setupHint.step3")}</div>
+          <ProviderKeyInput provider="opencode-go" onSaved={onSaved} />
+        </HintStep>
+        <HintStep n="4">
           <div className="flex items-center gap-2">
-            <span>{copy("limits.opencodeGo.setupHint.step3")}</span>
+            <span>{copy("limits.opencodeGo.setupHint.step4")}</span>
             <button
               type="button"
               onClick={onCopy}
@@ -1448,9 +1461,12 @@ function OpenCodeGoSetupHint() {
             </button>
           </div>
           <pre className="mt-1.5 overflow-x-auto rounded-md bg-oai-gray-100 dark:bg-oai-gray-900/60 px-2 py-1.5 font-mono text-[10.5px] leading-relaxed whitespace-pre">{snippet}</pre>
-          <div className="mt-1 text-[10px] text-oai-gray-400 dark:text-oai-gray-500">{copy("limits.opencodeGo.setupHint.note_app")}</div>
+          <div className="mt-1 text-[10px] text-oai-gray-400 dark:text-oai-gray-500">{copy("limits.opencodeGo.setupHint.cli_note")}</div>
         </HintStep>
       </ol>
+      <CollapsibleCredentialSection labelKey="limits.opencodeGo.cookie.toggle">
+        <OpenCodeGoCookieInput onSaved={onSaved} />
+      </CollapsibleCredentialSection>
     </div>
   );
 }
@@ -1746,10 +1762,39 @@ function useWidestLabelWidth(containerRef) {
   return labelWidth;
 }
 
+// Loopback endpoint per provider key file. Saving is one-way: the backend
+// stores the key locally and the dashboard never reads it back.
+const PROVIDER_KEY_ENDPOINT = {
+  "opencode-go": "/functions/tokentracker-opencode-go-key",
+};
+
+async function saveProviderApiKey(provider, value) {
+  const endpoint = PROVIDER_KEY_ENDPOINT[provider];
+  if (!endpoint) throw new Error(`Unsupported provider key store: ${provider}`);
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      ...(await getLocalApiAuthHeaders()),
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ apiKey: value }),
+  });
+  if (!res.ok) {
+    // Surface the backend's reason ("invalid_api_key", "invalid_cookie",
+    // "write_failed", a 404 when the running server predates the route)
+    // instead of a bare "save failed" the user cannot act on.
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.error || `HTTP ${res.status}`);
+  }
+  return res.json().catch(() => ({}));
+}
+
 function ProviderKeyInput({ provider, onSaved }) {
   const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(false);
+  const [detail, setDetail] = useState("");
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -1758,14 +1803,16 @@ function ProviderKeyInput({ provider, onSaved }) {
     if (!value || status === "saving") return;
     setStatus("saving");
     setError(false);
+    setDetail("");
     try {
       await saveProviderApiKey(provider, value);
       setApiKey("");
       setStatus("saved");
       onSaved?.();
-    } catch (_e) {
+    } catch (err) {
       setStatus("idle");
       setError(true);
+      setDetail(err?.message || "");
     }
   };
 
@@ -1803,7 +1850,111 @@ function ProviderKeyInput({ provider, onSaved }) {
         </button>
       </div>
       <div className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
-        {error ? copy("limits.apiKey.save_failed") : copy("limits.apiKey.local_note")}
+        {error
+          ? copy("limits.apiKey.save_failed_detail", { detail: detail || "unknown" })
+          : copy("limits.apiKey.local_note")}
+      </div>
+    </form>
+  );
+}
+
+// Cookie alternative for users who never created an API key: the signed-in
+// opencode.ai `auth` cookie (the legacy scrape path, already implemented in
+// src/lib/opencode-go-limits.js) is all the workspace page needs. It shares the
+// credentials file with the key, but the key is tried first, so an existing
+// rejected key has to be cleared before the cookie can be used.
+function OpenCodeGoCookieInput({ onSaved }) {
+  const [cookie, setCookie] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [detail, setDetail] = useState("");
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = cookie.trim();
+    if (!value || status === "saving") return;
+    setStatus("saving");
+    setDetail("");
+    try {
+      const res = await fetch("/functions/tokentracker-opencode-go-key", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ cookie: value }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error || `HTTP ${res.status}`);
+      }
+      setCookie("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (err) {
+      setDetail(err?.message || "");
+      setStatus("failed");
+    }
+  };
+
+  const onClear = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await fetch("/functions/tokentracker-opencode-go-key", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ clear: true }),
+      });
+      setStatus("idle");
+      setDetail("");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("failed");
+      setDetail("clear_failed");
+    }
+  };
+
+  return (
+    <form className="mt-1.5 space-y-1.5" onSubmit={onSubmit} onClick={(e) => e.stopPropagation()}>
+      <textarea
+        value={cookie}
+        onChange={(e) => { setCookie(e.target.value); setStatus("idle"); setDetail(""); }}
+        placeholder={copy("limits.opencodeGo.cookie.placeholder")}
+        aria-label={copy("limits.opencodeGo.cookie.placeholder")}
+        rows={2}
+        spellCheck={false}
+        className="w-full rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[10.5px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={!cookie.trim() || status === "saving"}
+          className="rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.apiKey.saving")
+            : status === "saved"
+              ? copy("limits.apiKey.saved")
+              : copy("limits.opencodeGo.cookie.save")}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="rounded-md border border-oai-gray-300 px-2 py-1 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 transition-colors"
+        >
+          {copy("limits.opencodeGo.cookie.clear")}
+        </button>
+      </div>
+      <div className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+        {status === "failed"
+          ? copy("limits.apiKey.save_failed_detail", { detail: detail || "unknown" })
+          : copy("limits.opencodeGo.cookie.hint")}
       </div>
     </form>
   );
@@ -1816,7 +1967,9 @@ function EnvCredentialNotice({ providerId, data, onSaved }) {
   if (data?.credential_source !== "env") return null;
   const envName = PROVIDER_KEY_ENV[providerId];
   const storeId = PROVIDER_KEY_STORE_ID[providerId];
-  if (!envName || !storeId) return null;
+  // Only providers with a working save endpoint can offer the "save it here
+  // instead" box; without one the notice would be a dead end.
+  if (!envName || !storeId || !PROVIDER_KEY_ENDPOINT[storeId]) return null;
   return (
     <div className="mt-1.5 rounded-md border border-amber-300/60 bg-amber-50/60 px-2 py-1.5 text-[10.5px] leading-snug text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
       <div>{copy("limits.apiKey.env_note", { env: envName })}</div>
@@ -1879,7 +2032,11 @@ function OpenDesignCookieInput({ onSaved }) {
     try {
       const res = await fetch("/functions/tokentracker-opendesign-cookie", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({ cookie: value }),
       });
       if (!res.ok) throw new Error();
@@ -1951,7 +2108,11 @@ function MistralCookieInput({ onSaved }) {
     try {
       const res = await fetch("/functions/tokentracker-mistral-cookie", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({ cookie: value }),
       });
       if (!res.ok) throw new Error();
@@ -2026,7 +2187,11 @@ function OpenaiCreditsCredentialsInput({ onSaved }) {
     try {
       const res = await fetch("/functions/tokentracker-openai-credits-credentials", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({ sessionBearer: token, organization: org }),
       });
       if (!res.ok) throw new Error();
@@ -2116,7 +2281,11 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
     try {
       const res = await fetch("/functions/tokentracker-qoder-cookie", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({ namespace, cookie: value }),
       });
       if (!res.ok) throw new Error();
@@ -2271,7 +2440,9 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
         expandedId === id,
         () => setExpandedId((prev) => (prev === id ? null : id)),
         now,
-        null,
+        // Saving a pasted key refreshes the limits, so the card flips from
+        // "not connected" to its windows without a manual page reload.
+        onProviderKeySaved,
         { selected: petLimitRows, onToggle: togglePetLimitRow },
       );
     })
