@@ -267,19 +267,21 @@ final class ServerManager {
         process.environment = environment
         process.standardOutput = Pipe()
         process.standardError = Pipe()
-        process.terminationHandler = { proc in
-            Diag.info("Manual sync finished (status \(proc.terminationStatus))")
-        }
         do {
             try process.run()
             Diag.info("Manual sync started")
+            DispatchQueue.main.async { IslandStats.shared.setSyncing(true) }
             process.terminationHandler = { proc in
                 Diag.info("Manual sync finished (status \(proc.terminationStatus))")
-                DispatchQueue.main.async {
-                    IslandStats.shared.setSyncing(false)
+                DispatchQueue.main.async { IslandStats.shared.setSyncing(false) }
+            }
+            // Watchdog: a hung sync must not keep the pet in "syncing" forever.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 900) {
+                if process.isRunning {
+                    Diag.error("Manual sync exceeded 15 min — clearing syncing state")
+                    DispatchQueue.main.async { IslandStats.shared.setSyncing(false) }
                 }
             }
-            DispatchQueue.main.async { IslandStats.shared.setSyncing(true) }
         } catch {
             Diag.error("Manual sync failed to launch: \(error.localizedDescription)")
         }

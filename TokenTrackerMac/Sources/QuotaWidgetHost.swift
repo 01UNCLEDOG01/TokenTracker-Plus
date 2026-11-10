@@ -22,11 +22,16 @@ final class QuotaWidgetHost {
     var windowProvider: (() -> NSWindow?)?
     var serverURLProvider: (() -> URL?)?
     var onClose: (() -> Void)?
+    var onOpenDashboard: (() -> Void)?
 
     func handle(type: String, payload: [String: Any], webView: WKWebView) {
         switch type {
         case "quota:ready":
+            // A fresh page load re-registers its listener; the de-dupe cache
+            // must drop so the first context actually arrives (Windows sets
+            // _lastContext = null here — otherwise reopen = blank forever).
             ready = true
+            lastLimitsJSON = nil
             fetchAndPush()
             startPolling()
         case "quota:select":
@@ -44,6 +49,8 @@ final class QuotaWidgetHost {
             ready = false
             pollTimer?.invalidate()
             onClose?()
+        case "quota:dashboard":
+            onOpenDashboard?()
         default:
             break
         }
@@ -92,7 +99,7 @@ final class QuotaWidgetHost {
         guard let window = windowProvider?(),
               let webView = WebHost.webView(in: window) else { return }
         let selected = (UserDefaults.standard.array(forKey: "TTPQuotaSelected") as? [String])
-            .map { entries in "[" + entries.map { "\"\($0)\"" }.joined(separator: ",") + "]" } ?? "null"
+            .map { entries in "[" + entries.map { WebHost.jsString($0) }.joined(separator: ",") + "]" } ?? "null"
         let locale = Self.localeLiteral
         let light = !NSApp.effectiveAppearance.name.rawValue.contains("Dark")
         let payload = "{type:\"quota:context\",limits:\(limitsLiteral),failed:\(failed ? "true" : "false")," +

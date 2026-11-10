@@ -112,7 +112,7 @@ final class StatusItemController: NSObject {
                 button.image = frames[self.catFrameIndex]
                 // Speed up while a sync is in flight (upstream syncing = 0.2s).
                 let wanted: TimeInterval = IslandStats.shared.syncing ? 0.2 : 0.5
-                if abs(self.catFrameTimer?.timeInterval ?? wanted - wanted) > 0.01 {
+                if abs((self.catFrameTimer?.timeInterval ?? 0) - wanted) > 0.01 {
                     self.restartCatTimer(frames: frames, interval: wanted)
                 }
             }
@@ -201,7 +201,7 @@ final class StatusItemController: NSObject {
         quit.target = self
         quit.keyEquivalentModifierMask = [.command, .shift]
 
-        [dashboard, pet, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
+        [dashboard, pet, capsule, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
          login, update, NSMenuItem.separator(), quit].forEach { menu.addItem($0) }
         return menu
     }

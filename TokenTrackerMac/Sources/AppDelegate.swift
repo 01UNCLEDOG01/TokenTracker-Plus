@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var didShowPetOnReady = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Settings must be loaded before the status item installs — the tray
+        // style is read there (a late load made the persisted style ignored).
+        PetSettingsController.shared.load()
         petPanel = PetPanelController(serverURL: serverManager.serverURL)
         petPanel?.onOpenDashboard = { [weak self] in self?.openDashboard() }
         petPanel?.onContextMenu = { [weak self] point in
@@ -60,7 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        PetSettingsController.shared.load()
         PetSettingsController.shared.setVisible = { [weak self] visible in
             if visible { self?.petPanel?.show() } else { self?.petPanel?.hide() }
         }
@@ -106,6 +108,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PetSettingsController.shared.islandModeChanged = { [weak self] island in
             self?.capsule?.setIslandMode(island)
         }
+        capsule.onIslandModeChangedByDrag = { island in
+            PetSettingsController.shared.setIslandModeFromNative(island)
+        }
+        capsule.onMenu = { [weak self] point in
+            self?.statusItemController?.popMenu(at: point)
+        }
+        PetSettingsController.shared.petDragRequested = { [weak self] type in
+            let direction = type == "pet:drag-left" ? "running-left"
+                : type == "pet:drag-right" ? "running-right" : "running-right"
+            self?.petPanel?.beginNativeDrag(direction: direction)
+        }
+        PetSettingsController.shared.petBubbleHeightChanged = { [weak self] band in
+            self?.petPanel?.resizeForBubble(band: band)
+        }
         PetSettingsController.shared.quotaChanged = { [weak self] quota in
             guard let self else { return }
             if quota {
@@ -123,6 +139,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         QuotaWidgetHost.shared.onClose = { [weak self] in
             self?.widgetWindow?.window?.orderOut(nil)
             UserDefaults.standard.set(false, forKey: "TTPQuotaWidgetEnabled")
+            QuotaWidgetHost.shared.stop()
+        }
+        QuotaWidgetHost.shared.onOpenDashboard = { [weak self] in
+            self?.openDashboard()
         }
 
         serverManager.start()

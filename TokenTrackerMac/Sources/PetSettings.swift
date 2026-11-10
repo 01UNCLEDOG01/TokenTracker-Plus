@@ -46,6 +46,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     var petPanelProvider: (() -> PetPanelController?)?
     /// Pet character changed — the capsule dot tints to the companion.
     var characterChanged: ((String) -> Void)?
+    /// The pet page asks the native window to move (drag) / resize (bubble).
+    var petDragRequested: ((String) -> Void)?
+    var petBubbleHeightChanged: ((CGFloat) -> Void)?
     var islandModeChanged: ((Bool) -> Void)?
     var quotaChanged: ((Bool) -> Void)?
     var trayStyleChanged: ((String) -> Void)?
@@ -64,8 +67,9 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         // Windows defaults to "cat" (MonitorWidgetSettings.Load()?.TrayStyle ?? "cat").
         let trayStyle = d.string(forKey: "TTPTrayStyle") ?? "cat"
         let actionLock = d.string(forKey: "TTPPetActionLock") ?? "auto"
+        // Default true — the island is the shipped default (MonitorWidgetSettings).
         let islandMode = d.object(forKey: "TTPCapsuleIslandMode") == nil
-            ? false : d.bool(forKey: "TTPCapsuleIslandMode")
+            ? true : d.bool(forKey: "TTPCapsuleIslandMode")
         let quota = d.object(forKey: "TTPQuotaWidgetEnabled") == nil
             ? true : d.bool(forKey: "TTPQuotaWidgetEnabled")
         let monitor = d.object(forKey: "TTPCapsuleEnabled") == nil
@@ -102,6 +106,18 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
             QuotaWidgetHost.shared.handle(type: type, payload: obj, webView: webView)
             return
         }
+        // The pet page posts these through chrome.webview (petBridge channel):
+        // drag requests (native move loop) and the self-measured bubble height
+        // (host grows the window upward).
+        if type == "pet:drag" || type == "pet:drag-left" || type == "pet:drag-right" {
+            petDragRequested?(type)
+            return
+        }
+        if type.hasPrefix("pet:bubble-height:") {
+            let band = Double(type.dropFirst("pet:bubble-height:".count)) ?? 0
+            petBubbleHeightChanged?(CGFloat(band))
+            return
+        }
         switch type {
         case "getPetSettings":
             broadcastSettings()
@@ -112,6 +128,14 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
         default:
             Diag.info("Pet bridge message: \(type)")
         }
+    }
+
+    /// The capsule converted island -> free by being dragged; reflect it in the
+    /// settings page (Windows IslandModeChanged -> PushDashboardPetSettings).
+    func setIslandModeFromNative(_ island: Bool) {
+        settings.islandMode = island
+        UserDefaults.standard.set(island, forKey: "TTPCapsuleIslandMode")
+        broadcastSettings()
     }
 
     func apply(key: String, value: Any?) {
@@ -204,13 +228,15 @@ final class PetSettingsController: NSObject, WKScriptMessageHandler {
     func pushToPetPage() {
         guard let petPanel = petPanelProvider?(), let webView = petPanelPanelWebView(petPanel) else { return }
         let dark = NSApp.effectiveAppearance.name.rawValue.contains("Dark")
-        let script = "window.__ttPetCharacter=\"\(settings.character)\";" +
-            "window.__ttPetBotColor=\"\(settings.botColor)\";" +
-            "window.__ttPetSize=\"\(settings.size)\";" +
-            "window.__ttPetActionLock=\"\(settings.actionLock)\";" +
+        let script = "window.__ttPetCharacter=\(WebHost.jsString(settings.character));" +
+            "window.__ttPetBotColor=\(WebHost.jsString(settings.botColor));" +
+            "window.__ttPetSize=\(WebHost.jsString(settings.size));" +
+            "window.__ttPetActionLock=\(WebHost.jsString(settings.actionLock));" +
             "window.__ttPetDark=\(dark ? "true" : "false");" +
             "window.dispatchEvent(new Event('pet:character'));" +
             "window.dispatchEvent(new Event('pet:action-lock'));" +
+            "window.dispatchEvent(new Event('pet:botColor'));" +
+            "window.dispatchEvent(new Event('pet:dark'));" +
             "window.dispatchEvent(new Event('pet:settings'));"
         webView.evaluateJavaScript(script, completionHandler: nil)
     }

@@ -28,10 +28,17 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             panel.contentView = fresh
         }
         if let webView = WebHost.webView(in: panel) {
-            // Windows PetWindow navigates to the STATIC pet page with the app-mode
-            // flag (/pet.html?app=1) — the bare /pet route is the SPA fallback and
-            // renders the whole dashboard (the "pet window shows a stats card" bug).
-            WebHost.load(webView, path: "/pet.html?app=1", on: serverURL)
+            // Load only when the page has never navigated — a re-show must not
+            // reload (state/animation/scroll would reset; Windows only navigates
+            // when the webview is new).
+            if webView.url == nil {
+                // Windows PetWindow navigates to the STATIC pet page with the
+                // app-mode flag (/pet.html?app=1).
+                WebHost.load(webView, path: "/pet.html?app=1", on: serverURL)
+            } else {
+                lastHover = false
+                pushHover(false)
+            }
         }
         panel.orderFrontRegardless()
         startHoverTracking()
@@ -40,6 +47,11 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     func hide() {
         panel?.orderOut(nil)
         if lastHover { lastHover = false; pushHover(false) }
+        // A hide mid-drag must not leave the 60Hz loop running.
+        dragTimer?.invalidate()
+        dragTimer = nil
+        dragStartMouse = nil
+        dragStartFrame = nil
     }
 
     // MARK: Hover tracking (PetWindow.cs counterpart)
@@ -83,16 +95,18 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     private var dragTimer: Timer?
     private var dragStartMouse: NSPoint?
     private var dragStartFrame: NSPoint?
+    private var dragStartedAt = Date.distantPast
 
     /// The page hands the press to the host once the pointer travels past its
     /// drag threshold (pet.jsx: post "pet:drag-left/right"). Windows starts the
     /// OS modal move loop; here a 60Hz cursor-follow loop plays that role and
     /// the drag-state events drive the run animation.
-    private func beginNativeDrag(direction: String) {
+    func beginNativeDrag(direction: String) {
         guard let panel else { return }
         dragTimer?.invalidate()
         dragStartMouse = NSEvent.mouseLocation
         dragStartFrame = panel.frame.origin
+        dragStartedAt = Date()
         pushPetEvent("window.__ttPetDragState=\"\(direction)\";window.dispatchEvent(new Event('pet:drag-state'));")
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.stepNativeDrag()
@@ -104,12 +118,15 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
 
     private func stepNativeDrag() {
         guard let panel, let startMouse = dragStartMouse, let startFrame = dragStartFrame else { return }
-        if NSEvent.pressedMouseButtons == 0 {
+        // Watchdog: a lost mouse-up (Mission Control, secure input) must not
+        // leave the pet glued to the cursor forever (Windows finally-parity).
+        if NSEvent.pressedMouseButtons == 0 || Date().timeIntervalSince(dragStartedAt) > 120 {
             dragTimer?.invalidate()
             dragTimer = nil
             dragStartMouse = nil
             dragStartFrame = nil
             pushPetEvent("window.__ttPetDragState=null;window.dispatchEvent(new Event('pet:drag-end'));")
+            clampIntoVisibleFrame(panel)
             Diag.info("Pet native drag ended at \(panel.frame.origin)")
             return
         }
@@ -136,7 +153,8 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
     }
 
     private func pushPetEvent(_ script: String) {
-        guard let webView = WebHost.webView(in: panel) else { return }
+        // Hidden windows don't need sleep/wake ticks pushed into them.
+        guard let panel, panel.isVisible, let webView = WebHost.webView(in: panel) else { return }
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
@@ -185,6 +203,19 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         isVisible ? hide() : show()
     }
 
+    /// Windows Place() clamps placement into the work area; an off-screen saved
+    /// frame (or a drag that ran past the edge) must snap back.
+    func clampIntoVisibleFrame(_ panel: NSWindow) {
+        guard let screen = panel.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        var frame = panel.frame
+        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+        if frame.origin != panel.frame.origin {
+            panel.setFrameOrigin(frame.origin)
+        }
+    }
+
     /// Reposition to the bottom-right corner (first show after launch) — the
     /// Windows pet's default dock spot.
     func placeAtDefaultCorner() {
@@ -222,6 +253,7 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         if UserDefaults.standard.dictionary(forKey: "NSWindow Frame TTPPetPanel") == nil {
             placeAtDefaultCorner()
         } else {
+            clampIntoVisibleFrame(panel)
             Diag.info("Pet restored saved position \(panel.frame.origin)")
         }
         return panel
@@ -241,12 +273,6 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
             window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tt.postMessage(name);
           });
         });
-        // The page measures its hover limits popup / bubble and asks the host to
-        // grow the window upward (PetWindow.cs: pet:bubble-height:<n>).
-        window.addEventListener('pet:bubble-height', function (e) {
-          var h = e && e.detail && Number(e.detail.height);
-          window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tt.postMessage('pet:bubble-height:' + (Number.isFinite(h) ? h : 0));
-        });
         """
         let script = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         webView.configuration.userContentController.addUserScript(script)
@@ -264,16 +290,6 @@ final class PetPanelController: NSObject, NSWindowDelegate, WKScriptMessageHandl
         case "menu":
             onContextMenu?(NSEvent.mouseLocation)
         default:
-            if body == "pet:drag" || body == "pet:drag-left" || body == "pet:drag-right" {
-                beginNativeDrag(direction: body == "pet:drag-left" ? "running-left"
-                                : body == "pet:drag-right" ? "running-right" : "running-right")
-                return
-            }
-            if body.hasPrefix("pet:bubble-height:") {
-                let value = Int(body.dropFirst("pet:bubble-height:".count)) ?? 0
-                resizeForBubble(band: CGFloat(value))
-                return
-            }
             Diag.info("Pet bridge message: \(body)")
         }
     }

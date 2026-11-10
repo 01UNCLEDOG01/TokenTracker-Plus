@@ -15,6 +15,9 @@ final class WebNavLogger: NSObject, WKNavigationDelegate {
         Diag.info("[web] done \(webView.url?.absoluteString ?? "?") title=\(webView.title ?? "")")
         if webView.url?.path.hasSuffix("/pet.html") == true {
             PetSettingsController.shared.pushToPetPage()
+            // Windows NavigationCompleted -> PushContext: without this every
+            // reopen sat blank until the next 60s poll.
+            IslandStats.shared.pushPetBubble()
         }
     }
 
@@ -78,6 +81,17 @@ enum WebHost {
             return contentView
         }
         return window?.contentView?.subviews.compactMap { $0 as? WKWebView }.first
+    }
+
+    /// JSON-encoded JS string literal — never interpolate raw user/page data
+    /// (character ids, currency symbols from localStorage, locale ids) straight
+    /// into evaluateJavaScript; a stray quote breaks or injects the script.
+    static func jsString(_ value: String) -> String {
+        // JSONSerialization rejects a bare top-level String (ObjC exception ->
+        // abort); JSONEncoder happily encodes a fragment as "…".
+        guard let data = try? JSONEncoder().encode(value),
+              let literal = String(data: data, encoding: .utf8) else { return "\"\"" }
+        return literal
     }
 
     static func load(_ webView: WKWebView, path: String, on serverURL: URL) {

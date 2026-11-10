@@ -101,6 +101,12 @@ final class IslandStats: NSObject {
     }
     private nonisolated(unsafe) var _onStatsUpdated: (() -> Void)?
 
+    /// Finite-safe JS numeric literal (NaN/inf would print as bare identifiers
+    /// and abort the whole push script).
+    static func jsNumber(_ value: Double) -> String {
+        value.isFinite ? String(value) : "0"
+    }
+
     static func tokensText(_ tokens: Double) -> String {
         if tokens >= 1e8 { return String(format: "%.1f亿", tokens / 1e8) }
         if tokens >= 1e4 { return String(format: "%.0f万", tokens / 1e4) }
@@ -128,7 +134,12 @@ final class IslandStats: NSObject {
                     let httpOK = (response as? HTTPURLResponse)?.statusCode == 200
                     guard error == nil, httpOK, let data,
                           let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                          let totals = payload["totals"] as? [String: Any] else { return }
+                          let totals = payload["totals"] as? [String: Any] else {
+                        self.today.fetched = false
+                        Diag.error("usage-summary fetch failed: \(error?.localizedDescription ?? "bad payload")")
+                        self.pushPetBubble()
+                        return
+                    }
                     func num(_ v: Any?) -> Double {
                         if let n = v as? NSNumber { return n.doubleValue }
                         if let t = v as? String { return Double(t) ?? 0 }
@@ -205,10 +216,15 @@ final class IslandStats: NSObject {
         // pet:locale (pet.jsx: "PushContext dispatches pet:locale on every
         // push, so it also carries unit changes") — without these the pill
         // keeps the mount-time defaults ($ / western).
+        // Event set mirrors PetWindow.FlushContextAsync: the page re-reads each
+        // global only on its own event — pet:limits was the missing one that
+        // kept the hover limit rows empty forever.
         script += "window.dispatchEvent(new Event('pet:usage'));" +
             "window.dispatchEvent(new Event('pet:bubble-band'));" +
+            "window.dispatchEvent(new Event('pet:limits'));" +
             "window.dispatchEvent(new Event('pet:currency'));" +
             "window.dispatchEvent(new Event('pet:locale'));" +
+            "window.dispatchEvent(new Event('pet:connected'));" +
             "window.dispatchEvent(new Event('pet:syncing'));"
         webView.evaluateJavaScript(script) { _, error in
             if let error {
