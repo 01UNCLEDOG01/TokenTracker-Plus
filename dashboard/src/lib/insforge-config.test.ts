@@ -38,6 +38,60 @@ describe("instance-bound frontend SDK", () => {
     expect(config.getInsforgeConnectionHost()).toBeNull();
     expect(config.getOrCreateInsforgeClient()).toBeNull();
   });
+  it("treats the CLI's local-only runtime descriptor as a valid no-cloud state", async () => {
+    // Exact payload the CLI serves for an offline / single-machine run
+    // (src/lib/local-api.js, /api/runtime-config.js): no backend URL, no
+    // configuration error, `localOnly: true`. This must not raise the
+    // "instance connection is not configured safely" banner.
+    window.__TOKENTRACKER_RUNTIME_CONFIG__ = {
+      baseUrl: "", anonKey: null, dashboardUrl: "", configurationError: null,
+      localHistory: true, localOnly: true,
+    } as any;
+    const config = await import("./insforge-config");
+    expect(config.getInsforgeConfiguration()).toMatchObject({ baseUrl: "", anonKey: "", errorCode: null, source: "runtime" });
+    expect(config.getInsforgeConfigurationError()).toBeNull();
+    expect(config.isCloudInsforgeConfigured()).toBe(false);
+    expect(config.isOfficialInsforgeInstance()).toBe(false);
+    expect(config.getInsforgeRemoteUrl()).toBe("");
+    expect(config.getInsforgeAnonKey()).toBe("");
+    expect(config.getInsforgeConnectionHost()).toBeNull();
+    expect(config.getOrCreateInsforgeClient()).toBeNull();
+    expect(sdk.create).not.toHaveBeenCalled();
+  });
+  it("still surfaces a genuinely broken self-hosted runtime descriptor", async () => {
+    const config = await import("./insforge-config");
+    const descriptors = [
+      // Malformed persisted config (the CLI marks local config invalid).
+      { baseUrl: "", anonKey: null, configurationError: "invalid_local_config", localOnly: true },
+      // A descriptor that claims a deployment but carries no usable URL.
+      { baseUrl: "", anonKey: "", configurationError: "invalid_insforge_base_url", localOnly: true },
+      { baseUrl: "", anonKey: "", localOnly: false },
+      { baseUrl: "", anonKey: "" },
+    ] as any[];
+    for (const descriptor of descriptors) {
+      window.__TOKENTRACKER_RUNTIME_CONFIG__ = descriptor;
+      expect(config.getInsforgeConfigurationError()).toBe("runtime_configuration_error");
+      expect(config.isCloudInsforgeConfigured()).toBe(false);
+      expect(config.isOfficialInsforgeInstance()).toBe(false);
+      expect(config.getInsforgeConnectionHost()).toBeNull();
+      expect(config.getOrCreateInsforgeClient()).toBeNull();
+    }
+    expect(sdk.create).not.toHaveBeenCalled();
+  });
+  it("keeps a configured self-hosted runtime instance usable even though the CLI is local-only", async () => {
+    // The local CLI descriptor always sets `localOnly` (this origin is the local
+    // server), but an explicitly configured backend must still validate and
+    // produce a client.
+    window.__TOKENTRACKER_RUNTIME_CONFIG__ = {
+      baseUrl: "https://self-host.example", anonKey: anon("self-host"), localOnly: true,
+    } as any;
+    const config = await import("./insforge-config");
+    expect(config.isCloudInsforgeConfigured()).toBe(true);
+    expect(config.isOfficialInsforgeInstance()).toBe(false);
+    expect(config.getInsforgeConnectionHost()).toBe("self-host.example");
+    expect(config.getInsforgeConfigurationError()).toBeNull();
+    expect(config.getOrCreateInsforgeClient()).not.toBeNull();
+  });
   it("does not expose the official key when custom VITE deployment forgot its key", async () => {
     vi.stubEnv("VITE_INSFORGE_BASE_URL", "https://custom.example");
     const config = await import("./insforge-config");
