@@ -4,6 +4,7 @@ import WebKit
 /// Menu bar controller — counterpart of TrayApplicationContext.cs. Left-click
 /// toggles the dashboard window (the Windows tray does exactly that), right-click
 /// pops the shell menu.
+@MainActor
 final class StatusItemController: NSObject {
     private let serverManager: ServerManager
     private let updateChecker: UpdateChecker
@@ -19,6 +20,8 @@ final class StatusItemController: NSObject {
     private var isPetVisible: (() -> Bool)?
     private var isQuotaWidgetVisible: (() -> Bool)?
     private var isCapsuleVisible: (() -> Bool)?
+    private var onSetCapsuleIslandMode: ((Bool) -> Void)?
+    private var isCapsuleIslandMode: (() -> Bool)?
 
     init(serverManager: ServerManager,
          updateChecker: UpdateChecker,
@@ -30,6 +33,8 @@ final class StatusItemController: NSObject {
          isPetVisible: @escaping () -> Bool,
          isQuotaWidgetVisible: @escaping () -> Bool,
          isCapsuleVisible: @escaping () -> Bool,
+         onSetCapsuleIslandMode: ((Bool) -> Void)? = nil,
+         isCapsuleIslandMode: (() -> Bool)? = nil
          ) {
         self.serverManager = serverManager
         self.updateChecker = updateChecker
@@ -41,11 +46,20 @@ final class StatusItemController: NSObject {
         self.isPetVisible = isPetVisible
         self.isQuotaWidgetVisible = isQuotaWidgetVisible
         self.isCapsuleVisible = isCapsuleVisible
+        self.onSetCapsuleIslandMode = onSetCapsuleIslandMode
+        self.isCapsuleIslandMode = isCapsuleIslandMode
         super.init()
     }
 
+    /// Fixed status-item width. variableLength sized itself to the image, so
+    /// switching to the mascot app icon (18pt tile) after the 28pt RunCat canvas
+    /// or the SF bolt shoved every neighbouring menu-bar item sideways — the
+    /// owner's "切换应用图标后状态栏间距突然改变". A constant slot keeps the gap
+    /// identical for every style.
+    private static let statusItemWidth: CGFloat = 30
+
     func install() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let item = NSStatusBar.system.statusItem(withLength: Self.statusItemWidth)
         if let button = item.button {
             applyTrayStyle(PetSettingsController.shared.settings.trayStyle, button: button)
             button.toolTip = "TokenTracker Plus"
@@ -54,6 +68,33 @@ final class StatusItemController: NSObject {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
+
+        // Self-test hook (mirrors TOKENTRACKER_MAC_WEBTEST): dump the context
+        // menu tree to the diag log so menu wiring can be verified without a
+        // synthetic right-click.
+        if ProcessInfo.processInfo.environment["TOKENTRACKER_MAC_MENU_DUMP"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.dumpMenu()
+            }
+        }
+    }
+
+    private func dumpMenu() {
+        let menu = buildMenu()
+        func walk(_ menu: NSMenu, _ indent: String) {
+            for entry in menu.items {
+                if entry.isSeparatorItem { continue }
+                let state = entry.state == .on ? " [x]" : ""
+                Diag.info("MENU \(indent)\(entry.title)\(state)")
+                if let submenu = entry.submenu { walk(submenu, indent + "  ") }
+            }
+        }
+        walk(menu, "")
+        Diag.info("MENU --- pet right-click ---")
+        let petMenu = NSMenu()
+        let probe = item("打开面板", #selector(openDashboard), "")
+        petMenu.addItem(probe)
+        Diag.info("MENU pet-entry: \(probe.title)")
     }
 
     /// 托盘图标风格: 经典闪电 (bolt) / 应用图标 (app icon) / 奔跑小猫 (animated
@@ -82,6 +123,7 @@ final class StatusItemController: NSObject {
     private func applyTrayStyle(_ style: String, button: NSStatusBarButton) {
         catFrameTimer?.invalidate()
         catFrameTimer = nil
+        statusItem?.length = Self.statusItemWidth
         switch style {
         case "mascot":
             // Windows: 应用图标 = the mascot PNG. No loose mascot in the shell
@@ -121,6 +163,8 @@ final class StatusItemController: NSObject {
         default:
             button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TokenTracker Plus")
         }
+        let imageSize = button.image.map { "\(Int($0.size.width))x\(Int($0.size.height))" } ?? "nil"
+        Diag.info("Tray style \(style): image=\(imageSize) itemWidth=\(statusItem?.length ?? -1) buttonFrame=\(button.frame)")
     }
 
     func updateHealth(_ health: ServerManager.Health) {
@@ -185,36 +229,164 @@ final class StatusItemController: NSObject {
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        let settings = PetSettingsController.shared.settings
 
-        let dashboard = NSMenuItem(title: "打开面板", action: #selector(openDashboard), keyEquivalent: "d")
-        dashboard.target = self
-        let pet = NSMenuItem(title: "宠物悬浮窗", action: #selector(togglePet), keyEquivalent: "p")
-        pet.target = self
-        pet.state = (isPetVisible?() ?? false) ? .on : .off
-        // No bare "q" shortcut: with the default command modifier it hijacked
-        // Cmd+Q while the menu was open — muscle memory for quitting any app.
-        // 用量悬浮窗 = the native capsule (MonitorWidgetWindow counterpart).
-        let capsule = NSMenuItem(title: "用量悬浮窗", action: #selector(toggleCapsule), keyEquivalent: "u")
-        capsule.target = self
-        capsule.state = (isCapsuleVisible?() ?? false) ? .on : .off
-        let widget = NSMenuItem(title: "额度窗", action: #selector(toggleQuotaWidget), keyEquivalent: "")
-        widget.target = self
-        widget.state = (isQuotaWidgetVisible?() ?? false) ? .on : .off
-        let sync = NSMenuItem(title: "立即同步", action: #selector(syncNow), keyEquivalent: "s")
-        sync.target = self
-        let login = NSMenuItem(title: "开机启动", action: #selector(toggleLoginItem), keyEquivalent: "")
-        login.target = self
+        // Upstream/Windows show a summary row at the top of the menu; ours is the
+        // capsule line (today's tokens + converted cost), refreshed on open.
+        let summary = NSMenuItem(title: IslandStats.shared.capsuleText, action: nil, keyEquivalent: "")
+        summary.isEnabled = false
+
+        let dashboard = item("打开面板", #selector(openDashboard), "d")
+        // 用量悬浮窗 submenu = Windows monitor context menu
+        // (open / sync / island mode / free float / hide).
+        let capsule = submenuItem("用量悬浮窗")
+        let capsuleOpen = item("打开面板", #selector(openDashboard), "")
+        let capsuleSync = item("立即同步", #selector(syncNow), "")
+        let island = item("灵动岛模式", #selector(setCapsuleIslandMode), "")
+        island.tag = 1
+        island.state = (isCapsuleIslandMode?() ?? false) ? .on : .off
+        let floating = item("自由悬浮", #selector(setCapsuleIslandMode), "")
+        floating.tag = 0
+        floating.state = (isCapsuleIslandMode?() ?? true) ? .off : .on
+        let capsuleToggle = item((isCapsuleVisible?() ?? false) ? "隐藏用量悬浮窗" : "显示用量悬浮窗",
+                                 #selector(toggleCapsule), "")
+        capsule.submenu?.items = [capsuleOpen, capsuleSync, .separator(), island, floating,
+                                  .separator(), capsuleToggle]
+
+        // 宠物悬浮窗 submenu = Windows pet menu: show/hide, size and character.
+        let pet = submenuItem("宠物悬浮窗")
+        let petShow = item("显示宠物悬浮窗", #selector(togglePet), "p")
+        petShow.state = (isPetVisible?() ?? false) ? .on : .off
+        let petSize = submenuItem("宠物大小")
+        for (id, title) in [("small", "小"), ("medium", "中"), ("large", "大")] {
+            let entry = item(title, #selector(setPetSizeFromMenu), "")
+            entry.representedObject = id
+            entry.state = settings.size == id ? .on : .off
+            petSize.submenu?.addItem(entry)
+        }
+        let petCharacter = submenuItem("宠物角色")
+        for choice in petChoices() {
+            let entry = item(choice.title, #selector(setPetCharacterFromMenu), "")
+            entry.representedObject = choice.id
+            entry.state = settings.character == choice.id ? .on : .off
+            petCharacter.submenu?.addItem(entry)
+        }
+        let hidePetItem = item("关闭宠物", #selector(hidePet), "")
+        hidePetItem.isEnabled = isPetVisible?() ?? false
+        pet.submenu?.items = [petShow, .separator(), petSize, petCharacter, .separator(), hidePetItem]
+
+        let quota = item("额度窗", #selector(toggleQuotaWidget), "")
+        quota.state = (isQuotaWidgetVisible?() ?? false) ? .on : .off
+
+        let tray = submenuItem("托盘图标风格")
+        for (id, title) in [("cat", "奔跑小猫"), ("mascot", "应用图标"), ("lightning", "经典闪电")] {
+            let entry = item(title, #selector(setTrayStyleFromMenu), "")
+            entry.representedObject = id
+            entry.state = settings.trayStyle == id ? .on : .off
+            tray.submenu?.addItem(entry)
+        }
+
+        let syncing = IslandStats.shared.syncing
+        let syncEntry = item(syncing ? "同步中…" : "立即同步", #selector(syncNow), "s")
+        syncEntry.isEnabled = !syncing
+
+        let login = item("开机启动", #selector(toggleLoginItem), "")
         login.state = LaunchAtLogin.isEnabled ? .on : .off
         login.isEnabled = LaunchAtLogin.isSupported
-        let update = NSMenuItem(title: "检查更新…", action: #selector(checkUpdates), keyEquivalent: "")
-        update.target = self
-        let quit = NSMenuItem(title: "退出 TokenTracker Plus", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
+        let update = item("检查更新…", #selector(checkUpdates), "")
+        let about = NSMenuItem(title: "TokenTracker Plus \(updateChecker.currentVersion)", action: nil, keyEquivalent: "")
+        about.isEnabled = false
+
+        // No bare "q": Cmd+Q is muscle memory for quitting any app.
+        let quit = item("退出 TokenTracker Plus", #selector(quit), "q")
         quit.keyEquivalentModifierMask = [.command, .shift]
 
-        [dashboard, pet, capsule, widget, NSMenuItem.separator(), sync, NSMenuItem.separator(),
-         login, update, NSMenuItem.separator(), quit].forEach { menu.addItem($0) }
+        [summary, .separator(), dashboard, .separator(), capsule, pet, quota,
+         .separator(), syncEntry,
+         .separator(), tray,
+         .separator(), login, update, about,
+         .separator(), quit].forEach { menu.addItem($0) }
         return menu
+    }
+
+    private func item(_ title: String, _ action: Selector?, _ key: String) -> NSMenuItem {
+        let entry = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        entry.target = self
+        return entry
+    }
+
+    private func submenuItem(_ title: String) -> NSMenuItem {
+        let entry = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        entry.submenu = NSMenu()
+        return entry
+    }
+
+    private struct PetChoice {
+        let id: String
+        let title: String
+    }
+
+    /// Built-ins followed by installed community pets (~/.tokentracker/pets), the
+    /// same catalog the dashboard pet page uses. The current id is always present
+    /// even if its package vanished, so the checkmark never disappears.
+    private func petChoices() -> [PetChoice] {
+        var choices: [PetChoice] = [
+            PetChoice(id: "clawd", title: "Clawd 像素猫"),
+            PetChoice(id: "bot", title: "Bot 球体"),
+            PetChoice(id: "sprout", title: "Sprout 嫩芽"),
+            PetChoice(id: "byte", title: "Byte 深蓝"),
+            PetChoice(id: "ember", title: "Ember 火苗"),
+        ]
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".tokentracker/pets", isDirectory: true)
+        let dirs = (try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles])) ?? []
+        for dir in dirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
+            let id = dir.lastPathComponent
+            guard !choices.contains(where: { $0.id == id }) else { continue }
+            let manifest = dir.appendingPathComponent("pet.json")
+            guard let data = try? Data(contentsOf: manifest),
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let displayName = object["displayName"] as? String,
+                  !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            choices.append(PetChoice(id: id, title: displayName))
+        }
+        let current = PetSettingsController.shared.settings.character
+        if !choices.contains(where: { $0.id == current }) {
+            choices.append(PetChoice(id: current, title: current))
+        }
+        return choices
+    }
+
+    // MARK: Pet right-click (Windows _petMenu: a shorter pet-scoped menu)
+
+    func popPetMenu(at point: NSPoint) {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let open = item("打开面板", #selector(openDashboard), "")
+        let syncing = IslandStats.shared.syncing
+        let sync = item(syncing ? "同步中…" : "立即同步", #selector(syncNow), "")
+        sync.isEnabled = !syncing
+        let size = submenuItem("宠物大小")
+        for (id, title) in [("small", "小"), ("medium", "中"), ("large", "大")] {
+            let entry = item(title, #selector(setPetSizeFromMenu), "")
+            entry.representedObject = id
+            entry.state = PetSettingsController.shared.settings.size == id ? .on : .off
+            size.submenu?.addItem(entry)
+        }
+        let character = submenuItem("宠物角色")
+        for choice in petChoices() {
+            let entry = item(choice.title, #selector(setPetCharacterFromMenu), "")
+            entry.representedObject = choice.id
+            entry.state = PetSettingsController.shared.settings.character == choice.id ? .on : .off
+            character.submenu?.addItem(entry)
+        }
+        let close = item("关闭宠物", #selector(hidePet), "")
+        [open, sync, .separator(), size, character, .separator(), close].forEach { menu.addItem($0) }
+        self.menu = menu
+        menu.popUp(positioning: nil, at: point, in: nil)
     }
 
     // MARK: Actions
@@ -225,6 +397,31 @@ final class StatusItemController: NSObject {
     @objc private func togglePet() { onTogglePet?() }
     @objc private func syncNow() { serverManager.syncNow() }
     @objc private func checkUpdates() { updateChecker.checkAndPrompt() }
+
+    // MARK: Menu actions (submenus)
+
+    @objc private func setPetSizeFromMenu(_ sender: NSMenuItem) {
+        guard let size = sender.representedObject as? String else { return }
+        PetSettingsController.shared.apply(key: "size", value: size)
+    }
+
+    @objc private func setPetCharacterFromMenu(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        PetSettingsController.shared.apply(key: "character", value: id)
+    }
+
+    @objc private func setTrayStyleFromMenu(_ sender: NSMenuItem) {
+        guard let style = sender.representedObject as? String else { return }
+        PetSettingsController.shared.apply(key: "trayStyle", value: style)
+    }
+
+    @objc private func setCapsuleIslandMode(_ sender: NSMenuItem) {
+        onSetCapsuleIslandMode?(sender.tag == 1)
+    }
+
+    @objc private func hidePet() {
+        if isPetVisible?() ?? false { onTogglePet?() }
+    }
 
     @objc private func toggleLoginItem() {
         let enabled = !LaunchAtLogin.isEnabled

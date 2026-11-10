@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sizePreset: PetSizePreset.normalize(PetSettingsController.shared.settings.size))
         petPanel?.onOpenDashboard = { [weak self] in self?.openDashboard() }
         petPanel?.onContextMenu = { [weak self] point in
-            self?.statusItemController?.popMenu(at: point)
+            self?.statusItemController?.popPetMenu(at: point)
         }
 
         self.widgetWindow = QuotaWidgetWindowController(serverURLProvider: { [weak self] in
@@ -46,7 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onToggleCapsule: { [weak self] in self?.toggleCapsule() },
             isPetVisible: { [weak self] in self?.isPetVisible ?? false },
             isQuotaWidgetVisible: { [weak self] in self?.isQuotaWidgetVisible ?? false },
-            isCapsuleVisible: { [weak self] in self?.isCapsuleVisible ?? false })
+            isCapsuleVisible: { [weak self] in self?.isCapsuleVisible ?? false },
+            onSetCapsuleIslandMode: { [weak self] island in
+                UserDefaults.standard.set(island, forKey: "TTPCapsuleIslandMode")
+                self?.capsule?.setIslandMode(island)
+            },
+            isCapsuleIslandMode: { [weak self] in self?.capsule?.islandMode ?? true })
         statusItemController?.install()
 
         serverManager.onHealthChange = { [weak self] health in
@@ -197,20 +202,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         PetSettingsController.shared.trayStyleChanged = { [weak self] style in
+            // Tray style is the MENU-BAR icon style only. The island dot is the
+            // pet indicator and always follows the selected pet (mac divergence
+            // from Windows, owner request 2026-11-10).
             self?.statusItemController?.setTrayStyle(style)
-            // Windows SetTrayStyle also re-styles the pill: cat -> cat animation,
-            // lightning -> amber dot, mascot -> pet-coloured dot.
-            let settings = PetSettingsController.shared.settings
-            self?.capsule?.setAppearance(character: settings.character,
-                                         botColor: settings.botColor,
-                                         trayStyle: style)
         }
         capsule.setIslandMode(PetSettingsController.shared.settings.islandMode)
         // Seed the pill appearance from the persisted settings even before the
         // first show (Windows ctor ApplyStyle).
         capsule.setAppearance(character: PetSettingsController.shared.settings.character,
-                              botColor: PetSettingsController.shared.settings.botColor,
-                              trayStyle: PetSettingsController.shared.settings.trayStyle)
+                              botColor: PetSettingsController.shared.settings.botColor)
         QuotaWidgetHost.shared.windowProvider = { [weak self] in self?.widgetWindow?.window }
         QuotaWidgetHost.shared.serverURLProvider = { [weak self] in self?.serverManager.serverURL }
         QuotaWidgetHost.shared.onClose = { [weak self] in
