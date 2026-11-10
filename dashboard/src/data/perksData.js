@@ -289,7 +289,7 @@ export const PERK_PROVIDERS = [
       "featured"
     ],
     "badge": "新户领 2 亿 tokens（¥120）+ 每日签到领积分",
-    "badgeType": "rose",
+    "badgeType": "amber",
     "tags": [
       "智谱出品",
       "一键安装Agent",
@@ -734,7 +734,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "新户每模型 50 万 · 个人每日单模型 200 万",
-    "badgeType": "amber",
+    "badgeType": "purple",
     "tags": [
       "字节大厂",
       "多模型赠送",
@@ -1513,7 +1513,7 @@ export const PERK_PROVIDERS = [
       "featured"
     ],
     "badge": "周五晚常有限时 GLM-5.3-Flash 3 亿额度",
-    "badgeType": "rose",
+    "badgeType": "amber",
     "tags": [
       "智谱出品",
       "编程智能体",
