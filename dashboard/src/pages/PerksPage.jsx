@@ -219,6 +219,8 @@ function renderBoldText(text) {
 }
 
 function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
+  // 活动截止倒计时（只有数据里写了 endsAt 的卡才有）
+  const deadline = perkDaysLeft(item.endsAt);
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = (e) => {
@@ -291,6 +293,25 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
             <Sparkles className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
             <span className="min-w-0 leading-tight">{item.badge}</span>
           </div>
+          {deadline && (
+            <span
+              className={cn(
+                "mt-2 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
+                deadline.ended
+                  ? "border-oai-gray-200 bg-oai-gray-100 text-oai-gray-500 dark:border-oai-gray-700 dark:bg-oai-gray-800 dark:text-oai-gray-400"
+                  : deadline.days <= 3
+                    ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:border-rose-400/30 dark:bg-rose-500/15 dark:text-rose-300"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300",
+              )}
+            >
+              <Info className="h-3 w-3" aria-hidden />
+              <span>
+                {deadline.ended
+                  ? copy("perks.deal.ended")
+                  : copy("perks.deal.left_days", { days: deadline.days })}
+              </span>
+            </span>
+          )}
         </div>
 
         {/* Description */}
@@ -477,6 +498,24 @@ function formatCountdown(msLeft) {
 //   未领取 = 纸质正面（面值条 + 图标底座 + 品牌名），深色主题下也是浅色卡；
 //   已领取 = 翻到青色卡背（双向斜纹 + 3px 白边 + 白底圆形 logo + ×N），领取瞬间 rotateY 翻面。
 // 只渲染当前那一面：同品牌名不会在页面/无障碍树里出现两次（下方详情卡还有一份 h3）。
+// 活动截止倒计时：endsAt 是北京时间自然日（YYYY-MM-DD），当日 23:59 失效。
+// 只给数据里写明截止日的卡加了 endsAt，没写的不编。
+export function perkDaysLeft(endsAt, nowMs = Date.now()) {
+  if (!endsAt) return null;
+  const end = Date.parse(`${endsAt}T23:59:59+08:00`);
+  if (!Number.isFinite(end)) return null;
+  const ms = end - nowMs;
+  return { ended: ms <= 0, days: Math.max(0, Math.ceil(ms / 86400000)) };
+}
+
+// 卡册稀有度：照 AIHOT 按「累计领取次数」分三档（青 / 金 / 闪）。
+export function albumRarity(streak) {
+  if (Number(streak) >= 30) return "holo";
+  if (Number(streak) >= 15) return "gold";
+  if (Number(streak) >= 7) return "teal";
+  return null;
+}
+
 function AlbumMiniLogo({ item, hasIcon }) {
   if (hasIcon) {
     return <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />;
@@ -487,6 +526,8 @@ function AlbumMiniLogo({ item, hasIcon }) {
 function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
+  const rarity = albumRarity(streak);
+  const sealed = collected && Boolean(perkDaysLeft(item.endsAt)?.ended);
   // 已收卡再领（连击 +1）时重播一次翻面：首次收卡的翻面靠 is-collected
   // class 首次挂上触发，连击不换 class、动画不重播——用 key 重建卡背
   // 节点强制重播同款 rotateY。mount 时不播（prevStreak 初值即当前值）。
@@ -509,13 +550,25 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
       )}
     >
       {collected ? (
-        <span key={flipKey} className="perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
+        <span
+          key={flipKey}
+          className={cn(
+            "perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg",
+            rarity === "gold" ? "perk-rarity-gold" : null,
+            rarity === "holo" ? "perk-rarity-holo" : null,
+          )}
+        >
           <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
             <AlbumMiniLogo item={item} hasIcon={hasIcon} />
           </span>
           {streak !== 0 && (
             <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
               ×{streak}
+            </span>
+          )}
+          {sealed && (
+            <span className="perk-seal absolute -right-1 top-2 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
+              {copy("perks.album.sealed")}
             </span>
           )}
           <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px] rounded-b-md", accent)} aria-hidden />
@@ -549,7 +602,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
   );
 }
 
-function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected, total }) {
+function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected, total, sealedCount }) {
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -583,6 +636,7 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected,
       </p>
       <p className="text-[11px] font-medium text-oai-gray-600 dark:text-oai-gray-300">
         {copy("perks.album.collected", { collected, total })}
+        {sealedCount > 0 ? ` · ${copy("perks.album.sealed_count", { count: sealedCount })}` : null}
       </p>
     </div>
   );
@@ -593,6 +647,8 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
+  // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
+  const sealedCount = items.filter((entry) => entry.collected && perkDaysLeft(entry.item?.endsAt)?.ended).length;
   const claimableTodayYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanPending || 0); }, 0);
   const claimedMonthYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanMonthlyClaimed || 0); }, 0);
   return (
@@ -603,6 +659,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
         claimDay={claimDay}
         collected={collected}
         total={items.length}
+        sealedCount={sealedCount}
       />
       <div
         className="min-w-0 flex-1 rounded-2xl border border-oai-gray-200/80 bg-oai-gray-50/60 p-4 dark:border-oai-gray-800 dark:bg-oai-gray-950/50"

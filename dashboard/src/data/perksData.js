@@ -312,6 +312,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://autoclaw.zhipuai.cn",
     "inviteCode": "GX4HHVHS",
     "hasInvite": true,
+    "endsAt": "2026-11-15",
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://autoclaw.zhipuai.cn"
   },
@@ -866,6 +867,7 @@ export const PERK_PROVIDERS = [
     "tips": "登录后在「我的额度」查看实名赠额是否到账（有效期一个月）；充值买一送一档位与截止以首页横幅当期规则为准。",
     "officialUrl": "https://tokenrhythm.studio",
     "hasInvite": false,
+    "endsAt": "2026-11-13",
     "checkedAt": "2026-11-01",
     "sourceUrl": "https://tokenrhythm.studio/"
   },
@@ -1190,6 +1192,7 @@ export const PERK_PROVIDERS = [
     "inviteUrl": "https://s.qiniu.com/INbIn2",
     "officialUrl": "https://www.qiniu.com",
     "hasInvite": true,
+    "endsAt": "2026-11-30",
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://www.qiniu.com/ai/free-models/conatus-2026"
   },

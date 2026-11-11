@@ -1485,3 +1485,50 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
     transition: none;
   }
 }
+
+/* 卡册稀有度（照 AIHOT）：累计领取 7+ 青、15+ 金、30+ 闪。
+   青档就是默认卡背，只有金/闪改材质。 */
+.tt-perks-page .perk-rarity-gold {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(160deg, #fff7dc 0%, #e9c66d 30%, #b2862a 52%, #f8e3a0 76%, #c7972e 100%);
+  border-color: #fff8e6;
+}
+.tt-perks-page .perk-rarity-holo {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(140deg, #ff5fa2 0%, #ffa443 22%, #ffe45c 38%, #5df2a3 56%, #3fd8ff 72%, #7a83ff 88%, #d77cff 100%);
+  border-color: #ffffff;
+  position: relative;
+}
+.tt-perks-page .perk-rarity-holo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.75) 50%, transparent 100%);
+  width: 55%;
+  left: -60%;
+  transform: skew(-12deg);
+  animation: perk-holo-sheen 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes perk-holo-sheen {
+  0%, 55% { left: -60%; }
+  100% { left: 130%; }
+}
+/* 绝版章：活动结束后已领过的卡盖红章（AIHOT 同款 -12deg 红印） */
+.tt-perks-page .perk-seal {
+  background: #b8432c;
+  color: #fff8f0;
+  transform: rotate(-12deg);
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 230, 0.6), 0 1px 1px rgba(90, 25, 10, 0.25);
+  letter-spacing: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tt-perks-page .perk-rarity-holo::after {
+    animation: none;
+    opacity: 0;
+  }
+}

@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
-import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE } from "./PerksPage.jsx";
+import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, albumRarity } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 import zhDashboard from "../content/i18n/zh/dashboard.json";
@@ -494,6 +494,39 @@ describe("PerksPage", () => {
     }
   });
 
+  it("已收卡再领取（连击 +1）重播翻面：data-flip-key 递增重建卡背节点", () => {
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        // qoder_cn 已收 ×3（daily 今天未领——last 留旧日期，连击口径由实现算）
+        qoder_cn: { daily: { last: "2020-01-01", count: 3 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    // 卡册里的已收小卡（×3）在第一页亮卡组，data-flip-key 初始 0
+    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    const miniWithStreak = [...album.querySelectorAll(".perk-mini")]
+      .find((node) => node.textContent.includes("×3"));
+    expect(miniWithStreak).toBeTruthy();
+    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("0");
+
+    // 明细卡上标记今日已领取 → streak +1 → 卡背节点重建（动画重播）
+    const detail = screen.getByRole("heading", { name: "Qoder CN (国内版)" }).closest(".group");
+    fireEvent.click(within(detail).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
+
+    // streak 不再变化时不重播：取消摘掉 last 但 lifetime count 保留
+    //（亮度不回退口径），×N 不变 → is-collected 保持、flip-key 不递增
+    fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
+    expect(miniWithStreak.className).toContain("is-collected");
+    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
+  });
+
 
   it("已收卡再领取（连击 +1）重播翻面：data-flip-key 递增重建卡背节点", () => {
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
@@ -568,5 +601,69 @@ describe("PerksPage", () => {
     // 色条只用六档实色之一
     const tiers = ["bg-oai-gray-400", "bg-emerald-500", "bg-sky-500", "bg-purple-500", "bg-rose-500", "bg-amber-500"];
     expect(tiers.some((cls) => strip.className.includes(cls))).toBe(true);
+  });
+
+  it("perkDaysLeft：按北京时间自然日算剩余天数，过期判定为已结束", () => {
+    const now = Date.parse("2026-11-12T01:00:00+08:00");
+    expect(perkDaysLeft(undefined, now)).toBeNull();
+    expect(perkDaysLeft("2026-11-13", now)).toEqual({ ended: false, days: 2 });
+    expect(perkDaysLeft("2026-11-30", now)).toEqual({ ended: false, days: 19 });
+    expect(perkDaysLeft("2026-11-11", now)).toEqual({ ended: true, days: 0 });
+    expect(perkDaysLeft("not-a-date", now)).toBeNull();
+  });
+
+  it("albumRarity：7/15/30 三档稀有度（青/金/闪）", () => {
+    expect(albumRarity(0)).toBeNull();
+    expect(albumRarity(6)).toBeNull();
+    expect(albumRarity(7)).toBe("teal");
+    expect(albumRarity(14)).toBe("teal");
+    expect(albumRarity(15)).toBe("gold");
+    expect(albumRarity(29)).toBe("gold");
+    expect(albumRarity(30)).toBe("holo");
+    expect(albumRarity(999)).toBe("holo");
+  });
+
+  it("活动截止日：详情卡渲染「还剩 N 天」，未写截止日的卡不渲染", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const withDeadline = PERK_PROVIDERS.filter((row) => row.endsAt);
+    expect(withDeadline.length).toBeGreaterThan(0);
+    // 本文件的 copy mock 返回未插值模板（house style），所以断言模板文本
+    expect(screen.getAllByText("还剩 {{days}} 天")).toHaveLength(withDeadline.length);
+
+    // 三张卡暂无过期（均为未来活动），所以统计头不出现「绝版」
+    expect(screen.queryByText(/^绝版 \{\{count\}\} 张$/)).not.toBeInTheDocument(); // 暂无过期活动
+  });
+
+  it("稀有度与绝版：连击 15 次把卡背变金，活动过期后已收卡盖「绝版」章并计数", () => {
+    // 造一张已收 15 次的卡（金档）+ 今天先领掉 autoclaw（过期后成绝版）
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        qoder_cn: { daily: { last: "2020-01-01", count: 15 } },
+      },
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-11-20T10:00:00+08:00"));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    // 金档：15 次连击的卡背挂 perk-rarity-gold
+    const goldBack = album.querySelector(".perk-rarity-gold");
+    expect(goldBack).toBeTruthy();
+
+    // autoclaw 的活动 2026-11-15 已结束：先领取它 → 卡背盖绝版章 + 统计头计数
+    const detail = screen.getByRole("heading", { name: "AutoClaw 国内版 (智谱 AutoGLM)" }).closest(".group");
+    fireEvent.click(within(detail).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    expect(album.querySelector(".perk-seal")).toBeTruthy();
+    expect(screen.getByText(/绝版 \{\{count\}\} 张/)).toBeInTheDocument();
   });
 });

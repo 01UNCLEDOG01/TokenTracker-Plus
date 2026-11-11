@@ -1972,6 +1972,10 @@ perks.tier.all,ui,PerksPage,PerksPage,tier_all,All tiers,,active
 perks.album.jump,ui,PerksPage,PerksPage,album_jump,Jump to the card below,,active
 perks.scroll.top,ui,PerksPage,PerksPage,scroll_top,Back to top,,active
 perks.scroll.bottom,ui,PerksPage,PerksPage,scroll_bottom,Jump to bottom,,active
+perks.deal.left_days,ui,PerksPage,PerksPage,deal_left_days,"{{days}} days left",,active
+perks.deal.ended,ui,PerksPage,PerksPage,deal_ended,Ended,,active
+perks.album.sealed,ui,PerksPage,PerksPage,album_sealed,Retired,,active
+perks.album.sealed_count,ui,PerksPage,PerksPage,album_sealed_count,"{{count}} retired",,active
 cloud.page.subtitle,ui,CloudPage,CloudPage,subtitle,Connect your own backend: self-hosted sync, the private leaderboard and multi-device data all run on your server.,active
 cloud.status.connected,ui,CloudPage,CloudPage,connected,Connected to your self-hosted backend,active
 cloud.status.checking,ui,CloudPage,CloudPage,checking,Checking connection…,active
