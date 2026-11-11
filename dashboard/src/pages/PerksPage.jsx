@@ -31,6 +31,42 @@ import {
   migrateLegacyPerkClaims, togglePerkClaim,
 } from "../lib/perks-claims.mjs";
 
+// 福利价值六档（灰→绿→蓝→紫→粉→琥珀）：卡片 badge 与页首图例共用这一套色，
+// 改口径时只动这里与 perksData.js 头注释，避免「卡片一个色、图例另一个色」。
+const PERK_TIER_STYLES = {
+  neutral: "bg-oai-gray-100 text-oai-gray-700 border-oai-gray-200 dark:bg-oai-gray-800 dark:text-oai-gray-300 dark:border-oai-gray-700",
+  success: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-500/30 dark:text-emerald-200 dark:border-emerald-400/50",
+  blue: "bg-sky-500/10 text-sky-700 border-sky-500/20 dark:bg-sky-500/30 dark:text-sky-200 dark:border-sky-400/50",
+  purple: "bg-purple-500/10 text-purple-700 border-purple-500/20 dark:bg-purple-500/30 dark:text-purple-200 dark:border-purple-400/50",
+  rose: "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:bg-rose-500/30 dark:text-rose-200 dark:border-rose-400/50",
+  amber: "bg-amber-500/15 text-amber-700 border-amber-500/25 dark:bg-amber-500/30 dark:text-amber-200 dark:border-amber-400/60",
+};
+// 图例圆点用实色（-500）：卡片 badge 的半透明底在 10px 直径下几乎看不出差别。
+function TierDot({ className, label }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={cn("h-2.5 w-2.5 rounded-full", className)} aria-hidden />
+      <span>{label}</span>
+    </span>
+  );
+}
+const getBadgeStyle = (type) => PERK_TIER_STYLES[type] || PERK_TIER_STYLES.neutral;
+
+/** 六色图例：色阶只表示「白拿额度」的高低，灰色是最低档、不是差评。 */
+function PerkTierLegend() {
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
+      <span className="font-medium text-oai-gray-600 dark:text-oai-gray-300">{copy("perks.legend.title")}</span>
+      <TierDot className="bg-oai-gray-400 dark:bg-oai-gray-500" label={copy("perks.legend.neutral")} />
+      <TierDot className="bg-emerald-500" label={copy("perks.legend.success")} />
+      <TierDot className="bg-sky-500" label={copy("perks.legend.blue")} />
+      <TierDot className="bg-purple-500" label={copy("perks.legend.purple")} />
+      <TierDot className="bg-rose-500" label={copy("perks.legend.rose")} />
+      <TierDot className="bg-amber-500" label={copy("perks.legend.amber")} />
+    </div>
+  );
+}
+
 function readPerksClaims() {
   try {
     const raw = window?.localStorage?.getItem(PERKS_CLAIMS_KEY);
@@ -163,7 +199,7 @@ function renderBoldText(text) {
   });
 }
 
-function PerkCard({ item, claims, claimDay, onToggleClaim, aihot }) {
+function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = (e) => {
@@ -192,28 +228,16 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot }) {
     }
   };
 
-  const getBadgeStyle = (type) => {
-    switch (type) {
-      // badgeType = 福利价值六档（灰→绿→蓝→紫→粉→琥珀）。暗模式底色用 /30 级：
-      // 原 /15 在暗背景下近乎隐形，站主 2026-11-11 反馈「琥珀看着像灰」——
-      // 等级色必须一眼可辨。
-      case "success":
-        return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-500/30 dark:text-emerald-200 dark:border-emerald-400/50";
-      case "amber":
-        return "bg-amber-500/15 text-amber-700 border-amber-500/25 dark:bg-amber-500/30 dark:text-amber-200 dark:border-amber-400/60";
-      case "purple":
-        return "bg-purple-500/10 text-purple-700 border-purple-500/20 dark:bg-purple-500/30 dark:text-purple-200 dark:border-purple-400/50";
-      case "rose":
-        return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:bg-rose-500/30 dark:text-rose-200 dark:border-rose-400/50";
-      case "blue":
-        return "bg-sky-500/10 text-sky-700 border-sky-500/20 dark:bg-sky-500/30 dark:text-sky-200 dark:border-sky-400/50";
-      default:
-        return "bg-oai-gray-100 text-oai-gray-700 border-oai-gray-200 dark:bg-oai-gray-800 dark:text-oai-gray-300 dark:border-oai-gray-700";
-    }
-  };
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-oai-gray-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-oai-gray-300 hover:shadow-md dark:border-oai-gray-800/90 dark:bg-oai-gray-900/80 dark:hover:border-oai-gray-700 dark:hover:shadow-black/40">
+    <div
+      id={`perk-${item.id}`}
+      className={cn(
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-oai-gray-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-oai-gray-300 hover:shadow-md dark:border-oai-gray-800/90 dark:bg-oai-gray-900/80 dark:hover:border-oai-gray-700 dark:hover:shadow-black/40",
+        // 卡册点击跳转后的高亮闪烁（2026-11-11 站主要求点击联动）。
+        flashed ? "perk-card-flash" : null,
+      )}
+    >
       <div>
         {/* Card Header */}
         <div className="flex items-start justify-between gap-3">
@@ -801,6 +825,9 @@ export function PerksPage() {
             page={albumPage}
             onPageChange={setAlbumPage}
           />
+
+          {/* 六色图例：把色阶含义摆在页面上（站主 2026-11-11 要求） */}
+          <PerkTierLegend />
 
           {/* Top Disclaimer / Notice Banner */}
           <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-900/90 dark:border-amber-400/20 dark:bg-amber-400/5 dark:text-amber-200">

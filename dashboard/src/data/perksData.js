@@ -10,13 +10,23 @@ import { comparePerks } from "./perks-sort.mjs";
  * 由 `npm run validate:perks` 校验结构与时效措辞。查不到官方公开口径的数字
  * 一律写「以站内为准」，不许编造具体额度。
  *
- * badgeType = 福利价值等级（站主 2026-11-11 拍板：灰→绿→蓝→紫→粉→琥珀，越后越好）：
- *   neutral 灰   垫底：无主动赠额（免费直用/限免轮换/付费折扣工具卡）
- *   success 绿   基础：小额长期（每日 ≤1,000 积分或万级 Token 日额、长期免费档、≤¥20 一次性）
- *   blue    蓝   进阶：中额周期或叠加（月券/月千积分级、新人 ≤6,000 积分档、多重中额）
- *   purple  紫   大额：一次性或周期大额（¥10+ 等值、新人万级积分、月百万 Token 级）
+ * badgeType = 福利价值等级（站主 2026-11-11 拍板：灰→绿→蓝→紫→粉→琥珀，越后越好）。
+ * 判据两轴：① 现在能白拿多少（免费额度/免费模型/赠金折算）② 拿的难度（要不要付费、要不要绑卡、是否只能在自家客户端内用）。
+ * **灰色只代表「白拿额度 = 0」，不代表这家难用或没价值**（付费折扣卡的价值在「便宜」，不在此色阶的度量口径内）：
+ *   neutral 灰   无免费额度：纯工具（本地网关/聚合器）、纯付费订阅、纯折扣卡
+ *   success 绿   小额：有免费额度但小且封闭——单一免费档、日级百次级或单模型、只能在自家客户端内用
+ *   blue    蓝   中额：免费额度可叠加（多源相加、周期性千次级、代金券与免费档并行）
+ *   purple  紫   大额：一次性或周期大额（¥20+ 等值、新人万级积分、月百万 Token 级）
  *   rose    粉   超大额：1 亿+ Token / ¥100+ 等值 / $50 级赠金
  *   amber   琥珀 顶配：持续大额低门槛（每日 $10+ 级、2 亿+ Token 新户、高额多重叠加）
+ * 同形同色（硬约束）：同一形状的福利必须落同一档，不许按「是不是我熟的那家」打分——
+ *   长期免费模型可直连 ≈ AMD Token Factory / Google AI Studio / Groq（绿）；
+ *   限免模型但只能用自家客户端 ≈ Cursor 免费档（绿）；
+ *   付费才有的额度（如 $10 订阅换 $100）留在灰，请在 badge 文案里写清杠杆倍数。
+ * 判档冲突时的裁决顺序（按此执行，别临时发明规则）：
+ *   ① 命中多档取触发档位更高者；② 琥珀与粉是同一量级带的不同发放形态——持续发放归琥珀、
+ *      一次性大额归粉，两者之间不严格比大小；③ 稳定性/可得性（是否要海外网络、服务是否经常不可用）
+ *      只作扣分项，最多下调一档，且必须在卡片正文写明扣分理由。
  * 改 badgeType 前先对照本表；等级随福利口径变化调整，validator 只查枚举不查档位。
  */
 
@@ -102,7 +112,7 @@ export const PERK_PROVIDERS = [
       "多模型路由",
       "海外网络"
     ],
-    "description": "⚠️ 2026-10-31 站内实测：本账号模型列表 3/3 显示「无流量」、调用空回；官方 Discord 社区同报多数账号无流量、少数账号仍正常（分账号/分节点现象，非全站故障）。签到入口不受影响，每日签到得 $25（站内计价口径、非官方美元价，实际可用量以站内为准；签到积分有效期以端内为准）。历史注册与签到额度按官方说法保留，恢复前建议改用其他高可用路由。2026-11-02 复查：官方侧正常——站点与 API 正常响应，公告称折扣倍率已恢复标准价、将按使用规范持续补足额度、每成功邀请得 $100 用量额度，公开价目仅列 gpt-5.6-sol / gpt-6-astra / gpt-6.1-sol / claude-opus-5-5（后者限 svip/test 组）；但同日站主账号实测 3/3 模型仍显示「无流量」，不可用延续。2026-11-03 复测：站主账号实测恢复——模型状态页 3/3 可用（gpt-6.1-sol 正常 97.81%、gpt-6-astra 正常 98.13%、gpt-5.6-sol 降级 96.13%，近 24h 可用率 97.76%），此前「无流量」状态解除。",
+    "description": "⚠️ 2026-10-31 站内实测：模型列表显示「无流量」、调用空回；官方 Discord 社区同报多数账号无流量、少数账号仍正常（分账号/分节点现象，非全站故障）。签到入口不受影响，每日签到得 $25（站内计价口径、非官方美元价，实际可用量以站内为准；签到积分有效期以端内为准）。历史注册与签到额度按官方说法保留，恢复前建议改用其他高可用路由。2026-11-02 复查：官方侧正常——站点与 API 正常响应，公告称折扣倍率已恢复标准价、将按使用规范持续补足额度、每成功邀请得 $100 用量额度，公开价目仅列 gpt-5.6-sol / gpt-6-astra / gpt-6.1-sol / claude-opus-5-5（后者限 svip/test 组）；但同日复查模型列表仍显示「无流量」，不可用延续。2026-11-03 复测：站主账号实测恢复——模型状态页 3/3 可用（gpt-6.1-sol 正常 97.81%、gpt-6-astra 正常 98.13%、gpt-5.6-sol 降级 96.13%，近 24h 可用率 97.76%），此前「无流量」状态解除。",
     "tips": "此前流传的「注册送 $125 / 每日签到 $25」每日签到 $25 实测可得（站内计价口径、非官方美元价，实际可用量以站内为准）；一律以官方公告与站内额度页为准。",
     "inviteUrl": "https://agentrouter.org/register?aff=tt0I",
     "officialUrl": "https://agentrouter.org",
@@ -158,7 +168,7 @@ export const PERK_PROVIDERS = [
       "谷歌/苹果登录",
       "时效/永久分账"
     ],
-    "description": "Agnes AI 的网页版对话工作台（app.agnes-ai.com），需谷歌或苹果账号登录。实测每日登录免费领 600 时效积分（2026-11-01 到账，时效积分与永久积分分账核算）；2026-11-03 复测：该 600 为时效积分，过期清零、多日不叠加——11-01 发的 600 已于 11-03「积分过期 -600」清零、同日再发新的 600，连续登录也始终只有当日 600 可用，攒不了积分；永久积分另计（实测账号为 0）。无邀请活动。",
+    "description": "Agnes AI 的网页版对话工作台（app.agnes-ai.com），需谷歌或苹果账号登录。实测每日登录免费领 600 时效积分（2026-11-01 到账，时效积分与永久积分分账核算）；2026-11-03 复测：该 600 为时效积分，过期清零、多日不叠加——11-01 发的 600 已于 11-03「积分过期 -600」清零、同日再发新的 600，连续登录也始终只有当日 600 可用，攒不了积分；永久积分另计（普通新号通常为 0，以端内为准）。无邀请活动。",
     "tips": "时效积分过期清零、多日不叠加，领了尽快用；与永久积分分开核算，消耗顺序以站内为准；网页版与 API 平台（另见「Agnes AI」卡）账号互通、福利互不相干。",
     "officialUrl": "https://app.agnes-ai.com",
     "hasInvite": false,
@@ -319,7 +329,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "国际版每日签到 500 credits",
-    "badgeType": "purple",
+    "badgeType": "amber",
     "tags": [
       "智谱出品",
       "一键安装Agent",
@@ -458,7 +468,7 @@ export const PERK_PROVIDERS = [
       "daily_claim",
       "monthly_claim"
     ],
-    "badge": "注册 4000 + 学生认证 4000 + 每日签到 100",
+    "badge": "注册 4,000 + 学生 4,000 + 每日签到 100",
     "badgeType": "purple",
     "tags": [
       "华为云",
@@ -466,12 +476,12 @@ export const PERK_PROVIDERS = [
       "每日签到100",
       "学生认证4000"
     ],
-    "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。邀请规则现已公开（2026-11-09 官方页核实）：首次使用码道的国内新用户经好友邀请链接注册登录**额外得 1,000 积分**（基础 4,000 另算），邀请人每次有效邀请也得 1,000 积分、累计上限 5 万，奖励到账起 1 个月内有效；旧 Tokens 套餐需先免费切换到积分套餐。",
+    "description": "华为云推出的真实软件工程 AI 编码智能体，2026-09-04 起改为积分计费。实测福利：新用户注册可领 4,000 积分，学生认证再领 4,000，个人版每日签到领 100 积分（官方另载个人版每月 2,000 积分额度）。邀请规则现已公开（2026-11-09 官方页核实）：首次使用码道的国内新用户经好友邀请链接注册登录**额外得 1,000 积分**（基础 4,000 另算），邀请人每次有效邀请也得 1,000 积分、累计上限 5 万，奖励到账起 1 个月内有效；旧 Tokens 套餐需先免费切换到积分套餐。（各项可叠加：注册 4,000 + 学生认证 4,000 + 邀请 1,000 + 个人版每月 2,000 + 每日签到 100，累计可达万级；另报名 skill 大赛可再得 4,000，赛期与名额以活动页为准；具体到账以端内积分明细为准。）",
     "tips": "支持 IDE 插件与桌面客户端，多模型智能调度（DeepSeek、Kimi、GLM 等）；官方两页口径不一：签到活动页写「当日领取当日有效」，个人订阅计费说明写「自发放之日起 30 天内有效」（签到活动期至 2026-12-31），以端内积分明细实际到期为准、积分按到期先后优先消耗；签到入口在成长中心，随取随用。",
     "inviteUrl": "https://devcloud.cn-north-4.huaweicloud.com/chat?source=dmzntgwlb&sourcead=dmzntgwlb1&invitecode=INV-taWTH2T2JcL8d0esH15UMseSLiQN99qbfeb5Gp50u21Mt01_mokNPORaI_CxM_LrKuoTZOJThp9prEXpEqLKxJIQWyMC6hxkWSbV1qmMNFT6eQVyw-81VuMzAonD1G1z-NMbHhOWdDYCrxKsgZHxDHIuFrDivfsf0lorAf7go8L-Ug",
     "officialUrl": "https://www.huaweicloud.com/product/codearts.html",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-11",
     "sourceUrl": "https://www.huaweicloud.com/product/codearts.html"
   },
   {
@@ -573,11 +583,11 @@ export const PERK_PROVIDERS = [
       "低廉单价",
       "开源领军"
     ],
-    "description": "DeepSeek 官方 API 开放平台，接口兼容 OpenAI 格式，输入定价以官方文档实时发布（缓存命中价远低于未命中价）。新用户是否赠送体验额度官方未公开说明，请以控制台额度中心的实时政策为准。",
+    "description": "DeepSeek 官方 API 开放平台，接口兼容 OpenAI 格式，输入定价以官方文档实时发布（缓存命中价远低于未命中价）。新用户是否赠送体验额度官方未公开说明，请以控制台额度中心的实时政策为准。AIHOT 2026-11-11 口径称首次登录 DSH 桌面端的新用户可得约 ¥6 体验额度——该额度属 DSH 客户端，官方 API 文档只承认账户分「赠送余额 / 充值余额」两类并被优先扣减、未公布任何注册赠金数额，充值与赠额一律以控制台额度中心为准。",
     "tips": "官方不设第三方邀请机制，直接前往官网控制台注册即可；如遇官方充值或服务拥堵，可搭配第三方聚合路由作为高可用热备。",
     "officialUrl": "https://platform.deepseek.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-11",
     "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing"
   },
   {
@@ -906,7 +916,7 @@ export const PERK_PROVIDERS = [
       "实名互赠",
       "30天有效"
     ],
-    "description": "新户注册赠送 1000 万 Tokens；每次新模型上线另发上线福利（2026-11-02 端内实测，LongCat-2.5 上线）：新用户 1000 万 tokens、老用户 500 万 tokens，自动到账（站主作为老户实收 500 万、有效期 30 天），缓存命中持续免费。邀请活动（2026-11-02 端内确认在线）：每成功邀请 1 位新用户完成实名认证，双方各得 1000 万 Tokens，奖励自发放起 30 天内有效；另有拼团返现最高 50%。",
+    "description": "新户注册赠送 1000 万 Tokens；每次新模型上线另发上线福利（2026-11-02 端内实测，LongCat-2.5 上线）：新用户 1000 万 tokens、老用户 500 万 tokens，自动到账（有效期 30 天，以端内为准），缓存命中持续免费。邀请活动（2026-11-02 端内确认在线）：每成功邀请 1 位新用户完成实名认证，双方各得 1000 万 Tokens，奖励自发放起 30 天内有效；另有拼团返现最高 50%。",
     "tips": "赠额单次发放、30 天内用完；平台仅限个人与企业正常体验，禁止批量脚本调用。API 侧另有按量付费与资源包口径。",
     "inviteUrl": "https://longcat.chat/platform/product?inviteCode=WABCQLL3",
     "officialUrl": "https://longcat.chat",
@@ -1022,7 +1032,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://www.modelscope.cn",
     "hasInvite": false,
     "checkedAt": "2026-11-11",
-    "sourceUrl": "https://modelscope.cn/docs/model-service/API-Inference/introduction"
+    "sourceUrl": "https://modelscope.cn/docs/model-service/API-Inference"
   },
   {
     "id": "nvidia_nim",
@@ -1033,22 +1043,22 @@ export const PERK_PROVIDERS = [
     ],
     "provider": "nvidia",
     "category": [
-      "big_quota"
+      "permanent_free"
     ],
-    "badge": "送试用额度调 NIM 全家桶",
-    "badgeType": "blue",
+    "badge": "全模型免费试用 · 40 RPM 限速",
+    "badgeType": "success",
     "tags": [
       "英伟达官方",
       "开源模型多",
       "OpenAI 兼容",
       "海外网络"
     ],
-    "description": "NVIDIA Build（build.nvidia.com）：注册后在 NIM 试玩页可免费试用 DeepSeek、Llama、Qwen 等大量开源与官方模型，新账号送试用额度（数值与有效期官方未公开固定口径，以站内额度页为准），接口 OpenAI 兼容可接入任意兼容客户端。",
-    "tips": "试用额度用完可转按量付费；各模型是否有免费试用与消耗速度以站内为准；国内访问需海外网络。",
+    "description": "NVIDIA Build（build.nvidia.com）：官方现行口径是**全模型可免费原型调用、按速率限制免费（free tier runs on rate limits，无 per-token 计费）**，免绑信用卡，只需 NVIDIA 账号并在 settings 生成 API Key（2026-11-11 官方 FAQ/llms.txt 核对）。限额：多数模型 **≤40 RPM**，站点配置另载 **10,000 请求/日**，具体按模型浮动（Rate limits may vary by model），个人上限显示在 dashboard 右上、超限返回 429。接口 OpenAI 兼容：把 base URL 指向 `https://integrate.api.nvidia.com/v1` 即可接入任意 SDK/客户端。历史口径（2024-09 官方论坛员工答复）为注册送 1,000 API credits、目录试用总上限 5,000（再 4,000 需企业邮箱激活 90 天许可），credit→token 换算官方从未公布、现行站点已不再展示 credits，故卡片不写固定额度。",
+    "tips": "免费档按 RPM/日请求数限流，不扣费但会 429，长任务建议自己退避重试；个别标「Free Endpoint」的模型 API 可能尚未开放（以站点模型页能否生成 Key 为准）；国内访问需海外网络。",
     "officialUrl": "https://build.nvidia.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
-    "sourceUrl": "https://build.nvidia.com"
+    "checkedAt": "2026-11-11",
+    "sourceUrl": "https://build.nvidia.com/faq"
   },
   {
     "id": "opencode",
@@ -1061,7 +1071,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "Console 限免模型（需走客户端）",
-    "badgeType": "neutral",
+    "badgeType": "success",
     "tags": [
       "编程专属",
       "限免模型",
@@ -1113,7 +1123,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "十余款 :free 免费模型",
-    "badgeType": "neutral",
+    "badgeType": "success",
     "tags": [
       "全球聚合",
       "免绑信用卡",
@@ -1256,20 +1266,20 @@ export const PERK_PROVIDERS = [
       "client",
       "daily_claim"
     ],
-    "badge": "新号首登任务最多 6000 积分",
-    "badgeType": "blue",
+    "badge": "新号任务最高 12,000 积分",
+    "badgeType": "purple",
     "tags": [
       "商汤科技",
       "代码小浣熊",
       "办公小浣熊",
       "每日300积分"
     ],
-    "description": "商汤科技旗下全能 AI 助手家族（代码小浣熊 + 办公小浣熊）。实测新号完成任务最多可得 6,000 积分：首次登录电脑端 +3,000、首次登录手机端 +3,000（2026-10-14 结算到账）。免费版每日赠 300 积分：每天 00:00 自动到账，网页、桌面和手机端共用同一账户，默认当日 24:00 清零，当天登录后该笔有效期延长至 7 天（2026-11-02 端内积分明细实测：11-02 发放 +300、有效期至 11-08）；官网定价页另有「每日 0 点重置 · 不累计 · 仅限标准模型」字样，与端内机制不一致，以端内为准。另官网定价页已上线积分订阅体系（个人升级版 ¥29.9/月含 500 积分/日 + 10,000 积分/月、加油包 ¥9.9/500 分等，未端内核实）。",
-    "tips": "首登两端都要装才有 6,000；积分在个人中心「用量看板 → 积分明细」查看，每日积分当天登录才延长至 7 天有效期，以端内任务列表为准。",
+    "description": "商汤科技旗下全能 AI 助手家族（代码小浣熊 + 办公小浣熊），官网已迁至 xiaohuanxiong.com（旧域名 raccoon.sensetime.com 已解析失败，新站以访问为准）。**新号任务最高 12,000 积分**（2026-11-11 官网任务页）：注册 +3,000、桌面端首登 +3,000、移动端首登 +3,000、受邀专属 +3,000（7 日活跃 1,000 + 首付 2,000）。免费版每日赠 300 积分：端内积分明细原文为「**每日积分每天 00:00 发放，默认当日 24:00 清零，当天登录后有效期延长至 7 天**」，网页/桌面/手机端共用同一账户（官网定价页另写「每日 0 点重置 · 不累计 · 仅限标准模型」，与端内「登录后延至 7 天」口径不同，以端内为准）。免费档没有签到任务（端内「赚取积分」页只有新人任务与邀请）——注意「500 积分/日」是个人升级版额度（¥29.9/月，含 500 积分/日 + 10,000 积分/月，双 11 期间 11.11 元起），不是免费档签到；企业版 1,000/日/人 + 30,000/月。积分到账与到期以端内「积分明细」页为准（2026-11-11 核对）。",
+    "tips": "12,000 上限需分别装桌面端与手机端；免费版只有每日 300 积分自动到账，别把个人升级版的 500/日 当免费档；积分在个人中心「用量看板 → 积分明细」查看，以端内任务列表为准。",
     "officialUrl": "https://www.xiaohuanxiong.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
-    "sourceUrl": "https://xiaohuanxiong.com/pricing"
+    "checkedAt": "2026-11-11",
+    "sourceUrl": "https://xiaohuanxiong.com/events/tasks"
   },
   {
     "id": "sensenova",
@@ -1313,7 +1323,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "四重福利，月最多赠 39,000 积分 + 邀请返积分",
-    "badgeType": "purple",
+    "badgeType": "blue",
     "tags": [
       "中国电信",
       "天翼AI",
@@ -1425,20 +1435,20 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "注册送 $50 · 每日签到 $10 · 邀请双方各 $10",
-    "badgeType": "amber",
+    "badgeType": "blue",
     "tags": [
       "海外平台",
       "双协议兼容",
       "OpenCode接入",
       "邀请返利"
     ],
-    "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10。免费用户可用 4 款（按牌价计费、消耗注册金/签到金）：Claude Sonnet 4.6、DeepSeek V4.1 Flash、Agnes 3.0 Flash 均无日限额；GPT 6 Luna 单独带日限额 50M。另 Promotional Allowance 每日 10M 统一配额（GLM 5.3 Flash、Beam 1.0、Nemotron，$0，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。",
+    "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10。免费用户可用 4 款（按牌价计费、消耗注册金/签到金）：Claude Sonnet 4.6、DeepSeek V4.1 Flash、Agnes 3.0 Flash 均无日限额；GPT 6 Luna 单独带日限额 50M。另 Promotional Allowance 每日 10M 统一配额（GLM 5.3 Flash、Beam 1.0、Nemotron，$0，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。稳定性提示（2026-11-11 端内核对）：该站近期服务不稳，多次出现模型不可用/网关报错，且必须海外网络环境，体验波动概率明显高于同价位聚合站；按稳定性折算后档位下调为蓝，建议只作备用线路。",
     "tips": "免费档按牌价计费、消耗注册金与签到金；付费 Lite/Pro 解锁 DeepSeek 4.1 Flash 1017、GPT 5.6 Sol/Terra、GPT 6 Astra（维护中）、Claude Sonnet 4.6 Pro。价格须知：站内牌价为转售价、显著高于官方刊例（如 gpt-6-luna 站内 $2/M、官方刊例 $0.10/M，溢价约 20 倍），注册金与签到金消耗更快；TokenTracker 面板金额按官方刊例折算，与站内账单口径不同属正常。模型列表实时变动，接入前先看「模型列表」页。",
     "inviteUrl": "https://vyceai.com/signup?ref=VYCE_868RV5",
     "officialUrl": "https://vyceai.com",
     "inviteCode": "VYCE_868RV5",
     "hasInvite": true,
-    "checkedAt": "2026-11-01",
+    "checkedAt": "2026-11-11",
     "sourceUrl": "https://vyceai.com"
   },
   {
@@ -1454,18 +1464,20 @@ export const PERK_PROVIDERS = [
       "daily_claim",
       "monthly_claim"
     ],
-    "badge": "每月 1 日送 100 积分 + 每日对话次日送 30",
-    "badgeType": "success",
+    "badge": "每月 1 日送 100 积分 + 每日对话次日送 30（端内实测）",
+    "badgeType": "blue",
     "tags": [
       "AI客户端",
       "国际版",
       "独立账号体系",
       "HY3免费调用"
     ],
-    "description": "WorkBuddy 国际版（workbuddy.ai），与国内版（workbuddy.cn）账号体系相互独立。现行福利：每月 1 日发放 100 积分，当日完成对话次日 30 积分自动到账（2026-11-01 实测）；DeepSeek-V4.1-Flash 免费调用已停止（2026-11-02 站主实测；此前 2026-10-31 截止口径 11-01 尚在、现已下线）；HY3 模型仍可免费调用（2026-11-02 站主实测）。",
+    "description": "WorkBuddy 国际版（workbuddy.ai），与国内版（workbuddy.cn）账号体系相互独立。现行福利：每月 1 日发放 100 积分，当日完成对话次日 30 积分自动到账（2026-11-01 端内实测，以端内为准；国内版已改为每日签到 100，两版规则不同，勿混用）；DeepSeek-V4.1-Flash 免费调用已停止（2026-11-02 站主实测；此前 2026-10-31 截止口径 11-01 尚在、现已下线）；HY3 模型仍可免费调用（2026-11-02 站主实测）。邀请活动（2026-11-11 端内邀请弹窗核对）：好友经你的邀请链接注册并完成首次提问后，**你得 100 积分、好友得 350 积分（100 邀请积分 + 250 新人积分）**；邀请记录在端内「邀请记录」页查看。",
     "tips": "与国内版（workbuddy.cn）互不共享账号与积分；积分有效期以端内为准，用量与发放记录在站内「余额及用量」页查看。",
     "officialUrl": "https://www.workbuddy.ai",
-    "hasInvite": false,
+    "hasInvite": true,
+    "inviteUrl": "https://workbuddy.ai/invite?code=A7CYB69E",
+    "inviteCode": "A7CYB69E",
     "checkedAt": "2026-11-02",
     "sourceUrl": "https://www.workbuddy.ai"
   },
@@ -1483,21 +1495,21 @@ export const PERK_PROVIDERS = [
       "daily_claim",
       "monthly_claim"
     ],
-    "badge": "注册送 250 + 每月 100 + 每日送 30",
-    "badgeType": "blue",
+    "badge": "注册送 250 + 每月 100 + 每日签到 100",
+    "badgeType": "purple",
     "tags": [
       "AI客户端",
-      "每日活跃积分",
+      "每日签到积分",
       "每月基础积分",
       "邀请返利"
     ],
-    "description": "全能 AI 工作台国内版：**新用户注册送 250 积分**，**每月发放 100 基础积分**，**每日完成对话次日赠送 30 积分**；积分直接在客户端内抵扣模型消耗。模型侧：**HY3 模型目前仍可免费调用（2026-11-02 站主实测）**。",
+    "description": "全能 AI 工作台国内版：**新用户注册送 250 积分**，**每月发放 100 基础积分**，**每日签到 100 积分**（2026-11-11 端内实测，以端内为准；旧口径「完成对话次日送 30」已废）；新人任务另有大量一次性积分，在端内「任务中心」完成即可领取。积分直接在客户端内抵扣模型消耗。模型侧：**HY3 模型目前仍可免费调用（2026-11-02 站主实测）**。官方现行活动为「双十一限时 · 双倍 Credits」：活动期新购/续费/扩容按账号数与时长赠送等量积分（2026-11-11 官方产品页核对）。",
     "tips": "客户端/工作台形态，适合日常桌面交互；加入 Buddy One 关联产品可把积分共享到腾讯文档、ima、腾讯网盘 AI 功能（限时再送 100 积分，暂不支持解绑）；每日奖励积分约 30 天过期清零、按到期先后优先消耗（以端内显示为准）。国际版 WorkBuddy AI（workbuddy.ai）与本版账号体系相互独立，另见其卡片。",
     "inviteUrl": "https://www.workbuddy.cn/events/invite?inviteCode=hppwvxg4sgqw",
     "officialUrl": "https://www.workbuddy.cn",
     "inviteCode": "hppwvxg4sgqw",
     "hasInvite": true,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-11",
     "sourceUrl": "https://www.workbuddy.cn"
   },
   {
@@ -1512,22 +1524,22 @@ export const PERK_PROVIDERS = [
       "client",
       "featured"
     ],
-    "badge": "周五晚常有限时 GLM-5.3-Flash 3 亿额度",
+    "badge": "端内每晚 3 亿 GLM-5.3-Flash（当期活动）",
     "badgeType": "rose",
     "tags": [
       "智谱出品",
       "编程智能体",
-      "周五晚间福利",
+      "晚间限时福利",
       "限时3亿额度",
       "邀请有礼"
     ],
-    "description": "Z.ai 官方编程智能体客户端，GLM 系列模型直连、登录即用。**新用户连接 BigModel 账号后首次使用起 5 天内，每天有 GLM-5.3 300 万 + GLM-5.3-Flash 500 万 Token（两模型独立分额、每日刷新，2026-11-10 官方页核实）**。长期观察每逢周五晚间登录，客户端经常有限时 GLM-5.3-Flash 3 亿 Token 大额额度放送；额度数值与活动档期以端内公告为准。邀请活动进行中：邀请新用户及每周邀请满 2 位、10 位均有登录卡类梯度奖励（卡型与到账以端内奖励中心为准）。",
-    "tips": "限时额度类活动不定期出现，建议每周五晚上登录客户端查看；配合 TokenTracker Plus 的 ZCode 用量卡片可实时核对到账额度与生成速率。邀请奖励在端内「奖励中心」查看进度。",
+    "description": "Z.ai 官方编程智能体客户端，GLM 系列模型直连、登录即用。**新用户连接 BigModel 账号后首次使用起 5 天内，每天有 GLM-5.3 300 万 + GLM-5.3-Flash 500 万 Token（两模型独立分额、每日刷新，2026-11-10 官方页核实）**。**2026-11-11 核对时，端内正在放送 GLM-5.3-Flash 3 亿 Token 大额额度：每晚限时，国内版与国际版客户端都有**——这是当期活动、不是长期固定福利；此前的档期为零星放送与每周五晚大额（5 亿级）。活动时段与额度一律以端内公告为准。官方文档不收录该类活动，只载「新用户 5 天免费体验、每天 GLM-5.3 300 万 + GLM-5.3-Flash 500 万」。邀请活动进行中：邀请新用户及每周邀请满 2 位、10 位均有登录卡类梯度奖励（卡型与到账以端内奖励中心为准）。",
+    "tips": "限时额度类活动不定期出现，近期每晚都有，建议每天晚间登录客户端查看；配合 TokenTracker Plus 的 ZCode 用量卡片可实时核对到账额度与生成速率。邀请奖励在端内「奖励中心」查看进度。",
     "officialUrl": "https://z.ai",
     "inviteUrl": "https://zcode.z.ai/invite/DU7JA29Y",
     "inviteCode": "DU7JA29Y",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-11",
     "sourceUrl": "https://z.ai"
   }
 ];

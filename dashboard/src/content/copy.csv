@@ -873,6 +873,13 @@ perks.disclaimer,ui,PerksPage,PerksPage,disclaimer,📢 Notice & Disclaimer: eve
 perks.card.checked,ui,PerksPage,PerksPage,card_checked,Checked {{date}},,active
 perks.card.source,ui,PerksPage,PerksPage,card_source,Source,,active
 perks.card.feedback,ui,PerksPage,PerksPage,card_feedback,Report a change,,active
+perks.legend.title,ui,PerksPage,PerksPage,legend_title,Value tier,,active
+perks.legend.neutral,ui,PerksPage,PerksPage,legend_neutral,No free quota,,active
+perks.legend.success,ui,PerksPage,PerksPage,legend_success,Small free,,active
+perks.legend.blue,ui,PerksPage,PerksPage,legend_blue,Medium free,,active
+perks.legend.purple,ui,PerksPage,PerksPage,legend_purple,Large gift,,active
+perks.legend.rose,ui,PerksPage,PerksPage,legend_rose,Huge gift,,active
+perks.legend.amber,ui,PerksPage,PerksPage,legend_amber,Top tier,,active
 nav.sessions,shared,*,Sidebar,nav_sessions,Sessions,,active
 skills.page.title,ui,SkillsPage,SkillsPage,title,Skills,,active
 skills.tab.my,ui,SkillsPage,SkillsPage,tab_my,My Skills,,active

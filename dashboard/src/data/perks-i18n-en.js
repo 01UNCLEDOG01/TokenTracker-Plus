@@ -49,7 +49,7 @@ export const PERKS_EN = {
     name: "DeepSeek Official API Platform",
     badge: "Official, very low pricing (new-user credits unconfirmed)",
     description:
-      "DeepSeek's official API platform with OpenAI-compatible endpoints. Input pricing follows the official docs in real time (cache-hit prices sit far below cache-miss). Whether new users get starter credits is not officially stated — the console's credit center holds the current policy.",
+      "DeepSeek's official API platform with OpenAI-compatible endpoints. Input pricing follows the official docs in real time (cache-hit prices sit far below cache-miss). Whether new users get starter credits is not officially stated — the console's credit center holds the current policy. AIHOT's 2026-11-11 note says new users who first sign in to DSH (DeepSeek's harness desktop client) get roughly \u00a56 of trial credit; that belongs to DSH rather than this API platform, and the official API docs only acknowledge a \u201cgift balance\u201d alongside the top-up balance (spent first), with no published signup amount.",
     tips:
       "There is no third-party invite program — register directly in the official console. If official top-ups or capacity get congested, a third-party aggregator route works as an availability hot spare.",
     tags: ["Official", "Top-tier reasoning", "Low unit price", "Open-source leader"],
@@ -100,7 +100,7 @@ export const PERKS_EN = {
   vyceai: {
     badge: "$50 on signup · $10 daily check-in · $10 for both via invite",
     description:
-      "An overseas aggregation gateway (signup needs some network access), OpenAI- and Anthropic-protocol compatible — point any client/IDE's base URL at https://vyceai.com/v1 and go, with one-click setup guides for OpenCode/Cursor/Cline. Verified by testing: signup grants $50 in trial credit, and the daily check-in adds $10. Free users get 4 models (billed at list price, drawing down signup/check-in credit): Claude Sonnet 4.6, DeepSeek V4.1 Flash and Agnes 3.0 Flash with no daily cap; GPT 6 Luna alone carries a 50M daily cap. A Promotional Allowance adds a shared 10M daily quota (GLM 5.3 Flash, Beam 1.0, Nemotron; $0; resets 00:00 UTC). Referrals: a friend registering via your link credits $10 to both sides instantly.",
+      "An overseas aggregation gateway (signup needs some network access), OpenAI- and Anthropic-protocol compatible — point any client/IDE's base URL at https://vyceai.com/v1 and go, with one-click setup guides for OpenCode/Cursor/Cline. Verified by testing: signup grants $50 in trial credit, and the daily check-in adds $10. Free users get 4 models (billed at list price, drawing down signup/check-in credit): Claude Sonnet 4.6, DeepSeek V4.1 Flash and Agnes 3.0 Flash with no daily cap; GPT 6 Luna alone carries a 50M daily cap. A Promotional Allowance adds a shared 10M daily quota (GLM 5.3 Flash, Beam 1.0, Nemotron; $0; resets 00:00 UTC). Referrals: a friend registering via your link credits $10 to both sides instantly. Stability note (checked 2026-11-11): the service has been unstable lately \u2014 models repeatedly unavailable or returning gateway errors \u2014 and it requires an overseas network, so expect more variance than similarly priced gateways; the tier is lowered accordingly, best kept as a backup route.",
     tips:
       "The free tier bills at list price against signup/check-in credit; paid Lite/Pro unlock DeepSeek 4.1 Flash 1017, GPT 5.6 Sol/Terra, GPT 6 Astra (under maintenance) and Claude Sonnet 4.6 Pro. Pricing note: in-site prices are reseller prices well above official list (gpt-6-luna: $2/M in-site vs $0.10/M official — roughly a 20x markup), so trial credit burns faster; TokenTracker's panel amounts are converted at official list and will differ from Vyce's own bills. The model list changes in real time — check the Models page before wiring up.",
     tags: ["Overseas platform", "Dual-protocol", "OpenCode ready", "Referral bonus"],
@@ -109,16 +109,16 @@ export const PERKS_EN = {
     name: "WorkBuddy AI (International)",
     badge: "100 points on the 1st monthly + 30 the day after each chat day",
     description:
-      "WorkBuddy international (workbuddy.ai), with accounts fully separate from the China edition (workbuddy.cn). Current perks: 100 points granted on the 1st of each month, and 30 points auto-credited the next day for each day you chat (verified 2026-11-01). DeepSeek-V4.1-Flash free calls ended (owner verified on 2026-11-02); HY3 remains available for free. Daily caps and campaign windows follow the in-app terms.",
+      "WorkBuddy international (workbuddy.ai), with accounts fully separate from the China edition (workbuddy.cn). Current perks: 100 points granted on the 1st of each month, and 30 points auto-credited the next day for each day you chat (verified 2026-11-01). DeepSeek-V4.1-Flash free calls ended (owner verified on 2026-11-02); HY3 remains available for free. Daily caps and campaign windows follow the in-app terms. Invite program (in-app invite dialog, 2026-11-11): a friend who signs up through your link and completes a first question earns you 100 points, and the friend receives 350 (100 invite + 250 new-user). Note the China edition has switched to a 100-point daily check-in \u2014 the two editions differ.",
     tips:
       "Accounts and points are not shared with the China edition (workbuddy.cn); points validity follows the in-app terms, with usage and grant history on the in-site balance & usage page.",
     tags: ["AI client", "International", "Separate accounts", "Free HY3"],
   },
   zcode: {
     name: "ZCode (Z.AI Coding Agent)",
-    badge: "Friday evenings often grant a 300M GLM-5.3-Flash quota",
+    badge: "300M GLM-5.3-Flash nightly in-app (current promo)",
     description:
-      "Z.ai's official coding agent client — direct GLM model access, ready on login. Long-term observation: Friday-evening logins often surface a limited-time 300M-token GLM-5.3-Flash quota drop; exact amounts and windows follow in-app announcements. An invite program is live: inviting new users, plus weekly tiers at 2 and 10 invites, grants login-card rewards (card types follow the in-app rewards center).",
+      "Z.ai's official coding agent client — direct GLM model access, ready on login. New accounts linked to BigModel get 5 days of free use from first use: 3M GLM-5.3 + 5M GLM-5.3-Flash tokens per day (separate buckets, refreshed daily, verified on the official docs 2026-11-10). As of 2026-11-11 the in-app campaign grants a nightly 300M-token GLM-5.3-Flash quota in both the China and international clients \u2014 a current campaign, not a standing benefit; earlier windows were sporadic drops plus a larger Friday-evening grant (500M class). Windows and amounts follow in-app announcements; the official docs don't list this campaign. An invite program is live: inviting new users, plus weekly tiers at 2 and 10 invites, grants login-card rewards (card types follow the in-app rewards center).",
     tips:
       "These limited-time drops come and go — check the client every Friday evening; TokenTracker Plus's ZCode usage card cross-checks granted quotas and generation rates in real time. Invite progress lives in the in-app rewards center.",
     tags: ["By Zhipu", "Coding agent", "Friday-evening perks", "Limited 300M quota", "Invite rewards"],
@@ -157,9 +157,9 @@ export const PERKS_EN = {
     tags: ["LPU speed", "Llama / GPT-OSS", "OpenAI-compatible", "Overseas network"],
   },
   nvidia_nim: {
-    badge: "Trial credits for the NIM model catalog",
+    badge: "All models free to prototype \u00b7 40 RPM limit",
     description:
-      "NVIDIA Build (build.nvidia.com): register and try DeepSeek, Llama, Qwen and many more open and first-party models free on the NIM playground; new accounts get trial credits (no official fixed amount or validity \u2014 your in-site balance prevails), exposed through an OpenAI-compatible API that plugs into any compatible client.",
+      "NVIDIA Build (build.nvidia.com): the current official line is that every catalog model is free to prototype against, limited by rate instead of billed per token, with no credit card \u2014 you only need an NVIDIA account and an API key from settings (verified against the official FAQ/llms.txt on 2026-11-11). Limits: up to 40 RPM for most models plus a 10,000-requests/day cap noted in the site config; per-model limits vary and your ceiling shows in the dashboard (429 beyond it). OpenAI-compatible: point the base URL at https://integrate.api.nvidia.com/v1. The 2024-09 NVIDIA-staff forum answer mentioned 1,000 API credits and a 5,000 catalog cap (+4,000 via a 90-day enterprise license); the credit-to-token conversion was never published and the current site no longer displays credits, so this card quotes no fixed amount.",
     tips:
       "When trial credits run out you can move to pay-as-you-go; whether a specific model has free trial capacity and how fast it burns is governed by the site; requires an overseas network from mainland China.",
     tags: ["NVIDIA official", "Many open models", "OpenAI-compatible", "Overseas network"],
