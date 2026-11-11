@@ -39,6 +39,16 @@
 
 - **要站主拍板的事，必须用大白话写清楚**，否则站主看不懂、无法定夺。规则：①一句话说清「现在什么情况」；②列出可选项（一般 2–3 个），每个只写「对你意味着什么 / 代价 / 风险」；③明确给出我的推荐和理由；④不要用内部代号（B2b、P1、task-7…）当标题，也不要要求站主读代码或台账才能决策。
 - **GitHub 发版 token** 存在本机 `.env.local`（`GH_TOKEN` / `GITHUB_TOKEN`，已 gitignore，禁止提交/入库）。发版收尾用它建草稿 Release 并上传 dmg/zip：直接调 REST API（`api.github.com` + `uploads.github.com`）。token 若在聊天或日志里出现过，发版后提醒站主轮换。
+## 推送纪律（2026-11-12 站主确认）
+
+> 起因：2026-11-11 深夜两个会话在一小时内向 main 推了 8 个提交，撞上 `ci.yml` 的 main 串行 concurrency，导致多个提交的 CI 永远停在 queued（被后来的 push 顶掉，且 GitHub 拒绝重跑），看起来像「GitHub Actions 很慢」，实际是排队规则 + 推送节奏。
+
+1. **一轮改动只推一次**：能合并的先合并，攒成一个 commit 再推；不要一小时内对同一分支推多次。
+2. **推之前先对齐**：`git fetch origin` → 确认 `git rev-list --left-right --count origin/main...HEAD` 为 `0 0` 或先 `git rebase origin/main`；禁止在落后时直接推。
+3. **禁止 force-push 共享分支**（`main`/`standalone`）；历史只能通过 rebase 前进，不能回退或重写别人的提交。当前有另一个 DSH 会话会并发改仓库，按 origin 为准。
+4. **tag 与 Release 只由发版者一个节奏推**：tag 必须指向「已推且 CI 可验证」的提交；发版期间不要插功能提交，发完再继续。
+5. **CI 排队时不要再推**：main 的 CI 是串行的（`concurrency: group: ci-<ref>`，只有 PR 会取消旧 run），上一条 CI 还没开始跑就推下一条，会让旧提交永远停在 queued。需要精确验证某个提交时，等队列空再单独 re-run，不要靠连推刷新。
+6. **推完自检**：`git status -sb` 确认 ahead/behind 为 `0 0`，`git log --oneline origin/main -1` 与本地 HEAD 一致，再同步台账。
 ## 版本与发版规则（semver，2026-10-26 起所有接手 AI 必须遵守）
 
 1. **按内容定版本，不按感觉**。每次要出安装包时，先盘点「自上个安装包以来累计的热更」，再选号：
