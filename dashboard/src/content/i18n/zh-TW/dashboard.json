@@ -347,6 +347,7 @@
   "pet.controls.tray_style": "托盤圖示風格",
   "pet.controls.tray_cat": "奔跑小貓",
   "pet.controls.tray_mascot": "應用圖示",
+  "pet.controls.tray_mascot_mac": "寵物圖標",
   "pet.controls.tray_lightning": "經典閃電",
   "pet.action.title": "動作",
   "pet.action.subtitle": "勾選桌寵可以使用的動作（可多選，取消勾選即去掉）；「自動」或全選恢復隨用量自動切換。",

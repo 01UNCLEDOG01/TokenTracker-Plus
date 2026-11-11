@@ -397,4 +397,40 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
     // the 桌面限额 row visible (this host echoes quota and has the surface).
     expect(screen.getByText(copy("pet.controls.quota"))).toBeInTheDocument();
   });
+
+  it("labels the mascot tray style as 宠物图标 on a macOS host", async () => {
+    const messages = installMacBridge();
+    render(<PetPage />);
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:settings", {
+        detail: { platform: "macos", petBridge: true, quotaWindow: true },
+      }));
+    });
+    await waitFor(() => expect(messages).toContainEqual({ type: "getPetSettings" }));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium", trayStyle: "mascot", quota: true },
+      }));
+    });
+    // macOS calls the character icon a PET icon; the Windows wording is not rendered.
+    expect(await screen.findByRole("button", { name: copy("pet.controls.tray_mascot_mac") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: copy("pet.controls.tray_mascot") })).not.toBeInTheDocument();
+  });
+
+  it("keeps the upstream 应用图标 label for the mascot tray style on Windows", async () => {
+    const messages = installWindowsBridge();
+    render(<PetPage />);
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:settings", { detail: { platform: "windows" } }));
+    });
+    await waitFor(() => expect(messages).toContainEqual({ type: "getPetSettings" }));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium", trayStyle: "mascot", quota: true },
+      }));
+    });
+    // Windows stays on the upstream label — the rename is macOS-only.
+    expect(await screen.findByRole("button", { name: copy("pet.controls.tray_mascot") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: copy("pet.controls.tray_mascot_mac") })).not.toBeInTheDocument();
+  });
 });

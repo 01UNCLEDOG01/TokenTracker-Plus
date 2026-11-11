@@ -369,6 +369,9 @@ export function PetPage() {
   const [autoRotate, setAutoRotate] = useState(true);
   const selectedCharacter = settings.character || "clawd";
   const nativeSettings = useNativeSettings();
+  // macOS calls the character icon a PET icon; Windows keeps the upstream "App
+  // icon" wording. The host platform comes from the native getSettings payload.
+  const isMacNativeHost = nativeSettings.settings?.platform === "macos";
   const menuBarPetActive = nativeSettings.settings?.menuBarIconStyle === "pet";
   const selectedPet = pets.find((pet) => pet.id === selectedCharacter) || pets[0];
   // A long codex-pets.net download deserves live feedback, and failures must not
@@ -446,9 +449,13 @@ export function PetPage() {
     { value: "medium", label: copy("pet.size.medium") },
     { value: "large", label: copy("pet.size.large") },
   ];
+  // macOS-only label: the same mascot style is described as a pet icon there.
+  const mascotTrayLabel = isMacNativeHost
+    ? (copy("pet.controls.tray_mascot_mac") || "宠物图标")
+    : (copy("pet.controls.tray_mascot") || "应用图标");
   const trayStyleOptions = [
     { value: "cat", label: copy("pet.controls.tray_cat") || "奔跑小猫" },
-    { value: "mascot", label: copy("pet.controls.tray_mascot") || "应用图标" },
+    { value: "mascot", label: mascotTrayLabel },
     { value: "lightning", label: copy("pet.controls.tray_lightning") || "经典闪电" },
   ];
   // Host capability filter for the island style. A WKWebView host answers

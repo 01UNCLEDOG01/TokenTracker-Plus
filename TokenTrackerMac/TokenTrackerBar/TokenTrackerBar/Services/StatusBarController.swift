@@ -1478,6 +1478,10 @@ final class StatusBarController: NSObject {
         case .bot: return Strings.petCharacterBot
         case .cat: return Strings.iconStyleCat
         case .pet: return Strings.iconStyleMyPet
+        // The owner's original pets are selectable icons of their own; reuse the
+        // six-locale character names so the menu and the pet page agree.
+        case .gengxu: return Strings.petCharacterGengxu
+        case .yeacat: return Strings.petCharacterYeacat
         case .static: return Strings.iconStyleStatic
         }
     }

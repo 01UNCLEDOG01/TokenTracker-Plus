@@ -6,6 +6,10 @@ enum MenuBarIconStyle: String, CaseIterable {
     case cat
     case bot
     case pet
+    /// The owner's two original TT-Plus pets, selectable directly as the menu-bar
+    /// icon (independent of the desktop-pet character chosen on the pet page).
+    case gengxu
+    case yeacat
     case `static`
 
     static let defaultsKey = "MenuBarIconStyle"
@@ -63,7 +67,7 @@ enum MenuBarRunnerPace {
             case .syncing: return 0.2
             case .sprinting: return 0.08
             }
-        case .pet:
+        case .pet, .gengxu, .yeacat:
             switch motion {
             case .sleeping: return 0.6
             case .idle: return 0.4

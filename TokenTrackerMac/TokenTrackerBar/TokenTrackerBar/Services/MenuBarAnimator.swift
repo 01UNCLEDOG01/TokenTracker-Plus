@@ -1,6 +1,6 @@
 import AppKit
 
-/// Animated menu bar icon with five styles (`MenuBarIconStyle`):
+/// Animated menu bar icon with seven styles (`MenuBarIconStyle`):
 /// - `clawd`  — pixel-art Clawd drawn procedurally from clawd-static-base.svg
 ///              coordinates (idle blink / syncing bounce / disconnected "?")
 /// - `cat`    — RunCat-style running cat (5 Apache-2.0 frames from
@@ -11,6 +11,9 @@ import AppKit
 ///              expressed through WHICH clip plays, not through speed
 /// - `pet`    — silhouette of the desktop pet selected on the Pet page, frames built
 ///              by `MenuBarPetFrameProvider` (a vector character routes to `bot`)
+/// - `gengxu` / `yeacat` — the owner's two TT-Plus pets as a FIXED menu-bar icon,
+///              same atlas silhouette pipeline as `pet` (independent of the
+///              desktop-pet selection)
 /// - `static` — the original lightning-bolt icon, no animation
 ///
 /// Runner styles sprint for `MenuBarRunnerPace.sprintWindow` after
@@ -132,6 +135,10 @@ final class MenuBarAnimator {
             applyBot()
         case .pet:
             applyPet()
+        case .gengxu:
+            applyAtlasCharacter(PetCharacter.gengxu, style: .gengxu)
+        case .yeacat:
+            applyAtlasCharacter(PetCharacter.yeacat, style: .yeacat)
         }
     }
 
@@ -195,7 +202,13 @@ final class MenuBarAnimator {
             applyBot()
             return
         }
-        guard let frames = petFrameProvider.frames(for: PetCharacterStore.shared.character) else {
+        applyAtlasCharacter(PetCharacterStore.shared.character, style: .pet)
+    }
+
+    /// Shared atlas-silhouette renderer for "my pet" and the two fixed TT-Plus
+    /// pets. The style only feeds frame pacing; the character picks the sheet.
+    private func applyAtlasCharacter(_ character: PetCharacter, style: MenuBarIconStyle) {
+        guard let frames = petFrameProvider.frames(for: character) else {
             // Clawd is selected (no atlas) or the atlas failed to load.
             applyClawd()
             return
@@ -206,23 +219,20 @@ final class MenuBarAnimator {
             return
         }
 
+        let interval = MenuBarRunnerPace.frameInterval(style: style, motion: runnerMotion)
         switch currentState {
         case .disconnected:
             setButtonImage(frames.disconnected)
         case .sleeping where !isSprinting:
-            startAnimation(frames: frames.sleeping, interval: petInterval)
+            startAnimation(frames: frames.sleeping, interval: interval)
         case .syncing:
-            startAnimation(frames: frames.active, interval: petInterval)
+            startAnimation(frames: frames.active, interval: interval)
         case .idle, .sleeping:
             startAnimation(
                 frames: isSprinting ? frames.active : frames.idle,
-                interval: petInterval
+                interval: interval
             )
         }
-    }
-
-    private var petInterval: TimeInterval {
-        MenuBarRunnerPace.frameInterval(style: .pet, motion: runnerMotion)
     }
 
     // MARK: - Bot (vector morphing character)
