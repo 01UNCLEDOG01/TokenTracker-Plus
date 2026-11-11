@@ -470,6 +470,16 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
 // 「N 张收了 M 张」进度 + 圆点翻页。亮度档沿用累计领取 7/15/30 次。
 export const ALBUM_PAGE_SIZE = 18;
 
+// AIHOT provider slug → 我们卡册的卡 id（反查表）：统计「今天还能领」时
+// 判断快照 deal 是否已被我们领掉用。多卡映射同一 provider 时取首个。
+const AIHOT_PROVIDER_TO_CARD = (() => {
+  const map = new Map();
+  for (const [cardId, providers] of Object.entries(PERKS_AIHOT_PROVIDERS)) {
+    for (const provider of providers) if (!map.has(provider)) map.set(provider, cardId);
+  }
+  return map;
+})();
+
 export function albumBrightnessTier(streak) {
   if (!Number.isFinite(streak) || streak <= 0) return 0;
   if (streak >= 30) return 4;
@@ -528,6 +538,9 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   const rarity = albumRarity(streak);
   const sealed = collected && Boolean(perkDaysLeft(item.endsAt)?.ended);
+  // AIHOT 卡面口径（站主 2026-11-12 圈图定谳）：只有「今天领过」才翻青色
+  // 卡背；以前领过、今天没领 = 纸卡 + ×N；绝版 = 纸卡 + 红章；没领过 = 纸卡。
+  const showBack = collected && claimedNow && !sealed;
   // 已收卡再领（连击 +1）时重播一次翻面：flipKey 由父层（PerksPage）统一
   // 管理——翻页容器按页 key 重建会清掉组件内的延迟定时器，连击翻面必须
   // 在翻页 remount 后依然触发。连击不换 class，用 key 重建卡背节点强制
@@ -543,10 +556,10 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
       data-flip-key={flipKey}
       className={cn(
         "perk-mini relative block h-[118px] w-full text-center focus-visible:outline-none",
-        collected ? "is-collected" : "is-uncollected",
+        showBack ? "is-collected" : "is-uncollected",
       )}
     >
-      {collected ? (
+      {showBack ? (
         <span
           key={flipKey}
           className={cn(
@@ -563,11 +576,6 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
               ×{streak}
             </span>
           )}
-          {sealed && (
-            <span className="perk-seal absolute -right-1 top-2 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
-              {copy("perks.album.sealed")}
-            </span>
-          )}
           <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px] rounded-b-md", accent)} aria-hidden />
         </span>
       ) : (
@@ -580,9 +588,9 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
             ) : (
               <span aria-hidden />
             )}
-            {claimedNow && (
-              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
-                <Check className="h-2.5 w-2.5" aria-hidden />
+            {sealed && (
+              <span className="perk-seal absolute right-0 top-0 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
+                {copy("perks.album.sealed")}
               </span>
             )}
           </span>
@@ -592,6 +600,11 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
           <span className="w-full truncate text-[10px] font-semibold leading-tight text-oai-gray-700">
             {item.name}
           </span>
+          {collected && streak !== 0 && (
+            <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
+              ×{streak}
+            </span>
+          )}
           <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px]", accent)} aria-hidden />
         </span>
       )}
@@ -639,15 +652,16 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected,
   );
 }
 
-function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys }) {
+function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys, aihotSums }) {
   const totalPages = Math.max(1, Math.ceil(items.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
   // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
-  const sealedCount = items.filter((entry) => entry.collected && perkDaysLeft(entry.item?.endsAt)?.ended).length;
-  const claimableTodayYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanPending || 0); }, 0);
-  const claimedMonthYuan = items.reduce(function (sum, entry) { return sum + (entry.dealYuanMonthlyClaimed || 0); }, 0);
+  const sealedCount = items.filter(function (entry) { return entry.collected && perkDaysLeft(entry.item?.endsAt)?.ended; }).length;
+  // 求和来自 AIHOT 全目录（PerksPage 传 aihotSums），不是卡册映射子集。
+  const claimableTodayYuan = aihotSums.claimable;
+  const claimedMonthYuan = aihotSums.monthly;
   return (
     <div className="mb-8 flex flex-col gap-4 lg:flex-row">
       <AlbumStats
@@ -780,6 +794,27 @@ export function PerksPage() {
     }
     return { byProvider, dropped: new Set(aihotData?.dropped_providers || []) };
   }, [aihotData]);
+
+  // 「今天还能领 / 本月已领到」按 AIHOT 全目录口径（站主 2026-11-12：我们的
+  // ¥6 vs AIHOT ¥583 = 只统计了映射卡）。快照里每个 provider 的最新 deal：
+  // 未被我们领掉的（含未映射到卡册的）都算今天还能领；月领周期且本月已领的
+  // 计入本月已领到。
+  const aihotSums = useMemo(() => {
+    let claimable = 0;
+    let monthly = 0;
+    for (const [provider, deal] of aihotIndex.byProvider) {
+      if (aihotIndex.dropped.has(provider) || !Number.isFinite(deal.yuan)) continue;
+      const cardId = AIHOT_PROVIDER_TO_CARD.get(provider);
+      const item = cardId ? PERK_PROVIDERS.find((row) => row.id === cardId) : null;
+      const claimedToday = item ? isPerkClaimed(item, claims, claimDay, "all") : false;
+      if (!claimedToday) claimable += deal.yuan;
+      const monthlyClaimed = item
+        && getPerkClaimCycles(item).includes("monthly")
+        && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
+      if (monthlyClaimed) monthly += deal.yuan;
+    }
+    return { claimable, monthly };
+  }, [aihotIndex, claims, claimDay]);
 
   useEffect(() => {
     document.title = `${copy("perks.title")} | TokenTracker`;
@@ -1014,6 +1049,7 @@ export function PerksPage() {
             onPageChange={setAlbumPage}
             onJump={jumpToCard}
             flipKeys={flipKeys}
+            aihotSums={aihotSums}
           />
 
           {/* 六色图例：把色阶含义摆在页面上（站主 2026-11-11 要求） */}

@@ -286,6 +286,28 @@ export function InsforgeAuthProvider({ children }) {
   const [displayNameResolved, setDisplayNameResolved] = useState(false);
   const authDisplayName = useMemo(() => pickDisplayNameFromUser(user), [user]);
 
+  // 头像同源回填（2026-11-12）：登录/整页刷新后内存 customAvatarUrl 已
+  // 清零，而 SDK user 对象不带 avatar——侧栏头像要从 public-visibility
+  // 恢复。不能挂在下面的 displayName effect 里：那个 effect 被
+  // isOfficialInsforgeInstance() 门住（上游付费云的会员语义），自托管
+  // 实例永远 early-return，头像就永远回不来。
+  useEffect(() => {
+    if (!user || !client) {
+      setCustomAvatarUrl(null);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const token = await resolveInsforgeClientAccessToken(client);
+        if (!active || !token) return;
+        const data = await getPublicVisibility({ accessToken: token });
+        if (active) setCustomAvatarUrl(data?.avatar_url || null);
+      } catch { /* ignore */ }
+    })();
+    return () => { active = false; };
+  }, [user, client]);
+
   useEffect(() => {
     if (!user || !client || !isOfficialInsforgeInstance()) {
       setCloudDisplayName(null);
@@ -298,9 +320,6 @@ export function InsforgeAuthProvider({ children }) {
         const token = await resolveInsforgeClientAccessToken(client);
         if (!active || !token) { if (active) setDisplayNameResolved(true); return; }
         const data = await getPublicVisibility({ accessToken: token });
-        // 头像同源回填：登录/整页刷新后内存 customAvatarUrl 已清零，而 SDK
-        // user 对象不带 avatar——侧栏头像要从这里恢复（2026-11-12）。
-        if (active) setCustomAvatarUrl(data?.avatar_url || null);
         if (active && data?.display_name) setCloudDisplayName(data.display_name);
       } catch { /* ignore */ }
       if (active) setDisplayNameResolved(true);

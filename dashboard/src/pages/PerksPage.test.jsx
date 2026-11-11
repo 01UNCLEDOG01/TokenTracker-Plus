@@ -396,11 +396,11 @@ describe("PerksPage", () => {
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
-        // qoder_cn：连领 8 次 → 银档（tier 2）
+        // minimax_code：连领 31 次（tier 4）且今天领过 → 青色卡背
+        minimax_code: { daily: { last: getPerkClaimDay(), count: 31 } },
+        // qoder_cn：连领 8 次（tier 2）但今天没领 → 纸卡 + ×8（AIHOT 图1 口径）
         qoder_cn: { daily: { last: "2020-01-01", count: 8 } },
-        // minimax_code：连领 31 次 → 闪卡（tier 4）
-        minimax_code: { daily: { last: "2020-01-01", count: 31 } },
-        // agentrouter：领过 1 次（×1 应显示）
+        // agentrouter：领过 1 次、今天没领 → 纸卡 + ×1
         agentrouter: { daily: { last: "2020-01-01", count: 1 } },
       },
     }));
@@ -425,15 +425,16 @@ describe("PerksPage", () => {
     expect(cards.length).toBe(18); // 每页 18 张（两排×9）
     expect(cards[0].getAttribute("aria-label")).toContain("MiniMax Code");
     expect(cards[1].getAttribute("aria-label")).toContain("Qoder CN");
-    // ×N 角标：每张已收卡都带（含 ×1），画在卡背右下角
+    // ×N 角标：今天领过的画卡背右下，以前领过的画纸面右下（AIHOT 图1）
     expect(cards[0].textContent).toContain("×31");
-    // 已收 = 青色卡背（AIHOT .ft-cd-back 同款），未收 = 纸质正面 + 品牌名
+    // 今天领过 = 青色卡背（AIHOT .ft-cd-back 同款）
     expect(cards[0].className).toContain("is-collected");
     expect(cards[0].querySelector(".perk-card-back")).toBeTruthy();
-    const uncollected = cards.find((card) => card.className.includes("is-uncollected"));
-    expect(uncollected).toBeTruthy();
-    expect(uncollected.querySelector(".perk-card-front")).toBeTruthy();
-    expect(uncollected.textContent.trim().length).toBeGreaterThan(0); // 正面画出品牌名
+    // 以前领过、今天没领 = 纸卡 + ×N（AIHOT 图1 口径），品牌名可见
+    const paperStreak = cards.find((card) => card.className.includes("is-uncollected") && card.textContent.includes("×8"));
+    expect(paperStreak).toBeTruthy();
+    expect(paperStreak.querySelector(".perk-card-back")).toBeNull();
+    expect(paperStreak.querySelector(".perk-card-front")).toBeTruthy();
 
     // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
     const dots = [...album.querySelectorAll("button")].filter((b) => b.className.includes("rounded-full") && !b.querySelector("svg"));
@@ -524,9 +525,11 @@ describe("PerksPage", () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)); });
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
 
-    // 取消 = cleared 标记（AIHOT 口径）：count 不变 → streak 不变 → 不重播
+    // 取消 = cleared 标记（AIHOT 口径）：count 不变 → streak 不变 → 不重播；
+    // 今天没领了 → 卡面回纸卡（以前领过 = 纸卡 + ×N）
     fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
-    expect(miniWithStreak.className).toContain("is-collected");
+    expect(miniWithStreak.className).toContain("is-uncollected");
+    expect(miniWithStreak.querySelector(".perk-card-front")).toBeTruthy();
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
   });
 
@@ -646,15 +649,17 @@ describe("PerksPage", () => {
   });
 
   it("稀有度与绝版：连击 15 次把卡背变金，活动过期后已收卡盖「绝版」章并计数", () => {
-    // 造一张已收 15 次的卡（金档）+ 今天先领掉 autoclaw（过期后成绝版）
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-11-20T10:00:00+08:00"));
+    // 先定假时钟再种数据：「今天」必须与组件的 claimDay 同一天，
+    // 否则种的是过去日 → 纸卡，金背断言落空。
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
-        qoder_cn: { daily: { last: "2020-01-01", count: 15 } },
+        // 今天领过 15 连击 → 青背挂金档材质（以前领过只显示纸卡 + ×15）
+        qoder_cn: { daily: { last: getPerkClaimDay(), count: 15 } },
       },
     }));
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-11-20T10:00:00+08:00"));
     render(
       <ToastProvider>
         <PerksPage />
