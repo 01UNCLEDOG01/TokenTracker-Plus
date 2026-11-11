@@ -37,7 +37,7 @@
 
 **Windows/macOS는 빌드 불필요**: [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases)에서 내려받아 설치하세요. Windows는 `TokenTracker-Setup.exe`, macOS(Apple silicon / Intel)는 `TokenTracker-plus-1.26.0.dmg`를 "응용 프로그램"으로 드래그. macOS 빌드는 서명되지 않았으므로 첫 실행에 "개발자를 확인할 수 없습니다"가 나오면 우클릭 → "열기" 또는 `xattr -cr /Applications/TokenTracker-plus.app` 실행 후 여세요. 처음이라면 [입문 가이드](./docs/getting-started.zh-CN.md)(중국어)를 먼저 읽어보세요.
 
-> 🍎 **macOS 네이티브 클라이언트(1.26.0부터 TT-Plus 자체 빌드)**: 네이티브 SwiftUI 메뉴 막대 형태를 유지하며(유니버설 바이너리, Apple silicon / Intel 지원), UI는 6개 언어(간체 / 번체 / 영 / 일 / 한 / 독)입니다. **로컬 우선**으로 클라우드 계정·로그인·OAuth 화면이 없고, 페이지 메뉴가 fork의 13개 페이지를 모두 포함하며 `tokentracker://open?path=` 딥링크를 지원합니다. 데스크톱 펫은 7개 기본 캐릭터(庚戌 / 猫也 포함)를 제공합니다. 업데이트 확인은 이 저장소의 Releases만 읽습니다(에셋 이름 `TokenTracker-plus-<version>.dmg`). WidgetKit 위젯은 포함하지 않으며(서명과 App Group 필요), 데스크톱 쿼터 창과 33개 프로바이더 전체의 limits 커버는 이 버전에 포함되어 있습니다.
+> 🍎 **macOS 네이티브 클라이언트(1.26.0부터 TT-Plus 자체 빌드)**: 네이티브 SwiftUI 메뉴 막대 형태를 유지하며(유니버설 바이너리, Apple silicon / Intel 지원), UI는 6개 언어(간체 / 번체 / 영 / 일 / 한 / 독)입니다. **로컬 우선**으로 클라우드 계정·로그인·OAuth 화면이 없고, 페이지 메뉴가 fork의 13개 페이지를 모두 포함하며 `tokentracker://open?path=` 딥링크를 지원합니다. 데스크톱 펫은 7개 기본 캐릭터(庚戌 / 猫也 포함)를 제공합니다. 업데이트 확인은 이 저장소의 Releases만 읽습니다(에셋 이름 `TokenTracker-plus-<version>.dmg`). WidgetKit 위젯도 포함합니다(요약 / 히트맵 / 상위 모델 / 한도 4종, ad-hoc 서명 + 샌드박스, App Group 불필요), 데스크톱 쿼터 창과 33개 프로바이더 전체의 limits 커버는 이 버전에 포함되어 있습니다.
 
 ```bash
 git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git

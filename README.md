@@ -29,7 +29,7 @@
 **Windows / macOS 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载安装即可——Windows 下载 `TokenTracker-Setup.exe`，macOS 下载 `TokenTracker-plus-1.26.0.dmg` 拖进「应用程序」（通用二进制）——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
 
 > 💡 **关于 Windows Defender / SmartScreen 提示**：本软件为个人开源作品，尚未购买企业数字签名证书，初次安装时 Windows SmartScreen 可能会提示「已保护你的电脑（未知发布者）」。此为正常安全机制，点击「更多信息」→「仍要运行」即可完成安装；代码 100% 开源，数据 100% 留在本机，请放心使用。
-> 🍎 **macOS 原生客户端（1.26.0 起为 TT-Plus 自己的版本）**：保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），界面 6 语言（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——不连接云端，也没有账号 / 登录 / OAuth 界面；页面菜单覆盖 13 个 fork 页面并支持 `tokentracker://open?path=` 深链，桌面宠物内置 7 个形象（含庚戌 / 猫也）；「检查更新」只读本仓库 Releases（资产名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小组件不随包发布（缺签名与 App Group）；桌面额度浮窗与限额页 33 个 provider 的窗口口径已随本版本包含。
+> 🍎 **macOS 原生客户端（1.26.0 起为 TT-Plus 自己的版本）**：保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），界面 6 语言（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——不连接云端，也没有账号 / 登录 / OAuth 界面；页面菜单覆盖 13 个 fork 页面并支持 `tokentracker://open?path=` 深链，桌面宠物内置 7 个形象（含庚戌 / 猫也）；「检查更新」只读本仓库 Releases（资产名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小组件随包发布（4 个：汇总 / 热力图 / 顶级模型 / 限额；ad-hoc 签名 + 沙箱，无需 App Group）；桌面额度浮窗与限额页 33 个 provider 的窗口口径已随本版本包含。
 
 > 💡 **关于 macOS Gatekeeper 提示**：macOS 版同为未签名分发，首次打开若提示「无法验证开发者」，在应用上**右键 → 打开**，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再打开即可。
 
@@ -57,7 +57,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **macOS** —— 运行 `TokenTrackerMac`（**TT-Plus 自维护的原生 Swift 菜单栏 App**，通用二进制）：菜单栏 ⚡ 图标（左键开面板）、页面菜单（13 个 fork 页面）与 `tokentracker://open?path=` 深链、桌面宠物悬浮窗（7 个内置形象，含庚戌 / 猫也）、面板窗，内嵌服务器零依赖；界面 6 语言、本地优先（无云端账号 / 登录 / OAuth），检查更新指向本仓库 Releases。WidgetKit 小组件不随包发布。构建方式见 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
+> - **macOS** —— 运行 `TokenTrackerMac`（**TT-Plus 自维护的原生 Swift 菜单栏 App**，通用二进制）：菜单栏 ⚡ 图标（左键开面板）、页面菜单（13 个 fork 页面）与 `tokentracker://open?path=` 深链、桌面宠物悬浮窗（7 个内置形象，含庚戌 / 猫也）、面板窗，内嵌服务器零依赖；界面 6 语言、本地优先（无云端账号 / 登录 / OAuth），检查更新指向本仓库 Releases。WidgetKit 小组件随包发布。构建方式见 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
 > - **其他平台** —— 仅提供源码运行（`git clone` 后执行 `node bin/tracker.js`），不提供安装包，也不做兼容性保证；桌面端目前覆盖 Windows 与 macOS。
 
 ---

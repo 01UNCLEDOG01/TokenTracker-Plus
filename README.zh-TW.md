@@ -29,7 +29,7 @@
 **Windows / macOS 使用者免構建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下載安裝即可——Windows 下載 `TokenTracker-Setup.exe`；macOS 下載 `TokenTracker-plus-1.26.0.dmg` 拖進「應用程式」（通用二進制）——安裝包內建 Node 執行時，無需帳號、無需 API Key、不連任何雲端服務。第一次使用建議先讀《[普通使用者上手指南](./docs/getting-started.zh-CN.md)》（簡體）。
 
 > 💡 **關於 Windows Defender / SmartScreen 提示**：本軟體為個人開源作品，尚未購買企業數位簽章憑證，初次安裝時 Windows SmartScreen 可能會提示「已保護你的電腦（未知發佈者）」。此為正常安全機制，點擊「更多資訊」→「仍要執行」即可完成安裝；程式碼 100% 開源，資料 100% 留在本機，請放心使用。
-> 🍎 **macOS 原生用戶端（1.26.0 起為 TT-Plus 自己的版本）**：保留原生 SwiftUI 選單列形態（通用二進制，Apple silicon / Intel 皆可），介面 6 語言（簡中 / 繁中 / 英 / 日 / 韓 / 德）；**本機優先**——不連接雲端，也沒有帳號 / 登入 / OAuth 介面；頁面選單涵蓋 13 個 fork 頁面並支援 `tokentracker://open?path=` 深鏈，桌面寵物內建 7 個形象（含庚戌 / 貓也）；「檢查更新」只讀本儲存庫 Releases（資產名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小工具不隨套件發布（缺簽章與 App Group）；桌面額度浮窗與限額頁 33 個 provider 的窗口口徑已隨本版本包含。
+> 🍎 **macOS 原生用戶端（1.26.0 起為 TT-Plus 自己的版本）**：保留原生 SwiftUI 選單列形態（通用二進制，Apple silicon / Intel 皆可），介面 6 語言（簡中 / 繁中 / 英 / 日 / 韓 / 德）；**本機優先**——不連接雲端，也沒有帳號 / 登入 / OAuth 介面；頁面選單涵蓋 13 個 fork 頁面並支援 `tokentracker://open?path=` 深鏈，桌面寵物內建 7 個形象（含庚戌 / 貓也）；「檢查更新」只讀本儲存庫 Releases（資產名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小工具隨套件發布（4 個：彙總 / 熱力圖 / 頂級模型 / 限額；ad-hoc 簽章 + 沙箱，無需 App Group）；桌面額度浮窗與限額頁 33 個 provider 的窗口口徑已隨本版本包含。
 
 > 💡 **關於 macOS Gatekeeper 提示**：macOS 版同為未簽名發行，首次開啟若提示「無法驗證開發者」，在應用程式上**右鍵 → 打開**，或執行 `xattr -cr /Applications/TokenTracker-plus.app` 後再開啟即可。
 
@@ -57,7 +57,7 @@ node bin/tracker.js doctor     # 運行系統診斷與健康檢查
 
 > **想要原生桌面端？**
 > - **Windows** —— 運行 `TokenTrackerWin`（C# .NET 8 + WebView2 系統匣 App），附帶動態桌寵、桌面額度小組件與置頂用量藥丸。構建方式見 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **macOS（Apple silicon / Intel 通用二進制）** —— 運行 `TokenTrackerMac`（**TT-Plus 自維護的原生 Swift 選單列 App**）：選單列 ⚡ 額度面板、頁面選單（13 個 fork 頁面）與 `tokentracker://open?path=` 深鏈、桌面寵物懸浮窗（7 個內建形象，含庚戌 / 貓也）、面板窗，內嵌伺服器零依賴；介面 6 語言、本機優先（無雲端帳號 / 登入 / OAuth），檢查更新指向本儲存庫 Releases。WidgetKit 小工具不隨套件發布。構建方式見 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
+> - **macOS（Apple silicon / Intel 通用二進制）** —— 運行 `TokenTrackerMac`（**TT-Plus 自維護的原生 Swift 選單列 App**）：選單列 ⚡ 額度面板、頁面選單（13 個 fork 頁面）與 `tokentracker://open?path=` 深鏈、桌面寵物懸浮窗（7 個內建形象，含庚戌 / 貓也）、面板窗，內嵌伺服器零依賴；介面 6 語言、本機優先（無雲端帳號 / 登入 / OAuth），檢查更新指向本儲存庫 Releases。WidgetKit 小工具隨套件發布。構建方式見 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
 > - **其他平台** —— 僅提供源碼運行（`git clone` 後執行 `node bin/tracker.js`），不提供安裝包，也不做相容性保證；桌面端目前覆蓋 Windows 與 macOS。
 
 ---
