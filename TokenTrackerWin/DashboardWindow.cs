@@ -772,7 +772,8 @@ internal sealed class DashboardWindow : Window
         // the window's DWM acrylic shows through. Solid cards keep their own bg.
         var css = """
             ::-webkit-scrollbar{display:none!important}
-            *{-webkit-user-select:none;user-select:none}
+            *{-webkit-user-select:text;user-select:text}
+            button,a,[role="button"],select,label{-webkit-user-select:none;user-select:none}
             input,textarea{-webkit-user-select:text;user-select:text}
 
             html.native-windows-app,

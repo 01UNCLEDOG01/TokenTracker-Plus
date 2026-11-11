@@ -1969,6 +1969,8 @@ perks.filter.claimed,ui,PerksPage,PerksPage,filter_claimed,Claimed,,active
 perks.filter.unclaimed,ui,PerksPage,PerksPage,filter_unclaimed,Pending,,active
 perks.tier.all,ui,PerksPage,PerksPage,tier_all,All tiers,,active
 perks.album.jump,ui,PerksPage,PerksPage,album_jump,Jump to the card below,,active
+perks.scroll.top,ui,PerksPage,PerksPage,scroll_top,Back to top,,active
+perks.scroll.bottom,ui,PerksPage,PerksPage,scroll_bottom,Jump to bottom,,active
 cloud.page.subtitle,ui,CloudPage,CloudPage,subtitle,Connect your own backend: self-hosted sync, the private leaderboard and multi-device data all run on your server.,active
 cloud.status.connected,ui,CloudPage,CloudPage,connected,Connected to your self-hosted backend,active
 cloud.status.checking,ui,CloudPage,CloudPage,checking,Checking connection…,active

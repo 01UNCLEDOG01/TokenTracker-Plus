@@ -659,6 +659,8 @@
   "perks.album.refresh": "Nächste Aktualisierung",
   "perks.album.next": "Weiter",
   "perks.album.jump": "Zur Karte unten springen",
+  "perks.scroll.top": "Zurück nach oben",
+  "perks.scroll.bottom": "Zum Ende springen",
   "perks.tier.all": "Alle Stufen",
   "perks.credit_aihot": "Die Angebotsdaten werden vom TT-plus-Autor manuell gepflegt; das täglich aktualisierte öffentliche Board von AIHOT (aihot.news) dient als Aktualitätsreferenz. Dank an Kazik (数字生命卡兹克) für die offenen Daten.",
   "perks.aihot.badge": "AIHOT geprüft {{date}}",

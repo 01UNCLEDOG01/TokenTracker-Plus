@@ -1401,38 +1401,51 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   border-color: rgb(39 39 42 / 0.9);
 }
 
-/* 卡册小卡点击跳转：详情卡滚到视野顶部时给 sticky 头部留出空间（2026-11-11）。 */
+/* 卡册小卡点击跳转：详情卡滚到视野顶部时给 sticky 头部留出空间。 */
 .tt-perks-page [id^="perk-"] {
   scroll-margin-top: 88px;
 }
 
-/* 卡册小卡「领取瞬间翻面」：单面 DOM + 一次性 3D 揭示动画，
-   避免双面同时存在导致同一品牌名在无障碍树与测试里出现两次。 */
-.tt-perks-page .perk-mini-revealing {
-  animation: perk-mini-reveal 0.6s cubic-bezier(0.4, 0.05, 0.3, 1) both;
+/* ---- 卡册小卡（照 AIHOT 的实物卡质感） ----------------------------------
+   正面 = 纸质卡：浅色渐层 + 内层图标底板 + 单行品牌名。深色主题下也保持浅色，
+   因为卡册本体是深色活页纸，卡要“立”在纸上（这正是站主 2026-11-12 说的
+   「深色模式看着只是一个个 logo，看不出卡片」）。色值取自 AIHOT 的 .ft-cd-front。 */
+.tt-perks-page .perk-card-front {
+  background: linear-gradient(160deg, #ffffff 0%, #f6f7f6 58%, #e9eceb 100%);
+  box-shadow: 0 1px 2px rgba(20, 30, 30, 0.18), 0 6px 14px rgba(20, 30, 30, 0.08);
 }
-@keyframes perk-mini-reveal {
-  0% { transform: rotateY(-180deg) scale(0.96); }
-  60% { transform: rotateY(-8deg) scale(1.02); }
-  100% { transform: rotateY(0deg) scale(1); }
+/* 背面 = 已收的青色卡背（AIHOT .ft-cd-back 原样：双向斜纹 + 160deg 青绿渐变 + 3px 白边）。 */
+.tt-perks-page .perk-card-back {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.08) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(160deg, #21808b 0%, #176b75 55%, #11555d 100%);
+  border: 3px solid #eef5f4;
+  box-shadow: 0 1px 2px rgba(20, 30, 30, 0.22), 0 6px 14px rgba(20, 30, 30, 0.14);
 }
-@media (prefers-reduced-motion: reduce) {
-  .tt-perks-page .perk-page-turn,
-  .tt-perks-page .perk-mini-revealing {
-    animation: none;
+/* 领取瞬间翻面：单面 DOM + 一次性 rotateY，避免同品牌名在无障碍树/测试里出现两次。 */
+.tt-perks-page .perk-mini {
+  perspective: 760px;
+}
+.tt-perks-page .perk-mini.is-collected .perk-mini-card {
+  animation: perk-mini-flip 0.58s cubic-bezier(0.42, 0.02, 0.28, 1) both;
+}
+@keyframes perk-mini-flip {
+  0% { transform: rotateY(-180deg); }
+  100% { transform: rotateY(0deg); }
+}
+@media (hover: hover) {
+  .tt-perks-page .perk-mini:hover .perk-mini-card {
+    transform: translateY(-4px) rotateX(8deg) rotateY(-6deg);
+    box-shadow: 0 4px 10px rgba(20, 30, 30, 0.24), 0 12px 24px rgba(20, 30, 30, 0.12);
   }
 }
-
-/* 卡册小卡点击跳转：详情卡滚到视野顶部时给 sticky 头部留出空间（2026-11-11）。 */
-.tt-perks-page [id^="perk-"] {
-  scroll-margin-top: 88px;
+.tt-perks-page .perk-mini .perk-mini-card {
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* 卡册翻页：仿 AIHOT 的 rotateY 翻纸（0.62s cubic-bezier(.45,.05,.35,1)）。
-   以左侧为轴翻入，父层给 perspective；只做「翻入」一层，比双图层更省 DOM。 */
-.tt-perks-page .perk-page-frame {
-  perspective: 2600px;
-}
+/* 卡册翻页：仿 AIHOT 的 rotateY 翻纸（0.62s cubic-bezier(.45,.05,.35,1)）。 */
 .tt-perks-page .perk-page-turn {
   transform-origin: 0 50%;
   animation: perk-page-turn 0.62s cubic-bezier(0.45, 0.05, 0.35, 1) both;
@@ -1443,47 +1456,32 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   100% { opacity: 1; filter: brightness(1); transform: rotateY(0deg); }
 }
 
-/* 卡册小卡 3D 翻面：未领取显示「灰色空槽」面，领取后翻到正面（AIHOT 同款）。 */
-.tt-perks-page .perk-mini-inner {
-  transform-style: preserve-3d;
-  transition: transform 0.5s cubic-bezier(0.4, 0.05, 0.3, 1);
-  transform: rotateY(180deg);
-}
-.tt-perks-page .perk-mini.is-collected .perk-mini-inner {
-  transform: rotateY(0deg);
-}
-.tt-perks-page .perk-mini-face {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-.tt-perks-page .perk-mini-front {
-  transform: rotateY(0deg);
-}
-.tt-perks-page .perk-mini-back {
-  transform: rotateY(180deg);
-}
-@media (hover: hover) {
-  .tt-perks-page .perk-mini:hover .perk-mini-inner {
-    transform: translateY(-2px) rotateX(6deg) rotateY(-8deg);
-  }
-  .tt-perks-page .perk-mini.is-collected:hover .perk-mini-inner {
-    transform: translateY(-2px) rotateX(6deg) rotateY(-8deg);
-  }
-  .tt-perks-page .perk-mini.is-ghost:hover .perk-mini-inner {
-    transform: rotateY(180deg) translateY(-2px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tt-perks-page .perk-page-turn,
-  .tt-perks-page .perk-mini-inner {
-    animation: none;
-    transition: none;
-  }
-}
-
-/* 福利卡内容可见性优化：53 张长卡只在进入视口时布局/绘制，DOM 仍然全量存在
-   （离线渲染与测试不受影响），实测 Layout 506ms → ~150ms（站主 2026-11-12 首访慢）。 */
+/* 福利卡内容可见性优化：53 张长卡只在进入视口时布局/绘制（DOM 仍全量存在）。 */
 .tt-perks-page .perk-card-cv {
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
+}
+
+/* 站主 2026-11-12：装了桌面壳之后全站不能选中文字（DashboardWindow.cs 注入
+   *{user-select:none}）。福利页是要拿去搜的（复制「Agent Router」去找官网），
+   这里用 !important 抢回文字选择权。 */
+.tt-perks-page,
+.tt-perks-page * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+.tt-perks-page button,
+.tt-perks-page a {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-perks-page .perk-page-turn,
+  .tt-perks-page .perk-mini.is-collected .perk-mini-card {
+    animation: none;
+  }
+  .tt-perks-page .perk-mini .perk-mini-card {
+    transition: none;
+  }
 }

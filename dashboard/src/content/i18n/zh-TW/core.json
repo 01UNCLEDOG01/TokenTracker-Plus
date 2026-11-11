@@ -948,6 +948,8 @@
   "perks.album.refresh": "下次重新整理",
   "perks.album.next": "下一頁",
   "perks.album.jump": "跳到下方卡片",
+  "perks.scroll.top": "回到頂部",
+  "perks.scroll.bottom": "回到底部",
   "perks.credit_aihot": "福利資料由 TT-plus 作者人工核對維護，並以 AIHOT（aihot.news）每日更新的公開羊毛榜作時效參考；感謝數字生命卡茲克（Kazik）長期公開資料。",
   "perks.aihot.badge": "AIHOT 核對 {{date}}",
   "perks.aihot.dropped": "AIHOT 最新快照已無此家福利",

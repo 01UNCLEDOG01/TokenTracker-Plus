@@ -473,26 +473,20 @@ function formatCountdown(msLeft) {
   return `${hh}:${mm}:${ss}`;
 }
 
-// 未领取的卡面 = 灰色空槽 + 灰度 logo（AIHOT ghost 口径：opacity .62 + grayscale）。
-// 品牌名不在卡面重复渲染——按钮已用 aria-label 携带名称，否则无障碍树与页面文本里
-// 同一家会出现两次（下方详情卡还有一份 h3），测试的 getByText 也会撞车。
+// 卡册小卡（照 AIHOT 的实物卡）：
+//   未领取 = 纸质正面（面值条 + 图标底座 + 品牌名），深色主题下也是浅色卡；
+//   已领取 = 翻到青色卡背（双向斜纹 + 3px 白边 + 白底圆形 logo + ×N），领取瞬间 rotateY 翻面。
+// 只渲染当前那一面：同品牌名不会在页面/无障碍树里出现两次（下方详情卡还有一份 h3）。
+function AlbumMiniLogo({ item, hasIcon }) {
+  if (hasIcon) {
+    return <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />;
+  }
+  return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
+}
+
 function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
-  // 领取瞬间翻面：只在 false→true 的那一次播动画，刷新页面不会整屏乱闪。
-  const [revealing, setRevealing] = useState(false);
-  const wasCollected = useRef(collected);
-  useEffect(() => {
-    if (!wasCollected.current && collected) {
-      setRevealing(true);
-      const timer = setTimeout(() => setRevealing(false), 600);
-      wasCollected.current = collected;
-      return () => clearTimeout(timer);
-    }
-    wasCollected.current = collected;
-    return undefined;
-  }, [collected]);
-
   return (
     <button
       type="button"
@@ -500,18 +494,27 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
       title={onJump ? copy("perks.album.jump") : undefined}
       aria-label={`${item.name} — ${copy("perks.album.jump")}`}
       className={cn(
-        "perk-mini relative flex h-[104px] w-full flex-col items-center justify-between overflow-hidden rounded-xl border p-1.5 text-center transition-[transform,box-shadow] duration-200 focus-visible:outline-none",
-        collected
-          ? cn("bg-white shadow-xs hover:-translate-y-0.5 hover:shadow-sm dark:bg-oai-gray-900", BRIGHTNESS_RING[tier])
-          : "border-dashed border-oai-gray-300 bg-oai-gray-100/70 hover:-translate-y-0.5 dark:border-oai-gray-600 dark:bg-oai-gray-800/50",
-        revealing ? "perk-mini-revealing" : null,
+        "perk-mini relative block h-[118px] w-full text-center focus-visible:outline-none",
+        collected ? "is-collected" : "is-uncollected",
       )}
     >
       {collected ? (
-        <>
-          <span className="flex w-full items-start justify-between gap-1">
+        <span className="perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
+          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+            <AlbumMiniLogo item={item} hasIcon={hasIcon} />
+          </span>
+          {streak !== 0 && (
+            <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
+              ×{streak}
+            </span>
+          )}
+          <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px] rounded-b-md", accent)} aria-hidden />
+        </span>
+      ) : (
+        <span className="perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5">
+          <span className="flex w-full items-center justify-between gap-1">
             {faceValue ? (
-              <span className="max-w-full truncate rounded-md bg-oai-gray-900/85 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-white dark:bg-white/90 dark:text-oai-black">
+              <span className="max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 text-[9px] font-semibold leading-tight text-white">
                 {faceValue}
               </span>
             ) : (
@@ -523,35 +526,15 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
               </span>
             )}
           </span>
-          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-xs">
-            {hasIcon ? (
-              <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />
-            ) : (
-              <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>
-            )}
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-sm">
+            <AlbumMiniLogo item={item} hasIcon={hasIcon} />
           </span>
-          <span className="w-full truncate pb-1 text-[10px] font-medium leading-tight text-oai-gray-700 dark:text-oai-gray-300">
+          <span className="w-full truncate text-[10px] font-semibold leading-tight text-oai-gray-700">
             {item.name}
           </span>
-          {streak !== 0 && (
-            <span className="absolute bottom-1 right-1 text-[9px] font-semibold tabular-nums text-oai-gray-400 dark:text-oai-gray-500">
-              ×{streak}
-            </span>
-          )}
-        </>
-      ) : (
-        <span className="flex h-full w-full flex-col items-center justify-center opacity-60 grayscale">
-          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white/70 p-0.5 dark:bg-oai-gray-900/70">
-            {hasIcon ? (
-              <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />
-            ) : (
-              <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>
-            )}
-          </span>
+          <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px]", accent)} aria-hidden />
         </span>
       )}
-      {/* 价值等级色条：颜色只表「白拿额度」高低，未领取也显示 */}
-      <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px]", accent)} aria-hidden />
     </button>
   );
 }
@@ -938,40 +921,7 @@ export function PerksPage() {
 
           {/* Filters & Search Toolbar */}
           <div className="mb-6 space-y-2.5">
-            {/* Top Row: Core Platform Categories */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {PERK_CATEGORIES.slice(0, 4).map((cat) => {
-                const active = selectedCategory === cat.id;
-                const label = copy(`perks.cat.${cat.id}`) || cat.label;
-                const count = categoryCounts[cat.id] ?? 0;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
-                      active
-                        ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
-                        : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
-                    )}
-                  >
-                    <span>{label}</span>
-                    <span
-                      className={cn(
-                        "text-[10px] tabular-nums",
-                        active ? "opacity-75" : "text-oai-gray-600 dark:text-oai-gray-300"
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Value-tier Row：六色筛选，颜色口径与页首图例一致 */}
+            {/* Value-tier Row：六色筛选（站主 2026-11-12：放第一行），颜色口径与页首图例一致 */}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-oai-gray-500 dark:text-oai-gray-400">
                 {copy("perks.legend.title")}
@@ -1012,6 +962,40 @@ export function PerksPage() {
                 );
               })}
             </div>
+
+            {/* Top Row: Core Platform Categories */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {PERK_CATEGORIES.slice(0, 4).map((cat) => {
+                const active = selectedCategory === cat.id;
+                const label = copy(`perks.cat.${cat.id}`) || cat.label;
+                const count = categoryCounts[cat.id] ?? 0;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                      active
+                        ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
+                        : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
+                    )}
+                  >
+                    <span>{label}</span>
+                    <span
+                      className={cn(
+                        "text-[10px] tabular-nums",
+                        active ? "opacity-75" : "text-oai-gray-600 dark:text-oai-gray-300"
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
 
             {/* Bottom Row: Benefit Form Categories (left) + Claim-state filter & Search Input aligned together (right) */}
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -1133,6 +1117,29 @@ export function PerksPage() {
 
         </div>
       </main>
+      {/* 长列表跳转：一屏一屏翻太慢，给「回到顶部 / 回到底部」两个常驻按钮 */}
+      <div className="pointer-events-none sticky bottom-6 z-20 flex justify-end px-4 sm:px-6">
+        <div className="pointer-events-auto flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label={copy("perks.scroll.top")}
+            title={copy("perks.scroll.top")}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-oai-gray-200 bg-white/90 text-oai-gray-600 shadow-md backdrop-blur transition hover:bg-white hover:text-oai-black dark:border-oai-gray-700 dark:bg-oai-gray-900/90 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 dark:hover:text-white"
+          >
+            <ChevronLeft className="h-4 w-4 rotate-90" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })}
+            aria-label={copy("perks.scroll.bottom")}
+            title={copy("perks.scroll.bottom")}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-oai-gray-200 bg-white/90 text-oai-gray-600 shadow-md backdrop-blur transition hover:bg-white hover:text-oai-black dark:border-oai-gray-700 dark:bg-oai-gray-900/90 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 dark:hover:text-white"
+          >
+            <ChevronLeft className="h-4 w-4 -rotate-90" aria-hidden />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

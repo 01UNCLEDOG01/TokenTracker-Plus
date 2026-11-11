@@ -662,6 +662,8 @@
   "perks.album.refresh": "次の更新",
   "perks.album.next": "次へ",
   "perks.album.jump": "下のカードへジャンプ",
+  "perks.scroll.top": "ページ上部へ",
+  "perks.scroll.bottom": "ページ下部へ",
   "perks.tier.all": "すべてのランク",
   "perks.credit_aihot": "特典データは TT-plus 作者が手動検証・管理し、AIHOT（aihot.news）の日次公開ボードを鮮度参考にしています。データを公開し続ける数字生命卡兹克（Kazik）氏に感謝します。",
   "perks.aihot.badge": "AIHOT 検証 {{date}}",

@@ -57,8 +57,8 @@ describe("PerksPage", () => {
 
     expect(screen.getByText("福利指南")).toBeInTheDocument();
     expect(screen.getByText("全部服务商")).toBeInTheDocument();
-    expect(screen.getByText(/智谱开放平台/)).toBeInTheDocument();
-    expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /智谱开放平台/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /硅基流动/ })).toBeInTheDocument();
   });
 
   it("shows the AIHOT freshness badge once the snapshot arrives, and a delisting hint when dropped", async () => {
@@ -86,7 +86,7 @@ describe("PerksPage", () => {
     // 豆包工作 + TRAE CN + TRAE 国际版 三张卡拿到角标（copy 模板原文断言）
     await waitFor(() => expect(screen.getAllByText("AIHOT 核对 {{date}}").length).toBe(3));
     // 没覆盖的卡（如 Agent2API）不打角标 —— 缺席不算下架，不误报
-    const agent2apiCard = screen.getByText("Agent2API (开源本地网关)").closest("div.group");
+    const agent2apiCard = screen.getByRole("heading", { level: 3, name: "Agent2API (开源本地网关)" }).closest("div.group");
     expect(agent2apiCard.textContent).not.toContain("AIHOT 核对");
   });
 
@@ -153,7 +153,7 @@ describe("PerksPage", () => {
     const input = screen.getByPlaceholderText(/搜索服务商/);
     fireEvent.change(input, { target: { value: "硅基流动" } });
 
-    expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /硅基流动/ })).toBeInTheDocument();
     expect(screen.queryByText(/智谱开放平台/)).not.toBeInTheDocument();
   });
 
@@ -384,7 +384,7 @@ describe("PerksPage", () => {
     expect(screen.getByText(/DeepSeek-V4\.1-Flash free calls ended/)).toBeInTheDocument();
     expect(screen.getByText(/HY3 remains available for free/)).toBeInTheDocument();
     // 纯中国卡无 overlay，保持中文
-    expect(screen.getByText(/阿里百炼/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /阿里百炼/ })).toBeInTheDocument();
     const names = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
     expect(names).toEqual(ORDERED_IDS.map((id) => localizePerk(PERK_PROVIDERS.find((row) => row.id === id), "en").name));
     getCopyLocale.mockReturnValue("zh");
@@ -419,27 +419,26 @@ describe("PerksPage", () => {
 
     // 卡牌带：已收亮卡在前（minimax_code 闪 > qoder_cn 银 > 未收 A-Z 暗卡）
     const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
-    const cards = [...album.querySelectorAll(":scope > div:nth-child(2) .rounded-xl")];
+    const cards = [...album.querySelectorAll(".perk-mini")];
     expect(cards.length).toBe(18); // 每页 18 张（两排×9）
-    expect(cards[0].textContent).toContain("MiniMax Code");
-    expect(cards[1].textContent).toContain("Qoder CN");
-    // ×N 角标：every collected card carries it, including count==1
+    expect(cards[0].getAttribute("aria-label")).toContain("MiniMax Code");
+    expect(cards[1].getAttribute("aria-label")).toContain("Qoder CN");
+    // ×N 角标：每张已收卡都带（含 ×1），画在卡背右下角
     expect(cards[0].textContent).toContain("×31");
-    const x1Card = cards.find((c) => c.textContent.includes("Agent Router"));
-    expect(x1Card).toBeTruthy();
-    expect(cards[0].className).toContain("bg-white");
-    // 未领取 = 灰色虚线空槽 + 灰度 logo（AIHOT ghost 口径，2026-11-12 改版；旧版是深色渐变暗卡）
-    const ghostCard = cards.find((card) => card.className.includes("border-dashed"));
-    expect(ghostCard).toBeTruthy();
-    expect(ghostCard.textContent).not.toContain("Agent Router"); // 灰色空槽不重复渲染品牌名（名称走 aria-label）
+    // 已收 = 青色卡背（AIHOT .ft-cd-back 同款），未收 = 纸质正面 + 品牌名
+    expect(cards[0].className).toContain("is-collected");
+    expect(cards[0].querySelector(".perk-card-back")).toBeTruthy();
+    const uncollected = cards.find((card) => card.className.includes("is-uncollected"));
+    expect(uncollected).toBeTruthy();
+    expect(uncollected.querySelector(".perk-card-front")).toBeTruthy();
+    expect(uncollected.textContent.trim().length).toBeGreaterThan(0); // 正面画出品牌名
 
     // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
     const dots = [...album.querySelectorAll("button")].filter((b) => b.className.includes("rounded-full") && !b.querySelector("svg"));
     expect(dots.length).toBe(3);
     fireEvent.click(dots[2]);
-    // 翻到第 3 页后暗卡里能看到 A-Z 尾部的品牌
-    const lastPageGhosts = [...album.querySelectorAll(".rounded-xl")].filter((card) => card.className.includes("border-dashed"));
-    expect(lastPageGhosts.length).toBeGreaterThan(0);
+    // 翻到第 3 页仍然有小卡（尾页是 A-Z 尾部品牌）
+    expect(album.querySelectorAll(".perk-mini").length).toBeGreaterThan(0);
   });
 
   it("albumBrightnessTier：AIHOT 式 7/15/30 分档，once 领过即亮", () => {
