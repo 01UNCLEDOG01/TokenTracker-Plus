@@ -884,6 +884,8 @@
   "settings.appearance.token_grouping.wan": "4位",
   "legal.nav.support": "聯絡客服",
   "settings.account.avatarUrl": "頭像連結",
+  "settings.account.avatarUploadFailed": "圖片處理失敗，請換一張試試",
+  "settings.account.avatarUpload": "上傳圖片",
   "settings.account.avatarUrlHint": "貼上 https:// 圖片網址；留空即清除",
   "limits.apiKey.placeholder": "貼上 API Key",
   "limits.apiKey.save": "儲存 Key",

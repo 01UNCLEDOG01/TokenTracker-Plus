@@ -199,8 +199,9 @@ function DisplayNameField({ name }) {
 }
 
 function AvatarField({ avatar }) {
+  const fileInputRef = React.useRef(null);
   const {
-    avatarError, avatarInput, avatarUrl, editingAvatar, handleSaveAvatar,
+    avatarError, avatarInput, avatarUrl, editingAvatar, handleAvatarFile, handleSaveAvatar,
     profileLoading, profileSaving, setAvatarInput, setEditingAvatar,
     startEditingAvatar,
   } = avatar;
@@ -219,6 +220,27 @@ function AvatarField({ avatar }) {
             className="w-64 rounded-md border border-oai-gray-300 dark:border-oai-gray-700 bg-transparent px-2 py-1 text-sm"
             autoFocus
           />
+          {/* 直传图片（站主 2026-11-12：别贴链接）：选图即压缩上传，
+              不经对象存储——压缩后的 data URL 走既有 avatar_url 文本列。 */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files && event.target.files[0];
+              event.target.value = "";
+              if (file) handleAvatarFile(file);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={profileSaving}
+            className="px-2 py-1 text-sm rounded-md border border-oai-gray-300 dark:border-oai-gray-700 disabled:opacity-50"
+          >
+            {copy("settings.account.avatarUpload")}
+          </button>
           <button
             type="button"
             onClick={handleSaveAvatar}

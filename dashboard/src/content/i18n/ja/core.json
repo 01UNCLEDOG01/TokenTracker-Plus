@@ -627,6 +627,8 @@
   "settings.appearance.token_grouping.thousand": "3桁",
   "settings.appearance.token_grouping.wan": "4桁",
   "settings.account.avatarUrl": "アバターURL",
+  "settings.account.avatarUploadFailed": "画像の処理に失敗しました。別の画像でお試しください",
+  "settings.account.avatarUpload": "画像をアップロード",
   "settings.account.avatarUrlHint": "https:// の画像 URL を貼り付け（空で解除）",
   "limits.apiKey.placeholder": "API キーを貼り付け",
   "limits.apiKey.save": "キーを保存",

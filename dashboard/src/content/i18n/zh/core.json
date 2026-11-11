@@ -915,6 +915,8 @@
   "settings.appearance.token_grouping.wan": "4位",
   "legal.nav.support": "联系客服",
   "settings.account.avatarUrl": "头像链接",
+  "settings.account.avatarUploadFailed": "图片处理失败，请换一张试试",
+  "settings.account.avatarUpload": "上传图片",
   "settings.account.avatarUrlHint": "粘贴 https:// 图片地址；留空即清除",
   "limits.apiKey.placeholder": "粘贴 API Key",
   "limits.apiKey.save": "保存 Key",

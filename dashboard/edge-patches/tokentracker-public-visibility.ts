@@ -169,10 +169,18 @@ export default async function (req: Request): Promise<Response> {
     // upsert reads it, and a `let` used before its declaration is a TDZ error
     // (observed when saving github_url: "Cannot access 'normalizedAvatarUrl'
     // before initialization").
+    //
+    // data URLs are accepted alongside https: the settings page can upload an
+    // image directly (owner request 2026-11-12) — the client canvas-scales it
+    // to ≤256px JPEG and caps it at ~64KB, so the text column stays small.
+    // Anything else (http:, svg data URLs, oversized blobs) still normalizes
+    // to null rather than rendering arbitrary markup next to leaderboard rows.
     let normalizedAvatarUrl: string | null | undefined = undefined;
     if (body.avatar_url !== undefined) {
       const raw = typeof body.avatar_url === "string" ? body.avatar_url.trim() : "";
-      normalizedAvatarUrl = /^https:\/\/\S{4,400}$/i.test(raw) ? raw : null;
+      const isHttps = /^https:\/\/\S{4,400}$/i.test(raw);
+      const isImageDataUrl = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]{100,120000}$/.test(raw);
+      normalizedAvatarUrl = isHttps || isImageDataUrl ? raw : null;
     }
 
     // Persist everything to tokentracker_user_settings — the writable base table.
@@ -189,7 +197,8 @@ export default async function (req: Request): Promise<Response> {
       body.anonymous !== undefined ||
       normalizedGithubUrl !== undefined ||
       body.show_github_url !== undefined ||
-      normalizedDisplayName !== undefined
+      normalizedDisplayName !== undefined ||
+      normalizedAvatarUrl !== undefined
     ) {
       const upsertRow: Record<string, unknown> = {
         user_id: userId,

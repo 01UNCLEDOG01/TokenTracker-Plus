@@ -243,6 +243,7 @@ function buildAvatarProps(state, actions) {
     avatarUrl: state.customAvatarUrl,
     editingAvatar: state.editingAvatar,
     handleSaveAvatar: actions.handleSaveAvatar,
+    handleAvatarFile: actions.handleAvatarFile,
     profileLoading: state.profileLoading,
     profileSaving: state.profileSaving,
     setAvatarInput: state.setAvatarInput,
@@ -288,6 +289,42 @@ function useVisibilityActions(state, mutateProfile) {
   return { handleAnonymousToggle, handlePublicProfileToggle };
 }
 
+// 头像上传（站主 2026-11-12：要传图不要贴链接）：前端画到 canvas 缩放
+// （最长边 256px、白底 JPEG 0.85）压成 data URL，>64KB 降质 0.7 重试一次，
+// 再大就放弃报错——头像走既有 avatar_url 文本列，data URL 无需后端改动。
+const AVATAR_MAX_EDGE = 256;
+const AVATAR_MAX_BYTES = 64 * 1024;
+async function fileToAvatarDataUrl(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("decode failed"));
+      img.src = objectUrl;
+    });
+    const scale = Math.min(1, AVATAR_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const draw = (quality) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, 0, width, height);
+      return canvas.toDataURL("image/jpeg", quality);
+    };
+    let dataUrl = draw(0.85);
+    if (dataUrl.length > AVATAR_MAX_BYTES) dataUrl = draw(0.7);
+    if (dataUrl.length > AVATAR_MAX_BYTES) throw new Error("avatar too large");
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function useAvatarActions(state, mutateProfile) {
   const handleSaveAvatar = useCallback(async () => {
     const trimmed = state.avatarInput.trim();
@@ -299,7 +336,8 @@ function useAvatarActions(state, mutateProfile) {
       });
       return;
     }
-    if (!/^https:\/\/\S{4,400}$/i.test(trimmed)) {
+    const isDataUrl = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(trimmed);
+    if (!isDataUrl && !/^https:\/\/\S{4,400}$/i.test(trimmed)) {
       state.setAvatarError("https://…");
       return;
     }
@@ -309,13 +347,27 @@ function useAvatarActions(state, mutateProfile) {
     });
   }, [mutateProfile, state]);
 
+  const handleAvatarFile = useCallback(async (file) => {
+    if (!file || !/^image\//.test(file.type || "")) return;
+    state.setAvatarError(null);
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      await mutateProfile({ avatar_url: dataUrl }, {
+        label: "upload avatar",
+        onSuccess: () => { state.setCustomAvatarUrl(dataUrl); state.setAvatarInput(dataUrl); state.setAvatarError(null); state.setEditingAvatar(false); },
+      });
+    } catch {
+      state.setAvatarError(copy("settings.account.avatarUploadFailed"));
+    }
+  }, [mutateProfile, state]);
+
   const startEditingAvatar = useCallback(() => {
     state.setAvatarInput(state.customAvatarUrl || "");
     state.setAvatarError(null);
     state.setEditingAvatar(true);
   }, [state]);
 
-  return { handleSaveAvatar, startEditingAvatar };
+  return { handleSaveAvatar, handleAvatarFile, startEditingAvatar };
 }
 function useNameActions(state, mutateProfile, refreshDisplayName) {
   const handleSaveName = useCallback(async () => {

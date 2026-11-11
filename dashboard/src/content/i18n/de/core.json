@@ -624,6 +624,8 @@
   "settings.appearance.token_grouping.thousand": "3er",
   "settings.appearance.token_grouping.wan": "4er",
   "settings.account.avatarUrl": "Avatar-URL",
+  "settings.account.avatarUploadFailed": "Bildverarbeitung fehlgeschlagen, bitte anderes Bild versuchen",
+  "settings.account.avatarUpload": "Bild hochladen",
   "settings.account.avatarUrlHint": "https:// Bild-URL einfügen; leeren zum Entfernen",
   "limits.apiKey.placeholder": "API-Key einfügen",
   "limits.apiKey.save": "Key speichern",

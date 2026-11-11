@@ -627,6 +627,8 @@
   "settings.appearance.token_grouping.thousand": "3자리",
   "settings.appearance.token_grouping.wan": "4자리",
   "settings.account.avatarUrl": "아바타 URL",
+  "settings.account.avatarUploadFailed": "이미지 처리에 실패했습니다. 다른 이미지를 시도하세요",
+  "settings.account.avatarUpload": "이미지 업로드",
   "settings.account.avatarUrlHint": "https:// 이미지 URL을 붙여넣기; 비우면 해제",
   "limits.apiKey.placeholder": "API 키 붙여넣기",
   "limits.apiKey.save": "키 저장",
