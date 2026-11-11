@@ -1969,6 +1969,21 @@ perks.filter.claimed,ui,PerksPage,PerksPage,filter_claimed,Claimed,,active
 perks.filter.unclaimed,ui,PerksPage,PerksPage,filter_unclaimed,Pending,,active
 perks.tier.all,ui,PerksPage,PerksPage,tier_all,All tiers,,active
 perks.album.jump,ui,PerksPage,PerksPage,album_jump,Jump to the card below,,active
+cloud.page.subtitle,ui,CloudPage,CloudPage,subtitle,Connect your own backend: self-hosted sync, the private leaderboard and multi-device data all run on your server.,active
+cloud.status.connected,ui,CloudPage,CloudPage,connected,Connected to your self-hosted backend,active
+cloud.status.checking,ui,CloudPage,CloudPage,checking,Checking connection…,active
+cloud.status.unreachable,ui,CloudPage,CloudPage,unreachable,Backend unreachable right now,active
+cloud.status.local_only,ui,CloudPage,CloudPage,local_only,Local mode (no backend connected),active
+cloud.status.instance,ui,CloudPage,CloudPage,instance,Instance,active
+cloud.status.account,ui,CloudPage,CloudPage,account,Signed in as,active
+cloud.status.not_signed_in,ui,CloudPage,CloudPage,not_signed_in,Not signed in,active
+cloud.status.unreachable_hint,ui,CloudPage,CloudPage,unreachable_hint,Check that the backend service is running, the URL and port are right, and the self-signed certificate is trusted.,active
+cloud.deploy.title,ui,CloudPage,CloudPage,title,Self-hosting walkthrough,active
+cloud.deploy.body,ui,CloudPage,CloudPage,body,Run the sync backend at home or on your own server with the bundled local-backend (Node + embedded DB): one command to deploy, and data never leaves your machines.,active
+cloud.deploy.cta,ui,CloudPage,CloudPage,cta,View deployment steps,active
+cloud.lan.title,ui,CloudPage,CloudPage,title,Multi-device over LAN,active
+cloud.lan.body,ui,CloudPage,CloudPage,body,Bring a second PC or Mac onto the same backend: trust the self-signed CA, sign in with the same account, and usage syncs onto the private leaderboard.,active
+cloud.lan.cta,ui,CloudPage,CloudPage,cta,Open the onboarding guide,active
 usage.overview.vyceai_model,ui,UsageOverview,UsageOverview,vyceai_model,{{model}}: {{input}} in / {{output}} out · ${{cost}},,active
 limits.label.agentrouter_balance,ui,LimitsPage,UsageLimitsPanel,agentrouter_balance,"${{balance}} left, ${{used}} used in total",,active
 localProfile.defaultName,shared,*,LocalProfileIdentity,default_name,This device,,active
