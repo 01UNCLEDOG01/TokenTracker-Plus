@@ -197,7 +197,7 @@ async function handleAuthRequest({ req, url, raw, db, secret, send, extraHeaders
       send(400, { error: "invalid_request", message: "email and password are required" });
       return true;
     }
-    if ((await countUsers(db)) > 0) {
+    if ((await countUsers(db)) > 0 && process.env.TOKENTRACKER_LOCAL_BACKEND_MULTI_USER !== "1") {
       send(409, { error: "signup_disabled", message: "this instance already has an account" });
       return true;
     }

@@ -482,10 +482,18 @@ test("ingest edge validates account_session_states and upserts them via the LWW 
 
 test("local queue readers never surface session-state control records as usage rows", () => {
   const localApi = readRepoFile("src/lib/local-api.js");
+  // The skip list was extracted into QUEUE_SKIP_KINDS (compaction tool folds
+  // with the exact same semantics — 99b6295), so the lock follows the set
+  // declaration plus the fold-key null-skip, not a specific comparison form.
   assert.match(
     localApi,
-    /kind === "account_session_state"/,
-    "readQueueData must skip account_session_state records",
+    /QUEUE_SKIP_KINDS = new Set\(\["account_session_state", "account_sync_watermark"\]\)/,
+    "readQueueData's skip list must cover account_session_state records",
+  );
+  assert.match(
+    localApi,
+    /function queueRowFoldKey\(row\) \{[\s\S]*?QUEUE_SKIP_KINDS\.has\(row\.kind\)\) return null;/,
+    "the shared fold key must null-skip every listed control kind",
   );
   const sync = readRepoFile("src/commands/sync.js");
   assert.match(

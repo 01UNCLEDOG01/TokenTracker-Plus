@@ -1,13 +1,14 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, within, act } from "@testing-library/react";
-import { PerksPage, buildPerksFeedbackUrl } from "./PerksPage.jsx";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
+import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
+import zhDashboard from "../content/i18n/zh/dashboard.json";
 import { PERK_PROVIDERS } from "../data/perksData.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
 import { getCopyLocale } from "../lib/copy";
-import { PERKS_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
+import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
 
 const ORDERED_IDS = [
   "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling", "apigoto",
@@ -19,9 +20,10 @@ const ORDERED_IDS = [
   "unisound_maas", "vyceai", "workbuddy_intl", "workbuddy", "zcode",
 ];
 
-// Mock copy helper using real zh strings
+// Mock copy helper using real zh strings (raw templates — the house style here
+// asserts the template text, not interpolated values)
 vi.mock("../lib/copy", () => ({
-  copy: vi.fn((key) => zhCore[key] || key),
+  copy: vi.fn((key) => zhCore[key] || zhDashboard[key] || key),
   getCopyLocale: vi.fn(() => "zh"),
 }));
 
@@ -29,8 +31,10 @@ describe("PerksPage", () => {
   beforeEach(() => {
     localStorage.clear();
     getCopyLocale.mockReturnValue("zh");
+    // AIHOT 快照是后台补充：默认给个失败响应，别让 jsdom 真去发请求。
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false })));
   });
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
   it("renders all providers in bilingual A-Z order including usable Agent cards", () => {
     render(
       <ToastProvider>
@@ -55,6 +59,62 @@ describe("PerksPage", () => {
     expect(screen.getByText("全部服务商")).toBeInTheDocument();
     expect(screen.getByText(/智谱开放平台/)).toBeInTheDocument();
     expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+  });
+
+  it("shows the AIHOT freshness badge once the snapshot arrives, and a delisting hint when dropped", async () => {
+    fetch.mockImplementation((url) => {
+      if (String(url).includes("aihot-free-tokens")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            schema: 1,
+            items: [
+              { id: "doubao-daily-200", provider: "豆包", verified_at: "2026-11-10T02:00:00.000Z" },
+              { id: "trae-cn-monthly", provider: "字节 TRAE", verified_at: "2026-11-09T02:00:00.000Z" },
+            ],
+            dropped_providers: [],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    // 豆包工作 + TRAE CN + TRAE 国际版 三张卡拿到角标（copy 模板原文断言）
+    await waitFor(() => expect(screen.getAllByText("AIHOT 核对 {{date}}").length).toBe(3));
+    // 没覆盖的卡（如 Agent2API）不打角标 —— 缺席不算下架，不误报
+    const agent2apiCard = screen.getByText("Agent2API (开源本地网关)").closest("div.group");
+    expect(agent2apiCard.textContent).not.toContain("AIHOT 核对");
+  });
+
+  it("flags a delisted provider only when AIHOT covered it last snapshot and not now", async () => {
+    fetch.mockImplementation((url) => {
+      if (String(url).includes("aihot-free-tokens")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            schema: 1,
+            items: [
+              { id: "doubao-daily-200", provider: "豆包", verified_at: "2026-11-10T02:00:00.000Z" },
+            ],
+            dropped_providers: ["字节 TRAE"],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    // 字节 TRAE 上轮在架本轮消失 → TRAE 两张卡出下架提示；豆包还在架不出
+    await waitFor(() => expect(screen.getAllByText("AIHOT 最新快照已无此家福利").length).toBe(2));
+    const doubaoCard = screen.getByText("豆包工作 (Doubao Work)").closest("div.group");
+    expect(doubaoCard.textContent).not.toContain("AIHOT 最新快照已无此家福利");
   });
 
   it("builds a prefilled GitHub issue URL for a perk card", () => {
@@ -183,11 +243,12 @@ describe("PerksPage", () => {
     fireEvent.click(within(agnesCard).getByRole("button", { name: "标记已领取" }));
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
     // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录。
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: getPerkClaimDay() } });
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1 } } });
 
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({});
+    // 取消只摘掉 last，lifetime count 保留（卡册亮度不回退）。
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { count: 1 } } });
   });
 
   it("领取状态筛选按钮能过滤已领取与未标记卡片", () => {
@@ -205,17 +266,17 @@ describe("PerksPage", () => {
 
     // 切到「已领取」：只剩被标记的那张卡（其他卡不可见）
     fireEvent.click(screen.getByText("已领取").closest("button"));
-    expect(screen.getByText("Agnes AI")).toBeInTheDocument();
-    expect(screen.queryByText(/硅基流动/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Agnes AI").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByText(/硅基流动/).length).toBe(0);
 
     // 切到「未标记」：标记过的卡隐藏
     fireEvent.click(screen.getByText("待领取").closest("button"));
-    expect(screen.queryByText("Agnes AI")).not.toBeInTheDocument();
-    expect(screen.getByText(/硅基流动/)).toBeInTheDocument();
+    expect(screen.queryAllByText("Agnes AI").length).toBe(0);
+    expect(screen.getAllByText(/硅基流动/).length).toBeGreaterThanOrEqual(1);
 
     // 回到「全部」：全量恢复
     fireEvent.click(screen.getByText("全部").closest("button"));
-    expect(screen.getByText("Agnes AI")).toBeInTheDocument();
+    expect(screen.getAllByText("Agnes AI").length).toBeGreaterThanOrEqual(1);
   });
 
   it("keeps daily and monthly marks independent and filters the selected cycle", () => {
@@ -229,7 +290,7 @@ describe("PerksPage", () => {
     fireEvent.change(screen.getByPlaceholderText(/搜索服务商/), { target: { value: "WorkBuddy" } });
     fireEvent.click(screen.getByText("每月福利").closest("button"));
     fireEvent.click(screen.getByText("已领取").closest("button"));
-    expect(screen.getByRole("heading", { name: "WorkBuddy 国内版" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "WorkBuddy 国内版" }).length).toBeGreaterThanOrEqual(1);
     fireEvent.click(screen.getByText("每日可领取积分").closest("button"));
     expect(screen.queryByRole("heading", { name: "WorkBuddy 国内版" })).not.toBeInTheDocument();
   });
@@ -237,7 +298,7 @@ describe("PerksPage", () => {
   it("updates open pages across Beijing midnight without clearing monthly marks", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-03T15:59:59Z"));
-    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+    localStorage.setItem(PERKS_LEGACY_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
       workbuddy: { daily: "2026-11-03", monthly: "2026-11-01" },
     } }));
     render(<ToastProvider><PerksPage /></ToastProvider>);
@@ -251,7 +312,7 @@ describe("PerksPage", () => {
   it("refreshes monthly marks on the first and catches up after sleep on focus", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-31T15:59:59Z"));
-    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+    localStorage.setItem(PERKS_LEGACY_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
       ant_ling: { monthly: "2026-10-10" }, agentrouter: { daily: "2026-10-31" },
     } }));
     render(<ToastProvider><PerksPage /></ToastProvider>);
@@ -277,20 +338,23 @@ describe("PerksPage", () => {
     expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toBeInTheDocument();
     expect(localStorage.getItem("tokentracker.perks.claims.v1")).toBe(legacy);
     const migrated = JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY));
-    expect(migrated.schema).toBe(2);
-    expect(migrated.providers.agnes.once).toBe("2026-10-01");
+    expect(migrated.schema).toBe(3);
+    expect(migrated.providers.agnes.once).toEqual({ last: "2026-10-01", count: 1 });
     expect(migrated.providers.retired).toBeUndefined();
   });
 
   it("observes other windows and keeps unrelated cycle updates", () => {
     render(<ToastProvider><PerksPage /></ToastProvider>);
-    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
+    localStorage.setItem(PERKS_LEGACY_CLAIMS_KEY, JSON.stringify({ schema: 2, providers: {
       workbuddy: { monthly: getPerkClaimDay() },
     } }));
     act(() => { window.dispatchEvent(new StorageEvent("storage", { key: PERKS_CLAIMS_KEY })); });
     const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
     fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers.workbuddy).toEqual({ daily: getPerkClaimDay(), monthly: getPerkClaimDay() });
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers.workbuddy).toEqual({
+      daily: { last: getPerkClaimDay(), count: 1 },
+      monthly: { last: getPerkClaimDay(), count: 1 },
+    });
   });
 
   it("preserves both marks in memory when writes are blocked", () => {
@@ -324,4 +388,71 @@ describe("PerksPage", () => {
     expect(names).toEqual(ORDERED_IDS.map((id) => localizePerk(PERK_PROVIDERS.find((row) => row.id === id), "en").name));
     getCopyLocale.mockReturnValue("zh");
   });
+
+  it("AIHOT 式卡册：常驻页首、统计头、暗卡悬念、收卡进度、圆点翻页", () => {
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        // qoder_cn：连领 8 次 → 银档（tier 2）
+        qoder_cn: { daily: { last: "2020-01-01", count: 8 } },
+        // minimax_code：连领 31 次 → 闪卡（tier 4）
+        minimax_code: { daily: { last: "2020-01-01", count: 31 } },
+        // agentrouter：领过 1 次（×1 应显示）
+        agentrouter: { daily: { last: "2020-01-01", count: 1 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    // 卡册常驻：不需要切换按钮，页首直接有「我的卡册」+ 统计头
+    expect(screen.getByText("我的卡册")).toBeInTheDocument();
+    expect(screen.getByText("今天还能领")).toBeInTheDocument();
+    expect(screen.getByText("本月已领到")).toBeInTheDocument();
+    expect(screen.getByText("下次刷新")).toBeInTheDocument();
+    expect(screen.getByText("{{collected}} / {{total}} 张已收")).toBeInTheDocument();
+    // 倒计时按 HH:MM:SS 每秒跳
+    expect(document.body.textContent).toMatch(/\d{2}:\d{2}:\d{2}/);
+
+    // 卡牌带：已收亮卡在前（minimax_code 闪 > qoder_cn 银 > 未收 A-Z 暗卡）
+    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    const cards = [...album.querySelectorAll(":scope > div:nth-child(2) .rounded-xl")];
+    expect(cards.length).toBe(18); // 每页 18 张（两排×9）
+    expect(cards[0].textContent).toContain("MiniMax Code");
+    expect(cards[1].textContent).toContain("Qoder CN");
+    // ×N 角标：every collected card carries it, including count==1
+    expect(cards[0].textContent).toContain("×31");
+    const x1Card = cards.find((c) => c.textContent.includes("Agent Router"));
+    expect(x1Card).toBeTruthy();
+    expect(cards[0].className).toContain("bg-white");
+    const darkCard = cards.find((card) => card.className.includes("from-slate-700"));
+    expect(darkCard).toBeTruthy();
+    expect(darkCard.textContent).not.toContain("Agent Router"); // 暗卡藏品牌（悬念）
+
+    // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
+    const dots = [...album.querySelectorAll("button")].filter((b) => b.className.includes("rounded-full") && !b.querySelector("svg"));
+    expect(dots.length).toBe(3);
+    fireEvent.click(dots[2]);
+    // 翻到第 3 页后暗卡里能看到 A-Z 尾部的品牌
+    const lastPageDark = [...album.querySelectorAll(".rounded-xl")].filter((card) => card.className.includes("from-slate-700"));
+    expect(lastPageDark.length).toBeGreaterThan(0);
+  });
+
+  it("albumBrightnessTier：AIHOT 式 7/15/30 分档，once 领过即亮", () => {
+    expect(albumBrightnessTier(0)).toBe(0);
+    expect(albumBrightnessTier(1)).toBe(1);
+    expect(albumBrightnessTier(6)).toBe(1);
+    expect(albumBrightnessTier(7)).toBe(2);
+    expect(albumBrightnessTier(14)).toBe(2);
+    expect(albumBrightnessTier(15)).toBe(3);
+    expect(albumBrightnessTier(29)).toBe(3);
+    expect(albumBrightnessTier(30)).toBe(4);
+    expect(albumBrightnessTier(999)).toBe(4);
+    expect(albumBrightnessTier(-1)).toBe(0);
+    expect(albumBrightnessTier(NaN)).toBe(0);
+    expect(ALBUM_PAGE_SIZE).toBe(18);
+  });
+
 });

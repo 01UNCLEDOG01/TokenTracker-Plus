@@ -444,8 +444,8 @@ async function main() {
       process.exit(2);
     }
     const existing = await db.query("SELECT count(*)::int AS n FROM auth.users WHERE email IS NOT NULL");
-    if (Number(existing.rows?.[0]?.n || 0) > 0) {
-      process.stderr.write("[local-backend] an account already exists; this instance is single-user\n");
+    if (Number(existing.rows?.[0]?.n || 0) > 0 && process.env.TOKENTRACKER_LOCAL_BACKEND_MULTI_USER !== "1") {
+      process.stderr.write("[local-backend] an account already exists; this instance is single-user (set TOKENTRACKER_LOCAL_BACKEND_MULTI_USER=1 to allow more accounts)\n");
       await db.close();
       process.exit(1);
     }
@@ -651,12 +651,23 @@ async function main() {
   // than ever blocking the API server.
   const refreshSelfHostLeaderboard = async () => {
     try {
-      const user = (await db.query(
-        "SELECT id, email FROM auth.users ORDER BY created_at LIMIT 1",
-      )).rows[0];
-      if (!user) return;
+      // Multi-user instances (TOKENTRACKER_LOCAL_BACKEND_MULTI_USER=1) snapshot
+      // every account and rank them per period; single-user keeps the original
+      // one-account flow. Rows are collected first so rank reflects the whole
+      // board instead of whatever was written first.
+      const allUsers = (await db.query(
+        "SELECT id, email FROM auth.users ORDER BY created_at",
+      )).rows;
+      if (!allUsers.length) return;
+      const snapshotUsers = process.env.TOKENTRACKER_LOCAL_BACKEND_MULTI_USER === "1"
+        ? allUsers
+        : [allUsers[0]];
+      const collected = [];
+      let topUser = null;
+      let topTotal = null;
       // The settings UI writes the chosen identity into user_settings /
       // user_profiles; the hostname is only the last-resort fallback.
+      for (const user of snapshotUsers) {
       const profileRow = (await db.query(
         "SELECT COALESCE(us.display_name, up.display_name) AS display_name, up.avatar_url AS avatar_url"
         + " FROM tokentracker_user_settings us"
@@ -721,6 +732,7 @@ async function main() {
       }
 
       let totalAgg = null;
+      const periodRows = [];
       for (const [period, fromDay, toDay] of periods) {
         const fromIso = period === "total"
           ? "1970-01-01T00:00:00Z"
@@ -747,24 +759,16 @@ async function main() {
           [user.id, fromIso, toIso],
         )).rows[0];
         if (period === "total") totalAgg = agg;
-        await db.query(
-          "INSERT INTO tokentracker_leaderboard_snapshots"
-          + " (period, from_day, to_day, user_id, rank, display_name, avatar_url, total_tokens,"
-          + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
-          + "  conversation_count, models, generated_at)"
-          + " VALUES ($1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,$12,$13,now())"
-          + " ON CONFLICT (period, from_day, to_day, user_id) DO UPDATE SET"
-          + "   rank = 1, avatar_url = EXCLUDED.avatar_url, total_tokens = EXCLUDED.total_tokens,"
-          + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"
-          + "   input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,"
-          + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
-          + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
-          + "   generated_at = now()",
-          [period, fromDay, toDay, user.id, profileRow.display_name || fallbackName,
-            chosenAvatar, agg.total_tokens, costByPeriod[period] !== undefined
-              ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
-            agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models],
-        );
+        periodRows.push([period, fromDay, toDay, user.id,
+          profileRow.display_name || fallbackName,
+          chosenAvatar, agg.total_tokens, costByPeriod[period] !== undefined
+            ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
+          agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models]);
+      }
+      collected.push(...periodRows);
+      if (!topUser || Number(totalAgg.total_tokens) > topTotal) {
+        topUser = user;
+        topTotal = Number(totalAgg.total_tokens);
       }
       // Award every catalog badge from the same deduplicated hourly data the
       // snapshots use. Thresholds come from tokentracker_badge_catalog; the
@@ -887,8 +891,8 @@ async function main() {
       const trendTier2 = totalModels2 >= 20 ? 4 : totalModels2 >= 10 ? 3 : totalModels2 >= 5 ? 2 : totalModels2 >= 2 ? 1 : 0;
       const nowIso2 = new Date().toISOString();
       const extraRows = [
-        [user.id, "podium", 4, 1, nowIso2],
         [user.id, "trendsetter", trendTier2, totalModels2, nowIso2],
+        ...(user === topUser ? [[user.id, "podium", 4, 1, nowIso2]] : []),
       ];
       for (const [badgeUser, badgeId, tier, metric, achievedAt] of extraRows) {
         if (tier < 1) continue;
@@ -905,7 +909,39 @@ async function main() {
           [badgeUser, badgeId, tier, metric, achievedAt],
         );
       }
-      process.stdout.write("[local-backend] leaderboard snapshots refreshed\n");
+      } // per-user snapshot loop
+
+      // Rank per period by total_tokens and write every collected row.
+      const byPeriod = new Map();
+      for (const row of collected) {
+        const list = byPeriod.get(row[0]) || [];
+        list.push(row);
+        byPeriod.set(row[0], list);
+      }
+      for (const rows of byPeriod.values()) {
+        rows.sort((a, b) => Number(b[6]) - Number(a[6]));
+        for (let index = 0; index < rows.length; index += 1) {
+          const row = rows[index];
+          const rank = index + 1;
+          await db.query(
+            "INSERT INTO tokentracker_leaderboard_snapshots"
+            + " (period, from_day, to_day, user_id, rank, display_name, avatar_url, total_tokens,"
+            + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
+            + "  conversation_count, models, generated_at)"
+            + " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now())"
+            + " ON CONFLICT (period, from_day, to_day, user_id) DO UPDATE SET"
+            + "   rank = EXCLUDED.rank, avatar_url = EXCLUDED.avatar_url, total_tokens = EXCLUDED.total_tokens,"
+            + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"
+            + "   input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,"
+            + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
+            + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
+            + "   generated_at = now()",
+            [row[0], row[1], row[2], row[3], rank, row[4], row[5], row[6], row[7],
+              row[8], row[9], row[10], row[11], row[12]],
+          );
+        }
+      }
+      process.stdout.write("[local-backend] leaderboard snapshots refreshed (" + collected.length + " rows)\n");
     } catch (error) {
       process.stdout.write("[local-backend] leaderboard snapshot refresh failed: "
         + (error && error.message ? error.message : String(error)) + "\n");

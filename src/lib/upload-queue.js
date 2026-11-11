@@ -131,4 +131,4 @@ async function compactPendingQueue({ queuePath, offset = 0, minPendingBytes = BA
   }
 }
 
-module.exports = { BACKLOG_BYTES, compactPendingQueue, iterateQueueLines, sessionSnapshotMs };
+module.exports = { BACKLOG_BYTES, compactPendingQueue, iterateQueueLines, sessionSnapshotMs, snapshotKey };

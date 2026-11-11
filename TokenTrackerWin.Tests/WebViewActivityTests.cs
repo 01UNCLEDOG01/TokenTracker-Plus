@@ -79,4 +79,42 @@ public class WebViewActivityTests
         old.Update(true);
         Assert.Equal(1, resumes);
     }
+
+    [Fact]
+    public async Task DelayedSuspendKeepsShortHidesAwakeAndSleepsOnlyAfterTheThreshold()
+    {
+        var visible = true;
+        var sleeps = 0;
+        using var activity = new WebViewActivity(value => visible = value, () => { },
+            () => { Assert.False(visible); sleeps++; return Task.FromResult(true); }, _ => { },
+            TimeSpan.FromMilliseconds(200));
+
+        // A short hide must not suspend at all — cancelling beats sleeping.
+        activity.Update(false);
+        await Task.Delay(80);
+        activity.Update(true);
+        await Task.Delay(300);
+        Assert.Equal(0, sleeps);
+
+        // A hide that outlasts the threshold suspends exactly once.
+        activity.Update(false);
+        await Task.Delay(450);
+        Assert.Equal(1, sleeps);
+        Assert.True(activity.WhenSettled.IsCompleted);
+        activity.Update(true);
+        Assert.True(visible);
+    }
+
+    [Fact]
+    public void DelayedSuspendCollapsesTheVisualImmediatelyForTheGhostWindowFix()
+    {
+        var visible = true;
+        using var activity = new WebViewActivity(value => visible = value, () => { },
+            () => Task.FromResult(true), _ => { }, TimeSpan.FromMinutes(10));
+        activity.Update(false);
+        // The composition collapse (ghost-window fix) is not deferred with the sleep.
+        Assert.False(visible);
+        activity.Update(true);
+        Assert.True(visible);
+    }
 }
