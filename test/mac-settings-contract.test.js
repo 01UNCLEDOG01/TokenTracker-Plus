@@ -38,7 +38,13 @@ test('macOS getSettings advertises platform + host capability keys', () => {
   // quota panel on quotaWindow; the pet page probes petBridge.
   assert.match(pushSettings, /"platform": "macos"/, 'getSettings must report platform "macos"');
   assert.match(pushSettings, /"petBridge": true/, 'getSettings must advertise petBridge: true');
-  assert.match(pushSettings, /"quotaWindow": true/, 'getSettings must advertise quotaWindow: true (lands in B3c)');
+  // The quota PANEL does not exist until B3c (no QuotaPanelController yet), so
+  // advertising true would ship a 桌面限额 toggle that turns nothing on. B3c
+  // flips this to true in the same commit that lands the window.
+  assert.match(pushSettings, /"quotaWindow": false/,
+    'getSettings must advertise quotaWindow: false until B3c ships the window');
+  assert.doesNotMatch(pushSettings, /"quotaWindow": true/,
+    'quotaWindow must never be advertised true before the window exists (dead control)');
   assert.match(pushSettings, /"widgetGallerySupported": false/,
     'getSettings must advertise widgetGallerySupported: false (WidgetKit appex is not shipped)');
   assert.match(pushSettings, /"trayIconStyles": MenuBarIconStyle\.allCases/,
@@ -68,7 +74,7 @@ test('pet channel accepts the richer dashboard settings and echoes its capabilit
       'applyPetSetting must handle "' + key + '"');
   }
   for (const key of ['visible', 'character', 'botColor', 'size', 'monitor', 'islandMode',
-    'quota', 'trayStyle']) {
+    'trayStyle']) {
     assert.ok(pushPetSettings.includes('"' + key + '":'),
       'pushPetSettings must echo "' + key + '" so the page converges');
   }
@@ -77,6 +83,12 @@ test('pet channel accepts the richer dashboard settings and echoes its capabilit
   // would put a live-looking control in front of a no-op.
   assert.doesNotMatch(pushPetSettings, /"actionLock":/,
     'pushPetSettings must not advertise the unimplemented actionLock');
+  // Same rule for the quota window: applyPetSetting still persists it, but the
+  // capability stays unadvertised until QuotaPanelController ships (B3c).
+  assert.doesNotMatch(pushPetSettings, /"quota":/,
+    'pushPetSettings must not echo the unimplemented quota window');
+  assert.match(applyPetSetting, /case "quota"/,
+    'applyPetSetting must still accept + persist a quota value from an older dashboard');
   // A catalog refresh must be answered by another push, otherwise the pet page
   // keeps the pre-import list until an unrelated setting changes.
   const refresh = between(nativeBridge, 'case "refreshPetCatalog":', 'case "getSystemAppearance"');
@@ -153,6 +165,11 @@ test('pet page hides host-unsupported controls instead of writing ignored values
     'PetPage must hide the action picker when the host does not support it');
   // Both probes drive the render, not just internal state.
   assert.match(petPage, /showActionPicker/, 'the action section must be capability-gated');
+  // 桌面限额 is gated on quotaWindow; until B3c the host says false.
+  assert.match(petPage, /nativeSettings\.settings\?\.quotaWindow/,
+    'PetPage must read the host quotaWindow capability');
+  assert.match(petPage, /showQuotaToggle/, 'the quota row must be capability-gated');
+  assert.match(petPage, /\{showQuotaToggle \?/, 'the quota row must render through the capability gate');
 
   // New bridge exports/types are declared for TS consumers.
   assert.match(declarations, /export function getCachedNativeSettings\(\): NativeHostSettings \| null/,

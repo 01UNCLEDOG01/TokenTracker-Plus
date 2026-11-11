@@ -220,7 +220,7 @@ final class NativeBridge {
                 "currencySymbol": defaults.string(forKey: "currencySymbol") ?? "$",
                 "exchangeRate": defaults.object(forKey: "exchangeRate") ?? 1.0,
                 "limitsDisplayMode": "all", "limitsPreferences": [],
-                "platform": "macos", "petBridge": true, "quotaWindow": true,
+                "platform": "macos", "petBridge": true, "quotaWindow": false,
                 "widgetGallerySupported": false,
                 "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
                 "islandModes": ["island"], "petActionLockSupported": false
@@ -371,9 +371,11 @@ final class NativeBridge {
             // every pre-existing key keeps its exact value.
             "platform": "macos",
             "petBridge": true,
-            // The quota panel is B3c; advertising it now lets the pet page and
-            // settings surface the toggle in the same build train.
-            "quotaWindow": true,
+            // The quota panel does not exist yet (QuotaPanelController lands in
+            // B3c). Advertise false so the pet page hides 桌面限额 instead of
+            // shipping a toggle that turns on nothing; B3c flips this to true in
+            // the same commit that adds the window.
+            "quotaWindow": false,
             // The WidgetKit appex is not shipped (no NSExtension / App Group), so
             // the widgets page hides its gallery instead of opening a dead picker.
             "widgetGallerySupported": false,
@@ -416,16 +418,16 @@ final class NativeBridge {
             // Capability-probe fields (dashboard/src/hooks/use-pet-settings.js):
             // the page renders a control only when its key is present. Every key
             // below is a real capability of this host — monitor is the Dynamic
-            // Island pill, quota is the B3c panel's persisted toggle, trayStyle is
-            // this host's menu-bar icon style. `islandMode` is always "island" (the
-            // panel is top-anchored); getSettings advertises islandModes so the page
-            // never offers 自由悬浮. `actionLock` is deliberately NOT echoed: the pose
-            // filter is not implemented yet (getSettings says
-            // petActionLockSupported:false), while applyPetSetting still persists a
-            // value an older dashboard may send.
+            // Island pill, trayStyle is this host's menu-bar icon style.
+            // `islandMode` is always "island" (the panel is top-anchored);
+            // getSettings advertises islandModes so the page never offers 自由悬浮.
+            // `actionLock` and `quota` are deliberately NOT echoed: the pose filter
+            // and the quota window are not implemented yet (getSettings says
+            // petActionLockSupported/quotaWindow false), while applyPetSetting still
+            // persists the values an older dashboard may send — echoing them would
+            // put live-looking controls in front of a no-op.
             "monitor": dynamicIslandController?.isEnabled == true,
             "islandMode": true,
-            "quota": PetSurfacePreference.quotaEnabled,
             "trayStyle": Self.bridgeTrayStyle(),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),

@@ -314,6 +314,8 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
           petBridge: true,
           islandModes: ["island"],
           petActionLockSupported: false,
+          // No QuotaPanelController until B3c: the host advertises false.
+          quotaWindow: false,
         },
       }));
     });
@@ -327,10 +329,11 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
           size: "medium",
           monitor: true,
           islandMode: true,
-          quota: false,
+          // A host that still echoes quota/actionLock must NOT make those
+          // controls appear: quotaWindow:false / petActionLockSupported:false are
+          // the capability gates (neither surface exists yet).
+          quota: true,
           trayStyle: "cat",
-          // A host that still echoes the persisted pose lock must NOT make the
-          // picker appear: petActionLockSupported:false is the gate.
           actionLock: "auto",
         },
       }));
@@ -345,6 +348,9 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
     // The 动作 picker is hidden: no section title, no group control.
     expect(screen.queryByText(copy("pet.action.title"))).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: copy("pet.action.title") })).not.toBeInTheDocument();
+    // 桌面限额 has no native window until B3c: the row must not render even though
+    // the host snapshot carries a quota value.
+    expect(screen.queryByText(copy("pet.controls.quota"))).not.toBeInTheDocument();
 
     // Whatever the user can still click only writes supported values.
     await act(async () => {
@@ -377,6 +383,7 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
           monitor: true,
           islandMode: true,
           actionLock: "auto",
+          quota: true,
         },
       }));
     });
@@ -386,5 +393,8 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
     expect(await screen.findByText(copy("pet.controls.island_mode"))).toBeInTheDocument();
     expect(screen.getByText(copy("pet.controls.float_mode"))).toBeInTheDocument();
     expect(screen.getByText(copy("pet.action.title"))).toBeInTheDocument();
+    // Without a quotaWindow capability the Windows host's real quota window keeps
+    // the 桌面限额 row visible (this host echoes quota and has the surface).
+    expect(screen.getByText(copy("pet.controls.quota"))).toBeInTheDocument();
   });
 });

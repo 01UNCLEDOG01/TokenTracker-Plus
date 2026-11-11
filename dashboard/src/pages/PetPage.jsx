@@ -484,6 +484,11 @@ export function PetPage() {
   // section stays hidden instead of offering actions the host silently ignores.
   const showActionPicker =
     settings.actionLock !== undefined && nativeSettings.settings?.petActionLockSupported !== false;
+  // The 桌面限额 window ships in B3c; until then getSettings advertises
+  // quotaWindow:false, so the row stays hidden rather than toggling a surface
+  // that does not exist yet.
+  const showQuotaToggle =
+    settings.quota !== undefined && nativeSettings.settings?.quotaWindow !== false;
   const currentActionLock = normalizePetActionLock(settings.actionLock);
   const selectedActions = currentActionLock === "auto" ? [] : currentActionLock.split(",");
   const toggleAction = (id) => {
@@ -720,7 +725,7 @@ export function PetPage() {
                         ) : null}
                       </>
                     ) : null}
-                    {settings.quota !== undefined ? (
+                    {showQuotaToggle ? (
                       <div className="flex items-center justify-between gap-4">
                         <div className="text-sm font-medium">{copy("pet.controls.quota") || "桌面限额"}</div>
                         <ToggleSwitch
