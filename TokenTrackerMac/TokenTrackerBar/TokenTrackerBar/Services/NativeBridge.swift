@@ -66,6 +66,15 @@ final class NativeBridge {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.pushSettings() }
             .store(in: &cancellables)
+
+        // Native menu toggles (Dynamic Island, icon style, pet menu entries) post
+        // this notification. Mirror them into the pet channel as well: the pet
+        // page owns the same 灵动岛 / 托盘图标风格 state, and without this it only
+        // converged after a page reload (porting-spec §3.5 acceptance).
+        NotificationCenter.default.publisher(for: .nativeSettingsChanged)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.pushPetSettings() }
+            .store(in: &cancellables)
     }
 
     /// Compact selectable item fingerprint used only for `usageLimits`
@@ -140,6 +149,10 @@ final class NativeBridge {
             pushPetSettings()
         case "refreshPetCatalog":
             PetCatalog.shared.refresh()
+            // Answer with the refreshed snapshot: the page calls this right after
+            // importing pets and otherwise kept its pre-import list until some
+            // unrelated setting pushed. Re-pushing is what makes the page converge.
+            pushPetSettings()
         case "getSystemAppearance":
             DashboardWindowController.shared.pushCurrentSystemAppearanceToWeb()
         case "setChromeAppearance":
@@ -206,11 +219,19 @@ final class NativeBridge {
                 "currency": defaults.string(forKey: "currency") ?? "USD",
                 "currencySymbol": defaults.string(forKey: "currencySymbol") ?? "$",
                 "exchangeRate": defaults.object(forKey: "exchangeRate") ?? 1.0,
-                "limitsDisplayMode": "all", "limitsPreferences": []
+                "limitsDisplayMode": "all", "limitsPreferences": [],
+                "platform": "macos", "petBridge": true, "quotaWindow": true,
+                "widgetGallerySupported": false,
+                "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
+                "islandModes": ["island"], "petActionLockSupported": false
             ]
             pushQAEvent("native:settings", payload: payload)
         case "getPetSettings":
-            pushQAEvent("native:petSettings", payload: ["visible": false, "character": "clawd", "size": "medium"])
+            pushQAEvent("native:petSettings", payload: [
+                "visible": false, "character": "clawd", "size": "medium", "botColor": "auto",
+                "monitor": false, "islandMode": true, "quota": false, "trayStyle": "cat",
+                "actionLock": "auto",
+            ])
         case "getNotificationStatus":
             pushQAEvent("native:notificationPermission", payload: ["status": "denied"])
         case "getSystemAppearance":
@@ -343,6 +364,27 @@ final class NativeBridge {
             // macOS-only feature flag: the Windows bridge never sends this, so
             // the dashboard can gate the Labs toggle on its presence.
             "dynamicIslandSupported": true,
+            // Host identity + capabilities. The dashboard gates macOS-only
+            // surfaces on these instead of sniffing the transport: a WKWebView
+            // has no `window.chrome.webview` marker, so `petBridge` is what tells
+            // the pet page this host answers the pet channel. Additive only —
+            // every pre-existing key keeps its exact value.
+            "platform": "macos",
+            "petBridge": true,
+            // The quota panel is B3c; advertising it now lets the pet page and
+            // settings surface the toggle in the same build train.
+            "quotaWindow": true,
+            // The WidgetKit appex is not shipped (no NSExtension / App Group), so
+            // the widgets page hides its gallery instead of opening a dead picker.
+            "widgetGallerySupported": false,
+            "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
+            // Finer pet-page capability detail. The native island is top-anchored
+            // only — there is no free-floating mode to switch to — and the pose
+            // action lock has no native implementation yet. The pet page filters
+            // its controls on these instead of rendering options this host would
+            // silently ignore (no dead 自由悬浮 / 动作 controls, no snap-back).
+            "islandModes": ["island"],
+            "petActionLockSupported": false,
             "version": UpdateChecker.shared.currentVersion(),
             "updateStatus": UpdateChecker.shared.statusText ?? NSNull(),
             "updateBusy": UpdateChecker.shared.isBusy,
@@ -361,12 +403,30 @@ final class NativeBridge {
     }
 
     func pushPetSettings() {
+        if let profile = NativeQAProfile.current {
+            handleQAMessage(["type": "getPetSettings"], profile: profile)
+            return
+        }
         guard let controller = desktopPetController else { return }
         let payload: [String: Any] = [
             "visible": controller.isVisible,
             "character": PetCharacterStore.shared.character.rawValue,
             "botColor": PetCharacterStore.shared.botColor,
             "size": PetSizePreset.from(scale: controller.uiState.floatingScale).rawValue,
+            // Capability-probe fields (dashboard/src/hooks/use-pet-settings.js):
+            // the page renders a control only when its key is present. Every key
+            // below is a real capability of this host — monitor is the Dynamic
+            // Island pill, quota is the B3c panel's persisted toggle, trayStyle is
+            // this host's menu-bar icon style. `islandMode` is always "island" (the
+            // panel is top-anchored); getSettings advertises islandModes so the page
+            // never offers 自由悬浮. `actionLock` is deliberately NOT echoed: the pose
+            // filter is not implemented yet (getSettings says
+            // petActionLockSupported:false), while applyPetSetting still persists a
+            // value an older dashboard may send.
+            "monitor": dynamicIslandController?.isEnabled == true,
+            "islandMode": true,
+            "quota": PetSurfacePreference.quotaEnabled,
+            "trayStyle": Self.bridgeTrayStyle(),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }
@@ -530,8 +590,116 @@ final class NativeBridge {
             if let raw = value as? String, let size = PetSizePreset(rawValue: raw) {
                 controller.setSize(size)
             }
+        case "monitor":
+            // Windows parity (TrayApplicationContext.SetMonitorEnabled): the
+            // 用量悬浮窗 toggle drives the Dynamic Island pill.
+            if let enabled = value as? Bool {
+                let wasEnabled = dynamicIslandController?.isEnabled == true
+                dynamicIslandController?.setEnabled(enabled)
+                if !enabled {
+                    // Same never-zero-surface invariant as the settings channel:
+                    // turning the last floating surface off reveals the icon.
+                    StatusBarController.setMenuBarIconHidden(false)
+                } else if !wasEnabled {
+                    StatusBarController.offerHideIconPromptAfterIslandEnabled()
+                }
+                NotificationCenter.default.post(name: .nativeSettingsChanged, object: nil)
+                // The settings channel also carries dynamicIslandEnabled (Labs
+                // toggle + menu state), so both snapshots must follow.
+                pushSettings()
+                pushPetSettings()
+            }
+        case "islandMode":
+            // No free-floating island on macOS yet; remember the request so a
+            // future float mode can honour it, then echo the real shape.
+            if let island = value as? Bool {
+                UserDefaults.standard.set(island, forKey: PetSurfacePreference.monitorIslandModeKey)
+                pushPetSettings()
+            }
+        case "quota":
+            // The QuotaPanelController lands in B3c; persist the toggle now so the
+            // page round-trips and the panel can restore it on first run.
+            if let enabled = value as? Bool {
+                PetSurfacePreference.setQuotaEnabled(enabled)
+                pushPetSettings()
+            }
+        case "trayStyle":
+            if let raw = value as? String, let style = Self.menuBarIconStyle(forBridgeTrayStyle: raw) {
+                MenuBarIconStyle.setCurrent(style)
+                NotificationCenter.default.post(name: .nativeSettingsChanged, object: nil)
+                // menuBarIconStyle is mirrored in the settings payload as well.
+                pushSettings()
+                pushPetSettings()
+            }
+        case "actionLock":
+            if let raw = value as? String {
+                PetSurfacePreference.setActionLock(raw)
+                pushPetSettings()
+            }
         default:
             break
+        }
+    }
+
+    // MARK: - Pet channel helpers
+
+    /// Maps the dashboard's three Windows tray-icon styles (`pet.controls.tray_*`)
+    /// onto this host's menu-bar icon styles. "mascot" (应用图标) is the character
+    /// icon, which is the Clawd runner here.
+    private static func menuBarIconStyle(forBridgeTrayStyle raw: String) -> MenuBarIconStyle? {
+        switch raw.lowercased() {
+        case "cat": return .cat
+        case "lightning": return .static
+        case "mascot": return .clawd
+        default: return nil
+        }
+    }
+
+    /// Inverse of `menuBarIconStyle(forBridgeTrayStyle:)`. bot/pet collapse to
+    /// "mascot" because the dashboard only offers three styles.
+    private static func bridgeTrayStyle() -> String {
+        switch MenuBarIconStyle.current() {
+        case .cat: return "cat"
+        case .static: return "lightning"
+        case .clawd, .bot, .pet: return "mascot"
+        }
+    }
+
+    /// Persisted pet-page toggles for surfaces that ship later in the port.
+    /// Keeping the keys here lets the web page's state survive relaunch before
+    /// the owning controller exists (quota panel = B3c; free-float island = not
+    /// ported), without inventing a second preferences store.
+    private enum PetSurfacePreference {
+        static let quotaEnabledKey = "QuotaWidgetEnabled"
+        static let monitorIslandModeKey = "MonitorIslandMode"
+        static let actionLockKey = "PetActionLock"
+        static let defaultActionLock = "auto"
+
+        static var quotaEnabled: Bool {
+            UserDefaults.standard.object(forKey: quotaEnabledKey) as? Bool ?? false
+        }
+
+        static var actionLock: String {
+            normalizeActionLock(UserDefaults.standard.string(forKey: actionLockKey))
+        }
+
+        static func setQuotaEnabled(_ enabled: Bool) {
+            UserDefaults.standard.set(enabled, forKey: quotaEnabledKey)
+        }
+
+        static func setActionLock(_ raw: String?) {
+            UserDefaults.standard.set(normalizeActionLock(raw), forKey: actionLockKey)
+        }
+
+        /// The dashboard sends "auto" or a comma-separated pose id list; anything
+        /// empty/oversized/not a string degrades to "auto" so a future consumer
+        /// never has to second-guess what is stored.
+        static func normalizeActionLock(_ raw: String?) -> String {
+            let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed != "auto", trimmed.count <= 256 else {
+                return defaultActionLock
+            }
+            return trimmed
         }
     }
 

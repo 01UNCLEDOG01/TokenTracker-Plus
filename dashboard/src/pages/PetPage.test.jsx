@@ -45,6 +45,19 @@ function installNativeBridge() {
   return messages;
 }
 
+function installMacBridge() {
+  const messages = [];
+  window.history.pushState({}, "", "/pet-settings?app=1");
+  // WKWebView exposes the shared nativeBridge handler; there is no
+  // window.chrome.webview marker on macOS.
+  window.webkit = {
+    messageHandlers: {
+      nativeBridge: { postMessage: (message) => messages.push(message) },
+    },
+  };
+  return messages;
+}
+
 function installWindowsBridge() {
   const messages = [];
   window.history.pushState({}, "", "/pet-settings?app=1");
@@ -287,5 +300,91 @@ describe("PetPage", () => {
     await user.click(waveButton);
     expect(messages).not.toContainEqual(expect.objectContaining({ key: "actionLock" }));
   });
+it("hides the free-float mode and 动作 picker on a macOS host that does not support them", async () => {
+    const user = userEvent.setup();
+    const messages = installMacBridge();
+    render(<PetPage />);
 
+    // The host answers getSettings with the capability contract; the pet page
+    // only becomes available after that reply (capability, not transport sniff).
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:settings", {
+        detail: {
+          platform: "macos",
+          petBridge: true,
+          islandModes: ["island"],
+          petActionLockSupported: false,
+        },
+      }));
+    });
+    await waitFor(() => expect(messages).toContainEqual({ type: "getPetSettings" }));
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: {
+          visible: true,
+          character: "clawd",
+          size: "medium",
+          monitor: true,
+          islandMode: true,
+          quota: false,
+          trayStyle: "cat",
+          // A host that still echoes the persisted pose lock must NOT make the
+          // picker appear: petActionLockSupported:false is the gate.
+          actionLock: "auto",
+        },
+      }));
+    });
+
+    // The page is live (monitor toggle rendered from the host snapshot)...
+    expect(await screen.findByRole("switch", { name: copy("pet.controls.monitor") })).toBeInTheDocument();
+    // ...but the host offers only the top-anchored island, so neither the
+    // 自由悬浮 option nor a single-option 悬浮模式 row is rendered.
+    expect(screen.queryByText(copy("pet.controls.float_mode"))).not.toBeInTheDocument();
+    expect(screen.queryByText(copy("pet.controls.island_mode"))).not.toBeInTheDocument();
+    // The 动作 picker is hidden: no section title, no group control.
+    expect(screen.queryByText(copy("pet.action.title"))).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: copy("pet.action.title") })).not.toBeInTheDocument();
+
+    // Whatever the user can still click only writes supported values.
+    await act(async () => {
+      await user.click(screen.getByRole("switch", { name: copy("pet.controls.monitor") }));
+    });
+    await waitFor(() => expect(messages).toContainEqual({
+      type: "setPetSetting",
+      key: "monitor",
+      value: false,
+    }));
+    expect(messages).not.toContainEqual(expect.objectContaining({ key: "islandMode", value: false }));
+    expect(messages).not.toContainEqual(expect.objectContaining({ key: "actionLock" }));
+  });
+
+  it("keeps the free-float mode and 动作 picker on hosts that offer them", async () => {
+    const messages = installWindowsBridge();
+    render(<PetPage />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:settings", { detail: { platform: "windows" } }));
+    });
+    await waitFor(() => expect(messages).toContainEqual({ type: "getPetSettings" }));
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: {
+          visible: true,
+          character: "clawd",
+          size: "medium",
+          monitor: true,
+          islandMode: true,
+          actionLock: "auto",
+        },
+      }));
+    });
+
+    // A WebView2 host that does not advertise islandModes keeps both modes, and
+    // an echoed actionLock keeps the 动作 picker visible.
+    expect(await screen.findByText(copy("pet.controls.island_mode"))).toBeInTheDocument();
+    expect(screen.getByText(copy("pet.controls.float_mode"))).toBeInTheDocument();
+    expect(screen.getByText(copy("pet.action.title"))).toBeInTheDocument();
+  });
 });

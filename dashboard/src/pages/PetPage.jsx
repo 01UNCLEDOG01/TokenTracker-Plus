@@ -8,7 +8,7 @@ import { usePetCatalog } from "../hooks/use-pet-catalog.js";
 import { useNativeSettings } from "../hooks/use-native-settings.js";
 import { normalizePetActionLock } from "../lib/pet-personality";
 import { petCardTintHex } from "../lib/pet-appearance.js";
-import { isNativeWindowsApp, refreshNativePetCatalog } from "../lib/native-bridge.js";
+import { isNativeEmbed, isNativeWindowsApp, refreshNativePetCatalog } from "../lib/native-bridge.js";
 import {
   importCodexPets,
   importPetPackage,
@@ -451,10 +451,22 @@ export function PetPage() {
     { value: "mascot", label: copy("pet.controls.tray_mascot") || "应用图标" },
     { value: "lightning", label: copy("pet.controls.tray_lightning") || "经典闪电" },
   ];
+  // Host capability filter for the island style. A WKWebView host answers
+  // getSettings with `islandModes`; macOS only ships the top-anchored island, so
+  // offering 自由悬浮 would be a control that writes a value the host ignores (and
+  // the switch would snap back). Windows/browser hosts keep both modes.
+  const islandModes = Array.isArray(nativeSettings.settings?.islandModes)
+    ? nativeSettings.settings.islandModes
+    : isNativeEmbed()
+      ? ["island"]
+      : ["island", "float"];
   const islandModeOptions = [
     { value: "island", label: copy("pet.controls.island_mode") || "灵动岛" },
     { value: "float", label: copy("pet.controls.float_mode") || "自由悬浮" },
-  ];
+  ].filter((option) => islandModes.includes(option.value));
+  // A single-mode segmented control is not a choice — render the row only when
+  // the host actually offers more than one mode.
+  const showIslandModePicker = islandModeOptions.length > 1;
 
   // 「动作」picker: multi-select over the six preview states — ticked actions stay
   // in the pet's rotation, unticked ones are removed (Auto restores everything).
@@ -467,6 +479,11 @@ export function PetPage() {
       disabled: Boolean(previewState.disabled),
     })),
   ];
+  // The 动作 picker writes the persisted actionLock, but the native pose filter is
+  // not implemented yet: getSettings advertises petActionLockSupported:false so the
+  // section stays hidden instead of offering actions the host silently ignores.
+  const showActionPicker =
+    settings.actionLock !== undefined && nativeSettings.settings?.petActionLockSupported !== false;
   const currentActionLock = normalizePetActionLock(settings.actionLock);
   const selectedActions = currentActionLock === "auto" ? [] : currentActionLock.split(",");
   const toggleAction = (id) => {
@@ -686,7 +703,7 @@ export function PetPage() {
                             ariaLabel={copy("pet.controls.monitor")}
                           />
                         </div>
-                        {settings.monitor && settings.islandMode !== undefined ? (
+                        {settings.monitor && settings.islandMode !== undefined && showIslandModePicker ? (
                           <div className="flex items-center justify-between gap-4 pl-2">
                             <div className="text-xs text-oai-gray-500 dark:text-oai-gray-400">
                               {copy("pet.controls.island_style") || "悬浮模式"}
@@ -738,7 +755,7 @@ export function PetPage() {
                         />
                       </div>
                     </div>
-                    {settings.actionLock !== undefined ? (
+                    {showActionPicker ? (
                       <div>
                         <div className="text-sm font-medium">{copy("pet.action.title")}</div>
                         <p className="mt-0.5 text-[11px] leading-relaxed text-oai-gray-500 dark:text-oai-gray-400">

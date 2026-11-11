@@ -16,7 +16,17 @@ const NATIVE_APP_KEY = "tokentracker_native_app";
 let nativeSystemDark = null; // null = unknown, true/false = native push received
 const nativeSystemListeners = new Set();
 
+// Latest `native:settings` payload from the host. Cached at module level (like
+// the system-appearance value above) because capability probes run during render,
+// before any hook has requested settings: the macOS WKWebView host advertises
+// `petBridge` here instead of exposing the WebView2-only `window.chrome.webview`.
+let nativeSettingsDetail = null;
+
 if (typeof window !== "undefined") {
+  window.addEventListener("native:settings", (event) => {
+    if (event?.detail && typeof event.detail === "object") nativeSettingsDetail = event.detail;
+  });
+
   window.addEventListener("native:systemAppearanceChanged", (event) => {
     const d = event?.detail?.isDark;
     if (typeof d !== "boolean") return;
@@ -33,6 +43,16 @@ if (typeof window !== "undefined") {
       try { cb(d); } catch { /* ignore listener errors */ }
     });
   });
+}
+
+/** Latest `native:settings` payload from the host, or null if none arrived yet. */
+export function getCachedNativeSettings() {
+  return nativeSettingsDetail;
+}
+
+/** True when the host answered `getSettings` with a capability = true. */
+export function hasNativeCapability(name) {
+  return nativeSettingsDetail?.[name] === true;
 }
 
 /** Latest system appearance pushed by native, or null if none yet. */
@@ -261,21 +281,26 @@ export function onNativeSettings(handler) {
   return () => window.removeEventListener("native:settings", listener);
 }
 
-/** Desktop-pet settings are supported by the Windows native host. */
+/**
+ * Desktop-pet settings are supported by either native host.
+ *
+ * Historical marker was `window.chrome.webview` — WebView2 only — which left the
+ * pet page dead in the macOS app even though its NativeBridge answers the pet
+ * channel. The WKWebView host now advertises the capability in `getSettings`
+ * (`petBridge: true`), so a capability reply counts as a native pet host. Ask for
+ * settings before relying on this (see use-pet-settings); the cached reply makes
+ * the probe react once it arrives.
+ */
 export function isPetBridgeAvailable() {
   if (typeof window === "undefined") return false;
-  return Boolean(window.chrome?.webview);
+  if (window.chrome?.webview) return true;
+  return nativeSettingsDetail?.petBridge === true;
 }
 
 function postPetMessage(message) {
-  if (typeof window === "undefined") return false;
-  if (window.chrome?.webview) {
-    try {
-      window.chrome.webview.postMessage(JSON.stringify(message));
-      return true;
-    } catch { return false; }
-  }
-  return false;
+  // Both hosts answer the same message shapes; `post` already routes WKWebView
+  // messageHandlers (object payload) and WebView2 (JSON string).
+  return post(message);
 }
 
 export function requestNativePetSettings() {

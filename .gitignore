@@ -189,3 +189,4 @@ TokenTrackerMac/artifacts/
 
 # local audit/review artefacts (two-agent mac audits, 2026-11-10)
 .ci-logs/
+/.build/derived*/

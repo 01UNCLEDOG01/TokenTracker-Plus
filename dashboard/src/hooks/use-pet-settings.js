@@ -3,7 +3,9 @@ import {
   isNativeApp,
   isPetBridgeAvailable,
   onNativePetSettings,
+  onNativeSettings,
   requestNativePetSettings,
+  requestNativeSettings,
   setNativePetSetting,
 } from "../lib/native-bridge";
 import { BOT_COLOR_CHOICES } from "../lib/bot-appearance.js";
@@ -19,10 +21,29 @@ const DEFAULTS = {
 
 export function usePetSettings() {
   // The Linux app loads the dashboard without `?app=1`, so it can't pass isNativeApp().
-  const available = isNativeApp() && isPetBridgeAvailable();
+  //
+  // Availability is a capability, not a transport sniff: Windows exposes
+  // `window.chrome.webview`, while the macOS WKWebView host advertises
+  // `petBridge: true` in its `getSettings` reply. The reply is asynchronous, so
+  // seed from the cached capability and re-evaluate on every settings push —
+  // otherwise the page would stay permanently disabled on macOS.
+  const [bridgeAvailable, setBridgeAvailable] = useState(isPetBridgeAvailable);
   const [settings, setSettings] = useState(DEFAULTS);
   // False until the host's first reply; `settings` is only DEFAULTS until then.
   const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!isNativeApp()) return undefined;
+    const sync = () => setBridgeAvailable(isPetBridgeAvailable());
+    sync();
+    const unsubscribe = onNativeSettings(sync);
+    // A WKWebView host only reveals petBridge after answering getSettings; the
+    // WebView2 host ignores the extra request but answers the pet channel anyway.
+    requestNativeSettings();
+    return unsubscribe;
+  }, []);
+
+  const available = isNativeApp() && bridgeAvailable;
 
   useEffect(() => {
     if (!available) return undefined;

@@ -80,8 +80,17 @@ final class LimitsSettingsStore: ObservableObject {
 
     // MARK: - Published state
 
-    /// Ordered list of provider IDs reflecting the user's preferred order.
+    /// Ordered list of provider IDs reflecting the user's preferred order, limited
+    /// to the providers this build can render. This is what the native UI lists.
     @Published private(set) var providerOrder: [String]
+
+    /// Full provider order as the dashboard registry defines it, including ids
+    /// this build cannot render yet (the web ships 33, native knows 20). The
+    /// bridge echoes THIS list — filtering to `allProviders` truncated the web
+    /// ordering on every exchange and echoed the truncation back, which made
+    /// entries the user had sorted jump to the tail after the first round trip
+    /// (porting-spec §3.4). `providerOrder` is its native-renderable subset.
+    private(set) var bridgeProviderOrder: [String]
 
     /// Visibility per provider. `true` = shown.
     @Published private(set) var providerVisibility: [String: Bool]
@@ -117,7 +126,9 @@ final class LimitsSettingsStore: ObservableObject {
         let savedOrder = userDefaults.stringArray(forKey: Self.orderKey)
         let savedVis = userDefaults.dictionary(forKey: Self.visibilityKey)
 
-        self.providerOrder = Self.normalizeProviderOrder(savedOrder)
+        let completeOrder = Self.normalizeProviderOrder(savedOrder)
+        self.bridgeProviderOrder = completeOrder
+        self.providerOrder = Self.nativeProviderOrder(from: completeOrder)
         self.providerVisibility = Self.normalizeProviderVisibility(savedVis)
         self.displayMode = Self.readDisplayMode(from: userDefaults)
         self.updatedAt = Self.readUpdatedAt(from: userDefaults)
@@ -147,7 +158,8 @@ final class LimitsSettingsStore: ObservableObject {
     var limitsPreferencesPayload: [String: Any] {
         [
             "displayMode": displayMode.bridgeKey,
-            "providerOrder": providerOrder,
+            // Echo the full (pass-through) order, never the native-only subset.
+            "providerOrder": bridgeProviderOrder,
             "providerVisibility": providerVisibility,
             "updatedAt": updatedAt.map { NSNumber(value: $0) } ?? NSNull(),
         ]
@@ -182,7 +194,7 @@ final class LimitsSettingsStore: ObservableObject {
         guard mode != displayMode else { return }
         applySnapshot(LimitsPreferencesSnapshot(
             displayMode: mode,
-            providerOrder: providerOrder,
+            providerOrder: bridgeProviderOrder,
             providerVisibility: providerVisibility,
             updatedAt: nextLocalUpdatedAt()
         ), notifyBridge: true)
@@ -194,19 +206,19 @@ final class LimitsSettingsStore: ObservableObject {
         updated[id] = isVisible
         applySnapshot(LimitsPreferencesSnapshot(
             displayMode: displayMode,
-            providerOrder: providerOrder,
+            providerOrder: bridgeProviderOrder,
             providerVisibility: Self.normalizeProviderVisibility(updated),
             updatedAt: nextLocalUpdatedAt()
         ), notifyBridge: true)
     }
 
     func moveProviderFromMenu(from source: IndexSet, to destination: Int) {
-        let normalized = Self.reorderedProviderOrder(providerOrder, moving: source, to: destination)
-        guard normalized != providerOrder else { return }
+        let reorderedNative = Self.reorderedProviderOrder(providerOrder, moving: source, to: destination)
+        guard reorderedNative != providerOrder else { return }
 
         applySnapshot(LimitsPreferencesSnapshot(
             displayMode: displayMode,
-            providerOrder: normalized,
+            providerOrder: Self.mergingNativeOrder(reorderedNative, into: bridgeProviderOrder),
             providerVisibility: providerVisibility,
             updatedAt: nextLocalUpdatedAt()
         ), notifyBridge: true)
@@ -253,7 +265,7 @@ final class LimitsSettingsStore: ObservableObject {
         }
         return applySnapshot(LimitsPreferencesSnapshot(
             displayMode: mode,
-            providerOrder: providerOrder,
+            providerOrder: bridgeProviderOrder,
             providerVisibility: providerVisibility,
             updatedAt: nil
         ), notifyBridge: false)
@@ -261,23 +273,22 @@ final class LimitsSettingsStore: ObservableObject {
 
     @discardableResult
     private func applySnapshot(_ snapshot: LimitsPreferencesSnapshot, notifyBridge: Bool) -> Bool {
-        let normalized = LimitsPreferencesSnapshot(
-            displayMode: snapshot.displayMode,
-            providerOrder: Self.normalizeProviderOrder(snapshot.providerOrder),
-            providerVisibility: Self.normalizeProviderVisibility(snapshot.providerVisibility),
-            updatedAt: snapshot.updatedAt
-        )
-        guard normalized.displayMode != displayMode ||
-            normalized.providerOrder != providerOrder ||
-            normalized.providerVisibility != providerVisibility ||
-            normalized.updatedAt != updatedAt else {
+        let normalizedBridgeOrder = Self.normalizeProviderOrder(snapshot.providerOrder)
+        let normalizedNativeOrder = Self.nativeProviderOrder(from: normalizedBridgeOrder)
+        let normalizedVisibility = Self.normalizeProviderVisibility(snapshot.providerVisibility)
+        guard snapshot.displayMode != displayMode ||
+            normalizedNativeOrder != providerOrder ||
+            normalizedBridgeOrder != bridgeProviderOrder ||
+            normalizedVisibility != providerVisibility ||
+            snapshot.updatedAt != updatedAt else {
             return false
         }
 
-        providerOrder = normalized.providerOrder
-        providerVisibility = normalized.providerVisibility
-        displayMode = normalized.displayMode
-        updatedAt = normalized.updatedAt
+        providerOrder = normalizedNativeOrder
+        bridgeProviderOrder = normalizedBridgeOrder
+        providerVisibility = normalizedVisibility
+        displayMode = snapshot.displayMode
+        updatedAt = snapshot.updatedAt
         save()
 
         // StatusBarController listens for this to refresh the composite image.
@@ -313,15 +324,56 @@ final class LimitsSettingsStore: ObservableObject {
         Int64((Date().timeIntervalSince1970 * 1000).rounded(.down))
     }
 
+    private static let maxProviderOrderCount = 256
+    private static let maxProviderIDLength = 64
+
+    /// Dashboard provider ids are camelCase ASCII keys (e.g. `opencodeGo`).
+    /// Anything else is junk from an unknown/older snapshot and must not reach
+    /// UserDefaults or the bridge echo.
+    private static func isBridgeProviderID(_ id: String) -> Bool {
+        guard !id.isEmpty, id.count <= maxProviderIDLength else { return false }
+        return id.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII && CharacterSet.alphanumerics.contains(scalar)
+        }
+    }
+
+    /// The subset of a full order this build can render, keeping relative order.
+    private static func nativeProviderOrder(from order: [String]) -> [String] {
+        order.filter { allProviders.contains($0) }
+    }
+
+    /// Re-applies a reorder of the native-renderable providers to the full order
+    /// without moving ids this build cannot render: each native id is replaced
+    /// in place by the next entry of the reordered native list.
+    static func mergingNativeOrder(_ reorderedNative: [String], into current: [String]) -> [String] {
+        let nativeIDs = Set(reorderedNative)
+        var next = reorderedNative.makeIterator()
+        var merged: [String] = []
+        for id in current {
+            if nativeIDs.contains(id) {
+                if let replacement = next.next() { merged.append(replacement) }
+            } else {
+                merged.append(id)
+            }
+        }
+        while let extra = next.next() { merged.append(extra) }
+        return normalizeProviderOrder(merged)
+    }
+
+    /// Normalizes a provider order **without dropping ids this build cannot
+    /// render**. Unknown ids pass through in place; known ids missing from the
+    /// snapshot keep their canonical slot at the tail. The native list is
+    /// `nativeProviderOrder(from:)` of the result.
     private static func normalizeProviderOrder(_ raw: [String]?) -> [String] {
         var seen = Set<String>()
         var ordered: [String] = []
         for rawId in raw ?? [] {
-            guard allProviders.contains(rawId), !seen.contains(rawId) else { continue }
+            guard ordered.count < maxProviderOrderCount,
+                  isBridgeProviderID(rawId), !seen.contains(rawId) else { continue }
             ordered.append(rawId)
             seen.insert(rawId)
         }
-        for id in allProviders where !seen.contains(id) {
+        for id in allProviders where !seen.contains(id) && ordered.count < maxProviderOrderCount {
             ordered.append(id)
         }
         return ordered
@@ -331,6 +383,13 @@ final class LimitsSettingsStore: ObservableObject {
         var visibility = Dictionary(uniqueKeysWithValues: allProviders.map { id in
             (id, rawBool(raw?[id]) ?? defaultVisibility(forProvider: id))
         })
+        // Pass unknown ids through untouched (same reason as the order): the web
+        // page reads its own entries back, and a dropped key would flip that
+        // provider to this build's default visibility on the next echo.
+        for (id, value) in raw ?? [:] where !allProviders.contains(id) {
+            guard isBridgeProviderID(id), let visible = rawBool(value) else { continue }
+            visibility[id] = visible
+        }
         // The unified-row era folded both editions into one `workbuddy`
         // switch. The split rows keep an explicitly stored AI value; without
         // one the AI row inherits the unified switch so a user who had
@@ -413,7 +472,7 @@ final class LimitsSettingsStore: ObservableObject {
     }
 
     private func save() {
-        userDefaults.set(providerOrder, forKey: Self.orderKey)
+        userDefaults.set(bridgeProviderOrder, forKey: Self.orderKey)
         userDefaults.set(providerVisibility, forKey: Self.visibilityKey)
         userDefaults.set(displayMode.rawValue, forKey: Self.displayModeKey)
         if let updatedAt {
