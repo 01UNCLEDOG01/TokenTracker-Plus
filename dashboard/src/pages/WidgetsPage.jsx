@@ -3,7 +3,7 @@ import { ArrowUpRight, Download, Monitor } from "lucide-react";
 import { copy } from "../lib/copy";
 import { cn } from "../lib/cn";
 import { Select } from "../ui/components";
-import { isNativeEmbed, nativeAction } from "../lib/native-bridge.js";
+import { getCachedNativeSettings, isNativeEmbed, nativeAction } from "../lib/native-bridge.js";
 import { RELEASES_URL as RELEASE_URL } from "../lib/config";
 import { useNativeSettings } from "../hooks/use-native-settings.js";
 import {
@@ -548,6 +548,27 @@ function MenuBarDisplayCard() {
  * would incorrectly report native mode — clicks would then fire a bridge
  * message into the void. isNativeEmbed is the honest "right now" test.
  */
+/* The WidgetKit gallery is dead in the shipping macOS build: the appex is
+ * stripped at package time, nothing registers it with pkd and no App Group is
+ * entitled, so the native host answers `widgetGallerySupported: false` from
+ * getSettings (NativeBridge.swift). A missing key means "host did not say" (e.g.
+ * the Windows shell), which keeps the previous gallery-visible behaviour.
+ *
+ * `getCachedNativeSettings()` covers the first render before the async
+ * getSettings round trip lands; `useNativeSettings().settings` re-renders once
+ * the canonical payload arrives.
+ */
+function resolveWidgetGallerySupported(settings) {
+  const advertised =
+    settings?.widgetGallerySupported ?? getCachedNativeSettings()?.widgetGallerySupported;
+  return advertised !== false;
+}
+
+function useWidgetGallerySupported() {
+  const { settings } = useNativeSettings();
+  return resolveWidgetGallerySupported(settings);
+}
+
 function useClientPlatform() {
   const [platform, setPlatform] = useState("loading");
   useEffect(() => {
@@ -563,7 +584,7 @@ function useClientPlatform() {
   return platform;
 }
 
-function HeaderCta() {
+function HeaderCta({ gallerySupported = true }) {
   const platform = useClientPlatform();
 
   // Reserve space so the layout doesn't jump once detection resolves.
@@ -572,6 +593,9 @@ function HeaderCta() {
   }
 
   if (platform === "native") {
+    // The native host says the WidgetKit gallery does not exist (appex not
+    // shipped): never offer an action that can only pop an informational alert.
+    if (!gallerySupported) return null;
     return (
       <button
         type="button"
@@ -643,6 +667,8 @@ function SectionTitle({ titleKey }) {
 }
 
 export function WidgetsPage() {
+  const gallerySupported = useWidgetGallerySupported();
+
   return (
     <div className="flex flex-col flex-1 text-oai-black dark:text-oai-white font-oai antialiased">
       <main className="flex-1 pt-8 sm:pt-10 pb-12 sm:pb-16">
@@ -655,7 +681,7 @@ export function WidgetsPage() {
                 {copy("widgets.page.title")}
               </h1>
               <div className="shrink-0">
-                <HeaderCta />
+                <HeaderCta gallerySupported={gallerySupported} />
               </div>
             </header>
           </FadeIn>
@@ -668,19 +694,23 @@ export function WidgetsPage() {
             </section>
           </FadeIn>
 
-          {/* Desktop Widgets gallery */}
-          <section aria-label={copy("widgets.gallery.section.title")}>
-            <SectionTitle titleKey="widgets.gallery.section.title" />
-            <StaggerContainer staggerDelay={0.08} initialDelay={0.04}>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
-                {SECONDARY_WIDGETS.map(({ id, Preview, nameKey, descKey }) => (
-                  <StaggerItem key={id}>
-                    <WidgetCatalogCard Preview={Preview} nameKey={nameKey} descKey={descKey} />
-                  </StaggerItem>
-                ))}
-              </div>
-            </StaggerContainer>
-          </section>
+          {/* Desktop Widgets gallery — hidden when the native host reports the
+              WidgetKit extension is not shipped (macOS package strips the appex).
+              The Menu Bar card above is the live settings surface and always stays. */}
+          {gallerySupported ? (
+            <section aria-label={copy("widgets.gallery.section.title")}>
+              <SectionTitle titleKey="widgets.gallery.section.title" />
+              <StaggerContainer staggerDelay={0.08} initialDelay={0.04}>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
+                  {SECONDARY_WIDGETS.map(({ id, Preview, nameKey, descKey }) => (
+                    <StaggerItem key={id}>
+                      <WidgetCatalogCard Preview={Preview} nameKey={nameKey} descKey={descKey} />
+                    </StaggerItem>
+                  ))}
+                </div>
+              </StaggerContainer>
+            </section>
+          ) : null}
         </div>
       </main>
     </div>

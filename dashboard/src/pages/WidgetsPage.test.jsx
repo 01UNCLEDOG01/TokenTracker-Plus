@@ -133,6 +133,63 @@ describe("WidgetsPage menu bar configurator", () => {
     expect(secondary).toHaveTextContent(copy("menubar.metric.codex_spark_7d"));
   });
 
+  it("hides the dead WidgetKit gallery when the native host reports widgetGallerySupported=false", async () => {
+    const bridge = installNativeBridge({
+      showStats: true,
+      menuBarItems: ["todayTokens"],
+      menuBarMaxItems: 2,
+      menuBarAvailableItems: [
+        { id: "todayTokens", label: "Today Tokens", shortLabel: "Tokens", category: "tokens" },
+      ],
+      // B2a's getSettings payload: the WidgetKit appex is stripped at package
+      // time and never registers with pkd, so the gallery has nothing to show.
+      platform: "macos",
+      widgetGallerySupported: false,
+    });
+
+    render(<WidgetsPage />);
+    act(() => bridge.pushSettings());
+
+    // The live settings surface stays.
+    expect(
+      await screen.findByRole("region", { name: copy("widgets.menubar.section.title") }),
+    ).toBeInTheDocument();
+
+    // The dead gallery section is gone …
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("region", { name: copy("widgets.gallery.section.title") }),
+      ).not.toBeInTheDocument();
+    });
+    // … and so is the "open gallery" CTA that could only pop an informational alert.
+    expect(
+      screen.queryByRole("button", { name: copy("widgets.cta.open_gallery") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the gallery when the host does not advertise the capability", async () => {
+    // Windows shell / browser preview: no widgetGallerySupported key at all means
+    // "host did not say", so the previous gallery-visible behaviour must hold.
+    const bridge = installNativeBridge({
+      showStats: true,
+      menuBarItems: ["todayTokens"],
+      menuBarMaxItems: 2,
+      menuBarAvailableItems: [
+        { id: "todayTokens", label: "Today Tokens", shortLabel: "Tokens", category: "tokens" },
+      ],
+    });
+
+    render(<WidgetsPage />);
+    act(() => bridge.pushSettings());
+
+    expect(
+      await screen.findByRole("region", { name: copy("widgets.gallery.section.title") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: copy("widgets.menubar.section.title") }),
+    ).toBeInTheDocument();
+  });
+
   it("configures limit-reset toast and confetti independently", async () => {
     const user = userEvent.setup();
     const bridge = installNativeBridge({

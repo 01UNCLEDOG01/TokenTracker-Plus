@@ -369,6 +369,25 @@ enum Strings {
     static var petSizeMedium: String { t("Medium", "中", "中", "中", "보통", "Mittel") }
     static var petSizeLarge: String { t("Large", "大", "大", "大", "크게", "Groß") }
     static var menuSettings: String { t("Settings", "设置", "設定", "設定", "설정", "Einstellungen") }
+
+    // MARK: Pages menu (B2b) — one entry per fork dashboard page.
+    // Labels mirror the dashboard sidebar copy (content/i18n *\/core.json +
+    // dashboard.json nav.* keys) so the native menu and the web sidebar name the
+    // same page the same way; ja/ko/de fill the two keys the dashboard never
+    // translated (nav.global_models, nav.perks).
+    static var menuPages: String { t("Pages", "页面", "頁面", "ページ", "페이지", "Seiten") }
+    static var pageUsage: String { t("Usage", "用量", "用量", "使用状況", "토큰", "Nutzung") }
+    static var pageSessions: String { t("Sessions", "会话", "工作階段", "セッション", "세션", "Sitzungen") }
+    static var pageLimits: String { t("Limits", "限额", "限額", "制限", "한도", "Limits") }
+    static var pageLeaderboard: String { t("Leaderboard", "排行榜", "排行榜", "リーダーボード", "리더보드", "Leaderboard") }
+    static var pageGlobalModels: String { t("Global Models", "全球模型榜", "全球模型榜", "グローバルモデル", "글로벌 모델", "Globale Modelle") }
+    static var pageAchievements: String { t("Achievements", "成就", "成就", "実績", "업적", "Erfolge") }
+    static var pageWidgets: String { t("Menu Bar & Widgets", "菜单栏与小组件", "選單欄與小元件", "メニューバーとウィジェット", "메뉴 막대 & 위젯", "Menüleiste & Widgets") }
+    static var pageDesktopPet: String { t("Desktop Pet", "桌面宠物", "桌面寵物", "デスクトップペット", "데스크톱 펫", "Desktop-Tier") }
+    static var pageSkills: String { t("Skills", "Skills", "Skills", "Skills", "Skills", "Skills") }
+    static var pageIpCheck: String { t("Claude IP Check", "Claude IP 检查", "Claude IP 檢查", "Claude IP チェック", "Claude IP 확인", "Claude IP-Check") }
+    static var pagePerks: String { t("Perks", "福利指南", "福利指南", "特典", "혜택", "Vorteile") }
+    static var pageServiceStatus: String { t("Service Status", "服务状态", "服務狀態", "サービス状況", "서비스 상태", "Service-Status") }
     // Status-bar inline label (Tokens / Cost) always stays English — it sits
     // next to the menu bar number and should not swap with system language.
     static var menuTokenLabel: String { "Tokens" }

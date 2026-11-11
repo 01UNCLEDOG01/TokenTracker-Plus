@@ -1172,6 +1172,27 @@ final class StatusBarController: NSObject {
         settingsItem.target = self
         menu.addItem(settingsItem)
 
+        // ── Pages: every fork dashboard page, one submenu ──
+        // The pages themselves are web (dashboard/src/App.jsx routes); this is the
+        // native entry point. presentPage(path:) reuses the single dashboard window
+        // and navigates the live SPA, so picking a page never reloads the document.
+        // Entries are disabled while the embedded server is .failed: opening a page
+        // then would only present the load-failure overlay (porting-spec §12.10).
+        let pagesItem = NSMenuItem(title: Strings.menuPages, action: nil, keyEquivalent: "")
+        let pagesMenu = NSMenu()
+        pagesMenu.autoenablesItems = false
+        let canOpenPages: Bool
+        if case .failed = serverManager.status { canOpenPages = false } else { canOpenPages = true }
+        for page in DashboardPage.allCases {
+            let item = NSMenuItem(title: page.title, action: #selector(openPage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = page.path
+            item.isEnabled = canOpenPages
+            pagesMenu.addItem(item)
+        }
+        pagesItem.submenu = pagesMenu
+        menu.addItem(pagesItem)
+
         menu.addItem(.separator())
 
         // ── Group 2: Display Surfaces & Components ──
@@ -1387,6 +1408,11 @@ final class StatusBarController: NSObject {
 
     @objc private func openDashboardSettings() {
         DashboardWindowController.shared.showSettings()
+    }
+
+    @objc private func openPage(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+        DashboardWindowController.shared.presentPage(path: path)
     }
 
     @objc private func checkForUpdates() {

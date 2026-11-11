@@ -266,10 +266,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // tokentracker://auth/done, tokentracker://auth/callback?insforge_code=…
         // and tokentracker://billing/return?order=… . TT-Plus has no cloud
         // backend (hosted-only, no cloud in TT-Plus), so those branches and the
-        // native QA billing-return harness are gone. Only the unrelated local
-        // "open the dashboard window" deep link remains.
+        // native QA billing-return harness are gone.
+        //
+        // Remaining local deep links:
+        //   tokentracker://open                     → show the dashboard window
+        //   tokentracker://dashboard                → same
+        //   tokentracker://open?path=%2Flimits      → open one fork page
+        // Only the DashboardPage catalog is routable, so the URL scheme can never
+        // drive the webview off the local SPA.
         for url in urls where url.scheme == "tokentracker" {
-            if url.host == "open" || url.host == "dashboard" {
+            guard url.host == "open" || url.host == "dashboard" else { continue }
+            let requestedPath = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?
+                .first(where: { $0.name == "path" })?
+                .value
+            if let requestedPath, let page = DashboardPage.matching(path: requestedPath) {
+                DashboardWindowController.shared.presentPage(path: page.path)
+            } else {
                 DashboardPresentationCoordinator.shared.showDashboard()
             }
         }

@@ -2,6 +2,77 @@ import AppKit
 import SwiftUI
 import WebKit
 
+/// Every dashboard page the fork ships, in the order the native 页面 menu lists
+/// them. Playbook: `.ci-logs/mac-b-plan/porting-spec.md` §2.
+///
+/// One catalog feeds both the `页面` submenu (`StatusBarController`) and the
+/// `tokentracker://open?path=…` deep link (`AppDelegate`), so the menu and the
+/// URL scheme cannot drift apart. Routes mirror `dashboard/src/App.jsx`.
+enum DashboardPage: String, CaseIterable {
+    case usage
+    case sessions
+    case limits
+    case leaderboard
+    case globalModels
+    case achievements
+    case widgets
+    case petSettings
+    case skills
+    case ipCheck
+    case perks
+    case serviceStatus
+    case settings
+
+    var path: String {
+        switch self {
+        case .usage: return "/dashboard"
+        case .sessions: return "/sessions"
+        case .limits: return "/limits"
+        case .leaderboard: return "/leaderboard"
+        case .globalModels: return "/global-models"
+        case .achievements: return "/achievements"
+        case .widgets: return "/widgets"
+        case .petSettings: return "/pet-settings"
+        case .skills: return "/skills"
+        case .ipCheck: return "/ip-check"
+        case .perks: return "/perks"
+        case .serviceStatus: return "/service-status"
+        case .settings: return "/settings"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .usage: return Strings.pageUsage
+        case .sessions: return Strings.pageSessions
+        case .limits: return Strings.pageLimits
+        case .leaderboard: return Strings.pageLeaderboard
+        case .globalModels: return Strings.pageGlobalModels
+        case .achievements: return Strings.pageAchievements
+        case .widgets: return Strings.pageWidgets
+        case .petSettings: return Strings.pageDesktopPet
+        case .skills: return Strings.pageSkills
+        case .ipCheck: return Strings.pageIpCheck
+        case .perks: return Strings.pagePerks
+        case .serviceStatus: return Strings.pageServiceStatus
+        case .settings: return Strings.menuSettings
+        }
+    }
+
+    /// Resolves a deep-link path (`/limits`, `/limits/`, `/perks?x=1`) to a known
+    /// page. Anything else is rejected so `tokentracker://` can never drive the
+    /// webview to an arbitrary route.
+    static func matching(path rawPath: String) -> DashboardPage? {
+        var path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let cut = path.firstIndex(where: { $0 == "?" || $0 == "#" }) {
+            path = String(path[..<cut])
+        }
+        while path.count > 1 && path.hasSuffix("/") { path.removeLast() }
+        if !path.hasPrefix("/") { path = "/" + path }
+        return allCases.first { $0.path == path }
+    }
+}
+
 @MainActor
 final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
 
@@ -36,6 +107,11 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
     /// ServerManager has replaced the listener on the fixed dashboard port.
     private var dashboardNavigationAllowed = false
     private var pendingDashboardURL: URL?
+    /// Route requested by the 页面 menu or a `tokentracker://open?path=…` deep
+    /// link while the window still has no live SPA document (cold start, reopen
+    /// after a load failure). Applied once `didFinish` lands the app shell, so a
+    /// deep link costs one document load instead of two.
+    private var pendingPagePath: String?
     /// Retry count for load failures.
     private var retryCount = 0
     private let maxRetries = 5
@@ -167,7 +243,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
             defer: false
         )
         window.minSize = NSSize(width: 800, height: 600)
-        window.title = NativeQAProfile.current == nil ? "TokenTracker" : "TokenTracker QA"
+        // Branding: this title is hidden in the titlebar (titleVisibility .hidden) but it is
+        // what the Window menu, Mission Control and accessibility report, so it must be
+        // the fork product name, not the upstream one.
+        window.title = NativeQAProfile.current == nil ? Strings.appTitle : "\(Strings.appTitle) QA"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         let toolbar = NSToolbar(identifier: "DashboardToolbar")
@@ -218,6 +297,127 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
         } else if let url = URL(string: Constants.serverBaseURL + "?app=1") {
             loadDashboard(url)
         }
+    }
+
+    // MARK: - Page navigation (fork pages)
+
+    /// Opens a fork dashboard page in the single shared dashboard window and
+    /// navigates the live SPA in place (`history.pushState` + a `popstate`
+    /// dispatch, the primitive React Router's browser history subscribes to)
+    /// instead of running a full document load, which used to throw the SPA state
+    /// away on every page change.
+    ///
+    /// - Parameter path: a local dashboard route such as `/limits` or
+    ///   `/widgets?app=1`; schemes, hosts and whitespace are rejected.
+    func presentPage(path: String) {
+        guard let route = Self.sanitizedPagePath(path) else { return }
+        DashboardPresentationCoordinator.shared.showDashboard()
+        applyPageNavigation(route)
+    }
+
+    /// Normalizes `limits` / `/limits` / `/limits?app=1` into a route and rejects
+    /// anything that could leave the local SPA.
+    static func sanitizedPagePath(_ rawPath: String) -> String? {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !trimmed.contains("://"),
+              !trimmed.contains(" "),
+              !trimmed.contains("\n") else { return nil }
+        return trimmed.hasPrefix("/") ? trimmed : "/" + trimmed
+    }
+
+    /// Absolute URL for a dashboard route. Keeps the `app=1` embed flag the
+    /// native host always loads with (`App.jsx` reads it via `isNativeApp()`).
+    private static func url(forPagePath path: String) -> URL? {
+        let route = path.contains("?") ? path : path + "?app=1"
+        return URL(string: Constants.serverBaseURL + route)
+    }
+
+    /// Route path without its query string — what `location.pathname` must equal
+    /// after an in-place navigation.
+    private static func pathname(of route: String) -> String {
+        route.split(separator: "?", maxSplits: 1).first.map(String.init) ?? route
+    }
+
+    private static func javascriptString(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+    }
+
+    private func applyPageNavigation(_ path: String) {
+        guard let target = Self.url(forPagePath: path) else { return }
+        // A window that is still loading (cold start), parked on the load-failure
+        // overlay, or not on the local origin has no live SPA document to push
+        // into: load the route directly and let `didFinish` settle the overlay.
+        guard let webView, !webView.isLoading, loadFailureOverlay == nil,
+              let currentURL = webView.url, isLocalDashboardURL(currentURL) else {
+            pendingPagePath = path
+            if loadFailureOverlay != nil {
+                dismissLoadFailureOverlay()
+                retryCount = 0
+                if let container = window?.contentView { installLoadingOverlay(in: container) }
+            }
+            loadDashboard(target)
+            return
+        }
+        navigateInPlace(to: path, target: target)
+    }
+
+    /// Pushes a route into the live SPA. `didFinish` never fires for a pushState
+    /// navigation, so success is asserted from JS (`location.pathname`); anything
+    /// other than `ok` falls back to a real document load.
+    private func navigateInPlace(to path: String, target: URL) {
+        guard let webView else { return }
+        let route = Self.javascriptString(path)
+        let expected = Self.javascriptString(Self.pathname(of: path))
+        let script = """
+        (function(route, expected){
+          try {
+            if (!window.history || !window.history.pushState) return 'unsupported';
+            var state = window.history.state;
+            var index = state && typeof state.idx === 'number' ? state.idx : 0;
+            window.history.pushState(
+              { usr: null, key: 'native-' + Date.now().toString(36), idx: index + 1 },
+              '',
+              route
+            );
+            window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
+            return window.location.pathname === expected ? 'ok' : 'mismatch:' + window.location.pathname;
+          } catch (error) {
+            return 'error:' + error;
+          }
+        })('\(route)', '\(expected)')
+        """
+        webView.evaluateJavaScript(script) { [weak self] result, error in
+            guard let self else { return }
+            let outcome = result as? String ?? ""
+            self.pendingPagePath = nil
+            guard error == nil, outcome == "ok" else {
+                // pushState was refused (e.g. the document changed under us):
+                // fall back to a real document load so the page still opens.
+                self.loadDashboard(target)
+                return
+            }
+        }
+    }
+
+    /// Applies a route queued while the window had no live SPA document.
+    private func applyPendingPageNavigation() {
+        guard let pending = pendingPagePath,
+              let webView,
+              let currentURL = webView.url,
+              isLocalDashboardURL(currentURL),
+              let target = Self.url(forPagePath: pending) else { return }
+        // The document that just loaded may already be the requested route (the
+        // cold-start path loads it directly): do not stack a duplicate entry.
+        if currentURL.path == Self.pathname(of: pending) {
+            pendingPagePath = nil
+            return
+        }
+        navigateInPlace(to: pending, target: target)
     }
 
     private func loadDashboard(_ url: URL) {
@@ -538,11 +738,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
     }
 
     /// Open the dashboard and navigate directly to the Settings page.
+    /// Shares `presentPage(path:)` so ⌘, and the 页面 menu behave identically
+    /// (one window, in-place SPA navigation, no reload flash).
     func showSettings() {
-        DashboardPresentationCoordinator.shared.showDashboard()
-        if let url = URL(string: Constants.serverBaseURL + "/settings?app=1") {
-            loadDashboard(url)
-        }
+        presentPage(path: DashboardPage.settings.path)
     }
 
     private func openExternalURL(_ url: URL) {
@@ -664,6 +863,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
                 self?.pushCurrentSystemAppearanceToWeb()
                 self?.injectMainCardCornerRadius()
                 self?.dismissLoadingOverlay()
+                // A 页面 menu click / deep link that arrived while the shell was
+                // still loading lands here: push the queued route into the now
+                // live document instead of starting a second full load.
+                self?.applyPendingPageNavigation()
             }
         }
     }
