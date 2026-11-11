@@ -670,8 +670,9 @@ final class NativeBridge {
     /// Persisted pet-page toggles for surfaces that ship later in the port.
     /// Keeping the keys here lets the web page's state survive relaunch before
     /// the owning controller exists (quota panel = B3c; free-float island = not
-    /// ported), without inventing a second preferences store.
-    private enum PetSurfacePreference {
+    /// ported), without inventing a second preferences store. Internal since
+    /// B3c: QuotaPanelController shares the same key instead of a second store.
+    enum PetSurfacePreference {
         static let quotaEnabledKey = "QuotaWidgetEnabled"
         static let monitorIslandModeKey = "MonitorIslandMode"
         static let actionLockKey = "PetActionLock"
