@@ -18,9 +18,20 @@ const reportPath = process.argv[3];
 const runtime = path.join(appDir, "Contents", "Resources", "EmbeddedServer", "tokentracker");
 const resources = path.join(appDir, "Contents", "Resources", "EmbeddedServer");
 
+// The native chain's executable is the Xcode product name ("TokenTracker Plus");
+// the earlier webview shell used "TokenTracker-plus". Derive it from Info.plist
+// instead of hardcoding a name — the 2026-11-11 chain switch silently broke this
+// gate (the shipped app never passed verify).
+const infoPlistPath = path.join(appDir, "Contents", "Info.plist");
+const plistText = fs.readFileSync(infoPlistPath, "utf8");
+const execName = (plistText.match(/<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/) || [])[1];
+assert.ok(execName, "Info.plist is missing CFBundleExecutable");
+const bundleId = (plistText.match(/<key>CFBundleIdentifier<\/key>\s*<string>([^<]+)<\/string>/) || [])[1];
+assert.equal(bundleId, "com.tokentrackerplus.mac", `Unexpected bundle id: ${bundleId}`);
+
 const required = [
-  path.join(appDir, "Contents", "MacOS", "TokenTracker-plus"),
-  path.join(appDir, "Contents", "Info.plist"),
+  path.join(appDir, "Contents", "MacOS", execName),
+  infoPlistPath,
   // Runtime sentinels: the embedded node binary and the PET dashboard pages the
   // desktop pet/widget load. A non-PET dist or a missing node binary passes every
   // source comparison below and still kills the shell at startup.
@@ -34,6 +45,18 @@ const required = [
 for (const file of required) {
   assert.ok(fs.existsSync(file) && fs.statSync(file).isFile(), `Missing ${path.relative(appDir, file)}`);
 }
+// A bundled app extension with no NSExtension is dead weight: the vendored
+// WidgetKit target shipped without NSExtension/App Group, so pkd never
+// registered it. Ship a real extension or none at all.
+const plugInsDir = path.join(appDir, "Contents", "PlugIns");
+if (fs.existsSync(plugInsDir)) {
+  for (const entry of fs.readdirSync(plugInsDir)) {
+    if (!entry.endsWith(".appex")) continue;
+    const appexPlist = fs.readFileSync(path.join(plugInsDir, entry, "Contents", "Info.plist"), "utf8");
+    assert.match(appexPlist, /<key>NSExtension<\/key>/, `Bundled ${entry} has no NSExtension — dead extension`);
+  }
+}
+
 // The embedded native-arch node must actually run and match the pinned version.
 const nativeTag = process.arch === "arm64" ? "node-arm64" : "node-x64";
 const bundledNode = path.join(resources, nativeTag);
@@ -71,7 +94,7 @@ for (const file of packageFiles) {
 const { assertFresh } = require("./dashboard-fingerprint.cjs");
 assertFresh(path.join(runtime, "dashboard", "dist"));
 // Version across package.json / Info.plist must agree.
-const plist = fs.readFileSync(path.join(appDir, "Contents", "Info.plist"), "utf8");
+const plist = plistText;
 const plistVersion = (plist.match(/<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/) || [])[1];
 const packageVersion = JSON.parse(fs.readFileSync(path.join(runtime, "package.json"), "utf8")).version;
 assert.equal(plistVersion, packageVersion, `Info.plist version ${plistVersion} != package.json ${packageVersion}`);

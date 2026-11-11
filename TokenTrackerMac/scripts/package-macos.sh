@@ -80,29 +80,23 @@ rm -rf "$APP_DIR"
 ditto "$PRODUCT_APP" "$APP_DIR"
 MAIN_ARM="$PRODUCT_APP/Contents/MacOS/TokenTracker Plus"
 MAIN_X64="$PRODUCT_APP_X64/Contents/MacOS/TokenTracker Plus"
-APEX_ARM="$PRODUCT_APP/Contents/PlugIns/TokenTrackerWidget.appex/Contents/MacOS/TokenTrackerWidget"
-APEX_X64="$PRODUCT_APP_X64/Contents/PlugIns/TokenTrackerWidget.appex/Contents/MacOS/TokenTrackerWidget"
 lipo -create "$MAIN_ARM" "$MAIN_X64" -output "$APP_DIR/Contents/MacOS/TokenTracker Plus"
-if [ -f "$APEX_ARM" ] && [ -f "$APEX_X64" ]; then
-  lipo -create "$APEX_ARM" "$APEX_X64" \
-    -output "$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex/Contents/MacOS/TokenTrackerWidget"
-fi
 lipo -info "$APP_DIR/Contents/MacOS/TokenTracker Plus"
+
+# 2c. Do NOT ship the WidgetKit appex. The vendored extension has no
+#     NSExtension and no App Group entitlement, so pkd never registers it
+#     (pluginkit shows nothing after install) — a widget that can never appear
+#     is dead weight in the installer. Sources stay in the repo for a future
+#     build signed with a real identity + App Group.
+rm -rf "$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
 
 # Version from package.json (xcodegen emits 1.0 by default).
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_DIR/Contents/Info.plist"
 
-# 2b. Menu-bar cat frames (托盘图标风格 奔跑小猫) — NSImage(named: "catN").
-for n in 0 1 2 3 4; do
-  cp "BarSources/Package.swift" /dev/null 2>/dev/null || true
-done
-if [ -d "$MAC_DIR/TokenTrackerBar/TokenTrackerBar/Resources" ]; then
-  for n in 0 1 2 3 4; do
-    cp "$MAC_DIR/TokenTrackerBar/TokenTrackerBar/Resources/cat${n}.png" \
-       "$APP_DIR/Contents/Resources/cat${n}.png" 2>/dev/null || true
-  done
-fi
+# 2b. The native chain carries its menu-bar icon artwork in Assets.car
+#     (RunnerCat imagesets); the old cat*.png copy only applied to the retired
+#     webview shell, so there is nothing to copy here.
 
 # 3. Embedded server payload (same as the Windows shell).
 cp -R "$EMBED_DIR" "$APP_DIR/Contents/Resources/EmbeddedServer"
@@ -117,6 +111,12 @@ if [ -d "$APEX" ]; then
 fi
 codesign --force --sign - "$APP_DIR" 2>&1 | grep -v replacing || true
 codesign --verify "$APP_DIR" && echo "[package] codesign OK (ad-hoc)"
+
+# 4b. Payload gate: run the release verifier against the assembled bundle BEFORE
+#     any dmg/zip artifact exists, so a stale or mis-assembled payload can never
+#     be published. (2026-11-11: the chain switch left verify red while the app
+#     was being installed — this closes that hole.)
+node "$REPO_ROOT/scripts/verify-macos-package.cjs" "$APP_DIR"
 
 # 5. Artifacts: dmg (drag-to-Applications layout) + universal zip.
 rm -rf "$ARTIFACTS_DIR" && mkdir -p "$ARTIFACTS_DIR"
