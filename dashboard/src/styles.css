@@ -1423,9 +1423,34 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   border: 3px solid #eef5f4;
   box-shadow: 0 1px 2px rgba(20, 30, 30, 0.22), 0 6px 14px rgba(20, 30, 30, 0.14);
 }
-/* 领取瞬间翻面：单面 DOM + 一次性 rotateY，避免同品牌名在无障碍树/测试里出现两次。 */
+/* 卡片扑克比例（站主 2026-11-12：App 宽屏 9 列把卡拉成横方块）——
+   高固定 118px，宽限到 88px（≈0.75 比例）；窄屏列宽 <88 时自然收窄。
+   网格居中让多出的列宽变成均匀间隙。 */
+.tt-perks-page .perk-page-turn {
+  justify-items: center;
+}
 .tt-perks-page .perk-mini {
   perspective: 760px;
+  width: 100%;
+  max-width: 88px;
+}
+/* 卡册纸卡永远是浅色底（深浅主题下都保持纸感），而图标的三种深色
+   适配全是为「深色页面背景」设计的——上了纸卡就白对白（站主圈出的
+   DeepSeek/ZCode）。这里把卡内图标强制回浅色语境：
+   - 黑 logo（dark:invert 组：Qoder/Devin/DOTS）在深色页面被反成白
+     → 纸卡上强制不反；
+   - 白 logo（brightness-0 dark:brightness-100 组：AnythingLLM/pi）
+     在深色页面恢复白色 → 纸卡上强制压黑；
+   - currentColor mono 图标（DeepSeek 鱼/ZCode 等）继承下面的深灰，
+     而不是深色页面的白字。 */
+.tt-perks-page .perk-mini img[class*="dark:invert"] {
+  filter: none !important;
+}
+.tt-perks-page .perk-mini img[class*="dark:brightness-100"] {
+  filter: brightness(0) !important;
+}
+.tt-perks-page .perk-mini {
+  color: #404452;
 }
 .tt-perks-page .perk-mini.is-collected .perk-mini-card {
   animation: perk-mini-flip 0.58s cubic-bezier(0.42, 0.02, 0.28, 1) both;

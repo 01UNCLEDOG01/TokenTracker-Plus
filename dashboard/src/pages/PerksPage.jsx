@@ -543,6 +543,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
       onClick={onJump ? () => onJump(item.id) : undefined}
       title={onJump ? copy("perks.album.jump") : undefined}
       aria-label={`${item.name} — ${copy("perks.album.jump")}`}
+      data-perk-id={item.id}
       data-flip-key={flipKey}
       className={cn(
         "perk-mini relative block h-[118px] w-full text-center focus-visible:outline-none",
@@ -821,12 +822,19 @@ export function PerksPage() {
     };
   }, []);
 
+  // 领取（标记，非取消）后把视口带回卡册里那张小卡——翻面动画在页首，
+  // 人在明细卡处领取根本看不到（站主 2026-11-12）。effect 放在 albumItems
+  // 之后：领取会改排序，页码必须按领取后的卡册顺序算。
+  const pendingScrollId = useRef(null);
+
   const toggleClaim = (item, cycle) => {
     const day = getPerkClaimDay();
+    const wasClaimed = isPerkClaimed(item, claims, claimDay, selectedCategory);
     const next = togglePerkClaim(unsavedClaims.current ?? readPerksClaims() ?? claims, item, cycle, day);
     setClaimDay(day);
     setClaims(next);
     unsavedClaims.current = writePerksClaims(next) ? null : next;
+    if (!wasClaimed) pendingScrollId.current = item.id;
   };
 
   const categoryCounts = useMemo(() => {
@@ -914,6 +922,21 @@ export function PerksPage() {
     );
     return ranked;
   }, [filteredItems, claims, claimDay, selectedCategory, aihotIndex]);
+
+  useEffect(() => {
+    const id = pendingScrollId.current;
+    if (!id) return;
+    pendingScrollId.current = null;
+    const idx = albumItems.findIndex(function (entry) { return entry.item.id === id; });
+    if (idx < 0) return;
+    setAlbumPage(Math.floor(idx / ALBUM_PAGE_SIZE));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        document.querySelector(`.perk-mini[data-perk-id="${id}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }),
+    );
+  }, [albumItems]);
 
   // 卡册翻页随筛选结果收缩回合法范围，避免「清除筛选后跳回旧页码」。
   useEffect(() => {

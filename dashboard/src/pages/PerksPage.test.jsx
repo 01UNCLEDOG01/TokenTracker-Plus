@@ -460,7 +460,7 @@ describe("PerksPage", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const scrollSpy = vi.fn();
     const originalScrollIntoView = Element.prototype.scrollIntoView;
-    Element.prototype.scrollIntoView = scrollSpy;
+    Element.prototype.scrollIntoView = function spy() { scrollSpy(this); };
     try {
       render(
         <ToastProvider>
@@ -559,6 +559,42 @@ describe("PerksPage", () => {
     fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
     expect(miniWithStreak.className).toContain("is-collected");
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
+  });
+
+  it("明细卡标记已领取后视口滚回卡册对应小卡（翻面动画要被看见）", () => {
+    // （此块内 scrollIntoView 用 this 包装，见下方赋值）
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const scrollSpy = vi.fn();
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function spy() { scrollSpy(this); };
+    try {
+      localStorage.clear();
+      render(
+        <ToastProvider>
+          <PerksPage />
+        </ToastProvider>
+      );
+
+      // 未领取时点明细卡的标记按钮 → 滚到卡册里那张小卡
+      const detail = screen.getByRole("heading", { name: "Agnes AI" }).closest(".group");
+      fireEvent.click(within(detail).getByRole("button", { name: "标记已领取" }));
+      // 页码切换 + 双 rAF 后平滑滚动到 data-perk-id 小卡（翻面在那里）
+      act(() => { vi.advanceTimersByTime(32); });
+      expect(scrollSpy).toHaveBeenCalled();
+      // 多个调用者可能碰 scrollIntoView：锁定滚到 agnes 小卡的那次
+      const targets = scrollSpy.mock.calls.map((call) => call[0]).filter((el) => el && typeof el.getAttribute === "function");
+      const scrolledTo = targets.find((el) => el.getAttribute("data-perk-id") === "agnes");
+      expect(scrolledTo).toBeTruthy();
+      expect(scrolledTo.className).toContain("perk-mini");
+
+      // 取消领取不触发滚动（只有标记才滚）
+      scrollSpy.mockClear();
+      fireEvent.click(within(detail).getByRole("button", { name: "已领取（{{date}}）" }));
+      act(() => { vi.advanceTimersByTime(32); });
+      expect(scrollSpy).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    }
   });
 
   it("价值等级筛选：点六色 chip 后只保留该档卡片，计数与数据一致", () => {
