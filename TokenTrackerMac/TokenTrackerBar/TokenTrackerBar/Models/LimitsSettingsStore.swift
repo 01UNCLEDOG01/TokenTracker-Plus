@@ -34,8 +34,12 @@ final class LimitsSettingsStore: ObservableObject {
 
     static let shared = LimitsSettingsStore(userDefaults: .standard)
 
-    /// All known provider identifiers, in default display order.
-    static let allProviders: [String] = ["claude", "codex", "cursor", "gemini", "kimi", "kiro", "grok", "copilot", "antigravity", "zcode", "opencodeGo", "commandCode", "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy", "workbuddyAi", "deepseek"]
+    /// All known provider identifiers, in default display order. Kept in the
+    /// dashboard registry's order (dashboard/src/lib/limits-providers.js) so a
+    /// provider appended on the web lands in the same slot natively; the parity
+    /// test test/mac-limits-providers.test.js fails if this list ever misses a
+    /// dashboard id.
+    static let allProviders: [String] = ["claude", "codex", "cursor", "gemini", "kimi", "kiro", "grok", "copilot", "antigravity", "apigoto", "sensenova", "zcode", "opencodeGo", "commandCode", "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy", "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae", "codearts", "clinePass", "agentRouter", "opendesign", "mistral", "openaiCredits", "minimaxCode"]
 
     static let displayNames: [String: String] = [
         "claude": "Claude",
@@ -58,6 +62,19 @@ final class LimitsSettingsStore: ObservableObject {
         "workbuddy": "WorkBuddy",
         "workbuddyAi": "WorkBuddy AI",
         "deepseek": "DeepSeek",
+        "apigoto": "APIGOTO",
+        "sensenova": "SenseNova",
+        "raccoon": "Raccoon",
+        "minimax": "MiniMax",
+        "trae": "Trae CN (2nd account)",
+        "traeMain": "Trae CN (main)",
+        "codearts": "CodeArts",
+        "clinePass": "Cline Pass",
+        "agentRouter": "AgentRouter",
+        "opendesign": "OpenDesign",
+        "mistral": "Mistral",
+        "openaiCredits": "OpenAI API Credits",
+        "minimaxCode": "MiniMax Code",
     ]
 
     /// Providers whose visibility switch is also the consent to fetch them.
@@ -76,6 +93,22 @@ final class LimitsSettingsStore: ObservableObject {
         "antigravity": "AntigravityLogo",
         "qoder": "QoderLogo",
         "qoderCn": "QoderCnLogo",
+        // B3b fork provider marks. Rendered by UsageLimitsView.brandIcon from
+        // the BrandLogos resources (registered in project.pbxproj); the settings
+        // and island surfaces resolve the same names through Image(_:).
+        // openaiCredits/opendesign have no shipped brand file on the dashboard
+        // (inline mono marks), so they intentionally carry no asset name.
+        "apigoto": "ApigotoLogo",
+        "sensenova": "SensenovaLogo",
+        "raccoon": "RaccoonLogo",
+        "minimax": "MinimaxLogo",
+        "trae": "TraeLogo",
+        "traeMain": "TraeLogo",
+        "codearts": "CodeartsLogo",
+        "clinePass": "ClinePassLogo",
+        "agentRouter": "AgentRouterLogo",
+        "mistral": "MistralLogo",
+        "minimaxCode": "MinimaxLogo",
     ]
 
     // MARK: - Published state

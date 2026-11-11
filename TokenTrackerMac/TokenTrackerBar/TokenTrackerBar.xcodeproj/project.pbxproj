@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B3B0000000000000000000A1 /* apigoto.svg in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B1 /* apigoto.svg */; };
+		B3B0000000000000000000A2 /* sensenova.svg in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B2 /* sensenova.svg */; };
+		B3B0000000000000000000A3 /* minimax.svg in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B3 /* minimax.svg */; };
+		B3B0000000000000000000A4 /* trae.svg in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B4 /* trae.svg */; };
+		B3B0000000000000000000A5 /* mistral.svg in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B5 /* mistral.svg */; };
+		B3B0000000000000000000A6 /* raccoon.png in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B6 /* raccoon.png */; };
+		B3B0000000000000000000A7 /* codearts.png in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B7 /* codearts.png */; };
+		B3B0000000000000000000A8 /* cline.png in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B8 /* cline.png */; };
+		B3B0000000000000000000A9 /* agentrouter.png in Resources */ = {isa = PBXBuildFile; fileRef = B3B0000000000000000000B9 /* agentrouter.png */; };
 		00A50658D87B9BFF34A5D4D8 /* MonthlyUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEDCDC9A76466A2E26952A4B /* MonthlyUsage.swift */; };
 		01DE9534F1961B04E78E56DE /* LimitsSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 721B11DF8646DB8F740C82D6 /* LimitsSettingsStore.swift */; };
 		0DA6FE2EDC4C077478B62621 /* LimitsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD698B6C6CBF9812BA55F141 /* LimitsSettingsView.swift */; };
@@ -143,6 +152,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B3B0000000000000000000B1 /* apigoto.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = apigoto.svg; sourceTree = "<group>"; };
+		B3B0000000000000000000B2 /* sensenova.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = sensenova.svg; sourceTree = "<group>"; };
+		B3B0000000000000000000B3 /* minimax.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = minimax.svg; sourceTree = "<group>"; };
+		B3B0000000000000000000B4 /* trae.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = trae.svg; sourceTree = "<group>"; };
+		B3B0000000000000000000B5 /* mistral.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = mistral.svg; sourceTree = "<group>"; };
+		B3B0000000000000000000B6 /* raccoon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = raccoon.png; sourceTree = "<group>"; };
+		B3B0000000000000000000B7 /* codearts.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = codearts.png; sourceTree = "<group>"; };
+		B3B0000000000000000000B8 /* cline.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cline.png; sourceTree = "<group>"; };
+		B3B0000000000000000000B9 /* agentrouter.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = agentrouter.png; sourceTree = "<group>"; };
 		00C2A534466179BEDDE20436 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
 		02D894CFF5F56B417D0B0687 /* PeriodPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodPickerView.swift; sourceTree = "<group>"; };
 		0411D1F38B67AADE0E48021D /* HourlyUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourlyUsage.swift; sourceTree = "<group>"; };
@@ -299,6 +317,22 @@
 			path = PetSprites;
 			sourceTree = "<group>";
 		};
+		B3B0000000000000000000C1 /* BrandLogos */ = {
+			isa = PBXGroup;
+			children = (
+				B3B0000000000000000000B1 /* apigoto.svg */,
+				B3B0000000000000000000B2 /* sensenova.svg */,
+				B3B0000000000000000000B3 /* minimax.svg */,
+				B3B0000000000000000000B4 /* trae.svg */,
+				B3B0000000000000000000B5 /* mistral.svg */,
+				B3B0000000000000000000B6 /* raccoon.png */,
+				B3B0000000000000000000B7 /* codearts.png */,
+				B3B0000000000000000000B8 /* cline.png */,
+				B3B0000000000000000000B9 /* agentrouter.png */,
+			);
+			path = BrandLogos;
+			sourceTree = "<group>";
+		};
 		517EF046F7D35C3C7A8900AE /* Providers */ = {
 			isa = PBXGroup;
 			children = (
@@ -380,6 +414,7 @@
 				DB0173026C5F8894BD856DA5 /* TokenTrackerBarApp.swift */,
 				6F3229C132930F8F1C1260FB /* Models */,
 				3BEA3EEC9C305FC6F327A4E2 /* PetSprites */,
+				B3B0000000000000000000C1 /* BrandLogos */,
 				ABA332803B272DE30C6B17BF /* Services */,
 				F558402F84EF5DA56F35F4DC /* Utilities */,
 				95101270667B034A1EC64190 /* ViewModels */,
@@ -574,6 +609,15 @@
 				DC94FB14841B27DF2D3015CD /* pet-sprout.png in Resources */,
 				6B3E8F20C9D4A715B3E5F7D9 /* pet-gengxu.png in Resources */,
 				7C4F9A31D8E5B206C4F6A8E0 /* pet-yeacat.png in Resources */,
+				B3B0000000000000000000A1 /* apigoto.svg in Resources */,
+				B3B0000000000000000000A2 /* sensenova.svg in Resources */,
+				B3B0000000000000000000A3 /* minimax.svg in Resources */,
+				B3B0000000000000000000A4 /* trae.svg in Resources */,
+				B3B0000000000000000000A5 /* mistral.svg in Resources */,
+				B3B0000000000000000000A6 /* raccoon.png in Resources */,
+				B3B0000000000000000000A7 /* codearts.png in Resources */,
+				B3B0000000000000000000A8 /* cline.png in Resources */,
+				B3B0000000000000000000A9 /* agentrouter.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

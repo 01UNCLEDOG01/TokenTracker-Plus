@@ -99,6 +99,132 @@ enum Strings {
     static var workbuddyAddonLabel: String { t("Add-on", "资源包", "資源包", "リソースパック", "리소스 팩", "Zusatzpaket") }
     static var qoderBonusLabel: String { t("Bonus", "奖励", "獎勵", "ボーナス", "보너스", "Bonus") }
     static var qoderAddonLabel: String { t("Add-on", "资源包", "資源包", "リソースパック", "리소스 팩", "Zusatzpaket") }
+
+    // MARK: - B3b fork limits providers
+    //
+    // Titles follow dashboard copy (`limits.provider.*`); row labels follow
+    // `limits.label.*` from usage-limits-provider-specs.js. ja/ko/de are
+    // authored where the dashboard ships no translation (it falls back to
+    // English at runtime, so these must be filled here).
+
+    static var providerApigoto: String { "APIGOTO" }
+    static var providerSensenova: String { "SenseNova" }
+    static var providerRaccoon: String { t("Raccoon", "小浣熊", "小浣熊", "Raccoon", "Raccoon", "Raccoon") }
+    static var providerMinimax: String { "MiniMax" }
+    static var providerTraeAlt: String { t("Trae CN (2nd account)", "Trae CN（副账号）", "Trae CN（副帳號）", "Trae (alt)", "Trae (alt)", "Trae (alt)") }
+    static var providerTraeMain: String { t("Trae CN (main)", "Trae CN（主账号）", "Trae CN（主帳號）", "Trae（メイン）", "Trae(메인)", "Trae (Hauptkonto)") }
+    static var providerCodearts: String { "CodeArts" }
+    static var providerClinePass: String { "Cline Pass" }
+    static var providerAgentRouter: String { "AgentRouter" }
+    static var providerOpendesign: String { "OpenDesign" }
+    static var providerMistral: String { "Mistral" }
+    static var providerOpenaiCredits: String { t("OpenAI API Credits", "OpenAI API 额度", "OpenAI API 額度", "OpenAI API クレジット", "OpenAI API 크레딧", "OpenAI API-Guthaben") }
+    static var providerMinimaxCode: String { "MiniMax Code" }
+
+    /// One Qoder credit pool row, named the way the official usage panel names
+    /// it (dashboard `QODER_POOL_LABEL_KEYS`).
+    static func qoderPoolLabel(_ key: String?) -> String {
+        switch key {
+        case "plan": return qoderPoolPlanLabel
+        case "resourcePackage": return qoderPoolResourceLabel
+        case "dedicated": return qoderPoolDedicatedLabel
+        default: return qoderCreditsLabel
+        }
+    }
+    static var qoderPoolPlanLabel: String { t("Included", "套餐内", "套餐內", "プラン", "플랜", "Inklusive") }
+    static var qoderPoolResourceLabel: String { t("Resource pack", "资源包", "資源包", "リソースパック", "리소스 팩", "Ressourcenpaket") }
+    static var qoderPoolDedicatedLabel: String { t("SOTA credits", "SOTA 专属", "SOTA 專屬", "SOTA 専用", "SOTA 전용", "SOTA-Credits") }
+    static var qoderCreditsLabel: String { t("Credits", "积分", "積分", "クレジット", "크레딧", "Credits") }
+    static var qoderTeamCreditsLabel: String { t("Team Credits", "团队积分", "團隊積分", "チームクレジット", "팀 크레딧", "Team-Credits") }
+    static var qoderUltimateLabel: String { t("Ultimate Free Calls", "Ultimate 免费调用", "Ultimate 免費呼叫", "Ultimate 無料呼び出し", "Ultimate 무료 호출", "Ultimate Gratisaufrufe") }
+
+    static var workbuddyRewardLabel: String { t("Reward credits", "奖励额度", "獎勵額度", "報酬クレジット", "보너스 크레딧", "Bonus-Guthaben") }
+    static func workbuddyExpiringNote(credits: String, day: String) -> String {
+        t("(credits) credits expire by (day)", "预计 (day) 前有 (credits) 积分过期", "預計 (day) 前有 (credits) 積分過期", "(credits) クレジットが (day) までに失効", "(day)까지 (credits) 크레딧 만료", "(credits) Credits verfallen bis (day)")
+    }
+
+    // MARK: Fork provider window labels
+
+    static var sensenovaGeneral5hLabel: String { t("General 5h", "通用 5h", "通用 5h", "汎用 5h", "일반 5h", "Allgemein 5h") }
+    static var sensenovaGeneralWeeklyLabel: String { t("General weekly", "通用周", "通用週", "汎用 週間", "일반 주간", "Allgemein wöchentlich") }
+    static var sensenovaFlashLite5hLabel: String { "Flash-Lite 5h" }
+    static var sensenovaFlashLiteWeeklyLabel: String { t("Flash-Lite weekly", "Flash-Lite 周", "Flash-Lite 週", "Flash-Lite 週間", "Flash-Lite 주간", "Flash-Lite wöchentlich") }
+    static var minimaxCode5hLabel: String { t("5h", "5 小时", "5 小時", "5時間", "5시간", "5 Std.") }
+    static var minimaxCodeWeeklyLabel: String { t("Weekly", "每周", "每週", "週間", "주간", "Wöchentlich") }
+    static var minimaxCodeVideoLabel: String { t("Video", "视频生成", "影片生成", "動画生成", "영상 생성", "Video") }
+    static var opendesign5hLabel: String { minimaxCode5hLabel }
+    static var opendesignWeeklyLabel: String { minimaxCodeWeeklyLabel }
+    static var mistralApiLabel: String { t("Included API", "包含的 API 额度", "包含的 API 額度", "付属 API", "포함 API", "Enthaltene API") }
+    static var mistralVibeLabel: String { t("Included Vibe Code", "包含的 Vibe Code 额度", "包含的 Vibe Code 額度", "付属 Vibe Code", "포함 Vibe Code", "Enthaltene Vibe Code") }
+    static var apigotoWeeklyLabel: String { "APIGOTO weekly" }
+    static var apigotoSubscriptionLabel: String { t("Subscription period", "订阅期", "訂閱期", "サブスク期間", "구독 기간", "Abo-Zeitraum") }
+    static var openaiCreditsMeterLabel: String { t("API credits", "API 额度", "API 額度", "API クレジット", "API 크레딧", "API-Guthaben") }
+    static var raccoonDailyLabel: String { t("Daily points", "每日积分", "每日積分", "デイリーポイント", "데일리 포인트", "Tägliche Punkte") }
+
+    // MARK: Fork provider balances / status lines
+
+    /// "Credits" row label shared by the gateway wallet cards (dashboard
+    /// `limits.label.wallet_credits`).
+    static var walletCreditsLabel: String { qoderCreditsLabel }
+    /// "Balance" row label for the prepaid-wallet cards (dashboard
+    /// `limits.label.wallet_balance`).
+    static var walletBalanceLabel: String { t("Balance", "余额", "餘額", "残高", "잔액", "Guthaben") }
+
+    /// Locale-aware plain amount for credit figures (no currency symbol).
+    static func creditAmountText(_ value: Double) -> String {
+        creditAmountText(value, maximumFractionDigits: 2)
+    }
+    static func creditAmountText(_ value: Double, maximumFractionDigits: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: loc)
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = maximumFractionDigits
+        return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    }
+
+    /// TRAE wallet hover detail: available points, account totals, nearest lapse.
+    static func traeWalletDetail(available: String, total: String, used: String, nearest: String?) -> String {
+        var lines = [
+            t("(available) points available", "可用 (available) 积分", "可用 (available) 積分", "利用可能 (available) ポイント", "사용 가능 (available) 포인트", "(available) Punkte verfügbar"),
+            t("(total) total · (used) used", "总积分 (total) · 已用 (used)", "總積分 (total) · 已用 (used)", "合計 (total) · 使用済み (used)", "총 (total) · 사용 (used)", "(total) gesamt · (used) verbraucht"),
+        ]
+        if let nearest { lines.append(nearest) }
+        return lines.joined(separator: "\n")
+    }
+    static func traeNearestExpiry(credits: String, date: String) -> String {
+        t("(credits) expire (date)", "最近 (credits) 于 (date) 到期", "最近 (credits) 於 (date) 到期", "(credits) が (date) に失効", "(credits) 포인트 (date) 만료", "(credits) laufen am (date) ab")
+    }
+    /// CodeArts wallet hover detail: available credits + reset date, totals.
+    static func codeartsWalletDetail(credits: String, date: String, total: String, used: String) -> String {
+        [
+            t("(credits) credits available, resets (date)", "(credits) 积分可用，(date) 重置", "(credits) 積分可用，(date) 重置", "(credits) クレジット、(date) リセット", "(credits) 크레딧, (date) 초기화", "(credits) Guthaben, Reset am (date)"),
+            t("(total) total · (used) used", "总积分 (total) · 已用 (used)", "總積分 (total) · 已用 (used)", "合計 (total) · 使用済み (used)", "총 (total) · 사용 (used)", "(total) gesamt · (used) verbraucht"),
+        ].joined(separator: "\n")
+    }
+    static func agentRouterDetail(balance: String, used: String) -> String {
+        t("$(balance) left (spent $(used))", "余额 $(balance)（累计已用 $(used)）", "餘額 $(balance)（累計已用 $(used)）", "残高 $(balance)（累計 $(used) 使用）", "잔액 $(balance) (누적 사용 $(used))", "Guthaben $(balance) (insgesamt $(used) verbraucht)")
+    }
+    static func sensenovaGrantLine(credits: String, date: String) -> String {
+        t("Granted credits: (credits) · expires (date)", "固定积分：(credits) · (date) 到期", "固定積分：(credits) · (date) 到期", "付与クレジット：(credits) · (date) まで", "지급 크레딧: (credits) · (date) 만료", "Guthaben: (credits) · gültig bis (date)")
+    }
+    static func minimaxBalanceLine(currency: String, balance: String) -> String {
+        t("(currency) (balance)", "(currency) (balance)", "(currency) (balance)", "(currency) (balance)", "(currency) (balance)", "(currency) (balance)")
+    }
+    static func mistralBalanceLine(currency: String, balance: String) -> String { minimaxBalanceLine(currency: currency, balance: balance) }
+    static func minimaxCodePointsLine(points: String) -> String {
+        t("(points) points remaining", "剩余 (points) 积分", "剩餘 (points) 積分", "残り (points) ポイント", "(points) 포인트 남음", "(points) Punkte übrig")
+    }
+    static func openaiCreditsBalanceLine(currency: String, balance: String, date: String) -> String {
+        if date.isEmpty {
+            return t("(currency) (balance)", "(currency) (balance)", "(currency) (balance)", "(currency) (balance)", "(currency) (balance)", "(currency) (balance)")
+        }
+        return t("(currency) (balance) · expires (date)", "(currency) (balance) · (date) 到期", "(currency) (balance) · (date) 到期", "(currency) (balance) · (date) に失効", "(currency) (balance) · (date) 만료", "(currency) (balance) · läuft (date) ab")
+    }
+    static func clineWalletsLine(_ wallets: String) -> String { wallets }
+    static func raccoonWalletsLine(wallets: String, total: String, unit: String) -> String {
+        t("(wallets) · (total) (unit) in total", "(wallets)，合计 (total) (unit)", "(wallets)，合計 (total) (unit)", "(wallets)、合計 (total) (unit)", "(wallets), 총 (total) (unit)", "(wallets), insgesamt (total) (unit)")
+    }
     static var grokMonthLabel: String { t("Month", "月度", "月度", "月間", "월간", "Monat") }
     static var grokWeekLabel: String { t("Weekly", "周", "週", "週間", "주간", "Woche") }
     static var grokDayLabel: String { t("Daily", "日", "日", "日", "일", "Täglich") }

@@ -22,6 +22,22 @@ struct UsageLimitsResponse: Codable, Equatable {
     let workbuddy: WorkbuddyLimits?
     let workbuddyAi: WorkbuddyLimits?
     let deepseek: DeepseekLimits?
+    // B3b fork provider waves. Every one is optional so a server that predates
+    // the provider (or has it disabled) still decodes; unknown ids keep falling
+    // through to no section instead of failing the whole response.
+    let apigoto: ApigotoLimits?
+    let sensenova: SensenovaLimits?
+    let raccoon: RaccoonLimits?
+    let minimax: MinimaxLimits?
+    let trae: TraeLimits?
+    let traeMain: TraeLimits?
+    let codearts: CodeartsLimits?
+    let clinePass: ClinePassLimits?
+    let agentRouter: AgentRouterLimits?
+    let opendesign: OpendesignLimits?
+    let mistral: MistralLimits?
+    let openaiCredits: OpenaiCreditsLimits?
+    let minimaxCode: MinimaxCodeLimits?
 
     enum CodingKeys: String, CodingKey {
         case fetchedAt = "fetched_at"
@@ -29,6 +45,7 @@ struct UsageLimitsResponse: Codable, Equatable {
         case opencodeGo = "opencodeGo"
         case commandCode = "commandCode"
         case deepseek
+        case apigoto, sensenova, raccoon, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode
     }
 }
 
@@ -673,6 +690,41 @@ struct CommandCodeLimits: Codable, Equatable {
     }
 }
 
+/// One of Qoder's three credit pools (套餐内 / 资源包 / SOTA 专属积分). The
+/// dashboard renders these as one row each instead of the summed
+/// `total_quota` bar, because "resource pack already at 100% while SOTA still
+/// holds credits" is invisible in a single aggregate row.
+struct QoderCreditPool: Codable, Equatable {
+    let key: String?
+    let used: Double?
+    let limit: Double?
+    let remaining: Double?
+    let percent: Double?
+    let unit: String?
+    /// Earliest future expiry among the pool's still-unspent grants.
+    let expiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case key, used, limit, remaining, percent, unit
+        case expiresAt = "expires_at"
+    }
+
+    /// A 0/0 pool carries no quota to read and would draw a full bar in
+    /// remaining mode, so callers drop it like a missing window.
+    var hasQuota: Bool { (limit ?? 0) > 0 }
+
+    var window: GenericLimitWindow? {
+        guard let percent else { return nil }
+        return GenericLimitWindow(
+            usedPercent: percent,
+            resetAt: expiresAt,
+            limitCredits: limit,
+            usedCredits: used,
+            remainingCredits: remaining
+        )
+    }
+}
+
 struct QoderLimits: Codable, Equatable {
     let configured: Bool
     let error: String?
@@ -680,15 +732,21 @@ struct QoderLimits: Codable, Equatable {
     let primaryWindow: GenericLimitWindow?
     let secondaryWindow: GenericLimitWindow?
     let tertiaryWindow: GenericLimitWindow?
+    /// Team credits (shared team allowance). Absent unless the account is on a
+    /// team plan — a 0/0 shared quota is omitted server-side on purpose.
+    let quaternaryWindow: GenericLimitWindow?
+    /// Per-pool split when the payload carries it; older servers omit it.
+    let pools: [QoderCreditPool]?
     let cachedAt: String?
     let stale: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case configured, error, stale
+        case configured, error, stale, pools
         case planLabel = "plan_label"
         case primaryWindow = "primary_window"
         case secondaryWindow = "secondary_window"
         case tertiaryWindow = "tertiary_window"
+        case quaternaryWindow = "quaternary_window"
         case cachedAt = "cached_at"
     }
 }
@@ -715,16 +773,59 @@ struct CodingPlanLimits: Codable, Equatable {
 
 typealias AgentPlanLimits = CodingPlanLimits
 
+/// WorkBuddy's reward pool (gift / top-up / platform grants). The server names
+/// this `reward_window`; it is a separate row from the plan window and carries
+/// the "by <day>, N credits expire" lapse fields added upstream (#976).
+struct WorkbuddyRewardWindow: Codable, Equatable {
+    let usedPercent: Double
+    let resetAt: String?
+    let limitCredits: Double?
+    let usedCredits: Double?
+    let remainingCredits: Double?
+    let expiringCredits: Double?
+    let expiringAt: String?
+    /// Beijing calendar day of the earliest lapse, server-precomputed.
+    let expiringDay: String?
+
+    enum CodingKeys: String, CodingKey {
+        case usedPercent = "used_percent"
+        case resetAt = "reset_at"
+        case limitCredits = "limit_credits"
+        case usedCredits = "used_credits"
+        case remainingCredits = "remaining_credits"
+        case expiringCredits = "expiring_credits"
+        case expiringAt = "expiring_at"
+        case expiringDay = "expiring_day"
+    }
+
+    var creditsDetail: String? {
+        guard let total = limitCredits, let used = usedCredits, let remaining = remainingCredits,
+              total.isFinite, used.isFinite, remaining.isFinite, total > 0, used >= 0, remaining >= 0 else { return nil }
+        return Strings.limitCreditsDetail(used: used, total: total, remaining: remaining)
+    }
+
+    /// "by <day>, N credits expire" — the pool has no shared cycle, so the
+    /// soonest lapse is the only honest reset hint.
+    var expiringNote: String? {
+        guard let credits = expiringCredits, credits > 0,
+              let day = expiringDay, !day.isEmpty else { return nil }
+        return Strings.workbuddyExpiringNote(credits: Strings.creditAmountText(credits), day: day)
+    }
+}
+
 /// One WorkBuddy edition's credits (China and AI each publish their own row).
 /// The plan window is the subscription's base credits with its cycle reset;
-/// the secondary window pools every non-plan credit group (gift, top-up and
-/// platform rewards) and carries no reset, mirroring the desktop app's split.
+/// `reward_window` pools every non-plan credit group (gift, top-up and
+/// platform rewards) and carries no shared cycle. `secondary_window` stays as
+/// the legacy grouped pool older servers sent — still decoded so cached and
+/// pre-upgrade payloads keep rendering.
 struct WorkbuddyLimits: Codable, Equatable {
     let configured: Bool
     let error: String?
     let planLabel: String?
     let primaryWindow: GenericLimitWindow?
     let secondaryWindow: GenericLimitWindow?
+    let rewardWindow: WorkbuddyRewardWindow?
     let cachedAt: String?
     let stale: Bool?
 
@@ -733,6 +834,7 @@ struct WorkbuddyLimits: Codable, Equatable {
         case planLabel = "plan_label"
         case primaryWindow = "primary_window"
         case secondaryWindow = "secondary_window"
+        case rewardWindow = "reward_window"
         case cachedAt = "cached_at"
     }
 }
@@ -828,6 +930,398 @@ struct AntigravityLimits: Codable, Equatable {
     }
 }
 
+
+// MARK: - B3b provider waves
+//
+// One model per fork provider that had no native surface. All windows use the
+// shared GenericLimitWindow shape (used_percent + reset_at + optional
+// limit_window_seconds / credit detail); providers without percentage windows
+// carry the wallet/balance fields their server module emits.
+// Provider JSON shapes are defined in src/lib/*-limits.js; keep these fields in
+// step with the modules named in the comments.
+
+/// APIGOTO (apigoto.com): one weekly TCredits window plus the subscription's own
+/// lifetime as an expiry-paced window (`src/lib/apigoto-limits.js`).
+struct ApigotoLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+    }
+}
+
+/// SenseNova (商汤日日新): two credit pools, each with a 5h and a 7d window
+/// (`src/lib/sensenova-limits.js`). Granted credits are a balance, not a window.
+struct SensenovaLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+    let tertiaryWindow: GenericLimitWindow?
+    let quaternaryWindow: GenericLimitWindow?
+    let grantCredits: Double?
+    let grantExpiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+        case tertiaryWindow = "tertiary_window"
+        case quaternaryWindow = "quaternary_window"
+        case grantCredits = "grant_credits"
+        case grantExpiresAt = "grant_expires_at"
+    }
+}
+
+/// One 小浣熊 wallet bucket (daily points, reward points, …). Balances refill on
+/// their own schedules, so the card shows a balance line and never a fake bar.
+struct RaccoonWallet: Codable, Equatable {
+    let type: String?
+    let name: String?
+    let balance: Double?
+}
+
+/// Raccoon (raccoon.sensetime.com) credit pools via the local Agent2API gateway
+/// (`src/lib/raccoon-limits.js`).
+struct RaccoonLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let raccoonWallets: [RaccoonWallet]?
+    let raccoonAvailableCredits: Double?
+    let raccoonUnit: String?
+    let raccoonUpdatedAt: String?
+    let source: String?
+    let stale: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source, stale
+        case planLabel = "plan_label"
+        case raccoonWallets = "raccoon_wallets"
+        case raccoonAvailableCredits = "raccoon_available_credits"
+        case raccoonUnit = "raccoon_unit"
+        case raccoonUpdatedAt = "raccoon_updated_at"
+    }
+}
+
+/// MiniMax Coding Plan: 5h + weekly remaining-percent windows in token-plan
+/// billing mode; API billing mode returns a balance instead
+/// (`src/lib/minimax-limits.js`).
+struct MinimaxLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+    let minimaxBalance: Double?
+    let minimaxCurrency: String?
+    let minimaxBillingMode: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+        case minimaxBalance = "minimax_balance"
+        case minimaxCurrency = "minimax_currency"
+        case minimaxBillingMode = "minimax_billing_mode"
+        case capturedAt = "captured_at"
+    }
+}
+
+/// One TRAE rolling check-in grant; each batch carries its own expiry.
+struct TraeGrant: Codable, Equatable {
+    let name: String?
+    let remain: Double?
+    let total: Double?
+    let expireAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, remain, total
+        case expireAt = "expire_at"
+    }
+}
+
+/// TRAE SOLO account points via the local Agent2API gateway
+/// (`src/lib/gateway-limits.js` shapeTrae). The whole-account total comes from
+/// `raw.entUsage.usage_summary`, never from summing grants.
+struct TraeLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let traeAvailablePoints: Double?
+    let traeTotalPoints: Double?
+    let traeUsedPoints: Double?
+    let traeConsumptionRatio: Double?
+    let traeGrants: [TraeGrant]?
+    let traeNearestPoints: Double?
+    let traeNearestExpireAt: String?
+    let gatewayUpdatedAt: String?
+    let source: String?
+    let stale: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source, stale
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case traeAvailablePoints = "trae_available_points"
+        case traeTotalPoints = "trae_total_points"
+        case traeUsedPoints = "trae_used_points"
+        case traeConsumptionRatio = "trae_consumption_ratio"
+        case traeGrants = "trae_grants"
+        case traeNearestPoints = "trae_nearest_points"
+        case traeNearestExpireAt = "trae_nearest_expire_at"
+        case gatewayUpdatedAt = "gateway_updated_at"
+    }
+
+    /// Used share of the account's points pool; nil when the snapshot carries no
+    /// denominator (the card then draws no bar, matching the dashboard).
+    var usedPercent: Double? {
+        guard let total = traeTotalPoints, total > 0 else { return nil }
+        let used = traeUsedPoints ?? max(0, total - (traeAvailablePoints ?? total))
+        return min(100, max(0, used / total * 100))
+    }
+}
+
+/// One CodeArts credit meter bucket (remaining / total).
+struct CodeartsBucket: Codable, Equatable {
+    let remaining: Double?
+    let total: Double?
+}
+
+/// Huawei CodeArts Agent trial credits (`src/lib/gateway-limits.js` shapeCodearts).
+struct CodeartsLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let codeartsAvailableCredits: Double?
+    let codeartsPackage: CodeartsBucket?
+    let codeartsBonus: CodeartsBucket?
+    let codeartsBasic: CodeartsBucket?
+    let codeartsResetDate: String?
+    let codeartsTokensUsed: Double?
+    let gatewayUpdatedAt: String?
+    let source: String?
+    let stale: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source, stale
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case codeartsAvailableCredits = "codearts_available_credits"
+        case codeartsPackage = "codearts_package"
+        case codeartsBonus = "codearts_bonus"
+        case codeartsBasic = "codearts_basic"
+        case codeartsResetDate = "codearts_reset_date"
+        case codeartsTokensUsed = "codearts_tokens_used"
+        case gatewayUpdatedAt = "gateway_updated_at"
+    }
+
+    var usedPercent: Double? {
+        guard let total = codeartsPackage?.total, total > 0 else { return nil }
+        let available = codeartsAvailableCredits ?? codeartsPackage?.remaining ?? 0
+        return min(100, max(0, (total - available) / total * 100))
+    }
+}
+
+/// One Cline Pass micro-credit wallet.
+struct ClineWallet: Codable, Equatable {
+    let name: String?
+    let balance: Double?
+}
+
+/// Cline Pass micro-credits via the gateway snapshot
+/// (`src/lib/gateway-limits.js` shapeClinePass).
+struct ClinePassLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let clineWallets: [ClineWallet]?
+    let clineAvailableCredits: Double?
+    let clineUnit: String?
+    let gatewayUpdatedAt: String?
+    let source: String?
+    let stale: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source, stale
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case clineWallets = "cline_wallets"
+        case clineAvailableCredits = "cline_available_credits"
+        case clineUnit = "cline_unit"
+        case gatewayUpdatedAt = "gateway_updated_at"
+    }
+}
+
+/// AgentRouter.org prepaid balance read from its New API panel
+/// (`src/lib/agentrouter-limits.js`). Balances in USD, not quota windows.
+struct AgentRouterLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let agentrouterBalanceUsd: Double?
+    let agentrouterUsedUsd: Double?
+    let agentrouterRequests: Double?
+    let agentrouterQuotaUnits: Double?
+    let stale: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, stale
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case agentrouterBalanceUsd = "agentrouter_balance_usd"
+        case agentrouterUsedUsd = "agentrouter_used_usd"
+        case agentrouterRequests = "agentrouter_requests"
+        case agentrouterQuotaUnits = "agentrouter_quota_units"
+    }
+
+    /// Used share of the prepaid wallet (spent / (left + spent)); the dashboard
+    /// draws this as one bar rather than a fake plan window.
+    var usedPercent: Double? {
+        guard let balance = agentrouterBalanceUsd, balance >= 0 else { return nil }
+        let used = agentrouterUsedUsd ?? 0
+        let total = balance + max(0, used)
+        guard total > 0 else { return nil }
+        return min(100, max(0, used / total * 100))
+    }
+}
+
+/// OpenDesign's raw credit allowance window (used / limit / remaining).
+struct OpendesignWindow: Codable, Equatable {
+    let used: Double?
+    let limit: Double?
+    let remaining: Double?
+}
+
+/// OpenDesign subscription: a 5-hour session window plus the weekly allowance
+/// (`src/lib/opendesign-limits.js`).
+struct OpendesignLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+    let opendesignSessionWindow: OpendesignWindow?
+    let opendesignWeeklyWindow: OpendesignWindow?
+    let source: String?
+    let workspaceId: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+        case opendesignSessionWindow = "opendesign_session_window"
+        case opendesignWeeklyWindow = "opendesign_weekly_window"
+        case workspaceId = "workspace_id"
+        case capturedAt = "captured_at"
+    }
+}
+
+/// Mistral subscription: two monthly allowances (Included API + Included Vibe
+/// Code) plus the wallet balance (`src/lib/mistral-limits.js`).
+struct MistralLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+    let mistralBalance: Double?
+    let mistralCurrency: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+        case mistralBalance = "mistral_balance"
+        case mistralCurrency = "mistral_currency"
+        case capturedAt = "captured_at"
+    }
+}
+
+/// OpenAI Platform API credits: a prepaid wallet plus a meter window when the
+/// grant list reconciles with the available total
+/// (`src/lib/openai-credits-limits.js`).
+struct OpenaiCreditsLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let openaiCreditsAvailable: Double?
+    let openaiCreditsCurrency: String?
+    let openaiCreditsExpiresAt: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case openaiCreditsAvailable = "openai_credits_available"
+        case openaiCreditsCurrency = "openai_credits_currency"
+        case openaiCreditsExpiresAt = "openai_credits_expires_at"
+        case capturedAt = "captured_at"
+    }
+}
+
+/// MiniMax Code quota lane: used-percent plan windows plus a video-generation
+/// count row and a points balance (`src/lib/minimax-code-limits.js`).
+struct MinimaxCodeLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+    let minimaxCodeVideoWindow: GenericLimitWindow?
+    let minimaxCodePoints: Double?
+    let minimaxCodeUnlimited: Bool?
+    let minimaxCodeRegion: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+        case minimaxCodeVideoWindow = "minimax_code_video_window"
+        case minimaxCodePoints = "minimax_code_points"
+        case minimaxCodeUnlimited = "minimax_code_unlimited"
+        case minimaxCodeRegion = "minimax_code_region"
+        case capturedAt = "captured_at"
+    }
+}
+
 /// Helper to decide whether a response from the limits API contains at least one
 /// usable (configured + no error) provider record. Used by the ViewModel to
 /// protect the "last good record" on partial failures (do not overwrite a
@@ -855,6 +1349,19 @@ extension UsageLimitsResponse {
             (workbuddy?.configured ?? false, workbuddy?.error),
             (workbuddyAi?.configured ?? false, workbuddyAi?.error),
             (deepseek?.configured ?? false, deepseek?.error),
+            (apigoto?.configured ?? false, apigoto?.error),
+            (sensenova?.configured ?? false, sensenova?.error),
+            (raccoon?.configured ?? false, raccoon?.error),
+            (minimax?.configured ?? false, minimax?.error),
+            (trae?.configured ?? false, trae?.error),
+            (traeMain?.configured ?? false, traeMain?.error),
+            (codearts?.configured ?? false, codearts?.error),
+            (clinePass?.configured ?? false, clinePass?.error),
+            (agentRouter?.configured ?? false, agentRouter?.error),
+            (opendesign?.configured ?? false, opendesign?.error),
+            (mistral?.configured ?? false, mistral?.error),
+            (openaiCredits?.configured ?? false, openaiCredits?.error),
+            (minimaxCode?.configured ?? false, minimaxCode?.error),
         ]
         return providers.contains { $0.0 && $0.1 == nil }
     }
@@ -896,7 +1403,20 @@ extension UsageLimitsResponse {
             devin: .unconfigured,
             workbuddy: workbuddy,
             workbuddyAi: workbuddyAi,
-            deepseek: deepseek
+            deepseek: deepseek,
+            apigoto: apigoto,
+            sensenova: sensenova,
+            raccoon: raccoon,
+            minimax: minimax,
+            trae: trae,
+            traeMain: traeMain,
+            codearts: codearts,
+            clinePass: clinePass,
+            agentRouter: agentRouter,
+            opendesign: opendesign,
+            mistral: mistral,
+            openaiCredits: openaiCredits,
+            minimaxCode: minimaxCode
         )
     }
 }

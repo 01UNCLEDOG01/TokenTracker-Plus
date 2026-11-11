@@ -79,6 +79,24 @@ struct UsageLimitsView: View {
         "workbuddy": "CodeBuddyLogo",
         "workbuddyAi": "CodeBuddyLogo",
         "deepseek": "DeepseekLogo",
+        // B3b fork provider waves. Graphic assets live in the app bundle
+        // (Resources, registered in project.pbxproj) with the packaged
+        // dashboard dist as fallback; openaiCredits/opendesign have no shipped
+        // brand file on the dashboard either (inline mono marks), so they keep
+        // a title-only section.
+        "apigoto": "ApigotoLogo",
+        "sensenova": "SensenovaLogo",
+        "raccoon": "RaccoonLogo",
+        "minimax": "MinimaxLogo",
+        "trae": "TraeLogo",
+        "traeMain": "TraeLogo",
+        "codearts": "CodeartsLogo",
+        "clinePass": "ClinePassLogo",
+        "agentRouter": "AgentRouterLogo",
+        "opendesign": "OpendesignLogo",
+        "mistral": "MistralLogo",
+        "openaiCredits": "OpenaiCreditsLogo",
+        "minimaxCode": "MinimaxLogo",
     ]
 
     var body: some View {
@@ -215,6 +233,60 @@ struct UsageLimitsView: View {
             if let deepseek = limits.deepseek, deepseek.configured, deepseek.error == nil {
                 return toolSection(id: id, title: "DeepSeek", assetName: "DeepseekLogo", toolName: "DeepSeek", specs: [], deepseekBalance: deepseek, updatedAtISO: deepseek.cachedAt, isStale: deepseek.stale ?? false)
             }
+        // MARK: B3b fork provider waves — one case per ported provider. Unknown
+        // ids still fall through to nil below, so the whitelist stays honest.
+        case "apigoto":
+            if let apigoto = limits.apigoto, apigoto.configured, apigoto.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerApigoto, apigoto.planLabel), assetName: "ApigotoLogo", toolName: Strings.providerApigoto, specs: apigotoSpecs(apigoto))
+            }
+        case "sensenova":
+            if let sensenova = limits.sensenova, sensenova.configured, sensenova.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerSensenova, sensenova.planLabel), assetName: "SensenovaLogo", toolName: Strings.providerSensenova, specs: sensenovaSpecs(sensenova), statusLines: sensenovaStatusLines(sensenova))
+            }
+        case "raccoon":
+            if let raccoon = limits.raccoon, raccoon.configured, raccoon.error == nil {
+                return toolSection(id: id, title: Strings.providerRaccoon, assetName: "RaccoonLogo", toolName: Strings.providerRaccoon, specs: [], statusLines: raccoonStatusLines(raccoon), isStale: raccoon.stale ?? false)
+            }
+        case "minimax":
+            if let minimax = limits.minimax, minimax.configured, minimax.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerMinimax, minimax.planLabel), assetName: "MinimaxLogo", toolName: Strings.providerMinimax, specs: minimaxSpecs(minimax), statusLines: minimaxStatusLines(minimax))
+            }
+        case "trae":
+            if let trae = limits.trae, trae.configured, trae.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerTraeAlt, trae.planLabel), assetName: "TraeLogo", toolName: Strings.providerTraeAlt, specs: traeWalletSpecs(trae), updatedAtISO: trae.gatewayUpdatedAt, isStale: trae.stale ?? false)
+            }
+        case "traeMain":
+            if let traeMain = limits.traeMain, traeMain.configured, traeMain.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerTraeMain, traeMain.planLabel), assetName: "TraeLogo", toolName: Strings.providerTraeMain, specs: traeWalletSpecs(traeMain), updatedAtISO: traeMain.gatewayUpdatedAt, isStale: traeMain.stale ?? false)
+            }
+        case "codearts":
+            if let codearts = limits.codearts, codearts.configured, codearts.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerCodearts, codearts.planLabel), assetName: "CodeartsLogo", toolName: Strings.providerCodearts, specs: codeartsWalletSpecs(codearts), updatedAtISO: codearts.gatewayUpdatedAt, isStale: codearts.stale ?? false)
+            }
+        case "clinePass":
+            if let clinePass = limits.clinePass, clinePass.configured, clinePass.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerClinePass, clinePass.planLabel), assetName: "ClinePassLogo", toolName: Strings.providerClinePass, specs: [], statusLines: clinePassStatusLines(clinePass), updatedAtISO: clinePass.gatewayUpdatedAt, isStale: clinePass.stale ?? false)
+            }
+        case "agentRouter":
+            if let agentRouter = limits.agentRouter, agentRouter.configured, agentRouter.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerAgentRouter, agentRouter.planLabel), assetName: "AgentRouterLogo", toolName: Strings.providerAgentRouter, specs: agentRouterWalletSpecs(agentRouter), isStale: agentRouter.stale ?? false)
+            }
+        case "opendesign":
+            if let opendesign = limits.opendesign, opendesign.configured, opendesign.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerOpendesign, opendesign.planLabel), assetName: nil, toolName: Strings.providerOpendesign, specs: opendesignSpecs(opendesign), updatedAtISO: opendesign.capturedAt)
+            }
+        case "mistral":
+            if let mistral = limits.mistral, mistral.configured, mistral.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerMistral, mistral.planLabel), assetName: "MistralLogo", toolName: Strings.providerMistral, specs: mistralSpecs(mistral), statusLines: mistralStatusLines(mistral), updatedAtISO: mistral.capturedAt)
+            }
+        case "openaiCredits":
+            if let openaiCredits = limits.openaiCredits, openaiCredits.configured, openaiCredits.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerOpenaiCredits, openaiCredits.planLabel), assetName: nil, toolName: Strings.providerOpenaiCredits, specs: openaiCreditsSpecs(openaiCredits), statusLines: openaiCreditsStatusLines(openaiCredits), updatedAtISO: openaiCredits.capturedAt)
+            }
+        case "minimaxCode":
+            if let minimaxCode = limits.minimaxCode, minimaxCode.configured, minimaxCode.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerMinimaxCode, minimaxCode.planLabel), assetName: "MinimaxLogo", toolName: Strings.providerMinimaxCode, specs: minimaxCodeSpecs(minimaxCode), statusLines: minimaxCodeStatusLines(minimaxCode), updatedAtISO: minimaxCode.capturedAt)
+            }
         default:
             break
         }
@@ -238,6 +310,9 @@ struct UsageLimitsView: View {
         zcodeStartPlan: ZcodeStartPlan? = nil,
         // DeepSeek's balance card (pay-as-you-go, no window bars — #960).
         deepseekBalance: DeepseekLimits? = nil,
+        // Wallet/balance lines that the dashboard renders as status lines under
+        // the provider's rows (no percentage to draw). Empty = no line.
+        statusLines: [String] = [],
         /// Inline plan-spec text pinned to the right of the title (e.g. Kimi's
         /// "· Parallel: 20" concurrency cap). Renders caption2/tertiary so it
         /// reads as metadata, not part of the provider name.
@@ -259,7 +334,7 @@ struct UsageLimitsView: View {
         // No quota rows and no reset/status content means there is nothing
         // meaningful under the heading — return nil rather than render a bare
         // provider title.
-        guard !specs.isEmpty || !resetRows.isEmpty
+        guard !specs.isEmpty || !resetRows.isEmpty || !statusLines.isEmpty
             || resetStatus != nil || serviceStatus != nil
             || hasZcodeReset || hasZcodeStart || hasDeepseekBalance else {
             return nil
@@ -313,6 +388,9 @@ struct UsageLimitsView: View {
             if let deepseekBalance {
                 deepseekBalanceSection(deepseekBalance)
             }
+            if !statusLines.isEmpty {
+                statusLineSection(statusLines)
+            }
             if let serviceStatus {
                 serviceStatusRow(serviceStatus)
             }
@@ -324,6 +402,21 @@ struct UsageLimitsView: View {
             // call shape to prove reset-bank rows never leak into the explanation.
             LimitsExplainContent(providerName: title, specs: specs, remainingMode: settings.displayMode == .remaining, updatedAt: updatedAt, isStale: isStale, retryAt: retryAt)
         })
+    }
+
+    // MARK: - Status lines (balances the dashboard shows without a bar)
+
+    /// One caption line per wallet/balance reading. Matches the dashboard's
+    /// `StatusLine` (caption2 + tertiary): it carries numbers, never a bar.
+    private func statusLineSection(_ lines: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .font(.system(.caption2, design: .default))
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     // MARK: - Service status (status-page incident row)
@@ -540,21 +633,196 @@ struct UsageLimitsView: View {
 
     private func workbuddySpecs(_ w: WorkbuddyLimits) -> [LimitWindowSpec] {
         var specs: [LimitWindowSpec] = []
-        // Empty 0/0 windows (no active plan / no resource credit) have no
-        // quota to read and would render as a full bar in remaining mode —
-        // drop them like a missing window. An exhausted plan (total > 0,
-        // remain 0) stays visible at 100%.
+        // Empty 0/0 windows (no active plan / no reward credit) have no quota
+        // to read and would render as a full bar in remaining mode — drop them
+        // like a missing window. An exhausted plan (total > 0, remain 0) stays
+        // visible at 100%.
         if let window = w.primaryWindow, window.limitCredits != 0 {
             var spec = makeSpec(Strings.workbuddyPlanLabel, window.usedPercent, iso: window.resetAt)
             spec.creditsDetail = window.creditsDetail
             specs.append(spec)
         }
-        if let window = w.secondaryWindow, window.limitCredits != 0 {
+        if let reward = w.rewardWindow, reward.limitCredits != 0 {
+            var spec = makeSpec(Strings.workbuddyRewardLabel, reward.usedPercent, iso: reward.resetAt)
+            spec.creditsDetail = [reward.creditsDetail, reward.expiringNote].compactMap { $0 }.joined(separator: "\n")
+            specs.append(spec)
+        } else if let window = w.secondaryWindow, window.limitCredits != 0 {
+            // Older payloads (and the persisted last-good cache written before
+            // the server renamed the field) still carry the grouped reward pool
+            // as secondary_window; keep rendering it under the legacy add-on
+            // label instead of dropping the row.
             var spec = makeSpec(Strings.workbuddyAddonLabel, window.usedPercent, iso: window.resetAt)
             spec.creditsDetail = window.creditsDetail
             specs.append(spec)
         }
         return specs
+    }
+
+    // MARK: - B3b fork provider specs (window rows + wallet rows + status lines)
+
+    private func apigotoSpecs(_ a: ApigotoLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = a.primaryWindow {
+            specs.append(makeSpec(Strings.apigotoWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt))
+        }
+        if let w = a.secondaryWindow {
+            // Subscription lifetime: paced by elapsed period, expiry is the reset.
+            specs.append(makeSpec(Strings.apigotoSubscriptionLabel, w.usedPercent, iso: w.resetAt))
+        }
+        return specs
+    }
+
+    private func sensenovaSpecs(_ s: SensenovaLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = s.primaryWindow { specs.append(makeSpec(Strings.sensenovaGeneral5hLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds ?? 5 * 3600, iso: w.resetAt)) }
+        if let w = s.secondaryWindow { specs.append(makeSpec(Strings.sensenovaGeneralWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds ?? 7 * 86400, iso: w.resetAt)) }
+        if let w = s.tertiaryWindow { specs.append(makeSpec(Strings.sensenovaFlashLite5hLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds ?? 5 * 3600, iso: w.resetAt)) }
+        if let w = s.quaternaryWindow { specs.append(makeSpec(Strings.sensenovaFlashLiteWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds ?? 7 * 86400, iso: w.resetAt)) }
+        return specs
+    }
+
+    private func sensenovaStatusLines(_ s: SensenovaLimits) -> [String] {
+        guard let credits = s.grantCredits, credits > 0 else { return [] }
+        let date = s.grantExpiresAt.map { String($0.prefix(10)) } ?? ""
+        return [Strings.sensenovaGrantLine(credits: Strings.creditAmountText(credits, maximumFractionDigits: 0), date: date)]
+    }
+
+    private func minimaxSpecs(_ m: MinimaxLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = m.primaryWindow { specs.append(makeSpec(Strings.minimaxCode5hLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        if let w = m.secondaryWindow { specs.append(makeSpec(Strings.minimaxCodeWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        return specs
+    }
+
+    private func minimaxStatusLines(_ m: MinimaxLimits) -> [String] {
+        guard let balance = m.minimaxBalance, balance.isFinite else { return [] }
+        return [Strings.minimaxBalanceLine(currency: m.minimaxCurrency ?? "", balance: Strings.creditAmountText(balance))]
+    }
+
+    private func mistralSpecs(_ m: MistralLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = m.primaryWindow { specs.append(makeSpec(Strings.mistralApiLabel, w.usedPercent, iso: w.resetAt)) }
+        if let w = m.secondaryWindow { specs.append(makeSpec(Strings.mistralVibeLabel, w.usedPercent, iso: w.resetAt)) }
+        return specs
+    }
+
+    private func mistralStatusLines(_ m: MistralLimits) -> [String] {
+        guard let balance = m.mistralBalance, balance.isFinite else { return [] }
+        return [Strings.mistralBalanceLine(currency: m.mistralCurrency ?? "", balance: Strings.creditAmountText(balance))]
+    }
+
+    private func opendesignSpecs(_ o: OpendesignLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = o.primaryWindow { specs.append(makeSpec(Strings.opendesign5hLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        if let w = o.secondaryWindow { specs.append(makeSpec(Strings.opendesignWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        return specs
+    }
+
+    private func openaiCreditsSpecs(_ o: OpenaiCreditsLimits) -> [LimitWindowSpec] {
+        guard let w = o.primaryWindow else { return [] }
+        return [makeSpec(Strings.openaiCreditsMeterLabel, w.usedPercent, iso: w.resetAt)]
+    }
+
+    private func openaiCreditsStatusLines(_ o: OpenaiCreditsLimits) -> [String] {
+        guard let available = o.openaiCreditsAvailable, available.isFinite else { return [] }
+        let date = o.openaiCreditsExpiresAt.map { String($0.prefix(10)) } ?? ""
+        return [Strings.openaiCreditsBalanceLine(
+            currency: o.openaiCreditsCurrency ?? "",
+            balance: Strings.creditAmountText(available),
+            date: date
+        )]
+    }
+
+    private func minimaxCodeSpecs(_ m: MinimaxCodeLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = m.primaryWindow { specs.append(makeSpec(Strings.minimaxCode5hLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        if let w = m.secondaryWindow { specs.append(makeSpec(Strings.minimaxCodeWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        if let w = m.minimaxCodeVideoWindow { specs.append(makeSpec(Strings.minimaxCodeVideoLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        return specs
+    }
+
+    private func minimaxCodeStatusLines(_ m: MinimaxCodeLimits) -> [String] {
+        guard let points = m.minimaxCodePoints, points.isFinite else { return [] }
+        return [Strings.minimaxCodePointsLine(points: Strings.creditAmountText(points, maximumFractionDigits: 0))]
+    }
+
+    /// TRAE SOLO points: one wallet bar over the account's own totals (never a
+    /// plan percentage invented from summed grants — the gateway exposes no
+    /// account-wide plan limit). No denominator means no row, like the web card.
+    private func traeWalletSpecs(_ t: TraeLimits) -> [LimitWindowSpec] {
+        guard let usedPercent = t.usedPercent else { return [] }
+        var spec = makeSpec(Strings.walletCreditsLabel, usedPercent, iso: nil)
+        let available = Strings.creditAmountText(t.traeAvailablePoints ?? 0)
+        let total = Strings.creditAmountText(t.traeTotalPoints ?? 0)
+        let used = Strings.creditAmountText(t.traeUsedPoints ?? 0)
+        let nearest: String? = {
+            guard let iso = t.traeNearestExpireAt, let points = t.traeNearestPoints else { return nil }
+            return Strings.traeNearestExpiry(credits: Strings.creditAmountText(points), date: shortISODate(iso))
+        }()
+        spec.creditsDetail = Strings.traeWalletDetail(available: available, total: total, used: used, nearest: nearest)
+        return [spec]
+    }
+
+    /// CodeArts trial credits: one wallet bar from the package meter's
+    /// remaining/total pair, reset date in the hover detail.
+    private func codeartsWalletSpecs(_ c: CodeartsLimits) -> [LimitWindowSpec] {
+        guard let usedPercent = c.usedPercent else { return [] }
+        var spec = makeSpec(Strings.walletCreditsLabel, usedPercent, iso: nil)
+        let available = Strings.creditAmountText(c.codeartsAvailableCredits ?? 0)
+        let totalValue = c.codeartsPackage?.total ?? 0
+        let usedValue = max(0, totalValue - (c.codeartsAvailableCredits ?? 0))
+        let reset = (c.codeartsResetDate?.isEmpty == false) ? c.codeartsResetDate! : "—"
+        spec.creditsDetail = Strings.codeartsWalletDetail(
+            credits: available,
+            date: reset,
+            total: Strings.creditAmountText(totalValue),
+            used: Strings.creditAmountText(usedValue)
+        )
+        return [spec]
+    }
+
+    /// AgentRouter prepaid wallet: balance /(balance + spent) as one bar.
+    private func agentRouterWalletSpecs(_ a: AgentRouterLimits) -> [LimitWindowSpec] {
+        guard let usedPercent = a.usedPercent else { return [] }
+        var spec = makeSpec(Strings.walletBalanceLabel, usedPercent, iso: nil)
+        spec.creditsDetail = Strings.agentRouterDetail(
+            balance: Strings.creditAmountText(a.agentrouterBalanceUsd ?? 0),
+            used: Strings.creditAmountText(a.agentrouterUsedUsd ?? 0)
+        )
+        return [spec]
+    }
+
+    private func clinePassStatusLines(_ c: ClinePassLimits) -> [String] {
+        let wallets = (c.clineWallets ?? []).compactMap { wallet -> String? in
+            guard let name = wallet.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty,
+                  let balance = wallet.balance, balance.isFinite else { return nil }
+            return "\(name) \(Strings.creditAmountText(balance))"
+        }
+        guard !wallets.isEmpty else { return [] }
+        return [Strings.clineWalletsLine(wallets.joined(separator: " · "))]
+    }
+
+    private func raccoonStatusLines(_ r: RaccoonLimits) -> [String] {
+        let wallets = (r.raccoonWallets ?? []).filter { ($0.balance ?? 0) != 0 }
+        let visible = wallets.isEmpty ? Array((r.raccoonWallets ?? []).prefix(1)) : wallets
+        let summary = visible.compactMap { wallet -> String? in
+            let name = wallet.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let label = name.isEmpty ? (wallet.type ?? "") : name
+            guard !label.isEmpty, let balance = wallet.balance, balance.isFinite else { return nil }
+            return "\(label) \(Strings.creditAmountText(balance, maximumFractionDigits: 0))"
+        }.joined(separator: " · ")
+        guard !summary.isEmpty else { return [] }
+        return [Strings.raccoonWalletsLine(
+            wallets: summary,
+            total: Strings.creditAmountText(r.raccoonAvailableCredits ?? 0, maximumFractionDigits: 0),
+            unit: r.raccoonUnit ?? ""
+        )]
+    }
+
+    /// "2026-11-20T…" → "11-20" (the dashboard prints the month-day slice).
+    private func shortISODate(_ iso: String) -> String {
+        let slice = String(iso.dropFirst(5).prefix(5))
+        return slice.isEmpty ? iso : slice
     }
 
     private func devinSpecs(_ d: DevinLimits) -> [LimitWindowSpec] {
@@ -565,18 +833,53 @@ struct UsageLimitsView: View {
     }
 
     private func qoderSpecs(_ q: QoderLimits) -> [LimitWindowSpec] {
+        // 1) Per-pool split when the payload carries pools[] (the official
+        // panel's 套餐内 / 资源包 / SOTA 专属 rows). The dashboard prefers the
+        // pools over the summed bar because one exhausted pool is invisible in
+        // an aggregate. A 0/0 pool carries no quota: it occupies NO row in
+        // either display mode (a 0% used bar would paint full in remaining mode).
+        let usablePools = (q.pools ?? []).filter(\.hasQuota)
+        if !usablePools.isEmpty {
+            var specs: [LimitWindowSpec] = []
+            // Team credits are a separate shared allowance, not one of the three
+            // personal pools — the porting spec renders it alongside the pools
+            // (percent + reset) whenever the payload carries it.
+            if let window = q.quaternaryWindow, window.limitCredits != 0 {
+                var spec = makeSpec(Strings.qoderTeamCreditsLabel, window.usedPercent, iso: window.resetAt)
+                spec.creditsDetail = window.creditsDetail
+                specs.append(spec)
+            }
+            specs.append(contentsOf: usablePools.compactMap { pool in
+                guard let window = pool.window else { return nil }
+                var spec = makeSpec(Strings.qoderPoolLabel(pool.key), window.usedPercent, iso: window.resetAt)
+                spec.creditsDetail = window.creditsDetail
+                return spec
+            })
+            return specs
+        }
+        // 2) Legacy field shape: credits → team credits → add-on → Ultimate
+        // free-call expiry (the field the upstream server called "bonus" is
+        // actually the Ultimate free-call allowance, so it is never "Bonus").
         var specs: [LimitWindowSpec] = []
-        // Empty 0/0 buckets (no active plan / no add-on pack) have no quota to
-        // read and would render as a full bar in remaining mode — drop them
-        // like a missing window. Windows without credit fields are kept.
         if let window = q.primaryWindow, window.limitCredits != 0 {
-            specs.append(makeSpec(Strings.qoderPlanLabel, window.usedPercent, iso: window.resetAt))
+            var spec = makeSpec(Strings.qoderCreditsLabel, window.usedPercent, iso: window.resetAt)
+            spec.creditsDetail = window.creditsDetail
+            specs.append(spec)
+        }
+        if let window = q.quaternaryWindow, window.limitCredits != 0 {
+            var spec = makeSpec(Strings.qoderTeamCreditsLabel, window.usedPercent, iso: window.resetAt)
+            spec.creditsDetail = window.creditsDetail
+            specs.append(spec)
         }
         if let window = q.tertiaryWindow, window.limitCredits != 0 {
-            specs.append(makeSpec(Strings.qoderAddonLabel, window.usedPercent, iso: window.resetAt))
+            var spec = makeSpec(Strings.qoderAddonLabel, window.usedPercent, iso: window.resetAt)
+            spec.creditsDetail = window.creditsDetail
+            specs.append(spec)
         }
         if let window = q.secondaryWindow {
-            specs.append(makeSpec(Strings.qoderBonusLabel, window.usedPercent, iso: window.resetAt))
+            var spec = makeSpec(Strings.qoderUltimateLabel, window.usedPercent, iso: window.resetAt)
+            spec.creditsDetail = window.creditsDetail
+            specs.append(spec)
         }
         return specs
     }
@@ -1118,7 +1421,9 @@ struct UsageLimitsView: View {
     @ViewBuilder
     private func brandIcon(_ name: String) -> some View {
         switch name {
-        case "CursorLogo", "KimiLogo", "KiroLogo", "GrokLogo", "CopilotLogo", "ZcodeLogo", "OpenCodeLogo", "CommandCodeLogo", "QoderLogo", "QoderCnLogo", "VolcanoArkLogo", "DevinLogo", "CodeBuddyLogo", "DeepseekLogo":
+        case "CursorLogo", "KimiLogo", "KiroLogo", "GrokLogo", "CopilotLogo", "ZcodeLogo", "OpenCodeLogo", "CommandCodeLogo", "QoderLogo", "QoderCnLogo", "VolcanoArkLogo", "DevinLogo", "CodeBuddyLogo", "DeepseekLogo",
+             // B3b fork provider marks shipped as SVGs.
+             "ApigotoLogo", "SensenovaLogo", "MinimaxLogo", "TraeLogo", "MistralLogo":
             let filename: String = {
                 switch name {
                 case "CursorLogo": return "cursor.svg"
@@ -1134,6 +1439,11 @@ struct UsageLimitsView: View {
                 case "DevinLogo": return "devin.svg"
                 case "CodeBuddyLogo": return "codebuddy.svg"
                 case "DeepseekLogo": return "deepseek.svg"
+                case "ApigotoLogo": return "apigoto.svg"
+                case "SensenovaLogo": return "sensenova.svg"
+                case "MinimaxLogo": return "minimax.svg"
+                case "TraeLogo": return "trae.svg"
+                case "MistralLogo": return "mistral.svg"
                 default: return "copilot.svg"
                 }
             }()
@@ -1141,6 +1451,22 @@ struct UsageLimitsView: View {
                 named: filename,
                 replacingCurrentColorWith: colorScheme == .dark ? "#FFFFFF" : "#111111"
             ) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+            }
+        case "RaccoonLogo", "CodeartsLogo", "ClinePassLogo", "AgentRouterLogo":
+            // Raster brand marks (the dashboard ships PNGs for these four).
+            let filename: String = {
+                switch name {
+                case "RaccoonLogo": return "raccoon.png"
+                case "CodeartsLogo": return "codearts.png"
+                case "ClinePassLogo": return "cline.png"
+                default: return "agentrouter.png"
+                }
+            }()
+            if let image = bundledRasterIcon(named: filename) {
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
@@ -1155,12 +1481,32 @@ struct UsageLimitsView: View {
         }
     }
 
-    private func bundledSVGIcon(named filename: String, replacingCurrentColorWith color: String? = nil) -> NSImage? {
-        guard let url = Bundle.main.resourceURL?
-            .appendingPathComponent("EmbeddedServer/tokentracker/dashboard/dist/brand-logos/\(filename)"),
-              var svg = try? String(contentsOf: url, encoding: .utf8) else {
-            return nil
+    /// Bundled brand-asset lookup: the app bundle first (assets copied into
+    /// TokenTrackerBar/TokenTrackerBar/BrandLogos and registered in
+    /// project.pbxproj), then the packaged dashboard dist the app already
+    /// ships. Bundle-first keeps this working in an Xcode build without the
+    /// EmbeddedServer payload.
+    private func bundleBrandResourceURL(named filename: String) -> URL? {
+        let nsName = filename as NSString
+        let ext = nsName.pathExtension
+        let base = nsName.deletingPathExtension
+        if !ext.isEmpty, let url = Bundle.main.url(forResource: base, withExtension: ext) {
+            return url
         }
+        return Bundle.main.url(forResource: filename, withExtension: nil)
+    }
+
+    private func bundledSVGIcon(named filename: String, replacingCurrentColorWith color: String? = nil) -> NSImage? {
+        var svg: String?
+        if let url = bundleBrandResourceURL(named: filename) {
+            svg = try? String(contentsOf: url, encoding: .utf8)
+        }
+        if svg == nil,
+           let url = Bundle.main.resourceURL?
+            .appendingPathComponent("EmbeddedServer/tokentracker/dashboard/dist/brand-logos/\(filename)") {
+            svg = try? String(contentsOf: url, encoding: .utf8)
+        }
+        guard var svg else { return nil }
 
         if let color {
             svg = svg.replacingOccurrences(of: "currentColor", with: color)
@@ -1176,6 +1522,22 @@ struct UsageLimitsView: View {
         sourceImage.size = NSSize(width: 24, height: 24)
         sourceImage.isTemplate = false
         return sourceImage
+    }
+
+    private func bundledRasterIcon(named filename: String) -> NSImage? {
+        var candidates: [URL] = []
+        if let url = bundleBrandResourceURL(named: filename) { candidates.append(url) }
+        if let url = Bundle.main.resourceURL?
+            .appendingPathComponent("EmbeddedServer/tokentracker/dashboard/dist/brand-logos/\(filename)") {
+            candidates.append(url)
+        }
+        for url in candidates {
+            guard let image = NSImage(contentsOf: url) else { continue }
+            image.size = NSSize(width: 24, height: 24)
+            image.isTemplate = false
+            return image
+        }
+        return nil
     }
 
     private func normalizedIconSVG(_ svg: String, targetSize: Int) -> String {
