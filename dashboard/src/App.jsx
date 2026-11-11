@@ -70,6 +70,26 @@ const DashboardPage = lazy(() =>
 );
 const IpCheckPage = lazy(() => import("./pages/IpCheckPage.jsx"));
 const PerksPage = lazy(() => import("./pages/PerksPage.jsx"));
+
+// 福利指南首访时 chunk 还在路上：给一屏骨架，别让 Suspense fallback=null 白屏几秒。
+function PerksRouteSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col px-4 pt-8 sm:px-6" aria-busy="true">
+      <div className="mx-auto w-full max-w-7xl">
+        <div className="mb-6 h-8 w-40 animate-pulse rounded-lg bg-oai-gray-200/80 dark:bg-oai-gray-800" />
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row">
+          <div className="h-40 w-full animate-pulse rounded-2xl bg-oai-gray-100 dark:bg-oai-gray-900/70 sm:w-52" />
+          <div className="h-40 flex-1 animate-pulse rounded-2xl bg-oai-gray-100 dark:bg-oai-gray-900/70" />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }, (_, idx) => (
+            <div key={idx} className="h-44 animate-pulse rounded-2xl bg-oai-gray-100 dark:bg-oai-gray-900/70" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 const ServiceStatusPage = lazy(() => import("./pages/ServiceStatusPage.jsx"));
 const AchievementsPage = lazy(() => import("./pages/AchievementsPage.jsx"));
 const GlobalModelsPage = lazy(() => import("./pages/GlobalModelsPage.jsx"));
@@ -99,6 +119,7 @@ const SettingsPage = lazy(() =>
 const SelfHostPage = lazy(() =>
   import("./pages/SelfHostPage.jsx").then((m) => ({ default: m.SelfHostPage })),
 );
+const CloudPage = lazy(() => import("./pages/CloudPage.jsx"));
 const SkillsPage = lazy(() =>
   import("./pages/SkillsPage.jsx").then((m) => ({ default: m.SkillsPage })),
 );
@@ -233,6 +254,7 @@ export default function App() {
   const isLimitsPath = normalizedPath === "/limits";
   const isSettingsPath = normalizedPath === "/settings";
   const isSelfHostPath = normalizedPath === "/self-host";
+  const isCloudPath = normalizedPath === "/cloud";
   const isSkillsPath = normalizedPath === "/skills";
   const isSessionsPath = normalizedPath === "/sessions";
   const isWidgetsPath = normalizedPath === "/widgets";
@@ -241,7 +263,7 @@ export default function App() {
   const isPerksPath = normalizedPath === "/perks";
   const isServiceStatusPath = normalizedPath === "/service-status";
   const isAchievementsPath = normalizedPath === "/achievements";
-  if (isLimitsPath || isSettingsPath || isSelfHostPath || isSkillsPath || isSessionsPath || isWidgetsPath || isPetPath || isIpCheckPath || isPerksPath || isServiceStatusPath || isAchievementsPath) gate = "dashboard";
+  if (isLimitsPath || isSettingsPath || isSelfHostPath || isSkillsPath || isSessionsPath || isWidgetsPath || isPetPath || isIpCheckPath || isPerksPath || isServiceStatusPath || isCloudPath || isAchievementsPath) gate = "dashboard";
 
   let PageComponent = DashboardPage;
   if (profileUserId) {
@@ -254,6 +276,8 @@ export default function App() {
     PageComponent = LimitsPage;
   } else if (isSettingsPath) {
     PageComponent = SettingsPage;
+  } else if (isCloudPath) {
+    PageComponent = CloudPage;
   } else if (isSelfHostPath) {
     PageComponent = SelfHostPage;
   } else if (isSkillsPath) {
@@ -284,6 +308,7 @@ export default function App() {
       isLimitsPath ||
       isSettingsPath ||
       isSelfHostPath ||
+      isCloudPath ||
       isSkillsPath ||
       isSessionsPath ||
       isWidgetsPath ||
@@ -383,7 +408,7 @@ export default function App() {
       <ThemeProvider>
         <ToastProvider>
           <LoginModalProvider>
-            <Suspense fallback={null}>{content}</Suspense>
+            <Suspense fallback={isPerksPath ? <PerksRouteSkeleton /> : null}>{content}</Suspense>
             {!isLocalMode && !showSidebar && !hasLandingFooter && (
               <footer className="px-4 py-6"><LegalLinks /></footer>
             )}

@@ -198,6 +198,22 @@ function createSignatureReadMemo({ maxOuterKeys = 8 } = {}) {
 const scopedRowsReadMemo = createSignatureReadMemo();
 const projectRowsReadMemo = createSignatureReadMemo();
 const speedSessionTierReadMemo = createSignatureReadMemo();
+// 速度榜的 session tier 是同步聚合（35MB 侧车 + ~1,500 行重算，实测 2~4s 阻塞事件循环）。
+// 侧车每 append 一行就换签名，按签名缓存等于「每次请求都重算」——实测启动后 16s 内
+// 有 45% 的时间事件循环不可用，懒加载 chunk 只能排队，福利指南首访等到 5s+。
+// 这里改成 TTL 优先：同一 (range,timezone) 60 秒内的结果直接复用，签名变化只记录不快算；
+// 速度榜本身是分钟级参考数据，60s 陈旧完全可接受（前端每次挂载/切周期仍会重新请求）。
+const SPEED_TIER_TTL_MS = 60_000;
+let speedTierTtl = { key: "", at: 0, value: null };
+async function readSpeedTierWithTtl(cacheKey, signature, innerKey, compute) {
+  const now = Date.now();
+  if (speedTierTtl.value !== null && speedTierTtl.key === cacheKey && now - speedTierTtl.at < SPEED_TIER_TTL_MS) {
+    return speedTierTtl.value;
+  }
+  const value = await speedSessionTierReadMemo(signature, innerKey, compute);
+  speedTierTtl = { key: cacheKey, at: Date.now(), value };
+  return value;
+}
 const modelBreakdownReadMemo = createReadMemo();
 const projectSummaryReadMemo = createReadMemo();
 
@@ -4770,7 +4786,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       let sessionModels = [];
       try {
         const sidecarPath = path.join(path.dirname(qp), "session.queue.jsonl");
-        sessionModels = await speedSessionTierReadMemo(
+        sessionModels = await readSpeedTierWithTtl(
+          // TTL 缓存键必须带侧车路径：不同数据目录（测试/多实例）不能互相命中。
+          `${sidecarPath}|${timeZoneContextKey(timeZoneContext)}|${from}|${to}`,
           queueFileSignature(sidecarPath),
           `${timeZoneContextKey(timeZoneContext)}|${from}|${to}`,
           () => computeSpeedSessionTier({ qp, from, to, timeZoneContext }),

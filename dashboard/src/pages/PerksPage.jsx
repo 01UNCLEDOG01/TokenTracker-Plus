@@ -252,7 +252,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
     <div
       id={`perk-${item.id}`}
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-oai-gray-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-oai-gray-300 hover:shadow-md dark:border-oai-gray-800/90 dark:bg-oai-gray-900/80 dark:hover:border-oai-gray-700 dark:hover:shadow-black/40",
+        "perk-card-cv group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-oai-gray-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-oai-gray-300 hover:shadow-md dark:border-oai-gray-800/90 dark:bg-oai-gray-900/80 dark:hover:border-oai-gray-700 dark:hover:shadow-black/40",
         // 卡册点击跳转后的高亮闪烁（2026-11-11 站主要求点击联动）。
         flashed ? "perk-card-flash" : null,
       )}
@@ -473,8 +473,26 @@ function formatCountdown(msLeft) {
   return `${hh}:${mm}:${ss}`;
 }
 
+// 未领取的卡面 = 灰色空槽 + 灰度 logo（AIHOT ghost 口径：opacity .62 + grayscale）。
+// 品牌名不在卡面重复渲染——按钮已用 aria-label 携带名称，否则无障碍树与页面文本里
+// 同一家会出现两次（下方详情卡还有一份 h3），测试的 getByText 也会撞车。
 function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
+  const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
+  // 领取瞬间翻面：只在 false→true 的那一次播动画，刷新页面不会整屏乱闪。
+  const [revealing, setRevealing] = useState(false);
+  const wasCollected = useRef(collected);
+  useEffect(() => {
+    if (!wasCollected.current && collected) {
+      setRevealing(true);
+      const timer = setTimeout(() => setRevealing(false), 600);
+      wasCollected.current = collected;
+      return () => clearTimeout(timer);
+    }
+    wasCollected.current = collected;
+    return undefined;
+  }, [collected]);
+
   return (
     <button
       type="button"
@@ -482,50 +500,58 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
       title={onJump ? copy("perks.album.jump") : undefined}
       aria-label={`${item.name} — ${copy("perks.album.jump")}`}
       className={cn(
-        "relative flex h-[104px] w-full flex-col items-center justify-between overflow-hidden rounded-xl border p-1.5 text-center transition-all duration-200",
+        "perk-mini relative flex h-[104px] w-full flex-col items-center justify-between overflow-hidden rounded-xl border p-1.5 text-center transition-[transform,box-shadow] duration-200 focus-visible:outline-none",
         collected
-          ? cn("border-oai-gray-200/80 bg-white shadow-xs hover:shadow-sm hover:-translate-y-0.5 dark:border-oai-gray-700 dark:bg-oai-gray-900", BRIGHTNESS_RING[tier])
-          : "border-oai-gray-700/40 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950 hover:-translate-y-0.5",
+          ? cn("bg-white shadow-xs hover:-translate-y-0.5 hover:shadow-sm dark:bg-oai-gray-900", BRIGHTNESS_RING[tier])
+          : "border-dashed border-oai-gray-300 bg-oai-gray-100/70 hover:-translate-y-0.5 dark:border-oai-gray-600 dark:bg-oai-gray-800/50",
+        revealing ? "perk-mini-revealing" : null,
       )}
     >
-      {/* 价值等级色条：与页首图例、卡片徽标同一套色（未领取的暗卡也保留，颜色=这家白拿额度高低） */}
-      <span
-        className={cn("absolute inset-x-0 bottom-0 h-[3px]", PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral)}
-        aria-hidden
-      />
       {collected ? (
         <>
-          {faceValue && (
-            <span className="absolute left-1 top-1 max-w-full truncate rounded-md bg-oai-gray-900/85 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-white dark:bg-white/90 dark:text-oai-black">
-              {faceValue}
-            </span>
-          )}
-          {claimedNow && (
-            <span className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-white">
-              <Check className="h-2.5 w-2.5" aria-hidden />
-            </span>
-          )}
-          <span className="mt-3 flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-xs">
+          <span className="flex w-full items-start justify-between gap-1">
+            {faceValue ? (
+              <span className="max-w-full truncate rounded-md bg-oai-gray-900/85 px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-white dark:bg-white/90 dark:text-oai-black">
+                {faceValue}
+              </span>
+            ) : (
+              <span aria-hidden />
+            )}
+            {claimedNow && (
+              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <Check className="h-2.5 w-2.5" aria-hidden />
+              </span>
+            )}
+          </span>
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-xs">
             {hasIcon ? (
               <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />
             ) : (
               <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>
             )}
           </span>
-          <span className="w-full truncate pb-0.5 text-[10px] font-medium leading-tight text-oai-gray-700 dark:text-oai-gray-300">
+          <span className="w-full truncate pb-1 text-[10px] font-medium leading-tight text-oai-gray-700 dark:text-oai-gray-300">
             {item.name}
           </span>
           {streak !== 0 && (
-            <span className="absolute bottom-0.5 right-1 text-[9px] font-semibold tabular-nums text-oai-gray-400 dark:text-oai-gray-500">
+            <span className="absolute bottom-1 right-1 text-[9px] font-semibold tabular-nums text-oai-gray-400 dark:text-oai-gray-500">
               ×{streak}
             </span>
           )}
         </>
       ) : (
-        <span className="flex h-full w-full flex-col items-center justify-center text-slate-400/70">
-          <Gift className="h-6 w-6" aria-hidden />
+        <span className="flex h-full w-full flex-col items-center justify-center opacity-60 grayscale">
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white/70 p-0.5 dark:bg-oai-gray-900/70">
+            {hasIcon ? (
+              <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />
+            ) : (
+              <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>
+            )}
+          </span>
         </span>
       )}
+      {/* 价值等级色条：颜色只表「白拿额度」高低，未领取也显示 */}
+      <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px]", accent)} aria-hidden />
     </button>
   );
 }
@@ -585,7 +611,10 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
         collected={collected}
         total={items.length}
       />
-      <div className="min-w-0 flex-1 rounded-2xl border border-oai-gray-200/80 bg-oai-gray-50/60 p-4 dark:border-oai-gray-800 dark:bg-oai-gray-950/50">
+      <div
+        className="min-w-0 flex-1 rounded-2xl border border-oai-gray-200/80 bg-oai-gray-50/60 p-4 dark:border-oai-gray-800 dark:bg-oai-gray-950/50"
+        style={{ perspective: "2600px" }}
+      >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-oai-black dark:text-white">{copy("perks.album.title")}</h2>
           {totalPages !== 1 && (
@@ -633,7 +662,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+        <div key={safePage} className="perk-page-turn grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
           {pageItems.map((entry) => (
             <AlbumMiniCard
               key={entry.item.id}

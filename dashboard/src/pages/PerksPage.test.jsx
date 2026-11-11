@@ -428,17 +428,18 @@ describe("PerksPage", () => {
     const x1Card = cards.find((c) => c.textContent.includes("Agent Router"));
     expect(x1Card).toBeTruthy();
     expect(cards[0].className).toContain("bg-white");
-    const darkCard = cards.find((card) => card.className.includes("from-slate-700"));
-    expect(darkCard).toBeTruthy();
-    expect(darkCard.textContent).not.toContain("Agent Router"); // 暗卡藏品牌（悬念）
+    // 未领取 = 灰色虚线空槽 + 灰度 logo（AIHOT ghost 口径，2026-11-12 改版；旧版是深色渐变暗卡）
+    const ghostCard = cards.find((card) => card.className.includes("border-dashed"));
+    expect(ghostCard).toBeTruthy();
+    expect(ghostCard.textContent).not.toContain("Agent Router"); // 灰色空槽不重复渲染品牌名（名称走 aria-label）
 
     // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
     const dots = [...album.querySelectorAll("button")].filter((b) => b.className.includes("rounded-full") && !b.querySelector("svg"));
     expect(dots.length).toBe(3);
     fireEvent.click(dots[2]);
     // 翻到第 3 页后暗卡里能看到 A-Z 尾部的品牌
-    const lastPageDark = [...album.querySelectorAll(".rounded-xl")].filter((card) => card.className.includes("from-slate-700"));
-    expect(lastPageDark.length).toBeGreaterThan(0);
+    const lastPageGhosts = [...album.querySelectorAll(".rounded-xl")].filter((card) => card.className.includes("border-dashed"));
+    expect(lastPageGhosts.length).toBeGreaterThan(0);
   });
 
   it("albumBrightnessTier：AIHOT 式 7/15/30 分档，once 领过即亮", () => {
@@ -494,4 +495,46 @@ describe("PerksPage", () => {
     }
   });
 
+
+  it("价值等级筛选：点六色 chip 后只保留该档卡片，计数与数据一致", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const legendButtons = screen
+      .getAllByRole("button")
+      .filter((btn) => btn.getAttribute("aria-pressed") !== null && /小额免费|中等免费/.test(btn.textContent));
+    expect(legendButtons.length).toBeGreaterThan(0);
+    const successChip = legendButtons.find((btn) => btn.textContent.includes("小额免费"));
+    fireEvent.click(successChip);
+
+    const expected = PERK_PROVIDERS.filter((row) => row.badgeType === "success").length;
+    expect(expected).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(expected);
+
+    // 再点一次同一 chip 回到全部档位
+    fireEvent.click(successChip);
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(PERK_PROVIDERS.length);
+  });
+
+  it("卡册小卡带价值等级色条，与六档一一对应", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    const cards = [...album.querySelectorAll(".perk-mini")];
+    expect(cards.length).toBe(ALBUM_PAGE_SIZE);
+    const strip = [...cards[0].querySelectorAll("span[aria-hidden='true']")].find((node) =>
+      node.className.includes("bottom-0"),
+    );
+    expect(strip).toBeTruthy();
+    // 色条只用六档实色之一
+    const tiers = ["bg-oai-gray-400", "bg-emerald-500", "bg-sky-500", "bg-purple-500", "bg-rose-500", "bg-amber-500"];
+    expect(tiers.some((cls) => strip.className.includes(cls))).toBe(true);
+  });
 });
