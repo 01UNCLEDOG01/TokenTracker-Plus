@@ -178,12 +178,15 @@ jobs:
           # runner / in the Inno output folder).
           $zipBuilt = "TokenTracker-win-x64-v$env:VERSION.zip"
           $setupBuilt = "TokenTrackerWin/installer/Output/TokenTracker-plus-Setup-v$env:VERSION.exe"
-          # Upload version-less names ONLY, matching the macOS DMG (which ships a
-          # single version-less TokenTrackerBar.dmg). The landing page / READMEs
+          # Upload version-less names ONLY for Windows. The landing page / READMEs
           # deep-link releases/latest/download/TokenTracker-Setup.exe, so the asset
           # names must be stable; the release heading already shows the version, so
           # a second versioned copy of each asset would just be a redundant
           # duplicate on the release page.
+          # The macOS DMG is NOT uploaded by this workflow: package-macos.sh writes
+          # TokenTracker-plus-<version>.dmg (version in the name on purpose) and the
+          # in-app updater resolves exactly that asset for the tag, so keep the
+          # version in the mac asset name when uploading it to the draft release.
           $setup = "TokenTracker-Setup.exe"
           $zip = "TokenTracker-win-x64.zip"
           Copy-Item $setupBuilt $setup -Force
