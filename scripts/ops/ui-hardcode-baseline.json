@@ -614,6 +614,13 @@
         "The TokenTracker Plus",
         "→ TokenTracker-Plus"
       ]
+    },
+    "dashboard/src/pages/PerksPage.jsx": {
+      "colors": 0,
+      "rawText": 1,
+      "rawTextTokens": [
+        "96; const collapsed = long && !expanded; return ("
+      ]
     }
   }
 }

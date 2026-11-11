@@ -1198,6 +1198,7 @@ export const PERK_PROVIDERS = [
   },
   {
     "id": "qoder_cn",
+    "retired": true,
     "name": "Qoder CN (国内版)",
     "sortNames": [
       "QODER CN",
@@ -1228,6 +1229,7 @@ export const PERK_PROVIDERS = [
   },
   {
     "id": "qoder",
+    "retired": true,
     "name": "Qoder (国际版)",
     "sortNames": [
       "QODER GUOJIBAN",
@@ -1456,6 +1458,7 @@ export const PERK_PROVIDERS = [
   },
   {
     "id": "workbuddy_intl",
+    "retired": true,
     "name": "WorkBuddy AI (国际版)",
     "sortNames": [
       "WORKBUDDY AI GUOJIBAN",

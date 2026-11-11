@@ -607,14 +607,15 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, face
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   const rarity = albumRarity(streak);
-  // AIHOT 卡面口径（站主 2026-11-12 圈图定谳）：只有「今天领过」才翻青色
-  // 卡背；以前领过、今天没领 = 纸卡 + ×N；绝版 = 纸卡 + 红章；没领过 = 纸卡。
-  const showBack = collected && claimedNow && !sealed;
-  // 已收卡再领（连击 +1）时重播一次翻面：flipKey 由父层（PerksPage）统一
-  // 管理——翻页容器按页 key 重建会清掉组件内的延迟定时器，连击翻面必须
-  // 在翻页 remount 后依然触发。连击不换 class，用 key 重建卡背节点强制
-  // 重播同款 rotateY。
+  // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
+  //   青色卡背 = 「等待领取」——以前领过、今天还没领（图2），稀有度金/闪材质刻在卡背上；
+  //   纸质正面 = 领取揭示后的样子（图3）——今天领过、或从没领过（悬念面无 ×N）、或绝版（盖红章）。
+  // 领取瞬间：卡从青背 rotateY 翻成正面（「翻牌领福利」），次日自动翻回等待态。
+  const showBack = collected && !claimedNow && !sealed;
+  // 领取瞬间翻面重播：flipKey 由父层（PerksPage）统一管理——翻页容器按页
+  // key 重建会清掉组件内的延迟定时器。翻转目标是正面，key 挂在正面节点上。
   const flipKey = flipCount || 0;
+  const revealed = Boolean(claimedNow) && !sealed;
   return (
     <button
       type="button"
@@ -625,12 +626,11 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, face
       data-flip-key={flipKey}
       className={cn(
         "perk-mini relative block h-[118px] w-full text-center focus-visible:outline-none",
-        showBack ? "is-collected" : "is-uncollected",
+        revealed ? "is-collected" : "is-uncollected",
       )}
     >
       {showBack ? (
         <span
-          key={flipKey}
           className={cn(
             "perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg",
             rarity === "gold" ? "perk-rarity-gold" : null,
@@ -648,7 +648,10 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, face
           <span className={cn("pointer-events-none absolute inset-x-0 bottom-0 h-[3px] rounded-b-md", accent)} aria-hidden />
         </span>
       ) : (
-        <span className="perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5">
+        <span
+          key={flipKey}
+          className="perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5"
+        >
           <span className="flex w-full items-center justify-between gap-1">
             {faceValue ? (
               <span className="max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 text-[9px] font-semibold leading-tight text-white">
@@ -1048,8 +1051,7 @@ export function PerksPage() {
       };
     });
     ranked.sort((a, b) =>
-      b.tier - a.tier
-      || (a.collected === b.collected ? 0 : a.collected ? -1 : 1)
+      b.streak - a.streak
       || comparePerks(a.item, b.item),
     );
     return ranked;
