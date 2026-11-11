@@ -6,6 +6,12 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.26.1] - 2026-11-12
+
+- **修复：没有变化的同步仍会多写一代游标**。每次同步收尾后，兜底检查点会在「尾提交决策」之后无条件再写一份 v2 游标代次（新 manifest + core、时间戳变化），即使这次同步本来就判定为无变化（no-op）。诊断字段 `cursor_commits` 只统计尾提交，于是出现「提交 0 次、游标文件却变了」的自相矛盾。受影响场景：Codex 无变化同步、Command Code 删除后的保留、fork 副本游标不被重写、EACCES/EPERM 恢复后不重写核心状态。现在兜底检查点只在「尾提交之前就中断」的路径（崩溃/超时/信号/提前失败）执行——即它原本的用途，每次同步因此少一次冗余写盘，省一点 IO。
+- **修复：测试隔离**。测试辅助 `with-home` 会清除环境里外部的 `TOKENTRACKER_HOME`（它的优先级高于 `HOME`，会把测试的读写指到本机真实安装目录）；后台同步与 trae-cn 测试会清除 `DSH_HOME` / `TOKENTRACKER_DSH_HOME`（否则会把本机真实的 agent 会话扫进测试）。这就是 CI 上 5 条长期红（以及本机 4 条环境红）的根因。
+- 发布物：`TokenTracker-plus-1.26.1.dmg` / `TokenTracker-plus-macos-universal-1.26.1.zip`（Windows 安装包内容未受此次修复影响，继续用 1.25.1 版本资产）。
+
 ## [1.26.0] - 2026-11-12
 
 - **变更：macOS 客户端改为 TT-Plus 自有版本（不再只是「vendor 上游 + 换品牌」）**。保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），内容换成站主自己的版本：界面补齐第 6 种语言**德语**（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——移除云端账号 / 登录 / OAuth 界面；「检查更新」只读本仓库 Releases，资产名固定为 `TokenTracker-plus-<版本>.dmg`；WidgetKit 桌面小组件不随包发布（vendored appex 缺 NSExtension 与 App Group，永远不会注册，等有签名构建再做）。

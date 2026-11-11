@@ -49,6 +49,9 @@ async function withTempTraeEnv(fn) {
     USERPROFILE: process.env.USERPROFILE,
     CODEX_HOME: process.env.CODEX_HOME,
     CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR,
+    DSH_HOME: process.env.DSH_HOME,
+    TOKENTRACKER_DSH_HOME: process.env.TOKENTRACKER_DSH_HOME,
+    TOKENTRACKER_HOME: process.env.TOKENTRACKER_HOME,
     CODE_HOME: process.env.CODE_HOME,
     GEMINI_HOME: process.env.GEMINI_HOME,
     OPENCODE_HOME: process.env.OPENCODE_HOME,
@@ -77,6 +80,15 @@ async function withTempTraeEnv(fn) {
     process.env.LOCALAPPDATA = path.join(home, "AppData", "Local");
     process.env.CODEX_HOME = path.join(home, ".codex");
     delete process.env.CLAUDE_CONFIG_DIR;
+    // The DeepSeek Harness exports DSH_HOME to every child process; an
+    // ambient value would make these syncs queue the agent's real sessions
+    // past this isolation (same leak withHome closes for the other suites).
+    delete process.env.DSH_HOME;
+    delete process.env.TOKENTRACKER_DSH_HOME;
+    // TOKENTRACKER_HOME outranks even an explicit home for the tracker root
+    // (src/lib/tracker-paths.js), so an exported value would point these
+    // suites at a real install instead of the isolated home.
+    delete process.env.TOKENTRACKER_HOME;
     process.env.CODE_HOME = path.join(home, ".code");
     process.env.GEMINI_HOME = path.join(home, ".gemini");
     process.env.OPENCODE_HOME = path.join(home, ".opencode");

@@ -688,6 +688,12 @@ async function cmdSync(argv, context = {}) {
   // the run dies before the cursor store exists (early lock failure).
   let cursorCommitThrottle = null;
   let cursorCheckpointTimer = null;
+  // True once this run has made its tail-commit decision (committed, or
+  // deliberately skipped a no-op commit). The finally-block safety checkpoint
+  // must not fire after that decision: it would manufacture a new generation
+  // on every no-op sync, invalidating `skipNoOpCursorCommit` and the
+  // cursor_commits diagnostics contract (B3c CI-red round).
+  let cursorCommitSettled = false;
   const startCursorCheckpointTimer = () => {
     if (cursorCheckpointTimer || !cursorCommitThrottle) return;
     cursorCheckpointTimer = setInterval(() => {
@@ -3990,6 +3996,7 @@ async function cmdSync(argv, context = {}) {
     if (!skipNoOpCursorCommit) {
       cursors.updatedAt = new Date().toISOString();
       await cursorStore.commit(cursors);
+      cursorCommitSettled = true;
       if (codexAuditRecorded) {
         await cursorStore.clearDeferredCodexAuditSyncs();
       }
@@ -4003,6 +4010,12 @@ async function cmdSync(argv, context = {}) {
       await cursorStore.writeDeferredCodexAuditSyncs(
         deferredCodexAuditSyncs + 1,
       );
+      cursorCommitSettled = true;
+    } else {
+      // Deliberate no-op: nothing durable changed, so the finally block must
+      // not checkpoint (it would write a byte-identical-except-timestamps
+      // generation and rewrite the manifest).
+      cursorCommitSettled = true;
     }
     if (cursors.migrations?.[KIMI_MODEL_REPAIR_KEY]?.pendingCompaction) {
       const state = (await readJson(queueStatePath)) || { offset: 0 };
@@ -4249,7 +4262,9 @@ async function cmdSync(argv, context = {}) {
     // kill, signal) still advances the watermark. Skipped when the run never
     // got a cursor store (early lock failure) — nothing to persist.
     try {
-      await cursorCommitThrottle?.checkpoint(true);
+      if (!cursorCommitSettled) {
+        await cursorCommitThrottle?.checkpoint(true);
+      }
     } catch { /* the tail commit above already reported real failures */ }
     progress?.stop();
     await lock.release();

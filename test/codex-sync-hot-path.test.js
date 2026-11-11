@@ -941,6 +941,136 @@ test("v2 source-scoped no-op sync keeps the current generation unchanged", async
   });
 });
 
+test("two consecutive no-op auto syncs leave the v2 store and generation count untouched", async () => {
+  await withIsolatedCodexHome("tt-codex-v2-two-no-ops-", async ({ codexHome, trackerDir }) => {
+    const sessionId = "dddddddd-eeee-4fff-8000-111111111111";
+    const dayDir = path.join(codexHome, "sessions", "2030", "06", "02");
+    const rolloutPath = path.join(
+      dayDir,
+      `rollout-2030-06-02T02-00-00-${sessionId}.jsonl`,
+    );
+    await fs.mkdir(dayDir, { recursive: true });
+    await fs.writeFile(
+      rolloutPath,
+      `${JSON.stringify(codexTokenEvent("2030-06-02T02:00:00.000Z", 10))}\n`,
+      "utf8",
+    );
+
+    const first = {};
+    await cmdSync(
+      ["--auto", "--from-notify", "--source=codex"],
+      { diagnostics: first, cursorStoreOptions: { forceV2: true } },
+    );
+    assert.equal(first.cursor_commits, 1);
+
+    const storeRoot = path.join(trackerDir, STORE_DIRNAME);
+    const generationsPath = path.join(storeRoot, "generations");
+    const manifestPath = path.join(storeRoot, "manifest.json");
+    const generationsBefore = (await fs.readdir(generationsPath)).sort();
+    const manifestRawBefore = await fs.readFile(manifestPath, "utf8");
+    const manifestCurrentBefore = JSON.parse(manifestRawBefore).current;
+    const coreBefore = await fs.readFile(first.cursor_path, "utf8");
+
+    // Two more auto syncs find nothing new. Each must be a true no-op: no
+    // generation directory, no manifest rewrite, no core bytes, no commit.
+    for (const pass of [1, 2]) {
+      const diagnostics = {};
+      await cmdSync(
+        ["--auto", "--from-notify", "--source=codex"],
+        { diagnostics, cursorStoreOptions: { forceV2: true } },
+      );
+      assert.equal(diagnostics.cursor_commits, 0, `no-op pass ${pass} must not commit`);
+      assert.equal(diagnostics.cursor_bytes, 0, `no-op pass ${pass} must not write bytes`);
+      assert.deepEqual(
+        (await fs.readdir(generationsPath)).sort(),
+        generationsBefore,
+        `no-op pass ${pass} must not add a generation`,
+      );
+      assert.equal(
+        JSON.parse(await fs.readFile(manifestPath, "utf8")).current,
+        manifestCurrentBefore,
+        `no-op pass ${pass} must not move manifest.current`,
+      );
+      assert.equal(await fs.readFile(manifestPath, "utf8"), manifestRawBefore);
+      assert.equal(await fs.readFile(diagnostics.cursor_path, "utf8"), coreBefore);
+    }
+  });
+});
+
+test("a failed tail commit still persists the run through the finally checkpoint", async () => {
+  await withIsolatedCodexHome("tt-codex-v2-tail-failure-", async ({ codexHome, trackerDir }) => {
+    const sessionId = "eeeeeeee-ffff-4000-8000-222222222222";
+    const dayDir = path.join(codexHome, "sessions", "2030", "06", "03");
+    const rolloutPath = path.join(
+      dayDir,
+      `rollout-2030-06-03T00-00-00-${sessionId}.jsonl`,
+    );
+    const queuePath = path.join(trackerDir, "queue.jsonl");
+    const cursorsPath = path.join(trackerDir, "cursors.json");
+    await fs.mkdir(dayDir, { recursive: true });
+    await fs.mkdir(trackerDir, { recursive: true });
+    await fs.writeFile(
+      rolloutPath,
+      `${JSON.stringify(codexTokenEvent("2030-06-03T00:00:00.000Z", 10))}\n`,
+      "utf8",
+    );
+    // No legacy cursors.json: a legacy-migration checkpoint at open would add
+    // its own generation and blur "the finally checkpoint wrote this".
+    // Bootstrap the store first so the only generation the failed run can add
+    // is the one its finally safety checkpoint publishes.
+    const storeRoot = path.join(trackerDir, STORE_DIRNAME);
+    const generationsPath = path.join(storeRoot, "generations");
+    const bootstrap = await openCursorStore({ trackerDir, cursorsPath, forceV2: true });
+    await bootstrap.commit();
+    const generationsBefore = (await fs.readdir(generationsPath)).sort();
+
+    // Fail the single tail commit once, exactly at the point where the run has
+    // parsed but has not reached its settled marker. The finally safety
+    // checkpoint must retry the commit and publish the parsed state; without
+    // it the whole run would be lost.
+    let failures = 0;
+    await assert.rejects(
+      cmdSync(["--auto", "--from-notify", "--source=codex"], {
+        cursorStoreOptions: {
+          forceV2: true,
+          failureInjector(stage) {
+            if (stage === "beforeManifestSwap" && failures === 0) {
+              failures += 1;
+              throw new Error("simulated tail commit failure");
+            }
+          },
+        },
+      }),
+      /simulated tail commit failure/,
+    );
+    assert.equal(failures, 1);
+
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(storeRoot, "manifest.json"), "utf8"),
+    );
+    const generationsAfter = (await fs.readdir(generationsPath)).sort();
+    assert.equal(
+      generationsAfter.length,
+      generationsBefore.length + 1,
+      "the failed run must publish exactly one finally-checkpoint generation",
+    );
+    assert.ok(generationsAfter.includes(manifest.current));
+    assert.equal(
+      generationsBefore.includes(manifest.current),
+      false,
+      "manifest.current must be the generation the finally checkpoint wrote",
+    );
+    const reopened = await openCursorStore({ trackerDir, cursorsPath, forceV2: true });
+    await reopened.loadCodexFilesForPaths([rolloutPath]);
+    assert.equal(
+      reopened.cursors.files[rolloutPath].offset,
+      (await fs.stat(rolloutPath)).size,
+      "finally checkpoint must persist the parsed cursor offset",
+    );
+    assert.equal((await readJsonlRows(queuePath)).length, 1);
+  });
+});
+
 test("v2 source-scoped sync shards a custom CODEX_HOME outside the default path", async () => {
   await withIsolatedCodexHome("tt-codex-v2-custom-home-", async ({ home, trackerDir }) => {
     const customCodexHome = path.join(home, "custom-codex-data");
