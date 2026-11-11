@@ -43,7 +43,10 @@ test('macOS window width matches the Windows surface width', () => {
 
 test('macOS sprite sizes mirror the upstream native client scales', () => {
   // Upstream: ClawdCompanionView paints 15 * px(4) = 60pt at floatingScale 1.0.
-  const upstream = read('TokenTrackerMac/BarSources/Sources/TokenTrackerBar/Services/DesktopPetWindowController.swift');
+  // Retargeted 2026-11-11: commit 4bb30e2 moved the vendored app from
+  // TokenTrackerMac/BarSources/Sources/** to TokenTrackerMac/TokenTrackerBar/**.
+  // The old path no longer exists, which left this case red at HEAD.
+  const upstream = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar/Services/DesktopPetWindowController.swift');
   const scaleBlock = upstream.match(/var scale: CGFloat \{([\s\S]*?)\n    \}/);
   assert.ok(scaleBlock, 'upstream PetSizePreset.scale not found');
   const upstreamScale = {};

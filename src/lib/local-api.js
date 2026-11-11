@@ -792,14 +792,21 @@ function resolveQueueRow(existing, incoming) {
   return incoming;
 }
 
+// Fold key + skip list extracted so the compaction tool folds with the exact
+// same key semantics (normalize can merge model aliases — the RAW key must
+// never drift from the reader's, or compaction changes row counts).
+const QUEUE_SKIP_KINDS = new Set(["account_session_state", "account_sync_watermark"]);
+function queueRowFoldKey(row) {
+  if (row?.kind && QUEUE_SKIP_KINDS.has(row.kind)) return null;
+  return `${row.source || ""}|${row.model || ""}|${row.hour_start || ""}`;
+}
+
 const readQueueData = createAsyncQueueReader({
   label: "readQueueData",
   parseRow(row) {
-    if (row?.kind === "account_session_state" || row?.kind === "account_sync_watermark") return null;
-    return {
-      key: `${row.source || ""}|${row.model || ""}|${row.hour_start || ""}`,
-      row: normalizeQueueRow(row),
-    };
+    const key = queueRowFoldKey(row);
+    if (key === null) return null;
+    return { key, row: normalizeQueueRow(row) };
   },
   // A later append can carry the same hour with no token data at all (the
   // Antigravity estimate is the live case: every one of its hour keys ended on a
@@ -3496,10 +3503,14 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const descriptor = { baseUrl: normalizeInstanceBaseUrl(selectedRuntime.baseUrl) || "",
         anonKey: selectedRuntime.configurationError ? null : selectedRuntime.anonKey,
         dashboardUrl: normalizeInstanceBaseUrl(selectedRuntime.dashboardUrl) || "", configurationError: selectedRuntime.configurationError,
-        // Capability flags: this origin is the local CLI, so social surfaces
-        // read local history and cloud-only chrome is hidden in this build.
-        localHistory: true,
-        localOnly: true };
+        // Capability flags follow the configuration. Unconfigured = the
+        // 2026-11-01 local-first flip: social surfaces read local history and
+        // cloud-only chrome stays hidden. A CONFIGURED instance (self-host) is
+        // the whole point of configuring one — the dashboard must flip to it
+        // (account sign-in, the instance leaderboard) instead of staying
+        // pinned to 本机历史 forever.
+        localHistory: !normalizeInstanceBaseUrl(selectedRuntime.baseUrl),
+        localOnly: !normalizeInstanceBaseUrl(selectedRuntime.baseUrl) };
       const value = JSON.stringify(descriptor).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       res.end(`window.__TOKENTRACKER_RUNTIME_CONFIG__=${value};`);
@@ -4485,33 +4496,59 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       const transfer = require("./local-usage-transfer");
       res.setHeader("Cache-Control", "no-store");
       try {
+        // All transfer calls stream the queue — it outgrew one-shot reads
+        // (540MB > Node max string length); see local-usage-transfer.js.
         if (req.method === "GET") {
-          json(res, transfer.describeLocalUsage());
+          json(res, await transfer.describeLocalUsage());
           return true;
         }
         if (req.method !== "POST") {
           json(res, { code: "method_not_allowed", error: "POST required" }, 405);
           return true;
         }
-        const raw = await readBodyLimited(req, 6 * 1024 * 1024);
-        let body = {};
-        try {
-          body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
-        } catch {
-          json(res, { code: "invalid_snapshot", error: "Malformed JSON body" }, 400);
+        // Full-backup uploads arrive as application/gzip (whole-queue move);
+        // JSON actions keep the small body cap. The action for gzip uploads
+        // rides a header because the body is binary, not JSON.
+        const isGzipBody = String(req.headers["content-type"] || "").includes("application/gzip");
+        const raw = await readBodyLimited(req, isGzipBody ? transfer.FULL_BACKUP_BODY_LIMIT : 6 * 1024 * 1024);
+        let action;
+        if (isGzipBody) {
+          action = String(req.headers["x-tokentracker-backup-action"] || "");
+        } else {
+          let body = {};
+          try {
+            body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
+          } catch {
+            json(res, { code: "invalid_snapshot", error: "Malformed JSON body" }, 400);
+            return true;
+          }
+          action = body?.action;
+          if (action === "export") {
+            const before = typeof body.before === "string" && body.before ? body.before : undefined;
+            json(res, await transfer.buildSnapshot({ before }));
+            return true;
+          }
+          if (action === "preview") {
+            json(res, await transfer.previewSnapshot(body.snapshot));
+            return true;
+          }
+          if (action === "import") {
+            json(res, await transfer.importSnapshot(body.snapshot, body.token));
+            return true;
+          }
+        }
+        if (action === "export_full") {
+          // Streams the whole queue as one gzipped backup; response headers go
+          // out inside streamFullBackup.
+          await transfer.streamFullBackup(res);
           return true;
         }
-        const action = body?.action;
-        if (action === "export") {
-          json(res, transfer.buildSnapshot());
+        if (action === "preview_full") {
+          json(res, await transfer.previewFullBackup(raw));
           return true;
         }
-        if (action === "preview") {
-          json(res, transfer.previewSnapshot(body.snapshot));
-          return true;
-        }
-        if (action === "import") {
-          json(res, transfer.importSnapshot(body.snapshot, body.token));
+        if (action === "import_full") {
+          json(res, await transfer.importFullBackup(raw, req.headers["x-tokentracker-import-token"]));
           return true;
         }
         json(res, { code: "unknown_action", error: "Unknown action" }, 400);
@@ -5607,6 +5644,17 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- AIHOT 「Token 羊毛」快照源（福利指南的时效参考信源，6h 缓存 + stale 回退）---
+    if (p === "/functions/tokentracker-aihot-free-tokens") {
+      const { fetchAihotFreeTokens } = require("./aihot-free-tokens");
+      json(res, await fetchAihotFreeTokens({
+        home: os.homedir(),
+        fetchImpl: fetch,
+        force: url.searchParams.get("refresh") === "1",
+      }));
+      return true;
+    }
+
     // --- desktop-pet shared preferences ---
     // The pet window runs in its own WebView2 profile, so localStorage (and the
     // storage event) never cross between it and the dashboard; this endpoint is
@@ -5893,6 +5941,12 @@ function __setTraeFoldStateForTest({ byModel = null, recognizedRate = 0, edition
 
 module.exports = {
   createLocalApiHandler,
+  // Compaction tool reuses the exact reader hooks so a compacted queue is
+  // byte-equivalent in semantics to what the live readers fold.
+  readQueueData,
+  resolveQueueRow,
+  normalizeQueueRow,
+  queueRowFoldKey,
   __setTraeFoldStateForTest,
   foldTraeRowCost,
   resolveAllowedInsforgeBaseUrl,
