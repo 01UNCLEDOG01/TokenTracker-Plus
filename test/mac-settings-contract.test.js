@@ -45,10 +45,13 @@ test('macOS getSettings advertises platform + host capability keys', () => {
     'getSettings must advertise quotaWindow: true now that QuotaPanelController ships');
   assert.doesNotMatch(pushSettings, /"quotaWindow": false/,
     'quotaWindow: false would hide the live pet-page toggle B3c wires');
-  assert.match(pushSettings, /"widgetGallerySupported": true/,
-    'getSettings must advertise widgetGallerySupported: true now that the widget appex ships');
-  assert.doesNotMatch(pushSettings, /"widgetGallerySupported": false/,
-    'widgetGallerySupported: false would hide the live widget gallery');
+  // The widget appex ships, but WidgetKit only exists on macOS 14+: the flag is
+  // OS-gated through a shared helper rather than hard-coded (mac-widget-contract
+  // pins the helper's 14.0 availability check and both payloads).
+  assert.match(pushSettings, /"widgetGallerySupported": Self\.widgetGalleryIsSupported/,
+    'getSettings must advertise widgetGallerySupported through the OS gate');
+  assert.doesNotMatch(pushSettings, /"widgetGallerySupported": (true|false)/,
+    'the widget gallery capability must never be hard-coded');
   assert.match(pushSettings, /"trayIconStyles": MenuBarIconStyle\.allCases/,
     'getSettings must list the supported tray/icon styles');
   // The pet page filters its controls on the finer host capabilities: macOS has

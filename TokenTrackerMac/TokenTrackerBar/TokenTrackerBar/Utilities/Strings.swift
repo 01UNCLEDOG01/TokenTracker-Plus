@@ -526,15 +526,18 @@ enum Strings {
     static var heatmapLegendMore: String { t("More", "多", "多", "多い", "많음", "Mehr") }
     static var trendAccessibilityLabel: String { t("Token usage trend chart", "Token 使用趋势图", "Token 使用趨勢圖", "トークン使用量トレンドグラフ", "토큰 사용량 추세 차트", "Token-Nutzungstrenddiagramm") }
     static var syncUsageData: String { t("Sync usage data", "同步使用数据", "同步使用資料", "使用データを同期", "사용 데이터 동기화", "Nutzungsdaten synchronisieren") }
-    static var addWidgetsTitle: String { t("Add TT-Plus widgets", "添加 TT-Plus 小组件", "新增 TT-Plus 小元件", "TT-Plus ウィジェットを追加", "TT-Plus 위젯 추가", "TT-Plus-Widgets hinzufügen") }
+    // The macOS widget gallery lists the extension under its bundle display
+    // name ("TokenTracker Widgets"), so the search term must be "TokenTracker" —
+    // searching "TT-Plus" finds nothing (adversarial review P1, 2026-11-12).
+    static var addWidgetsTitle: String { t("Add TokenTracker widgets", "添加 TokenTracker 小组件", "新增 TokenTracker 小元件", "TokenTracker ウィジェットを追加", "TokenTracker 위젯 추가", "TokenTracker-Widgets hinzufügen") }
     static var addWidgetsMessage: String {
         t(
-            "Right-click an empty area of your desktop, choose \"Edit Widgets\", then search for \"TT-Plus\" in the gallery.",
-            "右键点击桌面空白处，选择“编辑小组件”，然后在小组件库中搜索“TT-Plus”。",
-            "右鍵點選桌面空白處，選擇“編輯小元件”，然後在小元件庫中搜索“TT-Plus”。",
-            "デスクトップの空いている場所を右クリックし、「ウィジェットを編集」を選択して、ギャラリーで「TT-Plus」を検索してください。",
-            "바탕화면의 빈 공간을 마우스 오른쪽 버튼으로 클릭하고 \"위젯 편집\"을 선택한 다음 갤러리에서 \"TT-Plus\"를 검색하세요.",
-            "Klicke mit der rechten Maustaste auf eine leere Stelle des Schreibtischs, wähle „Widgets bearbeiten“ und suche dann in der Galerie nach „TT-Plus“."
+            "Right-click an empty area of your desktop, choose \"Edit Widgets\", then search for \"TokenTracker\" in the gallery.",
+            "右键点击桌面空白处，选择“编辑小组件”，然后在小组件库中搜索“TokenTracker”。",
+            "右鍵點選桌面空白處，選擇“編輯小元件”，然後在小元件庫中搜索“TokenTracker”。",
+            "デスクトップの空いている場所を右クリックし、「ウィジェットを編集」を選択して、ギャラリーで「TokenTracker」を検索してください。",
+            "바탕화면의 빈 공간을 마우스 오른쪽 버튼으로 클릭하고 \"위젯 편집\"을 선택한 다음 갤러리에서 \"TokenTracker\"를 검색하세요.",
+            "Klicke mit der rechten Maustaste auf eine leere Stelle des Schreibtischs, wähle „Widgets bearbeiten“ und suche dann in der Galerie nach „TokenTracker“."
         )
     }
     static var gotItButton: String { t("Got it", "知道了", "知道了", "了解", "확인", "Verstanden") }

@@ -77,6 +77,11 @@ assert.equal(
   "Widget version must match the app version",
 );
 assert.equal(
+  plistString(appexPlistText, "CFBundleVersion"),
+  plistString(plistText, "CFBundleVersion"),
+  "Widget CFBundleVersion must match the app version",
+);
+assert.equal(
   plistString(appexPlistText, "CFBundleIdentifier"),
   "com.tokentrackerplus.mac.widget",
   "Unexpected widget bundle id",
@@ -92,6 +97,20 @@ assert.doesNotMatch(
   "Widget extension must not claim an App Group (requires a provisioning profile we do not have)",
 );
 execFileSync("codesign", ["--verify", appexDir]);
+
+// The shipped app is universal; a package-macos.sh regression that skips the
+// appex lipo step would silently ship an arm64-only widget (invisible to Intel
+// users, and impossible to catch by eye on an Apple-silicon build machine).
+const appexBinary = path.join(appexDir, "Contents", "MacOS", "TokenTrackerWidget");
+const appexArchs = execFileSync("lipo", ["-archs", appexBinary], { encoding: "utf8" }).trim();
+for (const arch of ["x86_64", "arm64"]) {
+  assert.ok(appexArchs.split(/\s+/).includes(arch), `Widget binary is not universal (missing ${arch}): ${appexArchs}`);
+}
+
+// The whole bundle must verify under strict rules — not just the appex. Strict
+// verification catches a broken seal (e.g. a file edited after signing), which
+// the plain per-component checks above would miss.
+execFileSync("codesign", ["--verify", "--deep", "--strict", appDir]);
 
 // The embedded native-arch node must actually run and match the pinned version.
 const nativeTag = process.arch === "arm64" ? "node-arm64" : "node-x64";

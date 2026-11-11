@@ -77,6 +77,15 @@ final class NativeBridge {
             .store(in: &cancellables)
     }
 
+    /// WidgetKit extensions only exist on macOS 14+ (the widget target's
+    /// deployment target); the app itself still runs on macOS 12. Advertising
+    /// the gallery as supported on an OS without widgets would keep a dead
+    /// "Add widgets" entry alive again, so both payloads share this gate.
+    private static var widgetGalleryIsSupported: Bool {
+        if #available(macOS 14.0, *) { return true }
+        return false
+    }
+
     /// Compact selectable item fingerprint used only for `usageLimits`
     /// publisher de-duplication. It mirrors the available id list without
     /// constructing the full dashboard payload dictionaries.
@@ -221,7 +230,7 @@ final class NativeBridge {
                 "exchangeRate": defaults.object(forKey: "exchangeRate") ?? 1.0,
                 "limitsDisplayMode": "all", "limitsPreferences": [],
                 "platform": "macos", "petBridge": true, "quotaWindow": true,
-                "widgetGallerySupported": true,
+                "widgetGallerySupported": Self.widgetGalleryIsSupported,
                 "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
                 "islandModes": ["island"], "petActionLockSupported": false
             ]
@@ -379,7 +388,7 @@ final class NativeBridge {
             // host-written container fallback), so the widgets page may show
             // its gallery again. Verified on macOS 27.2 with pluginkit: a
             // sandboxed, ad-hoc signed appex with NSExtension registers.
-            "widgetGallerySupported": true,
+            "widgetGallerySupported": Self.widgetGalleryIsSupported,
             "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
             // Finer pet-page capability detail. The native island is top-anchored
             // only — there is no free-floating mode to switch to — and the pose
