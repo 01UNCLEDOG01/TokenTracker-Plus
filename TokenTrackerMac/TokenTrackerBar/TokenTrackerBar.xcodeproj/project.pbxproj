@@ -100,6 +100,8 @@
 		DBAAD77B073E53B79CFEC0CE /* LimitPace.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F22CDB5CC1BA57DF14978D /* LimitPace.swift */; };
 		DC514121606323D52CA82B4A /* QueueActivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E8D63B300D6725379C8BABB /* QueueActivityMonitor.swift */; };
 		DC94FB14841B27DF2D3015CD /* pet-sprout.png in Resources */ = {isa = PBXBuildFile; fileRef = FA5A41DE4065DC86120B31F7 /* pet-sprout.png */; };
+		6B3E8F20C9D4A715B3E5F7D9 /* pet-gengxu.png in Resources */ = {isa = PBXBuildFile; fileRef = 4F0E8A31B6C2D759A1E3C5B7 /* pet-gengxu.png */; };
+		7C4F9A31D8E5B206C4F6A8E0 /* pet-yeacat.png in Resources */ = {isa = PBXBuildFile; fileRef = 5A2D9C4E8B137F60D2A4E6C8 /* pet-yeacat.png */; };
 		DDB3F0E1C36385C06886147F /* DashboardWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22AFDD1DA4D2BFFDEB549E4 /* DashboardWindowController.swift */; };
 		DDF5F4F75526934E116DFFA8 /* BackgroundRefreshPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2210CC40EF100FCA2F57D04 /* BackgroundRefreshPolicy.swift */; };
 		E5ACA42F66C13246AC53EE0B /* ScreenConfettiOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B0ECF835E3DFE9959BB5BA /* ScreenConfettiOverlayController.swift */; };
@@ -242,6 +244,8 @@
 		F839529834829ACD48A7D038 /* LocalizationObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationObserver.swift; sourceTree = "<group>"; };
 		F8A8CBF49DDEFD22A0A96635 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		FA5A41DE4065DC86120B31F7 /* pet-sprout.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pet-sprout.png"; sourceTree = "<group>"; };
+		4F0E8A31B6C2D759A1E3C5B7 /* pet-gengxu.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pet-gengxu.png"; sourceTree = "<group>"; };
+		5A2D9C4E8B137F60D2A4E6C8 /* pet-yeacat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pet-yeacat.png"; sourceTree = "<group>"; };
 		FEA45AA6295D9D5DF7FF00C9 /* FooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FooterView.swift; sourceTree = "<group>"; };
 		FF5E6D55131C0717A9D50F0C /* LocalAPIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAPIConfiguration.swift; sourceTree = "<group>"; };
 		FF993F18707831D76B8E0E2F /* BotSpriteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotSpriteView.swift; sourceTree = "<group>"; };
@@ -288,7 +292,9 @@
 			children = (
 				CEFF2CD328E52D5DD2A96D09 /* pet-byte.png */,
 				3296C9272154C1EF077E4FEC /* pet-ember.png */,
+				4F0E8A31B6C2D759A1E3C5B7 /* pet-gengxu.png */,
 				FA5A41DE4065DC86120B31F7 /* pet-sprout.png */,
+				5A2D9C4E8B137F60D2A4E6C8 /* pet-yeacat.png */,
 			);
 			path = PetSprites;
 			sourceTree = "<group>";
@@ -566,6 +572,8 @@
 				C213D00884141FE7643F744E /* pet-byte.png in Resources */,
 				982A9D9357CFFFC438090133 /* pet-ember.png in Resources */,
 				DC94FB14841B27DF2D3015CD /* pet-sprout.png in Resources */,
+				6B3E8F20C9D4A715B3E5F7D9 /* pet-gengxu.png in Resources */,
+				7C4F9A31D8E5B206C4F6A8E0 /* pet-yeacat.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -604,6 +604,10 @@ struct PetCharacter: RawRepresentable, Hashable, Identifiable, CaseIterable {
     static let sprout = PetCharacter(rawValue: "sprout")!
     static let byte = PetCharacter(rawValue: "byte")!
     static let ember = PetCharacter(rawValue: "ember")!
+    // TT-Plus fork characters (dashboard BUILTIN_PETS). Same V1 atlas grid as
+    // sprout/byte/ember; assets are converted from dashboard/public/pets/<id>.
+    static let gengxu = PetCharacter(rawValue: "gengxu")!
+    static let yeacat = PetCharacter(rawValue: "yeacat")!
     static var allCases: [PetCharacter] { PetCatalog.shared.characters }
 
     init?(rawValue: String) {
@@ -646,6 +650,8 @@ struct PetCharacter: RawRepresentable, Hashable, Identifiable, CaseIterable {
         if self == Self.sprout { return Strings.petCharacterSprout }
         if self == Self.byte { return Strings.petCharacterByte }
         if self == Self.ember { return Strings.petCharacterEmber }
+        if self == Self.gengxu { return Strings.petCharacterGengxu }
+        if self == Self.yeacat { return Strings.petCharacterYeacat }
         return PetCatalog.shared.displayName(for: self) ?? rawValue
     }
 
@@ -656,7 +662,7 @@ struct PetCharacter: RawRepresentable, Hashable, Identifiable, CaseIterable {
 
 final class PetCatalog: ObservableObject {
     static let shared = PetCatalog()
-    private static let builtins: [PetCharacter] = [.clawd, .bot, .sprout, .byte, .ember]
+    private static let builtins: [PetCharacter] = [.clawd, .bot, .sprout, .byte, .ember, .gengxu, .yeacat]
     private static let hiddenBuiltinsFilename = ".hidden-builtins.json"
     private struct Metadata {
         let displayName: String

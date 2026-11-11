@@ -361,6 +361,10 @@ enum Strings {
     static var petCharacterSprout: String { "Sprout" }
     static var petCharacterByte: String { "Byte" }
     static var petCharacterEmber: String { "Ember" }
+    // TT-Plus fork characters. Names follow dashboard pet.character.* copy:
+    // Chinese keeps the original characters, the other four locales use the Latin name.
+    static var petCharacterGengxu: String { t("Gengxu", "庚戌", "庚戌", "Gengxu", "Gengxu", "Gengxu") }
+    static var petCharacterYeacat: String { t("YeaCat", "猫也", "貓也", "YeaCat", "YeaCat", "YeaCat") }
     static var petSizeSmall: String { t("Small", "小", "小", "小", "작게", "Klein") }
     static var petSizeMedium: String { t("Medium", "中", "中", "中", "보통", "Mittel") }
     static var petSizeLarge: String { t("Large", "大", "大", "大", "크게", "Groß") }
