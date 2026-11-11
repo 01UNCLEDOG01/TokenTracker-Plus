@@ -1502,12 +1502,20 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tt-perks-page .perk-page-turn,
-  .tt-perks-page .perk-mini.is-collected .perk-mini-card {
+  .tt-perks-page .perk-page-turn {
     animation: none;
   }
   .tt-perks-page .perk-mini .perk-mini-card {
     transition: none;
+  }
+  /* 领取翻面保留（站主 2026-11-12：这是领取的唯一可见反馈，不算装饰性
+     动效）——reduce 下换成 0.25s 快速淡入，不做大幅 3D 旋转。 */
+  .tt-perks-page .perk-mini.is-collected .perk-mini-card {
+    animation: perk-mini-flip-reduced 0.25s ease-out 1;
+  }
+  @keyframes perk-mini-flip-reduced {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
   }
 }
 

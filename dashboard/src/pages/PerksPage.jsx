@@ -509,7 +509,9 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
             <button
               key={cycle}
               type="button"
-              onClick={() => onToggleClaim(item, cycle)}
+              onClick={() => { if (!claimedAt) onToggleClaim(item, cycle); }}
+              disabled={Boolean(claimedAt)}
+              aria-disabled={Boolean(claimedAt)}
               aria-pressed={Boolean(claimedAt)}
               className={cn(
                 "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
@@ -601,11 +603,10 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump, flipCount }) {
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, faceValue, onJump, flipCount }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   const rarity = albumRarity(streak);
-  const sealed = collected && Boolean(perkDaysLeft(item.endsAt)?.ended);
   // AIHOT 卡面口径（站主 2026-11-12 圈图定谳）：只有「今天领过」才翻青色
   // 卡背；以前领过、今天没领 = 纸卡 + ×N；绝版 = 纸卡 + 红章；没领过 = 纸卡。
   const showBack = collected && claimedNow && !sealed;
@@ -680,7 +681,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, o
   );
 }
 
-function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected, total, sealedCount }) {
+function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, claimDay, collected, total, sealedCount }) {
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -699,6 +700,12 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected,
         <p className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">{copy("perks.album.month")}</p>
         <p className="text-lg font-semibold text-oai-black dark:text-white">
           {claimedMonthYuan > 0 ? money(claimedMonthYuan) : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">{copy("perks.album.total_claimed")}</p>
+        <p className="text-lg font-semibold text-oai-black dark:text-white">
+          {totalClaimedYuan > 0 ? money(totalClaimedYuan) : "—"}
         </p>
       </div>
       <div>
@@ -726,15 +733,17 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys, aih
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
   // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
-  const sealedCount = items.filter(function (entry) { return entry.collected && perkDaysLeft(entry.item?.endsAt)?.ended; }).length;
+  const sealedCount = items.filter(function (entry) { return entry.sealed; }).length;
   // 求和来自 AIHOT 全目录（PerksPage 传 aihotSums），不是卡册映射子集。
   const claimableTodayYuan = aihotSums.claimable;
   const claimedMonthYuan = aihotSums.monthly;
+  const totalClaimedYuan = aihotSums.totalClaimed;
   return (
     <div className="mb-8 flex flex-col gap-4 lg:flex-row">
       <AlbumStats
         claimableTodayYuan={claimableTodayYuan}
         claimedMonthYuan={claimedMonthYuan}
+        totalClaimedYuan={totalClaimedYuan}
         claimDay={claimDay}
         collected={collected}
         total={items.length}
@@ -800,6 +809,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys, aih
               tier={entry.tier}
               streak={entry.streak}
               claimedNow={entry.claimedNow}
+              sealed={entry.sealed}
               faceValue={entry.faceValue}
               onJump={onJump}
               flipCount={flipKeys[entry.item.id] || 0}
@@ -870,6 +880,7 @@ export function PerksPage() {
   const aihotSums = useMemo(() => {
     let claimable = 0;
     let monthly = 0;
+    let totalClaimed = 0;
     for (const [provider, deal] of aihotIndex.byProvider) {
       if (aihotIndex.dropped.has(provider) || !Number.isFinite(deal.yuan)) continue;
       const cardId = AIHOT_PROVIDER_TO_CARD.get(provider);
@@ -880,8 +891,15 @@ export function PerksPage() {
         && getPerkClaimCycles(item).includes("monthly")
         && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
       if (monthlyClaimed) monthly += deal.yuan;
+      // 累计领取：deal 价值 × 各周期已领次数（daily 按天、monthly 按月、once 领过即 1）。
+      if (item) {
+        for (const cycle of getPerkClaimCycles(item)) {
+          const count = claims?.[item.id]?.[cycle]?.count || 0;
+          totalClaimed += deal.yuan * Math.min(count, cycle === "once" ? 1 : count);
+        }
+      }
     }
-    return { claimable, monthly };
+    return { claimable, monthly, totalClaimed };
   }, [aihotIndex, claims, claimDay]);
 
   useEffect(() => {
@@ -1006,12 +1024,22 @@ export function PerksPage() {
       })();
       const monthlyClaimed = getPerkClaimCycles(item).includes("monthly")
         && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
+      // 绝版 = 活动结束（站主 2026-11-12 口径）：AIHOT 把该 provider 标记为
+      // dropped（下线活动，如 workbuddy 国际版 DeepSeek 免费调用）、或数据里
+      // 写了 endsAt 且已过期、或显式 retired 标记——与是否领取过无关。
+      const sealed = item.retired === true
+        || Boolean(perkDaysLeft(item.endsAt)?.ended)
+        || (() => {
+          const providers = PERKS_AIHOT_PROVIDERS[item.id];
+          return Boolean(providers && providers.some((provider) => aihotIndex.dropped.has(provider)));
+        })();
       return {
         item,
         streak,
         claimedNow,
         tier: albumBrightnessTier(streak),
         collected: streak > 0,
+        sealed,
         faceValue: deal?.label || null,
         // 「今天还能领」= 该卡映射 deal 的折算值（今日尚未领取时计入合计），
         // 与 AIHOT 顶部口径一致：所有 counted 估值都算今天可领。
@@ -1020,8 +1048,8 @@ export function PerksPage() {
       };
     });
     ranked.sort((a, b) =>
-      (a.collected === b.collected ? 0 : a.collected ? -1 : 1)
-      || b.tier - a.tier
+      b.tier - a.tier
+      || (a.collected === b.collected ? 0 : a.collected ? -1 : 1)
       || comparePerks(a.item, b.item),
     );
     return ranked;

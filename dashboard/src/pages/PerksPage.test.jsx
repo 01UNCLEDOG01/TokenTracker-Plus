@@ -232,7 +232,7 @@ describe("PerksPage", () => {
     expect(screen.queryByText(/官网直达通道/)).not.toBeInTheDocument();
   });
 
-  it("支持把卡片标记为已领取并写入 localStorage，再次点击取消", () => {
+  it("领取写入 localStorage；已领取后按钮禁用，再点不能取消或重刷（AIHOT 口径）", () => {
     localStorage.clear();
     render(
       <ToastProvider>
@@ -246,12 +246,14 @@ describe("PerksPage", () => {
     // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录。
     expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1 } } });
 
-    fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
-    expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
-    // 取消只摘掉 last，lifetime count 保留（卡册亮度不回退）。
-    // 取消 = cleared 标记（last/count 保留）：当天可原样恢复，count 不刷
+    // 已领取 = 禁用（站主 2026-11-12：点了就不能再点；once 永不刷新）——
+    // 重复点击不改状态、不写存储，×N 无法靠来回切换刷次数。
+    const claimedButton = screen.getAllByText("已领取（{{date}}）")[0].closest("button");
+    expect(claimedButton).toBeDisabled();
+    fireEvent.click(claimedButton);
+    expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
     expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers)
-      .toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1, cleared: getPerkClaimDay() } } });
+      .toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1 } } });
   });
 
   it("领取状态筛选按钮能过滤已领取与未标记卡片", () => {
@@ -287,15 +289,17 @@ describe("PerksPage", () => {
     const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
     fireEvent.click(within(card).getByRole("button", { name: "本月未领取 · 标记已领取" }));
     fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
-    fireEvent.click(within(card).getByRole("button", { name: "今日已领取（{{date}}）" }));
+    // 两个周期各自独立：已领取的禁用（不可取消），另一个仍可点
+    expect(within(card).getByRole("button", { name: "今日已领取（{{date}}）" })).toBeDisabled();
     expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(card).getByRole("button", { name: "本月已领取（{{date}}）" })).toBeDisabled();
     fireEvent.change(screen.getByPlaceholderText(/搜索服务商/), { target: { value: "WorkBuddy" } });
     fireEvent.click(screen.getByText("每月福利").closest("button"));
     fireEvent.click(screen.getByText("已领取").closest("button"));
     expect(screen.getAllByRole("heading", { name: "WorkBuddy 国内版" }).length).toBeGreaterThanOrEqual(1);
+    // daily 也已领取（禁用态）：每日+已领取筛选同样命中——两个周期各自独立记账
     fireEvent.click(screen.getByText("每日可领取积分").closest("button"));
-    expect(screen.queryByRole("heading", { name: "WorkBuddy 国内版" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "WorkBuddy 国内版" }).length).toBeGreaterThanOrEqual(1);
   });
 
   it("updates open pages across Beijing midnight without clearing monthly marks", () => {
@@ -525,11 +529,11 @@ describe("PerksPage", () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)); });
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
 
-    // 取消 = cleared 标记（AIHOT 口径）：count 不变 → streak 不变 → 不重播；
-    // 今天没领了 → 卡面回纸卡（以前领过 = 纸卡 + ×N）
+    // 已领取按钮禁用（AIHOT 口径：领了就是领了）——streak 不变 → 不重播，
+    // 青背保持（今天领过 = 卡背，直到次日自动回到纸卡 + ×N）
+    expect(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" })).toBeDisabled();
     fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
-    expect(miniWithStreak.className).toContain("is-uncollected");
-    expect(miniWithStreak.querySelector(".perk-card-front")).toBeTruthy();
+    expect(miniWithStreak.className).toContain("is-collected");
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
   });
 

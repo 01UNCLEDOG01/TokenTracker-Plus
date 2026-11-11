@@ -657,6 +657,7 @@
   "perks.album.collected": "{{collected}} / {{total}} Karten gesammelt",
   "perks.album.claimable": "Heute abholbar",
   "perks.album.month": "Diesen Monat erhalten",
+  "perks.album.total_claimed": "Insgesamt erhalten",
   "perks.album.note": "CNY-Schätzungen nach AIHOT-Basis.",
   "perks.album.refresh": "Nächste Aktualisierung",
   "perks.album.next": "Weiter",

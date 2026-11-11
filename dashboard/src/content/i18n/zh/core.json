@@ -977,6 +977,7 @@
   "perks.album.collected": "{{collected}} / {{total}} 张已收",
   "perks.album.claimable": "今天还能领",
   "perks.album.month": "本月已领到",
+  "perks.album.total_claimed": "累计领取",
   "perks.album.note": "人民币折算按 AIHOT 口径估算。",
   "perks.album.refresh": "下次刷新",
   "perks.album.next": "下一页",

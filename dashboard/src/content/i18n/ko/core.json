@@ -660,6 +660,7 @@
   "perks.album.collected": "{{collected}} / {{total}}장 수집",
   "perks.album.claimable": "오늘 받을 수 있는 것",
   "perks.album.month": "이번 달 받은 것",
+  "perks.album.total_claimed": "누적 수령",
   "perks.album.note": "위안화 환산은 AIHOT 기준 추정치.",
   "perks.album.refresh": "다음 갱신",
   "perks.album.next": "다음",

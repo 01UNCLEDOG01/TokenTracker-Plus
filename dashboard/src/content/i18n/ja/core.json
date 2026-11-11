@@ -660,6 +660,7 @@
   "perks.album.collected": "{{collected}} / {{total}} 枚収集",
   "perks.album.claimable": "今日受け取れる分",
   "perks.album.month": "今月受け取った分",
+  "perks.album.total_claimed": "累計受け取り",
   "perks.album.note": "人民元換算は AIHOT の算定基準による概算。",
   "perks.album.refresh": "次の更新",
   "perks.album.next": "次へ",

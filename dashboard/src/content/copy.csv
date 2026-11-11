@@ -2170,6 +2170,7 @@ perks.aihot.dropped,ui,PerksPage,PerksPage,aihot_dropped,AIHOT's latest snapshot
 perks.album.claimable,ui,PerksPage,PerksPage,album_claimable,Claimable today,,active
 perks.album.collected,ui,PerksPage,PerksPage,album_collected,{{collected}} / {{total}} cards collected,,active
 perks.album.month,ui,PerksPage,PerksPage,album_month,Claimed this month,,active
+perks.album.total_claimed,ui,PerksPage,PerksPage,total_claimed,Claimed in total,,active
 perks.album.next,ui,PerksPage,PerksPage,album_next,Next page,,active
 perks.album.note,ui,PerksPage,PerksPage,album_note,CNY estimates follow AIHOT's conversion basis.,,active
 perks.album.page,ui,PerksPage,PerksPage,album_page,Page {{page}} of {{pages}},,active
