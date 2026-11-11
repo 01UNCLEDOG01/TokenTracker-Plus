@@ -45,17 +45,53 @@ const required = [
 for (const file of required) {
   assert.ok(fs.existsSync(file) && fs.statSync(file).isFile(), `Missing ${path.relative(appDir, file)}`);
 }
-// A bundled app extension with no NSExtension is dead weight: the vendored
-// WidgetKit target shipped without NSExtension/App Group, so pkd never
-// registered it. Ship a real extension or none at all.
+// The WidgetKit extension MUST ship and MUST be a real, registerable widget.
+// 2026-11-12: the fork re-enabled it after proving (on macOS 27.2) that pkd
+// registers an ad-hoc signed, sandboxed appex which declares
+// com.apple.widgetkit-extension — no paid Developer ID and no App Group needed.
+// A missing appex, a missing declaration, a version mismatch or a stripped
+// sandbox entitlement are all red: each silently yields a widget that can
+// never appear (or that reads an empty container and renders "no data").
 const plugInsDir = path.join(appDir, "Contents", "PlugIns");
-if (fs.existsSync(plugInsDir)) {
-  for (const entry of fs.readdirSync(plugInsDir)) {
-    if (!entry.endsWith(".appex")) continue;
-    const appexPlist = fs.readFileSync(path.join(plugInsDir, entry, "Contents", "Info.plist"), "utf8");
-    assert.match(appexPlist, /<key>NSExtension<\/key>/, `Bundled ${entry} has no NSExtension — dead extension`);
-  }
-}
+const appexName = "TokenTrackerWidget.appex";
+const appexDir = path.join(plugInsDir, appexName);
+assert.ok(fs.existsSync(appexDir), `Missing widget extension: Contents/PlugIns/${appexName}`);
+const appexPlistText = fs.readFileSync(path.join(appexDir, "Contents", "Info.plist"), "utf8");
+assert.match(appexPlistText, /<key>NSExtension<\/key>/, "Widget extension has no NSExtension dict");
+assert.match(
+  appexPlistText,
+  /<key>NSExtensionPointIdentifier<\/key>\s*<string>com\.apple\.widgetkit-extension<\/string>/,
+  "Widget extension must declare com.apple.widgetkit-extension",
+);
+assert.match(
+  appexPlistText,
+  /<key>CFBundleDisplayName<\/key>\s*<string>TokenTracker Widgets<\/string>/,
+  "Widget extension must carry its gallery display name",
+);
+const plistString = (text, key) =>
+  (text.match(new RegExp(`<key>${key}</key>\\s*<string>([^<]+)</string>`)) || [])[1];
+const appShortVersion = plistString(plistText, "CFBundleShortVersionString");
+assert.equal(
+  plistString(appexPlistText, "CFBundleShortVersionString"),
+  appShortVersion,
+  "Widget version must match the app version",
+);
+assert.equal(
+  plistString(appexPlistText, "CFBundleIdentifier"),
+  "com.tokentrackerplus.mac.widget",
+  "Unexpected widget bundle id",
+);
+const appexEntitlements = execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", appexDir], {
+  encoding: "utf8",
+  stdio: ["ignore", "pipe", "pipe"],
+});
+assert.match(appexEntitlements, /com\.apple\.security\.app-sandbox/, "Widget extension is not sandboxed");
+assert.doesNotMatch(
+  appexEntitlements,
+  /application-groups/,
+  "Widget extension must not claim an App Group (requires a provisioning profile we do not have)",
+);
+execFileSync("codesign", ["--verify", appexDir]);
 
 // The embedded native-arch node must actually run and match the pinned version.
 const nativeTag = process.arch === "arm64" ? "node-arm64" : "node-x64";

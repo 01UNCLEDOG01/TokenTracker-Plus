@@ -33,9 +33,10 @@ const pushPetSettings = between(nativeBridge, 'func pushPetSettings()', '// MARK
 const applyPetSetting = between(nativeBridge, 'private func applyPetSetting', 'private func setLaunchAtLogin');
 
 test('macOS getSettings advertises platform + host capability keys', () => {
-  // Dashboard gates: SettingsPage/MenuBarSection read `platform`; B2b hides the
-  // dead WidgetKit gallery on widgetGallerySupported=false; B3c toggles the
-  // quota panel on quotaWindow; the pet page probes petBridge.
+  // Dashboard gates: SettingsPage/MenuBarSection read `platform`; the Widgets
+  // page shows its gallery on widgetGallerySupported (true since 2026-11-12,
+  // when the NSExtension+sandbox appex started shipping); B3c toggles the quota
+  // panel on quotaWindow; the pet page probes petBridge.
   assert.match(pushSettings, /"platform": "macos"/, 'getSettings must report platform "macos"');
   assert.match(pushSettings, /"petBridge": true/, 'getSettings must advertise petBridge: true');
   // B3c ships QuotaPanelController, so the capability flips true in the same
@@ -44,8 +45,10 @@ test('macOS getSettings advertises platform + host capability keys', () => {
     'getSettings must advertise quotaWindow: true now that QuotaPanelController ships');
   assert.doesNotMatch(pushSettings, /"quotaWindow": false/,
     'quotaWindow: false would hide the live pet-page toggle B3c wires');
-  assert.match(pushSettings, /"widgetGallerySupported": false/,
-    'getSettings must advertise widgetGallerySupported: false (WidgetKit appex is not shipped)');
+  assert.match(pushSettings, /"widgetGallerySupported": true/,
+    'getSettings must advertise widgetGallerySupported: true now that the widget appex ships');
+  assert.doesNotMatch(pushSettings, /"widgetGallerySupported": false/,
+    'widgetGallerySupported: false would hide the live widget gallery');
   assert.match(pushSettings, /"trayIconStyles": MenuBarIconStyle\.allCases/,
     'getSettings must list the supported tray/icon styles');
   // The pet page filters its controls on the finer host capabilities: macOS has

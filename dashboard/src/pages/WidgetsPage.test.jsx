@@ -167,6 +167,32 @@ describe("WidgetsPage menu bar configurator", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the WidgetKit gallery when the native host advertises it as supported", async () => {
+    // 2026-11-12: the macOS appex now ships (NSExtension + sandbox, ad-hoc
+    // signed), so the native host reports widgetGallerySupported=true and the
+    // gallery + "open gallery" CTA must be live again.
+    const bridge = installNativeBridge({
+      showStats: true,
+      menuBarItems: ["todayTokens"],
+      menuBarMaxItems: 2,
+      menuBarAvailableItems: [
+        { id: "todayTokens", label: "Today Tokens", shortLabel: "Tokens", category: "tokens" },
+      ],
+      platform: "macos",
+      widgetGallerySupported: true,
+    });
+
+    render(<WidgetsPage />);
+    act(() => bridge.pushSettings());
+
+    expect(
+      await screen.findByRole("region", { name: copy("widgets.gallery.section.title") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: copy("widgets.cta.open_gallery") }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the gallery when the host does not advertise the capability", async () => {
     // Windows shell / browser preview: no widgetGallerySupported key at all means
     // "host did not say", so the previous gallery-visible behaviour must hold.

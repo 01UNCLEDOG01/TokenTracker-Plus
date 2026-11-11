@@ -22,7 +22,7 @@ node ../scripts/verify-macos-package.cjs   # 也可单独跑：可执行名取�
 ## 已知限制
 
 - 未签名分发（ad-hoc）：首次打开需右键 → 打开，或 `xattr -cr`（与 Windows 版未签名策略同款）。
-- **WidgetKit 桌面小组件不随包发布**：vendored 的 appex 缺 NSExtension 与 App Group，pkd 从不注册（pluginkit 实测为空），属于"永远不会出现的功能"；源码保留，等有开发者签名 + App Group 的版本再做。`verify-macos-package.cjs` 会拒绝不带 NSExtension 的 appex，仪表盘的「打开小组件库」入口在原生宿主下已隐藏。
+- **WidgetKit 桌面小组件随包发布（2026-11-12 起）**：补回 appex 的 `NSExtension`（`com.apple.widgetkit-extension`）+ 沙箱 entitlement，继续 ad-hoc 签名、**不申请 App Group**（无付费 profile 时 App Group 会让构建直接失败；上游同样如此）。数据走宿主写入 widget 自身容器快照的 fallback 路径（`WidgetSharedConstants.widgetBundleIdentifier` 必须等于 widget target 的 bundle id）。`verify-macos-package.cjs` 现在要求 appex 存在、声明正确、版本与 app 一致、沙箱 entitlement 存在，任一缺失即红。实测（macOS 27.2）：ad-hoc + 沙箱 + NSExtension 的 appex 可被 pkd 注册（`pluginkit -m -p com.apple.widgetkit-extension` 可见）。**注意**：ad-hoc 分发仍有 Gatekeeper 首次打开拦截；带 quarantine 属性的下载包在用户放行前不会注册小组件，用户需先打开一次 app（右键 → 打开，或 `xattr -cr`）。
 - 原生文案为 6 语言（en / zh-CN / zh-TW / ja / ko / de）。de 与 dashboard 德语文案同源，少量菜单栏 / 宠物状态措辞按原生语境单独撰写（非逐字对齐）。
 - 限额面板 33 个 provider 已全部移植；本机只配置了其中 6 个（codex / zcode / trae / traeMain / codearts / clinePass），其余 9 个（Qoder / WorkBuddy 用服务端同形 fixture 验证过，Mistral / MiniMax / 商汤 / AgentRouter / OpenDesign / APIGOTO / Raccoon / OpenAI Credits / MiniMax Code 为解码+渲染验证），真实数据下的逐值对账要等相应 provider 在本机配置后补。
 - 额度浮窗与限额面板的数据来自本机限额接口；服务未就绪时窗口显示加载态，不会拿旧快照冒充新值。

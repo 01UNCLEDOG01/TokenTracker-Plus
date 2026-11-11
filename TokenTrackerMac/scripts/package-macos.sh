@@ -83,16 +83,29 @@ MAIN_X64="$PRODUCT_APP_X64/Contents/MacOS/TokenTracker Plus"
 lipo -create "$MAIN_ARM" "$MAIN_X64" -output "$APP_DIR/Contents/MacOS/TokenTracker Plus"
 lipo -info "$APP_DIR/Contents/MacOS/TokenTracker Plus"
 
-# 2c. Do NOT ship the WidgetKit appex. The vendored extension has no
-#     NSExtension and no App Group entitlement, so pkd never registers it
-#     (pluginkit shows nothing after install) — a widget that can never appear
-#     is dead weight in the installer. Sources stay in the repo for a future
-#     build signed with a real identity + App Group.
-rm -rf "$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
+# 2c. Ship the WidgetKit appex. It declares NSExtensionPointIdentifier
+#     com.apple.widgetkit-extension, is sandboxed (ENABLE_APP_SANDBOX) and is
+#     ad-hoc signed, which is enough for pkd to register it — no paid Developer
+#     ID / App Group is required (upstream ships the same way). The host feeds
+#     the widget through the widget-container snapshot fallback, so the App
+#     Group entitlement is deliberately absent (it cannot be built without a
+#     provisioning profile).
+APEX="$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
+APEX_X64="$PRODUCT_APP_X64/Contents/PlugIns/TokenTrackerWidget.appex"
+[ -d "$APEX" ] || { echo "ERROR: widget appex missing from the xcodebuild product: $APEX" >&2; exit 1; }
+if [ -f "$APEX_X64/Contents/MacOS/TokenTrackerWidget" ]; then
+  lipo -create "$APEX/Contents/MacOS/TokenTrackerWidget" \
+    "$APEX_X64/Contents/MacOS/TokenTrackerWidget" \
+    -output "$APEX/Contents/MacOS/TokenTrackerWidget"
+  lipo -info "$APEX/Contents/MacOS/TokenTrackerWidget"
+fi
 
-# Version from package.json (xcodegen emits 1.0 by default).
+# Version from package.json (xcodegen emits 1.0 by default) — app and widget
+# must agree, verify-macos-package.cjs checks it.
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APEX/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APEX/Contents/Info.plist"
 
 # 2b. The native chain carries its menu-bar icon artwork in Assets.car
 #     (RunnerCat imagesets); the old cat*.png copy only applied to the retired
@@ -105,8 +118,13 @@ cp -R "$EMBED_DIR" "$APP_DIR/Contents/Resources/EmbeddedServer"
 #    NO --deep: it re-signs the appex and strips its entitlements, and pkd
 #    rejects the widget at runtime.
 APEX="$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
+# The appex is re-signed because step 2c lipo-merges its binary and stamps its
+# version — both invalidate the xcodebuild signature. codesign MUST receive the
+# sandbox entitlements explicitly: a bare `--force --sign -` strips them, and
+# pkd then rejects the plugin ("plug-ins must be sandboxed").
+WIDGET_ENTITLEMENTS="$MAC_DIR/TokenTrackerBar/TokenTrackerWidget/TokenTrackerWidget.entitlements"
 if [ -d "$APEX" ]; then
-  codesign --force --sign - "$APEX" 2>&1 | grep -v replacing || true
+  codesign --force --sign - --entitlements "$WIDGET_ENTITLEMENTS" "$APEX" 2>&1 | grep -v replacing || true
   codesign --verify "$APEX" && echo "[package] appex signed"
 fi
 codesign --force --sign - "$APP_DIR" 2>&1 | grep -v replacing || true

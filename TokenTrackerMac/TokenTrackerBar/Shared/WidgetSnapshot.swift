@@ -13,15 +13,20 @@ import Foundation
 // MARK: - App Group constants
 
 public enum WidgetSharedConstants {
-    /// Shared App Group identifier. Must be added to *both* targets'
-    /// entitlements (`com.apple.security.application-groups`).
-    public static let appGroupIdentifier = "group.com.tokentracker.bar"
+    /// Shared App Group identifier, kept only for a future signed build. This
+    /// fork ships ad-hoc signed without a provisioning profile, so the App
+    /// Group container is never provisioned and `containerURL(forSecurityApplicationGroupIdentifier:)`
+    /// returns nil. The widget therefore reads the host-written fallback file
+    /// from its own sandbox container (see `widgetContainerSnapshotURL()`).
+    public static let appGroupIdentifier = "group.com.tokentrackerplus.mac"
 
     /// Bundle identifier of the widget extension. Used by the host app to
     /// write snapshot files directly into the widget's sandbox container as
     /// a fallback path for ad-hoc / dev signed builds where the App Group
-    /// container is not actually provisioned by the system.
-    public static let widgetBundleIdentifier = "com.tokentracker.bar.widget"
+    /// container is not actually provisioned by the system. Must stay in sync
+    /// with the TokenTrackerWidget target's PRODUCT_BUNDLE_IDENTIFIER — a
+    /// mismatch silently makes widgets read an empty container ("no data").
+    public static let widgetBundleIdentifier = "com.tokentrackerplus.mac.widget"
 
     /// Filename of the snapshot inside the App Group container.
     public static let snapshotFilename = "widget-snapshot.json"

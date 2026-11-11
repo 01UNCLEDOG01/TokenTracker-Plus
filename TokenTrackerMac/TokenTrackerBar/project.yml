@@ -68,3 +68,12 @@ targets:
         SKIP_INSTALL: YES
     info:
       path: TokenTrackerWidget/Info.plist
+      properties:
+        CFBundleDisplayName: TokenTracker Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: TokenTrackerWidget/TokenTrackerWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true

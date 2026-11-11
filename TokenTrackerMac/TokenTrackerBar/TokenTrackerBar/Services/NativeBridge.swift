@@ -221,7 +221,7 @@ final class NativeBridge {
                 "exchangeRate": defaults.object(forKey: "exchangeRate") ?? 1.0,
                 "limitsDisplayMode": "all", "limitsPreferences": [],
                 "platform": "macos", "petBridge": true, "quotaWindow": true,
-                "widgetGallerySupported": false,
+                "widgetGallerySupported": true,
                 "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
                 "islandModes": ["island"], "petActionLockSupported": false
             ]
@@ -374,9 +374,12 @@ final class NativeBridge {
             // B3c ships the floating quota panel (QuotaPanelController), so the
             // pet page's 桌面限额 toggle is live and drives a real window.
             "quotaWindow": true,
-            // The WidgetKit appex is not shipped (no NSExtension / App Group), so
-            // the widgets page hides its gallery instead of opening a dead picker.
-            "widgetGallerySupported": false,
+            // The WidgetKit appex now ships inside the app (NSExtension +
+            // sandbox, ad-hoc signed, no App Group — data arrives through the
+            // host-written container fallback), so the widgets page may show
+            // its gallery again. Verified on macOS 27.2 with pluginkit: a
+            // sandboxed, ad-hoc signed appex with NSExtension registers.
+            "widgetGallerySupported": true,
             "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
             // Finer pet-page capability detail. The native island is top-anchored
             // only — there is no free-floating mode to switch to — and the pose
@@ -662,7 +665,7 @@ final class NativeBridge {
         switch MenuBarIconStyle.current() {
         case .cat: return "cat"
         case .static: return "lightning"
-        case .clawd, .bot, .pet: return "mascot"
+        case .clawd, .bot, .pet, .gengxu, .yeacat: return "mascot"
         }
     }
 
