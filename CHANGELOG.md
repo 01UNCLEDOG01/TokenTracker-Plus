@@ -15,6 +15,10 @@
 - **新增（macOS）：限额页补齐 13 个 provider 与团队/资源池窗口**。原生限额视图此前是 20 个 provider 的白名单：Qoder 团队积分（quaternary_window）与三个资源池（pools[]）、WorkBuddy 奖励窗口（reward_window）都不显示，其余 13 个 provider（Mistral / MiniMax / 商汤 / TRAE / AgentRouter / OpenDesign / APIGOTO / Raccoon / CodeArts / Cline Pass / OpenAI Credits / MiniMax Code 等）完全缺席。现在原生 provider 集与网页端 33 个对齐，团队积分、套餐内/资源包/SOTA 资源池、WorkBuddy 计划+奖励分行渲染，已用/剩余口径与隐藏 provider 规则同步；小浣熊卡的「每日积分」发放-消耗行（桌面会话 bills 车道，本 fork 独有的真实百分比行）同步落位；新增 parity 测试防止以后再漂。
 - **新增（macOS）：桌面额度浮窗（桌面限额）**。与 Windows 版同一套 `quota.html?app=1` 契约：320×144 紧凑 / 360×340 展开、顶边锚定缩放、拖拽（60Hz 跟随并记忆位置）、关闭即停用、六类页面消息、60 秒上下文刷新；可从菜单栏「额度窗」、灵动岛右键/齿轮、宠物设置页「桌面限额」开关三处打开，状态双向同步，重启按持久化开关恢复。
 - **修复（macOS）：本地数据导出按钮真正可用**。仪表盘的导出走 blob: + `<a download>`，WKWebView 没有下载代理时会被当成普通导航（快照会把 JSON 直接渲染在页面里，完整备份则失败并重载），`~/Downloads` 永远拿不到文件。现在原生窗口接管 WKDownload：快照 / gzip 完整备份直接落到「下载」目录（重名自动去重、失败弹窗），>5MB 分页导出与「导出更早一批」继续可用。
+- **新增：福利指南价值档位与集卡册升级**。六色档位重定义（灰色只代表「零免费额度」），9 张卡片按站主复核重新定档，新增同形同色硬约束与冲突消解规则；集卡册每张卡加六色价值条（未领取也显示）、浅色虚线幽灵卡面、领取时一次性翻牌揭示、分类旁的档位筛选行；「邀请」恢复为主 CTA；新增 7 个 copy（zh / zh-TW）并同步英文覆盖。
+- **新增：`/cloud` 变成自托管中心**。1.10.5 撤掉上游付费云页面时留下了侧栏「云服务」入口与 `/cloud` 路由，点进去会掉回用量总览；现在按本仓语义恢复：实例连接卡（运行时描述符 + `/api/auth/public-config` 健康探测 + 已登录账号）、自托管教程卡、局域网多设备卡，未配置实例时显示本地模式卡。
+- **修复：自托管后端 PostgREST upsert 与榜单快照写入**。`POST /database` 现在支持 SDK 的 `on_conflict`（`INSERT … ON CONFLICT DO UPDATE`，单对象与数组都支持）——此前公开可见性保存 github_url 直接 500；榜单快照写入列数 15 而占位符只有 13，每 10 分钟刷新在 prepare 阶段就失败、快照表长期为空（补 $14）；`on_conflict` 标识符引用前先 trim，避免冲突列漏进 DO UPDATE 变成自赋值。
+- **修复：福利指南首访卡顿**。本机 API 的 agent2api 速度榜 session tier 每次签名变化都同步聚合 35MB 侧车（单次 4–5s 阻塞事件循环），懒加载 chunk 只能排队、福利页首访 5s+；改为按「侧车路径|时区|范围」的 60 秒 TTL 复用。福利页另加 Suspense 骨架、侧栏 hover/focus 预取、53 张详情卡 content-visibility（Layout 506ms → ~150ms）。
 - 发布物：`TokenTracker-plus-1.26.0.dmg`（拖进「应用程序」即装）与 `TokenTracker-plus-macos-universal-1.26.0.zip` 绿色包，附 SHA-256。应用为未签名分发（与 Windows 版同策略），首次打开若被 Gatekeeper 拦截：右键 → 打开，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再开。
 
 ## [1.25.1] - 2026-11-11
