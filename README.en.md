@@ -26,9 +26,11 @@
 
 > **Prerequisites**: running from source requires Node.js **20+**; SQLite-backed sources (opencode/zcode/loomy/trae, etc.) additionally need Node.js **22.5+** (uses the built-in `node:sqlite`) or a `sqlite3` CLI on PATH. The Windows installer bundles Node and the .NET runtime; users need Windows 10/11 and WebView2 Runtime. The .NET 8 SDK is required only to build the desktop app.
 
-**Windows / macOS users — no build needed**: download from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install — `TokenTracker-Setup.exe` on Windows, or on macOS the universal `TokenTracker-plus-1.25.0.dmg` (drag into Applications; runs on Apple silicon and Intel). The packages bundle their own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
+**Windows / macOS users — no build needed**: download from [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) and install — `TokenTracker-Setup.exe` on Windows, or on macOS the universal `TokenTracker-plus-1.26.0.dmg` (drag into Applications; runs on Apple silicon and Intel). The packages bundle their own Node runtime — no account, no API key, no cloud service. New to the tool? Start with the [beginner's guide](./docs/getting-started.zh-CN.md) (Chinese).
 
 > 💡 **About the Windows SmartScreen prompt**: This is an individual open-source project without a paid code-signing certificate, so Windows SmartScreen may show an "Unknown publisher" warning on first install. This is normal — click "More info" → "Run anyway" to proceed. The code is 100% open source and all data stays on your machine.
+> 🍎 **Native macOS client — TT-Plus's own build since 1.26.0**: keeps the native SwiftUI menu-bar form (universal binary, Apple silicon / Intel) with six UI languages (zh-CN / zh-TW / en / ja / ko / de); **local-first**, with no cloud account, sign-in or OAuth surfaces; the page menu covers all 13 fork pages and supports `tokentracker://open?path=` deep links; seven built-in desktop pets (including Gengxu 庚戌 / YeaCat 猫也); update checks read this repository's Releases only (asset `TokenTracker-plus-<version>.dmg`). The WidgetKit widget is not shipped (needs signing + an App Group); the desktop quota window and the limits-panel provider coverage land with the 1.26.x batches.
+
 > 💡 **About the macOS Gatekeeper prompt**: the macOS build is unsigned too. If first launch says "cannot verify the developer", right-click the app → Open, or run `xattr -cr /Applications/TokenTracker-plus.app` and open again.
 
 ```bash
@@ -48,14 +50,14 @@ node bin/tracker.js doctor     # System diagnostics and health check
 ```
 
 **What you can see in 30 seconds:**
-- 📊 **Local Dashboard** (Windows desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
+- 📊 **Local Dashboard** (Windows / macOS desktop defaults to `http://localhost:17680`; the CLI `node bin/tracker.js serve` defaults to `7680`) — Total spend, daily trends, model breakdown, project attribution, and session trees.
 - ⚡ **Millisecond Token Speed Stream** — Real-time generation speed (`tok/s`) across Antigravity, DeepSeek Harness, ZCode, OpenCode, and Kimi Code.
 - 🔌 **Zero-Config Auto Detection** — Automatically discovers and hooks 55 AI tools on your machine without cloud account lock-in or API key risks. (Optional: a few limit cards read local credentials you refresh yourself, e.g. the Qoder quota cards use the repository's `Qoder-*-刷新Cookie` scripts — core usage tracking needs none of that.)
 - 🏆 **65 Offline Achievements** — 100% evaluated from your local queue without connecting to any public leaderboard. The same browser retains the highest observed tier, including on the first cached render; usage and shares still show current measured values.
 
 > **Looking for native desktop apps?**
 > - **Windows** — Run `TokenTrackerWin` (C# .NET 8 + WebView2 system tray app), bundled with desktop pets, quota cards, and an always-on-top usage pill. See [TokenTrackerWin/README.md](./TokenTrackerWin/README.md).
-> - **macOS** — Run `TokenTrackerMac` (native Swift menu-bar app, universal binary): menu-bar icon (left-click opens the dashboard), floating desktop pet, widget and dashboard windows, embedded server with zero dependencies. See [TokenTrackerMac/README.md](./TokenTrackerMac/README.md).
+> - **macOS** — Run `TokenTrackerMac` (**TT-Plus's own native Swift menu-bar app**, universal binary): menu-bar icon (left-click opens the dashboard), page menu for all 13 fork pages + `tokentracker://open?path=` deep links, floating desktop pet (7 built-in characters incl. Gengxu 庚戌 / YeaCat 猫也), dashboard window, embedded server with zero dependencies; six UI languages, local-first (no cloud account / sign-in / OAuth), update checks read this repository's Releases. The WidgetKit widget is not shipped. See [TokenTrackerMac/README.md](./TokenTrackerMac/README.md).
 > - **Other Platforms** — Run from source (`git clone` then `node bin/tracker.js`); no installers and no compatibility guarantee; the desktop application currently covers Windows and macOS.
 
 ---
@@ -149,7 +151,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 | **Architecture & Focus** | **Macro Ledger + Deep Topology + Real-Time Speed** | General All-in-One Dashboard (optional hosted cloud) | Minimalist Desktop Floating Widget |
 | **AI tools supported** | **55** | 47 Tools | ~15 Tools (Mainstream model APIs & common CLIs) |
 | **Rate-limit tracking** | **✅ 33 quota/balance sources** (Real-time quota windows & reset timers) | 10 providers | ⚠️ Basic quota display |
-| **Primary Interaction** | **Windows Tray + Web Dashboard + Widgets + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
+| **Primary Interaction** | **Windows Tray + macOS Menu Bar + Web Dashboard + Widgets (Windows) + CLI** | macOS Menu Bar + Web Dashboard + Widgets + CLI | Minimal Desktop Floating Widget |
 | **Data Privacy & Storage** | **100% Local-First** (Zero cloud requirement, WAL-aware) | Local SQLite + Optional official cloud sync | Local SQLite WAL (No macro historical reporting) |
 | **Token Speed (tok/s)** | **✅ Native Support** (Source timing measurements, reasoning tokens) | ❌ Only totals and spend; no speed metrics | ✅ Supported (Key highlight of floating widget) |
 | **Agent Topologies** | **✅ Deep Topology** (Primary/subagent drill-down, tool calls) | ⚠️ Basic flat session listing | ❌ Flat request stream only; no hierarchy |

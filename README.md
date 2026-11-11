@@ -24,11 +24,13 @@
 
 ## ⚡ 快速开始
 
-> **环境要求**：源码运行需要 Node.js **20+**；SQLite 数据源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（走内置 `node:sqlite`）或系统装有 `sqlite3` 命令。Windows 安装包自带 Node 与 .NET 运行时，只需 Windows 10/11 与 WebView2 Runtime；macOS 安装包自带 Node 运行时（通用二进制，Apple silicon 与 Intel 皆可），只需 macOS 13+；只有自行构建桌面端才需要 .NET 8 SDK（Windows）或 Xcode Command Line Tools（macOS）。
+> **环境要求**：源码运行需要 Node.js **20+**；SQLite 数据源（opencode/zcode/loomy/trae 等）另需 Node.js **22.5+**（走内置 `node:sqlite`）或系统装有 `sqlite3` 命令。Windows 安装包自带 Node 与 .NET 运行时，只需 Windows 10/11 与 WebView2 Runtime；macOS 安装包自带 Node 运行时（通用二进制，Apple silicon 与 Intel 皆可），只需 macOS 13+；只有自行构建桌面端才需要 .NET 8 SDK（Windows）或 完整 Xcode（macOS，仅 Command Line Tools 不够）。
 
-**Windows / macOS 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载安装即可——Windows 下载 `TokenTracker-Setup.exe`，macOS 下载 `TokenTracker-plus-1.25.0.dmg` 拖进「应用程序」（通用二进制）——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
+**Windows / macOS 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载安装即可——Windows 下载 `TokenTracker-Setup.exe`，macOS 下载 `TokenTracker-plus-1.26.0.dmg` 拖进「应用程序」（通用二进制）——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
 
 > 💡 **关于 Windows Defender / SmartScreen 提示**：本软件为个人开源作品，尚未购买企业数字签名证书，初次安装时 Windows SmartScreen 可能会提示「已保护你的电脑（未知发布者）」。此为正常安全机制，点击「更多信息」→「仍要运行」即可完成安装；代码 100% 开源，数据 100% 留在本机，请放心使用。
+> 🍎 **macOS 原生客户端（1.26.0 起为 TT-Plus 自己的版本）**：保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），界面 6 语言（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——不连接云端，也没有账号 / 登录 / OAuth 界面；页面菜单覆盖 13 个 fork 页面并支持 `tokentracker://open?path=` 深链，桌面宠物内置 7 个形象（含庚戌 / 猫也）；「检查更新」只读本仓库 Releases（资产名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小组件不随包发布（缺签名与 App Group）；桌面额度浮窗与限额页 provider 补齐随 1.26.x 批次落地。
+
 > 💡 **关于 macOS Gatekeeper 提示**：macOS 版同为未签名分发，首次打开若提示「无法验证开发者」，在应用上**右键 → 打开**，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再打开即可。
 
 ```bash
@@ -48,14 +50,14 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 ```
 
 **30 秒内你能看到什么：**
-- 📊 **本地 Dashboard**（Windows 桌面版默认 `http://localhost:17680`；CLI `node bin/tracker.js serve` 默认 `7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
+- 📊 **本地 Dashboard**（Windows / macOS 桌面版默认 `http://localhost:17680`；CLI `node bin/tracker.js serve` 默认 `7680`）—— 总花费、每日趋势、按模型明细、项目归属与会话拓扑。
 - ⚡ **毫秒级 Token 速率流** —— 自动接入 Antigravity、DeepSeek Harness、ZCode、OpenCode、Kimi 等客户端的实时生成速率（`tok/s`）。
 - 🔌 **全自动扫描挂接** —— 自动识别挂接本地已安装的 55 款 AI 编码工具，零账号绑定、零 API Key 泄露风险。（可选：个别限额卡需要自行刷新本地凭据，如 Qoder 限额卡用仓库根目录的 `Qoder-*-刷新Cookie` 脚本；核心用量统计零配置可用。）
 - 🏆 **65 枚成就全量离线判定** —— 100% 按本机本地队列解锁，无需连接公网排行榜服务。同一浏览器保留已观察到的最高阶位，首次加载旧缓存也不会退阶；用量与占比仍显示真实现值。
 
 > **想要原生桌面端？**
 > - **Windows** —— 运行 `TokenTrackerWin`（C# .NET 8 + WebView2 系统托盘 App），附带动态桌宠、桌面额度小组件与置顶用量药丸。构建方式见 [TokenTrackerWin/README.md](./TokenTrackerWin/README.md)。
-> - **macOS** —— 运行 `TokenTrackerMac`（原生 Swift 菜单栏 App，通用二进制）：菜单栏 ⚡ 图标（左键开面板）、桌面宠物悬浮窗、额度窗与面板窗，内嵌服务器零依赖。构建方式见 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
+> - **macOS** —— 运行 `TokenTrackerMac`（**TT-Plus 自维护的原生 Swift 菜单栏 App**，通用二进制）：菜单栏 ⚡ 图标（左键开面板）、页面菜单（13 个 fork 页面）与 `tokentracker://open?path=` 深链、桌面宠物悬浮窗（7 个内置形象，含庚戌 / 猫也）、面板窗，内嵌服务器零依赖；界面 6 语言、本地优先（无云端账号 / 登录 / OAuth），检查更新指向本仓库 Releases。WidgetKit 小组件不随包发布。构建方式见 [TokenTrackerMac/README.md](./TokenTrackerMac/README.md)。
 > - **其他平台** —— 仅提供源码运行（`git clone` 后执行 `node bin/tracker.js`），不提供安装包，也不做兼容性保证；桌面端目前覆盖 Windows 与 macOS。
 
 ---
@@ -149,7 +151,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 | **定位与架构** | **宏观全局账本 + 深度拓扑 + 实时速率** | 通用全能看板（含官方云托管） | 极简桌面实时悬浮窗 |
 | **支持的 AI 工具数** | **55** 款（覆盖国内外全谱系工具与本地端） | 47 款 | ~15 款（主要覆盖主流模型 API 与常见 CLI） |
 | **限额追踪** | **✅ 33 项配额/余额来源**（实时限额窗口与重置倒计时） | 10 家 provider | ⚠️ 基础限额展示 |
-| **主要交互方式** | **Windows 托盘 + Web Dashboard + 小组件 + CLI** | macOS 菜单栏 + Web Dashboard + 小组件 + CLI | 桌面极简悬浮窗 |
+| **主要交互方式** | **Windows 托盘 + macOS 菜单栏 + Web Dashboard + 小组件（Windows）+ CLI** | macOS 菜单栏 + Web Dashboard + 小组件 + CLI | 桌面极简悬浮窗 |
 | **数据隐私与存储** | **100% 本地优先**（零强制外传，多端 WAL 感知） | 本地 SQLite + 可选官方云端同步 | 本地 SQLite WAL（无宏观历史报表） |
 | **Token 速率 (tok/s)** | **✅ 原生支持**（多源时序解析，区分思考 tokens，协同 TM） | ❌ 仅统计总量与花费，无速率计算 | ✅ 支持（悬浮窗主打核心亮点） |
 | **会话分析与 Agent 拓扑** | **✅ 深度拓扑**（主代理/子会话下钻、调用链路穿透） | ⚠️ 基础会话列表汇总 | ❌ 仅平铺罗列请求，无层级结构 |

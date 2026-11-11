@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 2026-11-03 · Applies to TokenTracker Plus: the Windows desktop app, the CLI, and the bundled dashboard._
+_Last updated: 2026-11-11 · Applies to TokenTracker Plus: the Windows and macOS desktop apps, the CLI, and the bundled dashboard._
 
 This build ships **no first-party cloud service**. There is no TokenTracker-operated backend, account system, or leaderboard server, and no shared key is bundled. Cloud-only features are inactive unless you explicitly configure your own compatible instance (`--base-url` with your own public anon key, or `TOKENTRACKER_INSFORGE_BASE_URL`). Local usage works offline. Provider quota reads, public model rankings, service-status pages and other optional requests below can still use the network without a cloud account.
 

@@ -6,6 +6,15 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.26.0] - 2026-11-11
+
+- **变更：macOS 客户端改为 TT-Plus 自有版本（不再只是「vendor 上游 + 换品牌」）**。保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），内容换成站主自己的版本：界面补齐第 6 种语言**德语**（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——移除云端账号 / 登录 / OAuth 界面；「检查更新」只读本仓库 Releases，资产名固定为 `TokenTracker-plus-<版本>.dmg`；WidgetKit 桌面小组件不随包发布（vendored appex 缺 NSExtension 与 App Group，永远不会注册，等有签名构建再做）。
+- **新增（macOS）：页面菜单覆盖 13 个 fork 页面并支持 `tokentracker://open?path=` 深链**。此前原生壳只能打开仪表盘与设置两个入口，其余页面只能自己在浏览器访问；现在菜单栏菜单可直达会话、限额、排行榜、成就、Skills、福利指南、服务状态等页面，深链切换不整页重载（保留单页应用状态与侧边栏滚动位置）。
+- **新增（macOS）：宠物设置页在原生应用内可用，内置形象扩到 7 个**。宠物页此前在 WKWebView 里被判定为「仅 Windows」而整体置灰，现在原生宠物桥可用，显示 / 大小 / 形象等设置直接生效；内置形象在 Clawd / Bot / Sprout / Byte / Ember 之外新增 TT-Plus 自有的**庚戌（Gengxu）**与**猫也（YeaCat）**——1536×1872（8×9 格）精灵图从 dashboard 资源转换并打进 App，桌面悬浮窗与菜单栏「我的宠物」图标同时支持，分配色与用量气泡行为与既有 5 个一致。
+- **修复（macOS）：限额偏好不再被原生快照截断**。原生设置快照此前只认识 20 个 provider，回写网页端时会把 33 个 provider 的手动排序截断、缺失项跑到队尾；现在未知 provider id 原样透传，排序与可见性在两端口径一致。
+- **TODO（发布前必须收尾；以下内容当前构建尚未包含，Release 说明中同样如实标注）**：①限额页的窗口口径与 provider 覆盖（Qoder 团队积分 / 资源池、WorkBuddy reward 窗口，以及 Mistral / MiniMax / 商汤 / TRAE / AgentRouter / OpenDesign 等 13 个缺失 provider id）随限额批次落地；②桌面额度浮窗随额度浮窗批次落地，落地前设置页不展示该开关；③macOS 本地数据导出按钮目前在 WKWebView 下点击无响应，随导出批次修复。
+- 发布物：`TokenTracker-plus-1.26.0.dmg`（拖进「应用程序」即装）与 `TokenTracker-plus-macos-universal-1.26.0.zip` 绿色包，附 SHA-256。应用为未签名分发（与 Windows 版同策略），首次打开若被 Gatekeeper 拦截：右键 → 打开，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再开。
+
 ## [1.25.1] - 2026-11-11
 
 - **修复：配置了自托管实例后面板仍然锁死在「本机历史」**。运行时描述符把「纯本地」两个旗子写死（转 local-first 时的历史决定，当时不存在可配置的实例），导致已配置实例的用户永远看不到账号登录入口、私有排行榜与跨设备聚合。两个旗子现按解析到的实例地址派生：未配置时保持纯本地行为不变，已配置时面板整体切到实例——私有排行榜、账号页登录、跨设备聚合全部就位。已实测：排行榜页显示实例快照榜（rank 行来自自托管后端）。

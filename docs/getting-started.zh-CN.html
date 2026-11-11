@@ -21,11 +21,17 @@
 <h1>TokenTracker Plus 普通用户上手指南</h1>
 <p>写给「我只是想看看我烧了多少 token」的你。不需要会编程、不需要命令行。</p>
 
-<h2>一、安装（Windows）</h2>
+<h2>一、安装（Windows / macOS）</h2>
 <ol>
   <li>打开 <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/releases">Releases 页面</a>（或你拿到安装包的网盘目录），下载最新版的 <code>TokenTracker-plus-Setup-v*.exe</code>。</li>
   <li>双击安装。默认装到本机用户目录，不需要管理员权限。</li>
   <li>装完它会自动启动，任务栏右下角出现托盘图标，浏览器自动打开仪表盘。</li>
+</ol>
+<h3>macOS</h3>
+<ol>
+  <li>打开 <a href="https://github.com/01UNCLEDOG01/TokenTracker-plus/releases">Releases 页面</a>，下载最新版的 <code>TokenTracker-plus-&lt;版本&gt;.dmg</code>（通用二进制，Apple silicon / Intel 皆可，要求 macOS 13+）。</li>
+  <li>把 <code>TokenTracker-plus.app</code> 拖进「应用程序」。首次打开若提示「无法验证开发者」，在应用上右键 → 打开，或执行 <code>xattr -cr /Applications/TokenTracker-plus.app</code>。</li>
+  <li>启动后菜单栏出现 ⚡ 图标，左键打开面板。安装包同样自带 Node 运行时：不需要安装 Node、不需要注册账号、不连接任何云服务。</li>
 </ol>
 <p class="note">就这么多。安装包自带完整运行时：<b>不需要装 Node、不需要注册账号、不需要填 API Key、不连接任何云服务</b>。</p>
 
