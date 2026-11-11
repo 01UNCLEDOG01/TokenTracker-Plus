@@ -17,7 +17,7 @@ vi.mock("../contexts/InsforgeAuthContext.jsx", () => ({
   useInsforgeAuth: () => authState,
 }));
 
-const configState = { baseUrl: "https://192.168.100.1:17682" };
+const configState = { baseUrl: "https://192.0.2.10:17682" };
 vi.mock("../lib/insforge-config", () => ({
   getInsforgeConfiguration: () => configState,
 }));
@@ -34,7 +34,7 @@ describe("CloudPage", () => {
   beforeEach(() => {
     getCopyLocale.mockReturnValue("zh");
     authState.user = null;
-    configState.baseUrl = "https://192.168.100.1:17682";
+    configState.baseUrl = "https://192.0.2.10:17682";
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ status: 200 })));
   });
   afterEach(() => {
@@ -43,12 +43,12 @@ describe("CloudPage", () => {
   });
 
   it("连接后端时展示实例地址、登录账号与三张卡（部署说明/多设备）", async () => {
-    authState.user = { email: "uncledog@local.test" };
+    authState.user = { email: "owner@local.test" };
     renderPage();
 
     expect(screen.getByText("云服务")).toBeInTheDocument();
-    expect(screen.getByText("https://192.168.100.1:17682")).toBeInTheDocument();
-    expect(screen.getByText("uncledog@local.test")).toBeInTheDocument();
+    expect(screen.getByText("https://192.0.2.10:17682")).toBeInTheDocument();
+    expect(screen.getByText("owner@local.test")).toBeInTheDocument();
     // 三卡：状态卡 + 自部署说明 + 局域网多设备
     expect(screen.getByText("自部署说明")).toBeInTheDocument();
     expect(screen.getByText("局域网多设备接入")).toBeInTheDocument();
