@@ -202,10 +202,42 @@ function ProviderLogo({ item }) {
   );
 }
 
+// 站主 2026-11-12：福利重点自动加粗——可白嫖多少额度、可用多久、是否实名、
+// 连接稳定性、速度快慢。金额/时长按模式抓，关键词按词表抓；`**…**` 手工
+// 加粗照旧优先，自动包裹不叠加（先按手工粗体切段，纯文本段里再抓关键片段）。
+const PERK_KEY_FACT_RE = new RegExp(
+  [
+    "[¥$]\\s?\\d[\\d,.]*", // ¥80.93 / $25
+    "\\d[\\d,.]*\\s*(?:积分|credits?|tokens?|点)", // 300 积分
+    "\\d+\\s*(?:天|个月|小时|年)", // 30 天 / 3 个月
+    "(?:长期|永久|限时|限免|限量|先到先得|手慢无)",
+    "(?:实名|免实名|无需实名)",
+    "(?:稳定|不稳定|排队|速度|偏慢|较慢|很慢|恢复|失效|不可用|无流量)",
+    "(?:白嫖|免费)",
+  ].join("|"),
+  "g",
+);
+
+/** 把纯文本段里的关键片段包成 <strong>（捕获组分割：奇数下标=命中片段）。 */
+function renderKeyFacts(seg, keyPrefix) {
+  const parts = seg.split(new RegExp(`(${PERK_KEY_FACT_RE.source})`, "g"));
+  if (parts.length === 1) return seg;
+  return parts.map((part, j) => {
+    if (!part) return null;
+    return j % 2 === 1 ? (
+      <strong key={`${keyPrefix}-${j}`} className="font-semibold text-oai-black dark:text-white">
+        {part}
+      </strong>
+    ) : (
+      part
+    );
+  });
+}
+
 function renderBoldText(text) {
   if (!text || typeof text !== "string") return text;
   // Simpler split by bold markdown
-  const segments = text.split(/(\B\*\*[^*]+\*\*\B|\*\*[^*]+\*\*)/g);
+  const segments = text.split(/(\B\*\*[^*]+\*\*|\*\*[^*]+\*\*)/g);
   return segments.map((seg, i) => {
     if (seg.startsWith("**") && seg.endsWith("**") && seg.length > 4) {
       return (
@@ -214,8 +246,45 @@ function renderBoldText(text) {
         </strong>
       );
     }
-    return seg;
+    return renderKeyFacts(seg, String(i));
   });
+}
+
+/// 福利卡描述：超过 96 字默认收束到三行（点击展开/收起），短描述原样渲染。
+/// 展开状态留在卡片实例上——切页/筛选项变化重排时按新实例重置，可接受。
+function PerkCardDescription({ text }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = typeof text === "string" && text.length > 96;
+  const collapsed = long && !expanded;
+  return (
+    <div className="mt-3">
+      <p
+        className="text-xs leading-relaxed text-oai-gray-600 dark:text-oai-gray-300"
+        style={
+          collapsed
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }
+            : undefined
+        }
+      >
+        {renderBoldText(text)}
+      </p>
+      {long ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="mt-1 text-[11px] font-medium text-oai-brand-600 hover:underline dark:text-oai-brand-400"
+          aria-expanded={expanded}
+        >
+          {expanded ? copy("perks.desc.collapse") : copy("perks.desc.expand")}
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
@@ -314,10 +383,9 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
           )}
         </div>
 
-        {/* Description */}
-        <p className="mt-3 text-xs leading-relaxed text-oai-gray-600 dark:text-oai-gray-300">
-          {renderBoldText(item.description)}
-        </p>
+        {/* Description — 站主 2026-11-12：长描述默认收束到三行，点「展开」看全文；
+            重点（金额/时长/实名/稳定/速度）已由 renderBoldText 自动加粗。 */}
+        <PerkCardDescription text={item.description} />
 
         {/* Tips Box */}
         {item.tips && (

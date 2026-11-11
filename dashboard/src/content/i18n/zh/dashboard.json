@@ -949,5 +949,9 @@
   "usage.overview.trae_estimate_line": "费用估算：{{estimated}}（按同一工具、同一模型的历史实测命中率 {{median}}% 折算，本机字段覆盖期实测 95–97%；未使用过的模型按官方缓存价率折算；若完全不缓存、按牌价全额则为 {{high}}）。",
   "usage.overview.trae_estimate_basis": "估算依据：命中率取自同一工具、同一模型的历史实测数据（字段覆盖期实测 95–97%）；未使用过的模型按官方缓存价率与同工具实测中位命中率折算；实际缓存成本以 TRAE 计费为准。",
   "usage.overview.trae_row_estimate_marker": "（估算）",
-  "usage.overview.cache_hit_rate_label_est": "缓存命中率（估算）"
+  "usage.overview.cache_hit_rate_label_est": "缓存命中率（估算）",
+  "pet.controls.monitor_mac": "灵动岛",
+  "pet.controls.hover_limits": "悬浮时显示限额",
+  "perks.desc.expand": "展开全文",
+  "perks.desc.collapse": "收起"
 }

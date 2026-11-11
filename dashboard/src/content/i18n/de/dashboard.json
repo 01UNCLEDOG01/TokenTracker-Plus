@@ -795,5 +795,9 @@
   "pet.codex.imported": "Importiert",
   "usage.overview.trae_notice_body_unestimated": "In diesem Zeitraum gibt es keine verwertbare Messung, daher wurde keine Cache-Schätzung vorgenommen; Token und Kosten bleiben gemessen.",
   "usage.overview.trae_estimate_line": "Geschätzte Kosten: {{estimated}} (gefaltet mit der {{median}} % gemessenen Cache-Trefferquote dieses Modells in diesem Tool — ungenutzte Modelle mit dem offiziellen Cache-Read-Preisverhältnis; {{high}} bei voller Unkasschiert-Abrechnung).",
-  "usage.overview.trae_estimate_basis": "Grundlage: die Trefferquote stammt aus der eigenen gemessenen Historie dieses Tools für dasselbe Modell (95–97 % im Felder-Fenster); ungenutzte Modelle werden mit dem offiziellen Cache-Read-Preisverhältnis und der Median-Quote gefaltet; die tatsächlichen Abrechnungskosten bestimmt TRAE."
+  "usage.overview.trae_estimate_basis": "Grundlage: die Trefferquote stammt aus der eigenen gemessenen Historie dieses Tools für dasselbe Modell (95–97 % im Felder-Fenster); ungenutzte Modelle werden mit dem offiziellen Cache-Read-Preisverhältnis und der Median-Quote gefaltet; die tatsächlichen Abrechnungskosten bestimmt TRAE.",
+  "pet.controls.monitor_mac": "Dynamic Island",
+  "pet.controls.hover_limits": "Limiten bei Hover anzeigen",
+  "perks.desc.expand": "Mehr anzeigen",
+  "perks.desc.collapse": "Weniger anzeigen"
 }

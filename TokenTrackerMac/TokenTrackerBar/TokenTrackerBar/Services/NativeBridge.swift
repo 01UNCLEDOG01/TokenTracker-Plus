@@ -240,7 +240,7 @@ final class NativeBridge {
                 "visible": false, "character": "clawd", "size": "medium", "petScale": 1.4,
                 "botColor": "auto",
                 "monitor": false, "islandMode": true, "quota": QuotaPanelController.shared.isVisible,
-                "trayStyle": "cat", "actionLock": "auto",
+                "trayStyle": "cat", "actionLock": "auto", "hoverLimits": true,
             ])
         case "getNotificationStatus":
             pushQAEvent("native:notificationPermission", payload: ["status": "denied"])
@@ -445,6 +445,9 @@ final class NativeBridge {
             "islandMode": true,
             "quota": QuotaPanelController.shared.isVisible,
             "trayStyle": Self.bridgeTrayStyle(),
+            // 1.27.0 悬浮时显示限额 echo — the page's probe for the toggle
+            // (hosts without the key keep the always-on hover card).
+            "hoverLimits": controller.uiState.hoverLimitsEnabled,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }
@@ -614,6 +617,14 @@ final class NativeBridge {
             if let number = value as? Double {
                 controller.setScale(CGFloat(number))
             }
+        case "hoverLimits":
+            // 1.27.0 悬浮时显示限额: the pet page toggles the hover bubble's
+            // limit rows. The today headline always stays.
+            if let enabled = value as? Bool {
+                PetSurfacePreference.setHoverLimitsEnabled(enabled)
+                controller.uiState.hoverLimitsEnabled = enabled
+                pushPetSettings()
+            }
         case "monitor":
             // Windows parity (TrayApplicationContext.SetMonitorEnabled): the
             // 用量悬浮窗 toggle drives the Dynamic Island pill.
@@ -698,10 +709,17 @@ final class NativeBridge {
         static let quotaEnabledKey = "QuotaWidgetEnabled"
         static let monitorIslandModeKey = "MonitorIslandMode"
         static let actionLockKey = "PetActionLock"
+        /// 1.27.0: the pet page's 悬浮时显示限额 toggle. Default on so an
+        /// upgraded install keeps the hover card it already had.
+        static let hoverLimitsKey = "PetHoverLimitsEnabled"
         static let defaultActionLock = "auto"
 
         static var quotaEnabled: Bool {
             UserDefaults.standard.object(forKey: quotaEnabledKey) as? Bool ?? false
+        }
+
+        static var hoverLimitsEnabled: Bool {
+            UserDefaults.standard.object(forKey: hoverLimitsKey) as? Bool ?? true
         }
 
         static var actionLock: String {
@@ -710,6 +728,10 @@ final class NativeBridge {
 
         static func setQuotaEnabled(_ enabled: Bool) {
             UserDefaults.standard.set(enabled, forKey: quotaEnabledKey)
+        }
+
+        static func setHoverLimitsEnabled(_ enabled: Bool) {
+            UserDefaults.standard.set(enabled, forKey: hoverLimitsKey)
         }
 
         static func setActionLock(_ raw: String?) {

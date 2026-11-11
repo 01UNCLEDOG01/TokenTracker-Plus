@@ -339,8 +339,11 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
       }));
     });
 
-    // The page is live (monitor toggle rendered from the host snapshot)...
-    expect(await screen.findByRole("switch", { name: copy("pet.controls.monitor") })).toBeInTheDocument();
+    // The page is live (monitor toggle rendered from the host snapshot) — and
+    // on a macOS host the toggle is labelled 灵动岛 (the mac pill IS the
+    // island; the Windows shell keeps the 用量悬浮窗 label).
+    const macMonitorLabel = copy("pet.controls.monitor_mac") || copy("pet.controls.monitor");
+    expect(await screen.findByRole("switch", { name: macMonitorLabel })).toBeInTheDocument();
     // ...but the host offers only the top-anchored island, so neither the
     // 自由悬浮 option nor a single-option 悬浮模式 row is rendered.
     expect(screen.queryByText(copy("pet.controls.float_mode"))).not.toBeInTheDocument();
@@ -354,7 +357,7 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
 
     // Whatever the user can still click only writes supported values.
     await act(async () => {
-      await user.click(screen.getByRole("switch", { name: copy("pet.controls.monitor") }));
+      await user.click(screen.getByRole("switch", { name: macMonitorLabel }));
     });
     await waitFor(() => expect(messages).toContainEqual({
       type: "setPetSetting",

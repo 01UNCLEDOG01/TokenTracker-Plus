@@ -784,5 +784,9 @@
   "pet.codex.imported": "가져옴",
   "usage.overview.trae_notice_body_unestimated": "이 기간에 사용 가능한 실측이 없어 캐시 추정이 이루어지지 않았으며, Token과 비용은 실측 그대로 표시됩니다.",
   "usage.overview.trae_estimate_line": "추정 비용: {{estimated}} (이 도구에서의 동일 모델 실측 적중률 {{median}}%로 환산 — 미사용 모델은 공식 캐시 읽기 가격 비율 사용. 완전 비캐시 청구 시 {{high}}).",
-  "usage.overview.trae_estimate_basis": "근거: 적중률은 이 도구 자체의 동일 모델 실측 기록(필드 기간 실측 95–97%)에서 가져옵니다. 미사용 모델은 공식 캐시 읽기 가격 비율과 실측 중앙값으로 환산하며, 실제 청구 캐시 비용은 TRAE의 계산을 따릅니다."
+  "usage.overview.trae_estimate_basis": "근거: 적중률은 이 도구 자체의 동일 모델 실측 기록(필드 기간 실측 95–97%)에서 가져옵니다. 미사용 모델은 공식 캐시 읽기 가격 비율과 실측 중앙값으로 환산하며, 실제 청구 캐시 비용은 TRAE의 계산을 따릅니다.",
+  "pet.controls.monitor_mac": "다이나믹 아일랜드",
+  "pet.controls.hover_limits": "호버 시 한도 표시",
+  "perks.desc.expand": "전체 보기",
+  "perks.desc.collapse": "접기"
 }

@@ -2177,3 +2177,7 @@ perks.album.prev,ui,PerksPage,PerksPage,album_prev,Previous page,,active
 perks.album.refresh,ui,PerksPage,PerksPage,album_refresh,Next refresh,,active
 perks.album.title,ui,PerksPage,PerksPage,album_title,My album,,active
 perks.credit_aihot,ui,PerksPage,PerksPage,credit_aihot,Perk data is hand-verified by the TT-plus author; AIHOT (aihot.news)'s daily free-token board serves as the freshness reference. Thanks to Kazik (数字生命卡兹克) for keeping the data open.,,active
+pet.controls.monitor_mac,dashboard,PetPage,PetPage,monitor_mac,Dynamic Island,,active
+pet.controls.hover_limits,dashboard,PetPage,PetPage,hover_limits,Show limits on hover,,active
+perks.desc.expand,dashboard,PerksPage,PerkCard,desc_expand,展开全文,,active
+perks.desc.collapse,dashboard,PerksPage,PerkCard,desc_collapse,收起,,active

@@ -722,14 +722,29 @@ export function PetPage() {
                     {settings.monitor !== undefined ? (
                       <>
                         <div className="flex items-center justify-between gap-4">
-                          <div className="text-sm font-medium">{copy("pet.controls.monitor")}</div>
+                          {/* 站主 2026-11-12：mac 端这个开关控制的就是灵动岛，按宿主改名（Windows 仍叫用量悬浮窗）。 */}
+                          <div className="text-sm font-medium">
+                            {isMacNativeHost ? (copy("pet.controls.monitor_mac") || copy("pet.controls.monitor")) : copy("pet.controls.monitor")}
+                          </div>
                           <ToggleSwitch
                             checked={settings.monitor}
                             onChange={() => setSetting("monitor", !settings.monitor)}
                             disabled={!available}
-                            ariaLabel={copy("pet.controls.monitor")}
+                            ariaLabel={isMacNativeHost ? (copy("pet.controls.monitor_mac") || copy("pet.controls.monitor")) : copy("pet.controls.monitor")}
                           />
                         </div>
+                        {/* 1.27.0 悬浮时显示限额：mac 宿主回显 hoverLimits 才出现；开关只去掉悬停气泡里的限额行，今日头条常驻。 */}
+                        {typeof settings.hoverLimits === "boolean" ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="text-sm font-medium">{copy("pet.controls.hover_limits")}</div>
+                            <ToggleSwitch
+                              checked={settings.hoverLimits}
+                              onChange={() => setSetting("hoverLimits", !settings.hoverLimits)}
+                              disabled={!available}
+                              ariaLabel={copy("pet.controls.hover_limits")}
+                            />
+                          </div>
+                        ) : null}
                         {settings.monitor && settings.islandMode !== undefined && showIslandModePicker ? (
                           <div className="flex items-center justify-between gap-4 pl-2">
                             <div className="text-xs text-oai-gray-500 dark:text-oai-gray-400">

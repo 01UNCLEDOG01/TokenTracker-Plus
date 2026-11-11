@@ -67,6 +67,9 @@ export function usePetSettings() {
         // 1.27.0 free-size slider probe: a number unlocks the slider (hosts that
         // keep only the preset `size` string stay on the segmented control).
         petScale: typeof next.petScale === "number" ? next.petScale : undefined,
+        // 1.27.0 悬浮时显示限额 probe: the toggle renders only on hosts that
+        // echo the key (the Windows shell keeps its always-on hover card).
+        hoverLimits: typeof next.hoverLimits === "boolean" ? next.hoverLimits : undefined,
       });
     });
     requestNativePetSettings();

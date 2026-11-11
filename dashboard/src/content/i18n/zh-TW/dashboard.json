@@ -980,5 +980,9 @@
   "usage.overview.trae_estimate_line": "費用估算：{{estimated}}（依同一工具、同一模型的歷史實測命中率 {{median}}% 折算，本機欄位覆蓋期實測 95–97%；未使用過的模型按官方快取價率折算；若完全不快取、按牌價全額則為 {{high}}）。",
   "usage.overview.trae_estimate_basis": "估算依據：命中率取自同一工具、同一模型的歷史實測數據（欄位覆蓋期實測 95–97%）；未使用過的模型按官方快取價率與同工具實測中位命中率折算；實際快取成本以 TRAE 計費為準。",
   "usage.overview.trae_row_estimate_marker": "（估算）",
-  "usage.overview.cache_hit_rate_label_est": "快取命中率（估算）"
+  "usage.overview.cache_hit_rate_label_est": "快取命中率（估算）",
+  "pet.controls.monitor_mac": "靈動島",
+  "pet.controls.hover_limits": "懸浮時顯示限額",
+  "perks.desc.expand": "展開全文",
+  "perks.desc.collapse": "收起"
 }

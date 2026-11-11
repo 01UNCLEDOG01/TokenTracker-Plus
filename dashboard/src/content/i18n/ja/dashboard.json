@@ -784,5 +784,9 @@
   "pet.codex.imported": "インポート済み",
   "usage.overview.trae_notice_body_unestimated": "この期間には利用可能な実測がないためキャッシュ推計は行われず、Token と費用は実測のまま表示されます。",
   "usage.overview.trae_estimate_line": "推計費用: {{estimated}}（このツールでの同モデルの実測命中率 {{median}}% で折算 — 未使用モデルは公式キャッシュ読取価格比を使用。完全にキャッシュなしの場合は {{high}}）。",
-  "usage.overview.trae_estimate_basis": "根拠: 命中率はこのツール自身の同モデル実測履歴（フィールド期間の実測 95–97%）に基づきます。未使用モデルは公式キャッシュ読取価格比と実測中央値で折算。実際の請求キャッシュコストは TRAE の計算によります。"
+  "usage.overview.trae_estimate_basis": "根拠: 命中率はこのツール自身の同モデル実測履歴（フィールド期間の実測 95–97%）に基づきます。未使用モデルは公式キャッシュ読取価格比と実測中央値で折算。実際の請求キャッシュコストは TRAE の計算によります。",
+  "pet.controls.monitor_mac": "ダイナミックアイランド",
+  "pet.controls.hover_limits": "ホバー時に上限を表示",
+  "perks.desc.expand": "全文を表示",
+  "perks.desc.collapse": "折りたたむ"
 }

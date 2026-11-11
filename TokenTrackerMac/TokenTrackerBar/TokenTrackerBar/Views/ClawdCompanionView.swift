@@ -338,6 +338,10 @@ struct ClawdCompanionView: View {
                     .padding(.bottom, 4)
             }
 
+            // 1.27.0: the hover limits card is toggleable from the pet page
+            // (悬浮时显示限额) — activePetLimits empties itself when the
+            // toggle is off, so the rows vanish while the today headline
+            // above stays and the bubble never reads as dead.
             ForEach(activePetLimits.indices, id: \.self) { index in
                 let reading = activePetLimits[index]
                 let display = petLimitDisplay(for: reading)
@@ -1490,8 +1494,11 @@ struct ClawdCompanionView: View {
     }
 
     /// Keep the tooltip useful by surfacing every visible window that is in use
-    /// but not full. Zero-use and already-full windows stay in the full Limits view.
+    /// but not full. Zero-use and already-full windows stay in the full Limits
+    /// view. 1.27.0: the whole list honors the pet page's 悬浮时显示限额 toggle
+    /// (the toggle only removes these rows — the today headline stays).
     private var activePetLimits: [PetLimitReading] {
+        guard petState.hoverLimitsEnabled else { return [] }
         guard let limits = viewModel.usageLimits else { return [] }
         let hidden = limitsStore.hiddenProviders
         var readings: [PetLimitReading] = []

@@ -99,6 +99,7 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
         }
         super.init()
         uiState.floatingScale = petScale
+        uiState.hoverLimitsEnabled = NativeBridge.PetSurfacePreference.hoverLimitsEnabled
     }
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -887,6 +888,10 @@ final class PetWindowState: ObservableObject {
     @Published var isDragging = false
     @Published var dragDirection: DragDirection = .right
     @Published var sleepState: ClawdCompanionView.ClawdState? = nil
+    /// 1.27.0: the pet page's 悬浮时显示限额 toggle — removes the hover
+    /// bubble's limit rows (the today headline stays). Default on: existing
+    /// installs keep the card they already had.
+    @Published var hoverLimitsEnabled = true
     @Published var lookDirectionIndex: Int? = nil
     /// Sprite scale for the floating pet — driven by the chosen PetSizePreset.
     @Published var floatingScale: CGFloat = 1.4
