@@ -12,15 +12,15 @@ import { Card } from "../ui/components/Card.jsx";
 // 「云服务」落回 fork 语义——自托管后端的连接状态、自部署说明与多设备接入。
 export const PROBE_DEBOUNCE_MS = 250;
 
-// 健康探测：/api/auth/public-config 是 local-backend 的公开端点；对别的
-// 实现只要服务器有 HTTP 响应（<500）就算可达——探测的是「服务器在不在」，
-// 不深究端点形状。
-export async function probeInstanceHealth(baseUrl, fetchImpl = fetch) {
+// 健康探测走**同源代理**（面板 server 的 /api/auth/* 会转发到后端），
+// 不直连后端地址：WebView 未必信任自签 CA（登录链路就是同源代理），
+// 而 node 端的信任（NODE_EXTRA_CA_CERTS）才是登录数据真正走的路。
+// 网络层有任何 HTTP 响应 = server→后端链路通；409 是 server 明确回答
+// 「未配置后端」，视为不可达。
+export async function probeInstanceHealth(fetchImpl = fetch) {
   try {
-    const res = await fetchImpl(baseUrl.replace(/\/+$/, "") + "/api/auth/public-config", {
-      cache: "no-store",
-    });
-    return res.status < 500;
+    const res = await fetchImpl("/api/auth/public-config", { cache: "no-store" });
+    return res.status !== 409;
   } catch {
     return false;
   }
@@ -51,7 +51,7 @@ export function CloudPage() {
     }
     let alive = true;
     const timer = setTimeout(() => {
-      probeInstanceHealth(baseUrl).then((ok) => {
+      probeInstanceHealth().then((ok) => {
         if (alive) setProbe(ok ? "ok" : "bad");
       });
     }, PROBE_DEBOUNCE_MS);
@@ -87,11 +87,7 @@ export function CloudPage() {
             <StatusDot tone={statusTone} />
             <span className="text-sm font-semibold">{statusLabel}</span>
           </div>
-          {localOnly ? (
-            <p className="text-xs leading-6 text-oai-gray-500 dark:text-oai-gray-400">
-              {copy("cloud.deploy.body")}
-            </p>
-          ) : (
+          {localOnly ? null : (
             <dl className="grid gap-3 text-sm sm:grid-cols-[9rem_1fr] sm:gap-y-2">
               <dt className="flex items-center gap-1.5 text-oai-gray-500 dark:text-oai-gray-400">
                 <Server size={14} aria-hidden />

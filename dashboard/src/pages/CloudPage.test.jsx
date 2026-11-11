@@ -65,11 +65,17 @@ describe("CloudPage", () => {
     await waitFor(() => expect(screen.getByText("已连接自托管后端")).toBeInTheDocument());
   });
 
-  it("后端不可达时给出可达性提示而非假装健康", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ status: 503 })));
+  it("后端链路断开（网络异常）时给出可达性提示而非假装健康", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
     renderPage();
     await waitFor(() => expect(screen.getByText("暂时无法连接后端")).toBeInTheDocument());
     expect(screen.getByText(/自签证书已被信任/)).toBeInTheDocument();
+  });
+
+  it("server 明确回答未配置后端（409）同样视为不可达", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ status: 409 })));
+    renderPage();
+    await waitFor(() => expect(screen.getByText("暂时无法连接后端")).toBeInTheDocument());
   });
 
   it("本地模式（无 baseUrl）不发起探测，直接显示本地模式并引导部署", () => {
@@ -81,14 +87,17 @@ describe("CloudPage", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("probeInstanceHealth：HTTP 响应即视为可达（<500），网络异常不可达", async () => {
-    const ok = await probeInstanceHealth("https://x.example/", () => Promise.resolve({ status: 404 }));
+  it("probeInstanceHealth：走同源 /api/auth/public-config，任何响应均可达但 409（未配置后端）不可达", async () => {
+    const ok = await probeInstanceHealth(() => Promise.resolve({ status: 404 }));
     expect(ok).toBe(true);
-    const down = await probeInstanceHealth("https://x.example/", () => Promise.reject(new Error("refused")));
+    const ok200 = await probeInstanceHealth(() => Promise.resolve({ status: 200 }));
+    expect(ok200).toBe(true);
+    const notConfigured = await probeInstanceHealth(() => Promise.resolve({ status: 409 }));
+    expect(notConfigured).toBe(false);
+    const down = await probeInstanceHealth(() => Promise.reject(new Error("refused")));
     expect(down).toBe(false);
-    // 尾部斜杠被归一，不产生双斜杠路径
     const seen = vi.fn(() => Promise.resolve({ status: 200 }));
-    await probeInstanceHealth("https://x.example/", seen);
-    expect(seen).toHaveBeenCalledWith("https://x.example/api/auth/public-config", { cache: "no-store" });
+    await probeInstanceHealth(seen);
+    expect(seen).toHaveBeenCalledWith("/api/auth/public-config", { cache: "no-store" });
   });
 });

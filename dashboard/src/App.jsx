@@ -119,7 +119,9 @@ const SettingsPage = lazy(() =>
 const SelfHostPage = lazy(() =>
   import("./pages/SelfHostPage.jsx").then((m) => ({ default: m.SelfHostPage })),
 );
-const CloudPage = lazy(() => import("./pages/CloudPage.jsx"));
+const CloudPage = lazy(() =>
+  import("./pages/CloudPage.jsx").then((m) => ({ default: m.CloudPage })),
+);
 const SkillsPage = lazy(() =>
   import("./pages/SkillsPage.jsx").then((m) => ({ default: m.SkillsPage })),
 );
