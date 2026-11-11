@@ -220,7 +220,7 @@ final class NativeBridge {
                 "currencySymbol": defaults.string(forKey: "currencySymbol") ?? "$",
                 "exchangeRate": defaults.object(forKey: "exchangeRate") ?? 1.0,
                 "limitsDisplayMode": "all", "limitsPreferences": [],
-                "platform": "macos", "petBridge": true, "quotaWindow": false,
+                "platform": "macos", "petBridge": true, "quotaWindow": true,
                 "widgetGallerySupported": false,
                 "trayIconStyles": MenuBarIconStyle.allCases.map(\.rawValue),
                 "islandModes": ["island"], "petActionLockSupported": false
@@ -229,8 +229,8 @@ final class NativeBridge {
         case "getPetSettings":
             pushQAEvent("native:petSettings", payload: [
                 "visible": false, "character": "clawd", "size": "medium", "botColor": "auto",
-                "monitor": false, "islandMode": true, "quota": false, "trayStyle": "cat",
-                "actionLock": "auto",
+                "monitor": false, "islandMode": true, "quota": QuotaPanelController.shared.isVisible,
+                "trayStyle": "cat", "actionLock": "auto",
             ])
         case "getNotificationStatus":
             pushQAEvent("native:notificationPermission", payload: ["status": "denied"])
@@ -371,11 +371,9 @@ final class NativeBridge {
             // every pre-existing key keeps its exact value.
             "platform": "macos",
             "petBridge": true,
-            // The quota panel does not exist yet (QuotaPanelController lands in
-            // B3c). Advertise false so the pet page hides 桌面限额 instead of
-            // shipping a toggle that turns on nothing; B3c flips this to true in
-            // the same commit that adds the window.
-            "quotaWindow": false,
+            // B3c ships the floating quota panel (QuotaPanelController), so the
+            // pet page's 桌面限额 toggle is live and drives a real window.
+            "quotaWindow": true,
             // The WidgetKit appex is not shipped (no NSExtension / App Group), so
             // the widgets page hides its gallery instead of opening a dead picker.
             "widgetGallerySupported": false,
@@ -421,13 +419,14 @@ final class NativeBridge {
             // Island pill, trayStyle is this host's menu-bar icon style.
             // `islandMode` is always "island" (the panel is top-anchored);
             // getSettings advertises islandModes so the page never offers 自由悬浮.
-            // `actionLock` and `quota` are deliberately NOT echoed: the pose filter
-            // and the quota window are not implemented yet (getSettings says
-            // petActionLockSupported/quotaWindow false), while applyPetSetting still
-            // persists the values an older dashboard may send — echoing them would
-            // put live-looking controls in front of a no-op.
+            // `actionLock` is deliberately NOT echoed: the pose filter is not
+            // implemented yet (getSettings says petActionLockSupported false), so
+            // echoing it would put a live-looking control in front of a no-op.
+            // `quota` IS echoed since B3c — it mirrors the panel's real visibility,
+            // so the pet page checkbox converges with the menu and the window's ✕.
             "monitor": dynamicIslandController?.isEnabled == true,
             "islandMode": true,
+            "quota": QuotaPanelController.shared.isVisible,
             "trayStyle": Self.bridgeTrayStyle(),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
@@ -619,11 +618,11 @@ final class NativeBridge {
                 pushPetSettings()
             }
         case "quota":
-            // The QuotaPanelController lands in B3c; persist the toggle now so the
-            // page round-trips and the panel can restore it on first run.
+            // B3c: the pet page's 桌面限额 checkbox drives the real panel. setEnabled
+            // persists the toggle, shows/tears down the window and pushes both
+            // channels itself (pet settings for this row, settings for the menu).
             if let enabled = value as? Bool {
-                PetSurfacePreference.setQuotaEnabled(enabled)
-                pushPetSettings()
+                QuotaPanelController.shared.setEnabled(enabled)
             }
         case "trayStyle":
             if let raw = value as? String, let style = Self.menuBarIconStyle(forBridgeTrayStyle: raw) {
@@ -669,9 +668,9 @@ final class NativeBridge {
 
     /// Persisted pet-page toggles for surfaces that ship later in the port.
     /// Keeping the keys here lets the web page's state survive relaunch before
-    /// the owning controller exists (quota panel = B3c; free-float island = not
-    /// ported), without inventing a second preferences store. Internal since
-    /// B3c: QuotaPanelController shares the same key instead of a second store.
+    /// the owning controller exists (free-float island = not ported), without
+    /// inventing a second preferences store. Internal since B3c: the quota panel
+    /// owns `quotaEnabled` through this key instead of a second store.
     enum PetSurfacePreference {
         static let quotaEnabledKey = "QuotaWidgetEnabled"
         static let monitorIslandModeKey = "MonitorIslandMode"

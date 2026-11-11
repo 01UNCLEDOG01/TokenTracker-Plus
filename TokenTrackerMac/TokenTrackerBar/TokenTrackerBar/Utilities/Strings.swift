@@ -479,6 +479,9 @@ enum Strings {
     static var iconStyleMyPet: String { t("My Pet", "我的宠物", "我的寵物", "マイペット", "내 펫", "Mein Haustier") }
     static var iconStyleStatic: String { t("Static", "静态", "靜態", "静的", "정적", "Statisch") }
     static var menuDesktopPet: String { t("Desktop Pet", "桌面宠物", "桌面寵物", "デスクトップペット", "데스크톱 펫", "Desktop-Haustier") }
+    // B3c: the floating quota surface — label reuses the dashboard's
+    // pet.controls.quota copy so the menu item and the pet-page row read the same.
+    static var menuQuotaWindow: String { t("Desktop quota widget", "桌面限额浮窗", "桌面限額浮窗", "デスクトップ使用量ウィジェット", "데스크톱 사용량 위젯", "Desktop-Kontingent-Widget") }
     static var menuHidePet: String { t("Hide Pet", "隐藏桌宠", "隱藏桌寵", "ペットを隠す", "펫 숨기기", "Haustier ausblenden") }
     static var menuPetSize: String { t("Pet Size", "桌宠大小", "桌寵大小", "ペットのサイズ", "펫 크기", "Haustiergröße") }
     static var menuPetCharacter: String { t("Pet Character", "宠物形象", "寵物形象", "ペットのキャラクター", "펫 캐릭터", "Haustier-Charakter") }

@@ -90,6 +90,7 @@
 		B61B8B40D97BF3D237035274 /* PetAtlasSpriteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4935CFBF566FBA702360928A /* PetAtlasSpriteView.swift */; };
 		B65E1367D6887038077BE228 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37AF5C46634EEC0C5D8ED79A /* WidgetSnapshot.swift */; };
 		B823E749BA5997E4D8F5BDCF /* UsagePublicationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30CC4797024F14A093CE65F /* UsagePublicationPolicy.swift */; };
+		B8D3F0E5C2A417693A58BF7D /* QuotaPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C2E9D4B1F305682947AE6C /* QuotaPanelController.swift */; };
 		BD731F499CED230BEF5543F7 /* DynamicIslandController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 522353BD3813A65E96863A07 /* DynamicIslandController.swift */; };
 		C213D00884141FE7643F744E /* pet-byte.png in Resources */ = {isa = PBXBuildFile; fileRef = CEFF2CD328E52D5DD2A96D09 /* pet-byte.png */; };
 		C47665557AA6DF1044D3F22F /* SyncResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53632340DD871C421818E33A /* SyncResponse.swift */; };
@@ -226,6 +227,7 @@
 		9A952AACE53258BB206E1C74 /* NativeLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLocalization.swift; sourceTree = "<group>"; };
 		9BB8C3EACCE4B63586363648 /* UsageLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageLimits.swift; sourceTree = "<group>"; };
 		A627BDE55A5BC96C7D8B8C21 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		A7C2E9D4B1F305682947AE6C /* QuotaPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaPanelController.swift; sourceTree = "<group>"; };
 		AE4E16A6E2684150D295E99C /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		AE9C77C9AC81D5CBDEFF3D39 /* WidgetStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetStrings.swift; sourceTree = "<group>"; };
 		B1B0C3FEFD719B85884CF6DF /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
@@ -440,6 +442,7 @@
 				8284CF040E8B21C2EBF64A27 /* MenuBarPetFrameProvider.swift */,
 				2CDCBF9397253F3B7937BAB7 /* NativeBridge.swift */,
 				6E8D63B300D6725379C8BABB /* QueueActivityMonitor.swift */,
+				A7C2E9D4B1F305682947AE6C /* QuotaPanelController.swift */,
 				CF3C6073BBBE4531B3F769ED /* ResumableDownloader.swift */,
 				86B0ECF835E3DFE9959BB5BA /* ScreenConfettiOverlayController.swift */,
 				4319225BB54D8F26CC01210C /* ServerManager.swift */,
@@ -683,6 +686,7 @@
 				20D6748A99F2B24D52D1B558 /* PopoverPlacementPolicy.swift in Sources */,
 				D6D5E7656C18B91F430BB71A /* ProjectUsage.swift in Sources */,
 				DC514121606323D52CA82B4A /* QueueActivityMonitor.swift in Sources */,
+				B8D3F0E5C2A417693A58BF7D /* QuotaPanelController.swift in Sources */,
 				5BBE0F24B7A4F53457790813 /* ResumableDownloader.swift in Sources */,
 				E5ACA42F66C13246AC53EE0B /* ScreenConfettiOverlayController.swift in Sources */,
 				2EB34DD5CA7A37A457DB626B /* ServerHealthCheckPolicy.swift in Sources */,

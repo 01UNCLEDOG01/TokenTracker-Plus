@@ -157,6 +157,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             desktopPetController: desktopPetController,
             dynamicIslandController: dynamicIslandController
         )
+        // Desktop quota panel (B3c): its ↗ arrow opens the dashboard window; the
+        // persisted enable state is restored below once the server answers.
+        QuotaPanelController.shared.onOpenDashboard = {
+            DashboardPresentationCoordinator.shared.showDashboard()
+        }
         registerWakeCatchUpObservers()
 
         // A normal Finder/Dock launch should behave like opening an app, while
@@ -189,6 +194,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let serverHealthy = await APIClient.shared.checkServerHealth()
             let isOnline = serverManager.isServerRunning || serverHealthy
             if isOnline {
+                // Restore the quota panel only when the page it hosts can load;
+                // the persisted toggle is the single source of enable state.
+                QuotaPanelController.shared.restoreFromSettingsIfNeeded()
                 await viewModel.syncThenLoad()
             }
             viewModel.startAutoRefresh()

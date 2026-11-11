@@ -55,7 +55,7 @@ final class QuotaPanelController: NSObject {
     /// The enable toggle persisted by NativeBridge's `PetSurfacePreference`
     /// ("QuotaWidgetEnabled") — one key so the pet-page toggle, the menu item
     /// and the window's own close button all agree.
-    private var isEnabledStored: Bool { PetSurfacePreference.quotaEnabled }
+    private var isEnabledStored: Bool { NativeBridge.PetSurfacePreference.quotaEnabled }
     /// Saved free position ({x, y}), mirroring QuotaWidgetSettings.X/Y.
     private static let frameKey = "TTPQuotaFrame"
     /// Picked compact rows (Windows `Selected`, max 2).
@@ -68,8 +68,8 @@ final class QuotaPanelController: NSObject {
         // the page's ✕ arrives with the stored value still true. The panel is
         // the single source of teardown, the preference the single source of
         // enable state — both paths converge here.
-        if PetSurfacePreference.quotaEnabled != enabled {
-            PetSurfacePreference.setQuotaEnabled(enabled)
+        if NativeBridge.PetSurfacePreference.quotaEnabled != enabled {
+            NativeBridge.PetSurfacePreference.setQuotaEnabled(enabled)
         }
         if enabled {
             show()
@@ -122,12 +122,24 @@ final class QuotaPanelController: NSObject {
     // MARK: - Page messages
 
     func handle(message: WKScriptMessage) {
-        // Messages arrive as JSON strings from the shim; malformed bodies are
-        // dropped rather than guessed at (the page only ever sends objects).
-        guard let body = message.body as? String,
-              let data = body.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        handle(type: obj["type"] as? String ?? "", payload: obj)
+        // The page sends plain command strings for everything except selection
+        // ("quota:ready" / "quota:expand" / "quota:collapse" / "quota:drag" /
+        // "quota:close" / "quota:dashboard"); only "quota:select" is a JSON
+        // object because it carries the ids array. Parse JSON first, then fall
+        // back to the plain command — requiring JSON here silently dropped five
+        // of the six host messages.
+        if let body = message.body as? String {
+            if let data = body.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                handle(type: obj["type"] as? String ?? "", payload: obj)
+                return
+            }
+            handle(type: body, payload: [:])
+            return
+        }
+        if let obj = message.body as? [String: Any] {
+            handle(type: obj["type"] as? String ?? "", payload: obj)
+        }
     }
 
     private func handle(type: String, payload: [String: Any]) {
@@ -143,7 +155,7 @@ final class QuotaPanelController: NSObject {
         case "quota:select":
             if let ids = payload["ids"] as? [String] {
                 // Windows clamps the selection to two rows and drops blanks.
-                let cleaned = ids.filter { !$0.isEmpty }.prefix(2).map(String.init)
+                let cleaned: [String] = ids.filter { !$0.isEmpty }.prefix(2).map { $0 }
                 UserDefaults.standard.set(cleaned, forKey: Self.selectedKey)
                 pushContext()
             }
@@ -168,7 +180,7 @@ final class QuotaPanelController: NSObject {
     private func startPolling() {
         pollTimer?.invalidate()
         let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
-            self?.fetchAndPush()
+            Task { @MainActor [weak self] in self?.fetchAndPush() }
         }
         RunLoop.main.add(timer, forMode: .common)
         pollTimer = timer
@@ -260,7 +272,7 @@ final class QuotaPanelController: NSObject {
         stopDrag()
         dragAnchor = (mouse: NSEvent.mouseLocation, window: panel.frame.origin)
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.stepDrag()
+            Task { @MainActor [weak self] in self?.stepDrag() }
         }
         RunLoop.main.add(timer, forMode: .common)
         dragTimer = timer
@@ -379,7 +391,7 @@ final class QuotaPanelController: NSObject {
     }
 }
 
-extension QuotaPanelController: NSPanelDelegate {
+extension QuotaPanelController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         // An external close (⌘W routed to the panel) means disable, matching
         // the page's ✕ and the Windows shell.
@@ -427,7 +439,7 @@ extension QuotaPanelController: WKNavigationDelegate {
         retryCount += 1
         retryTimer?.invalidate()
         let timer = Timer(timeInterval: TimeInterval(2 * retryCount), repeats: false) { [weak self] _ in
-            self?.load()
+            Task { @MainActor [weak self] in self?.load() }
         }
         RunLoop.main.add(timer, forMode: .common)
         retryTimer = timer

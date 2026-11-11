@@ -1298,6 +1298,13 @@ final class StatusBarController: NSObject {
         petItem.state = desktopPetController.isVisible ? .on : .off
         menu.addItem(petItem)
 
+        // Desktop quota panel (B3c) — same persisted toggle the pet page drives,
+        // so the menu, the island right-click menu and the pet switch converge.
+        let quotaItem = NSMenuItem(title: Strings.menuQuotaWindow, action: #selector(toggleQuotaWindow), keyEquivalent: "")
+        quotaItem.target = self
+        quotaItem.state = QuotaPanelController.shared.isVisible ? .on : .off
+        menu.addItem(quotaItem)
+
         menu.addItem(.separator())
 
         // ── Group 3: Preferences & Notifications ──
@@ -1502,6 +1509,11 @@ final class StatusBarController: NSObject {
 
     @objc private func toggleDesktopPet() {
         desktopPetController.toggle()
+    }
+
+    @objc private func toggleQuotaWindow() {
+        let controller = QuotaPanelController.shared
+        controller.setEnabled(!controller.isVisible)
     }
 
     @objc private func quit() {

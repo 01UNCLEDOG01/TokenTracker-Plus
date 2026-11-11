@@ -38,13 +38,12 @@ test('macOS getSettings advertises platform + host capability keys', () => {
   // quota panel on quotaWindow; the pet page probes petBridge.
   assert.match(pushSettings, /"platform": "macos"/, 'getSettings must report platform "macos"');
   assert.match(pushSettings, /"petBridge": true/, 'getSettings must advertise petBridge: true');
-  // The quota PANEL does not exist until B3c (no QuotaPanelController yet), so
-  // advertising true would ship a 桌面限额 toggle that turns nothing on. B3c
-  // flips this to true in the same commit that lands the window.
-  assert.match(pushSettings, /"quotaWindow": false/,
-    'getSettings must advertise quotaWindow: false until B3c ships the window');
-  assert.doesNotMatch(pushSettings, /"quotaWindow": true/,
-    'quotaWindow must never be advertised true before the window exists (dead control)');
+  // B3c ships QuotaPanelController, so the capability flips true in the same
+  // commit that adds the window, the menu item and the pet-page toggle.
+  assert.match(pushSettings, /"quotaWindow": true/,
+    'getSettings must advertise quotaWindow: true now that QuotaPanelController ships');
+  assert.doesNotMatch(pushSettings, /"quotaWindow": false/,
+    'quotaWindow: false would hide the live pet-page toggle B3c wires');
   assert.match(pushSettings, /"widgetGallerySupported": false/,
     'getSettings must advertise widgetGallerySupported: false (WidgetKit appex is not shipped)');
   assert.match(pushSettings, /"trayIconStyles": MenuBarIconStyle\.allCases/,
@@ -74,7 +73,7 @@ test('pet channel accepts the richer dashboard settings and echoes its capabilit
       'applyPetSetting must handle "' + key + '"');
   }
   for (const key of ['visible', 'character', 'botColor', 'size', 'monitor', 'islandMode',
-    'trayStyle']) {
+    'quota', 'trayStyle']) {
     assert.ok(pushPetSettings.includes('"' + key + '":'),
       'pushPetSettings must echo "' + key + '" so the page converges');
   }
@@ -83,18 +82,52 @@ test('pet channel accepts the richer dashboard settings and echoes its capabilit
   // would put a live-looking control in front of a no-op.
   assert.doesNotMatch(pushPetSettings, /"actionLock":/,
     'pushPetSettings must not advertise the unimplemented actionLock');
-  // Same rule for the quota window: applyPetSetting still persists it, but the
-  // capability stays unadvertised until QuotaPanelController ships (B3c).
-  assert.doesNotMatch(pushPetSettings, /"quota":/,
-    'pushPetSettings must not echo the unimplemented quota window');
-  assert.match(applyPetSetting, /case "quota"/,
-    'applyPetSetting must still accept + persist a quota value from an older dashboard');
+  // B3c: the quota window is real. The pet page checkbox must converge with the
+  // panel's actual visibility, and the setter must drive the controller — a
+  // stored-flag-only setter would leave the window unopened (dead control).
+  assert.match(pushPetSettings, /"quota": QuotaPanelController\.shared\.isVisible/,
+    'pushPetSettings must echo the live quota panel visibility');
+  assert.match(applyPetSetting, /case "quota"[\s\S]*?QuotaPanelController\.shared\.setEnabled/,
+    'applyPetSetting "quota" must drive QuotaPanelController.setEnabled, not just persist');
   // A catalog refresh must be answered by another push, otherwise the pet page
   // keeps the pre-import list until an unrelated setting changes.
   const refresh = between(nativeBridge, 'case "refreshPetCatalog":', 'case "getSystemAppearance"');
   assert.match(refresh, /PetCatalog\.shared\.refresh\(\)/);
   assert.match(refresh, /pushPetSettings\(\)/,
     'refreshPetCatalog must re-push pet settings after refreshing the catalog');
+});
+
+test('quota panel is registered and wired end to end (B3c)', () => {
+  const appDelegate = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar/TokenTrackerBarApp.swift');
+  const statusBar = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar/Services/StatusBarController.swift');
+  const strings = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar/Utilities/Strings.swift');
+  const pbxproj = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar.xcodeproj/project.pbxproj');
+  // Startup restore must be gated on the persisted toggle, not open unconditionally.
+  assert.match(appDelegate, /QuotaPanelController\.shared\.restoreFromSettingsIfNeeded\(\)/,
+    'launch must restore the quota panel from the persisted toggle');
+  assert.match(appDelegate, /QuotaPanelController\.shared\.onOpenDashboard/,
+    'the quota page ↗ arrow must route to the dashboard');
+  // Menu item + toggle: buildMenu() is shared by the status item AND the island,
+  // so this one item also gives island reachability.
+  assert.match(statusBar, /Strings\.menuQuotaWindow/, 'status menu must expose the quota window');
+  assert.match(statusBar, /#selector\(toggleQuotaWindow\)/, 'menu item must drive a toggle');
+  // The island's right-click menu and its gear button both pop the SAME
+  // buildMenu() this item lives in, so one menu entry covers both surfaces.
+  assert.match(statusBar, /static func showContextMenuFromIsland\(event: NSEvent, view: NSView\)[\s\S]*?instance\.buildMenu\(\)/,
+    'island right-click must pop the same tray menu (quota reachable from the island)');
+  // The page sends plain command strings for five of the six host messages;
+  // a JSON-only parser silently drops them (window never resizes/closes).
+  const quotaController = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar/Services/QuotaPanelController.swift');
+  assert.match(quotaController, /handle\(type: body, payload: \[:\]\)/,
+    'plain-string quota commands must be handled, not only JSON bodies');
+  assert.match(quotaController, /case "quota:close"[\s\S]*?setEnabled\(false\)/,
+    'quota:close must persist the surface off through setEnabled(false)');
+  assert.match(strings, /static var menuQuotaWindow: String \{ t\(/,
+    'menuQuotaWindow must be a six-locale t() string');
+  // Registration: a missing Sources entry builds fine but renders nothing.
+  assert.match(pbxproj, /QuotaPanelController\.swift in Sources/, 'QuotaPanelController must be in the Sources phase');
+  assert.match(pbxproj, /QuotaPanelController\.swift \*\/ = \{isa = PBXFileReference/,
+    'QuotaPanelController needs a PBXFileReference');
 });
 
 test('dashboard treats a WKWebView host that advertises petBridge as a native pet host', () => {
