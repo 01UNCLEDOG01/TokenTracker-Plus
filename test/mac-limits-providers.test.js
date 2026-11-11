@@ -115,3 +115,28 @@ test('fork provider window labels are six-locale Strings entries', () => {
     assert.ok(strings.includes('static var ' + key), 'Strings is missing ' + key);
   }
 });
+test('GenericLimitWindow.reset_at decode tolerates epoch-ms numbers', () => {
+  // Reviewer P0: the raccoon daily-grant window and the MiniMax Code plan/video
+  // windows publish reset_at as epoch milliseconds. A plain String? decode
+  // throws typeMismatch, which nils the whole usage-limits response for those
+  // users. The type must keep a custom tolerant decode.
+  const block = between(usageLimits, 'struct GenericLimitWindow', 'struct CursorLimits');
+  assert.match(block, /init\(from decoder: Decoder\) throws/,
+    'GenericLimitWindow must keep a custom init(from:) (plain String? regressed)');
+  assert.match(block, /decodeTolerantTimestamp/,
+    'reset_at must go through the tolerant String-or-number helper');
+  assert.match(block, /1_000_000_000_000/,
+    'epoch-ms detection (values > 1e12 are milliseconds) must stay');
+  assert.match(block, /ISO8601DateFormatter/,
+    'reset_at must still normalise to the ISO string the view parses');
+  // Tie the guard to the producers: if either stops emitting a number the
+  // tolerance is still harmless, but if the attachment stops being raw we may
+  // be guarding the wrong field.
+  assert.match(read('src/lib/minimax-code-limits.js'), /reset_at: resetAtMs\(/,
+    'minimax-code-limits.js is expected to publish numeric reset_at (see P0)');
+  assert.match(read('src/lib/raccoon-daily-usage.js'), /reset_at: todayStartMs \+ DAY_MS/,
+    'raccoon-daily-usage.js is expected to publish numeric reset_at (see P0)');
+  assert.match(read('src/lib/usage-limits.js'),
+    /out\.raccoon_daily_usage_window = raccoonDaily\.raccoon_daily_usage_window/,
+    'raccoon_daily_usage_window must stay attached raw so this guard keeps its premise');
+});

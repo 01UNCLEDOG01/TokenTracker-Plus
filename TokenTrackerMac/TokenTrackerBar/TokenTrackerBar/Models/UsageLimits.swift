@@ -407,6 +407,49 @@ struct GenericLimitWindow: Codable, Equatable {
         case usedCredits = "used_credits"
         case remainingCredits = "remaining_credits"
     }
+
+    // reset_at is NOT consistently an ISO string across providers: the raccoon
+    // daily-grant window (src/lib/raccoon-daily-usage.js) and the MiniMax Code
+    // token-plan/video windows (src/lib/minimax-code-limits.js) publish epoch
+    // milliseconds, while every other provider publishes ISO. A plain String?
+    // decode turns that number into typeMismatch, which nils the WHOLE
+    // usage-limits response for those users (B3b reviewer P0), so accept both
+    // shapes and normalise to the ISO string the view expects.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        usedPercent = try container.decode(Double.self, forKey: .usedPercent)
+        resetAt = try Self.decodeTolerantTimestamp(container, forKey: .resetAt)
+        limitWindowSeconds = try container.decodeIfPresent(Double.self, forKey: .limitWindowSeconds)
+        limitCredits = try container.decodeIfPresent(Double.self, forKey: .limitCredits)
+        usedCredits = try container.decodeIfPresent(Double.self, forKey: .usedCredits)
+        remainingCredits = try container.decodeIfPresent(Double.self, forKey: .remainingCredits)
+    }
+
+    /// ISO-8601 string, epoch number (ms, or seconds if it looks like seconds),
+    /// or numeric string — anything else keeps its raw string value so an
+    /// unknown timestamp never sinks the response.
+    private static func decodeTolerantTimestamp(
+        _ container: KeyedDecodingContainer<CodingKeys>,
+        forKey key: CodingKeys
+    ) throws -> String? {
+        if let raw = try? container.decodeIfPresent(String.self, forKey: key) {
+            if let epoch = Double(raw), epoch.isFinite { return isoString(epoch: epoch) }
+            return raw
+        }
+        if let epoch = try? container.decodeIfPresent(Double.self, forKey: key) {
+            return isoString(epoch: epoch)
+        }
+        return nil
+    }
+
+    private static func isoString(epoch: Double) -> String {
+        // Servers send milliseconds (epoch > 1e12); tolerate smaller values as
+        // seconds so a future seconds-based producer still renders a real date.
+        let seconds = abs(epoch) > 1_000_000_000_000 ? epoch / 1000 : epoch
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: Date(timeIntervalSince1970: seconds))
+    }
 }
 
 struct CursorLimits: Codable, Equatable {
