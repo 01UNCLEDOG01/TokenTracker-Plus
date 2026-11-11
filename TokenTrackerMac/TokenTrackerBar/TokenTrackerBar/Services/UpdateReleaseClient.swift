@@ -30,8 +30,11 @@ struct GitHubRelease: Decodable {
             return machine == "arm64"
         }()
         let suffix = isArm64 ? "arm64.dmg" : "x64.dmg"
-        // Prefer arch-specific DMG, fall back to any .dmg
-        return assets.first { $0.name.hasSuffix(suffix) }
+        // TT-plus releases publish ONE universal dmg named
+        // TokenTracker-plus-<version>.dmg (package-macos.sh). Prefer the fork's
+        // asset name, then any arch-specific DMG, then any .dmg at all.
+        return assets.first { $0.name.hasSuffix(".dmg") && $0.name.contains("TokenTracker-plus") }
+            ?? assets.first { $0.name.hasSuffix(suffix) }
             ?? assets.first { $0.name.hasSuffix(".dmg") }
     }
 }
@@ -49,9 +52,12 @@ final class UpdateReleaseClient {
     // TT-plus fork: tag path follows this fork.
     private static let tagPath = "/01UNCLEDOG01/TokenTracker-Plus/releases/tag/"
     private static let downloadBase = "https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases/download/"
-    /// Single universal DMG built by release-dmg.yml; download URLs depend on
-    /// this stable name (see the PRODUCT_NAME comment in project.yml).
-    private static let dmgAssetName = "TokenTrackerBar.dmg"
+    /// TT-plus publishes a single universal DMG per release, named
+    /// "TokenTracker-plus-<version>.dmg" by TokenTrackerMac/scripts/package-macos.sh.
+    static func dmgAssetName(forTag tag: String) -> String {
+        let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        return "TokenTracker-plus-\(version).dmg"
+    }
     /// Fixed cooldown when GitHub reports throttling without any recovery time.
     private static let defaultCooldown: TimeInterval = 60
 
@@ -153,14 +159,15 @@ final class UpdateReleaseClient {
         let tag = String(final.path.dropFirst(Self.tagPath.count))
         guard Self.stableVersion(from: tag) != nil else { throw FetchError.invalidReleasePage }
 
-        let downloadURL = Self.downloadBase + tag + "/" + Self.dmgAssetName
+        let assetName = Self.dmgAssetName(forTag: tag)
+        let downloadURL = Self.downloadBase + tag + "/" + assetName
         let size = try await headAssetSize(downloadURL)
         return GitHubRelease(
             tag_name: tag,
             name: nil,
             body: nil,
             html_url: final.absoluteString,
-            assets: [GitHubRelease.Asset(name: Self.dmgAssetName, browser_download_url: downloadURL, size: size)]
+            assets: [GitHubRelease.Asset(name: assetName, browser_download_url: downloadURL, size: size)]
         )
     }
 

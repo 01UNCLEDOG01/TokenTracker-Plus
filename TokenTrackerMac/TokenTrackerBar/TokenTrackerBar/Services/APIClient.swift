@@ -2,12 +2,9 @@ import Foundation
 
 struct UsageSummaryFetchResult {
     let summary: UsageSummaryResponse
-    /// Full authority, including *why* a local payload was served.
-    let accountSource: AccountViewSource
+    /// Publication authority for the menu-bar summary slots.
+    let source: UsageSummaryViewSource
     let completedAt: Date
-    /// Publication authority for the menu-bar summary slots — derived, so it
-    /// can never disagree with `accountSource`.
-    var source: UsageSummaryViewSource { accountSource.summaryViewSource }
 }
 
 actor APIClient {
@@ -22,7 +19,6 @@ actor APIClient {
     private let session: URLSession
     private let syncSession: URLSession
     private let decoder: JSONDecoder
-    private(set) var latestAccountSummaryReadCompletedAt: Date?
 
     private init() {
         self.session = URLSession(configuration: LocalAPIConfiguration.makeSessionConfiguration())
@@ -47,44 +43,39 @@ actor APIClient {
     func fetchSummaryWithSource(from: String, to: String) async throws -> UsageSummaryFetchResult {
         let result: AccountFetchResult<UsageSummaryResponse> = try await fetchWithSource(
             "/functions/tokentracker-usage-summary",
-            queryItems: withAccountQueryItems([
+            queryItems: withTimeZoneQueryItems([
                 URLQueryItem(name: "from", value: from),
                 URLQueryItem(name: "to", value: to)
             ])
         )
-        let completedAt = result.completedAt
-        if result.source.isAccount {
-            latestAccountSummaryReadCompletedAt = completedAt
-        }
         return UsageSummaryFetchResult(
             summary: result.value,
-            accountSource: result.source,
-            completedAt: completedAt
+            source: result.source,
+            completedAt: result.completedAt
         )
     }
 
 	func fetchDaily(from: String, to: String) async throws -> AccountFetchResult<DailyUsageResponse> {
-		try await fetchWithSource("/functions/tokentracker-usage-daily", queryItems: withAccountQueryItems([
+		try await fetchWithSource("/functions/tokentracker-usage-daily", queryItems: withTimeZoneQueryItems([
 			URLQueryItem(name: "from", value: from),
 			URLQueryItem(name: "to", value: to)
 		]))
 	}
 
 	func fetchHeatmap(weeks: Int = 52) async throws -> AccountFetchResult<HeatmapResponse> {
-		try await fetchWithSource("/functions/tokentracker-usage-heatmap", queryItems: withAccountQueryItems([
+		try await fetchWithSource("/functions/tokentracker-usage-heatmap", queryItems: withTimeZoneQueryItems([
 			URLQueryItem(name: "weeks", value: String(weeks))
 		]))
 	}
 
 	func fetchModelBreakdown(from: String, to: String) async throws -> AccountFetchResult<ModelBreakdownResponse> {
-		try await fetchWithSource("/functions/tokentracker-usage-model-breakdown", queryItems: withAccountQueryItems([
+		try await fetchWithSource("/functions/tokentracker-usage-model-breakdown", queryItems: withTimeZoneQueryItems([
 			URLQueryItem(name: "from", value: from),
 			URLQueryItem(name: "to", value: to)
 		]))
 	}
 
 	func fetchProjectUsage(from: String, to: String) async throws -> ProjectUsageResponse {
-		// Project breakdown has no cross-device aggregate — stays local-only.
 		try await fetch("/functions/tokentracker-project-usage-summary", queryItems: withTimeZoneQueryItems([
 			URLQueryItem(name: "from", value: from),
 			URLQueryItem(name: "to", value: to)
@@ -92,14 +83,14 @@ actor APIClient {
 	}
 
 	func fetchMonthly(from: String, to: String) async throws -> AccountFetchResult<MonthlyUsageResponse> {
-		try await fetchWithSource("/functions/tokentracker-usage-monthly", queryItems: withAccountQueryItems([
+		try await fetchWithSource("/functions/tokentracker-usage-monthly", queryItems: withTimeZoneQueryItems([
 			URLQueryItem(name: "from", value: from),
 			URLQueryItem(name: "to", value: to)
 		]))
 	}
 
 	func fetchHourly(day: String) async throws -> AccountFetchResult<HourlyUsageResponse> {
-		try await fetchWithSource("/functions/tokentracker-usage-hourly", queryItems: withAccountQueryItems([
+		try await fetchWithSource("/functions/tokentracker-usage-hourly", queryItems: withTimeZoneQueryItems([
 			URLQueryItem(name: "day", value: day)
 		]))
 	}
@@ -127,25 +118,17 @@ actor APIClient {
         )
     }
 
-    func fetchSubscriptions() async throws -> [SubscriptionRecord] {
-        let response: SubscriptionListResponse = try await fetch(
-            "/functions/tokentracker-subscription-manager",
-            requestTimeout: Self.usageLimitsRequestTimeout
-        )
-        return response.subscriptions ?? []
-    }
-
     func triggerSync(drain: Bool = false, auto: Bool = false) async throws -> SyncResponse {
         let body: Data
         if drain {
             // Sync Now keeps the bounded background scan, while --drain still
-            // flushes the complete cloud backlog and gives the request lock priority.
+            // flushes the complete local backlog and gives the request lock priority.
             body = Data(
-                #"{"auto":true,"background":true,"allLocalSources":true,"publishAccount":true,"drain":true}"#.utf8
+                #"{"auto":true,"background":true,"allLocalSources":true,"drain":true}"#.utf8
             )
         } else if auto {
             body = Data(
-                #"{"auto":true,"background":true,"allLocalSources":true,"publishAccount":true}"#.utf8
+                #"{"auto":true,"background":true,"allLocalSources":true}"#.utf8
             )
         } else {
             body = Data("{}".utf8)
@@ -171,29 +154,26 @@ actor APIClient {
 
     // MARK: - Private Helpers
 
-    /// Like `fetch`, but keeps the account-view authority the local server
-    /// tagged the response with. Every `?account=1` endpoint must go through
-    /// this: dropping the headers is what let a transient cloud failure
-    /// masquerade as "the user only has one device".
+    /// Local-first data authority. Upstream read `X-TokenTracker-Account-View` /
+    /// `X-TokenTracker-Account-Fallback` headers here and sent `?account=1` so
+    /// the local server could proxy the hosted cross-device aggregate. TT-Plus
+    /// has no cloud backend (hosted-only, no cloud in TT-Plus), so the query
+    /// flag and header fan-out are gone and every payload is this machine's
+    /// data. The wrapper stays because callers publish the value together with
+    /// its authority and completion time.
     private func fetchWithSource<T: Decodable>(
         _ path: String,
         queryItems: [URLQueryItem] = [],
         requestTimeout: TimeInterval? = nil
     ) async throws -> AccountFetchResult<T> {
-        let (data, response) = try await request(
+        let (data, _) = try await request(
             path,
             queryItems: queryItems,
             requestTimeout: requestTimeout
         )
-        guard let source = AccountViewSource.parse(
-            accountView: response.value(forHTTPHeaderField: "X-TokenTracker-Account-View"),
-            fallback: response.value(forHTTPHeaderField: "X-TokenTracker-Account-Fallback")
-        ) else {
-            throw APIError.invalidResponse
-        }
         return AccountFetchResult(
             value: try decoder.decode(T.self, from: data),
-            source: source,
+            source: .localQueue,
             completedAt: Date()
         )
     }
@@ -254,14 +234,6 @@ actor APIClient {
 			URLQueryItem(name: "tz", value: DateHelpers.currentTimeZoneIdentifier),
 			URLQueryItem(name: "tz_offset_minutes", value: String(DateHelpers.currentUTCOffsetMinutes()))
 		]
-	}
-
-	/// Cross-device "account view": ask the local server for the same aggregate
-	/// the dashboard shows. The server returns local single-machine data instead
-	/// (X-TokenTracker-Account-View: 0) when the user isn't signed in or cloud
-	/// sync is off, so this is always safe to request.
-	private func withAccountQueryItems(_ items: [URLQueryItem]) -> [URLQueryItem] {
-		withTimeZoneQueryItems(items) + [URLQueryItem(name: "account", value: "1")]
 	}
 
     private func post<T: Decodable>(_ path: String, body: Data = Data("{}".utf8)) async throws -> T {

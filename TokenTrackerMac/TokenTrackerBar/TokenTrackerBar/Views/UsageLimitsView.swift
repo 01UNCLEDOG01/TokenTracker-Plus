@@ -17,6 +17,10 @@ struct UsageLimitsView: View {
     /// to read its bars. A click toggle — not hover — so nothing reflows/jitters.
     @State private var explainingProvider: String?
     let limits: UsageLimitsResponse?
+    /// Hosted-only subscription-manager rows (renewal progress) were removed
+    /// with the cloud backend (hosted-only, no cloud in TT-Plus). The parameter
+    /// stays because DashboardView/DynamicIslandView still pass it; the app never
+    /// populates it.
     var subscriptions: [SubscriptionRecord] = []
 
     private static let rowColumnSpacing: CGFloat = 5
@@ -80,10 +84,6 @@ struct UsageLimitsView: View {
     var body: some View {
         if let limits {
             let visibleGroups = buildVisibleGroups(limits)
-
-            // A response with no usable quota record still has something to
-            // show when the user linked a subscription to one of its providers:
-            // `visibleGroups` then carries subscription-only sections.
             if hasAnyAvailable(limits) || !visibleGroups.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(title: "\(Strings.usageLimitsTitle) · \(displayModeTitle)") {
@@ -125,41 +125,13 @@ struct UsageLimitsView: View {
         label.map { "\(base) \($0)" } ?? base
     }
 
-    private var subscriptionByProvider: [String: SubscriptionRecord] {
-        guard settings.showSubscriptions else { return [:] }
-        let nowMs = Date().timeIntervalSince1970 * 1000.0
-        var map: [String: SubscriptionRecord] = [:]
-        for sub in subscriptions {
-            guard let provider = sub.provider, !provider.isEmpty else { continue }
-            guard let endMs = SubscriptionCycle.parseDateMs(sub.nextBillingAt) else { continue }
-            guard sub.provider != nil else { continue }
-            let existing = map[provider]
-            if existing == nil {
-                map[provider] = sub
-                continue
-            }
-            guard let existingEnd = SubscriptionCycle.parseDateMs(existing!.nextBillingAt) else {
-                map[provider] = sub
-                continue
-            }
-            let upcoming = endMs > nowMs
-            let existingUpcoming = existingEnd > nowMs
-            if (upcoming && (!existingUpcoming || existingEnd > endMs)) ||
-               (!upcoming && !existingUpcoming && endMs > existingEnd) {
-                map[provider] = sub
-            }
-        }
-        return map
-    }
-
     private func buildVisibleGroups(_ limits: UsageLimitsResponse) -> [AnyView] {
         settings.providerOrder.compactMap { sectionIfContent(id: $0, limits: limits) }
     }
 
     /// Builds one provider's section, or nil when it would carry no quota rows
-    /// and no manual subscription/reset/status content — an empty heading is
-    /// never collected. Shared rule for every provider, not a per-provider
-    /// symptom guard.
+    /// and no reset/status content — an empty heading is never collected.
+    /// Shared rule for every provider, not a per-provider symptom guard.
     private func sectionIfContent(id: String, limits: UsageLimitsResponse) -> AnyView? {
         guard settings.isVisible(id) else { return nil }
 
@@ -246,43 +218,10 @@ struct UsageLimitsView: View {
         default:
             break
         }
-        // No usable quota record for this provider (not connected, subscription
-        // inactive, or a fetch error). A subscription the user entered by hand
-        // still belongs on the panel: it is manual data, so its bar and date
-        // must not disappear because the tool's own quota fetch failed.
-        return subscriptionOnlySection(id: id)
-    }
-
-    /// Provider heading plus the subscription row, for providers whose quota
-    /// data is unavailable. Deliberately carries no quota rows, no explanation
-    /// popover and no status line — only the renewal progress the user entered.
-    private func subscriptionOnlySection(id: String) -> AnyView? {
-        guard let subscription = subscriptionByProvider[id] else { return nil }
-        return AnyView(VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 5) {
-                if let assetName = Self.providerIconAssetNames[id] {
-                    brandIcon(assetName)
-                        .frame(width: 14, height: 14)
-                }
-                Text(LimitsSettingsStore.displayNames[id] ?? id)
-                    .font(.system(.caption, design: .default))
-                    .modifier(FontWeightModifier(weight: .medium))
-                subscriptionBadge(subscription)
-                Spacer()
-            }
-            VStack(spacing: 4) {
-                subscriptionRow(for: subscription)
-            }
-        })
-    }
-
-    /// Auto-renew / stops-at-expiry glyph shown next to a provider's name.
-    private func subscriptionBadge(_ subscription: SubscriptionRecord) -> some View {
-        Image(systemName: subscription.autoRenew ? "infinity" : "clock")
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(subscription.autoRenew ? Color.accentColor : Color.secondary)
-            .help(subscription.autoRenew ? Strings.subscriptionAutoRenewBadge : Strings.subscriptionStopsBadge)
-            .accessibilityLabel(subscription.autoRenew ? Strings.subscriptionAutoRenewBadge : Strings.subscriptionStopsBadge)
+        // No usable quota record for this provider (not connected, or a fetch
+        // error): nothing to render — the vendored subscription-only section was
+        // hosted cloud data and is gone (hosted-only, no cloud in TT-Plus).
+        return nil
     }
 
     // MARK: - Tool Section
@@ -314,24 +253,16 @@ struct UsageLimitsView: View {
         // bars so upstream outages explain themselves instead of reading as app bugs.
         serviceStatus: ProviderServiceStatus? = nil
     ) -> AnyView? {
-        let subscription = subscriptionByProvider[id]
         let hasZcodeReset = zcodeResetBankHasContent(zcodeResetCredits)
         let hasZcodeStart = zcodeStartPlan?.configured == true
         let hasDeepseekBalance = deepseekBalance != nil
-        // No quota rows and no subscription/reset/status content means there is
-        // nothing meaningful under the heading — return nil rather than render
-        // a bare provider title.
-        guard !specs.isEmpty || subscription != nil || !resetRows.isEmpty
+        // No quota rows and no reset/status content means there is nothing
+        // meaningful under the heading — return nil rather than render a bare
+        // provider title.
+        guard !specs.isEmpty || !resetRows.isEmpty
             || resetStatus != nil || serviceStatus != nil
             || hasZcodeReset || hasZcodeStart || hasDeepseekBalance else {
             return nil
-        }
-        if subscription != nil && SubscriptionSectionPolicy.usesSubscriptionOnly(
-            hasQuotaRows: !specs.isEmpty || hasDeepseekBalance,
-            hasResetContent: !resetRows.isEmpty || resetStatus != nil || hasZcodeReset || hasZcodeStart,
-            hasServiceStatus: serviceStatus != nil
-        ) {
-            return subscriptionOnlySection(id: id)
         }
         let isOpen = Binding(
             get: { explainingProvider == id },
@@ -348,9 +279,6 @@ struct UsageLimitsView: View {
                 Text(title)
                     .font(.system(.caption, design: .default))
                     .modifier(FontWeightModifier(weight: .medium))
-                if let sub = subscription {
-                    subscriptionBadge(sub)
-                }
                 if let titleSuffix {
                     Text(titleSuffix)
                         .font(.system(.caption2, design: .default))
@@ -371,9 +299,6 @@ struct UsageLimitsView: View {
                             note: settings.displayMode == .remaining && spec.productPool ? Strings.grokSharesAreUsed : nil
                         )
                     }
-                }
-                if let sub = subscription {
-                    subscriptionRow(for: sub)
                 }
             }
             if !resetRows.isEmpty || resetStatus != nil {
@@ -844,54 +769,6 @@ struct UsageLimitsView: View {
     private func segmentPercentLabel(_ pct: Double) -> String {
         let rounded = Int(pct.rounded())
         return pct > 0 && rounded == 0 ? "<1%" : "\(rounded)%"
-    }
-
-    private func subscriptionRow(for subscription: SubscriptionRecord) -> some View {
-        let nowMs = Date().timeIntervalSince1970 * 1000.0
-        guard let view = SubscriptionCycle.cycleView(subscription: subscription, nowMs: nowMs) else {
-            return AnyView(EmptyView())
-        }
-        let isNearExpiry = !view.expired && view.endMs - nowMs <= 3 * 86400000
-        let fillColor: Color = view.expired ? .red : (isNearExpiry ? .orange : .blue)
-        let rawPct = view.progress * 100.0
-        let displayPct = view.expired ? 100.0 : (settings.displayMode == .remaining ? 100.0 - rawPct : rawPct)
-        let clampedPct = max(0, min(100, displayPct))
-        let rounded = Int(clampedPct.rounded())
-        let percentLabel: String = (clampedPct > 0 && rounded == 0) ? "<1%" : "\(rounded)%"
-        let remaining = SubscriptionCycle.remainingLabel(endMs: view.endMs, nowMs: nowMs)
-        let a11y = "\(Strings.subscriptionLabel) \(percentLabel) \(remaining)"
-        return AnyView(
-            HStack(spacing: Self.rowColumnSpacing) {
-                rowLabel(Strings.subscriptionLabel)
-
-                UsageLimitBar(
-                    percent: clampedPct,
-                    fillColor: fillColor,
-                    pacePercent: nil,
-                    paceOver: false
-                )
-
-                Text(percentLabel)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: Self.percentColumnWidth, alignment: .trailing)
-
-                Text(remaining)
-                    .font(.system(.caption2, design: .default))
-                    .monospacedDigit()
-                    .foregroundStyle(view.expired ? AnyShapeStyle(Color.red) : AnyShapeStyle(.tertiary))
-                    .lineLimit(1)
-                    // Same never-wrap rule as the limit rows' reset column.
-                    .fixedSize(horizontal: true, vertical: false)
-                    .background(GeometryReader { proxy in
-                        Color.clear.preference(key: LimitResetWidthKey.self, value: proxy.size.width)
-                    })
-                    .frame(width: resetColumnWidth > 0 ? effectiveResetColumnWidth : nil, alignment: .trailing)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(a11y)
-        )
     }
 
     /// True when ZCode reset inventory should occupy space (error banner or any live group).

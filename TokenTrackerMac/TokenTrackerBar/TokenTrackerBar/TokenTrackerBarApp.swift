@@ -262,35 +262,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        if let profile = NativeQAProfile.current {
-            for url in urls {
-                guard let order = try? profile.billingReturnOrder(url) else {
-                    fatalError("Native QA billing return rejected")
-                }
-                Task { @MainActor in
-                    guard await profile.approveOwnedOrder(order) else { fatalError("Native QA order ownership rejected") }
-                    DashboardWindowController.shared.handleNativeQABillingReturn(order: order)
-                }
-            }
-            return
-        }
-        for url in urls {
-            guard url.scheme == "tokentracker" else { continue }
-            if let order = NativeBillingReturn.orderID(from: url) {
-                DashboardWindowController.shared.handleBillingReturn(order: order)
-            } else if url.host == "auth" && url.path.hasPrefix("/done") {
-                DashboardWindowController.shared.handleAuthDone()
-            } else if url.host == "auth" && url.path.hasPrefix("/callback") {
-                // Browser relays OAuth code back via tokentracker://auth/callback?insforge_code=xxx
-                let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-                let code = components?.queryItems?.first(where: { $0.name == "insforge_code" })?.value
-                if let code {
-                    DashboardWindowController.shared.handleAuthCallback(code: code)
-                }
-            } else if url.host == "open" || url.host == "dashboard" {
-                // The web app's local-only pages (Limits / Skills on
-                // tokentracker.cc) deep-link here via tokentracker://open to
-                // surface the local dashboard window.
+        // Upstream handled the hosted cloud round trips here:
+        // tokentracker://auth/done, tokentracker://auth/callback?insforge_code=…
+        // and tokentracker://billing/return?order=… . TT-Plus has no cloud
+        // backend (hosted-only, no cloud in TT-Plus), so those branches and the
+        // native QA billing-return harness are gone. Only the unrelated local
+        // "open the dashboard window" deep link remains.
+        for url in urls where url.scheme == "tokentracker" {
+            if url.host == "open" || url.host == "dashboard" {
                 DashboardPresentationCoordinator.shared.showDashboard()
             }
         }

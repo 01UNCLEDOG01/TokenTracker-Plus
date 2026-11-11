@@ -82,17 +82,20 @@ final class NativeBridge {
 
     // MARK: - Message dispatch
 
-    func saveCloudUsageExport(message: [String: Any], source: WKWebView, permitted: Bool) {
+    /// Saves a locally generated usage snapshot (Settings → Local data export).
+    /// The hosted cloud-export IPC (`saveCloudUsageExport`) was vendored from
+    /// upstream and is gone — hosted-only, no cloud in TT-Plus.
+    func saveLocalUsageExport(message: [String: Any], source: WKWebView, permitted: Bool) {
         let requestID = (message["requestId"] as? String) ?? ""
         guard UUID(uuidString: requestID) != nil else { return }
         var result: [String: Any] = ["requestId": requestID, "saved": false]
         do {
             guard permitted else {
                 result["errorCode"] = "forbidden_source"
-                postCloudExportResult(result, to: source)
+                postLocalExportResult(result, to: source)
                 return
             }
-            let export = try CloudUsageExport(message: message)
+            let export = try UsageExport(message: message)
             let directory: URL
             if let profile = NativeQAProfile.current {
                 directory = URL(fileURLWithPath: profile.runDirectory).appendingPathComponent("Downloads", isDirectory: true)
@@ -104,18 +107,18 @@ final class NativeBridge {
             }
             result["filename"] = try export.save(in: directory)
             result["saved"] = true
-        } catch let failure as CloudUsageExport.Failure {
+        } catch let failure as UsageExport.Failure {
             result["errorCode"] = failure.rawValue
         } catch {
             result["errorCode"] = "save_failed"
         }
-        postCloudExportResult(result, to: source)
+        postLocalExportResult(result, to: source)
     }
 
-    private func postCloudExportResult(_ result: [String: Any], to source: WKWebView) {
+    private func postLocalExportResult(_ result: [String: Any], to source: WKWebView) {
         guard let bytes = try? JSONSerialization.data(withJSONObject: result),
               let json = String(data: bytes, encoding: .utf8) else { return }
-        source.evaluateJavaScript("window.dispatchEvent(new CustomEvent('tokentracker:cloud-export-result', {detail: \(json)}));",
+        source.evaluateJavaScript("window.dispatchEvent(new CustomEvent('tokentracker:local-export-result', {detail: \(json)}));",
                                   completionHandler: nil)
     }
 

@@ -1,4 +1,5 @@
 BarSources/.build/
+TokenTrackerBar/.build/
 artifacts/
 build/
 EmbeddedServer/

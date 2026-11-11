@@ -8,6 +8,7 @@ public enum NativeLocalization {
     public static let traditionalChineseLocale = "zh-TW"
     public static let japaneseLocale = "ja"
     public static let koreanLocale = "ko"
+    public static let germanLocale = "de"
 
     private static var sharedDefaults: UserDefaults? {
         UserDefaults(suiteName: WidgetSharedConstants.appGroupIdentifier)
@@ -16,7 +17,8 @@ public enum NativeLocalization {
     /// Map a BCP-47-ish language tag to one of the supported resolved locales.
     /// Traditional Chinese covers the Hant script and the Taiwan/Hong Kong/Macau
     /// regions; everything else under zh-* (zh, zh-Hans, zh-CN, zh-SG, …) is Simplified.
-    /// Unrecognized tags fall back to English.
+    /// German covers de-* (de, de-DE, de-AT, de-CH, …). Unrecognized tags fall
+    /// back to English.
     private static func classify(_ tag: String) -> String {
         let lower = tag.lowercased()
         if lower.range(of: #"^zh([-_]|$)"#, options: .regularExpression) != nil {
@@ -27,6 +29,7 @@ public enum NativeLocalization {
         }
         if lower.range(of: #"^ja([-_]|$)"#, options: .regularExpression) != nil { return japaneseLocale }
         if lower.range(of: #"^ko([-_]|$)"#, options: .regularExpression) != nil { return koreanLocale }
+        if lower.range(of: #"^de([-_]|$)"#, options: .regularExpression) != nil { return germanLocale }
         return englishLocale
     }
 

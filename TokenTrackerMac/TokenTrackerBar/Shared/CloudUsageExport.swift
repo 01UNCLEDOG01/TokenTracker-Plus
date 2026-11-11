@@ -1,8 +1,15 @@
 import Foundation
 import Darwin
 
+// Vendored from upstream as `CloudUsageExport`: the native side of the hosted
+// cloud-export IPC (dashboard `saveCloudUsageExport` -> `tokentracker-cloud-*.csv|json`).
+// TT-Plus is local-first (hosted-only, no cloud in TT-Plus), so the cloud message
+// type, the cloud filename pattern and the csv path are gone. What remains is the
+// local snapshot export the dashboard's Settings -> Local data flow uses.
+// The file name is kept because the committed Xcode project references this path.
+
 /// A bounded metadata export, with no caller-selected directory or overwrite mode.
-struct CloudUsageExport {
+struct UsageExport {
     enum Failure: String, Error { case invalidExport = "invalid_export", saveFailed = "save_failed" }
     static let maximumBytes = 5 * 1024 * 1024
     let requestID: String
@@ -11,23 +18,19 @@ struct CloudUsageExport {
     let bytes: Data
 
     init(message: [String: Any]) throws {
-        let local = message["type"] as? String == "saveLocalUsageExport"
         guard Set(message.keys) == ["type", "requestId", "filename", "format", "content"],
-              message["type"] as? String == (local ? "saveLocalUsageExport" : "saveCloudUsageExport"),
+              message["type"] as? String == "saveLocalUsageExport",
               let requestID = message["requestId"] as? String, UUID(uuidString: requestID) != nil,
               let filename = message["filename"] as? String,
-              filename.range(of: local ? "^tokentracker-local-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\\.json$" : "^tokentracker-cloud-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\\.(csv|json)$", options: .regularExpression) != nil,
-              let format = message["format"] as? String, ["csv", "json"].contains(format),
-              !local || format == "json",
-              filename.hasSuffix("." + format),
+              filename.range(of: "^tokentracker-local-[A-Za-z0-9][A-Za-z0-9_-]{0,150}\\.json$", options: .regularExpression) != nil,
+              let format = message["format"] as? String, format == "json",
+              filename.hasSuffix(".json"),
               let content = message["content"] as? String, !content.isEmpty, !content.contains("\0"),
               content.utf8.count <= Self.maximumBytes else {
             throw Failure.invalidExport
         }
         let bytes = Data(content.utf8)
-        if format == "json" {
-            guard (try? JSONSerialization.jsonObject(with: bytes)) is [String: Any] else { throw Failure.invalidExport }
-        }
+        guard (try? JSONSerialization.jsonObject(with: bytes)) is [String: Any] else { throw Failure.invalidExport }
         self.requestID = requestID
         self.filename = filename
         self.format = format

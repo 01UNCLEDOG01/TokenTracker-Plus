@@ -40,12 +40,6 @@ final class StatusBarController: NSObject {
     private let dynamicIslandController: DynamicIslandController
     private var animator: MenuBarAnimator?
     private let queueActivityMonitor = QueueActivityMonitor()
-    private let accountUploadMonitor = QueueActivityMonitor(
-        queueURL: FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".tokentracker/tracker/queue.state.json"),
-        settleDelay: BackgroundRefreshPolicy.defaultAccountUploadVisibilityDelay,
-        publishInitialState: true
-    )
     private let confettiController = ScreenConfettiOverlayController()
     private var cancellables = Set<AnyCancellable>()
     /// While the status-item menu is open, refreshes the “Check for Updates” row when download/check status changes.
@@ -300,17 +294,6 @@ final class StatusBarController: NSObject {
             }
         }
         queueActivityMonitor.start()
-
-        // Cross-device account summaries are authoritative only after upload
-        // advances queue.state.json. Local queue writes happen earlier.
-        accountUploadMonitor.onSettledActivity = { [weak self] in
-            guard let self else { return }
-            let summaries = self.selectedMenuBarSummaries()
-            Task { @MainActor [weak self] in
-                await self?.viewModel.refreshAfterAccountUpload(menuBarSummaries: summaries)
-            }
-        }
-        accountUploadMonitor.start()
 
         updateStatsDisplay()
     }
