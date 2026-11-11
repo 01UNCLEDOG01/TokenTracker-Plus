@@ -409,13 +409,20 @@ extension QuotaPanelController: WKScriptMessageHandler {
 extension QuotaPanelController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // Same-origin /quota.html only — anything else is cancelled outright.
-        if let url = navigationAction.request.url,
-           url.absoluteString.hasPrefix(Constants.serverBaseURL + "/quota.html"),
-           url.host == URL(string: Constants.serverBaseURL)?.host {
-            decisionHandler(.allow)
+        // Same-origin only. The MAIN frame must be the quota page (Windows
+        // AllowedSource guards NavigationStarting, i.e. documents); subresources
+        // (the page's hashed JS/CSS under /assets/) are same-origin-allowed —
+        // the first draft cancelled those too, which left #quota-root empty and
+        // the panel fully transparent (found by the machine smoke).
+        let baseURL = URL(string: Constants.serverBaseURL)
+        let sameOrigin = navigationAction.request.url.map { url in
+            url.host == baseURL?.host && url.port == baseURL?.port
+        } ?? false
+        if navigationAction.targetFrame?.isMainFrame == true {
+            let isQuotaPage = navigationAction.request.url?.path == "/quota.html"
+            decisionHandler(sameOrigin && isQuotaPage ? .allow : .cancel)
         } else {
-            decisionHandler(.cancel)
+            decisionHandler(sameOrigin ? .allow : .cancel)
         }
     }
 
