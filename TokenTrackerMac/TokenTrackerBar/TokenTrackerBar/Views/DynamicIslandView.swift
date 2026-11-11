@@ -431,7 +431,7 @@ struct DynamicIslandView: View {
                         .cornerRadius(4)
                         .shadow(color: .black.opacity(0.35), radius: 1.5, x: 0, y: 1)
 
-                    Text("TokenTracker")
+                    Text(Strings.appTitle)
                         .font(.system(size: 12.5, weight: .regular, design: .rounded))
                         .foregroundStyle(Color.white.opacity(hoveringBrand ? 1.0 : 0.85))
                 }
