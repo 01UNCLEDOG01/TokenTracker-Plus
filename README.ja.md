@@ -37,7 +37,7 @@
 
 **Windows / macOS はビルド不要**：[Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) からダウンロードしてインストールするだけです。Windows は `TokenTracker-Setup.exe`、macOS は `TokenTracker-plus-1.26.0.dmg` を「アプリケーション」へドラッグ。初めての方は[はじめてのガイド](./docs/getting-started.zh-CN.md)（中国語）へ。macOS 版は未署名のため、初回起動に「開発元を検証できません」と出たら右クリック →「開く」、または `xattr -cr /Applications/TokenTracker-plus.app` を実行してから開いてください。
 
-> 🍎 **macOS ネイティブクライアント（1.26.0 から TT-Plus 自前のビルド）**：ネイティブ SwiftUI のメニューバー形式を維持（ユニバーサルバイナリ、Apple silicon / Intel 対応）、UI は 6 言語（簡体字 / 繁体字 / 英 / 日 / 韓 / 独）。**ローカルファースト**で、クラウドアカウント・サインイン・OAuth の画面はありません。ページメニューが 13 の fork ページをカバーし `tokentracker://open?path=` ディープリンクに対応、デスクトップペットは 7 体（庚戌 / 猫也 を含む）。アップデート確認は本リポジトリの Releases のみを参照します（アセット名 `TokenTracker-plus-<version>.dmg`）。WidgetKit ウィジェットは同梱しません（署名と App Group が必要）。デスクトップのクォータウィンドウと limits パネルのプロバイダー補完は 1.26.x バッチで入ります。
+> 🍎 **macOS ネイティブクライアント（1.26.0 から TT-Plus 自前のビルド）**：ネイティブ SwiftUI のメニューバー形式を維持（ユニバーサルバイナリ、Apple silicon / Intel 対応）、UI は 6 言語（簡体字 / 繁体字 / 英 / 日 / 韓 / 独）。**ローカルファースト**で、クラウドアカウント・サインイン・OAuth の画面はありません。ページメニューが 13 の fork ページをカバーし `tokentracker://open?path=` ディープリンクに対応、デスクトップペットは 7 体（庚戌 / 猫也 を含む）。アップデート確認は本リポジトリの Releases のみを参照します（アセット名 `TokenTracker-plus-<version>.dmg`）。WidgetKit ウィジェットは同梱しません（署名と App Group が必要）。デスクトップのクォータウィンドウと 33 プロバイダー分の limits カバーは本バージョンに含まれます。
 
 ```bash
 git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
