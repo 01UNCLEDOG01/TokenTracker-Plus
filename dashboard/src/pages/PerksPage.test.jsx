@@ -456,4 +456,42 @@ describe("PerksPage", () => {
     expect(ALBUM_PAGE_SIZE).toBe(18);
   });
 
+  it("卡册小卡点击联动：平滑滚动到下方详情卡并闪烁高亮，1.3s 后摘除", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const scrollSpy = vi.fn();
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      render(
+        <ToastProvider>
+          <PerksPage />
+        </ToastProvider>
+      );
+
+      // 卡册第一页 18 张全是 button；暗卡文本为空（悬念设计），品牌名走 aria-label
+      const albumJumpButtons = screen.getAllByTitle("跳到下方卡片");
+      expect(albumJumpButtons.length).toBe(18);
+      const firstCard = albumJumpButtons[0];
+      const miniName = firstCard.getAttribute("aria-label").split(" — ")[0];
+      expect(miniName.length).toBeGreaterThan(0);
+
+      // 点击 → 滚动触发 + 通过品牌名反查详情卡（卡册与详情同源，必须能跳）
+      fireEvent.click(firstCard);
+      // jumpToCard 走 requestAnimationFrame：fake timers 下手动推进一帧
+      act(() => { vi.advanceTimersByTime(16); });
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      const matched = PERK_PROVIDERS.find((row) => row.name === miniName);
+      expect(matched).toBeTruthy();
+      const detailCard = document.getElementById(`perk-${matched.id}`);
+      expect(detailCard).toBeTruthy();
+      expect(detailCard.className).toContain("perk-card-flash");
+
+      // 1.3s 后摘除，动画不残留
+      act(() => { vi.advanceTimersByTime(1400); });
+      expect(detailCard.className).not.toContain("perk-card-flash");
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
+
 });

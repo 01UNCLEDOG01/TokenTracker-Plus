@@ -308,7 +308,7 @@ function createTokenMinter(secret) {
 function buildFilter(url, args) {
   const filters = [];
   for (const [key, value] of url.searchParams) {
-    if (["select", "order", "limit", "offset", "columns"].includes(key)) continue;
+    if (["select", "order", "limit", "offset", "columns", "on_conflict"].includes(key)) continue;
     const column = identifier(key);
     if (value === "is.null") filters.push(column + " IS NULL");
     else if (value === "not.is.null") filters.push(column + " IS NOT NULL");
@@ -351,16 +351,40 @@ async function handleDatabase(tx, url, method, raw, send, acceptsObject) {
 
   let result;
   if (method === "POST") {
-    const rows = JSON.parse(raw);
-    if (!Array.isArray(rows) || !rows.length) throw new Error("Expected SDK array insert");
+    const rawRows = JSON.parse(raw);
+    // PostgREST accepts both shapes: array (bulk) and single object. The SDK
+    // emits a single object for .upsert({...}) / .insert({...}).
+    const rows = Array.isArray(rawRows) ? rawRows : [rawRows];
+    if (!rows.length) throw new Error("Expected SDK insert rows");
     const names = Object.keys(rows[0]);
     const values = rows.flatMap((row) => names.map((name) => row[name]));
-    result = await tx.query(
-      `INSERT INTO ${table} (${names.map(identifier).join(",")}) VALUES ${rows
-        .map((_, r) => "(" + names.map((__, c) => "$" + (r * names.length + c + 1)).join(",") + ")")
-        .join(",")} RETURNING *`,
-      values,
-    );
+    // PostgREST upsert: POST with on_conflict=<cols> means INSERT ... ON CONFLICT
+    // DO UPDATE. The public-visibility function saves github_url via upsert,
+    // so this must be supported (it used to 500 with "Unsupported SQL filter").
+    const onConflict = url.searchParams.get("on_conflict");
+    if (onConflict) {
+      // 比较用原始列名：identifier() 返回带引号形式，直接 includes 永远
+      // 不等，冲突列会被留进 DO UPDATE 自赋值（合法但脏）。
+      const conflictNames = onConflict.split(",").map((col) => col.trim());
+      const conflictCols = conflictNames.map(identifier);
+      const updateCols = names.filter((name) => !conflictNames.includes(name));
+      const doUpdate = updateCols.length
+        ? " DO UPDATE SET " + updateCols.map((name) => identifier(name) + "=EXCLUDED." + identifier(name)).join(",")
+        : " DO NOTHING";
+      result = await tx.query(
+        `INSERT INTO ${table} (${names.map(identifier).join(",")}) VALUES ${rows
+          .map((_, r) => "(" + names.map((__, c) => "$" + (r * names.length + c + 1)).join(",") + ")")
+          .join(",")} ON CONFLICT (${conflictCols.join(",")})${doUpdate} RETURNING *`,
+        values,
+      );
+    } else {
+      result = await tx.query(
+        `INSERT INTO ${table} (${names.map(identifier).join(",")}) VALUES ${rows
+          .map((_, r) => "(" + names.map((__, c) => "$" + (r * names.length + c + 1)).join(",") + ")")
+          .join(",")} RETURNING *`,
+        values,
+      );
+    }
   } else if (method === "PATCH") {
     const values = JSON.parse(raw);
     const names = Object.keys(values);
@@ -928,7 +952,7 @@ async function main() {
             + " (period, from_day, to_day, user_id, rank, display_name, avatar_url, total_tokens,"
             + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
             + "  conversation_count, models, generated_at)"
-            + " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,now())"
+            + " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now())"
             + " ON CONFLICT (period, from_day, to_day, user_id) DO UPDATE SET"
             + "   rank = EXCLUDED.rank, avatar_url = EXCLUDED.avatar_url, total_tokens = EXCLUDED.total_tokens,"
             + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"

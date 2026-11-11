@@ -661,6 +661,8 @@
   "perks.album.note": "위안화 환산은 AIHOT 기준 추정치.",
   "perks.album.refresh": "다음 갱신",
   "perks.album.next": "다음",
+  "perks.album.jump": "아래 카드로 이동",
+  "perks.tier.all": "모든 등급",
   "perks.credit_aihot": "혜택 데이터는 TT-plus 작성자가 직접 검증·유지하며, AIHOT(aihot.news)의 매일 갱신되는 공개 보드를 시점 참고로 사용합니다. 데이터를 공개해 주신 카즈크(Kazik) 님께 감사드립니다.",
   "perks.aihot.badge": "AIHOT 검증 {{date}}",
   "perks.aihot.dropped": "AIHOT 최신 스냅샷에 이 제공자의 혜택이 없습니다",

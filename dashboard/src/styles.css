@@ -1400,3 +1400,8 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 .dark .tt-perks-page .perk-card-flash {
   border-color: rgb(39 39 42 / 0.9);
 }
+
+/* 卡册小卡点击跳转：详情卡滚到视野顶部时给 sticky 头部留出空间（2026-11-11）。 */
+.tt-perks-page [id^="perk-"] {
+  scroll-margin-top: 88px;
+}

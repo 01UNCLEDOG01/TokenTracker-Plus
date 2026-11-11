@@ -41,7 +41,26 @@ const PERK_TIER_STYLES = {
   rose: "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:bg-rose-500/30 dark:text-rose-200 dark:border-rose-400/50",
   amber: "bg-amber-500/15 text-amber-700 border-amber-500/25 dark:bg-amber-500/30 dark:text-amber-200 dark:border-amber-400/60",
 };
-// 图例圆点用实色（-500）：卡片 badge 的半透明底在 10px 直径下几乎看不出差别。
+// 卡册小卡底条、筛选 chip 与页首图例共用同一套实色（-500）：卡片 badge 的半透明底
+// 在 10px 直径下几乎看不出差别，所以「色」只在 badge 以外的三处用实色。
+const PERK_TIER_ACCENT = {
+  neutral: "bg-oai-gray-400 dark:bg-oai-gray-500",
+  success: "bg-emerald-500",
+  blue: "bg-sky-500",
+  purple: "bg-purple-500",
+  rose: "bg-rose-500",
+  amber: "bg-amber-500",
+};
+// 价值等级筛选：label 用函数包一层字面量 copy()，这样切语言时实时生效、
+// 又不会因为拼串 key 让 copy 注册表误判成「未使用」。
+const PERK_TIER_FILTER_OPTIONS = [
+  { id: "neutral", accent: PERK_TIER_ACCENT.neutral, label: () => copy("perks.legend.neutral") },
+  { id: "success", accent: PERK_TIER_ACCENT.success, label: () => copy("perks.legend.success") },
+  { id: "blue", accent: PERK_TIER_ACCENT.blue, label: () => copy("perks.legend.blue") },
+  { id: "purple", accent: PERK_TIER_ACCENT.purple, label: () => copy("perks.legend.purple") },
+  { id: "rose", accent: PERK_TIER_ACCENT.rose, label: () => copy("perks.legend.rose") },
+  { id: "amber", accent: PERK_TIER_ACCENT.amber, label: () => copy("perks.legend.amber") },
+];
 function TierDot({ className, label }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -57,12 +76,12 @@ function PerkTierLegend() {
   return (
     <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
       <span className="font-medium text-oai-gray-600 dark:text-oai-gray-300">{copy("perks.legend.title")}</span>
-      <TierDot className="bg-oai-gray-400 dark:bg-oai-gray-500" label={copy("perks.legend.neutral")} />
-      <TierDot className="bg-emerald-500" label={copy("perks.legend.success")} />
-      <TierDot className="bg-sky-500" label={copy("perks.legend.blue")} />
-      <TierDot className="bg-purple-500" label={copy("perks.legend.purple")} />
-      <TierDot className="bg-rose-500" label={copy("perks.legend.rose")} />
-      <TierDot className="bg-amber-500" label={copy("perks.legend.amber")} />
+      <TierDot className={PERK_TIER_ACCENT.neutral} label={copy("perks.legend.neutral")} />
+      <TierDot className={PERK_TIER_ACCENT.success} label={copy("perks.legend.success")} />
+      <TierDot className={PERK_TIER_ACCENT.blue} label={copy("perks.legend.blue")} />
+      <TierDot className={PERK_TIER_ACCENT.purple} label={copy("perks.legend.purple")} />
+      <TierDot className={PERK_TIER_ACCENT.rose} label={copy("perks.legend.rose")} />
+      <TierDot className={PERK_TIER_ACCENT.amber} label={copy("perks.legend.amber")} />
     </div>
   );
 }
@@ -454,17 +473,26 @@ function formatCountdown(msLeft) {
   return `${hh}:${mm}:${ss}`;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue }) {
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   return (
-    <div
+    <button
+      type="button"
+      onClick={onJump ? () => onJump(item.id) : undefined}
+      title={onJump ? copy("perks.album.jump") : undefined}
+      aria-label={`${item.name} — ${copy("perks.album.jump")}`}
       className={cn(
         "relative flex h-[104px] w-full flex-col items-center justify-between overflow-hidden rounded-xl border p-1.5 text-center transition-all duration-200",
         collected
-          ? cn("border-oai-gray-200/80 bg-white shadow-xs dark:border-oai-gray-700 dark:bg-oai-gray-900", BRIGHTNESS_RING[tier])
-          : "border-oai-gray-700/40 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950",
+          ? cn("border-oai-gray-200/80 bg-white shadow-xs hover:shadow-sm hover:-translate-y-0.5 dark:border-oai-gray-700 dark:bg-oai-gray-900", BRIGHTNESS_RING[tier])
+          : "border-oai-gray-700/40 bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-800 dark:to-slate-950 hover:-translate-y-0.5",
       )}
     >
+      {/* 价值等级色条：与页首图例、卡片徽标同一套色（未领取的暗卡也保留，颜色=这家白拿额度高低） */}
+      <span
+        className={cn("absolute inset-x-0 bottom-0 h-[3px]", PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral)}
+        aria-hidden
+      />
       {collected ? (
         <>
           {faceValue && (
@@ -498,7 +526,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue })
           <Gift className="h-6 w-6" aria-hidden />
         </span>
       )}
-    </div>
+    </button>
   );
 }
 
@@ -541,7 +569,7 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected,
   );
 }
 
-function AlbumStrip({ items, claimDay, page, onPageChange }) {
+function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
   const totalPages = Math.max(1, Math.ceil(items.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
@@ -615,6 +643,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange }) {
               streak={entry.streak}
               claimedNow={entry.claimedNow}
               faceValue={entry.faceValue}
+              onJump={onJump}
             />
           ))}
         </div>
@@ -631,8 +660,24 @@ export function PerksPage() {
   const [claimDay, setClaimDay] = useState(getPerkClaimDay);
   const unsavedClaims = useRef(null);
   const [claimFilter, setClaimFilter] = useState("all");
+  // 价值等级（六色）筛选：与页首图例、卡片徽标同一套口径。
+  const [tierFilter, setTierFilter] = useState("all");
   // 卡册（AIHOT 式，常驻页首）：albumPage 记卡牌带翻页位置。
   const [albumPage, setAlbumPage] = useState(0);
+  // 卡册小卡 → 下方详情卡的点击联动：目标卡平滑滚动 + 边框闪烁高亮。
+  const [flashedId, setFlashedId] = useState(null);
+  const flashTimer = useRef(null);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+  const jumpToCard = (id) => {
+    // 先摘 class 再下一帧挂回：同卡连点也能重播闪烁动画。
+    setFlashedId(null);
+    requestAnimationFrame(() => {
+      setFlashedId(id);
+      document.getElementById(`perk-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlashedId(null), 1300);
+    });
+  };
   // AIHOT 快照只做后台对时：页面先用静态数据整页渲染，快照回来后才补角标，
   // 任何失败都静默保持原样（信源挂了不影响福利指南本身）。
   const [aihotData, setAihotData] = useState(null);
@@ -714,6 +759,14 @@ export function PerksPage() {
     return counts;
   }, []);
 
+  const tierCounts = useMemo(() => {
+    const counts = { all: PERK_PROVIDERS.length };
+    for (const item of PERK_PROVIDERS) {
+      counts[item.badgeType] = (counts[item.badgeType] || 0) + 1;
+    }
+    return counts;
+  }, []);
+
   const matchedItems = useMemo(() => {
     return PERK_PROVIDERS.filter((item) => {
       // Category Filter
@@ -721,6 +774,10 @@ export function PerksPage() {
         if (!item.category.includes(selectedCategory)) {
           return false;
         }
+      }
+      // Value-tier Filter（灰/绿/蓝/紫/粉/琥珀）
+      if (tierFilter !== "all" && item.badgeType !== tierFilter) {
+        return false;
       }
       // Search Query — match both the Chinese source and the English overlay
       if (searchQuery.trim()) {
@@ -732,7 +789,7 @@ export function PerksPage() {
       }
       return true;
     });
-  }, [locale, searchQuery, selectedCategory]);
+  }, [locale, searchQuery, selectedCategory, tierFilter]);
 
   const claimedCount = matchedItems.filter((item) => isPerkClaimed(item, claims, claimDay, selectedCategory)).length;
   const filteredItems = matchedItems.filter((item) => {
@@ -824,6 +881,7 @@ export function PerksPage() {
             claimDay={claimDay}
             page={albumPage}
             onPageChange={setAlbumPage}
+            onJump={jumpToCard}
           />
 
           {/* 六色图例：把色阶含义摆在页面上（站主 2026-11-11 要求） */}
@@ -879,6 +937,48 @@ export function PerksPage() {
                     >
                       {count}
                     </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Value-tier Row：六色筛选，颜色口径与页首图例一致 */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-oai-gray-500 dark:text-oai-gray-400">
+                {copy("perks.legend.title")}
+              </span>
+              <button
+                type="button"
+                aria-pressed={tierFilter === "all"}
+                onClick={() => setTierFilter("all")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+                  tierFilter === "all"
+                    ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
+                    : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
+                )}
+              >
+                <span>{copy("perks.tier.all")}</span>
+                <span className="text-[10px] tabular-nums opacity-80">{tierCounts.all ?? 0}</span>
+              </button>
+              {PERK_TIER_FILTER_OPTIONS.map((opt) => {
+                const active = tierFilter === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setTierFilter(active ? "all" : opt.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+                      active
+                        ? "bg-oai-black text-white shadow-xs dark:bg-white dark:text-oai-black"
+                        : "bg-white text-oai-gray-600 border border-oai-gray-200 hover:bg-oai-gray-50 dark:bg-oai-gray-900 dark:border-oai-gray-500 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
+                    )}
+                  >
+                    <span className={cn("h-2 w-2 rounded-full", opt.accent)} aria-hidden />
+                    <span>{opt.label()}</span>
+                    <span className="text-[10px] tabular-nums opacity-80">{tierCounts[opt.id] ?? 0}</span>
                   </button>
                 );
               })}
@@ -996,6 +1096,7 @@ export function PerksPage() {
                   claimDay={claimDay}
                   onToggleClaim={toggleClaim}
                   aihot={buildAihotSignal(item, aihotIndex)}
+                  flashed={flashedId === item.id}
                 />
               ))}
             </div>

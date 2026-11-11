@@ -661,6 +661,8 @@
   "perks.album.note": "人民元換算は AIHOT の算定基準による概算。",
   "perks.album.refresh": "次の更新",
   "perks.album.next": "次へ",
+  "perks.album.jump": "下のカードへジャンプ",
+  "perks.tier.all": "すべてのランク",
   "perks.credit_aihot": "特典データは TT-plus 作者が手動検証・管理し、AIHOT（aihot.news）の日次公開ボードを鮮度参考にしています。データを公開し続ける数字生命卡兹克（Kazik）氏に感謝します。",
   "perks.aihot.badge": "AIHOT 検証 {{date}}",
   "perks.aihot.dropped": "AIHOT の最新スナップショットにこのプロバイダーの特典はありません",

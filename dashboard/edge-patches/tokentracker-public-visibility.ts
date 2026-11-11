@@ -165,6 +165,16 @@ export default async function (req: Request): Promise<Response> {
       normalizedDisplayName = body.display_name.trim().slice(0, 50) || null;
     }
 
+    // Normalize the avatar URL BEFORE the upsert block below — the profile
+    // upsert reads it, and a `let` used before its declaration is a TDZ error
+    // (observed when saving github_url: "Cannot access 'normalizedAvatarUrl'
+    // before initialization").
+    let normalizedAvatarUrl: string | null | undefined = undefined;
+    if (body.avatar_url !== undefined) {
+      const raw = typeof body.avatar_url === "string" ? body.avatar_url.trim() : "";
+      normalizedAvatarUrl = /^https:\/\/\S{4,400}$/i.test(raw) ? raw : null;
+    }
+
     // Persist everything to tokentracker_user_settings — the writable base table.
     //
     // display_name MUST be written here, NOT to tokentracker_user_profiles:
@@ -215,11 +225,6 @@ export default async function (req: Request): Promise<Response> {
     // is no OAuth provider here to source one from). Written to
     // tokentracker_user_profiles — the profile function and the snapshot
     // writer read it from there.
-    let normalizedAvatarUrl;
-    if (body.avatar_url !== undefined) {
-      const raw = typeof body.avatar_url === "string" ? body.avatar_url.trim() : "";
-      normalizedAvatarUrl = /^https:\/\/\S{4,400}$/i.test(raw) ? raw : null;
-    }
     const result: Record<string, unknown> = { updated_at: now };
     if (body.enabled !== undefined) result.enabled = Boolean(body.enabled);
     if (body.anonymous !== undefined) result.anonymous = Boolean(body.anonymous);

@@ -1967,6 +1967,8 @@ usage.overview.vyceai_summary,ui,UsageOverview,UsageOverview,vyceai_summary,Vyce
 perks.filter.all,ui,PerksPage,PerksPage,filter_all,All,,active
 perks.filter.claimed,ui,PerksPage,PerksPage,filter_claimed,Claimed,,active
 perks.filter.unclaimed,ui,PerksPage,PerksPage,filter_unclaimed,Pending,,active
+perks.tier.all,ui,PerksPage,PerksPage,tier_all,All tiers,,active
+perks.album.jump,ui,PerksPage,PerksPage,album_jump,Jump to the card below,,active
 usage.overview.vyceai_model,ui,UsageOverview,UsageOverview,vyceai_model,{{model}}: {{input}} in / {{output}} out · ${{cost}},,active
 limits.label.agentrouter_balance,ui,LimitsPage,UsageLimitsPanel,agentrouter_balance,"${{balance}} left, ${{used}} used in total",,active
 localProfile.defaultName,shared,*,LocalProfileIdentity,default_name,This device,,active
