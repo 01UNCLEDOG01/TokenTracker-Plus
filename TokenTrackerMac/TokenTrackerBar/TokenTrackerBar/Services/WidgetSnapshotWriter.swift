@@ -171,7 +171,30 @@ enum WidgetSnapshotWriter {
             topModels: topModelEntries(from: inputs.topModels),
             sources: sourceEntries(from: inputs.fleetData),
             heatmap: heatmapPayload(from: inputs.heatmap),
-            limits: limitProviders(from: inputs.usageLimits)
+            limits: limitProviders(from: inputs.usageLimits),
+            format: formatSettings()
+        )
+    }
+
+    /// The widget runs in its own sandbox and cannot read the app's defaults,
+    /// so the four display preferences the dashboard pushes through
+    /// NativeBridge are embedded in every snapshot. Keys mirror
+    /// TokenFormatter / NativeBridge exactly (MenuBarTokenUnitSystem,
+    /// MenuBarCurrency, MenuBarCurrencySymbol, MenuBarExchangeRate); missing or
+    /// invalid values fall back to english/USD/1.0.
+    private static func formatSettings() -> WidgetFormatSettings {
+        let defaults = UserDefaults.standard
+        let unitSystem = defaults.string(forKey: "MenuBarTokenUnitSystem") == "chinese" ? "chinese" : "english"
+        let currencyCode = defaults.string(forKey: "MenuBarCurrency") ?? "USD"
+        let storedSymbol = defaults.string(forKey: "MenuBarCurrencySymbol")
+        let currencySymbol = (storedSymbol?.isEmpty == false) ? storedSymbol! : "$"
+        let storedRate = defaults.object(forKey: "MenuBarExchangeRate") as? Double
+        let rate = (storedRate != nil && storedRate!.isFinite && storedRate! > 0) ? storedRate! : 1.0
+        return WidgetFormatSettings(
+            tokenUnitSystem: unitSystem,
+            currencyCode: currencyCode,
+            currencySymbol: currencySymbol,
+            exchangeRate: rate
         )
     }
 

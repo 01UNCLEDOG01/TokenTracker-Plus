@@ -55,29 +55,10 @@ enum WidgetTheme {
     }
 }
 
+// Number formatting (tokens + cost) lives in Shared/WidgetSnapshot.swift's
+// WidgetFormatSettings so the widget, the menu bar and the dashboard follow the
+// same 万/亿 + currency preferences. This enum only carries presentation helpers.
 enum WidgetFormat {
-
-    static func compact(_ value: Int) -> String {
-        let absVal = abs(value)
-        let sign = value < 0 ? "-" : ""
-        switch absVal {
-        case 1_000_000_000...:
-            return "\(sign)\(String(format: "%.1f", Double(absVal) / 1_000_000_000.0))B"
-        case 1_000_000...:
-            return "\(sign)\(String(format: "%.1f", Double(absVal) / 1_000_000.0))M"
-        case 1_000...:
-            return "\(sign)\(String(format: "%.1f", Double(absVal) / 1_000.0))K"
-        default:
-            return "\(value)"
-        }
-    }
-
-    static func cost(_ value: Double) -> String {
-        if value >= 1_000 {
-            return String(format: "$%.0f", value)
-        }
-        return String(format: "$%.2f", value)
-    }
 
     static func percent(_ value: Double, decimals: Int = 1) -> String {
         String(format: "%.\(decimals)f%%", value)

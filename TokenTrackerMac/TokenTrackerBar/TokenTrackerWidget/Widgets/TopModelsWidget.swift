@@ -38,7 +38,7 @@ struct TopModelsWidgetView: View {
         } else {
             VStack(alignment: .leading, spacing: family == .systemSmall ? 10 : 13) {
                 ForEach(Array(models.enumerated()), id: \.element.id) { idx, m in
-                    ModelBar(rank: idx, model: m, compact: family == .systemSmall)
+                    ModelBar(rank: idx, model: m, compact: family == .systemSmall, format: entry.snapshot.resolvedFormat)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -50,6 +50,7 @@ private struct ModelBar: View {
     let rank: Int
     let model: SnapshotModelEntry
     let compact: Bool
+    let format: WidgetFormatSettings
 
     var body: some View {
         let share = max(0, min(100, model.sharePercent)) / 100.0
@@ -66,7 +67,7 @@ private struct ModelBar: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 4)
-                Text(WidgetFormat.compact(model.tokens))
+                Text(format.tokens(model.tokens))
                     .font(.system(size: compact ? 10 : 11, weight: .semibold, design: .rounded))
                     .foregroundColor(.secondary)
                     .monospacedDigit()

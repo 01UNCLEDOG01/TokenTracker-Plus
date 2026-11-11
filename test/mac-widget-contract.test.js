@@ -160,3 +160,70 @@ test('native settings advertise the widget gallery only on macOS 14+', () => {
   assert.doesNotMatch(bridge, /"widgetGallerySupported": (true|false)/,
     'no payload may hard-code the capability');
 });
+
+test('widget snapshot schema-3 carries the user format preferences', () => {
+  const shared = read('TokenTrackerMac/TokenTrackerBar/Shared/WidgetSnapshot.swift');
+  assert.match(shared, /public static let snapshotSchemaVersion = 3/,
+    'schema must bump to 3 when the format block is added');
+  assert.match(shared, /public struct WidgetFormatSettings: Codable, Equatable/);
+  assert.match(shared, /public var tokenUnitSystem: String/);
+  assert.match(shared, /public var currencyCode: String/);
+  assert.match(shared, /public var currencySymbol: String/);
+  assert.match(shared, /public var exchangeRate: Double/);
+  // Tolerant decode: optional format + resolved accessor + accepting v2 files.
+  assert.match(shared, /public var format: WidgetFormatSettings\?/);
+  assert.match(shared, /public var resolvedFormat: WidgetFormatSettings \{ format \?\? \.defaults \}/);
+  assert.match(shared, /\(2\.\.\.WidgetSharedConstants\.snapshotSchemaVersion\)\.contains\(snapshot\.schemaVersion\)/,
+    'a schema-2 snapshot must still decode (no blank widgets after upgrade)');
+});
+
+test('formatter is the exact app contract (万/亿 + converted currency)', () => {
+  const shared = read('TokenTrackerMac/TokenTrackerBar/Shared/WidgetSnapshot.swift');
+  // Chinese scale mirrors TokenFormatter.formatChinese, including the
+  // 99999999 -> 1亿 carry and the 万亿 top unit.
+  assert.match(shared, /static func chineseTokens\(_ value: Int\) -> String/);
+  assert.match(shared, /text\(absValue \/ 1e12, "万亿"\)/);
+  assert.match(shared, /yi >= 10_000 \? text\(yi \/ 10_000, "万亿"\) : text\(yi, "亿"\)/);
+  assert.match(shared, /wan >= 10_000 \? text\(wan \/ 1e4, "亿"\) : text\(wan, "万"\)/);
+  assert.match(shared, /if tokenUnitSystem == "chinese" \{ return Self\.chineseTokens\(value\) \}/);
+  // Cost converts USD by the snapshotted rate and prefixes the stored symbol.
+  assert.match(shared, /let converted = usd \* exchangeRate/);
+  assert.ok(shared.includes('return "\\(currencySymbol)\\(number)"'), 'cost() must render symbol + converted number');
+  assert.match(shared, /fmt\.locale = Locale\(identifier: "en_US_POSIX"\)/);
+  assert.match(shared, /fmt\.minimumFractionDigits = 2/);
+  // The harness pins the owner-visible numbers.
+  const harness = read('TokenTrackerMac/scripts/widget-format-check.swift');
+  assert.match(harness, /chineseCNY\.tokens\(231_894_794\), "2\.3亿"/);
+  assert.match(harness, /chineseCNY\.cost\(usd: 2\.880133\), "¥19\.26"/);
+  assert.match(harness, /chineseCNY\.tokens\(3_300_000_000\), "33亿"/);
+  assert.match(harness, /englishUSD\.tokens\(5_000_000_000\), "5\.0B"/);
+});
+
+test('host embeds the four display preferences in every snapshot', () => {
+  const writer = read('TokenTrackerMac/TokenTrackerBar/TokenTrackerBar/Services/WidgetSnapshotWriter.swift');
+  for (const key of ['MenuBarTokenUnitSystem', 'MenuBarCurrency', 'MenuBarCurrencySymbol', 'MenuBarExchangeRate']) {
+    assert.ok(writer.includes(key), 'WidgetSnapshotWriter must read ' + key);
+  }
+  assert.match(writer, /format: formatSettings\(\)/, 'buildSnapshot must pass the format block');
+  assert.match(writer, /private static func formatSettings\(\) -> WidgetFormatSettings/);
+});
+
+test('widget target has no hardcoded unit/currency formatting left', () => {
+  const widgetSources = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const path = require('node:path').join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith('.swift')) widgetSources.push(fs.readFileSync(path, 'utf8'));
+    }
+  };
+  walk('TokenTrackerMac/TokenTrackerBar/TokenTrackerWidget');
+  const joined = widgetSources.join('\n');
+  assert.doesNotMatch(joined, /WidgetFormat\.compact/, 'compact() must be deleted (shared formatter owns it)');
+  assert.doesNotMatch(joined, /WidgetFormat\.cost/, 'cost() must be deleted (shared formatter owns it)');
+  assert.doesNotMatch(joined, /String\(format: "\$%/, 'no hardcoded dollar formatting');
+  assert.doesNotMatch(joined, /\/ 1_000_000_000\.0\)\)B/, 'no hardcoded B suffix math');
+  // Every token/cost call site must go through the snapshot format.
+  assert.match(joined, /resolvedFormat\.tokens\(/);
+  assert.match(joined, /format\.cost\(usd:/);
+});

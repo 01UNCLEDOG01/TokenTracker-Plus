@@ -53,7 +53,7 @@ struct HeatmapWidgetView: View {
                 // Show all-time tokens so the number lines up with the
                 // all-time active-days count shown next to it.
                 let totalTokens = snap.total.tokens > 0 ? snap.total.tokens : snap.last30d.tokens
-                Text(WidgetFormat.compact(totalTokens))
+                Text(snap.resolvedFormat.tokens(totalTokens))
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
                     .monospacedDigit()

@@ -52,7 +52,7 @@ private struct SmallView: View {
 
             Spacer(minLength: 0)
 
-            Text(hasData ? WidgetFormat.compact(snap.today.tokens) : "—")
+            Text(hasData ? snap.resolvedFormat.tokens(snap.today.tokens) : "—")
                 .font(.system(size: 38, weight: .bold, design: .rounded))
                 .foregroundColor(.primary)
                 .lineLimit(1)
@@ -83,14 +83,14 @@ private struct MediumView: View {
             HStack(alignment: .top, spacing: 12) {
                 HeroBlock(
                     label: WidgetStrings.today,
-                    value: WidgetFormat.compact(snap.today.tokens),
+                    value: snap.resolvedFormat.tokens(snap.today.tokens),
                     subText: todaySubText(snap: snap)
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HeroBlock(
                     label: WidgetStrings.sevenDays,
-                    value: WidgetFormat.compact(snap.last7d.tokens),
-                    subText: costSubText(snap.last7d.costUsd)
+                    value: snap.resolvedFormat.tokens(snap.last7d.tokens),
+                    subText: costSubText(snap.last7d.costUsd, format: snap.resolvedFormat)
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -114,22 +114,22 @@ private struct LargeView: View {
             HStack(alignment: .top, spacing: 12) {
                 HeroBlock(
                     label: WidgetStrings.today,
-                    value: WidgetFormat.compact(snap.today.tokens),
+                    value: snap.resolvedFormat.tokens(snap.today.tokens),
                     subText: todaySubText(snap: snap),
                     size: .compact
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HeroBlock(
                     label: WidgetStrings.sevenDays,
-                    value: WidgetFormat.compact(snap.last7d.tokens),
-                    subText: costSubText(snap.last7d.costUsd),
+                    value: snap.resolvedFormat.tokens(snap.last7d.tokens),
+                    subText: costSubText(snap.last7d.costUsd, format: snap.resolvedFormat),
                     size: .compact
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HeroBlock(
                     label: WidgetStrings.thirtyDays,
-                    value: WidgetFormat.compact(snap.last30d.tokens),
-                    subText: costSubText(snap.last30d.costUsd),
+                    value: snap.resolvedFormat.tokens(snap.last30d.tokens),
+                    subText: costSubText(snap.last30d.costUsd, format: snap.resolvedFormat),
                     size: .compact
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +140,7 @@ private struct LargeView: View {
 
             VStack(spacing: 6) {
                 ForEach(Array(snap.topModels.prefix(3).enumerated()), id: \.element.id) { idx, m in
-                    InlineModelRow(rank: idx, model: m)
+                    InlineModelRow(rank: idx, model: m, format: snap.resolvedFormat)
                 }
             }
         }
@@ -189,7 +189,8 @@ private struct HeroBlock: View {
 /// `$12.34  ▼33%`. Concatenated as a single `Text` so it stays one line and
 /// shares the parent's font / size with the other hero blocks.
 private func todaySubText(snap: WidgetSnapshot) -> Text {
-    let cost = WidgetFormat.cost(snap.today.costUsd)
+    let format = snap.resolvedFormat
+    let cost = format.cost(usd: snap.today.costUsd)
     let delta = WidgetFormat.delta(snap.todayDeltaPercent)
     let deltaColor = WidgetFormat.deltaColor(snap.todayDeltaPercent)
     return Text("\(cost)  ").foregroundColor(.secondary)
@@ -197,8 +198,8 @@ private func todaySubText(snap: WidgetSnapshot) -> Text {
 }
 
 /// Plain gray cost line for the 7d / 30d hero blocks.
-private func costSubText(_ usd: Double) -> Text {
-    Text(WidgetFormat.cost(usd)).foregroundColor(.secondary)
+private func costSubText(_ usd: Double, format: WidgetFormatSettings) -> Text {
+    Text(format.cost(usd: usd)).foregroundColor(.secondary)
 }
 
 // Simple inline row used by Large to surface top models without the
@@ -206,6 +207,7 @@ private func costSubText(_ usd: Double) -> Text {
 private struct InlineModelRow: View {
     let rank: Int
     let model: SnapshotModelEntry
+    let format: WidgetFormatSettings
 
     var body: some View {
         HStack(spacing: 8) {
@@ -217,7 +219,7 @@ private struct InlineModelRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 6)
-            Text(WidgetFormat.compact(model.tokens))
+            Text(format.tokens(model.tokens))
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundColor(.secondary)
                 .monospacedDigit()

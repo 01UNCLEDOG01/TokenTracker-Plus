@@ -32,7 +32,119 @@ public enum WidgetSharedConstants {
     public static let snapshotFilename = "widget-snapshot.json"
 
     /// Schema version — bump when the wire format changes incompatibly.
-    public static let snapshotSchemaVersion = 2
+    /// v3 (2026-11-12): adds the format block so widgets render the user's
+    /// token units (万/亿) and currency instead of a hardcoded K/M/B + "$".
+    /// Readers stay tolerant: a v2 snapshot (no format) still decodes and
+    /// falls back to english/USD, so a stale file never blanks the widget.
+    public static let snapshotSchemaVersion = 3
+}
+
+// MARK: - Format preferences
+
+/// The user's formatting preferences, snapshotted with the data.
+///
+/// The widget extension is sandboxed and runs in its own container, so it can
+/// never read the app's UserDefaults. The host therefore ships these four
+/// values inside every snapshot, and the widget formats with them.
+///
+/// The formatter below must stay byte-identical in behaviour to
+/// TokenFormatter.formatCompact / formatChinese / formatCost in the main app
+/// (Utilities/TokenFormatter.swift): the menu bar and the widgets show the same
+/// numbers, so a divergence reads as a bug to the user.
+public struct WidgetFormatSettings: Codable, Equatable {
+    /// "chinese" selects the 万/亿 scale; anything else uses K/M/B.
+    public var tokenUnitSystem: String
+    /// Currency code pushed by the dashboard (CNY, USD, EUR, …) — informational.
+    public var currencyCode: String
+    /// Rendered symbol (¥, $, €, …).
+    public var currencySymbol: String
+    /// USD -> currency multiplicand (1.0 = USD).
+    public var exchangeRate: Double
+
+    public init(
+        tokenUnitSystem: String = "english",
+        currencyCode: String = "USD",
+        currencySymbol: String = "$",
+        exchangeRate: Double = 1.0
+    ) {
+        self.tokenUnitSystem = tokenUnitSystem
+        self.currencyCode = currencyCode
+        self.currencySymbol = currencySymbol
+        self.exchangeRate = exchangeRate.isFinite && exchangeRate > 0 ? exchangeRate : 1.0
+    }
+
+    /// Defaults for previews and for schema-2 snapshots without a format block.
+    public static let defaults = WidgetFormatSettings()
+
+    // MARK: Tokens
+
+    /// Compact token count. Mirrors TokenFormatter.formatCompact exactly.
+    public func tokens(_ value: Int) -> String {
+        if tokenUnitSystem == "chinese" { return Self.chineseTokens(value) }
+        return Self.englishTokens(value)
+    }
+
+    static func englishTokens(_ value: Int) -> String {
+        let absValue = abs(value)
+        let sign = value < 0 ? "-" : ""
+        switch absValue {
+        case 1_000_000_000...:
+            return "\(sign)\(String(format: "%.1f", Double(absValue) / 1_000_000_000.0))B"
+        case 1_000_000...:
+            return "\(sign)\(String(format: "%.1f", Double(absValue) / 1_000_000.0))M"
+        case 1_000...:
+            return "\(sign)\(String(format: "%.1f", Double(absValue) / 1_000.0))K"
+        default:
+            return "\(value)"
+        }
+    }
+
+    /// Mirrors TokenFormatter.formatChinese (itself a mirror of the
+    /// dashboard's formatChineseNumber): exact digits below 1万, one decimal
+    /// with a trailing ".0" dropped, and a carry into the next unit when
+    /// rounding reaches 10000 (99999999 -> "1亿", not "10000万").
+    static func chineseTokens(_ value: Int) -> String {
+        let sign = value < 0 ? "-" : ""
+        let absValue = Double(value.magnitude)
+        if absValue < 10_000 { return "\(sign)\(value.magnitude)" }
+
+        func rounded(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+        func text(_ v: Double, _ unit: String) -> String {
+            var digits = String(format: "%.1f", rounded(v))
+            if digits.hasSuffix(".0") { digits.removeLast(2) }
+            return "\(sign)\(digits)\(unit)"
+        }
+
+        if absValue >= 1e12 { return text(absValue / 1e12, "万亿") }
+        if absValue >= 1e8 {
+            let yi = rounded(absValue / 1e8)
+            return yi >= 10_000 ? text(yi / 10_000, "万亿") : text(yi, "亿")
+        }
+        let wan = rounded(absValue / 1e4)
+        return wan >= 10_000 ? text(wan / 1e4, "亿") : text(wan, "万")
+    }
+
+    // MARK: Cost
+
+    private static let costFormatter: NumberFormatter = {
+        let fmt = NumberFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.numberStyle = .decimal
+        fmt.usesGroupingSeparator = true
+        fmt.minimumFractionDigits = 2
+        fmt.maximumFractionDigits = 2
+        return fmt
+    }()
+
+    /// Renders a USD amount in the user's currency. Mirrors
+    /// TokenFormatter.formatCost: multiply by the exchange rate, then a grouped
+    /// decimal with exactly two fraction digits ("¥19.26", "$1,234.56").
+    public func cost(usd: Double) -> String {
+        let converted = usd * exchangeRate
+        let number = Self.costFormatter.string(from: NSNumber(value: converted))
+            ?? String(format: "%.2f", converted)
+        return "\(currencySymbol)\(number)"
+    }
 }
 
 // MARK: - Snapshot
@@ -69,6 +181,14 @@ public struct WidgetSnapshot: Codable, Equatable {
     /// Per-provider rate-limit windows.
     public var limits: [LimitProvider]
 
+    /// Formatting preferences for this snapshot (nil in schema-2 files).
+    /// Read it through resolvedFormat, never directly.
+    public var format: WidgetFormatSettings?
+
+    /// Formatting to use for rendering; english/USD defaults when the file
+    /// predates schema 3.
+    public var resolvedFormat: WidgetFormatSettings { format ?? .defaults }
+
     public init(
         schemaVersion: Int = WidgetSharedConstants.snapshotSchemaVersion,
         generatedAt: Date = Date(),
@@ -82,7 +202,8 @@ public struct WidgetSnapshot: Codable, Equatable {
         topModels: [SnapshotModelEntry] = [],
         sources: [SnapshotSourceEntry] = [],
         heatmap: HeatmapPayload = .empty,
-        limits: [LimitProvider] = []
+        limits: [LimitProvider] = [],
+        format: WidgetFormatSettings? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.generatedAt = generatedAt
@@ -97,6 +218,7 @@ public struct WidgetSnapshot: Codable, Equatable {
         self.sources = sources
         self.heatmap = heatmap
         self.limits = limits
+        self.format = format
     }
 
     public static let empty = WidgetSnapshot()
@@ -364,7 +486,7 @@ public enum WidgetSnapshotStore {
         for url in candidates {
             guard let data = try? Data(contentsOf: url),
                   let snapshot = try? decoder().decode(WidgetSnapshot.self, from: data),
-                  snapshot.schemaVersion == WidgetSharedConstants.snapshotSchemaVersion
+                  (2...WidgetSharedConstants.snapshotSchemaVersion).contains(snapshot.schemaVersion)
             else { continue }
             return snapshot
         }
