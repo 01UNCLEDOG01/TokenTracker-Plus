@@ -37,13 +37,16 @@ function isRecord(value) {
 }
 
 function normalizeCycleEntry(value) {
-  // v3 {last?, count}; a bare string is a kept-over v2 date.
+  // v3 {last?, count, cleared?}; a bare string is a kept-over v2 date.
+  // cleared = 当天取消的标记（站主 2026-11-12：领取→取消→领取不得反复刷
+  // count——当天取消后重新领取只恢复标记，count 不再 +1）。
   if (typeof value === "string") return validDate(value) ? { last: value, count: 1 } : null;
   if (!isRecord(value)) return null;
   const last = validDate(value.last) ? value.last : undefined;
   const count = Number.isSafeInteger(value.count) && value.count > 0 ? value.count : (last ? 1 : 0);
+  const cleared = validDate(value.cleared) ? value.cleared : undefined;
   if (!last && count === 0) return null;
-  return last ? { last, count } : { count };
+  return last ? { last, count, cleared } : { count, cleared };
 }
 
 export function normalizePerkClaims(value, providers) {
@@ -89,7 +92,12 @@ export function migrateLegacyPerkClaims(value, providers) {
 
 export function getPerkClaimDate(item, claims, cycle, day) {
   if (!getPerkClaimCycles(item).includes(cycle)) return null;
-  const date = claims?.[item.id]?.[cycle]?.last;
+  const entry = claims?.[item.id]?.[cycle];
+  // 当天取消过：显示为未领取（daily/once 按当天；monthly 取消清除整月标记）。
+  const cleared = entry?.cleared;
+  if (cleared === day) return null;
+  if (cycle === "monthly" && cleared && cleared.slice(0, 7) === day.slice(0, 7)) return null;
+  const date = entry?.last;
   if (!validDate(date) || date > day) return null;
   if (cycle === "daily" && date !== day) return null;
   if (cycle === "monthly" && date.slice(0, 7) !== day.slice(0, 7)) return null;
@@ -116,15 +124,16 @@ export function togglePerkClaim(claims, item, cycle, day) {
   const row = { ...claims[item.id] };
   const entry = normalizeCycleEntry(row[cycle]) || { count: 0 };
   if (getPerkClaimDate(item, claims, cycle, day)) {
-    // Unclaim: drop `last` so the cycle reads not-claimed, keep the lifetime
-    // count — album brightness never regresses.
-    const { last: _dropped, ...rest } = entry;
-    if (rest.count > 0) row[cycle] = rest;
-    else delete row[cycle];
+    // Unclaim: 标记 cleared（last 与 lifetime count 都保留——亮度不回退），
+    // 同一天内重新领取只摘标记、count 不再 +1（AIHOT 口径：一天一次，
+    // 领取→取消→领取不得刷 ×N，站主 2026-11-12）。
+    row[cycle] = { ...entry, cleared: day };
+  } else if (entry.cleared === day) {
+    // Same-day re-claim after an unclaim: restore the mark, keep count.
+    row[cycle] = { ...entry, last: day, cleared: undefined };
   } else {
-    // (Re-)claim: a fresh last plus one more lifetime count, whatever the
-    // previous entry shape ({count}, {last: older-date, count}, or missing).
-    row[cycle] = { last: day, count: (entry.count || 0) + 1 };
+    // (Re-)claim on a fresh day: a new last plus one more lifetime count.
+    row[cycle] = { last: day, count: (entry.count || 0) + 1, cleared: undefined };
   }
   if (Object.keys(row).length) next[item.id] = row;
   else delete next[item.id];

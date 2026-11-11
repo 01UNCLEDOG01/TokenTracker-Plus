@@ -249,7 +249,9 @@ describe("PerksPage", () => {
     fireEvent.click(screen.getAllByText("已领取（{{date}}）")[0]);
     expect(screen.queryByText("已领取（{{date}}）")).not.toBeInTheDocument();
     // 取消只摘掉 last，lifetime count 保留（卡册亮度不回退）。
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { count: 1 } } });
+    // 取消 = cleared 标记（last/count 保留）：当天可原样恢复，count 不刷
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers)
+      .toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1, cleared: getPerkClaimDay() } } });
   });
 
   it("领取状态筛选按钮能过滤已领取与未标记卡片", () => {
@@ -494,7 +496,7 @@ describe("PerksPage", () => {
     }
   });
 
-  it("已收卡再领取（连击 +1）重播翻面：data-flip-key 递增重建卡背节点", () => {
+  it("已收卡再领取（连击 +1）重播翻面：data-flip-key 递增重建卡背节点", async () => {
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
@@ -518,48 +520,16 @@ describe("PerksPage", () => {
     // 明细卡上标记今日已领取 → streak +1 → 卡背节点重建（动画重播）
     const detail = screen.getByRole("heading", { name: "Qoder CN (国内版)" }).closest(".group");
     fireEvent.click(within(detail).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    // 翻面延迟 500ms 等滚动到位（站主要求滚回卡册后才翻），断言等它落地
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)); });
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
 
-    // streak 不再变化时不重播：取消摘掉 last 但 lifetime count 保留
-    //（亮度不回退口径），×N 不变 → is-collected 保持、flip-key 不递增
+    // 取消 = cleared 标记（AIHOT 口径）：count 不变 → streak 不变 → 不重播
     fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
     expect(miniWithStreak.className).toContain("is-collected");
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
   });
 
-
-  it("已收卡再领取（连击 +1）重播翻面：data-flip-key 递增重建卡背节点", () => {
-    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
-      schema: 3,
-      providers: {
-        // qoder_cn 已收 ×3（daily 今天未领——last 留旧日期，连击口径由实现算）
-        qoder_cn: { daily: { last: "2020-01-01", count: 3 } },
-      },
-    }));
-    render(
-      <ToastProvider>
-        <PerksPage />
-      </ToastProvider>
-    );
-
-    // 卡册里的已收小卡（×3）在第一页亮卡组，data-flip-key 初始 0
-    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
-    const miniWithStreak = [...album.querySelectorAll(".perk-mini")]
-      .find((node) => node.textContent.includes("×3"));
-    expect(miniWithStreak).toBeTruthy();
-    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("0");
-
-    // 明细卡上标记今日已领取 → streak +1 → 卡背节点重建（动画重播）
-    const detail = screen.getByRole("heading", { name: "Qoder CN (国内版)" }).closest(".group");
-    fireEvent.click(within(detail).getByRole("button", { name: "今日未领取 · 标记已领取" }));
-    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
-
-    // streak 不再变化时不重播：取消摘掉 last 但 lifetime count 保留
-    //（亮度不回退口径），×N 不变 → is-collected 保持、flip-key 不递增
-    fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
-    expect(miniWithStreak.className).toContain("is-collected");
-    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
-  });
 
   it("明细卡标记已领取后视口滚回卡册对应小卡（翻面动画要被看见）", () => {
     // （此块内 scrollIntoView 用 this 包装，见下方赋值）

@@ -523,20 +523,16 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump }) {
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump, flipCount }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   const rarity = albumRarity(streak);
   const sealed = collected && Boolean(perkDaysLeft(item.endsAt)?.ended);
-  // 已收卡再领（连击 +1）时重播一次翻面：首次收卡的翻面靠 is-collected
-  // class 首次挂上触发，连击不换 class、动画不重播——用 key 重建卡背
-  // 节点强制重播同款 rotateY。mount 时不播（prevStreak 初值即当前值）。
-  const [flipKey, setFlipKey] = useState(0);
-  const prevStreakRef = useRef(streak);
-  useEffect(() => {
-    if (collected && streak > prevStreakRef.current) setFlipKey((k) => k + 1);
-    prevStreakRef.current = streak;
-  }, [collected, streak]);
+  // 已收卡再领（连击 +1）时重播一次翻面：flipKey 由父层（PerksPage）统一
+  // 管理——翻页容器按页 key 重建会清掉组件内的延迟定时器，连击翻面必须
+  // 在翻页 remount 后依然触发。连击不换 class，用 key 重建卡背节点强制
+  // 重播同款 rotateY。
+  const flipKey = flipCount || 0;
   return (
     <button
       type="button"
@@ -643,7 +639,7 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, claimDay, collected,
   );
 }
 
-function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
+function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys }) {
   const totalPages = Math.max(1, Math.ceil(items.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
@@ -724,6 +720,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump }) {
               claimedNow={entry.claimedNow}
               faceValue={entry.faceValue}
               onJump={onJump}
+              flipCount={flipKeys[entry.item.id] || 0}
             />
           ))}
         </div>
@@ -826,6 +823,10 @@ export function PerksPage() {
   // 人在明细卡处领取根本看不到（站主 2026-11-12）。effect 放在 albumItems
   // 之后：领取会改排序，页码必须按领取后的卡册顺序算。
   const pendingScrollId = useRef(null);
+  // 连击翻面计数（per 卡）：streak 增长 → 卡背 key 重建重播 rotateY。
+  // 放主组件层——翻页容器按页 key 重建时组件内定时器会被清掉（教训）。
+  const [flipKeys, setFlipKeys] = useState({});
+  const prevStreaksRef = useRef({});
 
   const toggleClaim = (item, cycle) => {
     const day = getPerkClaimDay();
@@ -938,6 +939,34 @@ export function PerksPage() {
     );
   }, [albumItems]);
 
+  // 连击翻面：diff 每张卡的 streak，增长者的卡背延迟 500ms 重建（等滚动
+  // 到位再翻，否则动画在人看到之前就放完了）。批量合并成一次 setState。
+  const flipDiffMountedRef = useRef(false);
+  useEffect(() => {
+    // 首轮只建档：卡册挂载时已有连击的卡不算「增长」，否则整册在
+    // 加载 500ms 后集体空翻一次（站主实测口径：只在领取瞬间翻）。
+    if (!flipDiffMountedRef.current) {
+      flipDiffMountedRef.current = true;
+      for (const entry of albumItems) prevStreaksRef.current[entry.item.id] = entry.streak;
+      return;
+    }
+    const grew = [];
+    for (const entry of albumItems) {
+      const prev = prevStreaksRef.current[entry.item.id] || 0;
+      if (entry.collected && entry.streak > prev) grew.push(entry.item.id);
+      prevStreaksRef.current[entry.item.id] = entry.streak;
+    }
+    if (!grew.length) return;
+    const timer = setTimeout(() => {
+      setFlipKeys((current) => {
+        const next = { ...current };
+        for (const id of grew) next[id] = (next[id] || 0) + 1;
+        return next;
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [albumItems]);
+
   // 卡册翻页随筛选结果收缩回合法范围，避免「清除筛选后跳回旧页码」。
   useEffect(() => {
     setAlbumPage((current) => {
@@ -984,6 +1013,7 @@ export function PerksPage() {
             page={albumPage}
             onPageChange={setAlbumPage}
             onJump={jumpToCard}
+            flipKeys={flipKeys}
           />
 
           {/* 六色图例：把色阶含义摆在页面上（站主 2026-11-11 要求） */}

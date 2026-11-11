@@ -298,6 +298,9 @@ export function InsforgeAuthProvider({ children }) {
         const token = await resolveInsforgeClientAccessToken(client);
         if (!active || !token) { if (active) setDisplayNameResolved(true); return; }
         const data = await getPublicVisibility({ accessToken: token });
+        // 头像同源回填：登录/整页刷新后内存 customAvatarUrl 已清零，而 SDK
+        // user 对象不带 avatar——侧栏头像要从这里恢复（2026-11-12）。
+        if (active) setCustomAvatarUrl(data?.avatar_url || null);
         if (active && data?.display_name) setCloudDisplayName(data.display_name);
       } catch { /* ignore */ }
       if (active) setDisplayNameResolved(true);

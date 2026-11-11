@@ -73,14 +73,21 @@ describe("perk claim calendar and state (schema 3: {last, count})", () => {
     // Next day re-claim: count 2.
     const second = togglePerkClaim(first, mixed, "daily", "2026-11-02");
     expect(second.mixed.daily).toEqual({ last: "2026-11-02", count: 2 });
-    // Unclaim drops `last` but keeps the lifetime count.
+    // Unclaim marks the day cleared: reads as not-claimed, lifetime count kept.
     const unclaimed = togglePerkClaim(second, mixed, "daily", "2026-11-02");
-    expect(unclaimed.mixed.daily).toEqual({ count: 2 });
+    expect(unclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 2, cleared: "2026-11-02" });
     expect(getPerkClaimStreak(mixed, unclaimed, "daily")).toBe(2);
     expect(getPerkClaimDate(mixed, unclaimed, "daily", "2026-11-02")).toBeNull();
-    // Re-claim after unclaim continues the count (3), not a reset.
+    // Same-day re-claim restores the mark WITHOUT bumping count — 领取→取消→领取
+    // 不得反复刷 ×N（AIHOT 口径：一天一次，站主 2026-11-12）。
     const reclaimed = togglePerkClaim(unclaimed, mixed, "daily", "2026-11-02");
-    expect(reclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 3 });
+    expect(reclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 2 });
+    // Toggle again → unclaimed again, count still 2.
+    const toggledAgain = togglePerkClaim(reclaimed, mixed, "daily", "2026-11-02");
+    expect(toggledAgain.mixed.daily.count).toBe(2);
+    // Next day is a fresh day: count 3.
+    const nextDay = togglePerkClaim(toggledAgain, mixed, "daily", "2026-11-03");
+    expect(nextDay.mixed.daily).toEqual({ last: "2026-11-03", count: 3 });
     // The other period stays untouched.
     expect(reclaimed.mixed.monthly).toBeUndefined();
     expect(() => togglePerkClaim(empty, mixed, "once", "2026-11-03")).toThrow(TypeError);
