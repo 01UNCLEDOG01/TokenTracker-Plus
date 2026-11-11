@@ -74,7 +74,7 @@ enum DashboardPage: String, CaseIterable {
 }
 
 @MainActor
-final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKDownloadDelegate {
 
     /// Matches the `AppLayout` main content gutter `lg:pr-3 lg:pb-3` (12pt) in `dashboard`,
     /// used to approximate concentric rounding between the main card and the window.
@@ -95,6 +95,10 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
     private var chromeFollowsSystem = false
     private var effectiveAppearanceObservation: NSKeyValueObservation?
     private var webView: WKWebView?
+    /// In-flight WKDownloads. `WKDownload.delegate` is weak and WebKit does not
+    /// keep the delegate side alive for us, so hold the downloads until they
+    /// finish or fail; otherwise the destination callback never runs.
+    private var activeDownloads: [WKDownload] = []
     private var loadingOverlay: NSView?
     private var loadingHostingController: NSHostingController<AnyView>?
     /// Non-nil while the window is parked on the "couldn't load" state, which is
@@ -809,6 +813,15 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
             decisionHandler(.allow)
             return
         }
+        // The dashboard's Local data export saves snapshot/full-backup blobs via
+        // `URL.createObjectURL` + `<a download>.click()`. A download-attribute
+        // click must become a WKDownload here: without this branch WebKit treats
+        // the blob URL as an ordinary navigation, which renders the raw snapshot
+        // in place of the dashboard (and never writes a file).
+        if navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
         // Allow local dashboard navigation
         if isLocalDashboardURL(url) {
             decisionHandler(.allow)
@@ -834,6 +847,112 @@ final class DashboardWindowController: NSObject, NSWindowDelegate, WKNavigationD
             return
         }
         decisionHandler(.allow)
+    }
+
+    /// A response WebKit cannot render (e.g. an `application/gzip` attachment)
+    /// is a download, not a page. Everything renderable keeps the previous
+    /// behaviour (allow), so dashboard navigation is unchanged.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        if !navigationResponse.canShowMIMEType {
+            decisionHandler(.download)
+            return
+        }
+        decisionHandler(.allow)
+    }
+
+    // MARK: - WKDownloadDelegate
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        adoptDownload(download)
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        adoptDownload(download)
+    }
+
+    private func adoptDownload(_ download: WKDownload) {
+        if !activeDownloads.contains(where: { $0 === download }) {
+            activeDownloads.append(download)
+        }
+        download.delegate = self
+    }
+
+    /// Same destination as WebView2's default download handling on Windows and
+    /// the retired native export IPC: the user's Downloads folder. Native QA
+    /// builds stay inside their sandbox run directory.
+    private func downloadsDirectory() -> URL? {
+        if let profile = NativeQAProfile.current {
+            let directory = URL(fileURLWithPath: profile.runDirectory).appendingPathComponent("Downloads", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                        attributes: [.posixPermissions: 0o700])
+                return directory
+            } catch {
+                return nil
+            }
+        }
+        return try? FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask,
+                                            appropriateFor: nil, create: true)
+    }
+
+    func download(
+        _ download: WKDownload,
+        decideDestinationUsing response: URLResponse,
+        suggestedFilename: String,
+        completionHandler: @escaping (URL?) -> Void
+    ) {
+        guard let directory = downloadsDirectory() else {
+            // Cancelling here surfaces through didFailWithError, which shows the
+            // failure alert instead of silently dropping the export.
+            completionHandler(nil)
+            return
+        }
+        let filename = Self.sanitizedDownloadFilename(suggestedFilename)
+        completionHandler(Self.uniqueDestination(in: directory, filename: filename))
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        activeDownloads.removeAll { $0 === download }
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        activeDownloads.removeAll { $0 === download }
+        // Same convention as the in-window load failure: never fail silently.
+        let alert = NSAlert()
+        alert.messageText = "Download failed"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: nil)
+        } else {
+            alert.runModal()
+        }
+    }
+
+    private static func sanitizedDownloadFilename(_ suggested: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\:*?\"<>|")
+        let cleaned = suggested.components(separatedBy: invalid).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = cleaned.isEmpty || cleaned.hasPrefix(".") ? "tokentracker-export" : cleaned
+        return String(base.prefix(180))
+    }
+
+    private static func uniqueDestination(in directory: URL, filename: String) -> URL {
+        let base = directory.appendingPathComponent(filename)
+        guard FileManager.default.fileExists(atPath: base.path) else { return base }
+        let ext = base.pathExtension
+        let stem = base.deletingPathExtension().lastPathComponent
+        for index in 1..<1000 {
+            let name = ext.isEmpty ? "\(stem)-\(index)" : "\(stem)-\(index).\(ext)"
+            let candidate = directory.appendingPathComponent(name)
+            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
+        return base
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
