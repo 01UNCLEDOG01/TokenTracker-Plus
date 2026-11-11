@@ -514,6 +514,72 @@ struct DynamicIslandView: View {
 
     // MARK: - Expanded detail
 
+    /// 1.27.0「今日明细」(today breakdown): today's conversation count plus
+    /// the top three models by tokens, aggregated from a today-scoped
+    /// breakdown that is independent of the selected period. Hidden entirely
+    /// when there is nothing to show — no empty block, no placeholder.
+    @ViewBuilder
+    private var islandTodayDetail: some View {
+        let conversations = viewModel.todaySummary?.totals.conversationCount ?? 0
+        let models = viewModel.todayTopModels
+        if conversations > 0 || !models.isEmpty {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(Strings.islandTodayDetailTitle)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.5))
+
+                if conversations > 0 {
+                    HStack(spacing: 5) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .accessibilityHidden(true)
+                        Text(Strings.islandTodayConversations(conversations))
+                            .font(.system(size: 11, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.8))
+                    }
+                }
+
+                ForEach(models.prefix(3)) { model in
+                    HStack(spacing: 8) {
+                        Text(model.name)
+                            .font(.system(size: 11, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.82))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .layoutPriority(1)
+                            .help(model.name)
+
+                        Capsule()
+                            .fill(Color.white.opacity(0.14))
+                            .frame(height: 4)
+                            .overlay(alignment: .leading) {
+                                Capsule()
+                                    .fill(Color.white.opacity(0.6))
+                                    .frame(width: max(2, shareWidth(for: model.percent)))
+                            }
+                            .frame(maxWidth: .infinity)
+
+                        Text("\(model.percent)%")
+                            .font(.system(size: 10, design: .rounded).monospacedDigit())
+                            .foregroundStyle(Color.white.opacity(0.65))
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(model.name) \(model.percent)%")
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    /// Percent strings from the aggregation arrive with one decimal; convert
+    /// to a 0…1 fraction for the share bar (clamped — the bar is decorative
+    /// and the exact number always reads beside it).
+    private func shareWidth(for percent: String) -> CGFloat {
+        let value = Double(percent) ?? 0
+        return CGFloat(min(max(value, 0), 100)) / 100 * 120
+    }
+
     /// Cap for the limits list: island chrome (header + summary cards +
     /// divider + footer + paddings) stays under ~240pt, so this keeps the
     /// whole island within `maxExpandedHeight` and the panel's bounds.
@@ -529,6 +595,8 @@ struct DynamicIslandView: View {
                 totalTokens: viewModel.totalTokens,
                 totalCost: viewModel.totalCost
             )
+
+            islandTodayDetail
 
             // Self-sizing up to the cap (outer `.fixedSize` makes the scroll
             // view hug its content), scrollable beyond it — many configured

@@ -49,6 +49,15 @@ class DashboardViewModel: ObservableObject {
     @Published var hourly: [HourlyEntry] = []
     @Published var heatmap: HeatmapResponse?
     @Published var modelBreakdown: ModelBreakdownResponse?
+    /// Today-scoped Top models for the island's「今日明细」block (1.27.0).
+    /// Always today regardless of the selected period; empty when the fetch
+    /// fails or no usage exists, in which case the island hides the block.
+    @Published var todayTopModels: [TopModel] = []
+    /// Raw today-scoped sources feeding `todayTopModels` (not published —
+    /// the island only renders the aggregated rows).
+    var todayModelBreakdownSources: [SourceEntry] = [] {
+        didSet { todayTopModels = buildTopModels(from: todayModelBreakdownSources) }
+    }
     @Published var projectUsage: ProjectUsageResponse?
     @Published var usageLimits: UsageLimitsResponse?
     /// Hosted-only subscription manager was removed (no cloud in TT-Plus), so this
@@ -195,7 +204,7 @@ class DashboardViewModel: ObservableObject {
 
         var errorCount = 0
         var firstError: String?
-        let totalFetches = 9
+        let totalFetches = 10
         var summaryRequests: [String: Task<UsageSummaryFetchResult, Error>] = [:]
         @MainActor func fetchSummary(from: String, to: String) async throws -> UsageSummaryFetchResult {
             let key = "\(from)|\(to)"
@@ -304,6 +313,18 @@ class DashboardViewModel: ObservableObject {
                 } catch {
                     errorCount += 1
                     if firstError == nil { firstError = error.localizedDescription }
+                }
+            }
+            // Today-scoped model breakdown — feeds the island's「今日明细」
+            // block (1.27.0) independently of the selected period. Same anchor
+            // day as the today summary (rollingTo is today by construction).
+            group.addTask { @MainActor in
+                do {
+                    let result = try await APIClient.shared.fetchModelBreakdown(from: rollingTo, to: rollingTo)
+                    self.todayModelBreakdownSources = result.value.sources
+                } catch {
+                    // Non-fatal by design: the island hides the detail block
+                    // when today's breakdown is unavailable.
                 }
             }
             // Project usage (for selected period)
@@ -911,7 +932,14 @@ class DashboardViewModel: ObservableObject {
     }
 
     private func buildTopModels() -> [TopModel] {
-        guard let sources = modelBreakdown?.sources, !sources.isEmpty else { return [] }
+        buildTopModels(from: modelBreakdown?.sources)
+    }
+
+    /// Aggregates model rows across sources by model name (heaviest-name
+    /// anchoring), top 5 by tokens. Shared by the period TopModels list and
+    /// the island's today-detail block (1.27.0).
+    func buildTopModels(from sources: [SourceEntry]?) -> [TopModel] {
+        guard let sources, !sources.isEmpty else { return [] }
 
         var totalsByKey: [String: Int] = [:]
         var nameByKey: [String: String] = [:]

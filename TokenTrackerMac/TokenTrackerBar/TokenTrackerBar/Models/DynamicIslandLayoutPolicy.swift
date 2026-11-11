@@ -9,7 +9,14 @@ enum DynamicIslandLayoutPolicy {
     static let expandedWidth: CGFloat = 480
     static let shadowBleed: CGFloat = 28
     static let maximumIslandHeight: CGFloat = 800
-    static let fixedChromeHeight: CGFloat = 240
+    /// Header + summary cards + 1.27.0 today-detail block + divider + footer
+    /// + paddings. The today block is conditional in the view, but the cap
+    /// stays fixed: when the block is hidden the limits list simply hugs less
+    /// content, and when shown it must always have its reserved room.
+    static let fixedChromeHeight: CGFloat = 240 + todayDetailHeight
+    /// Reserved room for the「今日明细」block: section label + conversations
+    /// line + up to three model rows with share bars.
+    static let todayDetailHeight: CGFloat = 88
     static let minimumLimitsHeight: CGFloat = 96
 
     static var maximumPanelHeight: CGFloat {

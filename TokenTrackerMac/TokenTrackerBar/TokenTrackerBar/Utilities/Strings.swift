@@ -43,6 +43,12 @@ enum Strings {
     // 1.27.0 display-follow: place the pill on the screen the cursor is on
     // (multi-display setups), instead of always the notch/main display.
     static var menuIslandFollowDisplay: String { t("Follow mouse display", "跟随鼠标所在显示器", "跟隨滑鼠所在顯示器", "マウスのあるディスプレイに追従", "마우스 디스플레이 따라가기", "Auf Maus-Display folgen") }
+    // 1.27.0 island expanded「今日明细」block: today's conversation count plus
+    // the top three models by token share, independent of the selected period.
+    static var islandTodayDetailTitle: String { t("Today breakdown", "今日明细", "今日明細", "今日の内訳", "오늘 내역", "Heute im Detail") }
+    static func islandTodayConversations(_ count: Int) -> String {
+        t("\(count) sessions", "会话 \(count) 次", "會話 \(count) 次", "セッション \(count) 件", "세션 \(count)회", "\(count) Sitzungen")
+    }
     static var menuIconStyle: String { t("Icon Style", "图标样式", "圖標樣式", "アイコンスタイル", "아이콘 스타일", "Symbolstil") }
     static var quitButton: String { t("Quit", "退出", "退出", "終了", "종료", "Beenden") }
     static var justNow: String { t("just now", "刚刚", "剛剛", "たった今", "방금", "gerade eben") }
