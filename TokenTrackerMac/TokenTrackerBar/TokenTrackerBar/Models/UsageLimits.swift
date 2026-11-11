@@ -1006,6 +1006,15 @@ struct RaccoonLimits: Codable, Equatable {
     let raccoonUpdatedAt: String?
     let source: String?
     let stale: Bool?
+    /// Today's grant-vs-consumption window from the desktop session's bills
+    /// lane (`src/lib/raccoon-daily-usage.js`, attached by
+    /// `attachRaccoonDailyUsage`) — the one real percentage on the raccoon
+    /// card, rendered through LimitBar like every other row. Nil when the
+    /// bills lane is absent (the wallet lines alone then carry the card).
+    let raccoonDailyUsageWindow: GenericLimitWindow?
+    /// The bills lane failing must not blank the wallet lines; the web card
+    /// shows the lane error as its own status line instead.
+    let raccoonDailyUsageError: String?
 
     enum CodingKeys: String, CodingKey {
         case configured, error, source, stale
@@ -1014,6 +1023,8 @@ struct RaccoonLimits: Codable, Equatable {
         case raccoonAvailableCredits = "raccoon_available_credits"
         case raccoonUnit = "raccoon_unit"
         case raccoonUpdatedAt = "raccoon_updated_at"
+        case raccoonDailyUsageWindow = "raccoon_daily_usage_window"
+        case raccoonDailyUsageError = "raccoon_daily_usage_error"
     }
 }
 

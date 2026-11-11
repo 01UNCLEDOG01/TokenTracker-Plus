@@ -245,7 +245,7 @@ struct UsageLimitsView: View {
             }
         case "raccoon":
             if let raccoon = limits.raccoon, raccoon.configured, raccoon.error == nil {
-                return toolSection(id: id, title: Strings.providerRaccoon, assetName: "RaccoonLogo", toolName: Strings.providerRaccoon, specs: [], statusLines: raccoonStatusLines(raccoon), isStale: raccoon.stale ?? false)
+                return toolSection(id: id, title: Strings.providerRaccoon, assetName: "RaccoonLogo", toolName: Strings.providerRaccoon, specs: raccoonSpecs(raccoon), statusLines: raccoonStatusLines(raccoon), isStale: raccoon.stale ?? false)
             }
         case "minimax":
             if let minimax = limits.minimax, minimax.configured, minimax.error == nil {
@@ -803,6 +803,15 @@ struct UsageLimitsView: View {
     }
 
     private func raccoonStatusLines(_ r: RaccoonLimits) -> [String] {
+        // A failing bills lane shows as its own line — the wallet balances
+        // above it stay truthful without pretending the lane is fine.
+        if let laneError = r.raccoonDailyUsageError, !laneError.isEmpty {
+            return raccoonWalletsLine(r) + [laneError]
+        }
+        return raccoonWalletsLine(r)
+    }
+
+    private func raccoonWalletsLine(_ r: RaccoonLimits) -> [String] {
         let wallets = (r.raccoonWallets ?? []).filter { ($0.balance ?? 0) != 0 }
         let visible = wallets.isEmpty ? Array((r.raccoonWallets ?? []).prefix(1)) : wallets
         let summary = visible.compactMap { wallet -> String? in
@@ -817,6 +826,15 @@ struct UsageLimitsView: View {
             total: Strings.creditAmountText(r.raccoonAvailableCredits ?? 0, maximumFractionDigits: 0),
             unit: r.raccoonUnit ?? ""
         )]
+    }
+
+    /// The daily grant-vs-consumption lane (每日积分): the one real window row
+    /// on the raccoon card, flowing through LimitBar with the shared display
+    /// mode — same contract as the web spec's `raccoon_daily_usage_window`.
+    private func raccoonSpecs(_ r: RaccoonLimits) -> [LimitWindowSpec] {
+        guard let window = r.raccoonDailyUsageWindow else { return [] }
+        return [makeSpec(Strings.raccoonDailyLabel, window.usedPercent,
+                         windowSeconds: window.limitWindowSeconds, iso: window.resetAt)]
     }
 
     /// "2026-11-20T…" → "11-20" (the dashboard prints the month-day slice).
