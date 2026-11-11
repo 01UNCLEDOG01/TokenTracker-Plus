@@ -487,19 +487,29 @@ function AlbumMiniLogo({ item, hasIcon }) {
 function AlbumMiniCard({ item, collected, tier, streak, claimedNow, faceValue, onJump }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
+  // 已收卡再领（连击 +1）时重播一次翻面：首次收卡的翻面靠 is-collected
+  // class 首次挂上触发，连击不换 class、动画不重播——用 key 重建卡背
+  // 节点强制重播同款 rotateY。mount 时不播（prevStreak 初值即当前值）。
+  const [flipKey, setFlipKey] = useState(0);
+  const prevStreakRef = useRef(streak);
+  useEffect(() => {
+    if (collected && streak > prevStreakRef.current) setFlipKey((k) => k + 1);
+    prevStreakRef.current = streak;
+  }, [collected, streak]);
   return (
     <button
       type="button"
       onClick={onJump ? () => onJump(item.id) : undefined}
       title={onJump ? copy("perks.album.jump") : undefined}
       aria-label={`${item.name} — ${copy("perks.album.jump")}`}
+      data-flip-key={flipKey}
       className={cn(
         "perk-mini relative block h-[118px] w-full text-center focus-visible:outline-none",
         collected ? "is-collected" : "is-uncollected",
       )}
     >
       {collected ? (
-        <span className="perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
+        <span key={flipKey} className="perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
           <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
             <AlbumMiniLogo item={item} hasIcon={hasIcon} />
           </span>

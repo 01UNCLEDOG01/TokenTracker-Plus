@@ -495,6 +495,39 @@ describe("PerksPage", () => {
   });
 
 
+  it("已收卡再领取（连击 +1）重播翻面：data-flip-key 递增重建卡背节点", () => {
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        // qoder_cn 已收 ×3（daily 今天未领——last 留旧日期，连击口径由实现算）
+        qoder_cn: { daily: { last: "2020-01-01", count: 3 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    // 卡册里的已收小卡（×3）在第一页亮卡组，data-flip-key 初始 0
+    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    const miniWithStreak = [...album.querySelectorAll(".perk-mini")]
+      .find((node) => node.textContent.includes("×3"));
+    expect(miniWithStreak).toBeTruthy();
+    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("0");
+
+    // 明细卡上标记今日已领取 → streak +1 → 卡背节点重建（动画重播）
+    const detail = screen.getByRole("heading", { name: "Qoder CN (国内版)" }).closest(".group");
+    fireEvent.click(within(detail).getByRole("button", { name: "今日未领取 · 标记已领取" }));
+    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
+
+    // streak 不再变化时不重播：取消摘掉 last 但 lifetime count 保留
+    //（亮度不回退口径），×N 不变 → is-collected 保持、flip-key 不递增
+    fireEvent.click(within(detail).getByRole("button", { name: "今日已领取（{{date}}）" }));
+    expect(miniWithStreak.className).toContain("is-collected");
+    expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
+  });
+
   it("价值等级筛选：点六色 chip 后只保留该档卡片，计数与数据一致", () => {
     render(
       <ToastProvider>
