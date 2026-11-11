@@ -13,6 +13,17 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
     static let showDefaultsKey = "DesktopPetShow"
     private static let frameAutosaveName = "DesktopPetWindow"
     private static let sizeDefaultsKey = "DesktopPetSize"
+    /// 1.27.0: continuous scale replaces the preset string (migrated in init).
+    private static let scaleDefaultsKey = "DesktopPetSpriteScale"
+    /// Free-size slider bounds — 0.7 keeps the pet visible-but-tiny; 2.2 is the
+    /// largest scale whose panel still clears the bubble on a 720p display.
+    static let minScale: CGFloat = 0.7
+    static let maxScale: CGFloat = 2.2
+
+    private static func clampedScale(_ raw: CGFloat) -> CGFloat {
+        let finite = raw.isFinite ? raw : PetSizePreset.medium.scale
+        return min(max(finite, minScale), maxScale)
+    }
     // Wide enough to fully contain the longest data bubble (e.g. "309.8M tokens —
     // $197.41 spent today"); the window is transparent so the extra width is invisible —
     // it just lets the centered bubble render without hitting the window edge (which
@@ -34,20 +45,23 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
 
     /// Current size preset (persisted). Drives sprite scale, panel height, and the
     /// sprite-derived edge-tuck geometry below.
-    private var sizePreset: PetSizePreset = .medium
+    /// Continuous sprite scale (1.27.0 free-size slider). The three presets
+    /// remain as anchor values (1.0 / 1.4 / 1.85) for the bridge's `size` key.
+    private var petScale: CGFloat = PetSizePreset.medium.scale
 
-    /// Panel size for the current preset — width fixed, height grows with scale so a
+    /// Panel size for the current scale — width fixed, height grows with scale so a
     /// larger sprite isn't clipped at the panel's top/bottom.
     private var petSize: NSSize {
         NSSize(
             width: PetSizePreset.panelWidth,
-            height: sizePreset.panelHeight + uiState.bubbleHeight - PetWindowState.minimumBubbleHeight
+            height: PetSizePreset.panelHeight(forScale: petScale)
+                + uiState.bubbleHeight - PetWindowState.minimumBubbleHeight
         )
     }
     /// The sprite is horizontally centered in the (wider) panel; this mirrors
     /// ClawdCompanionView's floating layout — sprite = 15 * px(4) * scale — so tucking
     /// exposes the *sprite*, not the panel's transparent margin.
-    private var spriteWidth: CGFloat { 60 * sizePreset.scale }
+    private var spriteWidth: CGFloat { 60 * petScale }
     private var spriteLeftInset: CGFloat { (PetSizePreset.panelWidth - spriteWidth) / 2 }
 
     private enum Edge { case left, right }
@@ -71,12 +85,20 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
 
     init(viewModel: DashboardViewModel) {
         self.viewModel = viewModel
-        if let raw = UserDefaults.standard.string(forKey: Self.sizeDefaultsKey),
-           let saved = PetSizePreset(rawValue: raw) {
-            sizePreset = saved
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.scaleDefaultsKey) != nil {
+            petScale = Self.clampedScale(defaults.double(forKey: Self.scaleDefaultsKey))
+        } else if let raw = defaults.string(forKey: Self.sizeDefaultsKey),
+                  let saved = PetSizePreset(rawValue: raw) {
+            // One-time migration from the removed preset string (AGENTS: a
+            // persisted-shape change ships with its migration — old data
+            // converts once, then the legacy key is dropped).
+            petScale = saved.scale
+            defaults.set(Double(saved.scale), forKey: Self.scaleDefaultsKey)
+            defaults.removeObject(forKey: Self.sizeDefaultsKey)
         }
         super.init()
-        uiState.floatingScale = sizePreset.scale
+        uiState.floatingScale = petScale
     }
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -465,16 +487,29 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
 
     /// Change the pet's size preset (from the right-click menu). Width is fixed, so the
     /// sprite stays horizontally centered; only the sprite scale + panel height change.
-    /// The sprite-derived tuck geometry recomputes from `sizePreset`, so a tucked pet is
+    /// The sprite-derived tuck geometry recomputes from `petScale`, so a tucked pet is
     /// re-pinned to its edge after the resize.
+    /// Menu/preset compatibility wrapper — the presets are anchor values on the
+    /// continuous slider.
     func setSize(_ preset: PetSizePreset) {
-        guard preset != sizePreset else { return }
-        sizePreset = preset
-        UserDefaults.standard.set(preset.rawValue, forKey: Self.sizeDefaultsKey)
-        // Drives ClawdCompanionView's sprite scale + the DesktopPetHost frame height.
-        uiState.floatingScale = preset.scale
+        setScale(preset.scale)
+    }
 
-        guard let panel else { return }
+    /// 1.27.0 free-size entry point. Clamped, persisted as a Double, and applied
+    /// live: the floating scale drives ClawdCompanionView's sprite + the host
+    /// frame height.
+    func setScale(_ raw: CGFloat) {
+        let scale = Self.clampedScale(raw)
+        guard abs(scale - petScale) > 0.0005 else { return }
+        petScale = scale
+        UserDefaults.standard.set(Double(scale), forKey: Self.scaleDefaultsKey)
+        // Drives ClawdCompanionView's sprite scale + the DesktopPetHost frame height.
+        uiState.floatingScale = scale
+
+        guard let panel else {
+            NativeBridge.shared.pushPetSettings()
+            return
+        }
         // Width unchanged → horizontal center unchanged; grow/shrink height in place.
         let old = panel.frame
         let newSize = petSize
@@ -529,7 +564,7 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
                 let mouse = NSEvent.mouseLocation
                 let center = NSPoint(
                     x: panel.frame.midX,
-                    y: panel.frame.minY + (64 * self.sizePreset.scale) / 2
+                    y: panel.frame.minY + (64 * self.petScale) / 2
                 )
                 let dx = mouse.x - center.x
                 let dy = mouse.y - center.y
@@ -570,12 +605,16 @@ enum PetSizePreset: String, CaseIterable {
 
     /// Panel height — must clear the scaled sprite (16 * px(4) * scale) plus the
     /// multi-row active-limit bubble slot above it, or the sprite/bubble clips.
-    var panelHeight: CGFloat {
-        switch self {
-        case .small:  return 230
-        case .medium: return 250
-        case .large:  return 288
-        }
+    var panelHeight: CGFloat { Self.panelHeight(forScale: scale) }
+
+    /// Continuous panel height for the 1.27.0 free-size slider (any scale in
+    /// `DesktopPetWindowController.scaleRange`). Floor `230` keeps the
+    /// small-preset headroom at small scales; the `172 + 64 * scale` term
+    /// reproduces — with slightly MORE room than — every hand-tuned preset
+    /// height (236 ≥ 230, 261.6 ≥ 250, 288.4 ≥ 288), so a slider value can
+    /// never clip where a preset didn't.
+    static func panelHeight(forScale scale: CGFloat) -> CGFloat {
+        max(230, 172 + 64 * scale)
     }
 
     var menuLabel: String {
@@ -823,7 +862,7 @@ private struct DesktopPetHost: View {
     var body: some View {
         content.frame(
             width: PetSizePreset.panelWidth,
-            height: PetSizePreset.from(scale: petState.floatingScale).panelHeight
+            height: PetSizePreset.panelHeight(forScale: petState.floatingScale)
                 + petState.bubbleHeight
                 - PetWindowState.minimumBubbleHeight
         )

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 // MARK: - Background cursor override
@@ -120,6 +121,14 @@ final class DynamicIslandState: ObservableObject {
 @MainActor
 final class DynamicIslandController: NSObject {
     static let enabledDefaultsKey = "DynamicIslandEnabled"
+    /// 1.27.0 idle-hide (Qoder「空闲时显示」parity): when on, the pill fades
+    /// out after `DynamicIslandIdlePolicy.idleTimeout` without new usage and
+    /// returns on the next data tick. Default off — existing installs keep
+    /// the always-on pill.
+    static let idleHideDefaultsKey = "DynamicIslandIdleHide"
+    /// 1.27.0 display-follow: place the pill on the screen the cursor is on
+    /// instead of always the notch/main display (multi-display setups).
+    static let followDisplayDefaultsKey = "DynamicIslandFollowDisplay"
 
     /// Delay before collapsing after the pointer leaves, so grazing the island
     /// edge doesn't flap it shut.
@@ -148,6 +157,18 @@ final class DynamicIslandController: NSObject {
     /// of `isEnabled` so turning the island off while full-screen does not
     /// re-show it on exit.
     private var fullscreenActive = false
+    /// Last moment fresh usage data arrived (today-summary tick, limits tick,
+    /// sync start). Anchors the idle-hide timeout.
+    private var lastUsageActivityAt: Date?
+    /// True while the idle-hide policy currently suppresses the panel — so a
+    /// transition from hidden→visible on the next activity tick calls
+    /// `applyPresence` exactly once.
+    private var idleHideActive = false
+    private var idleCheckTimer: Timer?
+    private var usageActivityCancellables: [AnyCancellable] = []
+    /// Display-follow (1.27.0): a light tick re-checks which screen the cursor
+    /// is on — screen changes have no notification of their own.
+    private var followDisplayTimer: Timer?
     /// Pending settle tick that re-reads the window list after an environment
     /// change. Non-nil while a settle burst is running.
     private var fullscreenSettleWorkItem: DispatchWorkItem?
@@ -217,6 +238,11 @@ final class DynamicIslandController: NSObject {
         visibilityWorkItem?.cancel()
         fullscreenSettleWorkItem?.cancel()
         presentationObservation?.invalidate()
+        idleCheckTimer?.invalidate()
+        followDisplayTimer?.invalidate()
+        for cancellable in usageActivityCancellables {
+            cancellable.cancel()
+        }
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
@@ -227,10 +253,96 @@ final class DynamicIslandController: NSObject {
         UserDefaults.standard.bool(forKey: Self.enabledDefaultsKey)
     }
 
+    // MARK: - Idle hide (1.27.0)
+
+    var isIdleHideEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.idleHideDefaultsKey)
+    }
+
+    /// Menu/settings toggle. The data subscriptions arm lazily on first
+    /// enable and stay armed — a fresh enable marks activity so the pill
+    /// always shows for at least the timeout before its first idle fade.
+    func setIdleHideEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: Self.idleHideDefaultsKey)
+        if enabled {
+            armIdleObservation()
+            markUsageActivity()
+        } else if idleHideActive {
+            idleHideActive = false
+            applyPresence()
+        }
+        syncIdleCheckTimer()
+    }
+
+    /// Data-driven activity tick: any fresh today-summary, limits refresh or
+    /// sync transition proves the numbers are moving again.
+    private func armIdleObservation() {
+        guard usageActivityCancellables.isEmpty else { return }
+        usageActivityCancellables = [
+            viewModel.$todaySummary.dropFirst().sink { [weak self] _ in
+                self?.markUsageActivity()
+            },
+            viewModel.$usageLimits.dropFirst().sink { [weak self] _ in
+                self?.markUsageActivity()
+            },
+            viewModel.$isSyncing.dropFirst().sink { [weak self] syncing in
+                // Sync start is activity; sync end leaves the timeout anchored
+                // at the start, which is exactly the intent.
+                if syncing { self?.markUsageActivity() }
+            },
+        ]
+    }
+
+    private func markUsageActivity() {
+        lastUsageActivityAt = Date()
+        if idleHideActive {
+            idleHideActive = false
+            applyPresence()
+        }
+        syncIdleCheckTimer()
+    }
+
+    /// The timeout can elapse with no data event at all, so a slow re-check
+    /// exists purely to notice that. Runs only while the feature is on.
+    private func syncIdleCheckTimer() {
+        let shouldRun = isIdleHideEnabled && isEnabled
+        guard shouldRun != (idleCheckTimer != nil) else { return }
+        if shouldRun {
+            let timer = Timer(timeInterval: DynamicIslandIdlePolicy.recheckInterval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.recheckIdle()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            idleCheckTimer = timer
+        } else {
+            idleCheckTimer?.invalidate()
+            idleCheckTimer = nil
+        }
+    }
+
+    private func recheckIdle() {
+        let idle = DynamicIslandIdlePolicy.isIdleHidden(
+            idleHideEnabled: isIdleHideEnabled,
+            lastUsageActivityAt: lastUsageActivityAt,
+            isSyncing: viewModel.isSyncing
+        )
+        guard idle != idleHideActive else { return }
+        idleHideActive = idle
+        applyPresence()
+    }
+
     func setEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: Self.enabledDefaultsKey)
         cancelFullscreenSettleRetries()
         fullscreenActive = readFullscreenActive()
+        if enabled {
+            // A freshly enabled island always shows for at least the idle
+            // timeout before its first fade — never hide on arrival.
+            markUsageActivity()
+        }
+        syncIdleCheckTimer()
+        syncFollowDisplayTimer()
         applyPresence()
         // Only arm a settle burst when the feature is both enabled and
         // currently suppressed by full-screen. Disabling while full-screen
@@ -244,6 +356,10 @@ final class DynamicIslandController: NSObject {
     /// Re-show the island on launch if it was enabled when the app last quit.
     func restoreIfNeeded() {
         fullscreenActive = readFullscreenActive()
+        if isEnabled {
+            markUsageActivity()
+        }
+        syncIdleCheckTimer()
         applyPresence()
         if fullscreenActive {
             armFullscreenSettleRetries()
@@ -459,9 +575,57 @@ final class DynamicIslandController: NSObject {
     /// Prefer a screen with a hardware notch; otherwise fall back to the main
     /// screen with a simulated island.
     private func targetScreen() -> NSScreen? {
-        NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+        if isFollowDisplayEnabled, let current = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+            // 1.27.0 display-follow: ride the screen the cursor is on, so the
+            // pill sits over the display the user is actually working on. The
+            // notch screen stays the default when the cursor is between
+            // screens (or the feature is off) — that is the v1.26 anchor.
+            return current
+        }
+        return NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
             ?? NSScreen.main
             ?? NSScreen.screens.first
+    }
+
+    /// 1.27.0 display-follow: place the pill on the screen the cursor is on
+    /// instead of anchoring to the notch/main display. Single panel — the
+    /// island repositions when the cursor's screen changes (checked on the
+    /// shared re-check tick plus the screen-parameter notifications).
+    var isFollowDisplayEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.followDisplayDefaultsKey)
+    }
+
+    func setFollowDisplayEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: Self.followDisplayDefaultsKey)
+        syncFollowDisplayTimer()
+        repositionPanel()
+    }
+
+    private func syncFollowDisplayTimer() {
+        let shouldRun = isFollowDisplayEnabled && isEnabled && !fullscreenActive
+        guard shouldRun != (followDisplayTimer != nil) else { return }
+        if shouldRun {
+            let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.repositionIfScreenChanged()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            followDisplayTimer = timer
+        } else {
+            followDisplayTimer?.invalidate()
+            followDisplayTimer = nil
+        }
+    }
+
+    private var lastTargetScreenName: String?
+
+    private func repositionIfScreenChanged() {
+        guard let panel, panel.isVisible, shouldShowPanel else { return }
+        let name = targetScreen()?.localizedName
+        guard name != lastTargetScreenName else { return }
+        lastTargetScreenName = name
+        repositionPanel()
     }
 
     private func geometry(for screen: NSScreen) -> DynamicIslandGeometry {
@@ -563,7 +727,7 @@ final class DynamicIslandController: NSObject {
         DynamicIslandFullscreenPolicy.shouldShowPanel(
             featureEnabled: isEnabled,
             fullscreenActive: fullscreenActive
-        )
+        ) && !idleHideActive
     }
 
     private func applyPresence() {
@@ -593,6 +757,10 @@ final class DynamicIslandController: NSObject {
 
     private func handleFullscreenEnvironmentChange() {
         fullscreenActive = readFullscreenActive()
+        // Display-follow rides on the visible pill: while a full-screen app
+        // covers the island's screen the tick stands down, so it must track
+        // the fullscreen factor too.
+        syncFollowDisplayTimer()
         applyPresence()
         // A space-change / activation / presentation-options notification can
         // fire before the covering window is dropped from the window list, so

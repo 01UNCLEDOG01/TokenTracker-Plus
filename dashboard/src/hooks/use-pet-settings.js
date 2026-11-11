@@ -64,6 +64,9 @@ export function usePetSettings() {
         islandMode: typeof next.islandMode === "boolean" ? next.islandMode : undefined,
         quota: typeof next.quota === "boolean" ? next.quota : undefined,
         trayStyle: typeof next.trayStyle === "string" ? next.trayStyle : undefined,
+        // 1.27.0 free-size slider probe: a number unlocks the slider (hosts that
+        // keep only the preset `size` string stay on the segmented control).
+        petScale: typeof next.petScale === "number" ? next.petScale : undefined,
       });
     });
     requestNativePetSettings();

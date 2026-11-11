@@ -37,6 +37,12 @@ enum Strings {
     static var retryButton: String { t("Retry", "重试", "重試", "再試行", "다시 시도", "Erneut versuchen") }
     static var openDashboard: String { t("Open Dashboard", "打开仪表盘", "開啟儀表盤", "ダッシュボードを開く", "대시보드 열기", "Dashboard öffnen") }
     static var menuDynamicIsland: String { t("Dynamic Island", "灵动岛", "靈動島", "ダイナミックアイランド", "다이나믹 아일랜드", "Dynamic Island") }
+    // 1.27.0 island idle-hide (Qoder「空闲时显示」parity): the pill fades out
+    // after the idle timeout without new usage and returns on the next tick.
+    static var menuIslandIdleHide: String { t("Hide when idle", "空闲时隐藏", "空閒時隱藏", "アイドル時に隠す", "유휴 시 숨기기", "Bei Inaktivität ausblenden") }
+    // 1.27.0 display-follow: place the pill on the screen the cursor is on
+    // (multi-display setups), instead of always the notch/main display.
+    static var menuIslandFollowDisplay: String { t("Follow mouse display", "跟随鼠标所在显示器", "跟隨滑鼠所在顯示器", "マウスのあるディスプレイに追従", "마우스 디스플레이 따라가기", "Auf Maus-Display folgen") }
     static var menuIconStyle: String { t("Icon Style", "图标样式", "圖標樣式", "アイコンスタイル", "아이콘 스타일", "Symbolstil") }
     static var quitButton: String { t("Quit", "退出", "退出", "終了", "종료", "Beenden") }
     static var justNow: String { t("just now", "刚刚", "剛剛", "たった今", "방금", "gerade eben") }

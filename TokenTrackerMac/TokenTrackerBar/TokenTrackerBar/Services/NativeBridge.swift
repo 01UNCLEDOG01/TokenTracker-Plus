@@ -237,7 +237,8 @@ final class NativeBridge {
             pushQAEvent("native:settings", payload: payload)
         case "getPetSettings":
             pushQAEvent("native:petSettings", payload: [
-                "visible": false, "character": "clawd", "size": "medium", "botColor": "auto",
+                "visible": false, "character": "clawd", "size": "medium", "petScale": 1.4,
+                "botColor": "auto",
                 "monitor": false, "islandMode": true, "quota": QuotaPanelController.shared.isVisible,
                 "trayStyle": "cat", "actionLock": "auto",
             ])
@@ -425,6 +426,10 @@ final class NativeBridge {
             "character": PetCharacterStore.shared.character.rawValue,
             "botColor": PetCharacterStore.shared.botColor,
             "size": PetSizePreset.from(scale: controller.uiState.floatingScale).rawValue,
+            // 1.27.0 free-size slider: presence of this key is the page's probe —
+            // a number unlocks the slider, hosts without it (Windows) keep the
+            // three-preset segmented control.
+            "petScale": Double(controller.uiState.floatingScale),
             // Capability-probe fields (dashboard/src/hooks/use-pet-settings.js):
             // the page renders a control only when its key is present. Every key
             // below is a real capability of this host — monitor is the Dynamic
@@ -602,6 +607,12 @@ final class NativeBridge {
         case "size":
             if let raw = value as? String, let size = PetSizePreset(rawValue: raw) {
                 controller.setSize(size)
+            }
+        case "petScale":
+            // 1.27.0 free-size slider. JS numbers arrive as Double/NSNumber;
+            // anything else is ignored (the page owns the range UI).
+            if let number = value as? Double {
+                controller.setScale(CGFloat(number))
             }
         case "monitor":
             // Windows parity (TrayApplicationContext.SetMonitorEnabled): the

@@ -71,12 +71,41 @@ enum DynamicIslandVisibilityPolicy {
     }
 }
 
+/// 1.27.0 idle-hide (Qoder's「空闲时显示」parity): once no new usage has
+/// landed for `idleTimeout` seconds, the user has stopped looking at fresh
+/// numbers, so the pill fades out until the next activity. A nil anchor
+/// (no data yet — cold start) and an in-flight sync both read as active:
+/// an island that hides itself before it ever showed a number, or hides
+/// mid-sync, would look like a bug rather than a feature. Kept beside the
+/// other island presence policies so every magic number has one home.
+enum DynamicIslandIdlePolicy {
+    /// No new usage for 10 minutes → idle. Long enough that a coffee break
+    /// doesn't hide the pill, short enough that lunch does.
+    static let idleTimeout: TimeInterval = 10 * 60
+    /// How often a purely elapsed-time re-check runs while the feature is on.
+    /// Data-driven activity re-checks are event-driven (publisher ticks); this
+    /// timer only exists so the timeout can elapse without any new event.
+    static let recheckInterval: TimeInterval = 60
+
+    static func isIdleHidden(
+        idleHideEnabled: Bool,
+        lastUsageActivityAt: Date?,
+        isSyncing: Bool,
+        now: Date = Date(),
+        idleTimeout: TimeInterval = DynamicIslandIdlePolicy.idleTimeout
+    ) -> Bool {
+        guard idleHideEnabled, !isSyncing, let last = lastUsageActivityAt else { return false }
+        return now.timeIntervalSince(last) >= idleTimeout
+    }
+}
+
 /// Presence gate so a user-disabled island and an active full-screen app
 /// both suppress the panel without coupling those two reasons.
 enum DynamicIslandFullscreenPolicy {
     static func shouldShowPanel(featureEnabled: Bool, fullscreenActive: Bool) -> Bool {
         featureEnabled && !fullscreenActive
     }
+
 
     /// Native green-button full-screen sets `.fullScreen`. Legacy / video
     /// players typically hide both the menu bar and the Dock without that

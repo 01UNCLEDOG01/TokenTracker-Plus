@@ -1305,6 +1305,22 @@ final class StatusBarController: NSObject {
         quotaItem.state = QuotaPanelController.shared.isVisible ? .on : .off
         menu.addItem(quotaItem)
 
+        // 1.27.0 island idle-hide — the pill fades out after the idle timeout
+        // without new usage and returns on the next data tick (Qoder「空闲时
+        // 显示」parity). Lives beside the island toggle in every menu that
+        // shares buildMenu.
+        let idleHideItem = NSMenuItem(title: Strings.menuIslandIdleHide, action: #selector(toggleIslandIdleHide), keyEquivalent: "")
+        idleHideItem.target = self
+        idleHideItem.state = dynamicIslandController.isIdleHideEnabled ? .on : .off
+        menu.addItem(idleHideItem)
+
+        // 1.27.0 display-follow — place the pill on the cursor's screen for
+        // multi-display setups (single panel, repositions on screen change).
+        let followItem = NSMenuItem(title: Strings.menuIslandFollowDisplay, action: #selector(toggleIslandFollowDisplay), keyEquivalent: "")
+        followItem.target = self
+        followItem.state = dynamicIslandController.isFollowDisplayEnabled ? .on : .off
+        menu.addItem(followItem)
+
         menu.addItem(.separator())
 
         // ── Group 3: Preferences & Notifications ──
@@ -1370,6 +1386,17 @@ final class StatusBarController: NSObject {
         if next {
             maybeOfferHidingMenuBarIcon()
         }
+    }
+
+    /// 1.27.0 island idle-hide toggle (beside the island switch in every menu
+    /// that shares buildMenu). The controller owns persistence and presence.
+    @objc private func toggleIslandIdleHide() {
+        dynamicIslandController.setIdleHideEnabled(!dynamicIslandController.isIdleHideEnabled)
+    }
+
+    /// 1.27.0 display-follow toggle — the pill rides the cursor's screen.
+    @objc private func toggleIslandFollowDisplay() {
+        dynamicIslandController.setFollowDisplayEnabled(!dynamicIslandController.isFollowDisplayEnabled)
     }
 
     @objc private func toggleMenuBarIcon() {

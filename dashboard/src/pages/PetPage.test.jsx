@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { copy } from "../lib/copy";
@@ -363,6 +363,69 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
     }));
     expect(messages).not.toContainEqual(expect.objectContaining({ key: "islandMode", value: false }));
     expect(messages).not.toContainEqual(expect.objectContaining({ key: "actionLock" }));
+  });
+
+  it("renders the free-size slider on hosts that echo petScale and posts raw scale", async () => {
+    const user = userEvent.setup();
+    const messages = installMacBridge();
+    render(<PetPage />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:settings", {
+        detail: { platform: "macos", petBridge: true },
+      }));
+    });
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium", petScale: 1.4 },
+      }));
+    });
+
+    const slider = await screen.findByRole("slider", { name: copy("pet.controls.size") });
+    expect(slider).toHaveValue("1.4");
+    // The preset segmented control is replaced by the slider + anchor chips.
+    expect(screen.queryByRole("button", { name: copy("pet.size.medium") })).not.toBeNull();
+    expect(screen.getByRole("button", { name: copy("pet.size.medium") })).toHaveAttribute("aria-pressed", "true");
+
+    // Moving the slider posts the raw continuous scale — the host clamps.
+    // jsdom has no range-keyboard handling, so drive the input with a change
+    // event the way a real drag would end with.
+    await act(async () => {
+      fireEvent.change(slider, { target: { value: "1.6" } });
+    });
+    await waitFor(() => {
+      expect(messages).toContainEqual({ type: "setPetSetting", key: "petScale", value: 1.6 });
+    });
+
+    // An anchor chip posts the legacy `size` key — the host maps it to the
+    // preset's anchor scale, keeping the bridge contract backward-compatible.
+    await user.click(screen.getByRole("button", { name: copy("pet.size.large") }));
+    await waitFor(() => {
+      expect(messages).toContainEqual({ type: "setPetSetting", key: "size", value: "large" });
+    });
+  });
+
+  it("keeps the three-preset segmented control on hosts that do not echo petScale", async () => {
+    const messages = installMacBridge();
+    render(<PetPage />);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:settings", {
+        detail: { platform: "macos", petBridge: true },
+      }));
+    });
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("native:petSettings", {
+        detail: { visible: true, character: "clawd", size: "medium" },
+      }));
+    });
+
+    expect(await screen.findByText(copy("pet.controls.size"))).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: copy("pet.controls.size") })).not.toBeInTheDocument();
+    // No slider on this host: the preset control still renders, and none of its
+    // buttons is the slider's anchor-chip variant (the segmented control has no
+    // aria-pressed chips row either).
+    expect(screen.queryByRole("group", { name: copy("pet.controls.size") })).not.toBeInTheDocument();
   });
 
   it("keeps the free-float mode and 动作 picker on hosts that offer them", async () => {

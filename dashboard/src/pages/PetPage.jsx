@@ -51,6 +51,13 @@ function ImportSubtitle() {
   );
 }
 
+// 1.27.0 free-size slider bounds and preset anchors — must match the native
+// clamps (DesktopPetWindowController.minScale/maxScale) and preset scales
+// (small/medium/large = 1.0/1.4/1.85).
+const PET_SCALE_MIN = 0.7;
+const PET_SCALE_MAX = 2.2;
+const PET_SCALE_ANCHORS = { small: 1.0, medium: 1.4, large: 1.85 };
+
 const PREVIEW_STATES = [
   { id: "idle-living", labelKey: "pet.state.calm" },
   { id: "working-thinking", labelKey: "pet.state.focus" },
@@ -449,6 +456,14 @@ export function PetPage() {
     { value: "medium", label: copy("pet.size.medium") },
     { value: "large", label: copy("pet.size.large") },
   ];
+  // 1.27.0 free-size slider: macOS hosts echo `petScale` (a number) — hosts
+  // without it (Windows shell / plain web) keep the three-preset segmented
+  // control. The presets stay as quick anchors (small/medium/large map to
+  // 1.0/1.4/1.85 on the native side).
+  const petScaleSupported = typeof settings.petScale === "number";
+  const petScale = petScaleSupported
+    ? Math.min(2.2, Math.max(0.7, settings.petScale))
+    : 1.4;
   // macOS-only label: the same mascot style is described as a pet icon there.
   const mascotTrayLabel = isMacNativeHost
     ? (copy("pet.controls.tray_mascot_mac") || "宠物图标")
@@ -759,14 +774,58 @@ export function PetPage() {
                     <div className="flex items-center justify-between gap-4">
                       <div className="text-sm font-medium">{copy("pet.controls.size")}</div>
                       <div className="shrink-0">
-                        <SegmentedControl
-                          options={sizeOptions}
-                          value={settings.size}
-                          onChange={(value) => setSetting("size", value)}
-                          disabled={!available}
-                        />
+                        {petScaleSupported ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min={PET_SCALE_MIN}
+                              max={PET_SCALE_MAX}
+                              step={0.05}
+                              value={petScale}
+                              aria-label={copy("pet.controls.size")}
+                              disabled={!available}
+                              onChange={(event) => setSetting("petScale", Number(event.target.value))}
+                              className="w-44 accent-oai-brand-500 disabled:opacity-50"
+                            />
+                            <span className="w-12 text-right text-xs tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
+                              ×{petScale.toFixed(2)}
+                            </span>
+                          </div>
+                        ) : (
+                          <SegmentedControl
+                            options={sizeOptions}
+                            value={settings.size}
+                            onChange={(value) => setSetting("size", value)}
+                            disabled={!available}
+                          />
+                        )}
                       </div>
                     </div>
+                    {petScaleSupported ? (
+                      <div className="mt-1 flex items-center justify-end gap-1.5" role="group" aria-label={copy("pet.controls.size")}>
+                        {sizeOptions.map((option) => {
+                          const anchorScale = PET_SCALE_ANCHORS[option.value];
+                          const isActive = Math.abs(petScale - anchorScale) < 0.03;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              aria-pressed={isActive}
+                              disabled={!available}
+                              onClick={() => setSetting("size", option.value)}
+                              className={
+                                "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500 disabled:opacity-50 " +
+                                (isActive
+                                  ? "border-oai-brand-500/40 bg-oai-brand-500/10 text-oai-brand-600 dark:text-oai-brand-400"
+                                  : "border-oai-gray-200 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800")
+                              }
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                     {showActionPicker ? (
                       <div>
                         <div className="text-sm font-medium">{copy("pet.action.title")}</div>
