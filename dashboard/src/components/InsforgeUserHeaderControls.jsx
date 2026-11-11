@@ -22,6 +22,8 @@ function pickAvatarUrl(user) {
 // On Vercel (no local server) we keep the original URL.
 function resolveAvatarSrc(url) {
   if (!url) return null;
+  // data URL（上传头像）不走代理：代理只服务远程 http(s) CDN。
+  if (url.startsWith("data:")) return url;
   if (!isNativeApp()) return url;
   return `/api/avatar-proxy?url=${encodeURIComponent(url)}`;
 }
@@ -42,10 +44,11 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
   // Subscribe to locale so labels re-render on language switch.
   useLocale();
   const isSidebar = variant === "sidebar";
-  const { enabled, loading, signedIn, user, displayName } = useInsforgeAuth();
+  const { enabled, loading, signedIn, user, displayName, customAvatarUrl } = useInsforgeAuth();
   const { openLoginModal } = useLoginModal();
   const navigate = useNavigate();
-  const avatarUrl = useMemo(() => pickAvatarUrl(user), [user]);
+  // 设置页保存的自定义头像优先（保存后即时生效，无需重新登录）。
+  const avatarUrl = useMemo(() => customAvatarUrl || pickAvatarUrl(user), [customAvatarUrl, user]);
   const avatarSrc = useMemo(() => resolveAvatarSrc(avatarUrl), [avatarUrl]);
   const [avatarFailed, setAvatarFailed] = React.useState(false);
 

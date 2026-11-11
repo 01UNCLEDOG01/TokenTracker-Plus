@@ -281,6 +281,8 @@ export function InsforgeAuthProvider({ children }) {
   // Unified display name: cloud custom name > OAuth provider name.
   // Fetched once when user signs in; updated via refreshDisplayName().
   const [cloudDisplayName, setCloudDisplayName] = useState(null);
+  // 自定义头像（设置页上传/保存后即时传播给侧栏头像，2026-11-12）。
+  const [customAvatarUrl, setCustomAvatarUrl] = useState(null);
   const [displayNameResolved, setDisplayNameResolved] = useState(false);
   const authDisplayName = useMemo(() => pickDisplayNameFromUser(user), [user]);
 
@@ -351,6 +353,8 @@ export function InsforgeAuthProvider({ children }) {
       signedIn: Boolean(user),
       loading,
       displayName,
+      customAvatarUrl,
+      setCustomAvatarUrl,
       refreshUser,
       refreshDisplayName,
       signInWithOAuth,
@@ -368,6 +372,7 @@ export function InsforgeAuthProvider({ children }) {
     user,
     loading,
     displayName,
+    customAvatarUrl,
     refreshUser,
     refreshDisplayName,
     signInWithOAuth,

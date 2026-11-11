@@ -325,7 +325,7 @@ async function fileToAvatarDataUrl(file) {
   }
 }
 
-function useAvatarActions(state, mutateProfile) {
+function useAvatarActions(state, mutateProfile, onAvatarSaved) {
   const handleSaveAvatar = useCallback(async () => {
     const trimmed = state.avatarInput.trim();
     if (!trimmed) {
@@ -343,9 +343,9 @@ function useAvatarActions(state, mutateProfile) {
     }
     await mutateProfile({ avatar_url: trimmed }, {
       label: "save avatar",
-      onSuccess: () => { state.setCustomAvatarUrl(trimmed); state.setAvatarError(null); state.setEditingAvatar(false); },
+      onSuccess: () => { state.setCustomAvatarUrl(trimmed); state.setAvatarError(null); state.setEditingAvatar(false); onAvatarSaved(trimmed); },
     });
-  }, [mutateProfile, state]);
+  }, [mutateProfile, state, onAvatarSaved]);
 
   const handleAvatarFile = useCallback(async (file) => {
     if (!file || !/^image\//.test(file.type || "")) return;
@@ -354,12 +354,12 @@ function useAvatarActions(state, mutateProfile) {
       const dataUrl = await fileToAvatarDataUrl(file);
       await mutateProfile({ avatar_url: dataUrl }, {
         label: "upload avatar",
-        onSuccess: () => { state.setCustomAvatarUrl(dataUrl); state.setAvatarInput(dataUrl); state.setAvatarError(null); state.setEditingAvatar(false); },
+        onSuccess: () => { state.setCustomAvatarUrl(dataUrl); state.setAvatarInput(dataUrl); state.setAvatarError(null); state.setEditingAvatar(false); onAvatarSaved(dataUrl); },
       });
     } catch {
       state.setAvatarError(copy("settings.account.avatarUploadFailed"));
     }
-  }, [mutateProfile, state]);
+  }, [mutateProfile, state, onAvatarSaved]);
 
   const startEditingAvatar = useCallback(() => {
     state.setAvatarInput(state.customAvatarUrl || "");
@@ -460,7 +460,7 @@ export function useAccountProfileSettings() {
   const visibilityActions = useVisibilityActions(state, mutateProfile);
   const nameActions = useNameActions(state, mutateProfile, auth.refreshDisplayName);
   const githubActions = useGithubActions(state, mutateProfile);
-  const avatarActions = useAvatarActions(state, mutateProfile);
+  const avatarActions = useAvatarActions(state, mutateProfile, auth.setCustomAvatarUrl);
 
   return {
     ...auth,
