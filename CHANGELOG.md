@@ -21,7 +21,7 @@
 - **修复：福利指南首访卡顿**。本机 API 的 agent2api 速度榜 session tier 每次签名变化都同步聚合 35MB 侧车（单次 4–5s 阻塞事件循环），懒加载 chunk 只能排队、福利页首访 5s+；改为按「侧车路径|时区|范围」的 60 秒 TTL 复用。福利页另加 Suspense 骨架、侧栏 hover/focus 预取、53 张详情卡 content-visibility（Layout 506ms → ~150ms）。
 - **新增（macOS）：菜单栏图标可以直接选站主的两只原创宠物**。状态栏「图标样式」从 Clawd / 小猫 / Bot / 我的宠物 / 静态扩到 7 项，新增**庚戌**与**猫也**；选中后菜单栏直接显示该宠物的固定剪影（与桌面宠物当前选择互不影响），选择会持久化并在重启后保持。
 - **新增（macOS）：WidgetKit 桌面小组件随包发布（4 个）**。此前判定「小组件不可用」是错误结论：上游能发不是因为有特殊签名，而是它的工程里保留了「我是一个小组件」的声明；我们拷贝工程时丢了这段声明与沙箱，打包脚本又把 appex 删了。现已补回 `NSExtension`（`com.apple.widgetkit-extension`）+ 沙箱 entitlement、把 appex 嵌进 App 并做 ad-hoc 签名（不申请 App Group——那需要付费开发者账号，上游也没有用），汇总 / 热力图 / 顶级模型 / 限额四个小组件可在「桌面与程序坞 → 编辑小组件」添加；本机 `pluginkit` 已确认注册成功。未签名分发首次打开仍会被 Gatekeeper 拦一次（右键 → 打开），被拦截前小组件不会出现在列表里。
-- **变更（macOS）**：宠物页「托盘图标风格」里的「应用图标」在 macOS 上更名为「宠物图标」（Windows 版保持「应用图标」不变）。- 发布物：`TokenTracker-plus-1.26.0.dmg`（拖进「应用程序」即装）与 `TokenTracker-plus-macos-universal-1.26.0.zip` 绿色包，附 SHA-256。应用为未签名分发（与 Windows 版同策略），首次打开若被 Gatekeeper 拦截：右键 → 打开，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再开。
+- **变更（macOS）**：宠物页「托盘图标风格」里的「应用图标」在 macOS 上更名为「宠物图标」（Windows 版保持「应用图标」不变）。- **修复（macOS）：小组件现在跟随你的数字单位与货币设置**。此前小组件的 token 固定按 M/B、金额固定按美元显示（你设的万/亿 + 人民币不生效）——小组件读不到 App 的设置，而快照里也没带格式信息。现在快照升到 schema 3，带上「万/亿 或 K/M/B」、货币符号与汇率（由 App 从设置写入并随快照下发），4 个小组件的数字全部按你的设置渲染：例如 2.3 亿 token、¥19.26；旧快照仍可正常显示（缺格式时回退英文单位 / 美元）。- 发布物：`TokenTracker-plus-1.26.0.dmg`（拖进「应用程序」即装）与 `TokenTracker-plus-macos-universal-1.26.0.zip` 绿色包，附 SHA-256。应用为未签名分发（与 Windows 版同策略），首次打开若被 Gatekeeper 拦截：右键 → 打开，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再开。
 
 ## [1.25.1] - 2026-11-11
 
