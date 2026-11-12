@@ -850,11 +850,41 @@ async function main() {
               [user.id, fromIso, toIso, device.dev_id],
             )).rows[0];
             if (Number(devAgg.total_tokens) === 0) continue;
+            // 逐设备真实花费（站主 2026-11-12 追问「两台设备花费为什么一样」）：
+            // hourly.total_cost_usd 恒为 0（价格表只活在函数包里），而
+            // costByPeriod 是**账号级**金额——之前每台设备都拿它填充，于是同账号
+            // 两台设备显示同一个预估值。改为一台设备一次 account-summary
+            // （带 device_id，价格口径与账号总账同一份），汇总成该设备花费；
+            // 调用失败才退回 hourly 的求和值。
+            let deviceCost = null;
+            const clusterDeviceIds = (await db.query(
+              "SELECT DISTINCT h.device_id::text AS id"
+              + " FROM tokentracker_hourly h"
+              + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
+              + " WHERE h.user_id = $1 AND h.hour_start >= $2 AND h.hour_start <= $3"
+              + "   AND COALESCE(dm.machine_cluster_id, h.device_id::text) = $4",
+              [user.id, fromIso, toIso, device.dev_id],
+            )).rows;
+            for (const clusterDevice of clusterDeviceIds) {
+              try {
+                const deviceCostReq = new Request(
+                  "http://local/functions/tokentracker-account-summary?from=" + fromDay + "&to=" + toDay
+                  + "&device_id=" + encodeURIComponent(clusterDevice.id),
+                  { headers: { authorization: "Bearer " + mintForCost(user.id, "authenticated", 3600) } },
+                );
+                const deviceCostRes = await handlers["tokentracker-account-summary"](deviceCostReq);
+                if (deviceCostRes.status === 200) {
+                  const deviceCostPayload = await deviceCostRes.json();
+                  const cost = Number(deviceCostPayload?.totals?.total_cost_usd);
+                  if (Number.isFinite(cost)) deviceCost = (deviceCost ?? 0) + cost;
+                }
+              } catch (_e) { /* best effort, fall back to the stored sum */ }
+            }
             const deviceLabel = device.device_name || String(device.dev_id || "").slice(0, 8);
             periodRows.push([period, fromDay, toDay, user.id, device.dev_id,
               accountName + " · " + deviceLabel,
               chosenAvatar, devAgg.total_tokens,
-              costByPeriod[period] !== undefined ? costByPeriod[period] : devAgg.estimated_cost_usd,
+              deviceCost !== null ? deviceCost : devAgg.estimated_cost_usd,
               devAgg.input_tokens, devAgg.output_tokens, devAgg.cached_input_tokens,
               devAgg.conversations, devAgg.models]);
           }

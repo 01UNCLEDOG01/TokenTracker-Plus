@@ -80,6 +80,10 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     {id:"15-badge-wave-2",sql:read("migrations/20261021120000_self-host-badge-wave-2.sql")},
     // claude_survivor thresholds 50M/500M/5B/50B → 1M/10M/100M/1B.
     {id:"16-claude-survivor-recalibrate",sql:read("migrations/20261021121000_self-host-claude-survivor-recalibrate.sql")},
+    // Per-device leaderboard rows: snapshots gain device_id and a
+    // (period, window, user, device) unique key. Without it the snapshot writer
+    // fails on a fresh installation ("column s.device_id does not exist").
+    {id:"17-leaderboard-device-rows",sql:read("migrations/20261112120000_self-host-leaderboard-device-rows.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

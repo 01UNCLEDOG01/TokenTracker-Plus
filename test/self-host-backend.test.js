@@ -174,6 +174,21 @@ test("installation and function manifests exclude production data repairs and me
   assert.ok(!buildSql().includes("ban-confirmed-leaderboard-manipulation"));
 });
 
+test("leaderboard snapshots key on (user, device) so a multi-device account can publish one row per machine",async()=>{
+  // Regression guard for the per-device split (11634a4): the writer inserts
+  // device_id and relies on a (period, window, user, device) unique key. Without
+  // both, a fresh installation's refresh either errors ("column s.device_id does
+  // not exist") or the second device row collides with the legacy
+  // UNIQUE (period, from_day, to_day, user_id).
+  const cols=(await instance.db.query("SELECT column_name FROM information_schema.columns WHERE table_name='tokentracker_leaderboard_snapshots'")).rows.map(r=>r.column_name);
+  assert.ok(cols.includes("device_id"),"snapshots need a device_id column");
+  const indexes=(await instance.db.query("SELECT indexdef FROM pg_indexes WHERE tablename='tokentracker_leaderboard_snapshots'")).rows.map(r=>r.indexdef);
+  assert.ok(indexes.some(def=>/UNIQUE INDEX .*\(period, from_day, to_day, user_id, device_id\)/.test(def)),
+    "snapshots need a UNIQUE (period, from_day, to_day, user_id, device_id) index");
+  assert.ok(!indexes.some(def=>/UNIQUE INDEX .*\(period, from_day, to_day, user_id\)/.test(def)),
+    "the legacy account-only unique key must be gone");
+});
+
 test("the policy migration keeps free hosted semantics and leaves installed usage readers intact",async()=>{
   const db=await platform();
   try {
