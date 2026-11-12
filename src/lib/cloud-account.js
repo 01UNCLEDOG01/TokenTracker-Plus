@@ -363,6 +363,11 @@ async function fetchAccountFunction({
   accessToken,
   slug,
   searchParams,
+  // POST support for write-shaped account calls (badge sync uploads the local
+  // unlock set). GET remains the default; callers that never pass these are
+  // untouched.
+  method,
+  body,
   fetchImpl = fetch,
   timeoutMs,
 } = {}) {
@@ -387,7 +392,11 @@ async function fetchAccountFunction({
   }
 
   try {
-    const res = await fetchFunctionResponse(url.toString(), { method: "GET", headers, signal }, fetchImpl);
+    const res = await fetchFunctionResponse(
+      url.toString(),
+      { method: method || "GET", headers, signal, ...(body != null ? { body: JSON.stringify(body) } : {}) },
+      fetchImpl,
+    );
     if (!res || !res.ok) {
       const err = new Error(`Account fetch failed with HTTP ${res ? res.status : "?"}`);
       err.status = res ? res.status : 0;

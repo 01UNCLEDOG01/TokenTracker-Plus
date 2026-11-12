@@ -12,7 +12,7 @@ const {
   listExcludedSources,
   normalizeUsageScope,
 } = require("./source-metadata");
-const { accountSlugFor, fetchAccountUsage, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration } = require("./cloud-account");
+const { accountSlugFor, fetchAccountUsage, fetchAccountFunction, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration } = require("./cloud-account");
 const { resetCloudDeviceUsage, readCloudUsageReset } = require("./cloud-usage-reset");
 const { isTerminalSource } = require("./terminal-sources");
 const { isLoopbackHostname } = require("./loopback-host");
@@ -2756,6 +2756,20 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
 
   let _achievementsCache = null;
   const ACHIEVEMENTS_CACHE_TTL_MS = 15000;
+  // ── account badge sync (成就跨设备并集, 站主 2026-11-13) ──────────────────
+  // Achievements stay computed from THIS device's queue (sessions, projects,
+  // JoyCode / raccoon ledgers only exist locally). The instance holds the
+  // union across devices: each poll uploads the local unlock set (only when
+  // it changed) and refreshes the merged set. Serve-time merge reads the
+  // cache only, so a slow or failing instance never delays a response.
+  let _badgeRemoteCache = null;
+  let _badgeSyncInFlight = null;
+  let _badgeUploadSignature = null;
+  let _badgeSyncNextAttemptAt = 0;
+  const BADGE_REMOTE_TTL_MS = 5 * 60 * 1000;
+  const BADGE_SYNC_BACKOFF_MS = 10 * 60 * 1000;
+  const BADGE_TIER_KEYS = ["bronze", "silver", "gold", "diamond"];
+
   let _sessionsCache = null;
   const SESSIONS_CACHE_TTL_MS = 30000;
   // 会话浏览的磁盘二级缓存：buildSessionAnalytics 冷侧最坏 ~60s（1413 会话实测），
@@ -5541,6 +5555,139 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
 
 // --- achievements (local badges) ---
     if (p === "/functions/tokentracker-achievements") {
+      // 远端并集合并（读缓存，不阻塞）+ 异步上报本机解锁集。
+      const serveAchievements = (payload) => {
+        const { achievements, raised } = mergeRemoteBadgeTiers(payload.achievements, _badgeRemoteCache?.badges);
+        const merged = raised > 0
+          ? { ...payload, achievements, badges_merged_from_account: raised }
+          : payload;
+        json(res, merged);
+        if (_achievementsCache?.localAchievements) {
+          void syncAccountBadges(_achievementsCache.localAchievements);
+        }
+        return merged;
+      };
+
+      // 跨设备并集：本机各等级时间戳与远端合并（更早者胜）；远端更高的等级
+      // 原样上屏并标记 remote_raised（dashboard 对它只抬水位、不发弹窗——
+      // 解锁弹窗只属于真正挣到它的那台设备）。
+      const mergeRemoteBadgeTiers = (localAchievements, remoteBadges) => {
+        if (!Array.isArray(remoteBadges) || remoteBadges.length === 0) {
+          return { achievements: localAchievements, raised: 0 };
+        }
+        const remoteById = new Map();
+        for (const row of remoteBadges) {
+          if (row && typeof row.id === "string" && row.achieved && typeof row.achieved === "object") {
+            remoteById.set(row.id, row);
+          }
+        }
+        if (remoteById.size === 0) return { achievements: localAchievements, raised: 0 };
+        let raised = 0;
+        const merged = localAchievements.map((badge) => {
+          const remote = remoteById.get(badge?.id);
+          if (!remote) return badge;
+          const achieved = { ...badge.achieved };
+          let changed = false;
+          for (const tierKey of BADGE_TIER_KEYS) {
+            const remoteAt = remote.achieved?.[tierKey];
+            if (!remoteAt) continue;
+            const localAt = achieved[tierKey];
+            if (!localAt || Date.parse(remoteAt) < Date.parse(localAt)) {
+              achieved[tierKey] = remoteAt;
+              changed = true;
+            }
+          }
+          if (!changed) return badge;
+          const thresholds = Array.isArray(badge.thresholds) ? badge.thresholds : [];
+          let tier = 0;
+          for (let index = BADGE_TIER_KEYS.length - 1; index >= 0; index -= 1) {
+            if (achieved[BADGE_TIER_KEYS[index]]) { tier = index + 1; break; }
+          }
+          if (tier <= (badge.tier || 0)) {
+            // Same tier: fill the earlier unlock dates, nothing else moves.
+            return { ...badge, achieved };
+          }
+          raised += 1;
+          return {
+            ...badge,
+            tier,
+            achieved,
+            next_threshold: tier >= thresholds.length ? null : thresholds[tier],
+            remote_raised: true,
+            local_tier: badge.tier || 0,
+          };
+        });
+        return { achievements: merged, raised };
+      };
+
+      const badgeSyncContext = () => {
+        if (!getCloudSyncPref()) return null;
+        let runtime;
+        try { runtime = assertInsforgeRuntime(getRuntime()); } catch { return null; }
+        if (!runtime?.baseUrl) return null;
+        const refreshToken = getRefreshTokenForCloud();
+        if (!refreshToken) return null;
+        return { runtime, refreshToken };
+      };
+
+      const syncAccountBadges = (localAchievements) => {
+        if (_badgeSyncInFlight || Date.now() < _badgeSyncNextAttemptAt) return;
+        const context = badgeSyncContext();
+        if (!context) return;
+        // The upload only carries unlocked badges, so the signature is the
+        // unlock set itself: identical set + fresh remote cache = no network.
+        const signature = JSON.stringify(localAchievements.map((badge) => [
+          badge.id,
+          badge.achieved?.bronze ?? null,
+          badge.achieved?.silver ?? null,
+          badge.achieved?.gold ?? null,
+          badge.achieved?.diamond ?? null,
+        ]));
+        const cacheFresh = _badgeRemoteCache && Date.now() - _badgeRemoteCache.fetchedAt < BADGE_REMOTE_TTL_MS;
+        if (cacheFresh && signature === _badgeUploadSignature) return;
+        _badgeSyncInFlight = (async () => {
+          try {
+            const { runtime, refreshToken } = context;
+            const minted = await mintAccessToken({
+              baseUrl: runtime.baseUrl, anonKey: runtime.anonKey, refreshToken,
+              timeoutMs: runtime.httpTimeoutMs,
+            });
+            if (!minted?.accessToken) return;
+            if (typeof minted.refreshToken === "string" && minted.refreshToken.trim()) {
+              setRelayRefreshToken(minted.refreshToken.trim());
+            }
+            if (minted.csrfToken) setRelayCsrfToken(minted.csrfToken);
+            const unlocked = localAchievements
+              .filter((badge) => (badge?.tier || 0) > 0 && badge.achieved)
+              .map((badge) => ({
+                id: badge.id,
+                achieved: BADGE_TIER_KEYS.reduce((map, key) => { map[key] = badge.achieved[key] || null; return map; }, {}),
+              }));
+            if (unlocked.length > 0) {
+              await fetchAccountFunction({
+                baseUrl: runtime.baseUrl, anonKey: runtime.anonKey, accessToken: minted.accessToken,
+                slug: "tokentracker-badge-sync", method: "POST",
+                body: { badges: unlocked, device_id: getSystemDeviceName() },
+                timeoutMs: runtime.httpTimeoutMs,
+              });
+            }
+            const merged = await fetchAccountFunction({
+              baseUrl: runtime.baseUrl, anonKey: runtime.anonKey, accessToken: minted.accessToken,
+              slug: "tokentracker-badge-sync", timeoutMs: runtime.httpTimeoutMs,
+            });
+            if (merged && Array.isArray(merged.badges)) {
+              _badgeRemoteCache = { badges: merged.badges, fetchedAt: Date.now() };
+              _badgeUploadSignature = signature;
+            }
+          } catch (error) {
+            _badgeSyncNextAttemptAt = Date.now() + BADGE_SYNC_BACKOFF_MS;
+            console.warn("[local-api] account badge sync failed:", error?.message || error);
+          } finally {
+            _badgeSyncInFlight = null;
+          }
+        })();
+      };
+
       const timeZoneContext = getTimeZoneContext(url);
       const tzKey = `${timeZoneContext?.timeZone || ""}:${timeZoneContext?.tzOffsetMinutes || 0}`;
       const now = Date.now();
@@ -5594,6 +5741,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           timestamp: Date.now(),
           tzKey,
           payload,
+          // The LOCAL (pre-merge) set: the uploader must post what this device
+          // earned, never the union it received back.
+          localAchievements: achievements,
           // Kept so the background session refresh can re-derive the badges
           // without replaying the queue a second time.
           queueRows,
@@ -5619,6 +5769,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
               achievements,
               sessions_pending: false,
             };
+            cache.localAchievements = achievements;
             cache.recomputing = false;
           })
           .catch((error) => {
@@ -5633,7 +5784,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         _achievementsCache.tzKey === tzKey
       ) {
         if (now - _achievementsCache.timestamp < ACHIEVEMENTS_CACHE_TTL_MS) {
-          json(res, _achievementsCache.payload);
+          serveAchievements(_achievementsCache.payload);
           return true;
         }
         if (!_achievementsCache.recomputing) {
@@ -5643,7 +5794,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             if (_achievementsCache) _achievementsCache.recomputing = false;
           });
         }
-        json(res, _achievementsCache.payload);
+        serveAchievements(_achievementsCache.payload);
         return true;
       }
 
@@ -5656,16 +5807,14 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         } catch (error) {
           console.warn("[local-api] achievements refresh session build failed:", error?.message || error);
         }
-        const payload = await recomputeAchievements();
-        json(res, payload);
+        serveAchievements(await recomputeAchievements());
         return true;
       }
 
       // Implicit first paint: answer from the stored sidecar (a file read) and
       // rebuild behind the response, so a cold or degraded session cache no
       // longer holds the first request open for the whole rescan (KI-033).
-      const payload = await recomputeAchievements({ sessionsPending: true });
-      json(res, payload);
+      serveAchievements(await recomputeAchievements({ sessionsPending: true }));
       refreshSessionsInBackground();
       return true;
     }

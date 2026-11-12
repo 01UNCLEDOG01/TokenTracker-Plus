@@ -26,6 +26,9 @@ const privateFunctions = [
   "tokentracker-leaderboard","tokentracker-leaderboard-profile",
   "tokentracker-public-visibility","tokentracker-profile-likes",
   "tokentracker-telemetry","tokentracker-embed-svg","tokentracker-community-models",
+  // Achievement union across devices (站主 2026-11-13): devices post their
+  // locally-computed unlocks, reads return the merged wall.
+  "tokentracker-badge-sync",
 ];
 function steps() {
   const sessions=read("migrations/20260817120000_account-session-states.sql");
@@ -89,6 +92,9 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // workbuddy, …). Without them every cell rendered "-" on a private
     // instance.
     {id:"18-leaderboard-provider-columns",sql:read("migrations/20261112150000_self-host-leaderboard-provider-columns.sql")},
+    // Achievement union: per-(user, badge) merged unlock map. See
+    // tokentracker-badge-sync.ts for the semantics.
+    {id:"19-account-badges",sql:read("migrations/20261113060000_self-host-account-badges.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

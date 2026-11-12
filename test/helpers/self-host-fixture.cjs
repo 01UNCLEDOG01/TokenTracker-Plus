@@ -73,7 +73,7 @@ async function fixture() {
         }
         const table=identifier(url.pathname.split("/").pop());const args=[];const filters=[];
         for(const [key,value]of url.searchParams) {
-          if(["select","order","limit","offset","columns"].includes(key))continue;
+          if(["select","order","limit","offset","columns","on_conflict"].includes(key))continue;
           const column=identifier(key);
           if(value==="is.null")filters.push(column+" IS NULL");
           else if(value==="not.is.null")filters.push(column+" IS NOT NULL");
@@ -86,7 +86,19 @@ async function fixture() {
         if(req.method==="POST") {
           const rows=JSON.parse(raw);if(!Array.isArray(rows))throw Error("Expected SDK array insert");
           const names=Object.keys(rows[0]);const values=rows.flatMap(row=>names.map(name=>row[name]));
-          result=await tx.query(`INSERT INTO ${table} (${names.map(identifier).join(",")}) VALUES ${rows.map((_,row)=>"("+names.map((_,column)=>"$"+(row*names.length+column+1)).join(",")+")").join(",")} RETURNING *`,values);
+          // PostgREST upsert: POST with on_conflict=<cols> means INSERT ... ON
+          // CONFLICT DO UPDATE (same semantics as local-backend's emulation —
+          // badge-sync and public-visibility upsert through this fixture).
+          const onConflict=url.searchParams.get("on_conflict");
+          const insertInto=`INSERT INTO ${table} (${names.map(identifier).join(",")}) VALUES ${rows.map((_,row)=>"("+names.map((_,column)=>"$"+(row*names.length+column+1)).join(",")+")").join(",")}`;
+          if(onConflict) {
+            const conflictNames=onConflict.split(",").map(col=>col.trim());
+            const updateCols=names.filter(name=>!conflictNames.includes(name));
+            const doUpdate=updateCols.length?" DO UPDATE SET "+updateCols.map(name=>identifier(name)+"=EXCLUDED."+identifier(name)).join(","):" DO NOTHING";
+            result=await tx.query(`${insertInto} ON CONFLICT (${conflictNames.map(identifier).join(",")})${doUpdate} RETURNING *`,values);
+          } else {
+            result=await tx.query(`${insertInto} RETURNING *`,values);
+          }
         } else if(req.method==="PATCH") {
           const values=JSON.parse(raw);const names=Object.keys(values);const initial=args.length;args.push(...names.map(name=>values[name]));
           result=await tx.query(`UPDATE ${table} SET ${names.map((name,index)=>identifier(name)+"=$"+(initial+index+1)).join(",")}${where} RETURNING ${selected}`,args);

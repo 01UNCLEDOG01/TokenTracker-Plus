@@ -167,11 +167,60 @@ test("installation and function manifests exclude production data repairs and me
     "tokentracker-account-monthly","tokentracker-account-heatmap","tokentracker-account-model-breakdown",
     "tokentracker-account-devices",
     "tokentracker-leaderboard","tokentracker-leaderboard-profile","tokentracker-public-visibility",
-    "tokentracker-profile-likes","tokentracker-telemetry","tokentracker-embed-svg","tokentracker-community-models"];
+    "tokentracker-profile-likes","tokentracker-telemetry","tokentracker-embed-svg","tokentracker-community-models",
+    "tokentracker-badge-sync"];
   assert.deepEqual(instance.manifest.functions.map(f=>f.slug).sort(),[...expected].sort());
   assert.ok(!instance.manifest.functions.some(f=>/webhook|paddle|alipay|waffo|wechat/.test(f.slug)));
   assert.ok(!instance.manifest.serverSecrets.some(name=>/WAFFO|PADDLE|ALIPAY|WECHAT|MERCHANT/.test(name)));
   assert.ok(!buildSql().includes("ban-confirmed-leaderboard-manipulation"));
+});
+
+test("badge sync unions per-device achievements with earliest unlock timestamps",async()=>{
+  // 成就跨设备并集 (站主 2026-11-13): each device computes locally and posts
+  // its unlocked set; a read returns the merged wall — tier = highest observed,
+  // unlock timestamp = earliest, and another account never sees this one.
+  const owner=await instance.user();const stranger=await instance.user();
+  const merged=await instance.request("tokentracker-badge-sync",undefined,owner);
+  assert.equal(merged.response.status,200,merged.data.error);
+  assert.deepEqual(merged.data.badges,[]);
+  const pc=await instance.request("tokentracker-badge-sync",{device_id:"PC-20231215YOKN",badges:[
+    {id:"real_money",achieved:{bronze:"2026-06-01T00:00:00Z",silver:"2026-08-01T00:00:00Z",gold:null,diamond:null}},
+    {id:"code_cannon",achieved:{bronze:"2026-07-01T00:00:00Z",silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(pc.response.status,200,pc.data.error);
+  assert.equal(pc.data.stored,2);
+  const mac=await instance.request("tokentracker-badge-sync",{device_id:"Mac Mini M6",badges:[
+    {id:"real_money",achieved:{bronze:"2026-05-01T00:00:00Z",silver:"2026-09-01T00:00:00Z",gold:"2026-11-01T00:00:00Z",diamond:null}},
+    {id:"joycode_builder",achieved:{bronze:"2026-11-02T00:00:00Z",silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(mac.response.status,200,mac.data.error);
+  const wall=await instance.request("tokentracker-badge-sync",undefined,owner);
+  assert.equal(wall.response.status,200,wall.data.error);
+  const byId=new Map(wall.data.badges.map(b=>[b.id,b]));
+  const money=byId.get("real_money");
+  assert.equal(money.tier,3,"highest tier across devices wins");
+  assert.deepEqual(money.achieved,{bronze:"2026-05-01T00:00:00Z",silver:"2026-08-01T00:00:00Z",gold:"2026-11-01T00:00:00Z",diamond:null},"earliest unlock per tier wins");
+  assert.equal(byId.get("code_cannon").tier,1);
+  assert.equal(byId.get("joycode_builder").device_id,"Mac Mini M6");
+  // Re-posting the same set is idempotent and never moves a timestamp forward.
+  const again=await instance.request("tokentracker-badge-sync",{device_id:"PC-20231215YOKN",badges:[
+    {id:"real_money",achieved:{bronze:"2026-07-01T00:00:00Z",silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(again.response.status,200);
+  const after=await instance.request("tokentracker-badge-sync",undefined,owner);
+  const moneyAfter=new Map(after.data.badges.map(b=>[b.id,b])).get("real_money");
+  assert.equal(moneyAfter.achieved.bronze,"2026-05-01T00:00:00Z","earliest timestamp never moves forward");
+  assert.equal(moneyAfter.achieved.silver,"2026-08-01T00:00:00Z");
+  // Account isolation.
+  const foreign=await instance.request("tokentracker-badge-sync",undefined,stranger);
+  assert.deepEqual(foreign.data.badges,[]);
+  // Badges are account data: no token, no read; forged ids are rejected.
+  const anon=await instance.request("tokentracker-badge-sync",{badges:[{id:"real_money",achieved:{}}]});
+  assert.equal(anon.response.status,401,anon.data.message);
+  const forged=await instance.request("tokentracker-badge-sync",{badges:[{id:"../etc/passwd",achieved:{}}]},owner);
+  assert.equal(forged.response.status,400);
+  const badTime=await instance.request("tokentracker-badge-sync",{badges:[{id:"real_money",achieved:{bronze:"yesterday"}}]},owner);
+  assert.equal(badTime.response.status,400);
 });
 
 test("leaderboard snapshots key on (user, device) so a multi-device account can publish one row per machine",async()=>{

@@ -81,7 +81,11 @@ export async function pollAchievements({ timeZone } = {}) {
       for (const b of achievements) {
         const oldTier = prevTiers[b.id] || 0;
         const curTier = b.tier || 0;
-        if (curTier > oldTier) {
+        // remote_raised: the tier came from the account union (another device
+        // earned it) — lift the wall silently. Toasts only fire for movement
+        // this device earned itself; otherwise the first sync after signing in
+        // would replay the other machine's whole history as toasts.
+        if (curTier > oldTier && !b.remote_raised) {
           const nameKey = `achievements.badge.${b.id}.name`;
           const descKey = `achievements.badge.${b.id}.desc`;
           triggerAchievementNotification({
@@ -105,6 +109,13 @@ export async function pollAchievements({ timeZone } = {}) {
     }
     const previousTitles = JSON.parse(localStorage.getItem(TITLE_RESONANCE_STORAGE_KEY) || "null");
     const badgeMap = new Map(achievements.map((badge) => [badge.id, { id: badge.id, tier: badge.tier || 0 }]));
+    // Titles persist from the merged wall (badgeMap), but the toast decision
+    // runs on locally earned tiers only — a remote raise must lift the title
+    // silently, exactly like the badges that feed it.
+    const toastBadgeMap = new Map(achievements.map((badge) => [badge.id, {
+      id: badge.id,
+      tier: badge.remote_raised ? Math.max(badge.local_tier || 0, prevTiers?.[badge.id] || 0) : (badge.tier || 0),
+    }]));
     const currentTitleTiers = {};
     for (const title of TITLES_REGISTRY) {
       const resonance = getTitleResonance(title, badgeMap);
@@ -116,10 +127,13 @@ export async function pollAchievements({ timeZone } = {}) {
         unlocked: unlocked || Boolean(previous?.unlocked),
         tier: Math.max(tier, previous?.tier || 0),
       };
-      if (previousTitles && unlocked && (!previous?.unlocked || tier > (previous.tier || 0))) {
+      const toastResonance = getTitleResonance(title, toastBadgeMap);
+      const toastUnlocked = Boolean(toastResonance.unlocked);
+      const toastTier = toastUnlocked ? toastResonance.tier : 0;
+      if (previousTitles && toastUnlocked && (!previous?.unlocked || toastTier > (previous.tier || 0))) {
         triggerAchievementNotification({
           badge: { id: title.id, art: title.art },
-          tier: tier || 1,
+          tier: toastTier || 1,
           isTierUp: Boolean(previous?.unlocked),
           // Own visual language (violet link-up) — must not reuse the
           // achievement promotion flare.

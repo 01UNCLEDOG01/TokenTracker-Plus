@@ -184,4 +184,46 @@ describe("achievement notification artwork", () => {
     expect((await pollAchievements())[0].tier).toBe(1);
     expect(triggerAchievementNotification).not.toHaveBeenCalled();
   });
+
+  it("a remote raise lifts the wall silently; a local raise still toasts", async () => {
+    // Both badges jump past the stored floor, but only the locally earned one
+    // may toast — the remote raise came from another device (成就并集).
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 0, code_cannon: 0 }));
+    getLocalAchievements.mockResolvedValue({
+      achievements: [
+        { id: "kill_line", tier: 2, remote_raised: true, local_tier: 0 },
+        { id: "code_cannon", tier: 1 },
+      ],
+    });
+
+    const achievements = await pollAchievements();
+
+    expect(achievements.find((badge) => badge.id === "kill_line").tier).toBe(2);
+    const badgeIds = triggerAchievementNotification.mock.calls.map((call) => call[0].badge.id);
+    expect(badgeIds).toContain("code_cannon");
+    expect(badgeIds).not.toContain("kill_line");
+    // The high-water mark stores the merged tier, so the remote raise never
+    // re-toasts on a later poll either.
+    expect(JSON.parse(localStorage.getItem(BADGE_KEY))).toMatchObject({ kill_line: 2, code_cannon: 1 });
+  });
+
+  it("a remote raise does not toast for titles fed only by raised badges", async () => {
+    // token_arbitrageur + frugal_architect feed frugal_archmage; both jumps are
+    // remote, so the title lifts silently too.
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ token_arbitrageur: 0, frugal_architect: 0 }));
+    localStorage.setItem(TITLE_KEY, JSON.stringify({ frugal_archmage: { unlocked: false, tier: 0 } }));
+    getLocalAchievements.mockResolvedValue({
+      achievements: [
+        { id: "token_arbitrageur", tier: 1, remote_raised: true, local_tier: 0 },
+        { id: "frugal_architect", tier: 2, remote_raised: true, local_tier: 0 },
+      ],
+    });
+
+    await pollAchievements();
+
+    expect(triggerAchievementNotification).not.toHaveBeenCalled();
+    const stored = JSON.parse(localStorage.getItem(TITLE_KEY)).frugal_archmage;
+    expect(stored.unlocked).toBe(true);
+    expect(stored.tier).toBeGreaterThan(0);
+  });
 });
