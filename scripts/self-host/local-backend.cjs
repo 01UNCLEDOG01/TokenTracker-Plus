@@ -567,6 +567,33 @@ async function main() {
       res.end(JSON.stringify(value));
     };
     const url = new URL(req.url, "http://127.0.0.1:" + port);
+    // 实例 CA 公开下载（站主 2026-11-12）：新设备接入不再手动传证书——
+    // 信任根证书是公开信息，任何能连到本实例的客户端都该能取。路径优先
+    // 环境变量 TOKENTRACKER_LOCAL_BACKEND_CA，默认 <数据目录>/../tls/ca.crt。
+    if (url.pathname === "/ca.crt") {
+      if (String(req.method || "GET").toUpperCase() !== "GET" && String(req.method || "GET").toUpperCase() !== "HEAD") {
+        res.writeHead(405, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "method_not_allowed" }));
+        return;
+      }
+      const caPath = process.env.TOKENTRACKER_LOCAL_BACKEND_CA
+        || require("node:path").join(require("node:path").dirname(path.resolve(process.env.TOKENTRACKER_LOCAL_BACKEND_DIR || ".")), "tls", "ca.crt");
+      let pem;
+      try {
+        pem = fssync.readFileSync(caPath, "utf8");
+      } catch {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "ca_not_configured", hint: "set TOKENTRACKER_LOCAL_BACKEND_CA to the CA certificate path" }));
+        return;
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/x-x509-ca-cert",
+        "Content-Disposition": 'attachment; filename="tt-local-backend-ca.crt"',
+        "Cache-Control": "public, max-age=300",
+      });
+      res.end(String(req.method || "GET").toUpperCase() === "HEAD" ? undefined : pem);
+      return;
+    }
     if (url.pathname.startsWith("/api/auth/") && authRateLimited(req.socket?.remoteAddress || "unknown")) {
       req.resume?.();
       send(429, { error: "rate_limited", message: "too many requests" });
