@@ -295,7 +295,7 @@ export const PERK_PROVIDERS = [
       "big_quota",
       "featured"
     ],
-    "badge": "新户领 2 亿 tokens（¥120）+ 每日签到领积分",
+    "badge": "新户领 2 亿 tokens（¥120）+ 每日签到 200 积分",
     "badgeType": "purple",
     "tags": [
       "智谱出品",
@@ -303,7 +303,7 @@ export const PERK_PROVIDERS = [
       "注册领2亿tokens",
       "邀请积分风暴"
     ],
-    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端（国内版），内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。**新用户注册免费领 2 亿 tokens（价值 120 元）**；**2026-11-09 至 11-15 登录国内版每号可领一次 5,000 万 Tokens**（11-15 23:59 北京时间统一失效，仅限客户端内使用；2026-11-10 官方页核实）；**Free 档 0 元/月、每周发放 2,500 积分**（2026-11-13 公开资料核对）；客户端内每日签到另有积分（签到数值未公开，以端内到账为准）；受邀注册可得**最高 4,800 积分**，邀请好友双方享**积分风暴奖励**，可调 GLM-5.3 等主力大模型。",
+    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端（国内版），内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。**新用户注册免费领 2 亿 tokens（价值 120 元）**；**2026-11-09 至 11-15 登录国内版每号可领一次 5,000 万 Tokens**（11-15 23:59 北京时间统一失效，仅限客户端内使用；2026-11-10 官方页核实）；**每日签到 200 积分**（2026-11-13 站主端内实测）；**Free 档 0 元/月、每周发放 2,500 积分**（公开资料核对）；受邀注册可得**最高 4,800 积分**，邀请好友双方享**积分风暴奖励**，可调 GLM-5.3 等主力大模型。",
     "tips": "国内版 autoclaw.zhipuai.cn、国际版 autoclaw.z.ai 两套安装互斥，只装一个；新用户在桌面端登录环节填写邀请码即可领奖励；端内积分福利以「我的积分」页实时为准。",
     "inviteUrl": "https://autoglm.zhipuai.cn/misc/autoclaw-invite?activity_id=autoclaw_fission&channel=fission&source_location=sidebar&target_app=autoclaw&target_app_version=2.1.0&os=win&IC=GX4HHVHS",
     "officialUrl": "https://autoclaw.zhipuai.cn",
@@ -326,7 +326,7 @@ export const PERK_PROVIDERS = [
       "client",
       "daily_claim"
     ],
-    "badge": "国际版每日签到 500 credits",
+    "badge": "国际版每日签到 400 credits",
     "badgeType": "purple",
     "tags": [
       "智谱出品",
@@ -334,7 +334,7 @@ export const PERK_PROVIDERS = [
       "每日签到500",
       "国际版独立站"
     ],
-    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端的国际版，内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。实测每日正常签到得 500 credits（有效期 7 天），且经常叠加活动；官网标注注册可领 200M tokens（价值 ¥120，2026-11-02 首页核对），GLM 5.3 限时可享 150% credit 加成，Coding Plan 按档每月首登赠积分（Lite 5,000 / Pro 10,000 / Max 26,000）。国内版与国际版无法共存，只装一个。",
+    "description": "智谱 AI 推出的零门槛一键安装本地版 OpenClaw 智能体客户端的国际版，内置 50+ 技能（Skills）与 AutoGLM 浏览器自动化。**每日正常签到得 400 credits（2026-11-13 站主端内实测；2026-11-02 旧记录为 500，以端内为准），有效期 7 天**，且经常叠加活动；官网标注注册可领 200M tokens（价值 ¥120，2026-11-02 首页核对），GLM 5.3 限时可享 150% credit 加成，Coding Plan 按档每月首登赠积分（Lite 5,000 / Pro 10,000 / Max 26,000）。国内版与国际版无法共存，只装一个。",
     "tips": "国际版站点 autoclaw.z.ai 与国内版 autoclaw.zhipuai.cn 账号体系独立、安装互斥；国际版暂未核实有邀请活动，积分福利以端内为准。",
     "officialUrl": "https://autoclaw.z.ai",
     "hasInvite": false,
@@ -1539,7 +1539,7 @@ export const PERK_PROVIDERS = [
       "限时3亿额度",
       "邀请有礼"
     ],
-    "description": "Z.ai 官方编程智能体客户端，GLM 系列模型直连、登录即用。**2026-11-12 站主实测当期档期：周一至周四每晚 3 亿 + 周五至周日 5 亿（合计 17 亿/周），国内版与国际版客户端都有**——当期活动、不是长期固定福利；每日加码的确切起始日公开渠道查不到（官方文档不收录该类活动，11-11 观测已在放），此前的档期为零星放送与每周五晚大额（5 亿级）。常驻：**新用户连接 BigModel 账号后首次使用起 5 天内，每天有 GLM-5.3 300 万 + GLM-5.3-Flash 500 万 Token（两模型独立分额、每日刷新，2026-11-10 官方页核实）**。活动时段与额度一律以端内公告为准（官方文档不收录该类活动）。邀请活动进行中：邀请新用户及每周邀请满 2 位、10 位均有登录卡类梯度奖励（卡型与到账以端内奖励中心为准）。",
+    "description": "Z.ai 官方编程智能体客户端，GLM 系列模型直连、登录即用。**2026-11-12 站主实测当期档期：周一至周四每晚 3 亿 + 周五至周日 5 亿（合计 17 亿/周），国内版与国际版客户端都有**——当期活动、不是长期固定福利；每日加码起始日约在 10 月底/11 月初（站主确认；公开渠道查无确切公告，11-11 观测已在放），此前的档期为零星放送与每周五晚大额（5 亿级）。常驻：**新用户连接 BigModel 账号后首次使用起 5 天内，每天有 GLM-5.3 300 万 + GLM-5.3-Flash 500 万 Token（两模型独立分额、每日刷新，2026-11-10 官方页核实）**。活动时段与额度一律以端内公告为准（官方文档不收录该类活动）。邀请活动进行中：邀请新用户及每周邀请满 2 位、10 位均有登录卡类梯度奖励（卡型与到账以端内奖励中心为准）。",
     "tips": "限时额度类活动不定期出现，近期每晚都有，建议每天晚间登录客户端查看；配合 TokenTracker Plus 的 ZCode 用量卡片可实时核对到账额度与生成速率。邀请奖励在端内「奖励中心」查看进度。",
     "officialUrl": "https://z.ai",
     "inviteUrl": "https://zcode.z.ai/invite/DU7JA29Y",
