@@ -211,8 +211,9 @@ describe("PerksPage", () => {
     expect(screen.getByText("长期免费")).toBeInTheDocument();
     expect(screen.getByText("每月福利")).toBeInTheDocument();
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
-    // 2026-11-11：NVIDIA Build 改用「按速率免费的长期免费档」，从 big_quota 迁入 permanent_free（16→17）。
-    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("17");
+    // 2026-11-11：NVIDIA Build 改用「按速率免费的长期免费档」迁入 permanent_free（16→17）。
+    // 2026-11-13：端砚免费直用下线（改墨点折扣计费），移出 permanent_free（17→16）。
+    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("16");
     expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("17");
   });
 
