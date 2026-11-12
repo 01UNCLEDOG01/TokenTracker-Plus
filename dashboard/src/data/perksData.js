@@ -10,17 +10,17 @@ import { comparePerks } from "./perks-sort.mjs";
  * 由 `npm run validate:perks` 校验结构与时效措辞。查不到官方公开口径的数字
  * 一律写「以站内为准」，不许编造具体额度。
  *
- * badgeType = 福利价值等级。2026-11-12 站主定谳：全部折算成【单月（30 天）稳定可白嫖的
- * 等效人民币价值】后按阶梯定色（一次性福利按同额阶梯）——不再按品牌或主观印象：
- *   neutral 灰   无免费额度（纯折扣卡/纯本地网关，白拿额度 = 0）
- *   success 绿   < ¥10/月（小额：单一小额度、日级百次级）
- *   blue    蓝   ¥10–50/月（中等：免费模型月估、周期性千次级、小代金券）
- *   purple  紫   ¥50–150/月（大额：日签积分主力、1 亿 token 一次性）
- *   rose    粉   ¥150–500/月（超大额：日 1 亿 token 连日、积分日签大户）
- *   amber   琥珀 ≥ ¥500/月（顶配：每晚 3 亿 token 级、每日 ¥20+ 算力）
- * 折算口径：真金白银取 AIHOT 官方折算；积分按厂商官方购价；免费模型按月用量估算
- * （全量核算表见 dashboard/src/data/perks-value-audit.md，2026-11-12 反重力复核）。
- * 档位随价值口径变化调整；validator 只查枚举不查档位。
+ * badgeType = 福利价值等级。2026-11-12 站主定谳并复核（统一量纲 = 单月 30 天
+ * 稳定可白嫖的等效人民币价值；一次性按面额走同档门槛）：
+ *   neutral 灰   纯本地网关 / 纯付费订阅，无任何赠送额度
+ *   success 绿   < ¥10/月（或单次 < ¥10）：轻量额度、$1 级免费档
+ *   blue    蓝   ¥10–49/月（或单次 ¥10–29）：免费模型月估、小代金券、日签积分小户
+ *   purple  紫   ¥50–149/月（或单次 ¥30–99）：日签积分主力、1 亿 token 一次性、中转站折算
+ *   rose    粉   ¥150–499/月（或单次 ≥ ¥100）：日 1 亿 token 连日、积分日签大户、学生 ¥300
+ *   amber   琥珀 ≥ ¥500/月（或单次 ≥ 5 亿 token）：每晚 3 亿 token 级、每日 ¥20+ 算力
+ * 折算口径：真金白银取 AIHOT 官方折算；积分按厂商官方购价；免费模型按月用量估算。
+ * 全量核算与逐卡归属见 dashboard/src/data/perks-value-audit.md（2026-11-12 终版）。
+ * Qoder 国内/国际版：纸面 ¥216/月 但已无免费模型且排队严重，仅作防衰减备份（卡片正文已标注）。
  */
 
 export const PERK_CATEGORIES = [
@@ -98,7 +98,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "✅ 2026-11-03 实测已恢复：3/3 模型可用",
-    "badgeType": "blue",
+    "badgeType": "purple",
     "tags": [
       "实测已恢复",
       "美元赠额",
@@ -208,7 +208,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "15 款免费模型 API 免费直连（站点共 18 款）",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "AMD 官方",
       "OpenAI 兼容 /v1",
@@ -904,7 +904,7 @@ export const PERK_PROVIDERS = [
       "big_quota"
     ],
     "badge": "上新福利老户送 500 万 · 邀请各 1000 万",
-    "badgeType": "purple",
+    "badgeType": "blue",
     "tags": [
       "美团大厂",
       "送千万Tokens",
@@ -1066,7 +1066,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "Console 限免模型（需走客户端）",
-    "badgeType": "blue",
+    "badgeType": "purple",
     "tags": [
       "编程专属",
       "限免模型",
@@ -1213,7 +1213,7 @@ export const PERK_PROVIDERS = [
       "CLI 可查额度"
     ],
     "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**；新人下载登录送 **300 Credits + 两周 Pro 试用**（高级模型要在 14 天 Pro 试用期内用）；**限时活动：匿名模型 Qoduck 每天限免**（与国际版同规则，选 Qoduck 免费调用、无需领取，用尽后按 0.5× 消耗 Credits）。**邀请活动 2026-11-11 已恢复**（端内活动页核实，三重好礼）：好友注册并下载 Qoder 后 7 天内完成一次对话或任务你得 **50 Credits**；好友注册后 7 天内累计 3 天完成对话或任务你得 **100 Credits**；好友注册后 30 天内完成首次订阅你得 **1,000 Credits**（好友另得 500）。",
-    "tips": "国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效；邀请奖励在活动页「邀请好友接着赚」进度查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
+    "tips": "⚠️ 端内实测：当前已无免费模型，每日 100 Credits 仍发放但生成排队严重、可用性差，仅作防衰减备份。国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效；邀请奖励在活动页「邀请好友接着赚」进度查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
     "officialUrl": "https://qoder.cn",
     "inviteUrl": "https://qoder.cn/activities?referral_code=4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
     "inviteCode": "4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
@@ -1245,7 +1245,7 @@ export const PERK_PROVIDERS = [
       "多模型支持"
     ],
     "description": "面向专业开发者的全流程 AI 编程工具。**每日 10:00 之后需在站内/客户端主动领取 100 Credits（30 天有效）**；新用户注册另赠初始额度；邀请好友注册并在 7 天内完成任务，你得 **50 Credits**。",
-    "tips": "错过当日 10:00 时段不补发，也不累积；额度构成与消耗明细可在客户端用量页与 TokenTracker 的 Qoder 卡片对照查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
+    "tips": "⚠️ 端内实测：当前已无免费模型，每日 100 Credits 仍发放但生成排队严重、可用性差，仅作防衰减备份。错过当日 10:00 时段不补发，也不累积；额度构成与消耗明细可在客户端用量页与 TokenTracker 的 Qoder 卡片对照查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
     "inviteUrl": "https://qoder.com/activities?referral_code=gviloqaY80z3XxsS6W78IIy3uMK3qRlc",
     "officialUrl": "https://qoder.com",
     "inviteCode": "gviloqaY80z3XxsS6W78IIy3uMK3qRlc",
@@ -1467,7 +1467,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "每月 1 日送 100 积分 + 每日对话次日送 30（端内实测）",
-    "badgeType": "rose",
+    "badgeType": "blue",
     "tags": [
       "AI客户端",
       "国际版",
