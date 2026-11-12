@@ -1519,8 +1519,15 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   }
 }
 
-/* 卡册稀有度（照 AIHOT）：累计领取 7+ 青、15+ 金、30+ 闪。
-   青档就是默认卡背，只有金/闪改材质。 */
+/* 卡册稀有度（AIHOT 官方规则）：daily 7/15/30 → 蓝/金/闪，monthly 1/2/3，
+   once 按价值 ¥10/50/100。青色是默认卡背，蓝/金/闪换材质。 */
+.tt-perks-page .perk-rarity-blue {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.07) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(160deg, #2b6cb8 0%, #1f5591 55%, #17406e 100%);
+  border-color: #e8f1fb;
+}
 .tt-perks-page .perk-rarity-gold {
   background:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 1.5px, transparent 1.5px 8px),

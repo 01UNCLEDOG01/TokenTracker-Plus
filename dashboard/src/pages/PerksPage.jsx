@@ -542,6 +542,9 @@ export const ALBUM_PAGE_SIZE = 18;
 
 // AIHOT provider slug → 我们卡册的卡 id（反查表）：统计「今天还能领」时
 // 判断快照 deal 是否已被我们领掉用。多卡映射同一 provider 时取首个。
+// 价值档位排序权重（站主 2026-11-12：卡册按档位色从琥珀排到灰，不管领取状态）。
+const TIER_RANK = { amber: 5, rose: 4, purple: 3, blue: 2, success: 1, neutral: 0 };
+
 const AIHOT_PROVIDER_TO_CARD = (() => {
   const map = new Map();
   for (const [cardId, providers] of Object.entries(PERKS_AIHOT_PROVIDERS)) {
@@ -588,12 +591,29 @@ export function perkDaysLeft(endsAt, nowMs = Date.now()) {
   return { ended: ms <= 0, days: Math.max(0, Math.ceil(ms / 86400000)) };
 }
 
-// 卡册稀有度：照 AIHOT 按「累计领取次数」分三档（青 / 金 / 闪）。
-export function albumRarity(streak) {
-  if (Number(streak) >= 30) return "holo";
-  if (Number(streak) >= 15) return "gold";
-  if (Number(streak) >= 7) return "teal";
-  return null;
+// 卡册稀有度（AIHOT 官方规则原文，aihot.news/free-tokens 页脚「卡册怎么算」）：
+// 每天能领的累计领 7、15、30 天依次变蓝卡、金卡、闪卡；每月的 1、2、3 次；
+// 只能领一次的看这一次价值，¥10、¥50、¥100 起依次蓝、金、闪。基础卡背是青色。
+export function cardRarity(cycleCounts, dealYuan) {
+  let best = 0; // 0 无、1 蓝、2 金、3 闪
+  const bump = (level) => { best = Math.max(best, level); };
+  for (const [cycle, count] of Object.entries(cycleCounts || {})) {
+    if (!Number.isSafeInteger(count) || count <= 0) continue;
+    if (cycle === "daily") {
+      if (count >= 30) bump(3);
+      else if (count >= 15) bump(2);
+      else if (count >= 7) bump(1);
+    } else if (cycle === "monthly") {
+      if (count >= 3) bump(3);
+      else if (count >= 2) bump(2);
+      else if (count >= 1) bump(1);
+    } else if (cycle === "once" && dealYuan != null && Number.isFinite(dealYuan)) {
+      if (dealYuan >= 100) bump(3);
+      else if (dealYuan >= 50) bump(2);
+      else if (dealYuan >= 10) bump(1);
+    }
+  }
+  return best === 3 ? "holo" : best === 2 ? "gold" : best === 1 ? "blue" : null;
 }
 
 function AlbumMiniLogo({ item, hasIcon }) {
@@ -603,10 +623,9 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, faceValue, onJump, flipCount }) {
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
-  const rarity = albumRarity(streak);
   // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
   //   青色卡背 = 「等待领取」——以前领过、今天还没领（图2），稀有度金/闪材质刻在卡背上；
   //   纸质正面 = 领取揭示后的样子（图3）——今天领过、或从没领过（悬念面无 ×N）、或绝版（盖红章）。
@@ -633,6 +652,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, face
         <span
           className={cn(
             "perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg",
+            rarity === "blue" ? "perk-rarity-blue" : null,
             rarity === "gold" ? "perk-rarity-gold" : null,
             rarity === "holo" ? "perk-rarity-holo" : null,
           )}
@@ -684,6 +704,42 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, face
   );
 }
 
+// 绝版展示柜（站主 2026-11-12「封装到玻璃柜」）：和还能领福利的卡分开陈列。
+// 玻璃质感 = 深色玻璃渐变 + 内阴影高光；绝版卡保持纸面 + 红章 + ×N。
+function AlbumVitrine({ entries, onJump, flipKeys }) {
+  if (!entries.length) return null;
+  return (
+    <div className="mb-8">
+      <div className="relative overflow-hidden rounded-2xl border border-oai-gray-300/70 bg-gradient-to-b from-oai-gray-100/90 via-white/60 to-oai-gray-200/80 p-4 shadow-inner dark:border-oai-gray-600/60 dark:from-oai-gray-800/80 dark:via-oai-gray-900/60 dark:to-oai-gray-950/80">
+        <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/70 dark:bg-white/25" aria-hidden />
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-oai-black dark:text-white">{copy("perks.album.vitrine")}</h2>
+          <span className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
+            {copy("perks.album.sealed_count", { count: entries.length })}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+          {entries.map((entry) => (
+            <AlbumMiniCard
+              key={entry.item.id}
+              item={entry.item}
+              collected={entry.collected}
+              tier={entry.tier}
+              streak={entry.streak}
+              claimedNow={entry.claimedNow}
+              sealed={entry.sealed}
+              rarity={entry.rarity}
+              faceValue={entry.faceValue}
+              onJump={onJump}
+              flipCount={flipKeys[entry.item.id] || 0}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, claimDay, collected, total, sealedCount }) {
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
@@ -730,10 +786,10 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, cl
   );
 }
 
-function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys, aihotSums }) {
-  const totalPages = Math.max(1, Math.ceil(items.length / ALBUM_PAGE_SIZE));
+function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, flipKeys, aihotSums }) {
+  const totalPages = Math.max(1, Math.ceil(stripItems.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  const pageItems = items.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
+  const pageItems = stripItems.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
   // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
   const sealedCount = items.filter(function (entry) { return entry.sealed; }).length;
@@ -813,6 +869,7 @@ function AlbumStrip({ items, claimDay, page, onPageChange, onJump, flipKeys, aih
               streak={entry.streak}
               claimedNow={entry.claimedNow}
               sealed={entry.sealed}
+              rarity={entry.rarity}
               faceValue={entry.faceValue}
               onJump={onJump}
               flipCount={flipKeys[entry.item.id] || 0}
@@ -1015,6 +1072,10 @@ export function PerksPage() {
     const ranked = filteredItems.map((item) => {
       const streak = Math.max(...getPerkClaimCycles(item).map((cycle) => getPerkClaimStreak(item, claims, cycle)), 0);
       const claimedNow = isPerkClaimed(item, claims, claimDay, selectedCategory);
+      const cycleCounts = {};
+      for (const cycle of getPerkClaimCycles(item)) {
+        cycleCounts[cycle] = claims?.[item.id]?.[cycle]?.count || 0;
+      }
       const deal = (() => {
         const providers = PERKS_AIHOT_PROVIDERS[item.id];
         if (!providers) return null;
@@ -1041,6 +1102,7 @@ export function PerksPage() {
         streak,
         claimedNow,
         tier: albumBrightnessTier(streak),
+        rarity: cardRarity(cycleCounts, deal && Number.isFinite(deal.yuan) ? deal.yuan : null),
         collected: streak > 0,
         sealed,
         faceValue: deal?.label || null,
@@ -1051,11 +1113,16 @@ export function PerksPage() {
       };
     });
     ranked.sort((a, b) =>
-      b.streak - a.streak
+      (TIER_RANK[b.item.badgeType] ?? 0) - (TIER_RANK[a.item.badgeType] ?? 0)
       || comparePerks(a.item, b.item),
     );
     return ranked;
   }, [filteredItems, claims, claimDay, selectedCategory, aihotIndex]);
+
+  // 绝版展示柜（站主 2026-11-12：绝版卡「封装到玻璃柜」，和还能领的卡不混在
+  // 一起）：只陈列领到过的绝版卡，没领过的绝版按 AIHOT 规则不放出来。
+  const stripItems = useMemo(() => albumItems.filter(function (entry) { return !entry.sealed; }), [albumItems]);
+  const vitrineItems = useMemo(() => albumItems.filter(function (entry) { return entry.sealed && entry.collected; }), [albumItems]);
 
   useEffect(() => {
     const id = pendingScrollId.current;
@@ -1103,10 +1170,10 @@ export function PerksPage() {
   // 卡册翻页随筛选结果收缩回合法范围，避免「清除筛选后跳回旧页码」。
   useEffect(() => {
     setAlbumPage((current) => {
-      const maxPage = Math.max(0, Math.ceil(albumItems.length / ALBUM_PAGE_SIZE) - 1);
+      const maxPage = Math.max(0, Math.ceil(stripItems.length / ALBUM_PAGE_SIZE) - 1);
       return current > maxPage ? maxPage : current;
     });
-  }, [albumItems.length]);
+  }, [stripItems.length]);
 
   return (
     <div className="tt-perks-page flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
@@ -1142,6 +1209,7 @@ export function PerksPage() {
           {/* AIHOT 式卡册：统计头 + 扑克卡牌带，常驻页首（站主 2026-11-11 拍板照做） */}
           <AlbumStrip
             items={albumItems}
+            stripItems={stripItems}
             claimDay={claimDay}
             page={albumPage}
             onPageChange={setAlbumPage}
@@ -1149,6 +1217,9 @@ export function PerksPage() {
             flipKeys={flipKeys}
             aihotSums={aihotSums}
           />
+
+          {/* 绝版展示柜：独立于主卡册（站主 2026-11-12 玻璃柜方案） */}
+          <AlbumVitrine entries={vitrineItems} onJump={jumpToCard} flipKeys={flipKeys} />
 
           {/* 六色图例：把色阶含义摆在页面上（站主 2026-11-11 要求） */}
           <PerkTierLegend />

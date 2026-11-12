@@ -668,6 +668,7 @@
   "perks.deal.ended": "Beendet",
   "perks.album.sealed": "Ausgelaufen",
   "perks.album.sealed_count": "{{count}} ausgelaufen",
+  "perks.album.vitrine": "Retired-Karten",
   "perks.tier.all": "Alle Stufen",
   "perks.credit_aihot": "Die Angebotsdaten werden vom TT-plus-Autor manuell gepflegt; das täglich aktualisierte öffentliche Board von AIHOT (aihot.news) dient als Aktualitätsreferenz. Dank an Kazik (数字生命卡兹克) für die offenen Daten.",
   "perks.aihot.badge": "AIHOT geprüft {{date}}",

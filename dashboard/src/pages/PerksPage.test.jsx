@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
-import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, albumRarity } from "./PerksPage.jsx";
+import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, cardRarity } from "./PerksPage.jsx";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 import zhDashboard from "../content/i18n/zh/dashboard.json";
@@ -420,33 +420,54 @@ describe("PerksPage", () => {
     expect(screen.getByText("本月已领到")).toBeInTheDocument();
     expect(screen.getByText("下次刷新")).toBeInTheDocument();
     expect(screen.getByText(/{{collected}} \/ {{total}} 张已收/)).toBeInTheDocument();
-    // qoder_cn retired → 统计行带绝版计数
-    expect(screen.getByText(/绝版 \{\{count\}\} 张/)).toBeInTheDocument();
+    // qoder_cn retired → 统计行 + 玻璃柜各带一份绝版计数
+    expect(screen.getAllByText(/绝版 \{\{count\}\} 张/).length).toBeGreaterThanOrEqual(1);
     // 倒计时按 HH:MM:SS 每秒跳
     expect(document.body.textContent).toMatch(/\d{2}:\d{2}:\d{2}/);
 
-    // 卡牌带：已收亮卡在前（minimax_code 闪 > qoder_cn 银 > 未收 A-Z 暗卡）
-    const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
+    // 卡牌带：按价值档位色从琥珀排到灰（站主 2026-11-12），不管领取状态；
+    // 绝版卡移出主卡册进玻璃柜
+    const album = screen.getByText("我的卡册").closest("div.mb-8");
     const cards = [...album.querySelectorAll(".perk-mini")];
     expect(cards.length).toBe(18); // 每页 18 张（两排×9）
-    expect(cards[0].getAttribute("aria-label")).toContain("MiniMax Code");
-    expect(cards[1].getAttribute("aria-label")).toContain("Qoder CN");
+    // 档位排序不变式：任意相邻两张，前者的档位权重不低于后者（琥珀→灰）
+    const TIER_RANK = { amber: 5, rose: 4, purple: 3, blue: 2, success: 1, neutral: 0 };
+    const rankOf = (card) => {
+      const id = card.getAttribute("aria-label").split(" — ")[0];
+      const row = PERK_PROVIDERS.find((r) => r.name === id);
+      return TIER_RANK[row?.badgeType] ?? 0;
+    };
+    for (let idx = 1; idx < cards.length; idx += 1) {
+      expect(rankOf(cards[idx - 1])).toBeGreaterThanOrEqual(rankOf(cards[idx]));
+    }
+    // 琥珀档并列时 A-Z 收尾：Agent Router 在 AutoClaw 国内版之前
+    expect(cards[0].getAttribute("aria-label")).toContain("Agent Router");
+    expect(cards[1].getAttribute("aria-label")).toContain("AutoClaw 国内版");
+    // qoder_cn 已绝版 → 主卡册不再出现
+    expect(cards.find((card) => card.getAttribute("aria-label").includes("Qoder CN"))).toBeUndefined();
     // 今天领过 = 翻成正面揭示（AIHOT 图3），×31 画在正面右下
-    expect(cards[0].textContent).toContain("×31");
-    expect(cards[0].className).toContain("is-collected");
-    expect(cards[0].querySelector(".perk-card-front")).toBeTruthy();
-    expect(cards[0].querySelector(".perk-card-back")).toBeNull();
+    //（minimax 是蓝档，档位排序后落在后面的页——逐页找）
+    const dotsForSearch = [...album.querySelectorAll("button")].filter(function (b) { return b.className.includes("rounded-full") && !b.querySelector("svg"); });
+    let minimaxCard = null;
+    for (let page = 0; page < dotsForSearch.length && !minimaxCard; page += 1) {
+      fireEvent.click(dotsForSearch[page]);
+      minimaxCard = [...album.querySelectorAll(".perk-mini")].find(function (card) { return card.textContent.includes("×31"); }) || null;
+    }
+    expect(minimaxCard).toBeTruthy();
+    expect(minimaxCard.className).toContain("is-collected");
+    expect(minimaxCard.querySelector(".perk-card-front")).toBeTruthy();
+    expect(minimaxCard.querySelector(".perk-card-back")).toBeNull();
     // 以前领过、今天没领 = 青色卡背等待态（AIHOT 图2），×N 在卡背
     const waitingBack = cards.find((card) => card.className.includes("is-uncollected") && card.querySelector(".perk-card-back"));
     expect(waitingBack).toBeTruthy();
     expect(waitingBack.textContent).toContain("×");
-    // retired 卡（qoder_cn 免费调用下线）= 纸卡 + 绝版章 + ×8
-    const sealedCard = cards.find((card) => card.textContent.includes("×8"));
+    // retired 卡（qoder_cn 免费调用下线）= 玻璃柜里的纸卡 + 绝版章 + ×8
+    const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.textContent.includes("×8") && card.querySelector(".perk-seal"));
     expect(sealedCard).toBeTruthy();
-    expect(sealedCard.querySelector(".perk-seal")).toBeTruthy();
+    expect(sealedCard.closest(".relative.overflow-hidden.rounded-2xl")).toBeTruthy(); // 玻璃柜容器
 
     // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
-    const dots = [...album.querySelectorAll("button")].filter((b) => b.className.includes("rounded-full") && !b.querySelector("svg"));
+    const dots = [...album.querySelectorAll("button")].filter(function (b) { return b.className.includes("rounded-full") && !b.querySelector("svg"); });
     expect(dots.length).toBe(3);
     fireEvent.click(dots[2]);
     // 翻到第 3 页仍然有小卡（尾页是 A-Z 尾部品牌）
@@ -482,7 +503,8 @@ describe("PerksPage", () => {
 
       // 卡册第一页 18 张全是 button；暗卡文本为空（悬念设计），品牌名走 aria-label
       const albumJumpButtons = screen.getAllByTitle("跳到下方卡片");
-      expect(albumJumpButtons.length).toBe(18);
+      // 主卡册第一页 18 张 + 玻璃柜里的已领绝版卡（qoder_cn）都可点
+      expect(albumJumpButtons.length).toBeGreaterThanOrEqual(18);
       const firstCard = albumJumpButtons[0];
       const miniName = firstCard.getAttribute("aria-label").split(" — ")[0];
       expect(miniName.length).toBeGreaterThan(0);
@@ -633,15 +655,25 @@ describe("PerksPage", () => {
     expect(perkDaysLeft("not-a-date", now)).toBeNull();
   });
 
-  it("albumRarity：7/15/30 三档稀有度（青/金/闪）", () => {
-    expect(albumRarity(0)).toBeNull();
-    expect(albumRarity(6)).toBeNull();
-    expect(albumRarity(7)).toBe("teal");
-    expect(albumRarity(14)).toBe("teal");
-    expect(albumRarity(15)).toBe("gold");
-    expect(albumRarity(29)).toBe("gold");
-    expect(albumRarity(30)).toBe("holo");
-    expect(albumRarity(999)).toBe("holo");
+  it("cardRarity：AIHOT 官方阈值（daily 7/15/30、monthly 1/2/3、once 按价值 → 蓝/金/闪）", () => {
+    // 每天能领的：7/15/30 → 蓝/金/闪（官方规则原文）
+    expect(cardRarity({ daily: 6 })).toBeNull();
+    expect(cardRarity({ daily: 7 })).toBe("blue");
+    expect(cardRarity({ daily: 14 })).toBe("blue");
+    expect(cardRarity({ daily: 15 })).toBe("gold");
+    expect(cardRarity({ daily: 29 })).toBe("gold");
+    expect(cardRarity({ daily: 30 })).toBe("holo");
+    // 每月能领的：1/2/3
+    expect(cardRarity({ monthly: 1 })).toBe("blue");
+    expect(cardRarity({ monthly: 2 })).toBe("gold");
+    expect(cardRarity({ monthly: 3 })).toBe("holo");
+    // 只能领一次的：看这一次价值 ¥10/¥50/¥100
+    expect(cardRarity({ once: 1 }, 9)).toBeNull();
+    expect(cardRarity({ once: 1 }, 10)).toBe("blue");
+    expect(cardRarity({ once: 1 }, 50)).toBe("gold");
+    expect(cardRarity({ once: 1 }, 100)).toBe("holo");
+    // 多周期取最高档
+    expect(cardRarity({ daily: 20, monthly: 3 })).toBe("holo");
   });
 
   it("活动截止日：详情卡渲染「还剩 N 天」，未写截止日的卡不渲染", () => {
@@ -669,6 +701,8 @@ describe("PerksPage", () => {
       schema: 3,
       providers: {
         agentrouter: { daily: { last: "2020-01-01", count: 15 } },
+        // autoclaw 活动已过期：领过 → 玻璃柜陈列 + 盖章（没领过的绝版不陈列）
+        autoclaw: { daily: { last: getPerkClaimDay(), count: 1 } },
       },
     }));
     render(
@@ -683,8 +717,8 @@ describe("PerksPage", () => {
     expect(goldBack).toBeTruthy();
 
     // autoclaw 的活动 2026-11-15 已结束（站主口径：活动结束即绝版，与领取无关）
-    // → 未领取也盖绝版章 + 统计头计数
-    expect(album.querySelector(".perk-seal")).toBeTruthy();
-    expect(screen.getByText(/绝版 \{\{count\}\} 张/)).toBeInTheDocument();
+    // → 绝版卡移入玻璃柜独立陈列，纸面盖红章；统计头/玻璃柜各有一份计数
+    expect(document.querySelector(".perk-seal")).toBeTruthy();
+    expect(screen.getAllByText(/绝版 \{\{count\}\} 张/).length).toBeGreaterThanOrEqual(1);
   });
 });
