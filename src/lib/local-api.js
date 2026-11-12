@@ -3649,6 +3649,52 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- cloud function proxy: /api/cloud/functions/<slug> -> instance /functions/<slug> ---
+    // The dashboard runs inside a WebView whose TLS store does not trust a
+    // self-hosted instance's private CA, so browser -> instance function
+    // calls fail outright ("Load failed": leaderboard, account views, avatar).
+    // function-url.ts routes cloud functions here when an instance is
+    // configured; this server already holds the CA trust (NODE_EXTRA_CA_CERTS).
+    if (p.startsWith("/api/cloud/functions/")) {
+      const runtime = getRuntime();
+      try { assertInsforgeRuntime(runtime); } catch (error) { json(res, { code: error.code, error: error.message }, 503); return true; }
+      if (!runtime.baseUrl) {
+        json(res, { code: "cloud_not_configured", error: "No cloud instance configured." }, 409);
+        return true;
+      }
+      const slug = p.slice("/api/cloud/functions/".length);
+      if (!/^[a-z0-9][a-z0-9-]{0,80}$/i.test(slug)) {
+        json(res, { error: "invalid_function_slug" }, 400);
+        return true;
+      }
+      const targetUrl = `${runtime.baseUrl.replace(/\/$/, "")}/functions/${slug}${url.search || ""}`;
+      const headers = buildProxyHeaders(req.headers);
+      // The browser's cookies belong to the loopback server; never forward them.
+      delete headers.cookie;
+      headers.apikey = runtime.anonKey;
+      try {
+        const bodyChunks = [];
+        for await (const chunk of req) bodyChunks.push(chunk);
+        const proxyBody = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : undefined;
+        const upstream = await fetch(targetUrl, {
+          method: req.method || "GET",
+          headers,
+          body: proxyBody,
+          redirect: "manual",
+        });
+        const resBody = Buffer.from(await upstream.arrayBuffer());
+        res.writeHead(upstream.status, {
+          "Content-Type": upstream.headers.get("content-type") || "application/json",
+          "Cache-Control": "no-store",
+          "X-TT-Cloud-Proxy": "1",
+        });
+        res.end(resBody);
+      } catch (error) {
+        json(res, { code: "cloud_proxy_failed", error: error?.message || "instance request failed" }, 502);
+      }
+      return true;
+    }
+
     // --- auth proxy: forward /api/auth/* to InsForge cloud ---
     if (p.startsWith("/api/auth/")) {
       if (String(req.method).toUpperCase() === "POST" && /^\/api\/auth\/(?:logout|sessions|sign-in|oauth\/exchange)$/.test(p)) {

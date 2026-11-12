@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { functionUrlFor, fetchFunctionResponse } from "./function-url";
 
 // Local-first fork: no instance receives privileged routing. These are just
@@ -35,5 +35,44 @@ describe("function transport parity", () => {
     const failing = vi.fn().mockRejectedValue(new Error("timeout"));
     await expect(fetchFunctionResponse(`${instance}/functions/tokentracker-ingest`, { method: "POST" }, failing)).rejects.toThrow("timeout");
     expect(failing).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("localhost cloud-function proxy", () => {
+  const originalRuntime = window.__TOKENTRACKER_RUNTIME_CONFIG__;
+
+  function withRuntime(runtime: typeof originalRuntime) {
+    window.__TOKENTRACKER_RUNTIME_CONFIG__ = runtime;
+  }
+
+  afterEach(() => {
+    window.__TOKENTRACKER_RUNTIME_CONFIG__ = originalRuntime;
+  });
+
+  it("routes a configured instance through the local server on localhost", () => {
+    withRuntime({ baseUrl: "https://192.168.100.1:17682", anonKey: "anon" });
+    // jsdom serves the page from http://localhost:3000 by default; the
+    // WebView's TLS store cannot reach the instance, so the shell proxies.
+    expect(functionUrlFor("https://192.168.100.1:17682", "tokentracker-leaderboard"))
+      .toBe(`${window.location.origin}/api/cloud/functions/tokentracker-leaderboard`);
+  });
+
+  it("keeps no trailing slash for the SDK's own function base", () => {
+    withRuntime({ baseUrl: "https://192.168.100.1:17682", anonKey: "anon" });
+    // The SDK builds `${functionsUrl}/${slug}` itself.
+    expect(functionUrlFor("https://192.168.100.1:17682", ""))
+      .toBe(`${window.location.origin}/api/cloud/functions`);
+  });
+
+  it("a local-only runtime keeps the direct instance route", () => {
+    withRuntime({ baseUrl: "https://192.168.100.1:17682", anonKey: "anon", localOnly: true });
+    expect(functionUrlFor("https://192.168.100.1:17682", "tokentracker-leaderboard"))
+      .toBe("https://192.168.100.1:17682/functions/tokentracker-leaderboard");
+  });
+
+  it("an unconfigured runtime keeps the direct instance route", () => {
+    withRuntime(undefined);
+    expect(functionUrlFor("https://192.168.100.1:17682", "tokentracker-leaderboard"))
+      .toBe("https://192.168.100.1:17682/functions/tokentracker-leaderboard");
   });
 });

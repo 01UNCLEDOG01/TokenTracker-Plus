@@ -453,6 +453,17 @@ function normalizeLeaderboardError(err) {
   return copy("shared.error.prefix", { error: safe });
 }
 
+/**
+ * A private instance gates the leaderboard behind the account and answers
+ * anonymous reads with 401/403. That is a signed-out state, not a failure:
+ * the page shows the sign-in prompt instead of "HTTP 401" to the user.
+ */
+export function isLeaderboardAuthError(err) {
+  const status = Number(err?.status ?? err?.statusCode);
+  if (status === 401 || status === 403) return true;
+  return /HTTP (?:401|403)\b/.test(String(err?.message || err || ""));
+}
+
 function normalizeName(value) {
   if (typeof value !== "string") return "";
   return value.trim();
@@ -732,12 +743,15 @@ export function LeaderboardPage({
       });
     })().catch((err) => {
       if (!active) return;
-      const error = normalizeLeaderboardError(err);
+      // Signed-out on a private instance: 401/403 means "log in to see the
+      // board", so hand the page a prompt state instead of an error string.
+      const authRequired = !cloudSignedIn && isLeaderboardAuthError(err);
+      const error = authRequired ? null : normalizeLeaderboardError(err);
       setListState((prev) => {
         if (prev.contextKey === leaderboardPreloadContextKey) {
-          return { ...prev, loading: false, error };
+          return { ...prev, loading: false, error, authRequired };
         }
-        return { loading: false, error, data: null, contextKey: leaderboardPreloadContextKey };
+        return { loading: false, error, authRequired, data: null, contextKey: leaderboardPreloadContextKey };
       });
     });
     return () => {
@@ -860,6 +874,18 @@ export function LeaderboardPage({
   let listBody = null;
   if (currentListState.loading && !hasEntries) {
     listBody = <LeaderboardSkeleton rows={pageSize} />;
+  } else if (currentListState.authRequired && !hasEntries) {
+    listBody = (
+      <div className="px-6 py-12 text-center">
+        <p className="text-sm text-oai-gray-500 dark:text-oai-gray-400">{copy("leaderboard.signin_prompt")}</p>
+        <button
+          onClick={openLoginModal}
+          className="mt-3 px-3 py-1.5 text-sm font-medium text-oai-gray-600 dark:text-oai-gray-300 border border-oai-gray-300 dark:border-oai-gray-700 rounded-md hover:text-oai-black dark:hover:text-white hover:border-oai-gray-400 dark:hover:border-oai-gray-600 transition-colors"
+        >
+          {copy("leaderboard.signin_button")}
+        </button>
+      </div>
+    );
   } else if (currentListState.error && !hasEntries) {
     listBody = (
       <div className="px-6 py-12 text-center">

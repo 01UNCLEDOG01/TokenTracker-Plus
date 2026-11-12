@@ -459,6 +459,21 @@ describe("LeaderboardPage window-session cache reuse", { timeout: 30000 }, () =>
     ).toMatchObject({ data: publicData });
   });
 
+  it("shows the sign-in prompt, not a raw HTTP 401, when a private instance gates the board", async () => {
+    insforgeAuthMock.loading = false;
+    insforgeAuthMock.signedIn = false;
+    insforgeAuthMock.user = null;
+    const denial = Object.assign(new Error("Request failed with HTTP 401"), { status: 401 });
+    getLeaderboard.mockRejectedValue(denial);
+
+    renderLeaderboard("/leaderboard", { signedIn: false });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/HTTP 401/)).toBeNull();
+  });
+
   it("reuses matching cache again after remounting in the same window session", () => {
     const contextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",

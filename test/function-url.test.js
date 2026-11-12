@@ -23,9 +23,17 @@ test("every configured instance keeps its own /functions/ route", () => {
 
 test("browser and CLI route derivation agree for unconfigured and configured backends", () => {
   const source = fs.readFileSync(path.join(__dirname, "../dashboard/src/lib/function-url.ts"), "utf8");
-  const code = source.slice(0, source.indexOf("export async function fetchFunctionResponse"))
-    .replace("export function", "function").replace("baseUrl: string, slug: string", "baseUrl, slug");
-  const browserUrlFor = vm.runInNewContext(`${code}\nfunctionUrlFor;`);
+  const code = source.slice(0, source.indexOf("export async function fetchFunctionResponse"));
+  // Real TS transpile: the earlier regex strip only removed the exported
+  // signature's annotations, so any helper with its own types (the localhost
+  // cloud-function proxy) produced a VM syntax error instead of a parity check.
+  const ts = require("../dashboard/node_modules/typescript");
+  const js = ts.transpileModule(`${code}\nexports.functionUrlFor = functionUrlFor;`, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  const sandbox = { exports: {}, module: { exports: {} }, window: undefined };
+  vm.runInNewContext(js, sandbox);
+  const browserUrlFor = sandbox.exports.functionUrlFor;
   for (const base of ["", "http://localhost:7130", "https://custom.example/api", "https://other123.us-east.insforge.app", "https://custom.example/api/"]) {
     assert.equal(browserUrlFor(base, "tokentracker-ingest"), functionUrlFor(base, "tokentracker-ingest"));
   }
