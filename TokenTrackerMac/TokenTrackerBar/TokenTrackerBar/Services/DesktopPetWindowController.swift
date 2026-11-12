@@ -12,6 +12,18 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
     /// Persists whether the user had the pet showing, so it returns on next launch.
     static let showDefaultsKey = "DesktopPetShow"
     private static let frameAutosaveName = "DesktopPetWindow"
+    /// 1.27.0: the pet's own screen-independent origin. AppKit's NSWindow-Frame
+    /// autosave re-maps the whole frame whenever the saved screen (e.g.
+    /// 1920x1050) is not an exact match for the current arrangement
+    /// (1920x1080), so the pet reappeared at a fixed unrelated spot on every
+    /// launch. We persist the raw origin and apply it directly instead.
+    private static let originDefaultsKey = "DesktopPetOrigin"
+    private var lastOriginPersistAt = Date.distantPast
+    /// True while the bubble measurement re-lays the panel. Those moves are a
+    /// presentation adjustment (a tall bubble pushes the panel down), NOT the
+    /// user's chosen spot — persisting them made the pet drift downward on
+    /// every launch until it parked at a fixed edge.
+    private var isApplyingBubbleAdjustment = false
     private static let sizeDefaultsKey = "DesktopPetSize"
     /// 1.27.0: continuous scale replaces the preset string (migrated in init).
     private static let scaleDefaultsKey = "DesktopPetSpriteScale"
@@ -140,6 +152,45 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
         if UserDefaults.standard.bool(forKey: Self.showDefaultsKey) { show() }
     }
 
+    // MARK: - Pet origin persistence (screen-independent)
+
+    private static func readSavedOrigin() -> NSPoint? {
+        guard let d = UserDefaults.standard.dictionary(forKey: originDefaultsKey) else { return nil }
+        // Tolerant coercion: the app writes Doubles, but values edited from the
+        // outside (`defaults write -dict`) land as strings — both must read.
+        func number(_ raw: Any?) -> Double? {
+            if let n = raw as? NSNumber { return n.doubleValue }
+            if let s = raw as? String { return Double(s) }
+            return nil
+        }
+        guard let x = number(d["x"]), let y = number(d["y"]), x.isFinite, y.isFinite else { return nil }
+        return NSPoint(x: x, y: y)
+    }
+
+    /// One-time migration: the legacy AppKit autosave string is
+    /// "x y w h screenX screenY screenW screenH".
+    private static func readLegacyAutosaveOrigin() -> NSPoint? {
+        let key = "NSWindow Frame \(frameAutosaveName)"
+        guard let raw = UserDefaults.standard.string(forKey: key) else { return nil }
+        let parts = raw.split(separator: " ").compactMap { Double($0) }
+        guard parts.count >= 2, parts[0].isFinite, parts[1].isFinite else { return nil }
+        return NSPoint(x: parts[0], y: parts[1])
+    }
+
+    private static func persistOrigin(_ origin: NSPoint) {
+        UserDefaults.standard.set(["x": Double(origin.x), "y": Double(origin.y)], forKey: originDefaultsKey)
+    }
+
+    /// Keep the pet reachable: never restore it fully off the visible desktop.
+    private static func clampOrigin(_ frame: NSRect) -> NSRect {
+        guard let screen = NSScreen.main else { return frame }
+        let vf = screen.visibleFrame
+        var f = frame
+        f.origin.x = min(max(f.origin.x, vf.minX - 8), vf.maxX - 40)
+        f.origin.y = min(max(f.origin.y, vf.minY), vf.maxY - 40)
+        return f
+    }
+
     private func isFrameOnScreen(_ frame: NSRect) -> Bool {
         let spriteFrame = NSRect(
             x: frame.origin.x + spriteLeftInset,
@@ -206,13 +257,31 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
         panel.isReleasedWhenClosed = false
         panel.acceptsMouseMovedEvents = true
 
-        // Restore the last drag position, or park near the bottom-right on first run.
-        panel.setFrameAutosaveName(Self.frameAutosaveName)
+        // Restore the pet's own saved origin (screen-independent). The legacy
+        // AppKit frame autosave is only a one-time migration source: its saved
+        // screen (e.g. 1920x1050) no longer matching the current arrangement
+        // (1920x1080) made AppKit re-map the window, so the pet reappeared at a
+        // fixed, unrelated spot on every launch.
         var restored = false
-        if panel.setFrameUsingName(Self.frameAutosaveName) {
-            if isFrameOnScreen(panel.frame) {
+        if let saved = Self.readSavedOrigin() {
+            var f = NSRect(origin: saved, size: size)
+            f = Self.clampOrigin(f)
+            if isFrameOnScreen(f) {
+                panel.setFrame(f, display: false)
                 restored = true
             }
+        }
+        if !restored, let migrated = Self.readLegacyAutosaveOrigin() {
+            var f = NSRect(origin: migrated, size: size)
+            f = Self.clampOrigin(f)
+            if isFrameOnScreen(f) {
+                panel.setFrame(f, display: false)
+                restored = true
+                Self.persistOrigin(f.origin)
+            }
+        }
+        if !restored, panel.setFrameUsingName(Self.frameAutosaveName), isFrameOnScreen(panel.frame) {
+            restored = true
         }
         if restored {
             // Keep only the restored ORIGIN — the saved size may be from a different
@@ -246,6 +315,15 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
         updateBubbleAllowed()
         if let panel, didDrag {
             detectTuckedState(panel)
+        }
+        // Persist the pet's own origin (throttled — a drag fires this at ~60/s).
+        // AppKit's frame autosave is no longer authoritative; see makePanel.
+        if let panel, hiddenEdge == nil, !isApplyingBubbleAdjustment {
+            let now = Date()
+            if now.timeIntervalSince(lastOriginPersistAt) >= 1 {
+                lastOriginPersistAt = now
+                Self.persistOrigin(panel.frame.origin)
+            }
         }
     }
 
@@ -285,7 +363,9 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
             let highestAllowedOrigin = max(visibleFrame.minY, visibleFrame.maxY - nextFrame.height)
             nextFrame.origin.y = min(nextFrame.origin.y, highestAllowedOrigin)
         }
+        isApplyingBubbleAdjustment = true
         panel.setFrame(nextFrame, display: true)
+        isApplyingBubbleAdjustment = false
     }
 
     // MARK: - Drag cursor + edge tucking
@@ -515,6 +595,7 @@ final class DesktopPetWindowController: NSObject, NSWindowDelegate {
         let old = panel.frame
         let newSize = petSize
         panel.setFrame(NSRect(x: old.origin.x, y: old.origin.y, width: newSize.width, height: newSize.height), display: true)
+        Self.persistOrigin(panel.frame.origin)
         panel.saveFrame(usingName: Self.frameAutosaveName)
         updateBubbleAllowed()
         // Re-pin to the edge with the new sprite geometry (peek/inset changed with scale).
