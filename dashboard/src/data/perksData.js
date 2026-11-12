@@ -1469,7 +1469,7 @@ export const PERK_PROVIDERS = [
       "WORKBUDDY AI GUOJIBAN",
       "WORKBUDDY AI INTERNATIONAL"
     ],
-    "provider": "workbuddy",
+    "provider": "workbuddy-ai",
     "category": [
       "client",
       "daily_claim",

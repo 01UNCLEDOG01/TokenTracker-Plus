@@ -1540,7 +1540,6 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 1.5px, transparent 1.5px 8px),
     linear-gradient(140deg, #ff5fa2 0%, #ffa443 22%, #ffe45c 38%, #5df2a3 56%, #3fd8ff 72%, #7a83ff 88%, #d77cff 100%);
   border-color: #ffffff;
-  position: relative;
 }
 .tt-perks-page .perk-rarity-holo::after {
   content: "";

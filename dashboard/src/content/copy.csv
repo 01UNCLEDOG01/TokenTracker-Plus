@@ -1982,6 +1982,7 @@ perks.album.vitrine,ui,PerksPage,PerksPage,vitrine,Retired cards,,active
 perks.album.retired_until,ui,PerksPage,PerksPage,retired_until,This deal ended on {{date}},,active
 perks.album.vitrine_close,ui,PerksPage,PerksPage,vitrine_close,Close,,active
 perks.album.vitrine_detail,ui,PerksPage,PerksPage,vitrine_detail,View retired deal details,,active
+perks.album.vitrine_claims,ui,PerksPage,PerksPage,vitrine_claims,Claimed {{count}} times,,active
 cloud.page.subtitle,ui,CloudPage,CloudPage,subtitle,Connect your own backend: self-hosted sync, the private leaderboard and multi-device data all run on your server.,active
 cloud.status.connected,ui,CloudPage,CloudPage,connected,Connected to your self-hosted backend,active
 cloud.status.checking,ui,CloudPage,CloudPage,checking,Checking connection…,active

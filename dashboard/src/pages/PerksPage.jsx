@@ -623,26 +623,29 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick }) {
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick, showStreak = true, variant = "vitrine" }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
   //   青色卡背 = 「等待领取」——以前领过、今天还没领（图2），稀有度金/闪材质刻在卡背上；
   //   纸质正面 = 领取揭示后的样子（图3）——今天领过、或从没领过（悬念面无 ×N）、或绝版（盖红章）。
   // 领取瞬间：卡从青背 rotateY 翻成正面（「翻牌领福利」），次日自动翻回等待态。
-  const showBack = collected && !claimedNow && !sealed;
+  // 绝版形态（玻璃柜副本）：同卡的第二形态，做旧+盖戳，点击弹窗。
+  const isVitrineForm = sealed && variant === "vitrine";
+  // 主卡册日常形态照常翻转；玻璃柜副本恒为正面（展示已下线福利+章）。
+  const showBack = collected && !claimedNow && !isVitrineForm;
   // 领取瞬间翻面重播：flipKey 由父层（PerksPage）统一管理——翻页容器按页
   // key 重建会清掉组件内的延迟定时器。翻转目标是正面，key 挂在正面节点上。
   const flipKey = flipCount || 0;
-  const revealed = Boolean(claimedNow) && !sealed;
-  // 绝版卡面值条显示已下线福利名（如「模型限时免费」），日常卡显示 AIHOT 面值。
-  const chipLabel = sealed && item.retiredDeal?.label ? item.retiredDeal.label : faceValue;
+  const revealed = Boolean(claimedNow) && !isVitrineForm;
+  // 绝版形态（玻璃柜副本）的面值条显示已下线福利名；主卡册的日常形态照常显示面值。
+  const chipLabel = isVitrineForm && item.retiredDeal?.label ? item.retiredDeal.label : faceValue;
   return (
     <button
       type="button"
-      onClick={sealed && onSealedClick ? () => onSealedClick(item) : onJump ? () => onJump(item.id) : undefined}
-      title={sealed ? copy("perks.album.vitrine_detail") : onJump ? copy("perks.album.jump") : undefined}
-      aria-label={`${item.name} — ${sealed ? copy("perks.album.vitrine_detail") : copy("perks.album.jump")}`}
+      onClick={isVitrineForm && onSealedClick ? () => onSealedClick(item) : onJump ? () => onJump(item.id) : undefined}
+      title={isVitrineForm ? copy("perks.album.vitrine_detail") : onJump ? copy("perks.album.jump") : undefined}
+      aria-label={`${item.name} — ${isVitrineForm ? copy("perks.album.vitrine_detail") : copy("perks.album.jump")}`}
       data-perk-id={item.id}
       data-flip-key={flipKey}
       className={cn(
@@ -674,7 +677,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
           key={flipKey}
           className={cn(
             "perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5",
-            sealed ? "perk-card-aged" : null,
+            isVitrineForm ? "perk-card-aged" : null,
           )}
         >
           <span className="flex w-full items-center justify-between gap-1">
@@ -685,7 +688,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
             ) : (
               <span aria-hidden />
             )}
-            {sealed && (
+            {isVitrineForm && (
               <span className="perk-seal absolute right-0 top-0 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
                 {copy("perks.album.sealed")}
               </span>
@@ -697,7 +700,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
           <span className="w-full truncate text-[10px] font-semibold leading-tight text-oai-gray-700">
             {item.name}
           </span>
-          {collected && streak !== 0 && (
+          {showStreak && collected && streak !== 0 && (
             <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
               ×{streak}
             </span>
@@ -725,19 +728,26 @@ function AlbumVitrine({ entries, flipKeys, onSealedClick }) {
         </div>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
           {entries.map((entry) => (
-            <AlbumMiniCard
-              key={entry.item.id}
-              item={entry.item}
-              collected={entry.collected}
-              tier={entry.tier}
-              streak={entry.streak}
-              claimedNow={entry.claimedNow}
-              sealed={entry.sealed}
-              rarity={entry.rarity}
-              faceValue={entry.faceValue}
-              onSealedClick={onSealedClick}
-              flipCount={flipKeys[entry.item.id] || 0}
-            />
+            <div key={entry.item.id} className="flex flex-col items-center gap-1">
+              <AlbumMiniCard
+                item={entry.item}
+                collected={entry.collected}
+                tier={entry.tier}
+                streak={entry.streak}
+                claimedNow={entry.claimedNow}
+                sealed={entry.sealed}
+                rarity={entry.rarity}
+                faceValue={entry.faceValue}
+                onSealedClick={onSealedClick}
+                flipCount={flipKeys[entry.item.id] || 0}
+                showStreak={false}
+              />
+              {Boolean(entry.streak) && (
+                <span className="text-[10px] text-oai-gray-500 dark:text-oai-gray-400">
+                  {copy("perks.album.vitrine_claims", { count: entry.streak })}
+                </span>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -878,6 +888,7 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, f
               faceValue={entry.faceValue}
               onJump={onJump}
               flipCount={flipKeys[entry.item.id] || 0}
+              variant="strip"
             />
           ))}
         </div>
@@ -1128,7 +1139,9 @@ export function PerksPage() {
 
   // 绝版展示柜（站主 2026-11-12：绝版卡「封装到玻璃柜」，和还能领的卡不混在
   // 一起）：只陈列领到过的绝版卡，没领过的绝版按 AIHOT 规则不放出来。
-  const stripItems = useMemo(() => albumItems.filter(function (entry) { return !entry.sealed; }), [albumItems]);
+  // 主卡册 = 全量卡（绝版卡的日常形态也在卡册里——站主 2026-11-12 定谳：
+  // 玻璃柜是同一张卡的「绝版形态」副本，日常卡仍可照常领取）。
+  const stripItems = albumItems;
   const vitrineItems = useMemo(() => albumItems.filter(function (entry) { return entry.sealed && entry.collected; }), [albumItems]);
 
   useEffect(() => {

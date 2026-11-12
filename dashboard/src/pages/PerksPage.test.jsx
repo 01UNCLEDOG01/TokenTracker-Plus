@@ -462,10 +462,22 @@ describe("PerksPage", () => {
     const waitingBack = cards.find((card) => card.className.includes("is-uncollected") && card.querySelector(".perk-card-back"));
     expect(waitingBack).toBeTruthy();
     expect(waitingBack.textContent).toContain("×");
-    // retired 卡（qoder_cn 免费调用下线）= 玻璃柜里的纸卡 + 绝版章 + ×8
-    const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.textContent.includes("×8") && card.querySelector(".perk-seal"));
+    // retired 卡（qoder_cn 免费调用下线）：玻璃柜里的做旧纸卡 + 绝版章 + 「领过 N 次」小字；
+    // 同一张卡的日常形态仍留在主卡册（站主 2026-11-12 定谳：两个形态并存）
+    const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.querySelector(".perk-seal"));
     expect(sealedCard).toBeTruthy();
-    expect(sealedCard.closest(".relative.overflow-hidden.rounded-2xl")).toBeTruthy(); // 玻璃柜容器
+    expect(sealedCard.querySelector(".perk-card-aged")).toBeTruthy();
+    expect(sealedCard.closest(".perk-vitrine")).toBeTruthy();
+    expect(screen.getAllByText(/领过 {{count}} 次/).length).toBeGreaterThanOrEqual(1);
+    // 日常形态并存：主卡册里也有 Qoder CN（不带章）——档位排序后可能在后面的页，逐页找
+    const stripDots = [...document.querySelectorAll("button")].filter(function (b) { return b.className.includes("rounded-full") && !b.querySelector("svg"); });
+    let albumQoder = false;
+    for (let page = 0; page < stripDots.length && !albumQoder; page += 1) {
+      fireEvent.click(stripDots[page]);
+      albumQoder = [...document.querySelectorAll(".perk-mini")]
+        .some((card) => card.getAttribute("aria-label").startsWith("Qoder CN") && !card.querySelector(".perk-seal"));
+    }
+    expect(albumQoder).toBe(true);
 
     // 圆点翻页：53 张 / 18 = 3 页 → 3 个圆点 + 左右箭头
     const dots = [...album.querySelectorAll("button")].filter(function (b) { return b.className.includes("rounded-full") && !b.querySelector("svg"); });
@@ -623,6 +635,15 @@ describe("PerksPage", () => {
     expect(sealedMini).toBeTruthy();
     expect(sealedMini.textContent).toContain("模型限时免费");
     expect(sealedMini.querySelector(".perk-card-aged")).toBeTruthy();
+    // 双形态并存：日常形态在主卡册（无章，可能在后面页），玻璃柜是第二形态
+    const popupDots = [...document.querySelectorAll("button")].filter(function (b) { return b.className.includes("rounded-full") && !b.querySelector("svg"); });
+    let dailyCopyFound = false;
+    for (let page = 0; page < popupDots.length && !dailyCopyFound; page += 1) {
+      fireEvent.click(popupDots[page]);
+      dailyCopyFound = [...document.querySelectorAll(".perk-mini")]
+        .some((card) => card.getAttribute("aria-label").startsWith("Qoder CN") && !card.querySelector(".perk-seal"));
+    }
+    expect(dailyCopyFound).toBe(true);
 
     // 初始无弹窗 → 点击绝版卡 → 弹窗出现（标题=卡名 + 详情文案）
     expect(screen.queryByRole("dialog")).toBeNull();
