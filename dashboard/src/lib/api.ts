@@ -568,6 +568,7 @@ export async function setPublicVisibility({
   github_url,
   show_github_url,
   avatar_url,
+  perks_claims,
 }: AnyRecord = {}) {
   const body: AnyRecord = {};
   if (enabled !== undefined) body.enabled = Boolean(enabled);
@@ -578,6 +579,8 @@ export async function setPublicVisibility({
   if (github_url !== undefined) body.github_url = github_url === null ? null : String(github_url);
   if (show_github_url !== undefined) body.show_github_url = Boolean(show_github_url);
   if (avatar_url !== undefined) body.avatar_url = avatar_url === null ? null : String(avatar_url);
+  // 领取记录绑定账号（站主 2026-11-12）：整包透传，null 显式清空。
+  if (perks_claims !== undefined) body.perks_claims = perks_claims;
   return fetchInsforgeFunction("tokentracker-public-visibility", {
     accessToken,
     method: "POST",

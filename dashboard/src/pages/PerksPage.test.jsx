@@ -709,25 +709,30 @@ describe("PerksPage", () => {
     expect(perkDaysLeft("not-a-date", now)).toBeNull();
   });
 
-  it("cardRarity：AIHOT 官方阈值（daily 7/15/30、monthly 1/2/3、once 按价值 → 蓝/金/闪）", () => {
-    // 每天能领的：7/15/30 → 蓝/金/闪（官方规则原文）
+  it("cardRarity：五档阈值（daily 7/15/30/60/90、monthly 1/2/3/4/5、once ¥1/10/20/50/100 → 蓝/铜/银/金/闪）", () => {
+    // 每天能领的
     expect(cardRarity({ daily: 6 })).toBeNull();
     expect(cardRarity({ daily: 7 })).toBe("blue");
-    expect(cardRarity({ daily: 14 })).toBe("blue");
-    expect(cardRarity({ daily: 15 })).toBe("gold");
-    expect(cardRarity({ daily: 29 })).toBe("gold");
-    expect(cardRarity({ daily: 30 })).toBe("holo");
-    // 每月能领的：1/2/3
+    expect(cardRarity({ daily: 15 })).toBe("bronze");
+    expect(cardRarity({ daily: 30 })).toBe("silver");
+    expect(cardRarity({ daily: 60 })).toBe("gold");
+    expect(cardRarity({ daily: 90 })).toBe("holo");
+    expect(cardRarity({ daily: 120 })).toBe("holo");
+    // 每月能领的
     expect(cardRarity({ monthly: 1 })).toBe("blue");
-    expect(cardRarity({ monthly: 2 })).toBe("gold");
-    expect(cardRarity({ monthly: 3 })).toBe("holo");
-    // 只能领一次的：看这一次价值 ¥10/¥50/¥100
-    expect(cardRarity({ once: 1 }, 9)).toBeNull();
-    expect(cardRarity({ once: 1 }, 10)).toBe("blue");
+    expect(cardRarity({ monthly: 2 })).toBe("bronze");
+    expect(cardRarity({ monthly: 3 })).toBe("silver");
+    expect(cardRarity({ monthly: 4 })).toBe("gold");
+    expect(cardRarity({ monthly: 5 })).toBe("holo");
+    // 只能领一次的：看这一次价值
+    expect(cardRarity({ once: 1 }, 0.5)).toBeNull();
+    expect(cardRarity({ once: 1 }, 1)).toBe("blue");
+    expect(cardRarity({ once: 1 }, 10)).toBe("bronze");
+    expect(cardRarity({ once: 1 }, 20)).toBe("silver");
     expect(cardRarity({ once: 1 }, 50)).toBe("gold");
     expect(cardRarity({ once: 1 }, 100)).toBe("holo");
     // 多周期取最高档
-    expect(cardRarity({ daily: 20, monthly: 3 })).toBe("holo");
+    expect(cardRarity({ daily: 20, monthly: 5 })).toBe("holo");
   });
 
   it("活动截止日：详情卡渲染「还剩 N 天」，未写截止日的卡不渲染", () => {
@@ -754,7 +759,7 @@ describe("PerksPage", () => {
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
-        agentrouter: { daily: { last: "2020-01-01", count: 15 } },
+        agentrouter: { daily: { last: "2020-01-01", count: 60 } },
         // autoclaw 活动已过期：领过 → 玻璃柜陈列 + 盖章（没领过的绝版不陈列）
         autoclaw: { daily: { last: getPerkClaimDay(), count: 1 } },
       },
@@ -766,7 +771,7 @@ describe("PerksPage", () => {
     );
 
     const album = screen.getByText("我的卡册").closest("div.mb-8").parentElement;
-    // 金档：15 次连击的等待卡背挂 perk-rarity-gold
+    // 金档：60 次连击的等待卡背挂 perk-rarity-gold（五档：7/15/30/60/90）
     const goldBack = album.querySelector(".perk-rarity-gold");
     expect(goldBack).toBeTruthy();
 

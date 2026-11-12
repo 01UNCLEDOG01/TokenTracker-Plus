@@ -17,6 +17,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { copy, getCopyLocale } from "../lib/copy";
+import { getPublicVisibility, setPublicVisibility } from "../lib/api";
+import { useInsforgeAuth } from "../contexts/InsforgeAuthContext.jsx";
 import { cn } from "../lib/cn";
 import { showToast } from "../ui/components/Toast.jsx";
 import { ProviderIcon, hasProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
@@ -591,29 +593,27 @@ export function perkDaysLeft(endsAt, nowMs = Date.now()) {
   return { ended: ms <= 0, days: Math.max(0, Math.ceil(ms / 86400000)) };
 }
 
-// 卡册稀有度（AIHOT 官方规则原文，aihot.news/free-tokens 页脚「卡册怎么算」）：
-// 每天能领的累计领 7、15、30 天依次变蓝卡、金卡、闪卡；每月的 1、2、3 次；
-// 只能领一次的看这一次价值，¥10、¥50、¥100 起依次蓝、金、闪。基础卡背是青色。
+// 卡册稀有度（站主 2026-11-12 拍板五档）：蓝→铜→银→金→闪。
+// 每天能领的累计 7/15/30/60/90 天；每月能领的 1/2/3/4/5 次；
+// 只能领一次的看这一次价值 ¥1/10/20/50/100。基础卡背青色。
 export function cardRarity(cycleCounts, dealYuan) {
-  let best = 0; // 0 无、1 蓝、2 金、3 闪
+  const RANKS = ["blue", "bronze", "silver", "gold", "holo"];
+  let best = 0;
   const bump = (level) => { best = Math.max(best, level); };
+  const step = (count, thresholds) => {
+    let level = 0;
+    for (const t of thresholds) if (count >= t) level += 1;
+    bump(level);
+  };
   for (const [cycle, count] of Object.entries(cycleCounts || {})) {
     if (!Number.isSafeInteger(count) || count <= 0) continue;
-    if (cycle === "daily") {
-      if (count >= 30) bump(3);
-      else if (count >= 15) bump(2);
-      else if (count >= 7) bump(1);
-    } else if (cycle === "monthly") {
-      if (count >= 3) bump(3);
-      else if (count >= 2) bump(2);
-      else if (count >= 1) bump(1);
-    } else if (cycle === "once" && dealYuan != null && Number.isFinite(dealYuan)) {
-      if (dealYuan >= 100) bump(3);
-      else if (dealYuan >= 50) bump(2);
-      else if (dealYuan >= 10) bump(1);
+    if (cycle === "daily") step(count, [7, 15, 30, 60, 90]);
+    else if (cycle === "monthly") step(count, [1, 2, 3, 4, 5]);
+    else if (cycle === "once" && dealYuan != null && Number.isFinite(dealYuan)) {
+      step(dealYuan, [1, 10, 20, 50, 100]);
     }
   }
-  return best === 3 ? "holo" : best === 2 ? "gold" : best === 1 ? "blue" : null;
+  return best > 0 ? RANKS[best - 1] : null;
 }
 
 function AlbumMiniLogo({ item, hasIcon }) {
@@ -632,6 +632,13 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
   // 领取瞬间：卡从青背 rotateY 翻成正面（「翻牌领福利」），次日自动翻回等待态。
   // 绝版形态（玻璃柜副本）：同卡的第二形态，做旧+盖戳，点击弹窗。
   const isVitrineForm = sealed && variant === "vitrine";
+  // 卡型标签（站主 2026-11-12）：一张卡可有多个周期（workbuddy 三周期并存）。
+  const cycleKinds = getPerkClaimCycles(item);
+  const cycleTags = [
+    cycleKinds.includes("daily") ? { key: "daily", label: copy("perks.cycle.daily"), cls: "bg-sky-600/85" } : null,
+    cycleKinds.includes("monthly") ? { key: "monthly", label: copy("perks.cycle.monthly"), cls: "bg-violet-600/85" } : null,
+    cycleKinds.includes("once") ? { key: "once", label: copy("perks.cycle.once"), cls: "bg-amber-600/85" } : null,
+  ].filter(Boolean);
   // 主卡册日常形态照常翻转；玻璃柜副本恒为正面（展示已下线福利+章）。
   const showBack = collected && !claimedNow && !isVitrineForm;
   // 领取瞬间翻面重播：flipKey 由父层（PerksPage）统一管理——翻页容器按页
@@ -658,6 +665,8 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
           className={cn(
             "perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg",
             rarity === "blue" ? "perk-rarity-blue" : null,
+            rarity === "bronze" ? "perk-rarity-bronze" : null,
+            rarity === "silver" ? "perk-rarity-silver" : null,
             rarity === "gold" ? "perk-rarity-gold" : null,
             rarity === "holo" ? "perk-rarity-holo" : null,
           )}
@@ -699,6 +708,13 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
           </span>
           <span className="w-full truncate text-[10px] font-semibold leading-tight text-oai-gray-700">
             {item.name}
+          </span>
+          <span className="absolute bottom-1 left-1 flex gap-0.5">
+            {cycleTags.map((tag) => (
+              <span key={tag.key} className={cn("rounded px-1 py-0.5 text-[8px] font-bold leading-none text-white", tag.cls)}>
+                {tag.label}
+              </span>
+            ))}
           </span>
           {showStreak && collected && streak !== 0 && (
             <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
@@ -904,6 +920,44 @@ export function PerksPage() {
   const [claims, setClaims] = useState(() => readPerksClaims() ?? {});
   const [claimDay, setClaimDay] = useState(getPerkClaimDay);
   const unsavedClaims = useRef(null);
+  // 领取记录绑定账号（站主 2026-11-12）：登录态下与服务端同步。
+  const auth = useInsforgeAuth();
+  const claimsSyncAdopted = useRef(false);
+  const claimsSyncBusy = useRef(false);
+
+  const pushClaimsToServer = (next) => {
+    if (!auth?.signedIn || !auth?.getAccessToken || claimsSyncBusy.current) return;
+    claimsSyncBusy.current = true;
+    (async () => {
+      try {
+        const token = await auth.getAccessToken();
+        if (!token) return;
+        await setPublicVisibility({ accessToken: token, perks_claims: { schema: 3, providers: next } });
+      } catch { /* 静默：本地已保存 */ } finally {
+        claimsSyncBusy.current = false;
+      }
+    })();
+  };
+
+  useEffect(() => {
+    if (!auth?.signedIn || !auth?.getAccessToken || claimsSyncAdopted.current) return;
+    let alive = true;
+    (async () => {
+      try {
+        const token = await auth.getAccessToken();
+        if (!token || !alive) return;
+        const data = await getPublicVisibility({ accessToken: token });
+        const serverClaims = data?.perks_claims;
+        if (!alive || !serverClaims || typeof serverClaims !== "object") return;
+        const normalized = normalizePerkClaims(serverClaims, PERK_PROVIDERS);
+        if (!Object.keys(normalized).length) return;
+        claimsSyncAdopted.current = true;
+        setClaims(normalized);
+        writePerksClaims(normalized);
+      } catch { /* 服务端不可达时保持本地 */ }
+    })();
+    return () => { alive = false; };
+  }, [auth?.signedIn]);
   const [claimFilter, setClaimFilter] = useState("all");
   // 价值等级（六色）筛选：与页首图例、卡片徽标同一套口径。
   const [tierFilter, setTierFilter] = useState("all");
@@ -1034,6 +1088,7 @@ export function PerksPage() {
     setClaimDay(day);
     setClaims(next);
     unsavedClaims.current = writePerksClaims(next) ? null : next;
+    pushClaimsToServer(next);
     if (!wasClaimed) pendingScrollId.current = item.id;
   };
 
@@ -1142,7 +1197,30 @@ export function PerksPage() {
   // 主卡册 = 全量卡（绝版卡的日常形态也在卡册里——站主 2026-11-12 定谳：
   // 玻璃柜是同一张卡的「绝版形态」副本，日常卡仍可照常领取）。
   const stripItems = albumItems;
-  const vitrineItems = useMemo(() => albumItems.filter(function (entry) { return entry.sealed && entry.collected; }), [albumItems]);
+  // 玻璃柜独立于页面筛选（站主 2026-11-12：切换领取/分类筛选不应让绝版卡消失）。
+  const vitrineItems = useMemo(() => {
+    const items = [];
+    for (const item of PERK_PROVIDERS) {
+      const providers = PERKS_AIHOT_PROVIDERS[item.id];
+      const sealed = item.retired === true
+        || Boolean(perkDaysLeft(item.endsAt)?.ended)
+        || Boolean(providers && providers.some(function (provider) { return aihotIndex.dropped.has(provider); }));
+      if (!sealed) continue;
+      const streak = Math.max(...getPerkClaimCycles(item).map(function (cycle) { return getPerkClaimStreak(item, claims, cycle); }), 0);
+      if (streak <= 0) continue;
+      items.push({
+        item,
+        collected: true,
+        tier: albumBrightnessTier(streak),
+        rarity: null,
+        streak,
+        claimedNow: isPerkClaimed(item, claims, claimDay, "all"),
+        sealed: true,
+        faceValue: null,
+      });
+    }
+    return items;
+  }, [claims, claimDay, aihotIndex]);
 
   useEffect(() => {
     const id = pendingScrollId.current;

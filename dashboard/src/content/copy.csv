@@ -1979,6 +1979,9 @@ perks.deal.ended,ui,PerksPage,PerksPage,deal_ended,Ended,,active
 perks.album.sealed,ui,PerksPage,PerksPage,album_sealed,Retired,,active
 perks.album.sealed_count,ui,PerksPage,PerksPage,album_sealed_count,"{{count}} retired",,active
 perks.album.vitrine,ui,PerksPage,PerksPage,vitrine,Retired cards,,active
+perks.cycle.once,ui,PerksPage,PerksPage,once,1×,,active
+perks.cycle.monthly,ui,PerksPage,PerksPage,monthly,M,,active
+perks.cycle.daily,ui,PerksPage,PerksPage,daily,D,,active
 perks.album.retired_until,ui,PerksPage,PerksPage,retired_until,This deal ended on {{date}},,active
 perks.album.vitrine_close,ui,PerksPage,PerksPage,vitrine_close,Close,,active
 perks.album.vitrine_detail,ui,PerksPage,PerksPage,vitrine_detail,View retired deal details,,active

@@ -1613,3 +1613,31 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   background-color: #e9e2d0;
   border-color: #b8ad90;
 }
+
+/* 稀有度 五档材质（站主 2026-11-12 拍板：蓝→铜→银→金→闪） */
+.tt-perks-page .perk-rarity-bronze {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.08) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(160deg, #b0703a 0%, #8d5527 55%, #6e401b 100%);
+  border-color: #f3e2cd;
+}
+.tt-perks-page .perk-rarity-silver {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(160deg, #d7dde3 0%, #aeb7c0 55%, #8f99a4 100%);
+  border-color: #f7fafc;
+}
+/* 全息扫光性能：原来动 left（触发布局重排）→ 改 transform（合成层），不再一卡一卡 */
+.tt-perks-page .perk-rarity-holo::after {
+  width: 55%;
+  left: -60%;
+  transform: skew(-12deg);
+  animation: perk-holo-sheen 3.2s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes perk-holo-sheen {
+  0%, 55% { left: -60%; transform: skew(-12deg) translateX(0); }
+  100% { left: -60%; transform: skew(-12deg) translateX(345%); }
+}

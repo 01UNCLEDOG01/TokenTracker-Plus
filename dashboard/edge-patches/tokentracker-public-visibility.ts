@@ -100,7 +100,7 @@ export default async function (req: Request): Promise<Response> {
   if (req.method === "GET") {
     const { data } = await client.database
       .from("tokentracker_user_settings")
-      .select("leaderboard_public, leaderboard_anonymous, github_url, show_github_url, updated_at")
+      .select("leaderboard_public, leaderboard_anonymous, github_url, show_github_url, perks_claims, updated_at")
       .eq("user_id", userId)
       .maybeSingle();
     const { data: pv } = await client.database
@@ -123,6 +123,8 @@ export default async function (req: Request): Promise<Response> {
       avatar_url: profile?.avatar_url || null,
       github_url: data?.github_url || null,
       show_github_url: data?.show_github_url || false,
+      // 领取记录绑定账号（站主 2026-11-12）：跨设备/换浏览器保持，运维端可直接改写次数。
+      perks_claims: data?.perks_claims || null,
     });
   }
   if (req.method === "POST") {
@@ -132,6 +134,7 @@ export default async function (req: Request): Promise<Response> {
       display_name?: string;
       github_url?: string | null;
       show_github_url?: boolean;
+      perks_claims?: Record<string, unknown> | null;
     };
     const now = new Date().toISOString();
 
@@ -155,6 +158,20 @@ export default async function (req: Request): Promise<Response> {
         } else {
           return json({ error: "Invalid GitHub URL. Use https://github.com/<username> or a bare username." }, 400);
         }
+      }
+    }
+
+    // 领取记录（schema 3）整包校验：必须是对象、序列化后小于 200KB，
+    // 其余形状一律归一为 null（清空）。
+    let normalizedPerksClaims: Record<string, unknown> | null | undefined = undefined;
+    if (body.perks_claims !== undefined) {
+      if (body.perks_claims === null) {
+        normalizedPerksClaims = null;
+      } else if (typeof body.perks_claims === "object" && !Array.isArray(body.perks_claims)) {
+        const serialized = JSON.stringify(body.perks_claims);
+        normalizedPerksClaims = serialized.length < 200_000 ? body.perks_claims : null;
+      } else {
+        normalizedPerksClaims = null;
       }
     }
 
@@ -198,7 +215,8 @@ export default async function (req: Request): Promise<Response> {
       normalizedGithubUrl !== undefined ||
       body.show_github_url !== undefined ||
       normalizedDisplayName !== undefined ||
-      normalizedAvatarUrl !== undefined
+      normalizedAvatarUrl !== undefined ||
+      normalizedPerksClaims !== undefined
     ) {
       const upsertRow: Record<string, unknown> = {
         user_id: userId,
@@ -209,6 +227,7 @@ export default async function (req: Request): Promise<Response> {
       if (normalizedGithubUrl !== undefined) upsertRow.github_url = normalizedGithubUrl;
       if (body.show_github_url !== undefined) upsertRow.show_github_url = Boolean(body.show_github_url);
       if (normalizedDisplayName !== undefined) upsertRow.display_name = normalizedDisplayName;
+      if (normalizedPerksClaims !== undefined) upsertRow.perks_claims = normalizedPerksClaims;
       const { error: settingsErr } = await client.database.from("tokentracker_user_settings").upsert(
         upsertRow,
         { onConflict: "user_id" },
@@ -241,6 +260,7 @@ export default async function (req: Request): Promise<Response> {
     if (normalizedAvatarUrl !== undefined) result.avatar_url = normalizedAvatarUrl;
     if (normalizedGithubUrl !== undefined) result.github_url = normalizedGithubUrl;
     if (body.show_github_url !== undefined) result.show_github_url = Boolean(body.show_github_url);
+    if (normalizedPerksClaims !== undefined) result.perks_claims = normalizedPerksClaims;
     return json(result);
   }
   return json({ error: "Method not allowed" }, 405);
