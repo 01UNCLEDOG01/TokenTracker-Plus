@@ -21,6 +21,8 @@ import { comparePerks } from "./perks-sort.mjs";
  * 折算口径：真金白银取 AIHOT 官方折算；积分按厂商官方购价；免费模型按月用量估算。
  * 全量核算与逐卡归属见 dashboard/src/data/perks-value-audit.md（2026-11-12 终版）。
  * Qoder 国内/国际版：纸面 ¥216/月 但已无免费模型且排队严重，仅作防衰减备份（卡片正文已标注）。
+ * Agent Router：日签 $25 站内额度实测含金量 56.9%（日等效 ¥102.88 算力），但模型可能掺水
+ *   且有多次宕机史——站主 2026-11-12 拍板归 rose（粉），不升琥珀。
  */
 
 export const PERK_CATEGORIES = [
@@ -98,7 +100,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "✅ 2026-11-03 实测已恢复：3/3 模型可用",
-    "badgeType": "purple",
+    "badgeType": "rose",
     "tags": [
       "实测已恢复",
       "美元赠额",
@@ -250,6 +252,8 @@ export const PERK_PROVIDERS = [
   },
   {
     "id": "apigoto",
+    "retired": true,
+    "retiredDeal": {"label": "实名赠会员", "detail": "2026-11-01 订阅制改版同时取消「上线后实名赠送会员」活动——此前实名即赠 1 个月会员（含多并发与全模型直连）。该福利已绝版下线，现仅存 FREE 档每周 250 万 TCredits（≈¥10/月）。"},
     "name": "APIGOTO",
     "sortNames": [
       "APIGOTO"
@@ -261,7 +265,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "订阅制改版：PLUS 约6折 / PROX10 约5折",
-    "badgeType": "neutral",
+    "badgeType": "blue",
     "tags": [
       "聚合网关",
       "DeepSeek官方token",

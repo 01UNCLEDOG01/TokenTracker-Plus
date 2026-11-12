@@ -971,7 +971,7 @@ export function PerksPage() {
     setFlashedId(null);
     requestAnimationFrame(() => {
       setFlashedId(id);
-      document.getElementById(`perk-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(`perk-${id}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
       clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setFlashedId(null), 1300);
     });
@@ -1239,7 +1239,7 @@ export function PerksPage() {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         document.querySelector(`.perk-mini[data-perk-id="${id}"]`)
-          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
       }),
     );
   }, [albumItems]);
