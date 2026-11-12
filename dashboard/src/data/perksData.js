@@ -1552,6 +1552,34 @@ export const PERK_PROVIDERS = [
     "hasInvite": true,
     "checkedAt": "2026-11-11",
     "sourceUrl": "https://z.ai"
+  },
+  {
+    "id": "zcode_intl",
+    "name": "ZCode 国际版 (Z.AI)",
+    "sortNames": [
+      "ZCODE GUOJIBAN",
+      "ZCODE INTERNATIONAL"
+    ],
+    "provider": "zcode",
+    "category": [
+      "client",
+      "featured"
+    ],
+    "badge": "端内每晚 3 亿 GLM-5.3-Flash（国际版当期活动）",
+    "badgeType": "rose",
+    "tags": [
+      "国际版",
+      "智谱出品",
+      "编程智能体",
+      "晚间限时福利",
+      "限时3亿额度"
+    ],
+    "description": "Z.ai 国际版编程智能体客户端（z.ai 国际站账号体系），GLM 系列模型直连、登录即用。**2026-11-12 站主实测：国际版端内同样在放送 GLM-5.3-Flash 3 亿 Token 大额额度，每晚限时**——当期活动、不是长期固定福利；档期与额度以国际版端内公告为准。常驻：新用户连接 Z.AI 账号后首次使用起 5 天内，每天有 GLM-5.3 300 万 + GLM-5.3-Flash 500 万 Token（两模型独立分额、每日刷新）。",
+    "tips": "国际版与本地下载的国内版是两套账号体系，邀请与奖励不互通；晚间活动建议两端各登录看一下。",
+    "officialUrl": "https://zcode.z.ai",
+    "hasInvite": false,
+    "checkedAt": "2026-11-12",
+    "sourceUrl": "https://zcode.z.ai"
   }
 ];
 

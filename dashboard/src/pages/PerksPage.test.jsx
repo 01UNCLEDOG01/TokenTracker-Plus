@@ -17,7 +17,7 @@ const ORDERED_IDS = [
   "scnet", "volcengine", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "longcat", "loomy",
   "minimax_code", "minimax", "modelscope", "nvidia_nim", "opencode", "opencode_go", "openrouter",
   "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "sensenova", "teleagent", "trae_cn", "trae",
-  "unisound_maas", "vyceai", "workbuddy_intl", "workbuddy", "zcode",
+  "unisound_maas", "vyceai", "workbuddy_intl", "workbuddy", "zcode", "zcode_intl",
 ];
 
 // Mock copy helper using real zh strings (raw templates — the house style here
@@ -189,8 +189,8 @@ describe("PerksPage", () => {
       </ToastProvider>
     );
 
-    // 53 家收录（2026-11-03：+AMD/Cloudflare/Google/Groq/NVIDIA/云知声/Cerebras/魔搭；2026-11-02 批 +CatPaw 等），每行一条 provenance。
-    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(53);
+    // 每家收录一行 provenance（数量随 PERK_PROVIDERS 动态）
+    expect(screen.getAllByText("核对 {{date}}")).toHaveLength(PERK_PROVIDERS.length);
     const links = screen.getAllByText("来源").map((node) => node.closest("a"));
     links.forEach((link) => {
       expect(link.getAttribute("href")).toMatch(/^https:\/\//);
@@ -224,7 +224,8 @@ describe("PerksPage", () => {
     );
 
     const directLinks = screen.getAllByText("官网直达");
-    expect(directLinks).toHaveLength(51);
+    // 无自定义 officialUrlLabel 的卡都走「官网直达」（44 家动态；自定义标签的另计）
+    expect(directLinks).toHaveLength(PERK_PROVIDERS.filter((row) => !row.officialUrlLabel).length);
     // agnes 与 bigmodel 为双站卡：主按钮「中国站直达」×2 + 分站「国际站直达」×2
     expect(screen.getAllByText("中国站直达")).toHaveLength(2);
     expect(screen.getAllByText("国际站直达")).toHaveLength(2);
