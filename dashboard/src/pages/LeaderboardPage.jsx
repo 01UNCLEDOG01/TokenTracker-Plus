@@ -745,13 +745,18 @@ export function LeaderboardPage({
       if (!active) return;
       // Signed-out on a private instance: 401/403 means "log in to see the
       // board", so hand the page a prompt state instead of an error string.
-      const authRequired = !cloudSignedIn && isLeaderboardAuthError(err);
-      const error = authRequired ? null : normalizeLeaderboardError(err);
+      const signedOut = !cloudSignedIn && isLeaderboardAuthError(err);
+      // While the session is still restoring, a 401 is not yet a verdict: the
+      // board flashes "登录后即可上榜" right after launch (the first fetch races
+      // the token refresh) and then flips to the real list once it lands. Keep
+      // the skeleton instead; this effect re-runs when auth settles.
+      if (signedOut && authLoading) return;
+      const error = signedOut ? null : normalizeLeaderboardError(err);
       setListState((prev) => {
         if (prev.contextKey === leaderboardPreloadContextKey) {
-          return { ...prev, loading: false, error, authRequired };
+          return { ...prev, loading: false, error, authRequired: signedOut };
         }
-        return { loading: false, error, authRequired, data: null, contextKey: leaderboardPreloadContextKey };
+        return { loading: false, error, authRequired: signedOut, data: null, contextKey: leaderboardPreloadContextKey };
       });
     });
     return () => {
