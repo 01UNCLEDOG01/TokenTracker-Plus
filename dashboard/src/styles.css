@@ -1641,3 +1641,24 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   0%, 55% { left: -60%; transform: skew(-12deg) translateX(0); }
   100% { left: -60%; transform: skew(-12deg) translateX(345%); }
 }
+
+/* 正面稀有度边框（站主 2026-11-12：正反面都要体现档位，领取后不能「掉档」） */
+.tt-perks-page .perk-front-blue { border-color: #2b6cb8; box-shadow: 0 0 0 1px rgba(43, 108, 184, 0.45); }
+.tt-perks-page .perk-front-bronze { border-color: #b0703a; box-shadow: 0 0 0 1px rgba(176, 112, 58, 0.45); }
+.tt-perks-page .perk-front-silver { border-color: #a3adb8; box-shadow: 0 0 0 1px rgba(163, 173, 184, 0.65); }
+.tt-perks-page .perk-front-gold { border-color: #d4a72c; box-shadow: 0 0 0 1px rgba(212, 167, 44, 0.55), 0 2px 6px rgba(212, 167, 44, 0.25); }
+.tt-perks-page .perk-front-holo {
+  border: 1.5px solid transparent;
+  background-image:
+    linear-gradient(#fff, #fff),
+    linear-gradient(120deg, #ff5fa2, #ffa443, #ffe45c, #5df2a3, #3fd8ff, #7a83ff, #d77cff, #ff5fa2);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-size: 100% 100%, 300% 100%;
+  animation: perk-front-holo-shift 4s linear infinite;
+  box-shadow: 0 2px 8px rgba(122, 131, 255, 0.28);
+}
+@keyframes perk-front-holo-shift {
+  0% { background-position: 0 0, 0% 50%; }
+  100% { background-position: 0 0, 300% 50%; }
+}

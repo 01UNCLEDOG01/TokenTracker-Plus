@@ -623,7 +623,7 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick, showStreak = true, variant = "vitrine" }) {
+function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick, showStreak = true, variant = "vitrine" }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
@@ -632,13 +632,13 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
   // 领取瞬间：卡从青背 rotateY 翻成正面（「翻牌领福利」），次日自动翻回等待态。
   // 绝版形态（玻璃柜副本）：同卡的第二形态，做旧+盖戳，点击弹窗。
   const isVitrineForm = sealed && variant === "vitrine";
-  // 卡型标签（站主 2026-11-12）：一张卡可有多个周期（workbuddy 三周期并存）。
-  const cycleKinds = getPerkClaimCycles(item);
-  const cycleTags = [
-    cycleKinds.includes("daily") ? { key: "daily", label: copy("perks.cycle.daily"), cls: "bg-sky-600/85" } : null,
-    cycleKinds.includes("monthly") ? { key: "monthly", label: copy("perks.cycle.monthly"), cls: "bg-violet-600/85" } : null,
-    cycleKinds.includes("once") ? { key: "once", label: copy("perks.cycle.once"), cls: "bg-amber-600/85" } : null,
-  ].filter(Boolean);
+  // 卡型标签（站主 2026-11-12）：每张小卡代表一个周期（日/月/一各一张卡）。
+  const cycleTagMap = {
+    daily: { key: "daily", label: copy("perks.cycle.daily"), cls: "bg-sky-600/85" },
+    monthly: { key: "monthly", label: copy("perks.cycle.monthly"), cls: "bg-violet-600/85" },
+    once: { key: "once", label: copy("perks.cycle.once"), cls: "bg-amber-600/85" },
+  };
+  const cycleTags = [cycleTagMap[cycle] || cycleTagMap.daily];
   // 主卡册日常形态照常翻转；玻璃柜副本恒为正面（展示已下线福利+章）。
   const showBack = collected && !claimedNow && !isVitrineForm;
   // 领取瞬间翻面重播：flipKey 由父层（PerksPage）统一管理——翻页容器按页
@@ -663,7 +663,7 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
       {showBack ? (
         <span
           className={cn(
-            "perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg",
+            "perk-mini-card perk-card-back absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg",
             rarity === "blue" ? "perk-rarity-blue" : null,
             rarity === "bronze" ? "perk-rarity-bronze" : null,
             rarity === "silver" ? "perk-rarity-silver" : null,
@@ -687,16 +687,21 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
           className={cn(
             "perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5",
             isVitrineForm ? "perk-card-aged" : null,
+            !isVitrineForm && rarity ? "perk-front-" + rarity : null,
           )}
         >
           <span className="flex w-full items-center justify-between gap-1">
-            {chipLabel ? (
-              <span className="max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 text-[9px] font-semibold leading-tight text-white">
-                {chipLabel}
-              </span>
-            ) : (
-              <span aria-hidden />
-            )}
+            <span className="flex gap-0.5">
+              {isVitrineForm && chipLabel ? (
+                <span className="max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 text-[9px] font-semibold leading-tight text-white">
+                  {chipLabel}
+                </span>
+              ) : cycleTags.map((tag) => (
+                <span key={tag.key} className={cn("rounded px-1 py-0.5 text-[8px] font-bold leading-none text-white", tag.cls)}>
+                  {tag.label}
+                </span>
+              ))}
+            </span>
             {isVitrineForm && (
               <span className="perk-seal absolute right-0 top-0 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
                 {copy("perks.album.sealed")}
@@ -708,13 +713,6 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
           </span>
           <span className="w-full truncate text-[10px] font-semibold leading-tight text-oai-gray-700">
             {item.name}
-          </span>
-          <span className="absolute bottom-1 left-1 flex gap-0.5">
-            {cycleTags.map((tag) => (
-              <span key={tag.key} className={cn("rounded px-1 py-0.5 text-[8px] font-bold leading-none text-white", tag.cls)}>
-                {tag.label}
-              </span>
-            ))}
           </span>
           {showStreak && collected && streak !== 0 && (
             <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
@@ -893,8 +891,9 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, f
         <div key={safePage} className="perk-page-turn grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
           {pageItems.map((entry) => (
             <AlbumMiniCard
-              key={entry.item.id}
+              key={entry.item.id + ":" + entry.cycle}
               item={entry.item}
+              cycle={entry.cycle}
               collected={entry.collected}
               tier={entry.tier}
               streak={entry.streak}
@@ -903,7 +902,7 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, f
               rarity={entry.rarity}
               faceValue={entry.faceValue}
               onJump={onJump}
-              flipCount={flipKeys[entry.item.id] || 0}
+              flipCount={flipKeys[entry.item.id + ":" + entry.cycle] || 0}
               variant="strip"
             />
           ))}
@@ -1142,13 +1141,19 @@ export function PerksPage() {
   // 卡册排序：已收亮卡 > 累计亮度档 > A-Z 稳定序（AIHOT「越亮的越靠前」，
   // 截图里第一行亮卡第二行暗卡）。面值/折算值取映射 provider 的最新 AIHOT deal。
   const albumItems = useMemo(() => {
-    const ranked = filteredItems.map((item) => {
-      const streak = Math.max(...getPerkClaimCycles(item).map((cycle) => getPerkClaimStreak(item, claims, cycle)), 0);
-      const claimedNow = isPerkClaimed(item, claims, claimDay, selectedCategory);
-      const cycleCounts = {};
+    // 每周期独立成卡（站主 2026-11-12）：同一软件有几种可领周期就出几张卡，
+    // 每张卡的稀有度/次数只看自己那个周期。详情卡保持一张（领取按钮分行）。
+    const expanded = [];
+    for (const item of filteredItems) {
       for (const cycle of getPerkClaimCycles(item)) {
-        cycleCounts[cycle] = claims?.[item.id]?.[cycle]?.count || 0;
+        expanded.push({ item, cycle });
       }
+    }
+    const ranked = expanded.map(({ item, cycle }) => {
+      const streak = getPerkClaimStreak(item, claims, cycle);
+      const claimedNow = Boolean(getPerkClaimDate(item, claims, cycle, claimDay));
+      const cycleCounts = {};
+      cycleCounts[cycle] = claims?.[item.id]?.[cycle]?.count || 0;
       const deal = (() => {
         const providers = PERKS_AIHOT_PROVIDERS[item.id];
         if (!providers) return null;
@@ -1159,8 +1164,7 @@ export function PerksPage() {
         }
         return best;
       })();
-      const monthlyClaimed = getPerkClaimCycles(item).includes("monthly")
-        && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
+      const monthlyClaimed = cycle === "monthly" && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
       // 绝版 = 活动结束（站主 2026-11-12 口径）：AIHOT 把该 provider 标记为
       // dropped（下线活动，如 workbuddy 国际版 DeepSeek 免费调用）、或数据里
       // 写了 endsAt 且已过期、或显式 retired 标记——与是否领取过无关。
@@ -1172,6 +1176,7 @@ export function PerksPage() {
         })();
       return {
         item,
+        cycle,
         streak,
         claimedNow,
         tier: albumBrightnessTier(streak),
@@ -1185,9 +1190,11 @@ export function PerksPage() {
         dealYuanMonthlyClaimed: deal && Number.isFinite(deal.yuan) && monthlyClaimed ? deal.yuan : 0,
       };
     });
+    const CYCLE_RANK = { daily: 0, monthly: 1, once: 2 };
     ranked.sort((a, b) =>
       (TIER_RANK[b.item.badgeType] ?? 0) - (TIER_RANK[a.item.badgeType] ?? 0)
-      || comparePerks(a.item, b.item),
+      || comparePerks(a.item, b.item)
+      || (CYCLE_RANK[a.cycle] ?? 9) - (CYCLE_RANK[b.cycle] ?? 9),
     );
     return ranked;
   }, [filteredItems, claims, claimDay, selectedCategory, aihotIndex]);
@@ -1245,14 +1252,15 @@ export function PerksPage() {
     // 加载 500ms 后集体空翻一次（站主实测口径：只在领取瞬间翻）。
     if (!flipDiffMountedRef.current) {
       flipDiffMountedRef.current = true;
-      for (const entry of albumItems) prevStreaksRef.current[entry.item.id] = entry.streak;
+      for (const entry of albumItems) prevStreaksRef.current[entry.item.id + ":" + entry.cycle] = entry.streak;
       return;
     }
     const grew = [];
     for (const entry of albumItems) {
-      const prev = prevStreaksRef.current[entry.item.id] || 0;
-      if (entry.collected && entry.streak > prev) grew.push(entry.item.id);
-      prevStreaksRef.current[entry.item.id] = entry.streak;
+      const key = entry.item.id + ":" + entry.cycle;
+      const prev = prevStreaksRef.current[key] || 0;
+      if (entry.collected && entry.streak > prev) grew.push(key);
+      prevStreaksRef.current[key] = entry.streak;
     }
     if (!grew.length) return;
     const timer = setTimeout(() => {

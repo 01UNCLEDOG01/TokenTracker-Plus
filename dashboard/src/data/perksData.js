@@ -10,26 +10,17 @@ import { comparePerks } from "./perks-sort.mjs";
  * 由 `npm run validate:perks` 校验结构与时效措辞。查不到官方公开口径的数字
  * 一律写「以站内为准」，不许编造具体额度。
  *
- * badgeType = 福利价值等级（站主 2026-11-11 拍板：灰→绿→蓝→紫→粉→琥珀，越后越好）。
- * 判据两轴：① 现在能白拿多少（免费额度/免费模型/赠金折算）② 拿的难度（要不要付费、要不要绑卡、是否只能在自家客户端内用）。
- * **灰色只代表「白拿额度 = 0」，不代表这家难用或没价值**（付费折扣卡的价值在「便宜」，不在此色阶的度量口径内）：
- *   neutral 灰   无免费额度：纯工具（本地网关/聚合器）、纯付费订阅、纯折扣卡
- *   success 绿   小额：有免费额度但小且封闭——单一免费档、日级百次级或单模型、只能在自家客户端内用
- *   blue    蓝   中额：免费额度可叠加（多源相加、周期性千次级、代金券与免费档并行）
- *   purple  紫   大额：一次性或周期大额（百万 Token 级、1 亿 Token 一次性≈¥7、¥20+ 等值、新人万级积分）
- *   rose    粉   超大额：累计 ≥¥60（每天 1 亿 Token 级连续多天、10 亿+ 永久免费模型）/ ¥100+ 等值 / $50 级赠金
- *   （2026-11-12 站主校准：1 亿 Token 一次性（SCNet）归紫不归粉；讯飞 10 亿+ 永久、七牛每日 1 亿×多天、
- *      ZCode 每晚 3 亿才是粉。判定先折算累计价值再对档，别按品牌知名度打分。）
- *   amber   琥珀 顶配：持续大额低门槛（每日 $10+ 级、2 亿+ Token 新户、高额多重叠加）
- * 同形同色（硬约束）：同一形状的福利必须落同一档，不许按「是不是我熟的那家」打分——
- *   长期免费模型可直连 ≈ AMD Token Factory / Google AI Studio / Groq（绿）；
- *   限免模型但只能用自家客户端 ≈ Cursor 免费档（绿）；
- *   付费才有的额度（如 $10 订阅换 $100）留在灰，请在 badge 文案里写清杠杆倍数。
- * 判档冲突时的裁决顺序（按此执行，别临时发明规则）：
- *   ① 命中多档取触发档位更高者；② 琥珀与粉是同一量级带的不同发放形态——持续发放归琥珀、
- *      一次性大额归粉，两者之间不严格比大小；③ 稳定性/可得性（是否要海外网络、服务是否经常不可用）
- *      只作扣分项，最多下调一档，且必须在卡片正文写明扣分理由。
- * 改 badgeType 前先对照本表；等级随福利口径变化调整，validator 只查枚举不查档位。
+ * badgeType = 福利价值等级。2026-11-12 站主定谳：全部折算成【单月（30 天）稳定可白嫖的
+ * 等效人民币价值】后按阶梯定色（一次性福利按同额阶梯）——不再按品牌或主观印象：
+ *   neutral 灰   无免费额度（纯折扣卡/纯本地网关，白拿额度 = 0）
+ *   success 绿   < ¥10/月（小额：单一小额度、日级百次级）
+ *   blue    蓝   ¥10–50/月（中等：免费模型月估、周期性千次级、小代金券）
+ *   purple  紫   ¥50–150/月（大额：日签积分主力、1 亿 token 一次性）
+ *   rose    粉   ¥150–500/月（超大额：日 1 亿 token 连日、积分日签大户）
+ *   amber   琥珀 ≥ ¥500/月（顶配：每晚 3 亿 token 级、每日 ¥20+ 算力）
+ * 折算口径：真金白银取 AIHOT 官方折算；积分按厂商官方购价；免费模型按月用量估算
+ * （全量核算表见 dashboard/src/data/perks-value-audit.md，2026-11-12 反重力复核）。
+ * 档位随价值口径变化调整；validator 只查枚举不查档位。
  */
 
 export const PERK_CATEGORIES = [
@@ -107,7 +98,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "✅ 2026-11-03 实测已恢复：3/3 模型可用",
-    "badgeType": "amber",
+    "badgeType": "blue",
     "tags": [
       "实测已恢复",
       "美元赠额",
@@ -190,7 +181,7 @@ export const PERK_PROVIDERS = [
       "big_quota"
     ],
     "badge": "在架模型各送 100 万 Tokens（90天）",
-    "badgeType": "purple",
+    "badgeType": "rose",
     "tags": [
       "阿里大厂",
       "多模型独立送",
@@ -217,7 +208,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "15 款免费模型 API 免费直连（站点共 18 款）",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "AMD 官方",
       "OpenAI 兼容 /v1",
@@ -301,7 +292,7 @@ export const PERK_PROVIDERS = [
       "featured"
     ],
     "badge": "新户领 2 亿 tokens（¥120）+ 每日签到领积分",
-    "badgeType": "amber",
+    "badgeType": "purple",
     "tags": [
       "智谱出品",
       "一键安装Agent",
@@ -332,7 +323,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "国际版每日签到 500 credits",
-    "badgeType": "amber",
+    "badgeType": "purple",
     "tags": [
       "智谱出品",
       "一键安装Agent",
@@ -418,7 +409,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "每日 100 万 tokens 免费额度",
-    "badgeType": "purple",
+    "badgeType": "rose",
     "tags": [
       "晶圆级极速推理",
       "OpenAI 兼容",
@@ -443,7 +434,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "每日 10,000 neurons 免费算力",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "Cloudflare 官方",
       "每日刷新",
@@ -472,7 +463,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "注册 4,000 + 学生 4,000 + 每日签到 100",
-    "badgeType": "purple",
+    "badgeType": "rose",
     "tags": [
       "华为云",
       "代码智能体",
@@ -528,7 +519,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "每日签到 300 · 每周活动最高 +900",
-    "badgeType": "blue",
+    "badgeType": "purple",
     "tags": [
       "Unity中国",
       "游戏引擎AI",
@@ -607,7 +598,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "30天体验包 + 签到领额度 + 活动 100 额度",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "字节大厂",
       "30天体验包",
@@ -636,7 +627,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "免费 API Key 按模型限速",
-    "badgeType": "success",
+    "badgeType": "rose",
     "tags": [
       "谷歌官方",
       "Gemini 系列",
@@ -661,7 +652,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "免费档按模型限速、极速推理",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "LPU 极速",
       "Llama / GPT-OSS",
@@ -747,7 +738,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "新户每模型 50 万 · 个人每日单模型 200 万",
-    "badgeType": "purple",
+    "badgeType": "success",
     "tags": [
       "字节大厂",
       "多模型赠送",
@@ -776,7 +767,7 @@ export const PERK_PROVIDERS = [
       "big_quota"
     ],
     "badge": "Spark Lite 长期免费 · Spark-X2.6 送 10 亿 Tokens",
-    "badgeType": "rose",
+    "badgeType": "amber",
     "tags": [
       "1024开发者节",
       "送10亿Tokens",
@@ -803,7 +794,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "每月 10,000 墨点 · 4 款模型免费直用",
-    "badgeType": "purple",
+    "badgeType": "blue",
     "tags": [
       "上海AI实验室",
       "科研工作台",
@@ -830,7 +821,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "席位每月 10,000 免费积分",
-    "badgeType": "blue",
+    "badgeType": "success",
     "tags": [
       "京东云",
       "AI编程助手",
@@ -942,7 +933,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "每日刷新5000 + 任务送1万 + 邀请送5000",
-    "badgeType": "purple",
+    "badgeType": "amber",
     "tags": [
       "科大讯飞",
       "桌面Agent",
@@ -972,7 +963,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "每日登录送积分（第 4/7 天加码）",
-    "badgeType": "blue",
+    "badgeType": "purple",
     "tags": [
       "国产大厂",
       "M3系列模型",
@@ -998,7 +989,7 @@ export const PERK_PROVIDERS = [
       "big_quota"
     ],
     "badge": "注册送 ¥15 代金券（30 天）",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "国产大厂",
       "送15元代金券",
@@ -1023,7 +1014,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "每日 200 魔粒调 API（绑阿里云 +50）",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "阿里系",
       "国内直连",
@@ -1050,7 +1041,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "全模型免费试用 · 40 RPM 限速",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "英伟达官方",
       "开源模型多",
@@ -1075,7 +1066,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "Console 限免模型（需走客户端）",
-    "badgeType": "success",
+    "badgeType": "blue",
     "tags": [
       "编程专属",
       "限免模型",
@@ -1214,7 +1205,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "每日 10:00 后主动领 100 Credits",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "阿里通义系",
       "国内免翻",
@@ -1246,7 +1237,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "每日 10:00 后主动领 100 Credits",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "AI编程",
       "每日主动领取",
@@ -1276,7 +1267,7 @@ export const PERK_PROVIDERS = [
       "daily_claim"
     ],
     "badge": "新号任务最高 12,000 积分",
-    "badgeType": "purple",
+    "badgeType": "blue",
     "tags": [
       "商汤科技",
       "代码小浣熊",
@@ -1332,7 +1323,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "四重福利，月最多赠 39,000 积分 + 邀请返积分",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "中国电信",
       "天翼AI",
@@ -1362,7 +1353,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "新户赠 2,000 · 受邀 3,000 · 每月登录 500",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "字节出品",
       "整合升级",
@@ -1416,7 +1407,7 @@ export const PERK_PROVIDERS = [
       "permanent_free"
     ],
     "badge": "实名领一个月会员 + Free 档每周 2500 积分",
-    "badgeType": "blue",
+    "badgeType": "success",
     "tags": [
       "云知声官方",
       "注册+实名一次性会员",
@@ -1444,7 +1435,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "注册送 $50 · 每日签到 $10 · 邀请双方各 $10",
-    "badgeType": "blue",
+    "badgeType": "success",
     "tags": [
       "海外平台",
       "双协议兼容",
@@ -1476,7 +1467,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "每月 1 日送 100 积分 + 每日对话次日送 30（端内实测）",
-    "badgeType": "blue",
+    "badgeType": "rose",
     "tags": [
       "AI客户端",
       "国际版",
@@ -1507,7 +1498,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
         "badge": "注册送 250 Credits + 每月发放 500 基础积分 + 每日签到 100（端内实测）",
-    "badgeType": "purple",
+    "badgeType": "rose",
     "tags": [
       "AI客户端",
       "每日签到积分",
@@ -1536,7 +1527,7 @@ export const PERK_PROVIDERS = [
       "featured"
     ],
     "badge": "端内每晚 3 亿 GLM-5.3-Flash（当期活动）",
-    "badgeType": "rose",
+    "badgeType": "amber",
     "tags": [
       "智谱出品",
       "编程智能体",
@@ -1566,7 +1557,7 @@ export const PERK_PROVIDERS = [
       "featured"
     ],
     "badge": "端内每晚 3 亿 GLM-5.3-Flash（国际版当期活动）",
-    "badgeType": "rose",
+    "badgeType": "amber",
     "tags": [
       "国际版",
       "智谱出品",
