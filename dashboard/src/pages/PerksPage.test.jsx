@@ -458,16 +458,22 @@ describe("PerksPage", () => {
     expect(minimaxCard.className).toContain("is-collected");
     expect(minimaxCard.querySelector(".perk-card-front")).toBeTruthy();
     expect(minimaxCard.querySelector(".perk-card-back")).toBeNull();
+    // 卡堆层叠（AIHOT「量的可视化」）：streak=31 → 底下露 2 张纸边（封顶 2 张）
+    expect(minimaxCard.querySelectorAll(".perk-stack-edge").length).toBe(2);
     // 以前领过、今天没领 = 青色卡背等待态（AIHOT 图2），×N 在卡背
     const waitingBack = cards.find((card) => card.className.includes("is-uncollected") && card.querySelector(".perk-card-back"));
     expect(waitingBack).toBeTruthy();
     expect(waitingBack.textContent).toContain("×");
+    // streak=1 只有卡本体，不露纸边（纸边从第 2 次领取开始堆）
+    expect(waitingBack.querySelectorAll(".perk-stack-edge").length).toBe(0);
     // retired 卡（qoder_cn 免费调用下线）：玻璃柜里的做旧纸卡 + 绝版章 + 「领过 N 次」小字；
     // 同一张卡的日常形态仍留在主卡册（站主 2026-11-12 定谳：两个形态并存）
     const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.querySelector(".perk-seal"));
     expect(sealedCard).toBeTruthy();
     expect(sealedCard.querySelector(".perk-card-aged")).toBeTruthy();
     expect(sealedCard.closest(".perk-vitrine")).toBeTruthy();
+    // 绝版玻璃柜副本恒为单卡，不堆（streak=8 也不堆）
+    expect(sealedCard.querySelectorAll(".perk-stack-edge").length).toBe(0);
     expect(screen.getAllByText(/领过 {{count}} 次/).length).toBeGreaterThanOrEqual(1);
     // 日常形态并存：主卡册里也有 Qoder CN（不带章）——档位排序后可能在后面的页，逐页找
     const stripDots = [...document.querySelectorAll("button")].filter(function (b) { return b.className.includes("rounded-full") && !b.querySelector("svg"); });

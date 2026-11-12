@@ -1470,6 +1470,27 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+/* 卡堆层叠（AIHOT 同款「量的可视化」，站主 2026-11-13 拍板吸收）：streak≥2 的
+   卡底下露纸边——领一次多一张，卡堆厚度=领取记录；×N 角标仍是精确数，纸边封顶
+   2 张只给「厚薄」的体感，数字与视觉不说两套话。绝版玻璃柜副本恒为单卡不堆；
+   纸边不参与翻转与 hover 抬卡（挂在翻转面之前的兄弟层），领卡翻面时牌堆不动。 */
+.tt-perks-page .perk-stack-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f0ebe1 0%, #d8d1c2 100%);
+  border: 1px solid rgba(122, 108, 86, 0.4);
+  box-shadow: 0 1px 2px rgba(20, 30, 30, 0.16);
+  pointer-events: none;
+}
+.tt-perks-page .perk-stack-edge-near {
+  transform: translateY(3px) scaleX(0.965);
+}
+.tt-perks-page .perk-stack-edge-far {
+  transform: translateY(6px) scaleX(0.93);
+  opacity: 0.9;
+}
+
 /* 卡册翻页：仿 AIHOT 的 rotateY 翻纸（0.62s cubic-bezier(.45,.05,.35,1)）。 */
 .tt-perks-page .perk-page-turn {
   transform-origin: 0 50%;

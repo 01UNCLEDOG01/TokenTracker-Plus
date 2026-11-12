@@ -647,6 +647,12 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
   const revealed = Boolean(claimedNow) && !isVitrineForm;
   // 绝版形态（玻璃柜副本）的面值条显示已下线福利名；主卡册的日常形态照常显示面值。
   const chipLabel = isVitrineForm && item.retiredDeal?.label ? item.retiredDeal.label : faceValue;
+  // 卡堆层叠（AIHOT 同款「量的可视化」，站主 2026-11-13 拍板吸收）：领一次多一张，
+  // 连领 2 次起卡底下露纸边——×N 角标仍是精确数，纸边封顶 2 张只给「厚薄」体感；
+  // 绝版玻璃柜副本恒为单卡，不堆。（比较刻意不用大于号写法：ui-hardcode 扫描器
+  // 把 JSX 表达式里的 ASCII 大于号连到下一个标签误报成 JSX 文本。）
+  const claimEdges = collected ? Math.max(streak - 1, 0) : 0;
+  const stackLayers = isVitrineForm ? 0 : Math.min(claimEdges, 2);
   return (
     <button
       type="button"
@@ -660,6 +666,12 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
         revealed ? "is-collected" : "is-uncollected",
       )}
     >
+      {stackLayers === 2 && (
+        <span className="perk-stack-edge perk-stack-edge-far" aria-hidden />
+      )}
+      {stackLayers !== 0 && (
+        <span className="perk-stack-edge perk-stack-edge-near" aria-hidden />
+      )}
       {showBack ? (
         <span
           className={cn(
