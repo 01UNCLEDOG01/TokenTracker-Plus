@@ -6,6 +6,8 @@ import { useLocale } from "../hooks/useLocale.js";
 import { isNativeApp } from "../lib/native-bridge.js";
 import { copy } from "../lib/copy";
 import { cn } from "../lib/cn";
+import { EquippedTitleBadge } from "../ui/achievements/EquippedTitleBadge";
+import { useEquippedTitle, titleDisplayName } from "../ui/achievements/title-registry";
 
 function pickAvatarUrl(user) {
   if (!user || typeof user !== "object") return null;
@@ -46,6 +48,9 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
   const isSidebar = variant === "sidebar";
   const { enabled, loading, signedIn, user, displayName, customAvatarUrl } = useInsforgeAuth();
   const { openLoginModal } = useLoginModal();
+  // 称号是本机 localStorage（tokentracker:active_title），与登录后端无关：
+  // 侧栏身份区跟 localOnly 分支一样佩戴展示，切到自托管账号后不再丢称号。
+  const equippedTitle = useEquippedTitle();
   const navigate = useNavigate();
   // 设置页保存的自定义头像优先（保存后即时生效，无需重新登录）。
   const avatarUrl = useMemo(() => customAvatarUrl || pickAvatarUrl(user), [customAvatarUrl, user]);
@@ -134,7 +139,11 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
             : "flex items-center gap-2 rounded-md pl-1 pr-2 py-1 border border-transparent hover:bg-oai-gray-100 dark:hover:bg-oai-gray-900/80 hover:border-oai-gray-200 dark:hover:border-oai-gray-800 transition-colors",
         )}
         aria-label={copy("header.auth.open_settings")}
-        title={isSidebar && collapsed ? displayName : undefined}
+        title={
+          isSidebar && collapsed
+            ? [displayName, equippedTitle ? `【${titleDisplayName(equippedTitle)}】` : null].filter(Boolean).join(" · ")
+            : undefined
+        }
       >
         {isSidebar ? (
           <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
@@ -158,6 +167,13 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-oai-brand-600 text-[9px] font-semibold text-white ring-1 ring-oai-brand-500/50">
                 {initialsFromName(displayName)}
               </span>
+            )}
+            {equippedTitle && (
+              <img
+                src={equippedTitle.art}
+                alt={equippedTitle.name}
+                className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full object-contain filter drop-shadow-sm ring-1 ring-black"
+              />
             )}
           </span>
         ) : avatarSrc && !avatarFailed ? (
@@ -183,8 +199,15 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
         )}
         {isSidebar ? (
           !collapsed && (
-            <span className="truncate text-[13px] font-medium text-oai-gray-900 dark:text-oai-gray-200 text-left min-w-0">
-              {displayName}
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-[13px] font-medium text-oai-gray-900 dark:text-oai-gray-200">
+                {displayName}
+              </span>
+              {equippedTitle && (
+                <span className="mt-0.5 block">
+                  <EquippedTitleBadge title={equippedTitle} size="xs" showIcon={false} />
+                </span>
+              )}
             </span>
           )
         ) : (
