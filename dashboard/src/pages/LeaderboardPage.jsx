@@ -1020,7 +1020,7 @@ export function LeaderboardPage({
                           </span>
                           {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
                         </span>
-                        <span className="truncate font-semibold text-oai-black dark:text-oai-white">{name}</span>
+                        <span className="min-w-[4.5rem] truncate font-semibold text-oai-black dark:text-oai-white">{name}</span>
                         {isMe && equippedTitle && (
                           <EquippedTitleBadge title={equippedTitle} size="xs" className="shrink-0" />
                         )}
@@ -1029,7 +1029,7 @@ export function LeaderboardPage({
                             {badgeLabel}
                           </span>
                         )}
-                        <BadgeMini badges={entry?.badges} className="hidden sm:inline-flex" />
+                        <BadgeMini badges={entry?.badges} className="hidden xl:inline-flex" />
                       </div>
                     </td>
                     <td className="px-3 sm:px-4 py-4 font-medium text-oai-black dark:text-oai-white whitespace-nowrap text-right tabular-nums bg-oai-gray-50 dark:bg-oai-gray-900">
@@ -1077,8 +1077,8 @@ export function LeaderboardPage({
                         </span>
                         {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
                       </span>
-                      <span className="truncate font-medium text-oai-gray-800 dark:text-oai-gray-200">{name}</span>
-                      <BadgeMini badges={entry?.badges} className="hidden sm:inline-flex" />
+                      <span className="min-w-[4.5rem] truncate font-medium text-oai-gray-800 dark:text-oai-gray-200">{name}</span>
+                      <BadgeMini badges={entry?.badges} className="hidden xl:inline-flex" />
                     </div>
                   </td>
                   <td className="px-3 sm:px-4 py-4 font-semibold text-oai-gray-800 dark:text-oai-gray-200 whitespace-nowrap text-right tabular-nums bg-white dark:bg-oai-gray-950 group-hover:bg-oai-gray-50 dark:group-hover:bg-oai-gray-900/60">
