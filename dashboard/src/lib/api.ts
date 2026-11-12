@@ -612,6 +612,7 @@ export async function getLeaderboardProfile({
   period,
   timeZone,
   tzOffsetMinutes,
+  deviceId,
 }: AnyRecord = {}) {
   if (isMockEnabled()) {
     // Minimal stub for dashboard:dev (no live edge). Frontend layout should
@@ -663,9 +664,12 @@ export async function getLeaderboardProfile({
     };
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  // A per-device leaderboard row opens this machine's own numbers; without the
+  // scope the modal would repeat the account aggregate for every row.
+  const deviceParams = deviceId ? { device_id: deviceId } : {};
   return fetchInsforgeFunction("tokentracker-leaderboard-profile", {
     accessToken,
-    params: { user_id: userId, period, ...tzParams },
+    params: { user_id: userId, period, ...tzParams, ...deviceParams },
   });
 }
 

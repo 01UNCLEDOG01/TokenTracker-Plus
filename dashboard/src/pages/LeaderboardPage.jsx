@@ -198,16 +198,22 @@ function LeaderboardTokenCells({ entry, isMe, orderedColumns }) {
   const cellBg = isMe
     ? "bg-oai-gray-50 dark:bg-oai-gray-900"
     : "bg-white dark:bg-oai-gray-950 group-hover:bg-oai-gray-50 dark:group-hover:bg-oai-gray-900";
-  return orderedColumns.map((col) => (
-    <td
-      key={col.key}
-      data-column-key={col.key}
-      title={formatTokensTooltip(entry?.[col.key])}
-      className={cn("hidden sm:table-cell px-3 sm:px-4 py-4 whitespace-nowrap text-right tabular-nums", numCls, cellBg)}
-    >
-      {formatTokens(entry?.[col.key])}
-    </td>
-  ));
+  return orderedColumns.map((col) => {
+    // A snapshot stores a real 0 for providers a row never used; rendering
+    // that as "0" turned the wide table into a wall of zeroes. Absent and zero
+    // both read as "-", like every other empty cell.
+    const tokens = Number(entry?.[col.key]) || 0;
+    return (
+      <td
+        key={col.key}
+        data-column-key={col.key}
+        title={tokens > 0 ? formatTokensTooltip(tokens) : undefined}
+        className={cn("hidden sm:table-cell px-3 sm:px-4 py-4 whitespace-nowrap text-right tabular-nums", numCls, cellBg)}
+      >
+        {tokens > 0 ? formatTokens(tokens) : "-"}
+      </td>
+    );
+  });
 }
 
 function providerNameFromColumn(column) {
@@ -313,6 +319,7 @@ function MobileLeaderboardRow({
   placeholder,
   onOpenProfile,
   equippedTitle,
+  showBadges = true,
 }) {
   if (entry?.is_ellipsis) {
     return (
@@ -393,7 +400,7 @@ function MobileLeaderboardRow({
                 {badgeLabel}
               </span>
             )}
-            <BadgeMini badges={entry?.badges} className="shrink-0 scale-95" />
+            {showBadges && <BadgeMini badges={entry?.badges} className="shrink-0 scale-95" />}
           </div>
           <div className="mt-1 text-[11px] text-oai-gray-400 dark:text-oai-gray-500">
             <span>{copy("leaderboard.column.est_cost")}</span>
@@ -587,11 +594,20 @@ export function LeaderboardPage({
   const [listPage, setListPage] = useState(1);
   const [pageSize, setPageSizeState] = useState(readStoredPageSize);
   const [modalUserId, setModalUserId] = useState(null);
+  // Which device row was opened. A per-device row must describe that machine,
+  // not repeat the account aggregate.
+  const [modalDeviceId, setModalDeviceId] = useState(null);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
-  const openProfileModal = useCallback((userId) => {
-    if (typeof userId === "string" && userId.trim()) setModalUserId(userId.trim());
+  const openProfileModal = useCallback((userId, deviceId = null) => {
+    if (typeof userId === "string" && userId.trim()) {
+      setModalUserId(userId.trim());
+      setModalDeviceId(typeof deviceId === "string" && deviceId.trim() ? deviceId.trim() : null);
+    }
   }, []);
-  const closeProfileModal = useCallback(() => setModalUserId(null), []);
+  const closeProfileModal = useCallback(() => {
+    setModalUserId(null);
+    setModalDeviceId(null);
+  }, []);
 
   const setPageSize = useCallback((next) => {
     const normalized = PAGE_SIZE_OPTIONS.includes(next) ? next : DEFAULT_PAGE_SIZE;
@@ -827,8 +843,18 @@ export function LeaderboardPage({
     const isMe = Boolean(entry?.is_me);
     const rawName = normalizeName(entry?.display_name);
     const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
+    // Per-device rows arrive as "Account · Device". The account-level name
+    // below is right for the single account row, but applying it here made
+    // every device row of one account read identically.
+    const isDeviceRow = rawName.includes(" · ");
     if (!isMe) {
       return { name: entryName, avatarUrl: entry?.avatar_url, isMe: false, badgeLabel: null };
+    }
+    if (isDeviceRow) {
+      const deviceAvatar = (localProfile?.avatarDataUrl && localProfile.avatarDataUrl.trim())
+        || pickAvatarUrl(cloudUser)
+        || entry?.avatar_url;
+      return { name: entryName, avatarUrl: deviceAvatar, isMe: true, badgeLabel: null };
     }
     const customName = (localProfile?.displayName && localProfile.displayName.trim())
       || cloudDisplayName
@@ -850,6 +876,18 @@ export function LeaderboardPage({
     const rows = Array.isArray(listData?.entries) ? listData.entries : [];
     return prependMeRowToPage({ entries: rows, me, meLabel });
   }, [listData?.entries, me, meLabel]);
+
+  // Badges are earned by the ACCOUNT, so an account split into several device
+  // rows would otherwise repeat the identical badge strip on every one of
+  // them. Show each account's badges once, on its highest-ranked row.
+  const badgeOwnerIndex = useMemo(() => {
+    const firstIndex = new Map();
+    displayEntries.forEach(function (item, index) {
+      const id = typeof item?.user_id === "string" ? item.user_id : null;
+      if (id && !firstIndex.has(id)) firstIndex.set(id, index);
+    });
+    return firstIndex;
+  }, [displayEntries]);
 
   const myPage = useMemo(
     () => pageContainingRank(me?.rank, pageSize),
@@ -956,12 +994,16 @@ export function LeaderboardPage({
               const avatarUrl = identity.avatarUrl;
               const badgeLabel = identity.badgeLabel;
               const rowClickable = Boolean(profileUserId);
-              const handleRowOpen = rowClickable ? () => openProfileModal(profileUserId) : undefined;
+              const showRowBadges = !entry?.user_id || badgeOwnerIndex.get(entry.user_id) === entryIdx;
+              const entryDeviceId = typeof entry?.device_id === "string" ? entry.device_id : null;
+              const handleRowOpen = rowClickable
+                ? () => openProfileModal(profileUserId, entryDeviceId)
+                : undefined;
               const handleRowKey = rowClickable
                 ? (e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      openProfileModal(profileUserId);
+                      openProfileModal(profileUserId, entryDeviceId);
                     }
                   }
                 : undefined;
@@ -1029,7 +1071,9 @@ export function LeaderboardPage({
                             {badgeLabel}
                           </span>
                         )}
-                        <BadgeMini badges={entry?.badges} className="hidden xl:inline-flex" />
+                        {showRowBadges && (
+                          <BadgeMini badges={entry?.badges} className="hidden xl:inline-flex shrink-0" />
+                        )}
                       </div>
                     </td>
                     <td className="px-3 sm:px-4 py-4 font-medium text-oai-black dark:text-oai-white whitespace-nowrap text-right tabular-nums bg-oai-gray-50 dark:bg-oai-gray-900">
@@ -1078,7 +1122,9 @@ export function LeaderboardPage({
                         {entry?.github_url && <GithubLinkWithTooltip githubUrl={entry.github_url} />}
                       </span>
                       <span className="min-w-[4.5rem] truncate font-medium text-oai-gray-800 dark:text-oai-gray-200">{name}</span>
-                      <BadgeMini badges={entry?.badges} className="hidden xl:inline-flex" />
+                      {showRowBadges && (
+                        <BadgeMini badges={entry?.badges} className="hidden xl:inline-flex shrink-0" />
+                      )}
                     </div>
                   </td>
                   <td className="px-3 sm:px-4 py-4 font-semibold text-oai-gray-800 dark:text-oai-gray-200 whitespace-nowrap text-right tabular-nums bg-white dark:bg-oai-gray-950 group-hover:bg-oai-gray-50 dark:group-hover:bg-oai-gray-900/60">
@@ -1114,6 +1160,7 @@ export function LeaderboardPage({
               placeholder={placeholder}
               onOpenProfile={openProfileModal}
               equippedTitle={equippedTitle}
+              showBadges={!entry?.user_id || badgeOwnerIndex.get(entry.user_id) === entryIdx}
             />
           );
         })}
@@ -1344,6 +1391,7 @@ export function LeaderboardPage({
         <LeaderboardProfileModal
           isOpen={Boolean(modalUserId)}
           userId={modalUserId}
+          deviceId={modalDeviceId}
           period={period}
           accessToken={effectiveAuthToken}
           onClose={closeProfileModal}

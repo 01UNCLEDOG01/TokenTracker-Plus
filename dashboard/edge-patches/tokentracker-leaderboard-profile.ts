@@ -813,6 +813,11 @@ function canonicalSource(s: string) {
 // deno-lint-ignore no-unused-vars
 const ACCOUNT_LEVEL_SOURCES = new Set<string>(["cursor", "trae-cn"]);
 
+// A leaderboard row can name the device it represents (`?device_id=…`); the
+// value reaches a uuid parameter, so reject anything that is not one instead
+// of letting the RPC throw.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ─────────────────────────── Window bounds ──────────────────────────
 function normalizeTimeZone(value: string | null): string | null {
   const timeZone = value?.trim();
@@ -922,6 +927,7 @@ async function fetchDailyGroupedRows(
   rangeEndIso: string,
   timeZone: string | null,
   timeZoneOffsetMinutes: number | null,
+  deviceId: string | null = null,
 ): Promise<GroupedRow[]> {
   // The two-class cross-device aggregation runs in Postgres
   // (account_usage_grouped), matching tokentracker-leaderboard-refresh.ts:
@@ -932,6 +938,10 @@ async function fetchDailyGroupedRows(
   // Day grain is enough — the modal only aggregates by day. The cached
   // variant serves repeat modal opens from the shared 30s Postgres cache
   // instead of re-walking raw hourly pages on every view.
+  //
+  // `deviceId` pins the machine-level arm to one device, so a leaderboard row
+  // that represents a single machine (per-device rows, 2026-11-12) opens a
+  // modal describing THAT machine instead of repeating the account aggregate.
   let hasActiveDevice = false;
   {
     const { data: devs, error: dErr } = await client.database
@@ -957,7 +967,10 @@ async function fetchDailyGroupedRows(
     p_offset_min: timeZoneOffsetMinutes,
   };
   const { data, error } = hasActiveDevice
-    ? await client.database.rpc("account_usage_grouped_cached", { ...common, p_device_id: null })
+    ? await client.database.rpc("account_usage_grouped_cached", {
+      ...common,
+      p_device_id: deviceId && UUID_RE.test(deviceId) ? deviceId : null,
+    })
     : await client.database.rpc("account_usage_grouped", { ...common, p_device_ids: [] });
   if (error) throw new Error(error.message);
   return (Array.isArray(data) ? data : []) as GroupedRow[];
@@ -973,6 +986,10 @@ export default async function (req: Request): Promise<Response> {
   const period = ["week", "month", "total"].includes(periodInput) ? periodInput : "week";
   const timeZone = normalizeTimeZone(url.searchParams.get("tz"));
   const timeZoneOffsetMinutes = normalizeTimeZoneOffset(url.searchParams.get("tz_offset_minutes"));
+  // Optional device scope: a per-device leaderboard row opens THIS machine's
+  // numbers instead of repeating the account aggregate.
+  const requestedDeviceId = url.searchParams.get("device_id");
+  const deviceId = requestedDeviceId && UUID_RE.test(requestedDeviceId) ? requestedDeviceId : null;
   const now = new Date();
   const todayDay = zonedDayKey(now, timeZone, timeZoneOffsetMinutes);
   if (!userId) return json({ error: "user_id is required" }, 400);
@@ -1075,16 +1092,32 @@ export default async function (req: Request): Promise<Response> {
     snapFromDay = (lt?.from_day ?? "1970-01-01").slice(0, 10);
     snapToDay = (lt?.to_day ?? new Date().toISOString()).slice(0, 10);
   }
-  const { data: snapRow } = await client.database
+  // Snapshot row for rank/name. A device-scoped open pins the row to that
+  // device; an account-scoped open prefers the account-level row (device_id
+  // '') when the account still has one, and falls back to any row so
+  // per-device-only accounts still resolve a rank.
+  const snapQuery = client.database
     .from("tokentracker_leaderboard_snapshots")
-    .select("rank, display_name, avatar_url, generated_at")
+    .select("rank, display_name, avatar_url, generated_at, device_id")
     .eq("user_id", userId)
     .eq("period", period)
     .eq("from_day", snapFromDay)
-    .eq("to_day", snapToDay)
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("to_day", snapToDay);
+  let snapRow: Record<string, unknown> | null = null;
+  if (deviceId) {
+    const { data: deviceSnap } = await snapQuery
+      .eq("device_id", deviceId)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    snapRow = (deviceSnap || null) as Record<string, unknown> | null;
+  } else {
+    const { data: snapRows } = await snapQuery
+      .order("generated_at", { ascending: false })
+      .limit(8);
+    const rows = Array.isArray(snapRows) ? (snapRows as Array<Record<string, unknown>>) : [];
+    snapRow = rows.find((row) => !row.device_id) || rows[0] || null;
+  }
   const snap = (snapRow || null) as { rank?: number | null; display_name?: string | null; avatar_url?: string | null; generated_at?: string | null } | null;
 
   // Heatmap window: trailing 365 days (always).
@@ -1109,6 +1142,7 @@ export default async function (req: Request): Promise<Response> {
       scanEndIso,
       timeZone,
       timeZoneOffsetMinutes,
+      deviceId,
     );
   } catch {
     return json({ error: "Failed to fetch profile" }, 500);
@@ -1234,15 +1268,20 @@ export default async function (req: Request): Promise<Response> {
   const avgPerDayUsd = periodTotalCost / periodDayCount;
 
   const isAnonymous = Boolean(settings.leaderboard_anonymous);
+  // A device-scoped open titles itself with the snapshot name ("Name · Device")
+  // — the bare profile name would make two device rows look identical.
   const displayName = isAnonymous
     ? "Anonymous"
-    : (profile.display_name || snap?.display_name || "");
+    : (deviceId
+      ? (snap?.display_name || profile.display_name || "")
+      : (profile.display_name || snap?.display_name || ""));
   const avatarUrl = isAnonymous ? null : (profile.avatar_url || snap?.avatar_url || null);
   const githubUrl = !isAnonymous && settings.show_github_url ? (settings.github_url || null) : null;
 
   return json({
     user: {
       user_id: userId,
+      device_id: deviceId,
       display_name: displayName,
       avatar_url: avatarUrl,
       github_url: githubUrl,

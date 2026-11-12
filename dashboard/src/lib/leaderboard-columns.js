@@ -15,6 +15,20 @@ export const LEADERBOARD_TOKEN_COLUMNS = [
   { key: "opencode_tokens", copyKey: "leaderboard.column.opencode", icon: "/brand-logos/opencode.svg" },
   { key: "openclaw_tokens", copyKey: "leaderboard.column.openclaw", icon: "/brand-logos/openclaw.svg" },
   { key: "hermes_tokens", copyKey: "leaderboard.column.hermes", icon: "/brand-logos/hermes.svg" },
+  // Sources this fork collects and its users actually burn. Without these the
+  // table looked empty on a private instance: zcode / dsh / trae-cn /
+  // workbuddy / antigravity / qoder / codearts / agent2api dominated and every
+  // one of them fell into "other".
+  { key: "zcode_tokens", copyKey: "leaderboard.column.zcode", icon: "/brand-logos/zcode.svg" },
+  { key: "dsh_tokens", copyKey: "leaderboard.column.dsh", icon: "/brand-logos/deepseek.svg" },
+  { key: "trae_cn_tokens", copyKey: "leaderboard.column.trae_cn", icon: "/brand-logos/trae.svg" },
+  { key: "workbuddy_tokens", copyKey: "leaderboard.column.workbuddy", icon: "/brand-logos/workbuddy.png" },
+  { key: "workbuddy_ai_tokens", copyKey: "leaderboard.column.workbuddy_ai", icon: "/brand-logos/workbuddy.png" },
+  { key: "antigravity_tokens", copyKey: "leaderboard.column.antigravity", icon: "/brand-logos/antigravity.svg" },
+  { key: "qoder_tokens", copyKey: "leaderboard.column.qoder", icon: "/brand-logos/qoder.svg" },
+  { key: "qoder_cn_tokens", copyKey: "leaderboard.column.qoder_cn", icon: "/brand-logos/qoder-cn.svg" },
+  { key: "codearts_tokens", copyKey: "leaderboard.column.codearts", icon: "/brand-logos/codearts.png" },
+  { key: "agent2api_tokens", copyKey: "leaderboard.column.agent2api", icon: "/brand-logos/agent2api.svg" },
   { key: "other_tokens", copyKey: "leaderboard.column.supplemental", icon: null },
 ];
 
@@ -51,10 +65,11 @@ export function lbStickyTdUser(isMe) {
   // tooltip — confined to this td's stacking context — can paint over the
   // table header on row 1.
   //
-  // No `min-w-0` here: twMerge let it beat `min-w-[200px]`, so the cell
+  // No `min-w-0` here: twMerge let it beat `min-w-200px`, so the cell
   // collapsed to whatever the shrink-0 decorations (avatar, title badge,
-  // provider badges) left over and the name rendered as "U…" (站主 2026-11-12).
-  // The inner flex row keeps `min-w-0` so the name still truncates cleanly.
+  // provider badges) left over and both per-device rows ("Account · Device")
+  // rendered as a single clipped letter (站主 2026-11-12). The inner flex row
+  // keeps `min-w-0` so the name still truncates cleanly.
   return cn(
     "sticky left-[55px] sm:left-[71px] z-30 hover:z-50 min-w-[96px] sm:min-w-[220px] max-w-[170px] sm:max-w-[min(360px,50vw)] border-l border-r border-oai-gray-200 dark:border-oai-gray-800 px-3 sm:px-4 py-4",
     isMe

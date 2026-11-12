@@ -835,6 +835,18 @@ const SOURCE_COLUMN_MAP: Record<string, string> = {
   "pi-copilot": "copilot_tokens",
   "pi-anthropic": "claude_tokens",
   kimi: "kimi_tokens",
+  // This fork's own tool set (same mapping as the self-host writer in
+  // scripts/self-host/local-backend.cjs — keep the two in sync).
+  zcode: "zcode_tokens",
+  dsh: "dsh_tokens",
+  "trae-cn": "trae_cn_tokens",
+  workbuddy: "workbuddy_tokens",
+  "workbuddy-ai": "workbuddy_ai_tokens",
+  antigravity: "antigravity_tokens",
+  qoder: "qoder_tokens",
+  "qoder-cn": "qoder_cn_tokens",
+  codearts: "codearts_tokens",
+  agent2api: "agent2api_tokens",
 };
 
 interface DateRange {
@@ -939,6 +951,16 @@ interface UserAgg {
   kiro_tokens: number;
   copilot_tokens: number;
   kimi_tokens: number;
+  zcode_tokens: number;
+  dsh_tokens: number;
+  trae_cn_tokens: number;
+  workbuddy_tokens: number;
+  workbuddy_ai_tokens: number;
+  antigravity_tokens: number;
+  qoder_tokens: number;
+  qoder_cn_tokens: number;
+  codearts_tokens: number;
+  agent2api_tokens: number;
   other_tokens: number;
   total_tokens: number;
   estimated_cost_usd: number;
@@ -956,6 +978,16 @@ function newUserAgg(): UserAgg {
     kiro_tokens: 0,
     copilot_tokens: 0,
     kimi_tokens: 0,
+    zcode_tokens: 0,
+    dsh_tokens: 0,
+    trae_cn_tokens: 0,
+    workbuddy_tokens: 0,
+    workbuddy_ai_tokens: 0,
+    antigravity_tokens: 0,
+    qoder_tokens: 0,
+    qoder_cn_tokens: 0,
+    codearts_tokens: 0,
+    agent2api_tokens: 0,
     other_tokens: 0,
     total_tokens: 0,
     estimated_cost_usd: 0,
@@ -1554,7 +1586,20 @@ export default async function (req: Request): Promise<Response> {
         kiro_tokens: agg.kiro_tokens,
         copilot_tokens: agg.copilot_tokens,
         kimi_tokens: agg.kimi_tokens,
+        zcode_tokens: agg.zcode_tokens,
+        dsh_tokens: agg.dsh_tokens,
+        trae_cn_tokens: agg.trae_cn_tokens,
+        workbuddy_tokens: agg.workbuddy_tokens,
+        workbuddy_ai_tokens: agg.workbuddy_ai_tokens,
+        antigravity_tokens: agg.antigravity_tokens,
+        qoder_tokens: agg.qoder_tokens,
+        qoder_cn_tokens: agg.qoder_cn_tokens,
+        codearts_tokens: agg.codearts_tokens,
+        agent2api_tokens: agg.agent2api_tokens,
         other_tokens: agg.other_tokens,
+        // The unique key gained device_id when per-device rows landed; this
+        // writer only ever emits account-level rows.
+        device_id: "",
         total_tokens: agg.total_tokens,
         estimated_cost_usd: Math.round(agg.estimated_cost_usd * 100) / 100,
         display_name: displayName,
@@ -1570,7 +1615,7 @@ export default async function (req: Request): Promise<Response> {
       const batch = upsertRows.slice(i, i + 200);
       const { error: upsertErr } = await client.database
         .from("tokentracker_leaderboard_snapshots")
-        .upsert(batch, { onConflict: "user_id,period,from_day,to_day" });
+        .upsert(batch, { onConflict: "user_id,period,from_day,to_day,device_id" });
 
       if (upsertErr) {
         logRefreshEvent({

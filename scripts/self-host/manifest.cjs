@@ -84,6 +84,11 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // (period, window, user, device) unique key. Without it the snapshot writer
     // fails on a fresh installation ("column s.device_id does not exist").
     {id:"17-leaderboard-device-rows",sql:read("migrations/20261112120000_self-host-leaderboard-device-rows.sql")},
+    // The leaderboard's provider columns: the upstream per-source set
+    // (codex/claude/…) plus this fork's own tools (zcode, dsh, trae-cn,
+    // workbuddy, …). Without them every cell rendered "-" on a private
+    // instance.
+    {id:"18-leaderboard-provider-columns",sql:read("migrations/20261112150000_self-host-leaderboard-provider-columns.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

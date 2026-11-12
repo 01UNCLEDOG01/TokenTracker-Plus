@@ -679,7 +679,7 @@ export function ProfileContent({ data, currency, rate, onClose, variant = "modal
  * open) and the standalone page (always enabled). Returns { loading, error,
  * data }; a 404 resolves to data:null (private / not-found, shown as empty).
  */
-export function useLeaderboardProfileData({ userId, period, accessToken, enabled = true }) {
+export function useLeaderboardProfileData({ userId, period, accessToken, deviceId = null, enabled = true }) {
   const [state, setState] = useState({ loading: false, error: null, data: null });
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
@@ -698,6 +698,7 @@ export function useLeaderboardProfileData({ userId, period, accessToken, enabled
           period: period || "week",
           timeZone,
           tzOffsetMinutes,
+          deviceId,
         });
         if (!active) return;
         setState({ loading: false, error: null, data });
@@ -713,14 +714,14 @@ export function useLeaderboardProfileData({ userId, period, accessToken, enabled
     return () => {
       active = false;
     };
-  }, [enabled, userId, period, accessToken, timeZone, tzOffsetMinutes]);
+  }, [enabled, userId, period, accessToken, timeZone, tzOffsetMinutes, deviceId]);
 
   return state;
 }
 
-export function LeaderboardProfileModal({ isOpen, onClose, userId, period, accessToken }) {
+export function LeaderboardProfileModal({ isOpen, onClose, userId, period, accessToken, deviceId = null }) {
   const { currency, rate } = useCurrency();
-  const state = useLeaderboardProfileData({ userId, period, accessToken, enabled: isOpen });
+  const state = useLeaderboardProfileData({ userId, period, accessToken, deviceId, enabled: isOpen });
 
   return (
     <Dialog.Root

@@ -302,6 +302,16 @@ leaderboard.column.hermes,dashboard,LeaderboardPage,LeaderboardPage,column_herme
 leaderboard.column.kiro,dashboard,LeaderboardPage,LeaderboardPage,column_kiro,Kiro,,active
 leaderboard.column.copilot,dashboard,LeaderboardPage,LeaderboardPage,column_copilot,GitHub Copilot,,active
 leaderboard.column.kimi,dashboard,LeaderboardPage,LeaderboardPage,column_kimi,Kimi Code,,active
+leaderboard.column.zcode,dashboard,LeaderboardPage,LeaderboardPage,column_zcode,ZCode,,active
+leaderboard.column.dsh,dashboard,LeaderboardPage,LeaderboardPage,column_dsh,DeepSeek Harness,,active
+leaderboard.column.trae_cn,dashboard,LeaderboardPage,LeaderboardPage,column_trae_cn,TRAE CN,,active
+leaderboard.column.workbuddy,dashboard,LeaderboardPage,LeaderboardPage,column_workbuddy,WorkBuddy,,active
+leaderboard.column.workbuddy_ai,dashboard,LeaderboardPage,LeaderboardPage,column_workbuddy_ai,WorkBuddy AI,,active
+leaderboard.column.antigravity,dashboard,LeaderboardPage,LeaderboardPage,column_antigravity,Antigravity,,active
+leaderboard.column.qoder,dashboard,LeaderboardPage,LeaderboardPage,column_qoder,Qoder,,active
+leaderboard.column.qoder_cn,dashboard,LeaderboardPage,LeaderboardPage,column_qoder_cn,Qoder CN,,active
+leaderboard.column.codearts,dashboard,LeaderboardPage,LeaderboardPage,column_codearts,CodeArts,,active
+leaderboard.column.agent2api,dashboard,LeaderboardPage,LeaderboardPage,column_agent2api,Agent2API,,active
 limits.copilot.otelHint.title,dashboard,LimitsPage,LimitsPage,otel_hint_title,Track Copilot token usage,,active
 limits.copilot.otelHint.body,dashboard,LimitsPage,LimitsPage,otel_hint_body,"Limits load via your GitHub OAuth token. To also record per-token usage, enable Copilot's OpenTelemetry export and add these lines to your shell profile (~/.zshrc or ~/.bashrc):",,active
 limits.copilot.otelHint.copy,dashboard,LimitsPage,LimitsPage,otel_hint_copy,Copy,,active

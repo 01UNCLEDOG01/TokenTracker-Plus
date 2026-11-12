@@ -713,6 +713,41 @@ async function main() {
       const snapshotUsers = process.env.TOKENTRACKER_LOCAL_BACKEND_MULTI_USER === "1"
         ? allUsers
         : [allUsers[0]];
+      const SOURCE_COLUMN = {
+        codex: "gpt_tokens",
+        claude: "claude_tokens",
+        gemini: "gemini_tokens",
+        cursor: "cursor_tokens",
+        opencode: "opencode_tokens",
+        openclaw: "openclaw_tokens",
+        hermes: "hermes_tokens",
+        kiro: "kiro_tokens",
+        copilot: "copilot_tokens",
+        "pi-github-copilot": "copilot_tokens",
+        "pi-copilot": "copilot_tokens",
+        "pi-anthropic": "claude_tokens",
+        kimi: "kimi_tokens",
+        // Sources this fork collects and its own users actually burn (the
+        // upstream set alone left ~70% of a private instance's usage in
+        // other_tokens).
+        zcode: "zcode_tokens",
+        dsh: "dsh_tokens",
+        "trae-cn": "trae_cn_tokens",
+        workbuddy: "workbuddy_tokens",
+        "workbuddy-ai": "workbuddy_ai_tokens",
+        antigravity: "antigravity_tokens",
+        qoder: "qoder_tokens",
+        "qoder-cn": "qoder_cn_tokens",
+        codearts: "codearts_tokens",
+        agent2api: "agent2api_tokens",
+      };
+      const PROVIDER_COLUMNS = [
+        "gpt_tokens", "claude_tokens", "gemini_tokens", "cursor_tokens", "opencode_tokens",
+        "openclaw_tokens", "hermes_tokens", "kiro_tokens", "copilot_tokens", "kimi_tokens",
+        "zcode_tokens", "dsh_tokens", "trae_cn_tokens", "workbuddy_tokens",
+        "workbuddy_ai_tokens", "antigravity_tokens", "qoder_tokens", "qoder_cn_tokens",
+        "codearts_tokens", "agent2api_tokens", "other_tokens",
+      ];
       const collected = [];
       let topUser = null;
       let topTotal = null;
@@ -764,23 +799,25 @@ async function main() {
       ];
       // Real costs live in the account-summary handler (its bundle embeds the
       // pricing tables; the raw hourly rows store zeros). Best effort: a
-      // failed call leaves the period cost at the stored sum.
+      // failed call leaves the period cost at the stored sum. Called with a
+      // device_id it prices that device alone — without the filter every
+      // per-device row carried the account total.
       const mintForCost = createTokenMinter(secret);
-      const costByPeriod = {};
-      for (const [period, fromDay, toDay] of periods) {
+      const summaryCost = async (fromDay, toDay, deviceId) => {
         try {
-          const costReq = new Request(
-            "http://local/functions/tokentracker-account-summary?from=" + fromDay + "&to=" + toDay,
-            { headers: { authorization: "Bearer " + mintForCost(user.id, "authenticated", 3600) } },
-          );
-          const costRes = await handlers["tokentracker-account-summary"](costReq);
-          if (costRes.status === 200) {
-            const payload = await costRes.json();
-            const cost = Number(payload?.totals?.total_cost_usd);
-            if (Number.isFinite(cost)) costByPeriod[period] = cost;
-          }
-        } catch (_e) { /* best effort */ }
-      }
+          const query = "/functions/tokentracker-account-summary?from=" + fromDay + "&to=" + toDay
+            + (deviceId ? "&device_id=" + encodeURIComponent(deviceId) : "");
+          const res = await handlers["tokentracker-account-summary"](new Request("http://local" + query, {
+            headers: { authorization: "Bearer " + mintForCost(user.id, "authenticated", 3600) },
+          }));
+          if (res.status !== 200) return null;
+          const payload = await res.json();
+          const cost = Number(payload?.totals?.total_cost_usd);
+          return Number.isFinite(cost) ? cost : null;
+        } catch (_e) {
+          return null;
+        }
+      };
 
       // 按设备拆行（站主 2026-11-12）：一个账号有 ≥2 台设备且有产出时，
       // 排行榜按设备各出一行（各自排名）；单设备账号保持账号级一行。
@@ -796,6 +833,30 @@ async function main() {
         + " ORDER BY tokens DESC",
         [user.id],
       )).rows;
+      // source → snapshot column, mirroring SOURCE_COLUMN_MAP in
+      // tokentracker-leaderboard-refresh.ts. Anything unmapped (or NULL) lands
+      // in other_tokens, so the provider columns always add up to the total.
+      const emptyBucket = () => {
+        const bucket = {
+          total_tokens: 0, input_tokens: 0, output_tokens: 0, cached_input_tokens: 0,
+          conversations: 0, cost: 0, models: {},
+        };
+        for (const column of PROVIDER_COLUMNS) bucket[column] = 0;
+        return bucket;
+      };
+      const addGrain = (bucket, grain) => {
+        const tokens = Number(grain.total_tokens) || 0;
+        bucket.total_tokens += tokens;
+        bucket.input_tokens += Number(grain.input_tokens) || 0;
+        bucket.output_tokens += Number(grain.output_tokens) || 0;
+        bucket.cached_input_tokens += Number(grain.cached_input_tokens) || 0;
+        bucket.conversations += Number(grain.conversations) || 0;
+        bucket.cost += Number(grain.estimated_cost_usd) || 0;
+        const column = SOURCE_COLUMN[grain.source] || "other_tokens";
+        bucket[column] += tokens;
+        if (grain.model) bucket.models[grain.model] = (bucket.models[grain.model] || 0) + tokens;
+      };
+
       let totalAgg = null;
       const periodRows = [];
       for (const [period, fromDay, toDay] of periods) {
@@ -803,59 +864,52 @@ async function main() {
           ? "1970-01-01T00:00:00Z"
           : new Date(fromDay + "T00:00:00Z").toISOString();
         const toIso = new Date(toDay + "T23:59:59.999Z").toISOString();
-        const agg = (await db.query(
+        // One scan, grouped down to (device cluster, source, model): totals,
+        // per-provider splits and the models map are all folded from it in JS,
+        // so a device row and an account row are computed by the same code.
+        const grainRows = (await db.query(
           "WITH hourly AS ("
           + " SELECT DISTINCT ON (COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model)"
-          + "   h.hour_start, h.source, h.model, h.total_tokens, h.input_tokens, h.output_tokens,"
+          + "   COALESCE(dm.machine_cluster_id, h.device_id::text) AS dev_id,"
+          + "   h.source, h.model, h.total_tokens, h.input_tokens, h.output_tokens,"
           + "   h.cached_input_tokens, h.conversations, h.total_cost_usd"
           + " FROM tokentracker_hourly h"
           + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
           + " WHERE h.user_id = $1 AND h.hour_start >= $2 AND h.hour_start <= $3"
           + " ORDER BY COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC"
           + " )"
-          + " SELECT COALESCE(SUM(total_tokens),0)::bigint AS total_tokens,"
+          + " SELECT dev_id, source, model,"
+          + " COALESCE(SUM(total_tokens),0)::bigint AS total_tokens,"
           + " COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,"
           + " COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,"
           + " COALESCE(SUM(cached_input_tokens),0)::bigint AS cached_input_tokens,"
           + " COALESCE(SUM(conversations),0)::bigint AS conversations,"
-          + " COALESCE(SUM(total_cost_usd),0)::numeric AS estimated_cost_usd,"
-          + " COALESCE(jsonb_object_agg(model, total_tokens) FILTER (WHERE model IS NOT NULL), '{}'::jsonb) AS models"
-          + " FROM hourly",
+          + " COALESCE(SUM(total_cost_usd),0)::numeric AS estimated_cost_usd"
+          + " FROM hourly GROUP BY dev_id, source, model",
           [user.id, fromIso, toIso],
-        )).rows[0];
+        )).rows;
+        const deviceBuckets = new Map();
+        const accountBucket = emptyBucket();
+        for (const grain of grainRows) {
+          const devId = grain.dev_id;
+          if (!deviceBuckets.has(devId)) deviceBuckets.set(devId, emptyBucket());
+          addGrain(deviceBuckets.get(devId), grain);
+          addGrain(accountBucket, grain);
+        }
+        const agg = accountBucket;
         if (period === "total") totalAgg = agg;
         // 零用量账号不写快照（避免空账号占榜，device2 事故）。
         if (period === "total" && Number(agg.total_tokens) === 0) { periodRows.length = 0; break; }
         const accountName = profileRow.display_name || fallbackName;
         if (deviceRowsRaw.length >= 2) {
           for (const device of deviceRowsRaw) {
-            const devAgg = (await db.query(
-              "WITH hourly AS ("
-              + " SELECT DISTINCT ON (COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model)"
-              + "   h.total_tokens, h.input_tokens, h.output_tokens, h.cached_input_tokens, h.conversations, h.total_cost_usd, h.model"
-              + " FROM tokentracker_hourly h"
-              + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
-              + " WHERE h.user_id = $1 AND h.hour_start >= $2 AND h.hour_start <= $3"
-              + "   AND COALESCE(dm.machine_cluster_id, h.device_id::text) = $4"
-              + " ORDER BY COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC"
-              + " )"
-              + " SELECT COALESCE(SUM(total_tokens),0)::bigint AS total_tokens,"
-              + " COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,"
-              + " COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,"
-              + " COALESCE(SUM(cached_input_tokens),0)::bigint AS cached_input_tokens,"
-              + " COALESCE(SUM(conversations),0)::bigint AS conversations,"
-              + " COALESCE(SUM(total_cost_usd),0)::numeric AS estimated_cost_usd,"
-              + " COALESCE(jsonb_object_agg(model, total_tokens) FILTER (WHERE model IS NOT NULL), '{}'::jsonb) AS models"
-              + " FROM hourly",
-              [user.id, fromIso, toIso, device.dev_id],
-            )).rows[0];
-            if (Number(devAgg.total_tokens) === 0) continue;
+            const bucket = deviceBuckets.get(device.dev_id);
+            if (!bucket || Number(bucket.total_tokens) === 0) continue;
             // 逐设备真实花费（站主 2026-11-12 追问「两台设备花费为什么一样」）：
-            // hourly.total_cost_usd 恒为 0（价格表只活在函数包里），而
-            // costByPeriod 是**账号级**金额——之前每台设备都拿它填充，于是同账号
-            // 两台设备显示同一个预估值。改为一台设备一次 account-summary
-            // （带 device_id，价格口径与账号总账同一份），汇总成该设备花费；
-            // 调用失败才退回 hourly 的求和值。
+            // hourly.total_cost_usd 恒为 0（价格表只活在函数包里），而账号级金额
+            // 也不能拿来填每台设备。改为一台设备一次 account-summary（带
+            // device_id，价格口径与账号总账同一份）；一台机器簇可能由多个
+            // device_id 组成，要逐个求和；全部失败才退回 hourly 的求和值。
             let deviceCost = null;
             const clusterDeviceIds = (await db.query(
               "SELECT DISTINCT h.device_id::text AS id"
@@ -866,34 +920,26 @@ async function main() {
               [user.id, fromIso, toIso, device.dev_id],
             )).rows;
             for (const clusterDevice of clusterDeviceIds) {
-              try {
-                const deviceCostReq = new Request(
-                  "http://local/functions/tokentracker-account-summary?from=" + fromDay + "&to=" + toDay
-                  + "&device_id=" + encodeURIComponent(clusterDevice.id),
-                  { headers: { authorization: "Bearer " + mintForCost(user.id, "authenticated", 3600) } },
-                );
-                const deviceCostRes = await handlers["tokentracker-account-summary"](deviceCostReq);
-                if (deviceCostRes.status === 200) {
-                  const deviceCostPayload = await deviceCostRes.json();
-                  const cost = Number(deviceCostPayload?.totals?.total_cost_usd);
-                  if (Number.isFinite(cost)) deviceCost = (deviceCost ?? 0) + cost;
-                }
-              } catch (_e) { /* best effort, fall back to the stored sum */ }
+              const cost = await summaryCost(fromDay, toDay, clusterDevice.id);
+              if (cost !== null) deviceCost = (deviceCost ?? 0) + cost;
             }
             const deviceLabel = device.device_name || String(device.dev_id || "").slice(0, 8);
             periodRows.push([period, fromDay, toDay, user.id, device.dev_id,
               accountName + " · " + deviceLabel,
-              chosenAvatar, devAgg.total_tokens,
-              deviceCost !== null ? deviceCost : devAgg.estimated_cost_usd,
-              devAgg.input_tokens, devAgg.output_tokens, devAgg.cached_input_tokens,
-              devAgg.conversations, devAgg.models]);
+              chosenAvatar, bucket.total_tokens,
+              deviceCost !== null ? deviceCost : bucket.cost,
+              bucket.input_tokens, bucket.output_tokens, bucket.cached_input_tokens,
+              bucket.conversations, bucket.models,
+              ...PROVIDER_COLUMNS.map((column) => bucket[column])]);
           }
         } else {
+          const accountCost = await summaryCost(fromDay, toDay, null);
           periodRows.push([period, fromDay, toDay, user.id, "",
             accountName,
-            chosenAvatar, agg.total_tokens, costByPeriod[period] !== undefined
-              ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
-            agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models]);
+            chosenAvatar, agg.total_tokens, accountCost !== null ? accountCost : agg.cost,
+            agg.input_tokens, agg.output_tokens, agg.cached_input_tokens,
+            agg.conversations, agg.models,
+            ...PROVIDER_COLUMNS.map((column) => agg[column])]);
         }
       }
       collected.push(...periodRows);
@@ -1043,6 +1089,17 @@ async function main() {
       } // per-user snapshot loop
 
       // Rank per period by total_tokens and write every collected row.
+      const SNAPSHOT_KEY_COLUMNS = ["period", "from_day", "to_day", "user_id", "device_id"];
+      const insertColumns = [
+        ...SNAPSHOT_KEY_COLUMNS, "rank", "display_name", "avatar_url", "total_tokens",
+        "estimated_cost_usd", "input_tokens", "output_tokens", "cached_input_tokens",
+        "conversation_count", "models", ...PROVIDER_COLUMNS,
+      ];
+      const insertPlaceholders = insertColumns.map((_, index) => "$" + (index + 1)).join(",");
+      const insertUpdates = insertColumns
+        .filter((column) => !SNAPSHOT_KEY_COLUMNS.includes(column))
+        .map((column) => column + " = EXCLUDED." + column)
+        .join(", ");
       const byPeriod = new Map();
       for (const row of collected) {
         const list = byPeriod.get(row[0]) || [];
@@ -1050,25 +1107,23 @@ async function main() {
         byPeriod.set(row[0], list);
       }
       for (const rows of byPeriod.values()) {
-        rows.sort((a, b) => Number(b[6]) - Number(a[6]));
+        // row[7] is total_tokens; row[6] is the avatar URL (sorting by it made
+        // rank order depend on insertion order whenever avatars matched).
+        rows.sort((a, b) => Number(b[7]) - Number(a[7]));
         for (let index = 0; index < rows.length; index += 1) {
           const row = rows[index];
           const rank = index + 1;
+          // Built from PROVIDER_COLUMNS so adding a provider column is a
+          // one-line change instead of a placeholder recount.
           await db.query(
             "INSERT INTO tokentracker_leaderboard_snapshots"
-            + " (period, from_day, to_day, user_id, device_id, rank, display_name, avatar_url, total_tokens,"
-            + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
-            + "  conversation_count, models, generated_at)"
-            + " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now())"
+            + " (" + insertColumns.join(", ") + ", generated_at)"
+            + " VALUES (" + insertPlaceholders + ", now())"
             + " ON CONFLICT (period, from_day, to_day, user_id, device_id) DO UPDATE SET"
-            + "   rank = EXCLUDED.rank, avatar_url = EXCLUDED.avatar_url, total_tokens = EXCLUDED.total_tokens,"
-            + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"
-            + "   input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,"
-            + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
-            + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
-            + "   generated_at = now()",
+            + " " + insertUpdates + ", generated_at = now()",
             [row[0], row[1], row[2], row[3], row[4], rank, row[5], row[6], row[7],
-              row[8], row[9], row[10], row[11], row[12], row[13]],
+              row[8], row[9], row[10], row[11], row[12], row[13],
+              ...row.slice(14, 14 + PROVIDER_COLUMNS.length)],
           );
         }
       }
