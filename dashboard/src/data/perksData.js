@@ -16,7 +16,9 @@ import { comparePerks } from "./perks-sort.mjs";
  *   success 绿   < ¥10/月（或单次 < ¥10）：轻量额度、$1 级免费档
  *   blue    蓝   ¥10–49/月（或单次 ¥10–29）：免费模型月估、小代金券、日签积分小户
  *   purple  紫   ¥50–149/月（或单次 ¥30–99）：日签积分主力、1 亿 token 一次性、中转站折算
- *   rose    粉   ¥150–499/月（或单次 ≥ ¥100）：日 1 亿 token 连日、积分日签大户、学生 ¥300
+ *   rose    粉   ¥150–499/月（或真一次性 ≥ ¥100 且 ≤ 90 天用完）：日 1 亿 token 连日、积分日签大户
+ *   摊月规则（2026-11-13 补则）：年付/全年有效的券一律摊到月再对档（¥300/年 ≈ ¥25/月 → blue 级）；
+ *   「单次」锚点只适用于真一次性额度（90 天内用完的 token 包）。
  *   amber   琥珀 ≥ ¥500/月（或单次 ≥ 5 亿 token）：每晚 3 亿 token 级、每日 ¥20+ 算力
  * 折算口径：真金白银取 AIHOT 官方折算；积分按厂商官方购价；免费模型按月用量估算。
  * 全量核算与逐卡归属见 dashboard/src/data/perks-value-audit.md（2026-11-12 终版）。
@@ -183,7 +185,7 @@ export const PERK_PROVIDERS = [
       "big_quota"
     ],
     "badge": "在架模型各送 100 万 Tokens（90天）",
-    "badgeType": "rose",
+    "badgeType": "purple",
     "tags": [
       "阿里大厂",
       "多模型独立送",
@@ -388,7 +390,7 @@ export const PERK_PROVIDERS = [
       "monthly_claim"
     ],
     "badge": "新户送 1,000 积分（1 年有效）+ 每月 200",
-    "badgeType": "blue",
+    "badgeType": "success",
     "tags": [
       "美团出品",
       "AI编程平台",
