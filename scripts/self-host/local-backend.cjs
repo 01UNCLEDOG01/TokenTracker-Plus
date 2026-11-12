@@ -782,6 +782,20 @@ async function main() {
         } catch (_e) { /* best effort */ }
       }
 
+      // 按设备拆行（站主 2026-11-12）：一个账号有 ≥2 台设备且有产出时，
+      // 排行榜按设备各出一行（各自排名）；单设备账号保持账号级一行。
+      const deviceRowsRaw = (await db.query(
+        "SELECT COALESCE(dm.machine_cluster_id, h.device_id::text) AS dev_id,"
+        + " MAX(d.device_name) AS device_name, SUM(h.total_tokens)::bigint AS tokens"
+        + " FROM tokentracker_hourly h"
+        + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
+        + " LEFT JOIN tokentracker_devices d ON d.id = h.device_id"
+        + " WHERE h.user_id = $1"
+        + " GROUP BY COALESCE(dm.machine_cluster_id, h.device_id::text)"
+        + " HAVING SUM(h.total_tokens) > 0"
+        + " ORDER BY tokens DESC",
+        [user.id],
+      )).rows;
       let totalAgg = null;
       const periodRows = [];
       for (const [period, fromDay, toDay] of periods) {
@@ -810,11 +824,47 @@ async function main() {
           [user.id, fromIso, toIso],
         )).rows[0];
         if (period === "total") totalAgg = agg;
-        periodRows.push([period, fromDay, toDay, user.id,
-          profileRow.display_name || fallbackName,
-          chosenAvatar, agg.total_tokens, costByPeriod[period] !== undefined
-            ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
-          agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models]);
+        // 零用量账号不写快照（避免空账号占榜，device2 事故）。
+        if (period === "total" && Number(agg.total_tokens) === 0) { periodRows.length = 0; break; }
+        const accountName = profileRow.display_name || fallbackName;
+        if (deviceRowsRaw.length >= 2) {
+          for (const device of deviceRowsRaw) {
+            const devAgg = (await db.query(
+              "WITH hourly AS ("
+              + " SELECT DISTINCT ON (COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model)"
+              + "   h.total_tokens, h.input_tokens, h.output_tokens, h.cached_input_tokens, h.conversations, h.total_cost_usd, h.model"
+              + " FROM tokentracker_hourly h"
+              + " LEFT JOIN tokentracker_device_machine dm ON dm.device_id = h.device_id"
+              + " WHERE h.user_id = $1 AND h.hour_start >= $2 AND h.hour_start <= $3"
+              + "   AND COALESCE(dm.machine_cluster_id, h.device_id::text) = $4"
+              + " ORDER BY COALESCE(dm.machine_cluster_id, h.device_id::text), h.hour_start, h.source, h.model, h.total_tokens DESC, h.updated_at DESC"
+              + " )"
+              + " SELECT COALESCE(SUM(total_tokens),0)::bigint AS total_tokens,"
+              + " COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,"
+              + " COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,"
+              + " COALESCE(SUM(cached_input_tokens),0)::bigint AS cached_input_tokens,"
+              + " COALESCE(SUM(conversations),0)::bigint AS conversations,"
+              + " COALESCE(SUM(total_cost_usd),0)::numeric AS estimated_cost_usd,"
+              + " COALESCE(jsonb_object_agg(model, total_tokens) FILTER (WHERE model IS NOT NULL), '{}'::jsonb) AS models"
+              + " FROM hourly",
+              [user.id, fromIso, toIso, device.dev_id],
+            )).rows[0];
+            if (Number(devAgg.total_tokens) === 0) continue;
+            const deviceLabel = device.device_name || String(device.dev_id || "").slice(0, 8);
+            periodRows.push([period, fromDay, toDay, user.id, device.dev_id,
+              accountName + " · " + deviceLabel,
+              chosenAvatar, devAgg.total_tokens,
+              costByPeriod[period] !== undefined ? costByPeriod[period] : devAgg.estimated_cost_usd,
+              devAgg.input_tokens, devAgg.output_tokens, devAgg.cached_input_tokens,
+              devAgg.conversations, devAgg.models]);
+          }
+        } else {
+          periodRows.push([period, fromDay, toDay, user.id, "",
+            accountName,
+            chosenAvatar, agg.total_tokens, costByPeriod[period] !== undefined
+              ? costByPeriod[period] : agg.estimated_cost_usd, agg.input_tokens,
+            agg.output_tokens, agg.cached_input_tokens, agg.conversations, agg.models]);
+        }
       }
       collected.push(...periodRows);
       if (!topUser || Number(totalAgg.total_tokens) > topTotal) {
@@ -976,22 +1026,32 @@ async function main() {
           const rank = index + 1;
           await db.query(
             "INSERT INTO tokentracker_leaderboard_snapshots"
-            + " (period, from_day, to_day, user_id, rank, display_name, avatar_url, total_tokens,"
+            + " (period, from_day, to_day, user_id, device_id, rank, display_name, avatar_url, total_tokens,"
             + "  estimated_cost_usd, input_tokens, output_tokens, cached_input_tokens,"
             + "  conversation_count, models, generated_at)"
-            + " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now())"
-            + " ON CONFLICT (period, from_day, to_day, user_id) DO UPDATE SET"
+            + " VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now())"
+            + " ON CONFLICT (period, from_day, to_day, user_id, device_id) DO UPDATE SET"
             + "   rank = EXCLUDED.rank, avatar_url = EXCLUDED.avatar_url, total_tokens = EXCLUDED.total_tokens,"
             + "   estimated_cost_usd = EXCLUDED.estimated_cost_usd,"
             + "   input_tokens = EXCLUDED.input_tokens, output_tokens = EXCLUDED.output_tokens,"
             + "   cached_input_tokens = EXCLUDED.cached_input_tokens,"
             + "   conversation_count = EXCLUDED.conversation_count, models = EXCLUDED.models,"
             + "   generated_at = now()",
-            [row[0], row[1], row[2], row[3], rank, row[4], row[5], row[6], row[7],
-              row[8], row[9], row[10], row[11], row[12]],
+            [row[0], row[1], row[2], row[3], row[4], rank, row[5], row[6], row[7],
+              row[8], row[9], row[10], row[11], row[12], row[13]],
           );
         }
       }
+      // 清理陈旧行（站主 2026-11-12 按设备拆行后）：零用量快照不留；已有
+      // 设备级行的账号再留一份账号级旧行会让榜单出现重复。
+      await db.query("DELETE FROM tokentracker_leaderboard_snapshots WHERE total_tokens = 0");
+      await db.query(
+        "DELETE FROM tokentracker_leaderboard_snapshots s"
+        + " WHERE s.device_id = '' AND EXISTS ("
+        + "   SELECT 1 FROM tokentracker_leaderboard_snapshots d"
+        + "   WHERE d.user_id = s.user_id AND d.period = s.period AND d.device_id <> ''"
+        + " )",
+      );
       process.stdout.write("[local-backend] leaderboard snapshots refreshed (" + collected.length + " rows)\n");
     } catch (error) {
       process.stdout.write("[local-backend] leaderboard snapshot refresh failed: "

@@ -84,7 +84,7 @@ export const PERK_PROVIDERS = [
     "tips": "支持 Windows/macOS 桌面客户端（Tauri）与 Docker 本地部署；凭证与 Token 均保存在本地机器不上传云端，适合搭配各家白嫖额度构建自己的个人私有聚合 API 池。",
     "officialUrl": "https://github.com/aimod-cc/Agent2API",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://github.com/aimod-cc/Agent2API"
   },
   {
@@ -99,7 +99,7 @@ export const PERK_PROVIDERS = [
       "daily_claim",
       "gateway"
     ],
-    "badge": "✅ 2026-11-03 实测已恢复：3/3 模型可用",
+    "badge": "2026-11-12 实测：每日签到 $25 站内额度可用（实测含金量约 56.9%，日等效 ¥100+ 算力；模型偶有掺水与宕机）",
     "badgeType": "rose",
     "tags": [
       "实测已恢复",
@@ -113,7 +113,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://agentrouter.org",
     "inviteCode": "tt0I",
     "hasInvite": true,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://agentrouter.org/api/status"
   },
   {
@@ -141,7 +141,7 @@ export const PERK_PROVIDERS = [
     "officialUrlLabel": "中国站直达",
     "officialUrlAltLabel": "国际站直达",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://wiki.agnes-ai.com/zh-Hans/docs/pricing"
   },
   {
@@ -167,7 +167,7 @@ export const PERK_PROVIDERS = [
     "tips": "时效积分过期清零、多日不叠加，领了尽快用；与永久积分分开核算，消耗顺序以站内为准；网页版与 API 平台（另见「Agnes AI」卡）账号互通、福利互不相干。",
     "officialUrl": "https://app.agnes-ai.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://app.agnes-ai.com"
   },
   {
@@ -194,7 +194,7 @@ export const PERK_PROVIDERS = [
     "tips": "免费额度默认在华北2（北京）地域实时推理生效；各模型额度相互独立不混用，建议在控制台开启「免费额度用完即停」开关，避免额度耗尽后产生按量扣费。",
     "officialUrl": "https://bailian.console.aliyun.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://help.aliyun.com/zh/model-studio/new-free-quota"
   },
   {
@@ -221,7 +221,7 @@ export const PERK_PROVIDERS = [
     "tips": "BETA 阶段免费模型列表与限时活动可能随时变动，以官网页面为准；调用前先看模型负载与余量，Busy 时段可能排队；不含邀请活动。",
     "officialUrl": "https://developer.amd.com.cn/radeon/modelapis",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://developer.amd.com.cn/radeon/modelapis"
   },
   {
@@ -247,7 +247,7 @@ export const PERK_PROVIDERS = [
     "tips": "到账查看：百灵计费平台 → 财务管理 → 账户充值 → 赠送额度（悬停可见每张券的适用模型/剩余/有效期）；额度按金额抵扣、与原 Token 数量口径不可直接换算；旧模型 Ling-2.6-1T / Ring-2.6-1T / Ling-2.6-flash 将于 2026-11-15 下线，请切换新版模型；新模型 **Ling-3.2-flash（2026-11-05 上线）前两周可经 API 免费调用**（支持文本/图片/视频输入，约 2026-11-19 截止，结束后恢复计费，首次用 API 须绑支付宝）。",
     "officialUrl": "https://developer.ant-ling.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://developer.ant-ling.com/zh-CN/docs/models/price"
   },
   {
@@ -278,7 +278,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://www.apigoto.com",
     "inviteCode": "UNCLEDOG",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.apigoto.com"
   },
   {
@@ -310,7 +310,7 @@ export const PERK_PROVIDERS = [
     "inviteCode": "GX4HHVHS",
     "hasInvite": true,
     "endsAt": "2026-11-15",
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://autoclaw.zhipuai.cn"
   },
   {
@@ -338,7 +338,7 @@ export const PERK_PROVIDERS = [
     "tips": "国际版站点 autoclaw.z.ai 与国内版 autoclaw.zhipuai.cn 账号体系独立、安装互斥；国际版暂未核实有邀请活动，积分福利以端内为准。",
     "officialUrl": "https://autoclaw.z.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://autoclaw.z.ai"
   },
   {
@@ -372,7 +372,7 @@ export const PERK_PROVIDERS = [
     "officialUrlAltLabel": "国际站直达",
     "inviteCode": "ZaL1bTUfl7pSnDADpfvDjHHEaazDlIZGj9HxftzTbt4=",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://docs.bigmodel.cn/cn/guide/start/pricing.md"
   },
   {
@@ -399,7 +399,7 @@ export const PERK_PROVIDERS = [
     "tips": "每月基础积分的发放日与有效期以端内为准；失效积分可在用量管理页切换失效积分查看。",
     "officialUrl": "https://credit.catpaw.meituan.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://credit.catpaw.meituan.com/#/usage"
   },
   {
@@ -424,7 +424,7 @@ export const PERK_PROVIDERS = [
     "tips": "每日额度刷新、超量转付费；免费档与付费档的速率政策可能调整，以官方 Pricing 页为准；国内访问需海外网络。",
     "officialUrl": "https://cloud.cerebras.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.cerebras.ai/inference"
   },
   {
@@ -449,7 +449,7 @@ export const PERK_PROVIDERS = [
     "tips": "不同模型的 neurons 消耗差异很大，官方每个模型页标注每输入/输出的 neurons 数并有计算器可估算；免费层超量即停不扣费，适合小流量白嫖；国内访问需海外网络。",
     "officialUrl": "https://developers.cloudflare.com/workers-ai/",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://developers.cloudflare.com/workers-ai/platform/pricing/"
   },
   {
@@ -479,7 +479,7 @@ export const PERK_PROVIDERS = [
     "inviteUrl": "https://devcloud.cn-north-4.huaweicloud.com/chat?source=dmzntgwlb&sourcead=dmzntgwlb1&invitecode=INV-taWTH2T2JcL8d0esH15UMseSLiQN99qbfeb5Gp50u21Mt01_mokNPORaI_CxM_LrKuoTZOJThp9prEXpEqLKxJIQWyMC6hxkWSbV1qmMNFT6eQVyw-81VuMzAonD1G1z-NMbHhOWdDYCrxKsgZHxDHIuFrDivfsf0lorAf7go8L-Ug",
     "officialUrl": "https://www.huaweicloud.com/product/codearts.html",
     "hasInvite": true,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.huaweicloud.com/product/codearts.html"
   },
   {
@@ -506,7 +506,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://colaos.ai",
     "inviteCode": "6DVMGH",
     "hasInvite": true,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://colaos.ai"
   },
   {
@@ -534,7 +534,7 @@ export const PERK_PROVIDERS = [
     "tips": "登录网页端管理后台（codely.tuanjie.cn）进入积分任务中心签到并领取每周活动奖励；**每周活动每周一重置**（连续活跃日、活跃日计数与有效任务数都清零重算）；签到积分有效期为 8 天；签到中断一般不累计。",
     "officialUrl": "https://codely.tuanjie.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://codely.tuanjie.cn"
   },
   {
@@ -560,7 +560,7 @@ export const PERK_PROVIDERS = [
     "tips": "免费档额度在站内用量页查看；定价分层细节以 cursor.com/pricing 实时为准。",
     "officialUrl": "https://cursor.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://cursor.com/pricing"
   },
   {
@@ -585,7 +585,7 @@ export const PERK_PROVIDERS = [
     "tips": "官方不设第三方邀请机制，直接前往官网控制台注册即可；如遇官方充值或服务拥堵，可搭配第三方聚合路由作为高可用热备。",
     "officialUrl": "https://platform.deepseek.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing"
   },
   {
@@ -616,7 +616,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://doubao.com/work",
     "inviteCode": "WIbgDM5zbX",
     "hasInvite": true,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://doubao.com/work"
   },
   {
@@ -642,7 +642,7 @@ export const PERK_PROVIDERS = [
     "tips": "免费档限额与可用模型随时调整，以控制台显示为准；免费层与付费层数据政策不同，敏感内容走付费层。",
     "officialUrl": "https://aistudio.google.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://ai.google.dev/gemini-api/docs/rate-limits"
   },
   {
@@ -667,7 +667,7 @@ export const PERK_PROVIDERS = [
     "tips": "免费档没有总金额、只有速率与每日请求数上限，跑量任务注意配额轮换；国内访问需海外网络。",
     "officialUrl": "https://console.groq.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://console.groq.com/docs/rate-limits"
   },
   {
@@ -697,7 +697,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://cloud.siliconflow.cn",
     "inviteCode": "667oBtc0",
     "hasInvite": true,
-    "checkedAt": "2026-11-01",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.siliconflow.cn/"
   },
   {
@@ -725,7 +725,7 @@ export const PERK_PROVIDERS = [
     "tips": "国家超算中心算力储备充沛，适合批处理与大规模推理；0.1 元资源包在控制台特惠区认领，赠额与限时权益以站内实时公告为准。",
     "officialUrl": "https://www.scnet.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.scnet.cn/home/subject/maas/index.html"
   },
   {
@@ -754,7 +754,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://www.volcengine.com/product/doubao",
     "inviteCode": "97QSJU7A",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://docs.volcengine.com/docs/ark/model-pricing"
   },
   {
@@ -782,7 +782,7 @@ export const PERK_PROVIDERS = [
     "tips": "领取入口在星辰 MaaS 首页「Spark-X2.6 赋能开发者」或模型广场；礼包有效期与每人限领次数官网未列明细，领取弹窗为准。",
     "officialUrl": "https://xinghuo.xfyun.cn/spark",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://xinghuo.xfyun.cn/spark"
   },
   {
@@ -809,7 +809,7 @@ export const PERK_PROVIDERS = [
     "tips": "支持 OpenAI Chat / OpenAI Responses / Anthropic Messages 三种规范调用（书生-Decision-4B 走 SystemOne）；登录控制台领取当月墨点，各模型墨点单价与上下文长度以「可用模型」页实时为准。",
     "officialUrl": "https://discovery.intern-ai.org.cn",
     "hasInvite": false,
-    "checkedAt": "2026-10-31",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://discovery.intern-ai.org.cn"
   },
   {
@@ -836,7 +836,7 @@ export const PERK_PROVIDERS = [
     "tips": "支持 VS Code / JetBrains 插件与桌面客户端；个人与团队档额度口径不同，领取前以官方定价页为准。",
     "officialUrl": "https://joycode.jd.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://joycode.jd.com/pricing/"
   },
   {
@@ -865,7 +865,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://tokenrhythm.studio",
     "hasInvite": false,
     "endsAt": "2026-11-13",
-    "checkedAt": "2026-11-01",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://tokenrhythm.studio/"
   },
   {
@@ -893,7 +893,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://juflowai.com",
     "inviteCode": "UUlZ",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://juflowai.com/api/home_page_content"
   },
   {
@@ -921,7 +921,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://longcat.chat",
     "inviteCode": "WABCQLL3",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://longcat.chat/platform/docs/zh/faq"
   },
   {
@@ -951,7 +951,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://loomy.xunfei.cn",
     "inviteCode": "E5UZR8",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://loomy.xunfei.cn/docs/user-guide/credits"
   },
   {
@@ -978,7 +978,7 @@ export const PERK_PROVIDERS = [
     "tips": "登录 MiniMax Code 客户端后在个人中心积分页每日打卡；新用户注册赠额是否仍发放以站内为准。",
     "officialUrl": "https://minimax.io",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://agent.minimaxi.com/about"
   },
   {
@@ -1003,7 +1003,7 @@ export const PERK_PROVIDERS = [
     "tips": "国内控制台已迁至 platform.minimax.cn；到账代金券请在费用中心查看有效期，逾期不补发。",
     "officialUrl": "https://platform.minimax.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://platform.minimax.cn/docs/pricing/overview"
   },
   {
@@ -1030,7 +1030,7 @@ export const PERK_PROVIDERS = [
     "tips": "调用 API-Inference 需绑定已实名的阿里云账号、完善个人信息并验证邮箱；轻量、主流、旗舰模型平均每次扣 0.5 / 1 / 2 魔粒，短期魔粒尽量当天用完；官方建议商用采用商业 API，高并发不保证。",
     "officialUrl": "https://www.modelscope.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://modelscope.cn/docs/model-service/API-Inference"
   },
   {
@@ -1056,7 +1056,7 @@ export const PERK_PROVIDERS = [
     "tips": "免费档按 RPM/日请求数限流，不扣费但会 429，长任务建议自己退避重试；个别标「Free Endpoint」的模型 API 可能尚未开放（以站点模型页能否生成 Key 为准）；国内访问需海外网络。",
     "officialUrl": "https://build.nvidia.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://build.nvidia.com/faq"
   },
   {
@@ -1081,7 +1081,7 @@ export const PERK_PROVIDERS = [
     "tips": "使用 GitHub 或 Google 账号直接登录即可获取 Key，免费模型会定期轮换，接入前先确认当前档期。",
     "officialUrl": "https://console.opencode.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://opencode.ai/v2/docs/console/models"
   },
   {
@@ -1107,7 +1107,7 @@ export const PERK_PROVIDERS = [
     "tips": "付费订阅制（非免费白嫖），按 5 小时滚动限额 20%、周限额 50% 保护并发；获取 Key 后通过 /connect 命令直接连接 OpenCode 终端与各 IDE 插件。",
     "officialUrl": "https://opencode.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://opencode.ai"
   },
   {
@@ -1133,7 +1133,7 @@ export const PERK_PROVIDERS = [
     "tips": "免费档按日限流：累计充值不足 $10 每日约 50 次、累计满 $10 每日 1,000 次（按累计充值金额定档，另有 20 次/分钟限速），适合轻量测试与无成本探索。",
     "officialUrl": "https://openrouter.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://openrouter.ai/docs/api-reference/limits"
   },
   {
@@ -1160,7 +1160,7 @@ export const PERK_PROVIDERS = [
     "tips": "支持 Windows / Mac 桌面客户端与网页端，手机号或钉钉扫码一键登录；剩余可用与每日刷新明细在端内「设置 → 订阅和用量」查看，其他积分经充值或活动获取、有效期以具体规则为准。",
     "officialUrl": "https://qwenwork.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://docs.qwenwork.cn/benefits/personal"
   },
   {
@@ -1190,7 +1190,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://www.qiniu.com",
     "hasInvite": true,
     "endsAt": "2026-11-30",
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.qiniu.com/ai/free-models/conatus-2026"
   },
   {
@@ -1222,7 +1222,7 @@ export const PERK_PROVIDERS = [
     "inviteUrl": "https://qoder.cn/activities?referral_code=4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
     "inviteCode": "4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
     "hasInvite": true,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://docs.qoder.cn/events/invite-friends"
   },
   {
@@ -1254,7 +1254,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://qoder.com",
     "inviteCode": "gviloqaY80z3XxsS6W78IIy3uMK3qRlc",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://docs.qoder.com/events/100credits"
   },
   {
@@ -1282,7 +1282,7 @@ export const PERK_PROVIDERS = [
     "tips": "12,000 上限需分别装桌面端与手机端；免费版只有每日 300 积分自动到账，别把个人升级版的 500/日 当免费档；积分在个人中心「用量看板 → 积分明细」查看，以端内任务列表为准。",
     "officialUrl": "https://www.xiaohuanxiong.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://xiaohuanxiong.com/events/tasks"
   },
   {
@@ -1309,7 +1309,7 @@ export const PERK_PROVIDERS = [
     "tips": "额度按滑动窗口每 5 小时自动逐步恢复，统一 Base URL 为 https://token.sensenova.cn/v1。新用户需凭邀请码注册（可于注册页申请）；平台 2026-11-04 上线 GLM 5.3，旧版 glm-5.2 将于 2026-11-18 正式下线，需及时切换配置。",
     "officialUrl": "https://platform.sensenova.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-09",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.sensenova.cn/token-plan"
   },
   {
@@ -1340,7 +1340,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://www.teleai.com.cn",
     "inviteCode": "VLPEAF",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.teleai.com.cn/product/teleagent"
   },
   {
@@ -1369,7 +1369,7 @@ export const PERK_PROVIDERS = [
     "inviteUrl": "https://www.trae.cn/events/code-fission/4D3RZS33QK4N?utm_source=copy_link&utm_medium=code_fission",
     "officialUrl": "https://www.trae.cn",
     "hasInvite": true,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://docs.trae.cn/ide_plans-and-billing"
   },
   {
@@ -1396,7 +1396,7 @@ export const PERK_PROVIDERS = [
     "tips": "用量与重置时间在站内「Usage」页查看；国内版（trae.cn）的新人积分与签到福利另见其卡片，两版账号互不互通。",
     "officialUrl": "https://www.trae.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.trae.ai/pricing"
   },
   {
@@ -1422,7 +1422,7 @@ export const PERK_PROVIDERS = [
     "tips": "一个月会员为一次性领取，活动口径以站内为准；各模型额度随套餐档位不同，以控制台显示为准。",
     "officialUrl": "https://maas.unisound.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-03",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://maas.unisound.com/token-plan"
   },
   {
@@ -1452,7 +1452,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://vyceai.com",
     "inviteCode": "VYCE_868RV5",
     "hasInvite": true,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://vyceai.com"
   },
   {
@@ -1484,7 +1484,7 @@ export const PERK_PROVIDERS = [
     "hasInvite": true,
     "inviteUrl": "https://workbuddy.ai/invite?code=A7CYB69E",
     "inviteCode": "A7CYB69E",
-    "checkedAt": "2026-11-02",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.workbuddy.ai"
   },
   {
@@ -1515,7 +1515,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://www.workbuddy.cn",
     "inviteCode": "hppwvxg4sgqw",
     "hasInvite": true,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://www.workbuddy.cn"
   },
   {
@@ -1545,7 +1545,7 @@ export const PERK_PROVIDERS = [
     "inviteUrl": "https://zcode.z.ai/invite/DU7JA29Y",
     "inviteCode": "DU7JA29Y",
     "hasInvite": true,
-    "checkedAt": "2026-11-11",
+    "checkedAt": "2026-11-12",
     "sourceUrl": "https://z.ai"
   },
   {
