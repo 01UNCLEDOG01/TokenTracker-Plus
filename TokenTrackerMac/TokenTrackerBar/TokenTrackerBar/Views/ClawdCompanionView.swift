@@ -1624,12 +1624,11 @@ struct ClawdCompanionView: View {
             ])
         }
 
+        // 1.27.0 站主对齐令：宠物悬浮卡与灵动岛/限额页同框——每个可见 provider
+        // 的每个窗口原样上屏（0% 与 100% 都保留，按 provider 声明顺序），不再
+        // 按「在用且未满」自作主张删行（站主报告：限额页勾六个，岛显示六个，
+        // 宠物只显示三个）。气泡高度由 onBubbleHeightChanged 撑面板。
         return readings
-            .filter { $0.usedPercent > 0 && $0.usedPercent < 100 }
-            .sorted {
-                if $0.usedPercent != $1.usedPercent { return $0.usedPercent > $1.usedPercent }
-                return ($0.resetAt ?? .distantFuture) < ($1.resetAt ?? .distantFuture)
-            }
     }
 
     private func epochDate(_ epoch: Int?) -> Date? {
