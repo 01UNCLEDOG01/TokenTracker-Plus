@@ -105,3 +105,45 @@ describe("api device filter", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("api account-devices on a localhost dashboard", () => {
+  beforeEach(() => {
+    invalidateAccountResponseCache();
+    Object.defineProperty(window, "location", {
+      value: new URL("http://127.0.0.1:17680/"),
+      writable: true,
+    });
+    (window as any).__TOKENTRACKER_RUNTIME_CONFIG__ = {
+      baseUrl: "https://edge.example.test",
+      anonKey: "anon-key",
+    };
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ devices: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })) as any;
+  });
+  afterEach(() => {
+    delete (window as any).__TOKENTRACKER_RUNTIME_CONFIG__;
+    vi.restoreAllMocks();
+  });
+
+  // Regression: the localhost shortcut rewrote EVERY account slug onto the
+  // local CLI server. tokentracker-account-devices has no local counterpart,
+  // so it 404'd and the dashboard silently rendered no per-device breakdown.
+  it("routes account-devices through the cloud proxy, never the local CLI server", async () => {
+    await fetchAccountDevices({ from: "2026-06-01", to: "2026-06-30", accessToken: JWT });
+    const url = lastFetchUrl();
+    expect(url.origin).toBe("http://127.0.0.1:17680");
+    expect(url.pathname).toBe("/api/cloud/functions/tokentracker-account-devices");
+    // No local mirror means no ?account=1 rewrite.
+    expect(url.searchParams.get("account")).toBeNull();
+  });
+
+  it("still serves aggregate slugs from the local CLI mirror", async () => {
+    await fetchCloudUsageSummary({ from: "2026-06-01", to: "2026-06-30", accessToken: JWT });
+    const url = lastFetchUrl();
+    expect(url.origin).toBe("http://127.0.0.1:17680");
+    expect(url.pathname).toBe("/functions/tokentracker-usage-summary");
+    expect(url.searchParams.get("account")).toBe("1");
+  });
+});

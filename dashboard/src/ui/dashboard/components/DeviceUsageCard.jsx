@@ -227,8 +227,10 @@ export function DeviceUsageCard({ devices = [], accountSources = [], currentDevi
                       </div>
                       <span
                         title={formatTokensTooltip(tokens)}
-                        className={`shrink-0 text-[13px] font-semibold tabular-nums text-oai-black dark:text-oai-white transition-opacity duration-150 ${
-                          canRename ? "group-hover:opacity-0" : ""
+                        className={`shrink-0 text-[13px] font-semibold tabular-nums text-oai-black dark:text-oai-white ${
+                          // Reserve the pencil's gutter: the rename affordance is
+                          // always visible now, so it must never land on the number.
+                          canRename ? "pr-6" : ""
                         }`}
                       >
                         {formatTokens(tokens)}
@@ -253,7 +255,7 @@ export function DeviceUsageCard({ devices = [], accountSources = [], currentDevi
                       type="button"
                       aria-label={copy("dashboard.device_card.rename_aria")}
                       onClick={() => beginEdit(d)}
-                      className="absolute right-2 top-1.5 flex h-4 items-center text-oai-gray-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-oai-brand focus:outline-none transition-opacity duration-150"
+                      className="absolute right-2 top-1.5 flex h-4 items-center text-oai-gray-400 opacity-70 hover:opacity-100 focus-visible:opacity-100 hover:text-oai-brand focus:outline-none transition-opacity duration-150"
                     >
                       <Pencil className="h-3 w-3" />
                     </button>

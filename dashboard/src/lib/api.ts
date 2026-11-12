@@ -1035,8 +1035,15 @@ async function fetchAccountFunction(
   // the international edition bills credits). Reading the cloud origin from
   // here drops both, which is why the public dashboard showed fewer tokens and
   // a lower total than the desktop app reading the same account.
-  if (isLocalhostHost()) {
-    const usageSlug = ACCOUNT_TO_USAGE_SLUG[slug] || slug;
+  // Only the aggregate slugs have a local CLI mirror (`?account=1`). A
+  // device-scoped endpoint such as tokentracker-account-devices has no local
+  // counterpart — asking the local server for it 404s, which silently left the
+  // per-device breakdown card empty. Those slugs fall through to the cloud
+  // path below, where functionUrlFor already rewrites the URL onto the local
+  // `/api/cloud/functions/*` proxy (the node process holds the CA trust).
+  const localUsageSlug = ACCOUNT_TO_USAGE_SLUG[slug];
+  if (isLocalhostHost() && localUsageSlug) {
+    const usageSlug = localUsageSlug;
     const merged: AnyRecord = { ...(params || {}) };
     if (merged.account == null || merged.account === "") merged.account = "1";
     return fetchLocalJson(usageSlug, merged, {});
