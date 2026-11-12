@@ -623,7 +623,7 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount }) {
+function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
@@ -635,12 +635,14 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
   // key 重建会清掉组件内的延迟定时器。翻转目标是正面，key 挂在正面节点上。
   const flipKey = flipCount || 0;
   const revealed = Boolean(claimedNow) && !sealed;
+  // 绝版卡面值条显示已下线福利名（如「模型限时免费」），日常卡显示 AIHOT 面值。
+  const chipLabel = sealed && item.retiredDeal?.label ? item.retiredDeal.label : faceValue;
   return (
     <button
       type="button"
-      onClick={onJump ? () => onJump(item.id) : undefined}
-      title={onJump ? copy("perks.album.jump") : undefined}
-      aria-label={`${item.name} — ${copy("perks.album.jump")}`}
+      onClick={sealed && onSealedClick ? () => onSealedClick(item) : onJump ? () => onJump(item.id) : undefined}
+      title={sealed ? copy("perks.album.vitrine_detail") : onJump ? copy("perks.album.jump") : undefined}
+      aria-label={`${item.name} — ${sealed ? copy("perks.album.vitrine_detail") : copy("perks.album.jump")}`}
       data-perk-id={item.id}
       data-flip-key={flipKey}
       className={cn(
@@ -670,12 +672,15 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
       ) : (
         <span
           key={flipKey}
-          className="perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5"
+          className={cn(
+            "perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5",
+            sealed ? "perk-card-aged" : null,
+          )}
         >
           <span className="flex w-full items-center justify-between gap-1">
-            {faceValue ? (
+            {chipLabel ? (
               <span className="max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 text-[9px] font-semibold leading-tight text-white">
-                {faceValue}
+                {chipLabel}
               </span>
             ) : (
               <span aria-hidden />
@@ -706,11 +711,11 @@ function AlbumMiniCard({ item, collected, tier, streak, claimedNow, sealed, rari
 
 // 绝版展示柜（站主 2026-11-12「封装到玻璃柜」）：和还能领福利的卡分开陈列。
 // 玻璃质感 = 深色玻璃渐变 + 内阴影高光；绝版卡保持纸面 + 红章 + ×N。
-function AlbumVitrine({ entries, onJump, flipKeys }) {
+function AlbumVitrine({ entries, flipKeys, onSealedClick }) {
   if (!entries.length) return null;
   return (
     <div className="mb-8">
-      <div className="relative overflow-hidden rounded-2xl border border-oai-gray-300/70 bg-gradient-to-b from-oai-gray-100/90 via-white/60 to-oai-gray-200/80 p-4 shadow-inner dark:border-oai-gray-600/60 dark:from-oai-gray-800/80 dark:via-oai-gray-900/60 dark:to-oai-gray-950/80">
+      <div className="perk-vitrine relative overflow-hidden rounded-2xl p-4">
         <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/70 dark:bg-white/25" aria-hidden />
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-oai-black dark:text-white">{copy("perks.album.vitrine")}</h2>
@@ -730,7 +735,7 @@ function AlbumVitrine({ entries, onJump, flipKeys }) {
               sealed={entry.sealed}
               rarity={entry.rarity}
               faceValue={entry.faceValue}
-              onJump={onJump}
+              onSealedClick={onSealedClick}
               flipCount={flipKeys[entry.item.id] || 0}
             />
           ))}
@@ -1007,6 +1012,8 @@ export function PerksPage() {
   // 连击翻面计数（per 卡）：streak 增长 → 卡背 key 重建重播 rotateY。
   // 放主组件层——翻页容器按页 key 重建时组件内定时器会被清掉（教训）。
   const [flipKeys, setFlipKeys] = useState({});
+  // 绝版卡弹窗：玻璃柜里的卡点击后展示已下线福利的详情（站主 2026-11-12）。
+  const [sealedDetail, setSealedDetail] = useState(null);
   const prevStreaksRef = useRef({});
 
   const toggleClaim = (item, cycle) => {
@@ -1219,7 +1226,50 @@ export function PerksPage() {
           />
 
           {/* 绝版展示柜：独立于主卡册（站主 2026-11-12 玻璃柜方案） */}
-          <AlbumVitrine entries={vitrineItems} onJump={jumpToCard} flipKeys={flipKeys} />
+          <AlbumVitrine entries={vitrineItems} flipKeys={flipKeys} onSealedClick={setSealedDetail} />
+
+          {sealedDetail ? (
+            <div
+              className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+              role="dialog"
+              aria-modal="true"
+              aria-label={copy("perks.album.vitrine_detail")}
+              onClick={() => setSealedDetail(null)}
+            >
+              <div
+                className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-oai-gray-200 dark:bg-oai-gray-950 dark:ring-oai-gray-800"
+                onClick={function (event) { event.stopPropagation(); }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-base font-semibold text-oai-black dark:text-white">
+                    {sealedDetail.name}
+                    <span className="perk-seal ml-2 inline-block rounded px-1 py-0.5 align-middle text-[9px] font-extrabold tracking-wider">
+                      {copy("perks.album.sealed")}
+                    </span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={function () { setSealedDetail(null); }}
+                    aria-label={copy("perks.album.vitrine_close")}
+                    className="rounded-md px-2 py-1 text-sm text-oai-gray-500 transition hover:bg-oai-gray-100 hover:text-oai-black dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {sealedDetail.retiredDeal ? (
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-oai-gray-600 dark:text-oai-gray-300">
+                    <p className="font-semibold text-oai-black dark:text-white">{sealedDetail.retiredDeal.label}</p>
+                    <p>{sealedDetail.retiredDeal.detail}</p>
+                    {sealedDetail.endsAt ? (
+                      <p className="text-xs text-oai-gray-500 dark:text-oai-gray-400">
+                        {copy("perks.album.retired_until", { date: sealedDetail.endsAt })}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {/* 六色图例：把色阶含义摆在页面上（站主 2026-11-11 要求） */}
           <PerkTierLegend />

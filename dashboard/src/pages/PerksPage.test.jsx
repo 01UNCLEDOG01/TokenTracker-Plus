@@ -604,6 +604,38 @@ describe("PerksPage", () => {
     }
   });
 
+  it("绝版卡点击弹窗：展示已下线福利详情（面值条写限时福利，非 faceValue）", async () => {
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        qoder_cn: { daily: { last: "2020-01-01", count: 8 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    // 玻璃柜里的绝版卡：面值条显示 retiredDeal.label 而非 AIHOT faceValue
+    const sealedMini = [...document.querySelectorAll(".perk-mini")].find((card) => card.querySelector(".perk-seal"));
+    expect(sealedMini).toBeTruthy();
+    expect(sealedMini.textContent).toContain("模型限时免费");
+    expect(sealedMini.querySelector(".perk-card-aged")).toBeTruthy();
+
+    // 初始无弹窗 → 点击绝版卡 → 弹窗出现（标题=卡名 + 详情文案）
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(sealedMini);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Qoder CN (国内版)");
+    expect(dialog.textContent).toContain("模型限时免费");
+    expect(dialog.textContent).toContain("已下线");
+
+    // 点背景关闭
+    fireEvent.click(dialog);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("价值等级筛选：点六色 chip 后只保留该档卡片，计数与数据一致", () => {
     render(
       <ToastProvider>

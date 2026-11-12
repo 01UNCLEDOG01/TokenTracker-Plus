@@ -215,6 +215,11 @@ export default function GlobalModelsPage() {
                   ? copy("global_models.subtitle")
                   : copy("global_models.subtitle_aihot")}
               </p>
+              {board === "aihot" ? (
+                <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-oai-gray-400 dark:text-oai-gray-500">
+                  {copy("global_models.credit_aihot")}
+                </p>
+              ) : null}
             </div>
             <div className="flex items-center gap-2 text-xs text-oai-gray-500 dark:text-oai-gray-400">
               {data?.stale ? <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-700 dark:text-amber-300">{copy("global_models.stale")}</span> : null}
@@ -396,9 +401,6 @@ export default function GlobalModelsPage() {
                 </a>
               ) : null}
             </p>
-            {board === "aihot" ? (
-              <p className="mt-1.5">{copy("global_models.credit_aihot")}</p>
-            ) : null}
           </div>
         </div>
       </main>

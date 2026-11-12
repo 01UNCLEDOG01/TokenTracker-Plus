@@ -1572,3 +1572,45 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
     opacity: 0;
   }
 }
+
+/* ===== 绝版展示柜（玻璃柜）质感强化（站主 2026-11-12：要像真玻璃柜） ===== */
+.tt-perks-page .perk-vitrine {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 30%, rgba(0, 0, 0, 0.14) 100%),
+    linear-gradient(180deg, #101418 0%, #171d24 55%, #0c1014 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -18px 30px rgba(0, 0, 0, 0.45),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  position: relative;
+}
+.tt-perks-page .perk-vitrine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.09) 34%, transparent 46%);
+  pointer-events: none;
+}
+:root:not(.dark) .tt-perks-page .perk-vitrine {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.25) 35%, rgba(120, 130, 140, 0.28) 100%),
+    linear-gradient(180deg, #dfe5ea 0%, #cbd3da 55%, #b8c1ca 100%);
+  border: 1px solid rgba(70, 80, 90, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -18px 30px rgba(60, 70, 80, 0.22),
+    0 10px 28px rgba(40, 50, 60, 0.25);
+}
+/* 绝版卡做旧：灰褐纸 + 降饱和，与日常可领的亮纸卡一眼区分 */
+.tt-perks-page .perk-card-aged {
+  filter: grayscale(0.45) sepia(0.22) brightness(0.96);
+  background-color: #f1ead9;
+  border-color: #cfc4a8;
+}
+.dark .tt-perks-page .perk-card-aged {
+  background-color: #e9e2d0;
+  border-color: #b8ad90;
+}

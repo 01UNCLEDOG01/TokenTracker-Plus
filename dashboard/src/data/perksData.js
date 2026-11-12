@@ -16,8 +16,10 @@ import { comparePerks } from "./perks-sort.mjs";
  *   neutral 灰   无免费额度：纯工具（本地网关/聚合器）、纯付费订阅、纯折扣卡
  *   success 绿   小额：有免费额度但小且封闭——单一免费档、日级百次级或单模型、只能在自家客户端内用
  *   blue    蓝   中额：免费额度可叠加（多源相加、周期性千次级、代金券与免费档并行）
- *   purple  紫   大额：一次性或周期大额（¥20+ 等值、新人万级积分、月百万 Token 级）
- *   rose    粉   超大额：1 亿+ Token / ¥100+ 等值 / $50 级赠金
+ *   purple  紫   大额：一次性或周期大额（百万 Token 级、1 亿 Token 一次性≈¥7、¥20+ 等值、新人万级积分）
+ *   rose    粉   超大额：累计 ≥¥60（每天 1 亿 Token 级连续多天、10 亿+ 永久免费模型）/ ¥100+ 等值 / $50 级赠金
+ *   （2026-11-12 站主校准：1 亿 Token 一次性（SCNet）归紫不归粉；讯飞 10 亿+ 永久、七牛每日 1 亿×多天、
+ *      ZCode 每晚 3 亿才是粉。判定先折算累计价值再对档，别按品牌知名度打分。）
  *   amber   琥珀 顶配：持续大额低门槛（每日 $10+ 级、2 亿+ Token 新户、高额多重叠加）
  * 同形同色（硬约束）：同一形状的福利必须落同一档，不许按「是不是我熟的那家」打分——
  *   长期免费模型可直连 ≈ AMD Token Factory / Google AI Studio / Groq（绿）；
@@ -717,7 +719,7 @@ export const PERK_PROVIDERS = [
       "gateway"
     ],
     "badge": "新户领 1 亿 Token（30 天）· 0.1 元 5000 万已到期",
-    "badgeType": "rose",
+    "badgeType": "purple",
     "tags": [
       "国家级算力",
       "0.1元5000万",
@@ -1199,6 +1201,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "qoder_cn",
     "retired": true,
+    "retiredDeal": {"label":"模型限时免费","detail":"Qoder CN 此前的免费模型调用福利已下线（站主实测）。每日 10:00 领 100 Credits 的签到仍照常，不受影响。"},
     "name": "Qoder CN (国内版)",
     "sortNames": [
       "QODER CN",
@@ -1230,6 +1233,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "qoder",
     "retired": true,
+    "retiredDeal": {"label":"模型限时免费","detail":"Qoder 国际版此前的免费模型调用福利已下线（站主实测）；国际版当前的 Qoduck 每日限免以端内为准。"},
     "name": "Qoder (国际版)",
     "sortNames": [
       "QODER GUOJIBAN",
@@ -1459,6 +1463,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "workbuddy_intl",
     "retired": true,
+    "retiredDeal": {"label":"模型限时免费","detail":"DeepSeek-V4.1-Flash 免费调用已停止（2026-10-31 截止，2026-11-02 站主实测下线）；HY3 模型仍可免费调用，每月积分福利不受影响。"},
     "name": "WorkBuddy AI (国际版)",
     "sortNames": [
       "WORKBUDDY AI GUOJIBAN",
