@@ -12885,6 +12885,15 @@ test("listAntigravitySessionFiles discovers transcripts across sibling 2.0 brain
       "logs",
       "transcript.jsonl",
     );
+    const insidersTranscript = path.join(
+      tmp,
+      "antigravity-insiders",
+      "brain",
+      "session-insiders",
+      ".system_generated",
+      "logs",
+      "transcript.jsonl",
+    );
     const cliTranscript = path.join(
       tmp,
       "antigravity-cli",
@@ -12894,7 +12903,7 @@ test("listAntigravitySessionFiles discovers transcripts across sibling 2.0 brain
       "logs",
       "transcript.jsonl",
     );
-    for (const p of [legacyTranscript, ideTranscript, cliTranscript]) {
+    for (const p of [legacyTranscript, ideTranscript, insidersTranscript, cliTranscript]) {
       await fs.mkdir(path.dirname(p), { recursive: true });
       await fs.writeFile(p, "");
     }
@@ -12902,14 +12911,18 @@ test("listAntigravitySessionFiles discovers transcripts across sibling 2.0 brain
     const dirs = [
       path.join(tmp, "antigravity", "brain"),
       path.join(tmp, "antigravity-ide", "brain"),
+      path.join(tmp, "antigravity-insiders", "brain"),
       path.join(tmp, "antigravity-cli", "brain"),
       path.join(tmp, "antigravity-missing", "brain"),
     ];
     const results = await Promise.all(dirs.map((d) => listAntigravitySessionFiles(d)));
     const all = results.flat();
 
-    assert.deepEqual(all.sort(), [cliTranscript, ideTranscript, legacyTranscript].sort());
-    assert.deepEqual(results[3], []);
+    assert.deepEqual(
+      all.sort(),
+      [cliTranscript, ideTranscript, insidersTranscript, legacyTranscript].sort(),
+    );
+    assert.deepEqual(results[4], []);
 
     const inventory = await listAntigravityTranscriptsWithStatus(tmp);
     assert.deepEqual(inventory.files.sort(), all.sort());
@@ -12920,7 +12933,10 @@ test("listAntigravitySessionFiles discovers transcripts across sibling 2.0 brain
       tmp,
       new Set([cliTranscript]),
     );
-    assert.deepEqual(partialInventory.files.sort(), [legacyTranscript, ideTranscript].sort());
+    assert.deepEqual(
+      partialInventory.files.sort(),
+      [legacyTranscript, ideTranscript, insidersTranscript].sort(),
+    );
     assert.equal(partialInventory.complete, false);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

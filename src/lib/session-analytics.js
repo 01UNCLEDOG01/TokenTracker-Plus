@@ -3835,7 +3835,9 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   // Antigravity keeps one SQLite database per conversation under
   // <home>/.gemini/antigravity/conversations; each pairs with a transcript
   // directory of the same uuid.
-  const antigravityDbs = ["antigravity", "antigravity-ide", "antigravity-cli"].flatMap((variant) => {
+  // Variants match the transcript discovery in rollout.js (including the
+  // Insiders build, upstream #1095); a missing variant directory is skipped.
+  const antigravityDbs = ["antigravity", "antigravity-ide", "antigravity-insiders", "antigravity-cli"].flatMap((variant) => {
     try {
       const dir = path.join(home, ".gemini", variant, "conversations");
       return fs.readdirSync(dir)
