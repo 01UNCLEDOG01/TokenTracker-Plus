@@ -103,8 +103,8 @@ function normalizeClaudeModel(model) {
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
 
-  if (/^claude-(sonnet|opus|haiku)-\d+\.\d+/.test(m)) {
-    return m.replace(/^(claude-(?:sonnet|opus|haiku)-\d+)\.(\d+)/, "$1-$2");
+  if (/^claude-(sonnet|opus|haiku|fable)-\d+\.\d+/.test(m)) {
+    return m.replace(/^(claude-(?:sonnet|opus|haiku|fable)-\d+)\.(\d+)/, "$1-$2");
   }
   if (/^(sonnet|opus|haiku)-\d+[.-]\d+/.test(m)) {
     return m
@@ -369,6 +369,17 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
     return { hit: true, source: "curated:exact-dot", value: curatedDotContainedExact };
   }
 
+  // Floating Fable aliases (`claude-fable-latest` and every provider's
+  // `…/claude-fable-latest`) retarget on each release. Checked 2026-11-10
+  // upstream (#1090): the Anthropic model overview and the Fable 5.2 pages do
+  // not document the alias, so nothing pins it to 5.2. Stop here, after exact
+  // lookups, so the fable-5.2 fuzzy needles cannot price it, but an explicit
+  // exact entry added later still wins. Re-check on the next Fable release
+  // before pointing it anywhere.
+  if (/(?:^|\/)claude-fable-latest(?:$|[^a-z0-9])/.test(lower)) {
+    return { hit: false, source: "miss", value: null };
+  }
+
   // 3. CURATED alias (literal mapping like "auto" -> "composer-1")
   if (curated.alias && curated.alias[lookupModel] && curated.exact[curated.alias[lookupModel]]) {
     return {
@@ -390,10 +401,26 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
       if (!match || !ref) continue;
       const needle = match.toLowerCase();
       if (!curated.exact[ref]) continue;
-      if (lower.includes(needle)) {
+      // The Fable 5.2 needles are version-bounded (upstream #1090). A plain
+      // substring lets the dot-restored form of a dated Fable 5 id through:
+      // claude-fable-5-20250901 becomes claude-fable-5.20250901, which
+      // contains "fable-5.2". fable-5-20 contains "fable-5-2" the same way.
+      // The minor must end the id or be followed by a non-digit, so
+      // -20261109 and -20 stay off the 5.2 rate.
+      const bounded = /^fable-5[.-]2(?:-fast)?$/.test(needle)
+        ? new RegExp(`${needle.replace(".", "\\.")}(?:$|[^0-9])`)
+        : null;
+      const matches = (value) => (bounded ? bounded.test(value) : value.includes(needle));
+      if (matches(lower)) {
         return { hit: true, source: "curated:fuzzy", value: curated.exact[ref] };
       }
-      if (dotForm && dotForm.includes(needle)) {
+      if (dotForm && matches(dotForm)) {
+        return { hit: true, source: "curated:fuzzy", value: curated.exact[ref] };
+      }
+      // Display names ("Claude Fable 5.2", "Fable 5.2 Fast") only reach this
+      // scan when no source normalizer ran. Fold spaces for the pinned 5.2
+      // needles only — a general fold would price unrelated display names.
+      if (bounded && bounded.test(lower.replace(/[^a-z0-9.]+/g, "-"))) {
         return { hit: true, source: "curated:fuzzy", value: curated.exact[ref] };
       }
     }
