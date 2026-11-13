@@ -32,6 +32,9 @@ const HASH_ROOTS = [
   path.join(ROOT, "dashboard", "scripts"),
 ];
 const HASH_FILES = [
+  // 根 package.json 的 version 会经 vite.config.js 的 loadAppVersion 注进产物；
+  // 不在指纹里的话，发版 bump 版本后打包链会跳过重建、装出旧版本号的页面。
+  "package.json",
   "dashboard/vite.config.js",
   "dashboard/vitest.config.ts",
   "dashboard/index.html",

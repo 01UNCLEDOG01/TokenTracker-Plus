@@ -12,6 +12,7 @@ const { computeSrcHash, isFresh, HASH_FILES } = require("../scripts/dashboard-fi
 // 「会改变 dist 的输入必须在指纹里」，以及 isFresh 的三种判定。
 test("会改变 dist 的构建输入都在指纹里", () => {
   const required = [
+    "package.json",
     "dashboard/vite.config.js",
     "dashboard/index.html",
     "dashboard/pet.html",
