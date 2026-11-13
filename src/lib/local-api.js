@@ -3881,7 +3881,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         }
         res.end(resBody);
       } catch (e) {
-        json(res, { error: `Auth proxy error: ${e?.message || e}` }, 502);
+        // 把底层原因（TLS/连接/代理）带出来：只显示 "fetch failed" 时无法定位，
+        // 2026-11-13 的登录事故就是被这一行掩盖的。
+        const cause = e && e.cause ? e.cause.code || e.cause.message || String(e.cause) : "";
+        json(res, { code: "auth_proxy_failed", error: `Auth proxy error: ${e?.message || e}${cause ? ` (${cause})` : ""}` }, 502);
       }
       return true;
     }
