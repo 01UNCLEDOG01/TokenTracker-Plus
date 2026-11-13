@@ -96,14 +96,14 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // workbuddy, …). Without them every cell rendered "-" on a private
     // instance.
     {id:"18-leaderboard-provider-columns",sql:read("migrations/20261112150000_self-host-leaderboard-provider-columns.sql")},
-    // Achievement union: per-(user, badge) merged unlock map. See
-    // tokentracker-badge-sync.ts for the semantics.
-    {id:"19-account-badges",sql:read("migrations/20261113060000_self-host-account-badges.sql")},
     // 04g (heatmap cost) re-created account_usage_grouped from a pre-10-20 body and
     // silently dropped trae-cn from the device arm again — account heatmap lost 16
     // days and 7/8 of the trae-cn volume. Re-apply the hourly semantics on top.
     {id:"20-account-trea-cn-restore",sql:read("migrations/20261113230000_account-grouped-trea-cn-restore.sql")},
 
+    // Achievement union: per-(user, badge) merged unlock map. See
+    // tokentracker-badge-sync.ts for the semantics.
+    {id:"19-account-badges",sql:read("migrations/20261113060000_self-host-account-badges.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};
