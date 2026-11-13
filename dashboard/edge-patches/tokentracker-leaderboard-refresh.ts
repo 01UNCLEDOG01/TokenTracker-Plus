@@ -380,6 +380,14 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "gpt-6-luna": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
   "space-bunny": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
   "step-5-preview": { input: 1, output: 2.7, cache_read: 0.05, cache_write: 1 },
+  // ── iFlytek Spark-X2.6 (mirrored from src/lib/pricing/curated-overrides.json
+  //    exact). Official 星火 launch rate read 2026-10-27, re-checked still
+  //    current 2026-11-13: limited-time 60% of RMB 0.9 / 3.6 / 0.08(cache hit)
+  //    per MTok in/out/read, converted at ~7.2 RMB/USD; cache_write = input.
+  //    First recorded source-scoped to loomy, promoted to this global card
+  //    2026-11-13 once ZCode began emitting the id too (~99.4M tokens had
+  //    priced at zero) — reprice when the launch promotion ends. ──
+  "spark-x2.6": { input: 0.13, output: 0.5, cache_read: 0.01, cache_write: 0.13 },
 };
 const ZERO_PRICING = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
 // iFlytek MaaS prices used by the AStudio source: RMB per million tokens,

@@ -250,6 +250,9 @@ test("canonical pricing block retains regression-prone entries and matcher order
     '"gemini-4-argon"',
     '"glm-5.3"',
     '"glm-5.3-flash"',
+    // spark-x2.6's loomy-scoped card shipped 2026-10-27; zcode rows kept
+    // pricing at zero until the global exact promotion on 2026-11-13.
+    '"spark-x2.6"',
     '"deepseek-v4.1-flash"',
     '"deepseek-flash"',
     '"claude-haiku-5-5"',
