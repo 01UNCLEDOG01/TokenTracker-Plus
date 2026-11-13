@@ -682,6 +682,7 @@
   "perks.aihot.dropped": "Im neuesten AIHOT-Snapshot ist dieser Anbieter nicht mehr gelistet",
   "perks.claim.monthly_mark": "Diesen Monat offen · Als erhalten markieren",
   "perks.claim.monthly_claimed": "Diesen Monat erhalten ({{date}})",
+  "perks.claim.adjust_date": "Tatsächliches Abrufdatum nachtragen",
   "perks.filter.unclaimed": "Noch offen",
   "sessions.page.cached": "Zwischengespeicherter Stand vom {{date}}. Aktualisieren prüft auf neue Sitzungen.",
   "global_models.credit_aihot": "Die AIHOT-Daten stammen aus dem Open-Source-Projekt AIHOT (aihot.news) von Kazik (数字生命卡兹克). Vielen Dank für die öffentlich zugänglichen Daten.",

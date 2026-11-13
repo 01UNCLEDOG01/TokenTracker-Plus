@@ -24,13 +24,14 @@ import { showToast } from "../ui/components/Toast.jsx";
 import { ProviderIcon, hasProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
 import { PERK_CATEGORIES, PERK_PROVIDERS } from "../data/perksData.js";
 import { PERKS_AIHOT_PROVIDERS } from "../data/perks-aihot-map.js";
+import { PERKS_CLAIM_YUAN } from "../data/perks-claim-yuan.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
 import { comparePerks } from "../data/perks-sort.mjs";
 import {
   PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_V1_CLAIMS_KEY,
   getPerkClaimDay, nextPerkClaimDayDelay,
   getPerkClaimCycles, getPerkClaimDate, getPerkClaimStreak, isPerkClaimed, normalizePerkClaims,
-  migrateLegacyPerkClaims, togglePerkClaim,
+  migrateLegacyPerkClaims, togglePerkClaim, setPerkClaimDate,
 } from "../lib/perks-claims.mjs";
 
 // 福利价值六档（灰→绿→蓝→紫→粉→琥珀）：卡片 badge 与页首图例共用这一套色，
@@ -289,7 +290,44 @@ function PerkCardDescription({ text }) {
   );
 }
 
-function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
+// 补记实际领取日（站主 2026-11-13）：漏标/晚标的月领与一次性卡，可把日期回改
+// 到真实领取日（月领限本月内，不得晚于今天）。只修日期，不改领取次数与连击。
+function ClaimDateAdjust({ date, today, monthScoped, onApply }) {
+  const [editing, setEditing] = useState(false);
+  const minDate = monthScoped ? `${today.slice(0, 7)}-01` : undefined;
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="mt-1 flex w-full items-center justify-center gap-1 text-[10px] text-oai-gray-400 underline-offset-2 hover:text-oai-gray-600 hover:underline dark:text-oai-gray-500 dark:hover:text-oai-gray-300"
+      >
+        {copy("perks.claim.adjust_date")}
+      </button>
+    );
+  }
+  return (
+    <label className="mt-1 flex w-full items-center justify-center gap-1.5 text-[10px] text-oai-gray-500 dark:text-oai-gray-400">
+      <span>{copy("perks.claim.adjust_date")}</span>
+      <input
+        type="date"
+        value={date}
+        min={minDate}
+        max={today}
+        onChange={(e) => {
+          const nextDate = e.target.value;
+          if (!nextDate) return;
+          onApply(nextDate);
+          setEditing(false);
+        }}
+        onBlur={() => setEditing(false)}
+        className="rounded border border-oai-gray-300 bg-white px-1 py-0.5 text-[10px] text-oai-gray-700 dark:border-oai-gray-600 dark:bg-oai-gray-800 dark:text-oai-gray-200"
+      />
+    </label>
+  );
+}
+
+function PerkCard({ item, claims, claimDay, onToggleClaim, onAdjustClaimDate, aihot, flashed }) {
   // 活动截止倒计时（只有数据里写了 endsAt 的卡才有）
   const deadline = perkDaysLeft(item.endsAt);
   const [copied, setCopied] = useState(false);
@@ -508,27 +546,36 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, aihot, flashed }) {
             : cycle === "daily" ? (claimedAt ? "perks.claim.daily_claimed" : "perks.claim.daily_mark")
               : (claimedAt ? "perks.claim.monthly_claimed" : "perks.claim.monthly_mark");
           return (
-            <button
-              key={cycle}
-              type="button"
-              onClick={() => { if (!claimedAt) onToggleClaim(item, cycle); }}
-              disabled={Boolean(claimedAt)}
-              aria-disabled={Boolean(claimedAt)}
-              aria-pressed={Boolean(claimedAt)}
-              className={cn(
-                "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
-                claimedAt
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
-                  : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-500 dark:bg-oai-gray-800/60 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
-              )}
-            >
-              {claimedAt ? (
-                <Check className="h-3.5 w-3.5" aria-hidden />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              )}
-              <span>{copy(labelKey, { date: claimedAt })}</span>
-            </button>
+            <React.Fragment key={cycle}>
+              <button
+                type="button"
+                onClick={() => { if (!claimedAt) onToggleClaim(item, cycle); }}
+                disabled={Boolean(claimedAt)}
+                aria-disabled={Boolean(claimedAt)}
+                aria-pressed={Boolean(claimedAt)}
+                className={cn(
+                  "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-[11px] font-medium transition active:scale-[0.98]",
+                  claimedAt
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                    : "border-oai-gray-200/90 bg-white text-oai-gray-500 hover:bg-oai-gray-50 hover:text-oai-gray-800 dark:border-oai-gray-500 dark:bg-oai-gray-800/60 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-200"
+                )}
+              >
+                {claimedAt ? (
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                )}
+                <span>{copy(labelKey, { date: claimedAt })}</span>
+              </button>
+              {claimedAt && cycle !== "daily" ? (
+                <ClaimDateAdjust
+                  date={claimedAt}
+                  today={claimDay}
+                  monthScoped={cycle === "monthly"}
+                  onApply={(nextDate) => onAdjustClaimDate(item, cycle, nextDate)}
+                />
+              ) : null}
+            </React.Fragment>
           );
         })}
       </div>
@@ -1101,30 +1148,35 @@ export function PerksPage() {
     return { byProvider, dropped: new Set(aihotData?.dropped_providers || []) };
   }, [aihotData]);
 
-  // 「今天还能领 / 本月已领到」按 AIHOT 全目录口径（站主 2026-11-12：我们的
-  // ¥6 vs AIHOT ¥583 = 只统计了映射卡）。快照里每个 provider 的最新 deal：
-  // 未被我们领掉的（含未映射到卡册的）都算今天还能领；月领周期且本月已领的
-  // 计入本月已领到。
+  // 「今天还能领」按 AIHOT 全目录口径（站主 2026-11-12：我们的 ¥6 vs AIHOT ¥583 =
+  // 只统计了映射卡）；「本月已领到 / 累计领取」按**自家审计价**（站主 2026-11-13：
+  // AIHOT 定价不再是标准——他们的快照 2026-11-13 起 56 条 deal 只有 17 条带 ¥，
+  // 恰好我们映射的卡全被摘价，两列因此归零）。AIHOT 有单 deal 精确价的仍优先用。
   const aihotSums = useMemo(() => {
+    const DEAL_KIND_CYCLE = { daily: "daily", monthly: "monthly", once: "once", limited: "once" };
     let claimable = 0;
-    let monthly = 0;
-    let totalClaimed = 0;
     for (const [provider, deal] of aihotIndex.byProvider) {
-      if (aihotIndex.dropped.has(provider) || !Number.isFinite(deal.yuan)) continue;
+      if (aihotIndex.dropped.has(provider)) continue;
       const cardId = AIHOT_PROVIDER_TO_CARD.get(provider);
       const item = cardId ? PERK_PROVIDERS.find((row) => row.id === cardId) : null;
-      const claimedToday = item ? isPerkClaimed(item, claims, claimDay, "all") : false;
-      if (!claimedToday) claimable += deal.yuan;
-      const monthlyClaimed = item
-        && getPerkClaimCycles(item).includes("monthly")
-        && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
-      if (monthlyClaimed) monthly += deal.yuan;
-      // 累计领取：deal 价值 × 各周期已领次数（daily 按天、monthly 按月、once 领过即 1）。
-      if (item) {
-        for (const cycle of getPerkClaimCycles(item)) {
-          const count = claims?.[item.id]?.[cycle]?.count || 0;
-          totalClaimed += deal.yuan * Math.min(count, cycle === "once" ? 1 : count);
-        }
+      if (item && isPerkClaimed(item, claims, claimDay, "all")) continue;
+      const cycle = DEAL_KIND_CYCLE[deal.kind] || "once";
+      const aiYuan = Number.isFinite(deal.yuan) ? deal.yuan : null;
+      const ours = item ? PERKS_CLAIM_YUAN[item.id]?.[cycle] : null;
+      const price = aiYuan ?? (Number.isFinite(ours) ? ours : 0);
+      claimable += price;
+    }
+    let monthly = 0;
+    let totalClaimed = 0;
+    for (const item of PERK_PROVIDERS) {
+      const row = claims?.[item.id];
+      if (!row) continue;
+      for (const cycle of getPerkClaimCycles(item)) {
+        const count = row[cycle]?.count || 0;
+        const price = PERKS_CLAIM_YUAN[item.id]?.[cycle];
+        if (!Number.isFinite(price)) continue;
+        totalClaimed += price * count;
+        if (cycle === "monthly" && getPerkClaimDate(item, claims, "monthly", claimDay)) monthly += price;
       }
     }
     return { claimable, monthly, totalClaimed };
@@ -1172,12 +1224,18 @@ export function PerksPage() {
   // 人在明细卡处领取根本看不到（站主 2026-11-12）。effect 放在 albumItems
   // 之后：领取会改排序，页码必须按领取后的卡册顺序算。
   const pendingScrollId = useRef(null);
-  // 连击翻面计数（per 卡）：streak 增长 → 卡背 key 重建重播 rotateY。
+  // 连击翻面计数（per 卡）：翻面重播由 scheduleFlip 显式调度（站主 2026-11-13：
+  // 详情卡领取也要看到翻牌特效，且翻面不能抢在平滑滚动到位之前放完）。
   // 放主组件层——翻页容器按页 key 重建时组件内定时器会被清掉（教训）。
   const [flipKeys, setFlipKeys] = useState({});
   // 绝版卡弹窗：玻璃柜里的卡点击后展示已下线福利的详情（站主 2026-11-12）。
   const [sealedDetail, setSealedDetail] = useState(null);
-  const prevStreaksRef = useRef({});
+
+  const scheduleFlip = (key, delay) => {
+    window.setTimeout(() => {
+      setFlipKeys((current) => ({ ...current, [key]: (current[key] || 0) + 1 }));
+    }, delay);
+  };
 
   const toggleClaim = (item, cycle) => {
     const day = getPerkClaimDay();
@@ -1187,7 +1245,23 @@ export function PerksPage() {
     setClaims(next);
     unsavedClaims.current = writePerksClaims(next) ? null : next;
     pushClaimsToServer(next);
-    if (!wasClaimed) pendingScrollId.current = item.id;
+    if (!wasClaimed) {
+      pendingScrollId.current = item.id;
+      // 900ms：等平滑滚回卡册的那张卡到位再翻，否则动画在人看到之前就放完了。
+      scheduleFlip(`${item.id}:${cycle}`, 900);
+    }
+  };
+
+  // 补记实际领取日（站主 2026-11-13）：月领/一次性卡的日期可回改到真实领取日
+  // （月领限本月内），计数与连击不变——只修日期，不修次数。
+  const adjustClaimDate = (item, cycle, date) => {
+    const day = getPerkClaimDay();
+    const next = setPerkClaimDate(unsavedClaims.current ?? readPerksClaims() ?? claims, item, cycle, date, day);
+    if (next === (unsavedClaims.current ?? claims)) return;
+    setClaimDay(day);
+    setClaims(next);
+    unsavedClaims.current = writePerksClaims(next) ? null : next;
+    pushClaimsToServer(next);
   };
 
   const categoryCounts = useMemo(() => {
@@ -1279,7 +1353,10 @@ export function PerksPage() {
         streak,
         claimedNow,
         tier: albumBrightnessTier(streak),
-        rarity: cardRarity(cycleCounts, deal && Number.isFinite(deal.yuan) ? deal.yuan : null),
+        rarity: cardRarity(
+          cycleCounts,
+          deal && Number.isFinite(deal.yuan) ? deal.yuan : (PERKS_CLAIM_YUAN[item.id]?.once ?? null),
+        ),
         collected: streak > 0,
         sealed,
         faceValue: deal?.label || null,
@@ -1341,35 +1418,6 @@ export function PerksPage() {
           ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
       }),
     );
-  }, [albumItems]);
-
-  // 连击翻面：diff 每张卡的 streak，增长者的卡背延迟 500ms 重建（等滚动
-  // 到位再翻，否则动画在人看到之前就放完了）。批量合并成一次 setState。
-  const flipDiffMountedRef = useRef(false);
-  useEffect(() => {
-    // 首轮只建档：卡册挂载时已有连击的卡不算「增长」，否则整册在
-    // 加载 500ms 后集体空翻一次（站主实测口径：只在领取瞬间翻）。
-    if (!flipDiffMountedRef.current) {
-      flipDiffMountedRef.current = true;
-      for (const entry of albumItems) prevStreaksRef.current[entry.item.id + ":" + entry.cycle] = entry.streak;
-      return;
-    }
-    const grew = [];
-    for (const entry of albumItems) {
-      const key = entry.item.id + ":" + entry.cycle;
-      const prev = prevStreaksRef.current[key] || 0;
-      if (entry.collected && entry.streak > prev) grew.push(key);
-      prevStreaksRef.current[key] = entry.streak;
-    }
-    if (!grew.length) return;
-    const timer = setTimeout(() => {
-      setFlipKeys((current) => {
-        const next = { ...current };
-        for (const id of grew) next[id] = (next[id] || 0) + 1;
-        return next;
-      });
-    }, 500);
-    return () => clearTimeout(timer);
   }, [albumItems]);
 
   // 卡册翻页随筛选结果收缩回合法范围，避免「清除筛选后跳回旧页码」。
@@ -1681,6 +1729,7 @@ export function PerksPage() {
                   claims={claims}
                   claimDay={claimDay}
                   onToggleClaim={toggleClaim}
+                  onAdjustClaimDate={adjustClaimDate}
                   aihot={buildAihotSignal(item, aihotIndex)}
                   flashed={flashedId === item.id}
                 />

@@ -591,8 +591,9 @@ describe("PerksPage", () => {
     // 明细卡上标记今日已领取 → streak +1 → 正面节点重建（翻面：图2→图3）
     const detail = screen.getByRole("heading", { name: "Agent Router" }).closest(".group");
     fireEvent.click(within(detail).getByRole("button", { name: "今日未领取 · 标记已领取" }));
-    // 翻面延迟 500ms 等滚动到位（站主要求滚回卡册后才翻），断言等它落地
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)); });
+    // 翻面延迟 900ms 等平滑滚动回卡册到位（站主 2026-11-13：翻面不能抢在
+    // 滚动前面放完），断言等它落地
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1000)); });
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
 
     // 已领取按钮禁用（AIHOT 口径：领了就是领了）——streak 不变 → 不重播，
@@ -604,6 +605,53 @@ describe("PerksPage", () => {
     expect(miniWithStreak.getAttribute("data-flip-key")).toBe("1");
   });
 
+
+  it("统计头：本月已领到/累计领取走自家审计价（AIHOT 未定价也出数）", () => {
+    const day = getPerkClaimDay();
+    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({
+      schema: 3,
+      providers: {
+        // minimax_code 日签 31 次 × ¥3.56 = 110.36（审计价，AIHOT 已摘价）
+        minimax_code: { daily: { last: "2020-01-01", count: 31 } },
+        // ant_ling 月领本月已领 × ¥10
+        ant_ling: { monthly: { last: day, count: 1 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    // 累计 = 110.36 + 10 = 120.36 → ¥120；本月已领到 = ¥10（断言收敛到统计行内，
+    // 避免和卡片正文里的 ¥120 撞车）
+    const totalRow = screen.getByText("累计领取").closest("div");
+    expect(within(totalRow).getByText("¥120")).toBeInTheDocument();
+    const monthRow = screen.getByText("本月已领到").closest("div");
+    expect(within(monthRow).getByText("¥10")).toBeInTheDocument();
+  });
+
+  it("补记实际领取日：月领卡把标记日回改到真实领取日，计数不变", () => {
+    localStorage.setItem(PERKS_CLAIMS_KEY, JSON.stringify({
+      schema: 3,
+      providers: {
+        // ant_ling 月领 11-05 标记（月领卡只有一张有补记入口）
+        ant_ling: { monthly: { last: "2026-11-05", count: 1 } },
+      },
+    }));
+    const { container } = render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "补记实际领取日" }));
+    const input = container.querySelector('input[type="date"]');
+    expect(input).toBeTruthy();
+    expect(input.getAttribute("max")).toBe(getPerkClaimDay());
+    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    const stored = JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY));
+    expect(stored.providers.ant_ling.monthly.last).toBe("2026-11-02");
+    expect(stored.providers.ant_ling.monthly.count).toBe(1);
+  });
 
   it("明细卡标记已领取后视口滚回卡册对应小卡（翻面动画要被看见）", () => {
     // （此块内 scrollIntoView 用 this 包装，见下方赋值）

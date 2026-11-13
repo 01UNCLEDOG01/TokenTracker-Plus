@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getPerkClaimDay, nextPerkClaimDayDelay, getPerkClaimCycles, getPerkClaimDate,
   getPerkClaimStreak, isPerkClaimed, normalizePerkClaims, migrateLegacyPerkClaims,
-  togglePerkClaim, PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_V1_CLAIMS_KEY,
+  togglePerkClaim, setPerkClaimDate, PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_V1_CLAIMS_KEY,
 } from "./perks-claims.mjs";
 import zh from "../content/i18n/zh/core.json";
 import zhTw from "../content/i18n/zh-TW/core.json";
@@ -92,10 +92,32 @@ describe("perk claim calendar and state (schema 3: {last, count})", () => {
     expect(reclaimed.mixed.monthly).toBeUndefined();
     expect(() => togglePerkClaim(empty, mixed, "once", "2026-11-03")).toThrow(TypeError);
   });
+  it("backfilled monthly claim date survives unclaim→reclaim and validates bounds", () => {
+    // 月领 11-05 标记 → 补记到真实领取日 11-02（站主 2026-11-13）
+    const marked = togglePerkClaim({}, mixed, "monthly", "2026-11-05");
+    expect(marked.mixed.monthly).toEqual({ last: "2026-11-05", count: 1 });
+    const backfilled = setPerkClaimDate(marked, mixed, "monthly", "2026-11-02", "2026-11-13");
+    expect(backfilled.mixed.monthly).toEqual({ last: "2026-11-02", count: 1 });
+    // 取消→同月再标记：恢复标记时保留补记过的原日期（不得被再标记日覆盖）
+    const unclaimed = togglePerkClaim(backfilled, mixed, "monthly", "2026-11-13");
+    expect(getPerkClaimDate(mixed, unclaimed, "monthly", "2026-11-13")).toBeNull();
+    const reclaimed = togglePerkClaim(unclaimed, mixed, "monthly", "2026-11-13");
+    expect(reclaimed.mixed.monthly.last).toBe("2026-11-02");
+    expect(reclaimed.mixed.monthly.count).toBe(1);
+    // 约束：未来日期 / 跨月日期 / 无已领取记录 → 原样返回（引用不变）
+    expect(setPerkClaimDate(backfilled, mixed, "monthly", "2026-11-20", "2026-11-13")).toBe(backfilled);
+    expect(setPerkClaimDate(backfilled, mixed, "monthly", "2026-10-02", "2026-11-13")).toBe(backfilled);
+    expect(setPerkClaimDate({}, mixed, "monthly", "2026-11-02", "2026-11-13")).toEqual({});
+    // 一次性卡不受「本月」约束，但同样不得晚于今天
+    const onceClaimed = togglePerkClaim({}, once, "once", "2026-10-20");
+    expect(setPerkClaimDate(onceClaimed, once, "once", "2026-09-01", "2026-11-13").once.once.last).toBe("2026-09-01");
+    expect(setPerkClaimDate(onceClaimed, once, "once", "2026-11-20", "2026-11-13")).toBe(onceClaimed);
+  });
   it("defines reminder and album labels in every shipped translation registry", () => {
     for (const locale of [zh, zhTw, ja, ko, de]) {
       for (const key of [
         "perks.claim.daily_mark", "perks.claim.daily_claimed", "perks.claim.monthly_mark", "perks.claim.monthly_claimed",
+        "perks.claim.adjust_date",
         "perks.album.title", "perks.album.collected", "perks.album.claimable", "perks.album.month", "perks.album.refresh", "perks.album.prev", "perks.album.next",
       ]) {
         expect(locale[key]).toBeTypeOf("string");

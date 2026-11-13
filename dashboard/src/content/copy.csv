@@ -2156,6 +2156,7 @@ perks.claim.daily_mark,ui,PerksPage,PerksPage,claim_daily_mark,Not claimed today
 perks.claim.daily_claimed,ui,PerksPage,PerksPage,claim_daily_claimed,Claimed today ({{date}}),,active
 perks.claim.monthly_mark,ui,PerksPage,PerksPage,claim_monthly_mark,Not claimed this month · Mark as claimed,,active
 perks.claim.monthly_claimed,ui,PerksPage,PerksPage,claim_monthly_claimed,Claimed this month ({{date}}),,active
+perks.claim.adjust_date,ui,PerksPage,PerksPage,claim_adjust_date,Backfill actual claim date,,active
 
 sessions.page.cached,ui,SessionsPage,SessionsPage,cached,Cached snapshot from {{date}}. Refresh to check for newer sessions.,,active
 limits.provider.opendesign,ui,LimitsPage,UsageLimitsPanel,provider_opendesign,OpenDesign,,active

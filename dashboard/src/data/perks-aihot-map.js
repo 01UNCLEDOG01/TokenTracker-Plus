@@ -14,7 +14,9 @@ export const PERKS_AIHOT_PROVIDERS = {
   qoder: ["阿里云 Qoder"],
   trae_cn: ["字节 TRAE"],
   trae: ["字节 TRAE"],
-  workbuddy_cn: ["腾讯 WorkBuddy"],
+  // workbuddy_cn 曾在此（僵尸 id，perksData 里不存在）——AIHOT 映射表取每个
+  // provider 的首个卡 id 做「已领判定」，首项指向空卡会让腾讯 WorkBuddy 永远
+  // 判不出已领、永远计入「今天还能领」（2026-11-13 对抗性审查发现，已删）。
   workbuddy_intl: ["腾讯 WorkBuddy"],
   workbuddy: ["腾讯 WorkBuddy"],
   ant_ling: ["蚂蚁百灵"],

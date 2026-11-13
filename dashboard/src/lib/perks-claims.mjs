@@ -129,8 +129,10 @@ export function togglePerkClaim(claims, item, cycle, day) {
     // 领取→取消→领取不得刷 ×N，站主 2026-11-12）。
     row[cycle] = { ...entry, cleared: day };
   } else if (entry.cleared === day) {
-    // Same-day re-claim after an unclaim: restore the mark, keep count.
-    row[cycle] = { ...entry, last: day, cleared: undefined };
+    // Same-day re-claim after an unclaim: restore the mark, keep count AND the
+    // original claim date — 站主 2026-11-13：月领卡补记过的真实领取日不能被
+    // 再标记日覆盖（取消→再标记只恢复标记，日期回到原来的那天）。
+    row[cycle] = { ...entry, last: entry.last || day, cleared: undefined };
   } else {
     // (Re-)claim on a fresh day: a new last plus one more lifetime count.
     row[cycle] = { last: day, count: (entry.count || 0) + 1, cleared: undefined };
@@ -138,4 +140,20 @@ export function togglePerkClaim(claims, item, cycle, day) {
   if (Object.keys(row).length) next[item.id] = row;
   else delete next[item.id];
   return next;
+}
+
+// 补记实际领取日（站主 2026-11-13）：只改已领取记录的日期，计数不变。
+// 约束：不得晚于今天；月领周期只允许改到本月内的日期（月粒度判定不变）。
+// 不满足约束或没有已领取记录时原样返回（调用方按引用比较即可跳过写入）。
+export function setPerkClaimDate(claims, item, cycle, date, today) {
+  if (!getPerkClaimCycles(item).includes(cycle) || !validDate(date) || !validDate(today)) {
+    throw new TypeError("Invalid perk claim cycle/date");
+  }
+  if (date > today) return claims;
+  if (cycle === "monthly" && date.slice(0, 7) !== today.slice(0, 7)) return claims;
+  const entry = normalizeCycleEntry(claims?.[item.id]?.[cycle]);
+  if (!entry?.last) return claims;
+  if (entry.last === date) return claims;
+  const row = { ...claims[item.id], [cycle]: { ...entry, last: date, cleared: undefined } };
+  return { ...claims, [item.id]: row };
 }
