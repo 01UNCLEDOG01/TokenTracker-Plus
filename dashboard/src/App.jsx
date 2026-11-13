@@ -61,15 +61,53 @@ const SteamAchievementContainer = lazy(() =>
 // "Sign-in incomplete" failure state.
 import { NativeAuthCallbackPage } from "./pages/NativeAuthCallbackPage.jsx";
 
+// 热更轮换 chunk hash 后，持旧 index.html 的会话会按旧文件名拉 chunk → 404
+// （2026-11-13 站主截图定谳：「这个视图渲染失败了 / Failed to fetch dynamically
+// imported module」）。第一次失败自动整页重载一次（带 _r cache-bust 拿新
+// index.html），本会话只自动恢复一次防刷新循环；成功加载后清掉标记，下次热更
+// 还能再恢复。真错误重载后仍失败才落到 ErrorBoundary 弹窗。
+function recoverFromStaleChunkOnce() {
+  try {
+    if (sessionStorage.getItem("tt:chunk-recovered")) return false;
+    sessionStorage.setItem("tt:chunk-recovered", "1");
+  } catch {
+    return false; // 存储不可用（隐私模式等）就不自动刷新，交给弹窗
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("_r", String(Date.now()));
+  window.location.replace(url.href);
+  return true;
+}
+// 页面级懒加载统一入口：chunk 404 先走一次自动恢复。
+const lazyPage = (loader) =>
+  lazy(() =>
+    loader()
+      .then((m) => {
+        try {
+          sessionStorage.removeItem("tt:chunk-recovered");
+        } catch {
+          /* 忽略：标记清不掉也只是少一次自动恢复 */
+        }
+        return m;
+      })
+      .catch((err) => {
+        if (recoverFromStaleChunkOnce()) {
+          // 整页重载已在路上：短暂渲染空组件顶住这一帧。
+          return { default: nullComponent };
+        }
+        throw err;
+      }),
+  );
+
 // Pages are lazy-loaded so each route ships in its own chunk; keeps the
 // initial main bundle small (was 1.9 MB before splitting, all 11 pages
 // were bundled together). Routes are mutually exclusive, so only one
 // chunk loads per navigation.
-const DashboardPage = lazy(() =>
+const DashboardPage = lazyPage(() =>
   import("./pages/DashboardPage.jsx").then((m) => ({ default: m.DashboardPage })),
 );
-const IpCheckPage = lazy(() => import("./pages/IpCheckPage.jsx"));
-const PerksPage = lazy(() => import("./pages/PerksPage.jsx"));
+const IpCheckPage = lazyPage(() => import("./pages/IpCheckPage.jsx"));
+const PerksPage = lazyPage(() => import("./pages/PerksPage.jsx"));
 
 // 福利指南首访时 chunk 还在路上：给一屏骨架，别让 Suspense fallback=null 白屏几秒。
 function PerksRouteSkeleton() {
@@ -90,48 +128,48 @@ function PerksRouteSkeleton() {
     </div>
   );
 }
-const ServiceStatusPage = lazy(() => import("./pages/ServiceStatusPage.jsx"));
-const AchievementsPage = lazy(() => import("./pages/AchievementsPage.jsx"));
-const GlobalModelsPage = lazy(() => import("./pages/GlobalModelsPage.jsx"));
-const LandingPage = lazy(() =>
+const ServiceStatusPage = lazyPage(() => import("./pages/ServiceStatusPage.jsx"));
+const AchievementsPage = lazyPage(() => import("./pages/AchievementsPage.jsx"));
+const GlobalModelsPage = lazyPage(() => import("./pages/GlobalModelsPage.jsx"));
+const LandingPage = lazyPage(() =>
   import("./pages/LandingPage.jsx").then((m) => ({ default: m.LandingPage })),
 );
-const LeaderboardPage = lazy(() =>
+const LeaderboardPage = lazyPage(() =>
   import("./pages/LeaderboardPage.jsx").then((m) => ({ default: m.LeaderboardPage })),
 );
-const LeaderboardProfilePage = lazy(() =>
+const LeaderboardProfilePage = lazyPage(() =>
   import("./pages/LeaderboardProfilePage.jsx").then((m) => ({ default: m.LeaderboardProfilePage })),
 );
-const LimitsPage = lazy(() =>
+const LimitsPage = lazyPage(() =>
   import("./pages/LimitsPage.jsx").then((m) => ({ default: m.LimitsPage })),
 );
-const LoginPage = lazy(() =>
+const LoginPage = lazyPage(() =>
   import("./pages/LoginPage.jsx").then((m) => ({ default: m.LoginPage })),
 );
-const ResetPasswordPage = lazy(() =>
+const ResetPasswordPage = lazyPage(() =>
   import("./pages/ResetPasswordPage.jsx").then((m) => ({ default: m.ResetPasswordPage })),
 );
-const DevicePage = lazy(() => import("./pages/DevicePage.jsx"));
-const WrappedPage = lazy(() => import("./pages/WrappedPage.jsx"));
-const SettingsPage = lazy(() =>
+const DevicePage = lazyPage(() => import("./pages/DevicePage.jsx"));
+const WrappedPage = lazyPage(() => import("./pages/WrappedPage.jsx"));
+const SettingsPage = lazyPage(() =>
   import("./pages/SettingsPage.jsx").then((m) => ({ default: m.SettingsPage })),
 );
-const SelfHostPage = lazy(() =>
+const SelfHostPage = lazyPage(() =>
   import("./pages/SelfHostPage.jsx").then((m) => ({ default: m.SelfHostPage })),
 );
-const CloudPage = lazy(() =>
+const CloudPage = lazyPage(() =>
   import("./pages/CloudPage.jsx").then((m) => ({ default: m.CloudPage })),
 );
-const SkillsPage = lazy(() =>
+const SkillsPage = lazyPage(() =>
   import("./pages/SkillsPage.jsx").then((m) => ({ default: m.SkillsPage })),
 );
-const SessionsPage = lazy(() =>
+const SessionsPage = lazyPage(() =>
   import("./pages/SessionsPage.jsx").then((m) => ({ default: m.SessionsPage })),
 );
-const WidgetsPage = lazy(() =>
+const WidgetsPage = lazyPage(() =>
   import("./pages/WidgetsPage.jsx").then((m) => ({ default: m.WidgetsPage })),
 );
-const PetPage = lazy(() =>
+const PetPage = lazyPage(() =>
   import("./pages/PetPage.jsx").then((m) => ({ default: m.PetPage })),
 );
 
