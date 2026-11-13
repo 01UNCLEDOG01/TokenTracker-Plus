@@ -1470,25 +1470,36 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* 卡堆层叠（AIHOT 同款「量的可视化」，站主 2026-11-13 拍板吸收）：streak≥2 的
-   卡底下露纸边——领一次多一张，卡堆厚度=领取记录；×N 角标仍是精确数，纸边封顶
-   2 张只给「厚薄」的体感，数字与视觉不说两套话。绝版玻璃柜副本恒为单卡不堆；
-   纸边不参与翻转与 hover 抬卡（挂在翻转面之前的兄弟层），领卡翻面时牌堆不动。 */
-.tt-perks-page .perk-stack-edge {
+/* 卡堆层叠 v2（AIHOT .ft-deck 同款机制，站主 2026-11-13 指定照抄）：连领 2 次起
+   卡底下垫 1-2 张与卡同尺寸的「底牌」，translate(±4px,3-4px)rotate(±4-5°) 从左右
+   底角斜露——领一次多一张，×N 徽章照 AIHOT 挂到卡外右下角（.perk-cnt），领取
+   当天随翻面弹入；底牌封顶 2 张只给「厚薄」体感，数字与视觉不说两套话。绝版
+   玻璃柜副本恒为单卡不堆、角标留在卡内；底牌挂在翻转面之前的兄弟层，不参与
+   rotateY 翻面与 hover 抬卡，领卡翻面时牌堆不动。 */
+.tt-perks-page .perk-deck {
   position: absolute;
   inset: 0;
   border-radius: 8px;
-  background: linear-gradient(180deg, #f0ebe1 0%, #d8d1c2 100%);
-  border: 1px solid rgba(122, 108, 86, 0.4);
-  box-shadow: 0 1px 2px rgba(20, 30, 30, 0.16);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 1.5px, transparent 1.5px 8px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.08) 0 1.5px, transparent 1.5px 8px),
+    linear-gradient(160deg, #21808b 0%, #176b75 55%, #11555d 100%);
+  border: 3px solid #eef5f4;
+  box-shadow: 0 1px 2px rgba(20, 30, 30, 0.2);
   pointer-events: none;
 }
-.tt-perks-page .perk-stack-edge-near {
-  transform: translateY(3px) scaleX(0.965);
+.tt-perks-page .perk-deck1 {
+  transform: translate(4px, 3px) rotate(4deg);
 }
-.tt-perks-page .perk-stack-edge-far {
-  transform: translateY(6px) scaleX(0.93);
-  opacity: 0.9;
+.tt-perks-page .perk-deck2 {
+  transform: translate(-4px, 4px) rotate(-5deg);
+}
+.tt-perks-page .perk-mini.is-collected .perk-cnt {
+  animation: perk-cnt-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) 0.55s both;
+}
+@keyframes perk-cnt-pop {
+  0% { transform: scale(0.55); }
+  100% { transform: scale(1); }
 }
 
 /* 卡册翻页：仿 AIHOT 的 rotateY 翻纸（0.62s cubic-bezier(.45,.05,.35,1)）。 */
@@ -1537,6 +1548,10 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   @keyframes perk-mini-flip-reduced {
     0% { opacity: 0; }
     100% { opacity: 1; }
+  }
+  /* ×N 徽章弹入同属领取反馈的附属动效，reduce 下直接免掉。 */
+  .tt-perks-page .perk-mini.is-collected .perk-cnt {
+    animation: none;
   }
 }
 
