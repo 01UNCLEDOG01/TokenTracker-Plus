@@ -473,6 +473,10 @@ internal sealed class QuotaWidgetWindow : Window
 
     private void OnVisibilityChanged()
     {
+        // This window is created/destroyed and hidden/fullscreen-hidden often, so
+        // releasing its caches while hidden is where most of its memory goes. The
+        // try guard covers a visibility event racing a disposed control.
+        try { WebViewMemoryTarget.Apply(_view?.CoreWebView2, IsVisible); } catch { /* closing */ }
         if (IsVisible && !_closed && _settings.Enabled)
         {
             Place(!_placed);

@@ -27,6 +27,7 @@ const os = require("os");
 const path = require("path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("child_process");
+const { isFresh } = require("./dashboard-fingerprint.cjs");
 
 const ROOT = path.resolve(__dirname, "..");
 const REPO_DIST = path.join(ROOT, "dashboard", "dist");
@@ -246,6 +247,14 @@ async function waitForPortFree(baseUrl, timeoutMs = 30000) {
 }
 
 function build() {
+  // 连跑两次热更时，第二次构建的输入通常没变。指纹一致 + PET 入口页齐全就跳过
+  // 这次 vite 构建（约 27 秒）；MIRROR_FORCE_BUILD=1 可强制重建（排查用）。
+  const force = process.env.MIRROR_FORCE_BUILD === "1";
+  const petReady = ["pet.html", "quota.html"].every((name) => fs.existsSync(path.join(REPO_DIST, name)));
+  if (!force && petReady && isFresh(REPO_DIST)) {
+    console.log("[mirror] dashboard/dist 与当前构建输入一致（PET 入口齐全），跳过重复构建");
+    return;
+  }
   console.log("[mirror] 构建 dashboard（TOKENTRACKER_BUILD_PET=1）…");
   const env = { ...process.env, TOKENTRACKER_BUILD_PET: "1" };
   // Node 18.20+ 不允许 spawn .cmd 时不经 shell（会直接 EINVAL，status=null），

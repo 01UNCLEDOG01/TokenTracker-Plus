@@ -680,8 +680,17 @@ internal sealed class DashboardWindow : Window
         UpdateWebViewActivity();
     }
 
-    private void UpdateWebViewActivity() =>
-        _activity?.Update(IsVisible && WindowState != WindowState.Minimized, _oauthInFlight);
+    /// <summary>Visible, not minimised: the one definition of "the panel is live".</summary>
+    private bool IsWebViewActive => IsVisible && WindowState != WindowState.Minimized;
+
+    private void UpdateWebViewActivity()
+    {
+        _activity?.Update(IsWebViewActive, _oauthInFlight);
+        // Low on hide is the cheap half of the memory story: caches go immediately,
+        // while the renderer sleep still waits out the 10-minute delay. An in-flight
+        // OAuth exchange keeps the page fully active.
+        if (_coreReady) WebViewMemoryTarget.Apply(_webView.CoreWebView2, IsWebViewActive || _oauthInFlight, Log);
+    }
 
     public void PushPetSettings(bool visible, string size, string character, string botColor, bool monitor = false, string actionLock = "auto", bool islandMode = true, bool quota = false, string trayStyle = "cat")
     {

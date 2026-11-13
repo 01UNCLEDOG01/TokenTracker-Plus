@@ -89,7 +89,7 @@ UTC, half-hour buckets, append-only — readers take the latest entry per `(sour
 
 ## Release workflow
 
-Follow `AGENTS.md` 「发版链固定顺序」 and the local `GATE_REGISTRY.md` §4 for platform packaging, versioning and Publish authority. Windows uses `bundle-node.ps1` (PET dashboard build) → `dotnet publish -c Release -r win-x64 --self-contained true` → stage `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → install → hash/version smoke. Use a fresh staging directory or the governed replacement procedure; do not copy an existing child into itself. macOS uses its own bundle/package scripts and must be verified on a Mac. `npm run mirror:installed` refreshes both Windows runtime trees with a five-endpoint smoke; it does not rebuild the native shell.
+Follow `AGENTS.md` 「发版链固定顺序」 and the local `GATE_REGISTRY.md` §4 for platform packaging, versioning and Publish authority. Windows uses `bundle-node.ps1` (PET dashboard build; since 2026-11-13 it skips the rebuild when the dist fingerprint matches and takes Node from a checksum-verified mirror with a persistent cache) → `dotnet publish -c Release -r win-x64 --self-contained true` → stage `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → install → hash/version smoke. Use a fresh staging directory or the governed replacement procedure; do not copy an existing child into itself. macOS uses its own bundle/package scripts and must be verified on a Mac. `npm run mirror:installed` refreshes both Windows runtime trees with a five-endpoint smoke; it does not rebuild the native shell.
 
 `TokenTrackerWin/EmbeddedServer/` bundles the CLI runtime and built dashboard — bumping only `package.json` leaves desktop-app users on the stale embedded copy.
 

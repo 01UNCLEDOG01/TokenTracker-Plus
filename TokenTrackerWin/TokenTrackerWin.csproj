@@ -33,8 +33,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Floating 1.0.* so restore picks the latest Evergreen-compatible runtime loader. -->
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.*" />
+    <!-- Pinned (2026-11-13). A floating 1.0.* forces NuGet to query the feed for the
+         newest listing on every restore (~5.5 s per build, and it fails offline).
+         The WebView2 *runtime* is evergreen and supplied by the machine; this package
+         only ships the loader/interop the shell compiles against, so pinning removes
+         feed latency without freezing anything users see. Bump deliberately and run
+         the Windows tests when you do. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
   </ItemGroup>
 
   <ItemGroup>

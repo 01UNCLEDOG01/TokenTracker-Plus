@@ -110,8 +110,13 @@ test("a busy server port aborts the update before touching installed files", asy
   fs.writeFileSync(index, "original-installed-page");
   let clock = 0;
   class FastClock extends Date { static now() { clock += 50000; return clock; } }
+  // mirror-installed.cjs 用 ./dashboard-fingerprint.cjs 的 isFresh 决定要不要重建；
+  // --skip-build 分支根本不调 build()，这里给个恒 false 的桩即可（真模块从 test/ 目录
+  // 解析不到脚本目录下的相对路径）。
   const stubRequire = (name) => name === "child_process"
-    ? { spawnSync: () => ({ status: 0, stdout: "" }) } : require(name);
+    ? { spawnSync: () => ({ status: 0, stdout: "" }) }
+    : name === "./dashboard-fingerprint.cjs" ? { isFresh: () => false }
+    : require(name);
   const sandbox = {
     __dirname: path.join(repo, "scripts"), require: stubRequire, module: { exports: {} },
     Date: FastClock, fetch: async () => ({ status: 200 }), console: { log() {}, warn() {}, error() {} },

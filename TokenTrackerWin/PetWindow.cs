@@ -166,6 +166,7 @@ internal sealed class PetWindow : Window
         IsVisibleChanged += (_, _) =>
         {
             _activity?.Update(IsVisible);
+            if (_coreReady) WebViewMemoryTarget.Apply(_webView.CoreWebView2, IsVisible, message => Diag.Log("pet", message));
             if (IsVisible) PushContext();
         };
         _server.StatusChanged += OnServerStatusChanged;

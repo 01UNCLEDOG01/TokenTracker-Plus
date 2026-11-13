@@ -26,7 +26,11 @@ test("failed currency reads preserve the last known currency instead of persisti
 test("hidden and minimized dashboards suspend with OAuth and restore race protection", () => {
   const source = read("DashboardWindow.cs");
   assert.match(source, /IsVisibleChanged[^\n]*UpdateWebViewActivity/);
-  assert.match(source, /_activity\?\.Update\(IsVisible && WindowState != WindowState.Minimized, _oauthInFlight\)/);
+  assert.match(source, /private bool IsWebViewActive => IsVisible && WindowState != WindowState.Minimized;/);
+  assert.match(source, /_activity\?\.Update\(IsWebViewActive, _oauthInFlight\)/);
+  // 2026-11-13: hidden panels also drop WebView2 to Low (cache release) while the
+  // renderer sleep keeps its 10-minute delay; an in-flight OAuth stays active.
+  assert.match(source, /WebViewMemoryTarget\.Apply\(_webView\.CoreWebView2, IsWebViewActive \|\| _oauthInFlight/);
   assert.match(source, /visible => view.Visibility = visible \? Visibility.Visible : Visibility.Collapsed/);
   assert.match(source, /core.Resume, core.TrySuspendAsync, Log/);
   // Behavioral coverage for pending suspension, recovery and OAuth is in
