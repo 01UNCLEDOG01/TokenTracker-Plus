@@ -104,7 +104,7 @@ describe("DeviceUsageCard", () => {
     expect(screen.getByText("MacBook Pro")).toBeTruthy();
   });
 
-  it("lists account-level sources as non-clickable rows inside the shared denominator", async () => {
+  it("keeps account-level sources out of the device rows (footnote only) while sharing the denominator", async () => {
     const onSelectDevice = vi.fn();
     const { container } = render(
       <DeviceUsageCard
@@ -120,6 +120,9 @@ describe("DeviceUsageCard", () => {
     expect(text).toContain("30.0%");
     expect(text).toContain("20.0%");
     expect(text).toContain("50.0%");
+    // 账号级来源不再和设备并排成行：只有一行脚注，且带「Account-wide」说明。
+    expect(screen.getAllByText("Account-wide")).toHaveLength(1);
+    expect(row.closest("[data-device-row]")).toBeNull();
     // Account-level usage has no device to filter by — clicking must not select.
     await userEvent.click(row);
     expect(onSelectDevice).not.toHaveBeenCalled();

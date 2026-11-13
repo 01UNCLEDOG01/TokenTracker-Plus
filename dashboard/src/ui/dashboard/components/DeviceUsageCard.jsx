@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Laptop, Monitor, MonitorSmartphone, Pencil, Check, X } from "lucide-react";
 import { Card } from "../../components";
+import { cn } from "../../../lib/cn";
 import { copy } from "../../../lib/copy";
 import { useTokenFormat } from "../../../hooks/useTokenFormat.js";
 import { formatDeviceLabel } from "../../../lib/device-label";
@@ -18,6 +19,12 @@ function PlatformIcon({ platform, className }) {
   if (p.includes("win")) return <Monitor className={className} aria-hidden />;
   if (p.includes("linux")) return <Monitor className={className} aria-hidden />;
   return <MonitorSmartphone className={className} aria-hidden />;
+}
+
+function percentOf(tokens, total) {
+  const sum = Number(total) || 0;
+  if (sum <= 0) return "0.0";
+  return (((Number(tokens) || 0) / sum) * 100).toFixed(1);
 }
 
 function isCurrentDevice(device, currentDeviceId) {
@@ -84,6 +91,8 @@ export function DeviceUsageCard({ devices = [], accountSources = [], currentDevi
   }
 
   const accountRows = accountSources.filter((s) => (Number(s.total_tokens) || 0) > 0);
+  // 先算好布尔值：JSX 里直接写 length 大于 0 的 && 判定会被 ui-hardcode 扫描器当成文本。
+  const hasAccountRows = accountRows.length > 0;
 
   // Empty state (defensive: today the card is only mounted with >= 2 devices).
   if (ranked.length === 0 && accountRows.length === 0) {
@@ -273,57 +282,43 @@ export function DeviceUsageCard({ devices = [], accountSources = [], currentDevi
           );
         })}
 
-        {/* Account-level sources (e.g. Cursor) — usage synced from the
-            provider's per-account API, so it belongs to the whole account, not
-            any one device. Listed as their own rows (after devices, not
-            interleaved: a different attribution class) so the card total
-            matches the dashboard total; not clickable — there is no device to
-            filter by. */}
-        {accountRows.map((s) => {
-          const tokens = Number(s.total_tokens) || 0;
-          const percent = total > 0 ? ((tokens / total) * 100).toFixed(1) : "0.0";
-          const rowOpacity = anySelected ? "opacity-40" : "opacity-100";
-          return (
-            <div
-              key={`account-${s.source}`}
-              className={`rounded-md px-2 py-1.5 transition-all duration-200 ${rowOpacity}`}
-              title={copy("dashboard.device_card.account_scope_tip")}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="h-3.5 w-3.5 shrink-0 flex items-center justify-center">
-                    <ProviderIcon provider={s.source} size={14} />
+        {/* 账号级来源（例如 Cursor / TRAE 走的是服务商的账号 API）：它们没有设备
+            归属，以前在这里和设备并排成「行」，看起来就像多了两台机器（站主
+            2026-11-13 报「为什么 trae 和 cursor 也被识别成设备」）。现在合成
+            一行脚注：设备区只列设备，账号级用量单独说明，分母仍包含它们，
+            所以百分比之和依旧等于 100%。 */}
+        {hasAccountRows && (
+          <div
+            className={cn(
+              "mt-1 flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-md px-2 py-1.5 text-[11px] text-oai-gray-500 dark:text-oai-gray-400 transition-all duration-200",
+              anySelected && "opacity-40",
+            )}
+            title={copy("dashboard.device_card.account_scope_tip")}
+          >
+            <span className="uppercase tracking-wide text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+              {copy("dashboard.device_card.account_scope")}
+            </span>
+            {accountRows.map((s) => {
+              const tokens = Number(s.total_tokens) || 0;
+              const percent = percentOf(tokens, total);
+              return (
+                <span key={`account-${s.source}`} className="flex items-center gap-0.5">
+                  <span aria-hidden>·</span>
+                  <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+                    <ProviderIcon provider={s.source} size={11} />
                   </span>
-                  <span className="block truncate text-[13px] font-medium text-oai-black dark:text-oai-white">
+                  <span className="font-medium text-oai-gray-600 dark:text-oai-gray-300">
                     {formatProviderDisplayName(s.source)}
                   </span>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-oai-gray-400 dark:text-oai-gray-500">
-                    {copy("dashboard.device_card.account_scope")}
-                  </span>
-                </div>
-                <span
-                  title={formatTokensTooltip(tokens)}
-                  className="shrink-0 text-[13px] font-semibold tabular-nums text-oai-black dark:text-oai-white"
-                >
-                  {formatTokens(tokens)}
-                  <span className="text-oai-gray-400 dark:text-oai-gray-500 font-normal">
-                    {DOT_DIVIDER}
+                  <span className="tabular-nums">
                     {percent}
                     {PCT_SIGN}
                   </span>
                 </span>
-              </div>
-              <div className="mt-1.5 h-[2px] bg-oai-gray-100 dark:bg-oai-gray-800 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-[width,background-color] duration-700 ease-out ${
-                    anySelected ? "bg-oai-gray-300 dark:bg-oai-gray-600" : "bg-oai-brand/50"
-                  }`}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </div>
     </Card>
   );

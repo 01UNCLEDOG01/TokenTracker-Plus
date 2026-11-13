@@ -1586,6 +1586,13 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 .tt-perks-page .perk-page-turn-out {
   transform-origin: 0 50%;
   animation: perk-page-turn-out 0.62s cubic-bezier(0.45, 0.05, 0.35, 1) both;
+  /* 转出层是 absolute inset-0，高度跟着「新页」走；两页行数不同时旧卡会被
+     压扁（站主 2026-11-13「切页闪一下」）。让行按自身高度排、溢出不挤。 */
+  align-content: start;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  /* 纯装饰层：翻页 0.62s 内不能挡住下面卡片的点击。 */
+  pointer-events: none;
 }
 @keyframes perk-page-turn-out {
   0% { opacity: 1; }
@@ -1597,9 +1604,13 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 .tt-perks-page .perk-page-turn {
   transform-origin: 0 50%;
   animation: perk-page-turn 0.62s cubic-bezier(0.45, 0.05, 0.35, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
+/* 起点不再压到 opacity 0.2：那几帧能透过卡片看到底板，就是「闪一下」的观感。
+   0.75 + 收窄到 -70° 后，起始帧已经是「几乎翻好的纸」，视觉上只剩翻页运动。 */
 @keyframes perk-page-turn {
-  0% { opacity: 0.2; filter: brightness(0.82); transform: rotateY(-95deg); }
+  0% { opacity: 0.75; filter: brightness(0.9); transform: rotateY(-70deg); }
   30% { opacity: 1; }
   100% { opacity: 1; filter: brightness(1); transform: rotateY(0deg); }
 }

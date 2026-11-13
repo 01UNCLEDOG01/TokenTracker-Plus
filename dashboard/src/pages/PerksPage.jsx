@@ -22,7 +22,7 @@ import { getPublicVisibility, setPublicVisibility } from "../lib/api";
 import { useInsforgeAuth } from "../contexts/InsforgeAuthContext.jsx";
 import { cn } from "../lib/cn";
 import { showToast } from "../ui/components/Toast.jsx";
-import { ProviderIcon, hasProviderIcon } from "../ui/dashboard/components/ProviderIcon.jsx";
+import { ProviderIcon, hasProviderIcon, providerLogoSrc } from "../ui/dashboard/components/ProviderIcon.jsx";
 import { PERK_CATEGORIES, PERK_PROVIDERS } from "../data/perksData.js";
 import { PERKS_AIHOT_PROVIDERS } from "../data/perks-aihot-map.js";
 import { PERKS_CLAIM_YUAN } from "../data/perks-claim-yuan.js";
@@ -665,7 +665,7 @@ export function cardRarity(cycleCounts, dealYuan) {
 
 function AlbumMiniLogo({ item, hasIcon }) {
   if (hasIcon) {
-    return <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="lazy" />;
+    return <ProviderIcon provider={item.provider} size={26} className="object-contain" loading="eager" />;
   }
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
@@ -931,6 +931,21 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview
     const timer = setTimeout(() => setLeavingPage(null), 640);
     return () => clearTimeout(timer);
   }, [safePage]);
+  // 翻页白闪的主要来源是「新页 remount → 品牌图标重新请求/解码」。点击翻页前
+  // 先把相邻两页的图标拉进浏览器缓存，翻过去时直接命中（站主 2026-11-13）。
+  useEffect(() => {
+    for (const target of [safePage + 1, safePage - 1]) {
+      if (target < 0 || target >= totalPages) continue;
+      for (const entry of stripItems.slice(target * ALBUM_PAGE_SIZE, (target + 1) * ALBUM_PAGE_SIZE)) {
+        const src = providerLogoSrc(entry?.item?.provider);
+        if (src) {
+          const img = new Image();
+          img.src = src;
+        }
+      }
+    }
+  }, [safePage, totalPages, stripItems]);
+
   const leavingItems = leavingPage === null
     ? []
     : stripItems.slice(leavingPage * ALBUM_PAGE_SIZE, (leavingPage + 1) * ALBUM_PAGE_SIZE);

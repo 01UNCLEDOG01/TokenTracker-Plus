@@ -729,6 +729,13 @@ function PlaceholderIcon({ size = 16, className = "" }) {
   );
 }
 
+/** 品牌图标 URL（没有位图 logo 时返回 null）——供翻页预取用。 */
+export function providerLogoSrc(provider) {
+  if (!provider) return null;
+  const logoKey = piAwareLogoKey(String(provider).toUpperCase());
+  return PROVIDER_LOGO_MAP[logoKey] || null;
+}
+
 export function hasProviderIcon(provider) {
   if (!provider) return false;
   const normalized = String(provider).toUpperCase();
