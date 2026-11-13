@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   allowInsforgeSessionRestore,
   getInsforgeConfigurationError,
@@ -81,6 +81,8 @@ export function InsforgeAuthProvider({ children }) {
   const [client, setClient] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // 用户主动退出登录后，回焦补检不得把会话又恢复回来。
+  const explicitlySignedOutRef = useRef(false);
 
   useEffect(() => {
     const changed = () => {
@@ -138,6 +140,67 @@ export function InsforgeAuthProvider({ children }) {
       active = false;
     };
   }, [client]);
+
+  // 冷启动竞态兜底（站主 2026-11-13：Mac 开面板每次都要重输邮箱密码）。上面的
+  // 恢复链只在挂载时跑一次；本地服务还在起、或自托管实例一时不可达时那一次会
+  // 落空，于是"未登录"被钉在整个窗口生命周期里——其实刷新令牌一直好着。首次恢复
+  // 结束后，启动补检 + 窗口回焦/页面可见都再问一遍，恢复成功就静默登上。
+  // 三条约束：①不跟首次恢复并行（否则两条链各发一次刷新，白烧一次轮换）；
+  // ②自动补检按 15s→30s→60s→120s 退避且最多 6 次，实例始终不可达也不会被打爆；
+  // ③明确点过「退出登录」后不再自动恢复（否则回焦等于把用户又登回去）。
+  useEffect(() => {
+    if (!client || user || loading) return;
+    if (!shouldRestoreInsforgeSession()) return;
+    const MAX_AUTO_ATTEMPTS = 6;
+    const FOCUS_COALESCE_MS = 15_000;
+    let active = true;
+    let inFlight = false;
+    let lastAttemptAt = 0;
+    let failures = 0;
+    let timer = null;
+    const schedule = (delayMs) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; attempt(); }, delayMs);
+    };
+    const attempt = async () => {
+      if (!active || inFlight || explicitlySignedOutRef.current) return;
+      // 回焦/可见性事件会连发；一次尝试本身已带重试预算，15 秒内不重复发车。
+      if (Date.now() - lastAttemptAt < FOCUS_COALESCE_MS) return;
+      lastAttemptAt = Date.now();
+      inFlight = true;
+      let signedIn = false;
+      try {
+        const { data } = await restoreInsforgeUser(client.auth, { isActive: () => active });
+        if (active && data?.user && !explicitlySignedOutRef.current && isCurrentInsforgeClient(client)) {
+          signedIn = true;
+          setUser(data.user);
+        }
+      } catch {
+        /* stay signed out until the next attempt */
+      } finally {
+        inFlight = false;
+      }
+      if (!active || signedIn) return;
+      failures += 1;
+      if (failures < MAX_AUTO_ATTEMPTS) schedule(Math.min(120_000, 15_000 * 2 ** (failures - 1)));
+    };
+    // 用户主动回到面板：算新的一轮，清空自动补检的退避计数。
+    const onWake = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      failures = 0;
+      attempt();
+    };
+    window.addEventListener("focus", onWake);
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onWake);
+    // 首次恢复刚结束，嵌入式服务（以及它背后的实例）可能还没就绪。
+    schedule(4000);
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("focus", onWake);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onWake);
+    };
+  }, [client, user, loading]);
 
   const refreshUser = useCallback(async () => {
     if (!client || !isCurrentInsforgeClient(client)) return;
@@ -209,7 +272,7 @@ export function InsforgeAuthProvider({ children }) {
       if (!client || !isCurrentInsforgeClient(client)) return { data: null, error: new Error(copy("instance.configuration.changed")) };
       const { data, error } = await client.auth.signInWithPassword(request);
       if (!isCurrentInsforgeClient(client)) return { data: null, error: new Error(copy("instance.configuration.changed")) };
-      if (data?.user) { allowInsforgeSessionRestore(); setUser(data.user); }
+      if (data?.user) { explicitlySignedOutRef.current = false; allowInsforgeSessionRestore(); setUser(data.user); }
       return { data, error };
     },
     [client],
@@ -220,7 +283,7 @@ export function InsforgeAuthProvider({ children }) {
       if (!client || !isCurrentInsforgeClient(client)) return { data: null, error: new Error(copy("instance.configuration.changed")) };
       const { data, error } = await client.auth.signUp(request);
       if (!isCurrentInsforgeClient(client)) return { data: null, error: new Error(copy("instance.configuration.changed")) };
-      if (data?.user && data?.accessToken) { allowInsforgeSessionRestore(); setUser(data.user); }
+      if (data?.user && data?.accessToken) { explicitlySignedOutRef.current = false; allowInsforgeSessionRestore(); setUser(data.user); }
       return { data, error };
     },
     [client],
@@ -257,6 +320,7 @@ export function InsforgeAuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     if (!client) return;
+    explicitlySignedOutRef.current = true;
     invalidateAccountResponseCache();
     await client.auth.signOut();
     clearCloudDeviceSession();

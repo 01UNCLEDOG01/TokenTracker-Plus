@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Mail, ArrowLeft } from "lucide-react";
 import { useInsforgeAuth } from "../contexts/InsforgeAuthContext.jsx";
+import { getInsforgeInstanceFingerprint } from "../lib/insforge-config";
 import { getNativeOAuthBridge } from "../lib/native-bridge.js";
 import { useLocale } from "../hooks/useLocale.js";
 import { copy } from "../lib/copy";
@@ -32,6 +33,49 @@ const PROVIDER_LABELS = {
 
 function providerLabel(key) {
   return PROVIDER_LABELS[key] || String(key || "").replace(/-/g, " ");
+}
+
+// 记住上次登录用的邮箱（站主 2026-11-13）。只存邮箱：它不是密钥，省掉每次
+// 重输账号的麻烦；密码仍交给系统钥匙串/用户自己。落 localStorage 而不是
+// 烤进构建产物，跨版本热更也不会丢。按实例标记存：换自托管实例后不能把上一个
+// 实例的账号回填进登录框。
+const LAST_EMAIL_KEY = "tt.login.lastEmail";
+
+function instanceFingerprint() {
+  try {
+    return getInsforgeInstanceFingerprint() || "";
+  } catch {
+    return "";
+  }
+}
+
+function readLastLoginEmail() {
+  try {
+    const stored = window.localStorage.getItem(LAST_EMAIL_KEY);
+    if (!stored) return "";
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && typeof parsed.email === "string") {
+        return parsed.instance === instanceFingerprint() ? parsed.email.trim() : "";
+      }
+    } catch {
+      /* v1 形态：裸邮箱字符串（没有实例标记），照用一次，下次登录会写成带标记的。 */
+    }
+    const legacy = stored.trim();
+    return legacy.includes("@") ? legacy : "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberLoginEmail(value) {
+  const email = typeof value === "string" ? value.trim() : "";
+  if (!email.includes("@")) return;
+  try {
+    window.localStorage.setItem(LAST_EMAIL_KEY, JSON.stringify({ instance: instanceFingerprint(), email }));
+  } catch {
+    /* private/limited storage keeps the in-memory value only */
+  }
 }
 
 function resetTokenFromExchange(data) {
@@ -73,7 +117,9 @@ export function LoginCard({
   } = useInsforgeAuth();
 
   const [mode, setMode] = useState(initialMode);
-  const [email, setEmail] = useState(initialEmail);
+  // 只有普通登录要回填；重置密码/找回流程的邮箱必须由用户自己给（写错就直接
+  // 拿错账号去换重置码）。
+  const [email, setEmail] = useState(initialEmail || (initialMode === "signin" ? readLastLoginEmail() : ""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
@@ -82,7 +128,9 @@ export function LoginCard({
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState(null);
   const [complete, setComplete] = useState(false);
-  const [emailExpanded, setEmailExpanded] = useState(initialMode !== "signin" || initialEmail ? true : false);
+  const [emailExpanded, setEmailExpanded] = useState(
+    initialMode !== "signin" || initialEmail || readLastLoginEmail() ? true : false,
+  );
   const [configLoading, setConfigLoading] = useState(true);
   const [oauthProviders, setOauthProviders] = useState([]);
   const [passwordMinLength, setPasswordMinLength] = useState(8);
@@ -201,6 +249,7 @@ export function LoginCard({
           setMode("signin");
           return;
         }
+        rememberLoginEmail(email);
         await refreshUser();
         return;
       }
@@ -209,6 +258,7 @@ export function LoginCard({
         setError(err.message || String(err));
         return;
       }
+      rememberLoginEmail(email);
       await refreshUser();
     } finally {
       setBusy(false);

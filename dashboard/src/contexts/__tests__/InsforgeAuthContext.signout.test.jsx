@@ -21,8 +21,13 @@ vi.mock("../../lib/insforge-config", () => ({
   allowInsforgeSessionRestore: vi.fn(),
   INSFORGE_INSTANCE_CHANGED_EVENT: "tt.insforgeInstanceChanged",
 }));
+// 站主 2026-11-13：回焦补检（InsforgeAuthContext 的冷启动兜底）不得在用户
+// 主动退出后把会话又恢复回来，用 alwaysUser 让恢复链永远"成功"来钉这条。
+const restore = vi.hoisted(() => ({ alwaysUser: false }));
 vi.mock("../../lib/insforge-session-recovery.mjs", () => ({
-  restoreInsforgeUser: () => client.auth.getCurrentUser(),
+  restoreInsforgeUser: async () => (restore.alwaysUser
+    ? { data: { user: { id: "fixture-user" } }, error: null }
+    : client.auth.getCurrentUser()),
 }));
 vi.mock("../../lib/api", () => ({
   invalidateAccountResponseCache: vi.fn(),
@@ -42,6 +47,7 @@ describe("sign-out sync preference", () => {
   beforeEach(() => {
     localStorage.clear();
     state.signedIn = true;
+    restore.alwaysUser = false;
     vi.clearAllMocks();
   });
 
@@ -63,6 +69,35 @@ describe("sign-out sync preference", () => {
     expect(result.current.signedIn).toBe(true);
     expect(getCloudSyncEnabled()).toBe(preference === "1");
     expect(getCloudUsageReady()).toBe(false);
+  });
+
+  it("signs the user in on the next focus when the cold-start restore raced the server", async () => {
+    // 首次恢复落空（服务还在起）→ 会话不该被钉成"未登录"，回焦要能补上。
+    state.signedIn = false;
+    const wrapper = ({ children }) => <InsforgeAuthProvider>{children}</InsforgeAuthProvider>;
+    const { result } = renderHook(() => useInsforgeAuth(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.signedIn).toBe(false);
+    restore.alwaysUser = true;
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+    expect(result.current.signedIn).toBe(true);
+  });
+
+  it("does not sign the user back in after an explicit sign-out when the window regains focus", async () => {
+    restore.alwaysUser = true;
+    const wrapper = ({ children }) => <InsforgeAuthProvider>{children}</InsforgeAuthProvider>;
+    const { result } = renderHook(() => useInsforgeAuth(), { wrapper });
+    await waitFor(() => expect(result.current.signedIn).toBe(true));
+    await act(async () => result.current.signOut());
+    expect(result.current.signedIn).toBe(false);
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+    expect(result.current.signedIn).toBe(false);
   });
 
   it("keeps signed-out localhost in the local view with sync preference enabled", async () => {
