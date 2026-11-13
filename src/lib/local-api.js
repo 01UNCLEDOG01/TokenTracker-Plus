@@ -16,6 +16,7 @@ const { accountSlugFor, fetchAccountUsage, fetchAccountFunction, mintAccessToken
 const { resetCloudDeviceUsage, readCloudUsageReset } = require("./cloud-usage-reset");
 const { isTerminalSource } = require("./terminal-sources");
 const { isLoopbackHostname } = require("./loopback-host");
+const { instanceFetch } = require("./instance-ca");
 const { getOrCreateMachineId, computeStableMachineId } = require("./machine-id");
 const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 const { createCloudDeviceTokenStore } = require("./cloud-device-token");
@@ -3794,13 +3795,15 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           delete proxyHeaders["content-length"];
           proxyBody = Buffer.from(JSON.stringify({ refresh_token: relayRefreshToken }), "utf8");
         }
-        let proxyRes = await fetch(effectiveTargetUrl, {
+        // instanceFetch：实例用自签 CA 时自动从 /ca.crt 引导并缓存，不再依赖
+        // 进程启动环境里的 NODE_EXTRA_CA_CERTS（2026-11-13 登录事故）。
+        let proxyRes = await instanceFetch(effectiveTargetUrl, {
           method: req.method || "GET",
           headers: proxyHeaders,
           body: proxyBody,
           credentials: "include",
           redirect: "manual",
-        });
+        }, { baseUrl: insforgeBase });
         let resBody = Buffer.from(await proxyRes.arrayBuffer());
 
         // Stale-CSRF rescue: 403 Invalid CSRF on refresh does NOT mean the
@@ -3817,7 +3820,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           delete rescueHeaders["cookie"];
           delete rescueHeaders["x-csrf-token"];
           delete rescueHeaders["content-length"];
-          const rescueRes = await fetch(
+          const rescueRes = await instanceFetch(
             `${insforgeBase.replace(/\/$/, "")}/api/auth/refresh?client_type=mobile`,
             {
               method: "POST",
@@ -3826,6 +3829,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
               credentials: "include",
               redirect: "manual",
             },
+            { baseUrl: insforgeBase },
           );
           if (rescueRes.ok) {
             proxyRes = rescueRes;
