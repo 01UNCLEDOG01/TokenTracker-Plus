@@ -866,8 +866,17 @@ final class DynamicIslandController: NSObject {
             // fallback — the layer is what actually filters (issue #507).
             let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
             guard DynamicIslandFullscreenPolicy.windowLayerCanCoverIslandScreen(layer) else { continue }
-            if let owner = info[kCGWindowOwnerName as String] as? String,
-               Self.fullscreenIgnoredWindowOwners.contains(owner) {
+            let owner = info[kCGWindowOwnerName as String] as? String ?? ""
+            if Self.fullscreenIgnoredWindowOwners.contains(owner) {
+                continue
+            }
+            // Screensaver level (>= 1000) is shared with helper surfaces that
+            // are NOT full-screen apps: automation toolkits keep full-screen
+            // capture/overlay windows there for their entire session lifetime,
+            // and treating them as one hid the island the whole time (站主
+            // 2026-11-13: island gone while an agent session was active). Only
+            // an actual screensaver owner is decisive at that layer.
+            if layer >= 1000 && !owner.lowercased().contains("screensaver") {
                 continue
             }
             // kCGWindowBounds is a CFDictionary of NSNumbers; a Swift
