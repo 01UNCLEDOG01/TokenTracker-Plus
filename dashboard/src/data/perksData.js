@@ -865,7 +865,6 @@ export const PERK_PROVIDERS = [
     "tips": "登录后在「我的额度」查看实名赠额是否到账（有效期一个月）；充值买一送一档位与截止以首页横幅当期规则为准。",
     "officialUrl": "https://tokenrhythm.studio",
     "hasInvite": false,
-    "endsAt": "2026-11-13",
     "checkedAt": "2026-11-12",
     "sourceUrl": "https://tokenrhythm.studio/"
   },

@@ -827,15 +827,15 @@ describe("PerksPage", () => {
 
   it("稀有度与绝版：等待态卡背按连击挂金档，活动过期即绝版（未领也盖章）并计数", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-11-20T10:00:00+08:00"));
+    vi.setSystemTime(new Date("2026-12-06T10:00:00+08:00"));
     // 先定假时钟再种数据：last=2020 → 等待态青背，金档材质刻在卡背上
     //（qoder_cn 已 retired，换 agentrouter 承载稀有度断言）。
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
         agentrouter: { daily: { last: "2020-01-01", count: 60 } },
-        // tokenrhythm 活动已过期（endsAt 2026-11-13，假时钟 11-20）：领过 → 玻璃柜陈列 + 盖章
-        tokenrhythm: { once: { last: "2026-11-13", count: 1 } },
+        // devin 限免活动已过期（endsAt 2026-12-05，假时钟 12-06）：领过 → 玻璃柜陈列 + 盖章
+        devin: { once: { last: "2026-12-05", count: 1 } },
       },
     }));
     render(
