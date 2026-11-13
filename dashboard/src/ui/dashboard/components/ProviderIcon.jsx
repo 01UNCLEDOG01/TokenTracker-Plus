@@ -490,7 +490,9 @@ const PROVIDER_LOGO_MAP = {
   ELEVENLABS: "/brand-logos/elevenlabs.png?v=1",
   ZED: "/brand-logos/zed.png?v=1",
   TOKENHUB: "/brand-logos/tokenhub.ico?v=1",
-  WECHAT_MINIPROGRAM: "/brand-logos/wechat_miniprogram.ico?v=1",
+  // 2026-11-13：原文件是 87KB 的 HTML 错误页（developers.weixin.qq.com/favicon.ico 返回 404
+  // 页面），浏览器永远渲染不出来。换成 res.wx.qq.com 的真 WeChat 图标（PNG）。
+  WECHAT_MINIPROGRAM: "/brand-logos/wechat_miniprogram.png?v=1",
   MINICPM_OCR: "/brand-logos/minicpm_ocr.svg?v=1",
   STEPAUDIO: "/brand-logos/stepaudio.png?v=1",
   SOMARK: "/brand-logos/somark.svg?v=1",
