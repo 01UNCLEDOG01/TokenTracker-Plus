@@ -34,7 +34,9 @@ export const PERKS_CLAIM_YUAN = {
   tuanjie_cowork: { daily: 2.57 },  // ¥77.18/月 ÷30
   scnet: { once: 60 },              // 新户 1 亿 Token = ¥60（一次性）
   sensenova: { once: 60 },          // ≈¥60/月（永久免费）
-  opencode: { once: 30 },           // 限免日额度叠加 ¥30–60，取保守下限
+  // opencode：日签卡（站主 2026-11-13 定谳，限免日额度）——daily 供累计/本月；once 仅供
+  // AIHOT limited deal 的「今天还能领」估值（deal kind=limited 映射到 once）。
+  opencode: { daily: 1.0, once: 30 },
   opencode_go: {},                  // 纯付费渠道，无免费额度
   autoclaw: { daily: 1.0 },         // 站主折扣口径 ≈¥30/月 ÷30（新户礼数额不锚定，不入单次）
   autoclaw_intl: { daily: 1.2 },    // ≈¥36/月 ÷30

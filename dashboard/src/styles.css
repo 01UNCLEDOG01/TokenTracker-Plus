@@ -1130,11 +1130,6 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   -webkit-mask: url("/token-tracker-bolt-outline.svg") center / contain no-repeat;
 }
 
-.tt-sidebar-account-control {
-  min-width: 44px;
-  min-height: 44px;
-}
-
 /* Fixed visual sizes stay compact even inside pages with 44px control targets. */
 .tt-sidebar-theme,
 .tt-sidebar-star,
@@ -1174,14 +1169,6 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   outline-offset: 2px;
 }
 
-.tt-sidebar-account-control:focus-visible {
-  outline: 2px solid #404040 !important;
-  outline-offset: 2px;
-}
-
-.dark .tt-sidebar-account-control:focus-visible {
-  outline-color: #d4d4d4 !important;
-}
 
 .dark .tt-cloud-theme {
   --tt-cloud-ink: #f5f5f5;

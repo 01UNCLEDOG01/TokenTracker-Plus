@@ -1070,7 +1070,8 @@ export const PERK_PROVIDERS = [
     ],
     "provider": "opencode",
     "category": [
-      "permanent_free"
+      "permanent_free",
+      "daily_claim"
     ],
     "badge": "Console 限免模型（需走客户端）",
     "badgeType": "purple",

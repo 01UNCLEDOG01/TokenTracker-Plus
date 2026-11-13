@@ -213,8 +213,9 @@ describe("PerksPage", () => {
     expect(screen.getByText("每日可领取积分")).toBeInTheDocument();
     // 2026-11-11：NVIDIA Build 改用「按速率免费的长期免费档」迁入 permanent_free（16→17）。
     // 2026-11-13：端砚免费直用下线（改墨点折扣计费），移出 permanent_free（17→16）。
+    // 2026-11-13：opencode 限免模型是每日额度，补 daily_claim 周期（站主定谳，日签 17→18）。
     expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("16");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("17");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("18");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {

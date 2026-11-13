@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useInsforgeAuth } from "../contexts/InsforgeAuthContext.jsx";
 import { useLoginModal } from "../contexts/LoginModalContext.jsx";
 import { useLocale } from "../hooks/useLocale.js";
@@ -7,7 +7,12 @@ import { isNativeApp } from "../lib/native-bridge.js";
 import { copy } from "../lib/copy";
 import { cn } from "../lib/cn";
 import { EquippedTitleBadge } from "../ui/achievements/EquippedTitleBadge";
-import { useEquippedTitle, titleDisplayName } from "../ui/achievements/title-registry";
+import {
+  useEquippedTitle,
+  titleDisplayName,
+  getAvatarResonanceFrame,
+  getAvatarFramePulseClass,
+} from "../ui/achievements/title-registry";
 
 function pickAvatarUrl(user) {
   if (!user || typeof user !== "object") return null;
@@ -39,8 +44,9 @@ function initialsFromName(name) {
 }
 
 /**
- * Compact identity control. Avatar click navigates to /settings — all account
- * preferences live there now. Sign-in shows the login modal as before.
+ * Compact identity control. Avatar + name navigate to /settings?section=account;
+ * the equipped title badge next to the name navigates to /achievements.
+ * Sign-in shows the login modal as before.
  */
 export function InsforgeUserHeaderControls({ className, variant = "header", collapsed = false, onAfterAction }) {
   // Subscribe to locale so labels re-render on language switch.
@@ -115,59 +121,89 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
   }
 
   const handleClick = () => {
-    navigate("/settings");
+    // 头像/名字 → 设置·账户；称号徽章是另一个目标（成就页），见下方 Link。
+    navigate("/settings?section=account");
     onAfterAction?.();
   };
 
-  return (
-    <div
-      className={cn(
-        isSidebar ? "relative flex w-full shrink-0 items-center" : "relative flex shrink-0 items-center",
-        className,
-      )}
-    >
-      <button
-        type="button"
-        onClick={handleClick}
-        className={cn(
-          isSidebar
-            ? cn(
-                "tt-sidebar-account-control flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-oai-gray-200/60 dark:hover:bg-oai-gray-800 transition-colors min-w-0",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500",
-                collapsed && "justify-center px-0 py-0 h-9 w-9",
-              )
-            : "flex items-center gap-2 rounded-md pl-1 pr-2 py-1 border border-transparent hover:bg-oai-gray-100 dark:hover:bg-oai-gray-900/80 hover:border-oai-gray-200 dark:hover:border-oai-gray-800 transition-colors",
-        )}
-        aria-label={copy("header.auth.open_settings")}
-        title={
-          isSidebar && collapsed
-            ? [displayName, equippedTitle ? `【${titleDisplayName(equippedTitle)}】` : null].filter(Boolean).join(" · ")
-            : undefined
-        }
-      >
-        {isSidebar ? (
-          <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
-            {avatarSrc && !avatarFailed ? (
-              <img
-                src={avatarSrc}
-                alt=""
-                width={20}
-                height={20}
-                className="h-5 w-5 rounded-full object-cover ring-1 ring-oai-gray-300 dark:ring-oai-gray-700"
-                referrerPolicy="no-referrer"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : initialsFromName(displayName) === "?" ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-oai-brand-600/30 text-white ring-1 ring-oai-brand-500/50">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3 opacity-80">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                </svg>
-              </span>
-            ) : (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-oai-brand-600 text-[9px] font-semibold text-white ring-1 ring-oai-brand-500/50">
-                {initialsFromName(displayName)}
-              </span>
+  const resonanceTier = equippedTitle?.resonanceTier || equippedTitle?.resonance?.tier || 0;
+  // 称号共鸣档位决定头像框颜色（1 琥珀 / 2 银 / 3 金 / 4 青色脉冲），
+  // 与 LocalProfileIdentity 的本机身份区保持同一套观感。
+  const avatarRing = equippedTitle
+    ? getAvatarResonanceFrame(resonanceTier, equippedTitle.theme)
+    : "ring-1 ring-oai-gray-300 dark:ring-oai-gray-700";
+  // 闪烁只挂独立叠层，头像本体（图片/首字母）保持不动（站主 2026-11-13）。
+  const pulseClass = equippedTitle ? getAvatarFramePulseClass(resonanceTier) : null;
+
+  const identityTooltip = [displayName, equippedTitle ? `【${titleDisplayName(equippedTitle)}】` : null]
+    .filter(Boolean)
+    .join(" · ");
+
+  const avatarNode = (dim) => {
+    const size = dim === 20 ? "h-5 w-5" : "h-8 w-8";
+    const initials = initialsFromName(displayName);
+    return (
+      <span className={cn("relative inline-flex shrink-0 items-center justify-center rounded-full", size, avatarRing)}>
+        {avatarSrc && !avatarFailed ? (
+          <img
+            src={avatarSrc}
+            alt=""
+            width={dim}
+            height={dim}
+            className="h-full w-full rounded-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={() => setAvatarFailed(true)}
+          />
+        ) : initials === "?" ? (
+          <span className="flex h-full w-full items-center justify-center rounded-full bg-oai-brand-600/30 text-white">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={dim === 20 ? "w-3 h-3 opacity-80" : "w-4 h-4 opacity-80"}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "flex h-full w-full items-center justify-center rounded-full bg-oai-brand-600 font-semibold text-white",
+              dim === 20 ? "text-[9px]" : "text-xs",
             )}
+          >
+            {initials}
+          </span>
+        )}
+        {pulseClass && (
+          <span
+            aria-hidden
+            className={cn("pointer-events-none absolute -inset-0.5 rounded-full", pulseClass)}
+          />
+        )}
+      </span>
+    );
+  };
+
+  if (isSidebar) {
+    return (
+      <div
+        className={cn(
+          "relative flex w-full shrink-0 items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-oai-gray-200/60 dark:hover:bg-oai-gray-800 min-w-0",
+          collapsed && "justify-center gap-0 px-0 py-0 h-9 w-9",
+          className,
+        )}
+      >
+        <button
+          type="button"
+          onClick={handleClick}
+          aria-label={copy("header.auth.open_settings")}
+          title={collapsed ? identityTooltip : undefined}
+          className="shrink-0 rounded-full p-2 -m-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+        >
+          <span className="relative flex h-5 w-5 items-center justify-center rounded-full">
+            {avatarNode(20)}
             {equippedTitle && (
               <img
                 src={equippedTitle.art}
@@ -176,45 +212,45 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
               />
             )}
           </span>
-        ) : avatarSrc && !avatarFailed ? (
-          <img
-            src={avatarSrc}
-            alt=""
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-full object-cover ring-1 ring-oai-gray-300 dark:ring-oai-gray-700 shrink-0"
-            referrerPolicy="no-referrer"
-            onError={() => setAvatarFailed(true)}
-          />
-        ) : initialsFromName(displayName) === "?" ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oai-brand-600/30 text-white ring-1 ring-oai-brand-500/50">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 opacity-80">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-            </svg>
-          </span>
-        ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oai-brand-600 text-xs font-semibold text-white ring-1 ring-oai-brand-500/50">
-            {initialsFromName(displayName)}
-          </span>
+        </button>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={handleClick}
+              className="block w-full truncate rounded text-left text-[13px] font-medium text-oai-gray-900 dark:text-oai-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+            >
+              {displayName}
+            </button>
+            {equippedTitle && (
+              <Link
+                to="/achievements"
+                onClick={() => onAfterAction?.()}
+                aria-label={copy("nav.achievements")}
+                title={`${copy("nav.achievements")} · ${titleDisplayName(equippedTitle)}`}
+                className="mt-0.5 inline-flex max-w-full rounded-full align-middle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+              >
+                <EquippedTitleBadge title={equippedTitle} size="xs" showIcon={false} />
+              </Link>
+            )}
+          </div>
         )}
-        {isSidebar ? (
-          !collapsed && (
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[13px] font-medium text-oai-gray-900 dark:text-oai-gray-200">
-                {displayName}
-              </span>
-              {equippedTitle && (
-                <span className="mt-0.5 block">
-                  <EquippedTitleBadge title={equippedTitle} size="xs" showIcon={false} />
-                </span>
-              )}
-            </span>
-          )
-        ) : (
-          <span className="hidden sm:inline truncate text-sm font-medium text-oai-gray-900 dark:text-oai-gray-200 max-w-[120px]">
-            {displayName}
-          </span>
-        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("relative flex shrink-0 items-center", className)}>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex items-center gap-2 rounded-md pl-1 pr-2 py-1 border border-transparent hover:bg-oai-gray-100 dark:hover:bg-oai-gray-900/80 hover:border-oai-gray-200 dark:hover:border-oai-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+        aria-label={copy("header.auth.open_settings")}
+      >
+        {avatarNode(32)}
+        <span className="hidden sm:inline truncate text-sm font-medium text-oai-gray-900 dark:text-oai-gray-200 max-w-[120px]">
+          {displayName}
+        </span>
       </button>
     </div>
   );

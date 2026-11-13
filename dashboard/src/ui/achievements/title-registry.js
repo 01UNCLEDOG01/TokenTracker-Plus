@@ -614,7 +614,9 @@ export function setActiveTitleId(titleId) {
       localStorage.removeItem(STORAGE_ACTIVE_TITLE);
     }
     window.dispatchEvent(new CustomEvent(EVENT_TITLE_CHANGED, { detail: titleId }));
-  } catch {}
+  } catch {
+    /* 存储被禁用（隐私模式）时静默降级 */
+  }
 }
 
 export function getTitleById(id) {
@@ -643,7 +645,9 @@ export function useEquippedTitle() {
       if (e.key === "tokentracker:achievement_tiers") {
         try {
           setBadgeTiers(e.newValue ? JSON.parse(e.newValue) : {});
-        } catch {}
+        } catch {
+          /* 损坏的跨窗口快照忽略，不让监听器抛错 */
+        }
       }
     };
     window.addEventListener(EVENT_TITLE_CHANGED, handleUpdate);
@@ -760,7 +764,9 @@ export function getResonanceTextColor(tier) {
 export function getAvatarResonanceFrame(resonanceTier, theme) {
   switch (resonanceTier) {
     case 4:
-      return "ring-2 ring-cyan-300 shadow-xl shadow-cyan-400/50 ring-offset-2 ring-offset-black/40 animate-pulse";
+      // 静态框：闪烁交给 getAvatarFramePulseClass 的独立叠层，
+      // 否则 opacity 动画会连头像本体一起闪（站主 2026-11-13 明确要求只闪框）。
+      return "ring-2 ring-cyan-300 shadow-xl shadow-cyan-400/50 ring-offset-2 ring-offset-black/40";
     case 3:
       return "ring-2 ring-amber-400 shadow-lg shadow-amber-400/40 ring-offset-1 ring-offset-black/20";
     case 2:
@@ -770,6 +776,11 @@ export function getAvatarResonanceFrame(resonanceTier, theme) {
     default:
       return theme?.ring ? `ring-2 ${theme.ring} ${theme.glow || ""}` : "ring-1 ring-oai-gray-200 dark:ring-oai-gray-700";
   }
+}
+
+/** 头像框的脉冲叠层类：顶级共鸣只让外圈呼吸，头像图片保持不动。 */
+export function getAvatarFramePulseClass(resonanceTier) {
+  return resonanceTier >= 4 ? "ring-2 ring-cyan-300 animate-pulse motion-reduce:animate-none" : null;
 }
 
 export function getEquippedBadgeStyle(resonanceTier, theme) {

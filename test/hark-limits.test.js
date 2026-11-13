@@ -129,7 +129,11 @@ test("hark writeCookieFile stores 0600 and rejects invalid tokens", () => {
   assert.deepEqual(writeCookieFile({ home: h, cookie: TOKEN }), { saved: true });
   const raw = fs.readFileSync(credentialsPath(h), "utf8");
   assert.deepEqual(JSON.parse(raw), { cookie: TOKEN });
-  assert.equal(fs.statSync(credentialsPath(h)).mode & 0o777, 0o600);
+  // Windows 没有 POSIX 权限位（NTFS 一律报 0666），写入侧本身就是 best-effort，
+  // 所以只在 POSIX 平台断言 0600。
+  if (process.platform !== "win32") {
+    assert.equal(fs.statSync(credentialsPath(h)).mode & 0o777, 0o600);
+  }
 });
 
 test("hark readCookie precedence: file wins over env, invalid never falls through", () => {

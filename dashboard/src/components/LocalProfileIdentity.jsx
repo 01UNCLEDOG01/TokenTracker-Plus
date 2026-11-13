@@ -8,7 +8,12 @@ import {
   useLocalMachineIdentity,
   useLocalProfile,
 } from "../lib/local-profile";
-import { useEquippedTitle, titleDisplayName, getAvatarResonanceFrame } from "../ui/achievements/title-registry";
+import {
+  useEquippedTitle,
+  titleDisplayName,
+  getAvatarResonanceFrame,
+  getAvatarFramePulseClass,
+} from "../ui/achievements/title-registry";
 import { EquippedTitleBadge } from "../ui/achievements/EquippedTitleBadge";
 
 function LocalAvatar({ name, avatarDataUrl, size = 28, equippedTitle }) {
@@ -18,37 +23,34 @@ function LocalAvatar({ name, avatarDataUrl, size = 28, equippedTitle }) {
   const ringClass = equippedTitle
     ? getAvatarResonanceFrame(resonanceTier, equippedTitle.theme)
     : "ring-1 ring-oai-gray-200 dark:ring-oai-gray-700";
+  // 闪烁只挂独立叠层，头像本体不动（站主 2026-11-13）。
+  const pulseClass = equippedTitle ? getAvatarFramePulseClass(resonanceTier) : null;
 
-  if (avatarDataUrl) {
-    return (
-      <div className="relative shrink-0">
-        <img
-          src={avatarDataUrl}
-          alt=""
-          style={style}
-          className={cn("shrink-0 rounded-full object-cover", ringClass)}
-        />
-        {equippedTitle && (
-          <img
-            src={equippedTitle.art}
-            alt={equippedTitle.name}
-            className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full object-contain filter drop-shadow-sm ring-1 ring-black"
-          />
-        )}
-      </div>
-    );
-  }
   return (
     <div className="relative shrink-0">
-      <span
-        style={style}
-        className={cn(
-          "inline-flex shrink-0 items-center justify-center rounded-full bg-oai-gray-200 text-[11px] font-semibold text-oai-gray-700 dark:bg-oai-gray-800 dark:text-oai-gray-200",
-          ringClass
+      <span style={style} className={cn("relative flex items-center justify-center rounded-full", ringClass)}>
+        {avatarDataUrl ? (
+          <img
+            src={avatarDataUrl}
+            alt=""
+            style={style}
+            className="h-full w-full rounded-full object-cover"
+          />
+        ) : (
+          <span
+            style={style}
+            className="inline-flex h-full w-full shrink-0 items-center justify-center rounded-full bg-oai-gray-200 text-[11px] font-semibold text-oai-gray-700 dark:bg-oai-gray-800 dark:text-oai-gray-200"
+            aria-hidden
+          >
+            {initial}
+          </span>
         )}
-        aria-hidden
-      >
-        {initial}
+        {pulseClass && (
+          <span
+            aria-hidden
+            className={cn("pointer-events-none absolute -inset-0.5 rounded-full", pulseClass)}
+          />
+        )}
       </span>
       {equippedTitle && (
         <img
@@ -71,37 +73,56 @@ export function LocalProfileIdentity({ collapsed = false }) {
   const titleParts = [name, equippedTitle ? `【${titleDisplayName(equippedTitle)}】` : null, identity.machineId].filter(Boolean);
   const title = titleParts.join(" · ");
 
+  if (collapsed) {
+    return (
+      <Link
+        to="/settings?section=account"
+        title={title}
+        aria-label={copy("localProfile.openSettings", { name })}
+        data-testid="local-profile-identity"
+        className="flex min-w-0 items-center justify-center rounded-md px-0 py-2 no-underline transition-colors hover:bg-oai-gray-200/60 dark:hover:bg-oai-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+      >
+        <LocalAvatar name={name} avatarDataUrl={profile.avatarDataUrl} equippedTitle={equippedTitle} />
+      </Link>
+    );
+  }
+
   return (
-    <Link
-      to="/settings"
-      title={collapsed ? title : undefined}
-      aria-label={copy("localProfile.openSettings", { name })}
+    <div
       data-testid="local-profile-identity"
-      className={cn(
-        "flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 no-underline transition-colors hover:bg-oai-gray-200/60 dark:hover:bg-oai-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500",
-        collapsed && "justify-center px-0 py-2"
-      )}
+      className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-oai-gray-200/60 dark:hover:bg-oai-gray-800"
     >
-      <LocalAvatar name={name} avatarDataUrl={profile.avatarDataUrl} equippedTitle={equippedTitle} />
-      {!collapsed && (
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 min-w-0">
-            <span className="truncate text-[13px] font-medium text-oai-gray-800 dark:text-oai-gray-200">
-              {name}
-            </span>
+      {/* 头像/名字 → 设置·账户；称号徽章单独跳成就页（两者不能嵌套，故并列）。 */}
+      <Link
+        to="/settings?section=account"
+        aria-label={copy("localProfile.openSettings", { name })}
+        className="shrink-0 rounded-full no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+      >
+        <LocalAvatar name={name} avatarDataUrl={profile.avatarDataUrl} equippedTitle={equippedTitle} />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <Link
+          to="/settings?section=account"
+          className="block truncate rounded text-left text-[13px] font-medium text-oai-gray-800 no-underline dark:text-oai-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+        >
+          {name}
+        </Link>
+        {equippedTitle ? (
+          <Link
+            to="/achievements"
+            aria-label={copy("nav.achievements")}
+            title={`${copy("nav.achievements")} · ${titleDisplayName(equippedTitle)}`}
+            className="mt-0.5 inline-flex max-w-full rounded-full no-underline align-middle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oai-brand-500"
+          >
+            <EquippedTitleBadge title={equippedTitle} size="xs" showIcon={false} />
+          </Link>
+        ) : (
+          <span className="block truncate font-mono text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+            {id || copy("localProfile.localIdFallback")}
           </span>
-          {equippedTitle ? (
-            <div className="mt-0.5">
-              <EquippedTitleBadge title={equippedTitle} size="xs" showIcon={false} />
-            </div>
-          ) : (
-            <span className="block truncate font-mono text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
-              {id || copy("localProfile.localIdFallback")}
-            </span>
-          )}
-        </span>
-      )}
-    </Link>
+        )}
+      </div>
+    </div>
   );
 }
 
