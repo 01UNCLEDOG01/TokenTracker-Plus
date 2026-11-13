@@ -1,7 +1,4 @@
 Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves
-init first sync keeps local data and credentials without uploading when not opted in
-notify sync permits only one coalesced lock waiter
-notify sync waits for the active owner and acquires the released lock
 status --json emits a JSON object with required summary fields
 status --light renders an ASCII table with key columns
 status default (no flag) still prints the human-readable list

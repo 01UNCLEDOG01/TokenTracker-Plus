@@ -252,10 +252,13 @@ test("notify sync waits for the active owner and acquires the released lock", as
     const waiting = acquireSyncLock(
       lockPath,
       { auto: true, fromNotify: true },
-      { notifyWaitMs: 200, notifyPollMs: 10 },
+      // 等待预算必须长过本测试自己的握手预算（下面最多轮询 5 秒等注册文件）。
+      // 200ms 时代满负载会合法超时返回 null（KI-058）：这不是被测行为出错，
+      // 而是断言预算比测试自己的最坏耗时还短。
+      { notifyWaitMs: 6000, notifyPollMs: 10 },
     );
     // 满负载下固定毫秒的 head-start 不可靠：等待方可能还没注册完 .notify-wait
-    // 就错过释放通知、白等 200ms 超时拿到 null（CI 与本机全量跑各咬过一次）。
+    // 就错过释放通知、白等超时拿到 null（CI 与本机全量跑各咬过一次）。
     // 与下方姊妹用例同方——轮询等注册文件出现再释放，不再赌时钟。
     const waitPath = `${lockPath}.notify-wait`;
     let registered = false;
@@ -279,7 +282,8 @@ test("notify sync permits only one coalesced lock waiter", async () => {
     const firstWaiter = acquireSyncLock(
       lockPath,
       { auto: true, fromNotify: true },
-      { notifyWaitMs: 200, notifyPollMs: 10 },
+      // 同上：预算要盖过本测试最多 5 秒的注册轮询，否则满载时先超时再断言。
+      { notifyWaitMs: 6000, notifyPollMs: 10 },
     );
     // Coalescing 注册完成 = firstWaiter 已持有 .notify-wait 文件锁；满负载下
     // openLock(sync.lock) 失败本身可能慢于任何固定毫秒，轮询等锁文件出现再验证去重。

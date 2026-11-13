@@ -69,7 +69,7 @@ test("init first sync keeps local data and credentials without uploading when no
       assert.equal(JSON.parse(await fs.readFile(path.join(trackerDir, "config.json"), "utf8")).deviceToken, "fixture-token");
       assert.equal(await fs.readFile(prefPath, "utf8").catch(() => null), enabled === null ? null : JSON.stringify({ enabled }));
     } finally {
-      await fs.rm(tmp, { recursive: true, force: true });
+      await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   }
 });
@@ -117,7 +117,7 @@ test("init can rerun from installed local runtime without self-deleting app sour
 
     await fs.stat(path.join(tmp, ".tokentracker", "tracker", "app", "src", "commands", "init.js"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -145,7 +145,7 @@ test("installLocalTrackerApp replaces stale installed runtime and writes a packa
     await fs.stat(path.join(appDir, "src", "lib", "codex-context-breakdown.js"));
     await fs.stat(path.join(appDir, "dashboard", "dist", "index.html"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -165,7 +165,7 @@ test("runtime refresh accepts a source package without a lockfile", async (conte
     await fs.stat(path.join(appDir, "package.json"));
     await assert.rejects(fs.stat(path.join(appDir, "package-lock.json")), { code: "ENOENT" });
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -183,6 +183,6 @@ test("runtime refresh reports a destination lockfile write failure", async (cont
   try {
     await assert.rejects(installLocalTrackerApp({ appDir }), { code: "EACCES" });
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
