@@ -312,7 +312,6 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://autoclaw.zhipuai.cn",
     "inviteCode": "GX4HHVHS",
     "hasInvite": true,
-    "endsAt": "2026-11-15",
     "checkedAt": "2026-11-13",
     "sourceUrl": "https://autoclaw.zhipuai.cn"
   },

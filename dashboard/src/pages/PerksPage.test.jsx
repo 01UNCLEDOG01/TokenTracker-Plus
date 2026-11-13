@@ -834,8 +834,8 @@ describe("PerksPage", () => {
       schema: 3,
       providers: {
         agentrouter: { daily: { last: "2020-01-01", count: 60 } },
-        // autoclaw 活动已过期：领过 → 玻璃柜陈列 + 盖章（没领过的绝版不陈列）
-        autoclaw: { daily: { last: getPerkClaimDay(), count: 1 } },
+        // tokenrhythm 活动已过期（endsAt 2026-11-13，假时钟 11-20）：领过 → 玻璃柜陈列 + 盖章
+        tokenrhythm: { once: { last: "2026-11-13", count: 1 } },
       },
     }));
     render(
