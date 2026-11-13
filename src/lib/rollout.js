@@ -27230,8 +27230,12 @@ function inspectDshZstdFrames(data, maxOutputBytes = DSH_SESSION_TEXT_MAX_BYTES)
 // runs install scripts normally.
 async function decodeDshZstdFrame(frameBytes) {
   const zlib = require("node:zlib");
-  if (typeof zlib.zstdDecompressSync === "function") {
-    return zlib.zstdDecompressSync(frameBytes);
+  if (typeof zlib.zstdDecompress === "function") {
+    // Decompress on libuv's worker pool: a large local transcript must not
+    // prevent the dashboard's HTTP requests and health probes from running.
+    return new Promise((resolve, reject) => {
+      zlib.zstdDecompress(frameBytes, (error, output) => error ? reject(error) : resolve(output));
+    });
   }
   return Buffer.from(await require("@mongodb-js/zstd").decompress(frameBytes));
 }

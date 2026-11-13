@@ -1531,17 +1531,30 @@ function consumeDshRecord(state, record) {
 }
 
 // Feed only complete lines; a torn tail stays pending until the next append.
-function feedDshText(state, pendingText, text) {
-  const lines = `${pendingText || ""}${text || ""}`.split("\n");
-  const pending = lines.pop() ?? "";
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    let record;
-    try { record = JSON.parse(trimmed); } catch { continue; }
-    consumeDshRecord(state, record);
+async function feedDshText(state, pendingText, text) {
+  const input = `${pendingText || ""}${text || ""}`;
+  let offset = 0;
+  let batchBytes = 0;
+  let batchLines = 0;
+  for (let end; (end = input.indexOf("\n", offset)) >= 0;) {
+    const trimmed = input.slice(offset, end).trim();
+    batchBytes += end + 1 - offset;
+    batchLines += 1;
+    offset = end + 1;
+    if (trimmed) {
+      let record;
+      try { record = JSON.parse(trimmed); } catch { /* skip malformed complete lines */ }
+      if (record !== undefined) consumeDshRecord(state, record);
+    }
+    // Large transcripts used to monopolize the event loop until all lines
+    // were parsed. Yield between bounded batches, including malformed lines.
+    if (batchLines >= 128 || batchBytes >= 256 * 1024) {
+      await new Promise((resolve) => setImmediate(resolve));
+      batchBytes = 0;
+      batchLines = 0;
+    }
   }
-  return pending;
+  return input.slice(offset);
 }
 
 function finalizeDshState(state, filePath) {
@@ -1626,7 +1639,7 @@ function finalizeDshState(state, filePath) {
 
 async function parseDshSessionText(text, filePath) {
   const state = createDshParseState();
-  const pending = feedDshText(state, "", text);
+  const pending = await feedDshText(state, "", text);
   const built = finalizeDshState(state, filePath);
   return { state, pending, built };
 }
@@ -1640,6 +1653,7 @@ async function buildDshSessionRow(filePath) {
 
 const dshRowCache = new Map();
 const dshIncrementalCache = new Map();
+const dshSessionReads = new Map();
 const dshIncrementalStats = { fullReads: 0, incrementalReads: 0 };
 
 function resetDshIncrementalCacheForTests() {
@@ -1663,9 +1677,17 @@ function dshFileIdentity(filePath) {
 }
 
 async function fullDshSession(filePath) {
+  const initialStatKey = sessionFileStatKey(filePath);
   const text = await readDshSessionText(filePath);
   if (!text) return null;
   const parsed = await parseDshSessionText(text, filePath);
+  dshIncrementalStats.fullReads += 1;
+  // Parsing yields to the event loop; an append/replacement during that time
+  // must not advance the byte cursor past content this snapshot never read.
+  if (initialStatKey !== sessionFileStatKey(filePath)) {
+    dshIncrementalCache.delete(path.resolve(filePath));
+    return parsed.built ? { ...parsed.built, stale: true } : null;
+  }
   const stat = fs.statSync(filePath);
   let frames = 0;
   if (filePath.endsWith(".zstd")) {
@@ -1684,11 +1706,23 @@ async function fullDshSession(filePath) {
     line: parsed.built ? serializeSessionRecord(parsed.built.row) : null,
     statKey: parsed.built?.statKey || null,
   });
-  dshIncrementalStats.fullReads += 1;
   return parsed.built;
 }
 
-async function readDshSessionIncremental(filePath) {
+function readDshSessionIncremental(filePath) {
+  const key = path.resolve(filePath);
+  // Parsing now yields. Serialize each file so concurrent callers cannot
+  // apply the same append twice to its mutable incremental parse state.
+  const previous = dshSessionReads.get(key);
+  const run = () => readDshSessionIncrementalInternal(filePath);
+  const current = previous ? previous.then(run, run) : run();
+  dshSessionReads.set(key, current);
+  const clear = () => { if (dshSessionReads.get(key) === current) dshSessionReads.delete(key); };
+  current.then(clear, clear);
+  return current;
+}
+
+async function readDshSessionIncrementalInternal(filePath) {
   const key = path.resolve(filePath);
   const cached = dshIncrementalCache.get(key);
   const identity = dshFileIdentity(filePath);
@@ -1697,6 +1731,7 @@ async function readDshSessionIncremental(filePath) {
   if (stat.size < cached.bytesConsumed) return fullDshSession(filePath);
 
   let newText = "";
+  let bytesConsumed = cached.bytesConsumed;
   let frames = cached.frames;
   if (filePath.endsWith(".zstd")) {
     const data = fs.readFileSync(filePath);
@@ -1718,14 +1753,16 @@ async function readDshSessionIncremental(filePath) {
     const decoded = await decodeDshZstd(data.subarray(info.frameRanges[cached.frames].start));
     newText = decoded.toString("utf8");
     frames = info.frames;
+    bytesConsumed = data.length;
   } else {
     const data = fs.readFileSync(filePath);
     newText = data.subarray(cached.bytesConsumed).toString("utf8");
+    bytesConsumed = data.length;
   }
 
-  const pending = feedDshText(cached.state, cached.pending, newText);
+  const pending = await feedDshText(cached.state, cached.pending, newText);
   const built = finalizeDshState(cached.state, filePath);
-  cached.bytesConsumed = stat.size;
+  cached.bytesConsumed = bytesConsumed;
   cached.frames = frames;
   cached.pending = pending;
   cached.line = built ? serializeSessionRecord(built.row) : null;
@@ -5118,12 +5155,22 @@ function buildSessionAnalytics(options = {}) {
 // exactly the long/resumed ones, which also sort to the top because the sort
 // key is ended_at. On real data a 7-day window lost 6 sessions, the largest
 // 224M tokens. Treat the window as an interval intersection instead.
-function sessionUsageDay(timestamp, { timeZone, offsetMinutes } = {}) {
-  const date = new Date(timestamp);
-  if (!Number.isFinite(date.getTime())) return "";
+function sessionDayContext({ timeZone, offsetMinutes } = {}) {
+  let formatter = null;
   if (timeZone) {
     try {
-      const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+      formatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    } catch { /* invalid zone uses the caller's offset or UTC */ }
+  }
+  return { formatter, offsetMinutes };
+}
+
+function sessionUsageDay(timestamp, { formatter, offsetMinutes } = {}) {
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return "";
+  if (formatter) {
+    try {
+      const parts = formatter.formatToParts(date);
       const part = (name) => parts.find((p) => p.type === name)?.value;
       return `${part("year")}-${part("month")}-${part("day")}`;
     } catch { /* fall back to the caller's offset or UTC */ }
@@ -5132,6 +5179,7 @@ function sessionUsageDay(timestamp, { timeZone, offsetMinutes } = {}) {
 }
 
 function withinDayRange(row, from, to, context) {
+  if (!from && !to) return true;
   const startDay = sessionUsageDay(row?.started_at || row?.ended_at || "", context);
   const endDay = sessionUsageDay(row?.ended_at || row?.started_at || "", context);
   if (from && (!endDay || endDay < from)) return false;
@@ -5161,7 +5209,7 @@ function scopeSessionUsage(row, from, to, context) {
 }
 
 function summarizeSessions(sessions, { from = "", to = "", includeSessions = true, timeZone, offsetMinutes } = {}) {
-  const context = { timeZone, offsetMinutes };
+  const context = sessionDayContext({ timeZone, offsetMinutes });
   const filtered = annotateThreadUsage((sessions || [])
     .filter((row) => withinDayRange(row, from, to, context))
     // Efficiency is a session-lifetime metric: both tokens and edit turns
@@ -5669,7 +5717,7 @@ function annotateThreadUsage(rows) {
 const CREDIT_BILLED_SESSION_SOURCES = new Set(["qoder", "qoder-cn"]);
 
 function listSessionsForBrowser(sessions, { from = "", to = "", limit = 0, timeZone, offsetMinutes } = {}) {
-  const context = { timeZone, offsetMinutes };
+  const context = sessionDayContext({ timeZone, offsetMinutes });
   const filtered = annotateThreadUsage(mergeSessionFragments(sessions)
     // Only sessions that actually spent tokens are worth listing. This drops
     // two kinds of noise: non-session logs under ~/.claude/projects

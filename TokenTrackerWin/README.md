@@ -142,6 +142,6 @@ The manual **Check upstream updates** action is informational: it does not
 download or execute an upstream installer, and background checks are disabled.
 Upgrade this fork by downloading its own latest published Windows installer.
 
-本地加载：CLI 按需加载当前命令，服务先监听再复制运行文件和修复集成；构建会预压缩共享 JS/CSS。页面代码加载期间保留导航和骨架，悬停、聚焦或触摸导航时预载目标页面代码。会话列表按需 gzip、重建期间复用结果，磁盘缓存带格式版本与 24 小时有效期，会话页显示快照时间。
+本地加载：CLI 按需加载当前命令，服务先监听再复制运行文件和修复集成；构建会预压缩共享 JS/CSS。页面代码加载期间保留导航和骨架，悬停、聚焦或触摸导航时预载目标页面代码。DeepSeek Harness 会话异步解压、分批解析，日期筛选复用格式器。会话列表按需 gzip、重建期间复用结果，磁盘缓存带格式版本与 24 小时有效期，会话页显示快照时间。
 
 启动排查：`%LOCALAPPDATA%\TokenTracker\windows-host.log` 中的 `[startup]` 记录 `host-main`、`server-launch`、`server-ready`、`webview-start`、`webview-ready`、`navigation-start`、`document-ready`、`shell-visible` 和 `dashboard-data-ready`。宿主的 `elapsedMs` 相对应用启动，页面消息另带相对文档导航的 `documentMs`；内嵌 Node 的同名日志使用独立的进程时钟，不能直接相减。浏览器还可读取 `tokentracker:shell-visible` 和 `tokentracker:dashboard-data-ready` 性能标记。计时只用于本机诊断，不含页面 URL、账号或数据内容。

@@ -291,6 +291,27 @@ test("readDshSessionText reassembles concatenated-frame zstd", async () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("dsh decompression uses the asynchronous native path and preserves output limits", async (t) => {
+  if (typeof zlib.zstdDecompress !== "function") return t.skip("native asynchronous zstd unavailable");
+  const { decodeDshZstd } = require("../src/lib/rollout");
+  const text = Buffer.from('synthetic text\n'.repeat(4096));
+  const encoded = await zstdCompress(text);
+  const originalSync = zlib.zstdDecompressSync;
+  const originalAsync = zlib.zstdDecompress;
+  let calls = 0;
+  try {
+    zlib.zstdDecompressSync = () => { throw new Error("must not block the server event loop"); };
+    zlib.zstdDecompress = function (...args) { calls++; return originalAsync.apply(this, args); };
+    assert.deepEqual(await decodeDshZstd(encoded), text);
+    assert.equal(calls, 1);
+    await assert.rejects(decodeDshZstd(encoded, { maxOutputBytes: text.length - 1 }), /exceeds/i);
+    await assert.rejects(decodeDshZstd(encoded.subarray(0, encoded.length - 1)));
+  } finally {
+    zlib.zstdDecompressSync = originalSync;
+    zlib.zstdDecompress = originalAsync;
+  }
+});
+
 test("zstd sessions decode without the @mongodb-js/zstd native binding (issue #465)", async (t) => {
   // The desktop bundles install dependencies with --ignore-scripts, so the
   // MongoDB binding's zstd.node never exists there and require() throws. The

@@ -1258,6 +1258,29 @@ test("a mid-turn reroute moves the open turn's edits onto the model that is now 
   );
 });
 
+test("session day scoping reuses one formatter and preserves timezone/offset boundaries", () => {
+  const row = {
+    session_id: "date-fixture", session_hash: "date-fixture", source: "codex", model: "gpt-test",
+    started_at: "2026-11-12T15:59:00Z", ended_at: "2026-11-12T16:01:00Z",
+    total_tokens: 400, tokens: { input_tokens: 400, total_tokens: 400 },
+    usage_buckets: Array.from({ length: 400 }, (_, index) => ({
+      timestamp: index < 100 ? "2026-11-12T15:59:00Z" : "2026-11-12T16:01:00Z",
+      model: "gpt-test", input_tokens: 1, total_tokens: 1,
+    })),
+  };
+  const original = Intl.DateTimeFormat;
+  let calls = 0;
+  try {
+    Intl.DateTimeFormat = function (...args) { calls++; return new original(...args); };
+    const range = { from: "2026-11-13", to: "2026-11-13" };
+    assert.equal(listSessionsForBrowser([row], { ...range, timeZone: "Asia/Shanghai" }).sessions[0].total_tokens, 300);
+    assert.equal(calls, 1, "formatters must not be constructed per usage bucket");
+    assert.equal(listSessionsForBrowser([row], { ...range, timeZone: "UTC" }).sessions.length, 0);
+    assert.equal(listSessionsForBrowser([row], { ...range, timeZone: "not/a-zone", offsetMinutes: 480 }).sessions[0].total_tokens, 300);
+    assert.equal(listSessionsForBrowser([row]).sessions[0].total_tokens, 400);
+  } finally { Intl.DateTimeFormat = original; }
+});
+
 test("a Codex session whose only model signal is session_meta attributes rather than falling to unknown", async () => {
   // The field has never been observed in a real rollout (0 of 10310
   // session_meta rows across 5849 local files), so the fixture is synthetic by

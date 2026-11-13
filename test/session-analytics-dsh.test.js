@@ -62,6 +62,71 @@ async function rowsFrom(home) {
   return (await readDshSessions({ home })).map((entry) => entry.row);
 }
 
+test("large dsh reads yield and concurrent appends are counted exactly once", async () => {
+  resetDshIncrementalCacheForTests();
+  const { home, dir } = sandbox();
+  const originalParse = JSON.parse;
+  let parsed = 0;
+  let parseCountAtYield = null;
+  let frame;
+  const usageRow = record("assistant/message", 20, 1791590000050, {
+    turn: 1, step: 1, usage: usage(10, 2, 12, 0),
+  });
+  try {
+    const file = path.join(dir, "session.v4.jsonl");
+    fs.writeFileSync(file, sessionHeader("yield-fixture") + "\n"
+      + record("request/context", 1, 1791590000040, { model: "deepseek-flash" }) + "\n"
+      + (usageRow + "\n").repeat(4096));
+    JSON.parse = function (value, ...rest) {
+      if (typeof value === "string" && value.includes('"type":"assistant/message"')) {
+        parsed++;
+        if (parsed === 1) frame = setImmediate(() => { parseCountAtYield = parsed; });
+      }
+      return originalParse.call(this, value, ...rest);
+    };
+    const first = await rowsFrom(home);
+    assert.equal(first[0].total_tokens, 4096 * 12);
+    assert.ok(parseCountAtYield > 0 && parseCountAtYield < 4096,
+      "a pending event-loop callback must run before parsing finishes");
+    JSON.parse = originalParse;
+    fs.appendFileSync(file, (usageRow + "\n").repeat(1024));
+    const [left, right] = await Promise.all([rowsFrom(home), rowsFrom(home)]);
+    assert.equal(left[0].total_tokens, 5120 * 12);
+    assert.equal(right[0].total_tokens, 5120 * 12);
+    assert.equal((await rowsFrom(home))[0].total_tokens, 5120 * 12);
+  } finally {
+    JSON.parse = originalParse;
+    clearImmediate(frame);
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("an append during a yielded initial dsh parse is not acknowledged before it is read", async () => {
+  resetDshIncrementalCacheForTests();
+  const { home, dir } = sandbox();
+  const originalParse = JSON.parse;
+  const file = path.join(dir, "session.v4.jsonl");
+  const usageRow = record("assistant/message", 20, 1791590000050, { turn: 1, step: 1, usage: usage(10, 2, 12, 0) });
+  let appended = false;
+  try {
+    fs.writeFileSync(file, sessionHeader("append-fixture") + "\n" + (usageRow + "\n").repeat(512));
+    JSON.parse = function (value, ...rest) {
+      if (!appended && typeof value === "string" && value.includes('"type":"assistant/message"')) {
+        appended = true;
+        setImmediate(() => fs.appendFileSync(file, usageRow + "\n"));
+      }
+      return originalParse.call(this, value, ...rest);
+    };
+    assert.equal((await rowsFrom(home))[0].total_tokens, 512 * 12);
+    JSON.parse = originalParse;
+    assert.equal((await rowsFrom(home))[0].total_tokens, 513 * 12);
+    assert.equal((await rowsFrom(home))[0].total_tokens, 513 * 12);
+  } finally {
+    JSON.parse = originalParse;
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("reads one plain dsh transcript into a session row", async () => {
   const { home, dir } = sandbox();
   try {
