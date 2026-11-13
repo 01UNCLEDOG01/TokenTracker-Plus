@@ -676,6 +676,7 @@
   "perks.deal.ended": "Beendet",
   "perks.album.sealed": "Ausgelaufen",
   "perks.album.sealed_count": "{{count}} ausgelaufen",
+  "perks.album.sealed_summary": "Ausgelaufen {{total}} · gesammelt {{collected}}",
   "perks.album.vitrine": "Retired-Karten",
   "perks.cycle.once": "1×",
   "perks.cycle.monthly": "M",

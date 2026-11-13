@@ -679,6 +679,7 @@
   "perks.deal.ended": "終了",
   "perks.album.sealed": "終了",
   "perks.album.sealed_count": "終了 {{count}} 枚",
+  "perks.album.sealed_summary": "終了 {{total}} 枚 · 回収済み {{collected}} 枚",
   "perks.album.vitrine": "絶版カード",
   "perks.cycle.once": "一",
   "perks.cycle.monthly": "月",

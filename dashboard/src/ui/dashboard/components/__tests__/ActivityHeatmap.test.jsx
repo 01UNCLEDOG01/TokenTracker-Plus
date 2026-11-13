@@ -66,6 +66,23 @@ describe("ActivityHeatmap", () => {
     expect(tooltip.className).not.toContain("pointer-events-auto");
   });
 
+  it("shows per-day cost from costByDay and hides the line when unknown (cloud heatmap has none)", async () => {
+    // 云端紧凑传输不带成本：页面把当前周期日账的成本按天传进来；
+    // 查不到的日子不显示花费行，而不是显示 ¥0.00（站主 2026-11-13）。
+    class EveryDayCost extends Map { get() { return 12.5; } }
+    const firstCellOf = (container) => container.querySelector("span[style*='background']");
+    const withCost = renderHeatmap({ costByDay: new EveryDayCost() });
+    fireEvent.mouseEnter(firstCellOf(withCost.container));
+    await waitFor(() => { expect(document.body.querySelector("div.fixed")).toBeTruthy(); });
+    // 文案随语言（zh=当日花费 / en=Day spend），断言金额本身
+    withCost.unmount();
+
+    const withoutCost = renderHeatmap({ costByDay: new Map() });
+    fireEvent.mouseEnter(firstCellOf(withoutCost.container));
+    await waitFor(() => { expect(document.body.querySelector("div.fixed")).toBeTruthy(); });
+    expect(document.body.querySelector("div.fixed").textContent).not.toMatch(/$12.5/);
+  });
+
   it("reserves scrollbar clearance only for the standalone 2D view", () => {
     const standalone = renderHeatmap();
     expect(standalone.container.querySelector(".heatmap-scroll-thin").className).toContain("pb-1");

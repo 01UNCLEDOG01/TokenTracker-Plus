@@ -63,6 +63,10 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     {id:"04d-public-views-revoke",sql:read("migrations/20261014020500_self-host-public-views-revoke.sql")},
     {id:"04e-achievement-badges",sql:read("migrations/20261014030000_achievement-badges.sql")},
     {id:"04f-user-settings-name",sql:read("migrations/20261014040000_self-host-user-settings-name.sql")},
+    // Heatmap per-day cost: account_usage_grouped carries SUM(total_cost_usd) and
+    // account_heatmap_compact emits [day, tokens, models, cost] — the cloud
+    // heatmap tooltip showed 0.00 without it (2026-11-13).
+    {id:"04g-heatmap-cost",sql:read("migrations/20261113100000_account-heatmap-cost.sql")},
     // Free Cloud contract only: membership/trial policy and machine admission.
     // This fork sells nothing, so there is no order/payment/gift step to install.
     ...["20261003120000_cloud-subscriptions.sql","20261004120000_cloud-machine-access.sql"]

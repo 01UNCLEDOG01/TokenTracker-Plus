@@ -56,7 +56,7 @@ function expandHeatmapCompact(payload) {
   const byDay = new Map();
   for (const row of payload.days) {
     if (!Array.isArray(row)) continue;
-    const [day, total, pairs] = row;
+    const [day, total, pairs, cost] = row;
     if (!DAY_KEY_RE.test(String(day))) continue;
     const mdl = {};
     if (Array.isArray(pairs)) {
@@ -68,7 +68,7 @@ function expandHeatmapCompact(payload) {
       }
     }
     // Last row wins, as Map.set did on the edge.
-    byDay.set(String(day), { total: Number(total) || 0, models: mdl });
+    byDay.set(String(day), { total: Number(total) || 0, models: mdl, cost: Number(cost) || 0 });
   }
 
   const maxValue = Number(payload.max_value) || 0;
@@ -94,6 +94,7 @@ function expandHeatmapCompact(payload) {
       billable_total_tokens: total,
       level: levelOf(total),
       models: hit ? hit.models : null,
+      total_cost_usd: hit ? hit.cost : 0,
     });
     cursor = nextDayKey(cursor);
   }

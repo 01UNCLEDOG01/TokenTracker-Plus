@@ -472,6 +472,29 @@ const PROVIDER_ICON_MAP = {
 // `fill="currentColor"`) must render through the inline component path so they
 // inherit the surrounding text color, since <img> doesn't resolve currentColor.
 const PROVIDER_LOGO_MAP = {
+  // AIHOT 2026-11-13 吸收的新卡：21 家品牌图标（官网 favicon / apple-touch /
+  // AIHOT 自带资源；SoMark 为页面内联 SVG 字标）。文件在 public/brand-logos/。
+  OFFICEACE: "/brand-logos/officeace.ico?v=1",
+  MEOO: "/brand-logos/meoo.png?v=1",
+  TENCENT_IMA: "/brand-logos/tencent_ima.svg?v=1",
+  ACE_MUSIC: "/brand-logos/ace_music.png?v=1",
+  ASTUDIO: "/brand-logos/astudio.svg?v=1",
+  WPS_LINGXI: "/brand-logos/wps_lingxi.ico?v=1",
+  WENXIN: "/brand-logos/wenxin.svg?v=1",
+  QIANFAN: "/brand-logos/qianfan.png?v=1",
+  RIME: "/brand-logos/rime.png?v=1",
+  DREX: "/brand-logos/drex.png?v=1",
+  LIVEKIT: "/brand-logos/livekit.png?v=1",
+  EDGEONE: "/brand-logos/edgeone.png?v=1",
+  TENCENT_ADP: "/brand-logos/tencent_adp.ico?v=1",
+  ELEVENLABS: "/brand-logos/elevenlabs.png?v=1",
+  ZED: "/brand-logos/zed.png?v=1",
+  TOKENHUB: "/brand-logos/tokenhub.ico?v=1",
+  WECHAT_MINIPROGRAM: "/brand-logos/wechat_miniprogram.ico?v=1",
+  MINICPM_OCR: "/brand-logos/minicpm_ocr.svg?v=1",
+  STEPAUDIO: "/brand-logos/stepaudio.png?v=1",
+  SOMARK: "/brand-logos/somark.svg?v=1",
+
   ANTIGRAVITY: "/brand-logos/antigravity.svg",
   ANYTHINGLLM: "/brand-logos/anythingllm.svg",
   // AutoClaw's own app mark, taken from its installed renderer bundle

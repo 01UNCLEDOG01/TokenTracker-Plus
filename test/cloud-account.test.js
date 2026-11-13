@@ -653,6 +653,7 @@ test("fetchAccountFunction expands a compact heatmap into the rendered schema", 
     billable_total_tokens: 100,
     level: 4,
     models: { "gpt-5.4": 100 },
+    total_cost_usd: 0,
   });
 });
 
@@ -665,7 +666,7 @@ test("a heatmap response from an edge without the compact branch passes straight
     week_starts_on: "sun",
     active_days: 0,
     streak_days: 0,
-    weeks: [[{ day: "2026-09-01", total_tokens: 0, billable_total_tokens: 0, level: 0, models: null }]],
+    weeks: [[{ day: "2026-09-01", total_tokens: 0, billable_total_tokens: 0, level: 0, models: null, total_cost_usd: 0 }]],
   };
   const body = await fetchAccountFunction({
     baseUrl: "https://cloud.example",

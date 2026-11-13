@@ -11,7 +11,7 @@ const { transformSync } = require("esbuild");
 const edgeDir = path.join(__dirname, "..", "dashboard", "edge-patches");
 const fixture = {
   heatmap: {
-    old: JSON.parse('[["2026-09-18","9007199254740993",{"__proto__":"3","日本語\\\"":"9007199254740993","":0}],["2026-09-19",0,null],["2026-09-20",0,{}]]'),
+    old: JSON.parse('[["2026-09-18","9007199254740993",{"__proto__":"3","日本語\\\"":"9007199254740993","":0},0],["2026-09-19",0,null,0],["2026-09-20",0,{},0]]'),
     wire: {
       model_names: ["", "__proto__", '日本語"'],
       days: [["2026-09-18", "9007199254740993", [1, "3", 2, "9007199254740993", 0, 0]], ["2026-09-19", 0, null], ["2026-09-20", 0, []]],
@@ -45,7 +45,7 @@ function loadEdge(endpoint, data, legacy = false) {
     // Bypass only the new transport decoder; exercise the same unchanged
     // auth, filtering, pricing and dense/compact response code with old data.
     source = source.replace(`client.database.rpc("account_${endpoint}_wire",`, `client.database.rpc("account_${endpoint}_compact",`);
-    if (endpoint === "heatmap") source = source.replace("const days = decodeHeatmapWire(data);", "const days = data;");
+    if (endpoint === "heatmap") source = source.replace("const days = decodeHeatmapWire(data);", "const days = data.map((row) => [...row, 0]);");
     else source = source.replace("const value = decodeDailyWire(data);", "const value = data;");
   }
   const decoder = endpoint === "heatmap" ? "decodeHeatmapWire" : "decodeDailyWire";

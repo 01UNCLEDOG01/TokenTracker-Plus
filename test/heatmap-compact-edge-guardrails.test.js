@@ -34,7 +34,7 @@ test("the compact rows are projected from the same cells the dense grid uses", (
   // Projecting from `compactDays` instead would skip the from..to clamp and the
   // Number() coercions, and the two formats would disagree on the edges.
   assert.match(edge, /const days = cells\s*\.filter\(\(c\) => c\.models !== null\)\s*\.map\(/);
-  assert.match(edge, /return \[c\.day, c\.total_tokens, pairs\];/);
+  assert.match(edge, /return \[c\.day, c\.total_tokens, pairs, c\.total_cost_usd\];/);
 });
 
 test("the model dictionary is built in first-appearance order and emitted with the rows", () => {

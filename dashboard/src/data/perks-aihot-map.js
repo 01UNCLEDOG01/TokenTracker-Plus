@@ -4,6 +4,29 @@
 // 邀请返利类，两站口径不同），不打 AIHOT 角标；想找 AIHOT 有而我们没有的
 // 卡片候选，跑 scripts/aihot-perks-candidates.mjs。
 export const PERKS_AIHOT_PROVIDERS = {
+  // —— AIHOT 2026-11-13 吸收的新卡（provider 名为快照原值）——
+  officeace: ["华为云 OfficeAce"],
+  meoo: ["秒悟 Meoo"],
+  tencent_ima: ["腾讯 ima"],
+  ace_music: ["ACE Music"],
+  astudio: ["科大讯飞 AStudio"],
+  wps_lingxi: ["WPS 灵犀"],
+  wenxin: ["百度文心"],
+  qianfan: ["百度千帆"],
+  rime: ["Rime"],
+  drex: ["Nace AI"],
+  livekit: ["LiveKit"],
+  edgeone: ["腾讯 EdgeOne"],
+  tencent_adp: ["腾讯云 ADP"],
+  elevenlabs: ["ElevenLabs"],
+  zed: ["Zed"],
+  tokenhub: ["腾讯云 TokenHub"],
+  wechat_miniprogram: ["腾讯云开发"],
+  devin: ["Devin Desktop"],
+  minicpm_ocr: ["面壁智能 MiniCPM"],
+  stepaudio: ["阶跃星辰"],
+  somark: ["SoMark"],
+
   doubaowork: ["豆包"],
   modelscope: ["魔搭社区"],
   raccoon: ["商汤小浣熊"],

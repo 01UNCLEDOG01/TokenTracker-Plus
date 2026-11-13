@@ -870,7 +870,7 @@ function AlbumVitrine({ entries, flipKeys, onSealedClick }) {
   );
 }
 
-function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, claimDay, collected, total, sealedCount }) {
+function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, claimDay, collected, total, sealedCount, sealedCollected }) {
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -910,13 +910,13 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, cl
       </p>
       <p className="text-[11px] font-medium text-oai-gray-600 dark:text-oai-gray-300">
         {copy("perks.album.collected", { collected, total })}
-        {sealedCount > 0 ? ` · ${copy("perks.album.sealed_count", { count: sealedCount })}` : null}
+        {sealedCount > 0 ? ` · ${copy("perks.album.sealed_summary", { total: sealedCount, collected: sealedCollected || 0 })}` : null}
       </p>
     </div>
   );
 }
 
-function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview, flipKeys, aihotSums }) {
+function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview, flipKeys, aihotSums, vitrineCount = 0 }) {
   const totalPages = Math.max(1, Math.ceil(stripItems.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   // 翻页双动画（AIHOT ft-pg-out/in 同款）：旧页 rotateY(0→-95°) 转出 0.62s 后卸载，
@@ -937,7 +937,8 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview
   const pageItems = stripItems.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
   // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
-  const sealedCount = items.filter(function (entry) { return entry.sealed; }).length;
+  // 按「卡」去重计数：绝版卡若有日/月两个周期条目，不能算成两张（站主 2026-11-13 ④）。
+  const sealedCount = new Set(items.filter(function (entry) { return entry.sealed; }).map(function (entry) { return entry.item.id; })).size;
   // 求和来自 AIHOT 全目录（PerksPage 传 aihotSums），不是卡册映射子集。
   const claimableTodayYuan = aihotSums.claimable;
   const claimedMonthYuan = aihotSums.monthly;
@@ -952,6 +953,7 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview
         collected={collected}
         total={items.length}
         sealedCount={sealedCount}
+        sealedCollected={vitrineCount}
       />
       <div
         className="min-w-0 flex-1 rounded-2xl border border-oai-gray-200/80 bg-oai-gray-50/60 p-4 dark:border-oai-gray-800 dark:bg-oai-gray-950/50"
@@ -1216,6 +1218,7 @@ export function PerksPage() {
   // 连击翻面计数（per 卡）：翻面重播由 scheduleFlip 显式调度（站主 2026-11-13：
   // 详情卡/弹窗领取也要看到翻牌特效）。放主组件层——翻页容器按页 key 重建时
   // 组件内定时器会被清掉（教训）。
+  const pendingScrollId = useRef(null);
   const [flipKeys, setFlipKeys] = useState({});
   // 绝版卡弹窗：玻璃柜里的卡点击后展示已下线福利的详情（站主 2026-11-12）。
   const [sealedDetail, setSealedDetail] = useState(null);
@@ -1238,9 +1241,16 @@ export function PerksPage() {
       const key = `${item.id}:${cycle}`;
       setKeepClaimedKey(key);
       window.setTimeout(() => setKeepClaimedKey(null), 1600);
-      // 弹窗路径：先关弹窗（跳回卡册视野），350ms 后原地翻牌；行内卡片路径同理。
-      scheduleFlip(key, opts.fromModal ? 350 : 300);
-      if (opts.fromModal) setPreviewItem(null);
+      if (opts.fromModal) {
+        // 弹窗路径：关窗即回到卡册视野，350ms 后原地翻牌。
+        scheduleFlip(key, 350);
+        setPreviewItem(null);
+      } else {
+        // 行内详情卡路径（站主 2026-11-13 ③）：领完平滑滚回卡册对应小卡，
+        // 到位后再翻牌——否则详情卡在列表中部，翻牌发生在屏幕外看不见。
+        pendingScrollId.current = item.id;
+        scheduleFlip(key, 900);
+      }
     }
   };
 
@@ -1406,6 +1416,19 @@ export function PerksPage() {
     return items;
   }, [claims, claimDay, aihotIndex]);
 
+  // 行内领取后把视口带回卡册那张小卡（翻牌目标在页首）。
+  useEffect(() => {
+    const id = pendingScrollId.current;
+    if (!id) return;
+    pendingScrollId.current = null;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        document.querySelector(`.perk-mini[data-perk-id="${id}"]`)
+          ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }),
+    );
+  }, [albumItems]);
+
   // 弹窗 Esc 关闭 + 打开时锁背景滚动（站主 2026-11-13 ② 弹窗详情）。
   useEffect(() => {
     if (!previewItem) return undefined;
@@ -1470,6 +1493,7 @@ export function PerksPage() {
             onPreview={setPreviewItem}
             flipKeys={flipKeys}
             aihotSums={aihotSums}
+            vitrineCount={vitrineItems.length}
           />
 
           {/* 绝版展示柜：独立于主卡册（站主 2026-11-12 玻璃柜方案） */}

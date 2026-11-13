@@ -109,6 +109,9 @@ function buildMonthMarkers(weeksCount, to, weekStartsOn, monthLabels) {
 
 export function ActivityHeatmap({
   heatmap,
+  // 逐日成本回退表（day → USD）：云端 heatmap 的紧凑传输不带成本，页面把
+  // 当前周期日账里的真实成本传进来；查不到的日子不显示花费行（不再显示 ¥0.00）。
+  costByDay,
   timeZoneLabel,
   timeZoneShortLabel,
   hideLegend = false,
@@ -980,9 +983,15 @@ export function ActivityHeatmap({
                   {copy("heatmap.unit.tokens")}
                 </span>
                 <span className="ml-auto whitespace-nowrap text-[10px] tabular-nums text-oai-gray-500 dark:text-oai-gray-400">
-                  {copy("heatmap.tooltip.cost", {
-                    value: formatUsdCurrency(Number(hoveredCell.cost) || 0, { currency, rate }),
-                  })}
+                  {(() => {
+                    const cellCost = Number(hoveredCell.cost) || 0;
+                    const mapped = costByDay instanceof Map ? costByDay.get(String(hoveredCell.day)) : costByDay?.[String(hoveredCell.day)];
+                    const known = cellCost > 0 ? cellCost : (Number.isFinite(Number(mapped)) && Number(mapped) > 0 ? Number(mapped) : null);
+                    if (known == null) return null;
+                    return copy("heatmap.tooltip.cost", {
+                      value: formatUsdCurrency(known, { currency, rate }),
+                    });
+                  })()}
                 </span>
               </div>
               

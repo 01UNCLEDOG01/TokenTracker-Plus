@@ -61,6 +61,7 @@ test("a day with no row reads as zero tokens and null models", () => {
     billable_total_tokens: 0,
     level: 0,
     models: null,
+    total_cost_usd: 0,
   });
 });
 
@@ -125,6 +126,19 @@ test("numeric strings from the RPC are coerced the way the edge coerced them", (
   assert.equal(cell.level, 2, "250/500 = 0.5 -> level 2");
 });
 
+test("carries per-day cost from the fourth tuple slot (2026-11-13)", () => {
+  const out = expandHeatmapCompact(
+    compactPayload({
+      days: [["2026-09-02", 100, [], "0.42"], ["2026-09-03", 50, []]],
+      max_value: 100,
+    }),
+  );
+  const day = out.weeks.flat().find((c) => c.day === "2026-09-02");
+  assert.equal(day.total_cost_usd, 0.42);
+  const legacy = out.weeks.flat().find((c) => c.day === "2026-09-03");
+  assert.equal(legacy.total_cost_usd, 0, "3-slot rows from an older edge read as 0");
+});
+
 test("the last row wins when the RPC repeats a day", () => {
   const out = expandHeatmapCompact(
     compactPayload({
@@ -156,7 +170,7 @@ test("a legacy (non-compact) payload is returned untouched", () => {
     week_starts_on: "sun",
     active_days: 2,
     streak_days: 0,
-    weeks: [[{ day: "2026-09-01", total_tokens: 0, billable_total_tokens: 0, level: 0, models: null }]],
+    weeks: [[{ day: "2026-09-01", total_tokens: 0, billable_total_tokens: 0, level: 0, models: null, total_cost_usd: 0 }]],
   };
   assert.equal(expandHeatmapCompact(legacy), legacy, "same object reference, no copy");
 });

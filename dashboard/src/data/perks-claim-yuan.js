@@ -69,4 +69,26 @@ export const PERKS_CLAIM_YUAN = {
   volcengine: { once: 1.2 },        // ≈¥1.20/月（永久免费）
   qwen_work: { monthly: 1 },        // 每月 100 积分 = ¥1
   catpaw: { monthly: 1 },           // ¥1–2 取下限
+  // —— AIHOT 2026-11-13 吸收的新卡（估值按我方口径保守下限，待站主复核）——
+  officeace: { daily: 2 },         // 100 积分/日 × ¥0.02/分（果办无公开单价，保守）
+  meoo: { daily: 2 },              // 2000 积分/日，单价未公开 → 保守 ¥2/日
+  tencent_ima: { daily: 0.5 },     // 50 算力/日
+  ace_music: { daily: 0.3 },       // 20 积分/日 · 10 首歌
+  astudio: { daily: 0.4 },         // 100 积分/日 × ¥0.004/分
+  wps_lingxi: { daily: 0.5 },      // 100 智点/日（第 7 天起 200）
+  wenxin: { daily: 0.5 },          // ERNIE 5.5 Flash 共享 50 次/日
+  qianfan: { once: 20 },           // 新户 20 元代金券
+  rime: { monthly: 333 },          // $50/月 × 官方汇率 6.6683 ≈ ¥333
+  drex: { monthly: 33 },           // $5/月 ≈ ¥33
+  livekit: { monthly: 17 },        // $2.5/月 ≈ ¥17
+  edgeone: { monthly: 0.3 },       // 50 万 Token/月 ≈ ¥0.3
+  tencent_adp: { monthly: 2 },     // 1.5 万 PU/月，PU 无公开价 → 保守
+  elevenlabs: { monthly: 5 },      // 1 万积分/月，语音积分保守
+  zed: { monthly: 67 },            // 学生 $10/月 ≈ ¥67（试用 $5≈¥33 并入卡面）
+  tokenhub: { once: 2.4 },         // 100 万 Token/新户 ≈ ¥2.4
+  wechat_miniprogram: { once: 200 }, // 10 亿 Token 单次但限云开发场景，保守 ¥200（待核）
+  devin: {},                       // 限时免费模型，无单价
+  minicpm_ocr: {},                 // 免费 API，无单价
+  stepaudio: {},                   // 限时预览模型，无单价
+  somark: {},                      // 免费解析 API，无单价
 };

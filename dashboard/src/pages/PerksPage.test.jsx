@@ -11,13 +11,16 @@ import { getCopyLocale } from "../lib/copy";
 import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
 
 const ORDERED_IDS = [
-  "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling", "apigoto",
-  "autoclaw", "autoclaw_intl", "bigmodel", "catpaw", "cerebras", "cloudflare_workers_ai", "huawei_codearts",
-  "cola", "tuanjie_cowork", "cursor", "deepseek", "doubaowork", "google_ai_studio", "groq", "siliconflow",
-  "scnet", "volcengine", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "longcat", "loomy",
-  "minimax_code", "minimax", "modelscope", "nvidia_nim", "opencode", "opencode_go", "openrouter",
-  "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "sensenova", "teleagent", "trae_cn", "trae",
-  "unisound_maas", "vyceai", "workbuddy_intl", "workbuddy", "zcode", "zcode_intl",
+  "ace_music", "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling",
+  "apigoto", "autoclaw", "autoclaw_intl", "wenxin", "qianfan", "bigmodel", "catpaw", "cerebras",
+  "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepseek", "devin", "doubaowork",
+  "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "officeace", "volcengine",
+  "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
+  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "modelscope", "nvidia_nim", "opencode",
+  "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "rime",
+  "sensenova", "somark", "stepaudio", "teleagent", "tencent_adp", "edgeone", "tencent_ima", "tokenhub",
+  "trae_cn", "trae", "unisound_maas", "vyceai", "wechat_miniprogram", "workbuddy_intl", "workbuddy", "wps_lingxi",
+  "zcode", "zcode_intl", "zed",
 ];
 
 // Mock copy helper using real zh strings (raw templates — the house style here
@@ -214,8 +217,8 @@ describe("PerksPage", () => {
     // 2026-11-11：NVIDIA Build 改用「按速率免费的长期免费档」迁入 permanent_free（16→17）。
     // 2026-11-13：端砚免费直用下线（改墨点折扣计费），移出 permanent_free（17→16）。
     // 2026-11-13：opencode 限免模型是每日额度，补 daily_claim 周期（站主定谳，日签 17→18）。
-    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("16");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("18");
+    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("30");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("25");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {
@@ -644,7 +647,7 @@ describe("PerksPage", () => {
     expect(stored.providers.ant_ling.monthly.count).toBe(1);
   });
 
-  it("明细卡行内标记已领取：不再滚动跳转，卡册对应小卡原地翻牌", async () => {
+  it("明细卡行内标记已领取：滚回卡册对应小卡并在到位后翻牌", async () => {
     localStorage.clear();
     render(
       <ToastProvider>
@@ -656,7 +659,8 @@ describe("PerksPage", () => {
     // 用第一页的讯飞星火（agnes 排在后面的页，卡册只渲染当前页）。
     const detail = screen.getByRole("heading", { name: /讯飞星火/ }).closest(".group");
     fireEvent.click(within(detail).getByRole("button", { name: "标记已领取" }));
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)); });
+    // 行内路径：先滚回卡册小卡，900ms 后翻牌
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1100)); });
     const card = [...document.querySelectorAll(".perk-mini")]
       .find((node) => node.getAttribute("data-perk-id") === "spark");
     expect(card).toBeTruthy();

@@ -1228,9 +1228,21 @@ export function DashboardPage({
     return normalized.slice(0, 6);
   }, [publicMode, userStatus]);
 
+  // 云端 heatmap 不带逐日成本：把当前周期日账的真实成本按天喂给 tooltip。
+  const heatmapCostByDay = useMemo(() => {
+    const map = new Map();
+    for (const row of Array.isArray(daily) ? daily : []) {
+      const day = row && typeof row.day === "string" ? row.day : null;
+      const cost = Number(row && row.total_cost_usd);
+      if (day && Number.isFinite(cost)) map.set(day, cost);
+    }
+    return map;
+  }, [daily]);
+
   const activityHeatmapBlock = (
     <ActivityHeatmap
       heatmap={heatmap}
+      costByDay={heatmapCostByDay}
       timeZoneLabel={timeZoneLabel}
       timeZoneShortLabel={timeZoneShortLabel}
       hideLegend={screenshotMode}

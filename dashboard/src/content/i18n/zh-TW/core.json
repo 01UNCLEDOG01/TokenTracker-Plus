@@ -965,6 +965,7 @@
   "perks.deal.ended": "已結束",
   "perks.album.sealed": "絕版",
   "perks.album.sealed_count": "絕版 {{count}} 張",
+  "perks.album.sealed_summary": "絕版 {{total}} 張 · 已收 {{collected}} 張",
   "perks.album.vitrine": "絕版卡",
   "perks.cycle.once": "一",
   "perks.cycle.monthly": "月",

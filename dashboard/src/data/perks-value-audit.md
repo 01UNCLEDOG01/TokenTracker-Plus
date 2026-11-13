@@ -89,7 +89,7 @@
 | `autoclaw` | ≈¥30 → blue | purple | 官方口径 ¥120 打实际可用折扣后仍够 purple；送的多消耗也快，不盲信票面 |
 | `autoclaw_intl` | ≈¥36 → blue | purple | 实际额度与国内版相当（注册礼包数额待补） |
 
-**跨档区间（区间估计跨两档，按既有裁决保留）**：`agentrouter`（¥216–500，rose）、`opencode`/`bigmodel`（¥30–60，purple·单次锚点）、`qwen`（¥25–60，purple·token 锚点）、`intern_inkstone`（¥25–50，blue）、`agnes_web`（¥9–18，success·站主裁决）。
+**跨档区间（区间估计跨两档，按既有裁决保留）**：`agentrouter`（¥216–500，rose）、`bigmodel`（¥30–60，purple·单次锚点；opencode 已于 2026-11-13 按日额度重估升 rose）、`qwen`（¥25–60，purple·token 锚点）、`intern_inkstone`（¥25–50，blue）、`agnes_web`（¥9–18，success·站主裁决）。
 
 ### 9a. 统一口径补则（2026-11-13，站主质询「阿里百炼凭什么在粉」后定谳）
 - **年付/全年有效的代金券一律摊月再对档**：¥300/年 ≈ ¥25/月 → blue 级，不得用「单次 ≥ ¥100」把年券拉进 rose。
@@ -108,7 +108,7 @@
 | `loomy` | 讯飞 Loomy | 每日刷新 5,000 积分（¥19.9/5000分，月上限 ¥597） | **¥597.00** |
 | `spark` | 讯飞星火 Spark | Spark-X2.6 送 10 亿 Token（6折 ¥596/牌价 ¥991）+ Lite 免费 | **一次性 ≥¥596** |
 
-### 🔴 超大额赠送（rose · 13 张）
+### 🔴 超大额赠送（rose · 14 张）
 | ID | 卡片名称 | 核算口径与官方基准 | 等效价值（¥/月） |
 |---|---|---|:---:|
 | `teleagent` | 中国电信 TeleAgent | 四重福利月赠最高 39,000 积分（¥69=6000分） | **¥448.50** |
@@ -123,15 +123,15 @@
 | `cerebras` | Cerebras Inference | 每日 100 万 Token（27B/120B 加权） | **≈¥170.00** |
 | `huawei_codearts` | 华为 CodeArts Agent | 常规日签 100 积分（¥147/月）；⚠️ Skill 赛参赛期可达 **¥1,617**（站主 2026-11-13 裁决：赛期报名礼+日签加码，「算得上粉」，维持 rose） | **¥147.00** |
 | `qiniu` | 七牛云 (Qiniu Cloud) | conatus-free 每日 1 亿 Token（活动至 2026-11-30） | **超大额** |
+| `opencode` | OpenCode Console | 5 个限免模型日额度独立叠加（LongCat 2.5 每日 100 次 + MiniMax/DeepSeek/GLM/MiMo 各保守 30-50 次 ≈250 次/日），编程单次 10-15k tokens | **≈¥180/月（¥6/日，站主 2026-11-13 定谳升 rose）** |
 
-### 🟣 大额赠送（purple · 8 张）
+### 🟣 大额赠送（purple · 7 张）
 | ID | 卡片名称 | 核算口径与官方基准 | 等效价值（¥/月） |
 |---|---|---|:---:|
 | `minimax_code` | MiniMax Code | 购买套餐 ¥30=4489分，日签 400分 + 周期加码 | **¥106.88** |
 | `tuanjie_cowork` | 团结 Cowork | 刊例价 ¥98=16000分，日签 300 + 周活动 900（月 12600分） | **¥77.18** |
 | `scnet` | 国家超算互联网 (SCNet) | 新户送 1 亿 Token（30天有效，实测折合 ¥60） | **一次性 ¥60** |
 | `sensenova` | 商汤日日新 | 双池各 12 万/5h + 120 万/周 | **≈¥60.00** |
-| `opencode` | OpenCode Console | 限免模型各按独立日额度计算（如 LongCat 2.5 每日 100 次），叠加可观 | **¥30–¥60（保守下限）** |
 | `autoclaw_intl` | AutoClaw 国际版 | 每日签到 400 credits（2026-11-13 站主实测，旧记 500）+ 新户注册礼包（数额待补，站主口径实际额度与国内版相当） | **≈¥36.00 + 注册礼包（站主裁决保留 purple）** |
 | `autoclaw` | AutoClaw 国内版 | 新户送 2 亿 tokens（官方口径 ¥120）+ 每日签到 200 积分（站主实测）+ Free 档每周 2,500 积分 | **≈¥30.00（送的多消耗也快，按实际可用价值折算、不盲信官方口径——站主 2026-11-13 裁决保留 purple）** |
 | `bigmodel` | 智谱开放平台 | 老 Flash 系列免费（至下架）+ 新户赠额，视用量 | **¥30–¥60** |
@@ -177,3 +177,35 @@
 |---|---|---|:---:|
 | `agent2api` | Agent2API (本地网关) | 开源本地网关，托管多端自动签到打卡并转标准 OpenAI 接口 | **纯本地工具** |
 | `opencode_go` | OpenCode GO | 纯付费高性价比渠道（$10 享 $100 DeepSeek 额度） | **纯付费** |
+
+---
+
+## 十、AIHOT 2026-11-13 吸收的新卡登记（21 张，估值保守下限待站主复核）
+
+AIHOT 首页 2026-11-13 快照核对后新收录。估值口径同全表：美元券按官方汇率（6.6683）折算，积分类无公开单价的按保守下限估算——**标「保守」的条目待端内实测后修正**。
+
+| ID | 卡片 | 档位 | 估值依据 |
+|---|---|---|---|
+| `officeace` | 华为果办 OfficeAce | blue | 100 积分/日 × ¥0.02/分（果办无公开单价，保守） |
+| `meoo` | 秒悟 Meoo | blue | 2000 积分/日，单价未公开 → 保守 ¥2/日 |
+| `tencent_ima` | 腾讯 ima | success | 50 算力/日 |
+| `ace_music` | ACE Music | success | 20 积分/日（10 首歌/日） |
+| `astudio` | 讯飞 AStudio | blue | 100 积分/日 × ¥0.004/分 + 新户 1000 |
+| `wps_lingxi` | WPS 灵犀 | success | 100 智点/日（第 7 天起 200） |
+| `wenxin` | 百度文心 (ERNIE) | success | ERNIE 5.5 Flash Preview 共享 50 次/日 |
+| `qianfan` | 百度千帆 | blue | 新户 ¥20 代金券（单次） |
+| `rime` | Rime | rose | $50/月 × 6.6683 ≈ **¥333/月** |
+| `drex` | Drex | blue | $5/月 ≈ **¥33/月** |
+| `livekit` | LiveKit | blue | $2.5/月 ≈ **¥17/月** |
+| `edgeone` | 腾讯 EdgeOne Makers | success | 50 万 Token/月 ≈ ¥0.3（仅技术验证） |
+| `tencent_adp` | 腾讯云 ADP | success | 1.5 万 PU/月，PU 无公开价 → 保守 ¥2/月 |
+| `elevenlabs` | ElevenLabs | success | 1 万积分/月（语音，保守 ¥5/月） |
+| `zed` | Zed | purple | 学生 $10/月 ≈ **¥67/月**（+14 天试用 $5≈¥33） |
+| `tokenhub` | 腾讯云 TokenHub | success | 100 万 Token/新户 ≈ ¥2.4（单次） |
+| `wechat_miniprogram` | 微信小程序云开发 | amber | 10 亿 Token 单次（≥5 亿门槛），限云开发场景 → 保守 ¥200（**待核**） |
+| `devin` | Devin Desktop | success | SWE-2 Flash 限免至 2026-12-05（无单价） |
+| `minicpm_ocr` | 面壁 MiniCPM-OCR | success | 免费 API（无单价） |
+| `stepaudio` | 阶跃 StepAudio 3 | success | 四款预览模型限免（无单价） |
+| `somark` | SoMark OXR | success | 免费文档解析 API（无单价） |
+
+**同日对既有卡的字段吸收**（不重排档位）：opencode 补 Nemotron 3.5 免费版 / Beam 与 Inkling 地区限制；硅基流动补 XingChen/Hunyuan-MT/Xing4.0 及「不含 Pro、按模型限速、要实名」；蚂蚁百灵补 Ling-3.2-flash「需绑支付宝、免费期后收费」；MiniMax Code 补 H3 Image 限时免费 10 张；WorkBuddy 补 Hy4/CodeBuddy Hy4 限时免费额度。

@@ -110,13 +110,14 @@ async function verifiedUserIdFromJwt(authHeader: string | null): Promise<string 
   return null;
 }
 
-// [local day, total tokens, { model: tokens }] as returned by
+// [local day, total tokens, { model: tokens }, cost] as returned by
 // account_heatmap_compact. Positional, so the model names are the only
-// repeated strings on the wire.
-type CompactDay = [string, number | string, Record<string, number | string> | null];
+// repeated strings on the wire. The 4th slot carries the day cost summed from
+// tokentracker_hourly.total_cost_usd (2026-11-13: tooltip showed ¥0.00).
+type CompactDay = [string, number | string, Record<string, number | string> | null, number | string];
 interface HeatmapWire {
   model_names: string[];
-  days: [string, number | string, (number | string)[] | null][];
+  days: [string, number | string, (number | string)[] | null, number | string][];
 }
 
 // Expand the database-only dictionary before the existing response logic.
@@ -137,8 +138,8 @@ function expandModelPairs(
 function decodeHeatmapWire(data: unknown): CompactDay[] {
   const payload = (data ?? {}) as Partial<HeatmapWire>;
   const modelNames = Array.isArray(payload.model_names) ? payload.model_names : [];
-  return (Array.isArray(payload.days) ? payload.days : []).map(([day, total, pairs]) =>
-    [day, total, expandModelPairs(pairs, modelNames)]
+  return (Array.isArray(payload.days) ? payload.days : []).map(([day, total, pairs, cost]) =>
+    [day, total, expandModelPairs(pairs, modelNames), Number(cost) || 0]
   );
 }
 
@@ -287,15 +288,15 @@ export default async function (req: Request): Promise<Response> {
     return json({ error: (e as Error).message }, 500);
   }
 
-  const byDay = new Map<string, { total_tokens: number; billable_total_tokens: number; models: Record<string, number> }>();
-  for (const [day, total, models] of compactDays) {
+  const byDay = new Map<string, { total_tokens: number; billable_total_tokens: number; models: Record<string, number>; cost: number }>();
+  for (const [day, total, models, cost] of compactDays) {
     const tt = Number(total) || 0;
     // Per-model totals so the activity-heatmap tooltip can show MODEL breakdown
     // in cloud mode — mirrors src/lib/local-api.js heatmap cells. Postgres folds
     // a NULL/empty model into "unknown", same as the old String(model || …) did.
     const mdl: Record<string, number> = {};
     if (models) for (const name of Object.keys(models)) mdl[name] = Number(models[name]) || 0;
-    byDay.set(day, { total_tokens: tt, billable_total_tokens: tt, models: mdl });
+    byDay.set(day, { total_tokens: tt, billable_total_tokens: tt, models: mdl, cost: Number(cost) || 0 });
   }
 
   const allValues = Array.from(byDay.values())
@@ -312,7 +313,7 @@ export default async function (req: Request): Promise<Response> {
     return 4;
   };
 
-  const cells: { day: string; total_tokens: number; billable_total_tokens: number; level: number; models: Record<string, number> | null }[] = [];
+  const cells: { day: string; total_tokens: number; billable_total_tokens: number; level: number; models: Record<string, number> | null; total_cost_usd: number }[] = [];
   const cursor = new Date(start);
   while (cursor <= end) {
     const day = cursor.toISOString().slice(0, 10);
@@ -324,6 +325,9 @@ export default async function (req: Request): Promise<Response> {
       billable_total_tokens: billable,
       level: calcLevel(billable),
       models: data?.models || null,
+      // Day cost from the hourly rows the client priced; trae-cn session
+      // states have no cost column (priced for display elsewhere).
+      total_cost_usd: data?.cost || 0,
     });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
@@ -360,7 +364,7 @@ export default async function (req: Request): Promise<Response> {
           }
           pairs.push(idx, c.models![name]);
         }
-        return [c.day, c.total_tokens, pairs];
+        return [c.day, c.total_tokens, pairs, c.total_cost_usd];
       });
     return json({
       format: "compact",

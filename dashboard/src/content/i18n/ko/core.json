@@ -679,6 +679,7 @@
   "perks.deal.ended": "종료",
   "perks.album.sealed": "종료",
   "perks.album.sealed_count": "종료 {{count}}개",
+  "perks.album.sealed_summary": "종료 {{total}}장 · 수집 {{collected}}장",
   "perks.album.vitrine": "절판 카드",
   "perks.cycle.once": "1회",
   "perks.cycle.monthly": "월",

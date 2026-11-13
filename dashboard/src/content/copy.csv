@@ -1996,6 +1996,7 @@ perks.deal.left_days,ui,PerksPage,PerksPage,deal_left_days,"{{days}} days left",
 perks.deal.ended,ui,PerksPage,PerksPage,deal_ended,Ended,,active
 perks.album.sealed,ui,PerksPage,PerksPage,album_sealed,Retired,,active
 perks.album.sealed_count,ui,PerksPage,PerksPage,album_sealed_count,"{{count}} retired",,active
+perks.album.sealed_summary,ui,PerksPage,PerksPage,album_sealed_summary,Retired {{total}} · collected {{collected}},,active
 perks.album.vitrine,ui,PerksPage,PerksPage,vitrine,Retired cards,,active
 perks.cycle.once,ui,PerksPage,PerksPage,once,1×,,active
 perks.cycle.monthly,ui,PerksPage,PerksPage,monthly,M,,active
