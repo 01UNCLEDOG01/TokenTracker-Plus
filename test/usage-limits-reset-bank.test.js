@@ -64,7 +64,7 @@ async function withCodexLimits({
   } finally {
     Date.now = realDateNow;
     resetUsageLimitsCache();
-    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 }
 
@@ -201,34 +201,40 @@ test("Reset Bank fallback keeps Codex windows when list request never resolves",
 });
 
 test("Reset Bank fallback keeps Codex windows when usage consumes most provider timeout and list never resolves", async () => {
-  const result = await withCodexLimits({
-    wham: whamBody({ available_count: 1, total_earned_count: 5, credits: [] }),
-    // 满负载下真实 setTimeout 会漂移，180ms 预算只给 fallback 留 20ms 必然偶发超支；
-    // 同比例放大（usage 吃 75%），绝对余量 20ms → 500ms，测试意图不变。
-    providerTimeoutMs: 2000,
-    whamResponder: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      return ok(whamBody({ available_count: 1, total_earned_count: 5, credits: [] }));
-    },
-    resetResponder: () => new Promise(() => {}),
-  });
+  // 老写法用真实 setTimeout(1500) 去赌真实 2000ms 预算 —— 满负载下那 1.5s 的
+  // 回调本身可能晚于预算到点，wham 先被超时，整条断言跟着红。真时钟不能当测试
+  // 夹具：改成 mock performance.now 让「wham 吃掉 75% 预算」成为确定事实，wham
+  // 立即返回；只有列表请求那一跳还走真实超时（该跳要测的就是超时兜底本身）。
+  const realPerformanceNow = performance.now;
+  let nowCalls = 0;
+  performance.now = () => ((nowCalls += 1) === 1 ? 0 : 1500);
+  try {
+    const result = await withCodexLimits({
+      wham: whamBody({ available_count: 1, total_earned_count: 5, credits: [] }),
+      providerTimeoutMs: 2000,
+      whamResponder: () => ok(whamBody({ available_count: 1, total_earned_count: 5, credits: [] })),
+      resetResponder: () => new Promise(() => {}),
+    });
 
-  assert.equal(result.codex.error, null);
-  assert.deepEqual(result.codex.primary_window, {
-    used_percent: 11,
-    limit_window_seconds: 18000,
-    reset_at: 700,
-  });
-  assert.deepEqual(result.codex.secondary_window, {
-    used_percent: 22,
-    limit_window_seconds: 604800,
-    reset_at: 800,
-  });
-  assert.deepEqual(result.codex.reset_credits, {
-    available_count: 1,
-    total_earned_count: 5,
-    credits: [],
-  });
+    assert.equal(result.codex.error, null);
+    assert.deepEqual(result.codex.primary_window, {
+      used_percent: 11,
+      limit_window_seconds: 18000,
+      reset_at: 700,
+    });
+    assert.deepEqual(result.codex.secondary_window, {
+      used_percent: 22,
+      limit_window_seconds: 604800,
+      reset_at: 800,
+    });
+    assert.deepEqual(result.codex.reset_credits, {
+      available_count: 1,
+      total_earned_count: 5,
+      credits: [],
+    });
+  } finally {
+    performance.now = realPerformanceNow;
+  }
 });
 
 test("Reset Bank list is skipped when usage already consumes the provider budget", async () => {

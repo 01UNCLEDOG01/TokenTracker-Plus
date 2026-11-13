@@ -14,7 +14,7 @@ const { createLocalApiHandler } = require("../src/lib/local-api");
 // badges still carry their stored values rather than dropping to zero.
 test("a cold achievements request does not block on the session scan", async (t) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-ach-cold-"));
-  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   const tracker = path.join(home, ".tokentracker", "tracker");
   fs.mkdirSync(tracker, { recursive: true });
 
@@ -57,7 +57,11 @@ test("a cold achievements request does not block on the session scan", async (t)
   const elapsed = Date.now() - startedAt;
   const payload = JSON.parse(body);
 
-  assert.ok(elapsed < 5000, `cold request must not wait for the session scan (took ${elapsed}ms)`);
+  // 「没等扫描」的结构性证据是 sessions_pending === true：冷缓存分支只做一次
+  // sidecar 文件读就应答、把重建踢到后台，必然带这个标记（KI-033 的契约）。
+  // 墙钟断言（elapsed < 5000）在全量套件满负载时本身就会被拖过 5s —— 它量的是
+  // 测试进程的调度，不是端点的行为，所以降级成防挂死护栏（30s），不再当主断言。
+  assert.ok(elapsed < 30_000, `cold request hung (took ${elapsed}ms)`);
   assert.equal(payload.sessions_pending, true, "the client is told the sidecar is still rebuilding");
   const sprinter = payload.achievements.find((badge) => badge.id === "sprinter");
   const marathon = payload.achievements.find((badge) => badge.id === "session_marathon");

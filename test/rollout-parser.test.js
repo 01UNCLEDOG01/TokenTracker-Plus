@@ -160,7 +160,7 @@ test("parseRolloutIncremental ignores repeated token_count records with unchange
       usage1.total_tokens + usage2.total_tokens,
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -208,7 +208,7 @@ test("parseRolloutIncremental preserves Unicode line separators inside physical 
       const queued = await readJsonLines(queuePath);
       assert.equal(queued.reduce((sum, event) => sum + event.total_tokens, 0), 150);
     } finally {
-      await fs.rm(tmp, { recursive: true, force: true });
+      await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   }
 });
@@ -260,7 +260,7 @@ test("parseRolloutIncremental skips an invalid UTF-8 record and keeps surroundin
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.reduce((sum, row) => sum + Number(row.total_tokens || 0), 0), 150);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -336,7 +336,7 @@ test("parseRolloutIncremental retries incomplete trailing JSONL records", async 
         assert.equal(queued.length, 2);
         assert.equal(Number(queued.at(-1)?.total_tokens || 0), 150);
       } finally {
-        await fs.rm(tmp, { recursive: true, force: true });
+        await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
       }
     });
   }
@@ -392,7 +392,7 @@ test("parseRolloutIncremental recovers from a legacy cursor inside a UTF-8 chara
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.reduce((sum, row) => sum + Number(row.total_tokens || 0), 0), 50);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -446,7 +446,7 @@ test("parseRolloutIncremental separates interleaved cumulative usage lineages", 
     assert.equal(queued.at(-1).total_tokens, 100 + 200 + 50 + 30);
     assert.equal(cursors.files[rolloutPath].tokenUsageBaselines.length, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -492,7 +492,7 @@ test("parseRolloutIncremental does not re-count a session file rewritten with a 
     assert.equal(sumCodex(), afterFirst, "re-scan after inode change must not double-count");
     assert.equal(cursors.codexHashes.length, 2, "no new event keys on a pure re-scan");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -514,7 +514,7 @@ test("listRolloutFilesDeep finds flat archived_sessions files the strict scanner
     const found = await listRolloutFilesDeep(tmp);
     assert.deepEqual(found.sort(), [flat, nested].sort());
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -575,7 +575,7 @@ test("compressed Codex archives are discovered and counted once (issue #817)", a
     });
     assert.equal(multi.eventsAggregated, 1, "multi-frame archive must decode all events");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -627,7 +627,7 @@ test("malformed compressed Codex archive does not abort the sync (issue #817)", 
       "soft-fail must leave the prior archive cursor untouched even when inode changed",
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -650,7 +650,7 @@ test("malformed compressed Codex archive throws under strict rebuild policy (iss
       /unreadable Codex compressed archive/,
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -717,7 +717,7 @@ test("compressed Codex project-only rescan keeps compressed-size cursor (issue #
       "project-only rescan must not rewrite cursor to a decompressed newline offset");
     assert.equal(cursors.files[rolloutPath].projectOffset, compressedSize);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -784,7 +784,7 @@ test("compressed Codex archive growth does not inflate totals (issue #817)", asy
     const latest = queued[queued.length - 1];
     assert.equal(latest.total_tokens, 350, "lifetime total must be 350 not 450");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -828,7 +828,7 @@ test("unchanged compressed archive with publicRepoResolver does not inflate (iss
     assert.equal(cursors.files[rolloutPath].lastTotal.total_tokens, before);
     assert.equal(before, 200);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -874,7 +874,7 @@ test("parseRolloutIncremental does not double-count a session moved sessions/ ->
     await parseRolloutIncremental({ rolloutFiles: [archivedFile], cursors, queuePath, source: "codex" });
     assert.equal(sumCodex(), afterLive, "archived copy of a counted session must not double-count");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -932,7 +932,7 @@ test("parseRolloutIncremental deduplicates Acode live and archived session copie
     assert.equal(cursors.acodeHashes.length, 1);
     assert.deepEqual(cursors.codexHashes, ["codex-session:2026-08-31T00:00:01.000Z"]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -948,7 +948,7 @@ test("parseRolloutIncremental leaves Acode dedup state absent when no Acode file
     });
     assert.equal(Object.hasOwn(cursors, "acodeHashes"), false);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -999,7 +999,7 @@ test("parseRolloutIncremental prefers cumulative total_token_usage delta over la
     assert.equal(queued[0].output_tokens, 8);
     assert.equal(queued[0].total_tokens, 22);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1068,7 +1068,7 @@ test("parseRolloutIncremental emits project usage buckets with canonicalized pro
     assert.equal(projectQueued[0].reasoning_output_tokens, usage.reasoning_output_tokens);
     assert.equal(projectQueued[0].total_tokens, usage.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1124,7 +1124,7 @@ test("parseRolloutIncremental uses turn_context cwd to resolve project context",
     assert.equal(projectQueued[0].project_key, "acme/alpha");
     assert.equal(projectQueued[0].project_ref, "https://github.com/acme/alpha");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1169,7 +1169,7 @@ test("parseRolloutIncremental skips unchanged files when project state is disabl
     assert.equal(second.eventsAggregated, 0);
     assert.equal(second.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1238,7 +1238,7 @@ test("parseRolloutIncremental skips unchanged project-enabled files after projec
     assert.equal(cursors.projectHourly.projects["acme/alpha"].status, "blocked");
     assert.equal(cursors.projectHourly.projects["acme/alpha"].purge_pending, true);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1294,7 +1294,7 @@ test("parseRolloutIncremental skips unchanged codex sessions using turn_context 
     assert.equal(second.eventsAggregated, 0);
     assert.equal(second.projectBucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1364,7 +1364,7 @@ test("parseRolloutIncremental recovers legacy Codex EOF cursor project freshness
     assert.equal(third.eventsAggregated, 0);
     assert.equal(third.projectBucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1450,7 +1450,7 @@ test("parseRolloutIncremental retries a partial legacy project-context-only tail
     assert.equal(cursors.files[rolloutPath].projectFileContext.configPath.endsWith("config"), true);
   } finally {
     await rolloutHandle?.close();
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1514,7 +1514,7 @@ test("parseRolloutIncremental gives legacy project cursors one EOF pass before s
     assert.equal(third.bucketsQueued, 0);
     assert.equal(third.projectBucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1574,7 +1574,7 @@ test("parseRolloutIncremental does not skip unchanged project files with a custo
     assert.equal(second.eventsAggregated, 0);
     assert.equal(resolverCalls, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1641,7 +1641,7 @@ test("parseRolloutIncremental throttles unchanged files after missing project co
     assert.equal(third.eventsAggregated, 0);
     assert.equal(cursors.files[rolloutPath].projectFileContext.configPath.endsWith("config"), true);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1705,7 +1705,7 @@ test("parseRolloutIncremental memoizes project config freshness during idle scan
     assert.equal(configStats, 1);
   } finally {
     fs.stat = realStat;
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1758,7 +1758,7 @@ test("parseRolloutIncremental keeps project EOF fast path scoped to codex source
     assert.equal(second.eventsAggregated, 0);
     assert.equal(cursors.files[rolloutPath].projectOffset, undefined);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1800,7 +1800,7 @@ test("parseRolloutIncremental bounds concurrent metadata reads while preserving 
     assert.deepEqual(Object.keys(cursors.files), rolloutFiles);
   } finally {
     fs.stat = realStat;
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1863,7 +1863,7 @@ test("filterColdCodexRolloutFiles skips historical EOF Codex files without statt
     assert.equal(rolloutStats, 0);
   } finally {
     fs.stat = realStat;
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1923,7 +1923,7 @@ test("filterColdCodexRolloutFiles re-reads a recent cold rollout that grew past 
     assert.equal(rolloutStats, 2);
   } finally {
     fs.stat = realStat;
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -1971,7 +1971,7 @@ test("filterColdCodexRolloutFiles keeps project-stale historical files parseable
     assert.equal(filtered.skipped, 0);
     assert.deepEqual(filtered.rolloutFiles, [{ path: rolloutPath, source: "codex" }]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2056,7 +2056,7 @@ test("parseRolloutIncremental re-reads same-inode truncation when project state 
     assert.equal(third.filesProcessed, 1);
     assert.equal(third.eventsAggregated, 1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2112,7 +2112,7 @@ test("parseRolloutIncremental uses session_meta cwd to resolve project context",
     assert.equal(projectQueued[0].project_key, "acme/alpha");
     assert.equal(projectQueued[0].project_ref, "https://github.com/acme/alpha");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2174,7 +2174,7 @@ test("parseRolloutIncremental marks blocked when remote is missing but repo_root
     assert.equal(cursors.projectHourly.projects["acme/alpha"].status, "blocked");
     assert.equal(cursors.projectHourly.projects["acme/alpha"].purge_pending, true);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2230,7 +2230,7 @@ test("parseRolloutIncremental strips credentials from project_ref", async () => 
     assert.equal(projectQueued.length, 1);
     assert.equal(projectQueued[0].project_ref, "https://github.com/acme/alpha");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2285,7 +2285,7 @@ test("parseRolloutIncremental ignores local path project_ref", async () => {
     const projectQueued = await readJsonLines(projectQueuePath);
     assert.equal(projectQueued.length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2337,7 +2337,7 @@ test("parseRolloutIncremental skips project usage when repo is blocked", async (
     const projectQueued = await readJsonLines(projectQueuePath);
     assert.equal(projectQueued.length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2394,7 +2394,7 @@ test("parseRolloutIncremental splits usage into half-hour buckets", async () => 
     assert.equal(byBucket.get("2025-12-17T00:30:00.000Z")?.total_tokens, usage2.total_tokens);
     assert.equal(byBucket.get("2025-12-17T00:30:00.000Z")?.conversation_count, 1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2467,7 +2467,7 @@ test("parseRolloutIncremental skips historical replay tokens in forked Codex rol
     assert.equal(queued[0].total_tokens, liveUsage.total_tokens);
     assert.deepEqual(cursors.files[rolloutPath].lastTotal, liveTotals);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2516,7 +2516,7 @@ test("parseRolloutIncremental skips same-day forked replay burst (issue #169 fol
     // Cumulative baseline advanced across the skipped rows so the live delta is intact.
     assert.deepEqual(cursors.files[rolloutPath].lastTotal, cum(r0, r1, r2, live));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2584,7 +2584,7 @@ test("parseRolloutIncremental skips same-day forked replay burst for Acode", asy
     assert.equal(queued[0].total_tokens, replay0.total_tokens + live.total_tokens);
     assert.deepEqual(cursors.files[rolloutPath].lastTotal, liveTotal);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2626,7 +2626,7 @@ test("parseRolloutIncremental latches off after the replay burst, keeping fast l
     const total = queued.reduce((n, q) => n + q.total_tokens, 0);
     assert.equal(total, r0.total_tokens + l0.total_tokens + l1.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2674,7 +2674,7 @@ test("parseRolloutIncremental counts fast live turns appended after the first sy
     const second = await parseRolloutIncremental({ rolloutFiles: [rolloutPath], cursors, queuePath });
     assert.equal(second.eventsAggregated, 2, "both fast live turns must be counted on resume");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2713,7 +2713,7 @@ test("parseRolloutIncremental fails open when a forked rollout's timestamps step
     // against: the prefix ends permanently and every row is counted.
     assert.equal(res.eventsAggregated, 3);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2746,7 +2746,7 @@ test("parseRolloutIncremental never drops genuine turns in a replay-free fork", 
     const total = queued.reduce((n, q) => n + q.total_tokens, 0);
     assert.equal(total, a.total_tokens + b.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2799,7 +2799,7 @@ test("parseRolloutIncremental migrates v1 hourly buckets without resetting total
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 10);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2858,7 +2858,7 @@ test("parseRolloutIncremental handles total_token_usage reset by counting last_t
       usageA.total_tokens + usageB.total_tokens + usageReset.total_tokens,
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2909,7 +2909,7 @@ test("parseRolloutIncremental handles total_token_usage reset when last_token_us
       usageA.total_tokens + usageB.total_tokens + totalsReset.total_tokens,
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2953,7 +2953,7 @@ test("parseGeminiIncremental aggregates gemini tokens and model", async () => {
     assert.equal(queued[0].conversation_count, 1);
     assert.equal(typeof queued[0].content, "undefined");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -2989,7 +2989,7 @@ test("parseGeminiIncremental recomputes total when Gemini reported total exclude
     assert.equal(queued[0].reasoning_output_tokens, 3);
     assert.equal(queued[0].total_tokens, 40);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3038,7 +3038,7 @@ test("parseGeminiIncremental keeps cumulative totals across messages without tok
     assert.equal(queued[0].output_tokens, 2);
     assert.equal(queued[0].total_tokens, 10);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3082,7 +3082,7 @@ test("parseGeminiIncremental skips duplicate cumulative snapshots in one file", 
     assert.equal(queued[0].total_tokens, 6);
     assert.equal(queued[0].conversation_count, 1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3130,7 +3130,7 @@ test("parseGeminiIncremental advances baseline for messages with tokens but no t
     assert.equal(queued[0].output_tokens, 2);
     assert.equal(queued[0].total_tokens, 8);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3164,7 +3164,7 @@ test("parseGeminiIncremental is idempotent with unchanged totals", async () => {
     const afterSecond = await readJsonLines(queuePath);
     assert.equal(afterSecond.length, afterFirst.length);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3216,7 +3216,7 @@ test("parseGeminiIncremental skips unchanged files when project state is disable
     const afterSecond = await readJsonLines(queuePath);
     assert.deepEqual(afterSecond, queued);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3251,7 +3251,7 @@ test("parseGeminiIncremental reprocesses old cursors without unchanged metadata"
     assert.equal(typeof cursors.files[sessionPath].size, "number");
     assert.equal(typeof cursors.files[sessionPath].mtimeMs, "number");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3332,7 +3332,7 @@ test("parseGeminiIncremental still processes unchanged files when project state 
     assert.equal(third.bucketsQueued, 0);
     assert.equal(third.projectBucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3413,7 +3413,7 @@ test("parseGeminiIncremental rebuilds project buckets after purge clears file pr
     assert.equal(projectQueued[0].source, "gemini");
     assert.equal(projectQueued[0].total_tokens, 6);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3444,7 +3444,7 @@ test("parseGeminiIncremental defaults missing model to unknown", async () => {
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "unknown");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3499,7 +3499,7 @@ test("parseCursorApiIncremental treats Cursor CSV as authoritative and replaces 
     assert.equal(queued.at(-1).cached_input_tokens, 4);
     assert.equal(cursors.hourly.buckets["cursor|auto|2026-04-01T10:00:00.000Z"].totals.total_tokens, 50);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3569,7 +3569,7 @@ test("parseCursorApiIncremental preserves history older than a windowed/truncate
       "a dateless export must not zero anything",
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3617,7 +3617,7 @@ test("parseOpencodeIncremental aggregates message tokens and model", async () =>
     });
     assert.equal(resAgain.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3674,7 +3674,7 @@ test("readOpencodeDbMessages falls back to node:sqlite when sqlite3 CLI is unava
     assert.equal(rows[0].data.modelID, "deepseek-v4-flash-free");
     assert.equal(rows[0].data.tokens.input, 34);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3793,7 +3793,7 @@ test("readZcodeDbMessages prefers complete native model_usage rows and keeps tok
     });
     assert.equal(rows[0].data.path.cwd, "/work/project");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3808,7 +3808,7 @@ test("readZcodeDbMessages falls back when model_usage schema is incomplete", asy
     );
     assert.deepEqual(rows, []);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3884,7 +3884,7 @@ test("readZcodeDbMessages queries a real native schema and ignores unfinished re
     assert.equal(second.bucketsQueued, 0);
     assert.equal(await fs.readFile(queuePath, "utf8"), beforeSecondRun);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3946,7 +3946,7 @@ test("readZcodeDbMessages preserves legacy history before native model_usage beg
     assert.equal(rows[0].data.modelID, "GLM-5.2");
     assert.equal(rows[1].data.modelID, "GLM-5.3");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -3987,7 +3987,7 @@ test("readZcodeDbMessages snapshots native model_usage DBs on UNC paths", async 
       cache: { read: 20, write: 10 },
     });
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4053,7 +4053,7 @@ test("readZcodeDbMessages preserves normalized legacy history before native mode
       cache: { read: 20, write: 10 },
     });
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4096,7 +4096,7 @@ test("readZcodeDbMessages keeps Z.ai/BigModel + third-party rows, drops bundled 
     assert.ok(!rows.some((r) => /anthropic|openai|google/.test(r.data.providerID)));
     assert.ok(rows.every((row) => row.data.tokens.input === 50));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4124,7 +4124,7 @@ test("readZcodeDbMessages accepts the renamed providerId field (ZCode 2026-09-15
     const rows = readZcodeDbMessages(dbPath, fakeZcodeSqliteOptions(dbPath, [oldRow, renamedNative, renamedCustom, renamedSubAgent]));
     assert.deepEqual(rows.map((row) => row.id).sort(), ["new-m1", "new-z1", "old-z1"]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4181,7 +4181,7 @@ test("parseOpencodeDbIncremental aggregates ZCode GLM rows into source=zcode buc
     });
     assert.equal(resAgain.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4208,7 +4208,7 @@ test("parseOpencodeIncremental defaults missing model to unknown", async () => {
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "unknown");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4236,7 +4236,7 @@ test("parseOpencodeIncremental falls back to model field when modelID missing", 
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "glm-4.7-free");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4275,7 +4275,7 @@ test("parseOpencodeIncremental does not double count after message rewrite", asy
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 5);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4315,7 +4315,7 @@ test("parseOpencodeIncremental falls back to legacy cursors when opencode state 
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 5);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4357,7 +4357,7 @@ test("parseOpencodeIncremental counts usage once timestamp appears", async () =>
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 5);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4405,7 +4405,7 @@ test("parseOpencodeIncremental preserves totals after empty rewrite", async () =
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 5);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 test("parseOpencodeIncremental updates totals after message rewrite with new tokens", async () => {
@@ -4450,7 +4450,7 @@ test("parseOpencodeIncremental updates totals after message rewrite with new tok
     assert.equal(queued.length, 2);
     assert.equal(queued[1].total_tokens, 8);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4503,7 +4503,7 @@ test("parseOpencodeIncremental preserves legacy file totals when opencode index 
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4552,7 +4552,7 @@ test("parseRolloutIncremental subtracts cached_input_tokens from Codex input_tok
     // The reported total already equals the normalized, mutually-exclusive parts.
     assert.equal(queued[0].total_tokens, 1_010_000);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4594,7 +4594,7 @@ test("parseRolloutIncremental drops Codex total-only sentinel usage", async () =
     assert.equal(queued[0].output_tokens, 10);
     assert.equal(queued[0].total_tokens, 110);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4633,7 +4633,7 @@ test("parseRolloutIncremental handles Every Code token_count envelope", async ()
     assert.equal(queued[0].source, "every-code");
     assert.equal(queued[0].total_tokens, usage.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4679,7 +4679,7 @@ test("parseRolloutIncremental keeps buckets separate per source", async () => {
     const sources = queued.map((row) => row.source).sort();
     assert.deepEqual(sources, ["codex", "every-code"]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4735,7 +4735,7 @@ test("parseRolloutIncremental keeps buckets separate per model within the same h
     assert.equal(byModel.get("gpt-4o").total_tokens, usage1.total_tokens);
     assert.equal(byModel.get("gpt-4o-mini").total_tokens, usage2.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4785,7 +4785,7 @@ test("parseRolloutIncremental persists selected-model state and bills an observe
     assert.equal(cursor.modelAttributionState.selectedModel, "gpt-5.6-sol");
     assert.equal(cursor.modelAttributionState.effectiveModel, "gpt-5.6-terra");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4867,7 +4867,7 @@ test("parseRolloutIncremental every-code backfills unknown into dominant known m
     );
     assert.ok(!byModel.has("unknown"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4941,7 +4941,7 @@ test("parseRolloutIncremental every-code chooses dominant model deterministicall
     );
     assert.equal(byModel.get("gpt-4o-mini").total_tokens, usageB.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -4993,7 +4993,7 @@ test("parseRolloutIncremental aligns every-code unknown to nearest codex model",
     const bySource = new Map(queued.map((row) => [row.source, row]));
     assert.equal(bySource.get("every-code").model, "gpt-4o");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5053,7 +5053,7 @@ test("parseRolloutIncremental breaks ties by earlier codex bucket", async () => 
     const bySource = new Map(queued.map((row) => [row.source, row]));
     assert.equal(bySource.get("every-code").model, "gpt-4o");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5183,7 +5183,7 @@ test("parseRolloutIncremental retracts prior every-code alignment when target ch
     assert.equal(byModel.get("gpt-4o-mini")?.total_tokens, 0);
     assert.equal(byModel.get("gpt-4o")?.total_tokens, everyTotals2.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5252,7 +5252,7 @@ test("parseRolloutIncremental every-code retracts unknown when known model appea
     const knownRow = sameHour.find((row) => row.model === "gpt-4o");
     assert.equal(knownRow?.total_tokens, usageKnown.total_tokens + usageUnknown.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5352,7 +5352,7 @@ test("parseRolloutIncremental recomputes every-code alignment on codex-only upda
     assert.equal(byModel.get("gpt-4o")?.total_tokens, 0);
     assert.equal(byModel.get("gpt-4o-mini")?.total_tokens, everyUsage.total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5393,7 +5393,7 @@ test("parseClaudeIncremental skips OmO-mirrored sdk-ts external Claude SDK usage
     assert.equal(queued.length, 1);
     assert.equal(queued[0].input_tokens, 200);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5441,7 +5441,7 @@ test("parseAntigravityFile keeps a non-Gemini Model Selection sticky over the db
     assert.ok((byModel["gemini-3.8-flash"] || 0) > 0, "steps after switching back stay gemini: " + JSON.stringify(byModel));
     void res;
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5469,7 +5469,7 @@ test("parseClaudeIncremental skips output-only usage (DeepSeek Anthropic-compat 
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5524,7 +5524,7 @@ test("parseClaudeIncremental aggregates usage into half-hour buckets", async () 
     assert.equal(resAgain.eventsAggregated, 0);
     assert.equal(resAgain.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5568,7 +5568,7 @@ test("parseClaudeIncremental skips unchanged files once project context is settl
     assert.equal(second.eventsAggregated, 0);
     assert.equal(second.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5626,7 +5626,7 @@ test("parseClaudeIncremental resolves project from content-embedded cwd, not the
     });
     assert.equal(again.filesProcessed, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5684,7 +5684,7 @@ test("parseClaudeIncremental retries cwd resolution when a growing file's cwd li
     assert.equal(projectRows[0].project_key, "acme/late-cwd");
     assert.equal(cursors.files[claudePath].claudeCwd, repoRoot);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5725,7 +5725,7 @@ test("parseClaudeIncremental skips re-walking git for an idle file whose cwd has
     });
     assert.equal(second.filesProcessed, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5764,7 +5764,7 @@ test("parseClaudeIncremental counts cache creation as input and cache read separ
     assert.equal(queued[0].output_tokens, 2);
     assert.equal(queued[0].total_tokens, 14); // 5 + 2 + 3 + 4
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5793,7 +5793,7 @@ test("parseClaudeIncremental computes total from all components ignoring JSONL t
     // total = input(5) + output(1) + cacheCreation(2) + cacheRead(3) = 11, not JSONL's 20
     assert.equal(queued[0].total_tokens, 11);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5865,7 +5865,7 @@ test("parseClaudeIncremental dedups by msgId alone when requestId is missing", a
     assert.equal(queued[0].total_tokens, 465 + 78592 + 371);
     assert.equal(queued[0].model, model);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5920,7 +5920,7 @@ test("parseClaudeIncremental keeps msgId:requestId dedup when requestId is prese
     assert.ok(Array.isArray(cursors.claudeHashes));
     assert.ok(cursors.claudeHashes.includes(`${msgId}:${requestId}`));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -5978,7 +5978,7 @@ test("parseClaudeIncremental dedups same msgId across files in mixed reqId scena
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 100 + 200 + 10);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6004,7 +6004,7 @@ test("parseClaudeIncremental defaults missing model to unknown", async () => {
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "unknown");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6188,7 +6188,7 @@ test("parseKiroIncremental tracks JSONL fallback with a separate cursor", async 
     assert.equal(afterSecond.length, 2);
     assert.equal(afterSecond[1].total_tokens, 25);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6240,7 +6240,7 @@ test("parseKiroIncremental ignores JSONL fallback after file truncation until ne
     assert.equal(afterResume.length, 2);
     assert.equal(afterResume[1].total_tokens, 22);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6346,7 +6346,7 @@ test("parseHermesIncremental reads default and named profile databases with isol
     assert.equal(second.eventsAggregated, 0);
     assert.equal(second.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6376,7 +6376,7 @@ test("parseHermesIncremental processes profiles when default database is absent"
     assert.equal(queued[0].input_tokens, 1234);
     assert.equal(queued[0].output_tokens, 567);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6430,7 +6430,7 @@ test("parseHermesIncremental processes sessions incrementally", async () => {
     assert.ok(third.bucketsQueued >= 1);
     assert.equal(cursors.hermes.lastStartedAt, epoch2 + 3600);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6464,7 +6464,7 @@ test("parseHermesIncremental re-reads cursor timestamp sessions so same-second i
     const queued = await readJsonLines(queuePath);
     assert.ok(queued.some((b) => b.source === "hermes" && b.model === "gpt-5.4-mini" && b.input_tokens === 1300 && b.output_tokens === 650));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6491,7 +6491,7 @@ test("resolveHermesPath prefers %LOCALAPPDATA%\\hermes on Windows when present",
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "tt-hermes-localappdata-"));
   t.after(async () => {
     Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
 
   // LOCALAPPDATA points at a dir that does NOT contain `hermes` → fall back.
@@ -6739,7 +6739,7 @@ test("parseHermesIncremental snapshots the DB locally for UNC paths", async () =
     const queued = await readJsonLines(queuePath);
     assert.ok(queued.some((b) => b.source === "hermes" && b.input_tokens === 700 && b.output_tokens === 100));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6768,7 +6768,7 @@ test("parseHermesIncremental reads a database under TOKENTRACKER_HERMES_HOME ove
   } finally {
     if (prev === undefined) delete process.env.TOKENTRACKER_HERMES_HOME;
     else process.env.TOKENTRACKER_HERMES_HOME = prev;
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6784,7 +6784,7 @@ test("parseHermesIncremental returns zero for nonexistent database", async () =>
     assert.equal(result.eventsAggregated, 0);
     assert.equal(result.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6804,7 +6804,7 @@ test("parseHermesIncremental skips sessions with zero tokens", async () => {
     assert.equal(result.recordsProcessed, 0);
     assert.equal(result.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6880,7 +6880,7 @@ test("parseHermesIncremental tracks real-time token growth for active sessions (
     // Now cursor should advance past the ended session
     assert.equal(cursors.hermes.lastCompletedStartedAt, epoch1 + 200);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6917,7 +6917,7 @@ test("parseHermesIncremental ingests final deltas for active sessions older than
     const queued = await readJsonLines(queuePath);
     assert.ok(queued.some((b) => b.source === "hermes" && b.model === "gpt-5.4-mini" && b.input_tokens === 50 && b.output_tokens === 15));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6942,7 +6942,7 @@ test("parseHermesIncremental skips active session when delta is zero (unchanged)
     assert.equal(second.eventsAggregated, 0);
     assert.equal(second.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -6967,7 +6967,7 @@ test("parseHermesIncremental backward compat: old cursor without snapshots", asy
     // New cursor field
     assert.equal(cursors.hermes.lastCompletedStartedAt, epoch1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7036,7 +7036,7 @@ test("resolveCopilotOtelPaths discovers both Copilot default locations", async (
       ].sort(),
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7096,7 +7096,7 @@ test("parseCopilotIncremental aggregates chat spans and subtracts cache from inp
     assert.equal(b.output_tokens, 200);
     assert.equal(b.cached_input_tokens, 100);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7135,7 +7135,7 @@ test("parseCopilotIncremental normalizes CLI cache writes, reasoning, and dotted
     assert.equal(row.reasoning_output_tokens, 3);
     assert.equal(row.total_tokens, 132);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7167,7 +7167,7 @@ test("parseCopilotIncremental clamps reasoning to inclusive output tokens", asyn
     assert.equal(row.reasoning_output_tokens, 5);
     assert.equal(row.total_tokens, 105);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7187,7 +7187,7 @@ test("parseCopilotIncremental dedups by traceId:spanId across runs", async () =>
     const second = await parseCopilotIncremental({ otelPaths: [otelPath], cursors, queuePath });
     assert.equal(second.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7216,7 +7216,7 @@ test("parseCopilotIncremental re-reads from start when file is rotated (inode ch
     // Both new spans should be picked up despite the file being the "same" path
     assert.equal(second.eventsAggregated, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7293,7 +7293,7 @@ test("parseCopilotIncremental handles Chat extension LogRecord shape (hrTime + r
     const second = await parseCopilotIncremental({ otelPaths: [otelPath], cursors, queuePath });
     assert.equal(second.eventsAggregated, 0, "re-parse should not re-count");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7333,7 +7333,7 @@ test("parseCopilotIncremental does not merge Chat records that share spanContext
     assert.equal(buckets[0].output_tokens, 140);
     assert.equal(buckets[0].conversation_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7406,7 +7406,7 @@ test("parseCopilotIncremental repairs v2 Chat deduplication before upgrading the
     assert.equal(bucket.total_tokens, 1440);
     assert.equal(bucket.conversation_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7483,7 +7483,7 @@ test("parseCopilotIncremental migrates v2 when a recovered request creates a new
     assert.equal(recoveredBucket.totals.total_tokens, 890);
     assert.equal(recoveredBucket.totals.conversation_count, 1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7542,7 +7542,7 @@ test("parseCopilotIncremental prunes deleted v2 files before processing new file
     assert.equal(bucket.output_tokens, 80);
     assert.equal(bucket.total_tokens, 780);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7577,7 +7577,7 @@ test("parseCopilotIncremental reads short cache_creation + reasoning_tokens keys
     assert.equal(b.reasoning_output_tokens, 250);
     assert.equal(b.total_tokens, 3500 + 1500 + 800 + 50 + 250);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7614,7 +7614,7 @@ test("parseCopilotIncremental reads flat cached/reasoning usage keys from Copilo
     assert.equal(b.reasoning_output_tokens, 9_301);
     assert.equal(b.total_tokens, 1_604_371);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7653,7 +7653,7 @@ test("parseCopilotIncremental migration: v1 cursor with empty seenIds + non-empt
     assert.equal(b.output_tokens, 140);
     assert.equal(b.conversation_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7697,7 +7697,7 @@ test("parseCopilotIncremental migration: preserves CLI fileOffsets (no re-read o
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.filter((r) => r.source === "copilot").length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7749,7 +7749,7 @@ test("parseCopilotIncremental migration: CLI file with metric record at head is 
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.filter((r) => r.source === "copilot").length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7804,7 +7804,7 @@ test("parseCopilotIncremental migration: CLI file with name-only chat spans (no 
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.filter((r) => r.source === "copilot").length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7840,7 +7840,7 @@ test("parseCopilotIncremental migration: heavy CLI user (>10k spans, seenIds cap
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.filter((r) => r.source === "copilot").length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7892,7 +7892,7 @@ test("parseCopilotIncremental migration: mixed CLI + Chat-extension files resets
     assert.equal(buckets[0].input_tokens, 700);
     assert.equal(buckets[0].output_tokens, 30);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7940,7 +7940,7 @@ test("parseCopilotIncremental migration: same file mixed CLI + Chat-extension re
     assert.equal(buckets[0].output_tokens, 30);
     assert.equal(buckets[0].conversation_count, 1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -7998,7 +7998,7 @@ test("parseCopilotIncremental aggregates mixed CLI Span + Chat extension LogReco
     assert.equal(merged.output, 100 + 150);
     assert.equal(merged.cached, 200);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8019,7 +8019,7 @@ test("parseCopilotIncremental returns zero when no OTEL files exist", async () =
     assert.equal(result.eventsAggregated, 0);
     assert.equal(result.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8085,7 +8085,7 @@ test("parseKimiIncremental reads StatusUpdate events from wire.jsonl", async () 
     const result2 = await parseKimiIncremental({ wireFiles: [wireFile], cursors, queuePath });
     assert.equal(result2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8116,7 +8116,7 @@ test("resolveKimiCodeWireFiles scans the Kimi desktop home only with a real APPD
     const explicit = resolveKimiCodeWireFiles({ APPDATA: tmp, KIMI_CODE_HOME: cliHome });
     assert.deepEqual(explicit, [cliWire]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8130,7 +8130,7 @@ test("parseKimiIncremental returns zero when no wire files exist", async () => {
     assert.equal(result.eventsAggregated, 0);
     assert.equal(result.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8239,7 +8239,7 @@ test("parseCodebuddyIncremental subtracts cached_tokens from prompt_tokens (avoi
     assert.equal(entry.total_tokens, 22473);
     assert.equal(entry.conversation_count, 1);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8316,7 +8316,7 @@ test("parseCodebuddyIncremental dedupes by uuid across runs and aggregates 30-mi
     });
     assert.equal(result2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8365,7 +8365,7 @@ test("parseCodebuddyIncremental falls back to settings.json model when providerD
     assert.equal(entry.model, "hy3-preview");
     assert.equal(entry.source, "codebuddy");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8407,7 +8407,7 @@ test("parseCodebuddyIncremental uses 'codebuddy-unknown' fallback when settings.
     const entry = JSON.parse((await fs.readFile(queuePath, "utf8")).trim());
     assert.equal(entry.model, "codebuddy-unknown");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8425,7 +8425,7 @@ test("parseCodebuddyIncremental returns zero when no project files exist", async
     assert.equal(result.eventsAggregated, 0);
     assert.equal(result.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8484,7 +8484,7 @@ test("parseCodebuddyIncremental parses extension log cache split like TokScale",
     assert.equal(entry2.cached_input_tokens, 76032);
     assert.equal(entry2.total_tokens, 141367);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8525,7 +8525,7 @@ test("parseCodebuddyIncremental keeps extension log model across incremental tai
     assert.equal(entry.input_tokens, 10);
     assert.equal(entry.total_tokens, 12);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8582,7 +8582,7 @@ test("parseCodebuddyIncremental keeps legacy-only log rounds while deduping mirr
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 1650);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8631,7 +8631,7 @@ test("parseCodebuddyIncremental dedupes when the legacy log arrives before JSONL
     assert.equal(second.eventsAggregated, 0);
     assert.equal((await readJsonLines(queuePath))[0].total_tokens, 1100);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8662,7 +8662,7 @@ test("resolveCodebuddyProjectFiles walks ~/.codebuddy/projects/<cwd>/*.jsonl and
     assert.equal(files.length, 2);
     assert.ok(files.every((f) => f.endsWith(".jsonl")));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8744,7 +8744,7 @@ test("parseWorkbuddyIncremental subtracts BOTH cache reads and writes from promp
     // total == prompt_tokens + completion_tokens (the provider's own total)
     assert.equal(entry.total_tokens, 34932);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8795,7 +8795,7 @@ test("parseWorkbuddyIncremental reads DeepSeek-style cache mirror and subtracts 
     assert.equal(entry.reasoning_output_tokens, 130);
     assert.equal(entry.total_tokens, 31219);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8817,7 +8817,7 @@ test("resolveWorkbuddyProjectFiles recurses into nested subagent logs and skips 
     assert.ok(files.every((f) => f.endsWith(".jsonl")));
     assert.ok(files.some((f) => f.includes(path.join("subagents", "agent-aaa.jsonl"))));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8836,7 +8836,7 @@ test("resolveWorkbuddyProjectFiles includes completed trace summaries after JSON
     const files = resolveWorkbuddyProjectFiles({ WORKBUDDY_HOME: tmp });
     assert.deepEqual(files, [jsonl, { path: trace, kind: "trace" }]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8888,7 +8888,7 @@ test("parseWorkbuddyIncremental uses trace modelInfo only when detailed JSONL is
     });
     assert.equal(second.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -8946,7 +8946,7 @@ test("parseWorkbuddyIncremental prefers detailed JSONL over a partial trace summ
     assert.equal(queued[0].output_tokens, 20);
     assert.equal(cursors.workbuddy.tracedSessionIds?.length || 0, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9007,7 +9007,7 @@ test("parseWorkbuddyIncremental dedupes by response id across runs and buckets b
     });
     assert.equal(result2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9046,7 +9046,7 @@ test("parseWorkbuddyIncremental dedupes function_call/message records by provide
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 1100);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9088,7 +9088,7 @@ test("parseWorkbuddyIncremental emits provider.model verbatim (auto vs hy3) and 
       .sort();
     assert.deepEqual(models, ["auto", "hy3-preview-agent"]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9145,7 +9145,7 @@ test("parseWorkbuddyIncremental ignores SQLite context snapshots without token c
     assert.equal(third.eventsAggregated, 0);
     assert.equal((await readJsonLines(queuePath)).length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9181,7 +9181,7 @@ test("parseWorkbuddyIncremental does not treat an empty JSONL plus context SQLit
     const queued = await readJsonLines(queuePath);
     assert.equal(queued.length, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9238,7 +9238,7 @@ test("parseWorkbuddyIncremental uses explicit cumulative SQLite token columns wh
     assert.equal(queued[1].reasoning_output_tokens, 7);
     assert.equal(queued[1].total_tokens, 150);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9295,7 +9295,7 @@ test("parseWorkbuddyIncremental keeps detailed JSONL authoritative over SQLite f
     assert.equal(cursors.workbuddy.detailedSessions["wb-sess"], true);
     assert.equal(cursors.workbuddy.sqliteSessions?.["wb-sess"], undefined);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9352,7 +9352,7 @@ test("parseWorkbuddyIncremental lets detailed JSONL replace a prior context-only
     assert.equal(queued[0].model, "hy3");
     assert.equal(queued[0].total_tokens, 1100);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9434,7 +9434,7 @@ test("parseKiroCliIncremental aggregates user_turn_metadatas into half-hour kiro
     });
     assert.equal(result2.eventsAggregated, 0, "second run must not double-count");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9474,7 +9474,7 @@ test("parseKiroCliIncremental produces zero buckets for empty user_turn_metadata
     const queueSizeAfter = await safeFileSize(queuePath);
     assert.equal(queueSizeAfter, queueSizeBefore, "empty session must not grow the queue");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9517,7 +9517,7 @@ test("resolveKiroCliSessionFiles includes both completed and live (.lock) sessio
       "non-UUID files (notes.json, foo.bak.json) must be skipped",
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9573,7 +9573,7 @@ test("resolveKiroCliSessionFiles discovers Kiro CLI 2.13 messages.jsonl sessions
       path.join(opaqueSessionDir, "messages.jsonl"),
     ]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9808,7 +9808,7 @@ test("parseKiroCliIncremental parses Kiro CLI 2.13 event sessions with per-turn 
     assert.ok(Math.abs(thirdCredits.total_credits - 0.382) < 1e-12);
     assert.equal(thirdCredits.record_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -9944,7 +9944,7 @@ test("parseKiroCliIncremental canonicalizes Bedrock model IDs and re-buckets on 
     const r4 = await rolloutModule.parseKiroCliIncremental({ cursors, queuePath, env });
     assert.equal(r4.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10046,7 +10046,7 @@ test("parseKiroCliIncremental retracts orphan session-file contribution when a c
     assert.equal(totIn, 100, "one contribution survives, not two");
     assert.equal(totOut, 200);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10123,7 +10123,7 @@ test("parseKiroCliIncremental retracts no-loop_id session-file entries via sessi
     assert.ok(!ks.includes(msgId), "no-colon cursor entry retracted via session_id tag");
     assert.ok(ks.includes("new-sqlite-req"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10255,7 +10255,7 @@ test("parseKiroCliIncremental keeps newer session-file turns when older ones hav
     assert.equal(totIn, 160, "A (SQLite) + B (session-only) survive");
     assert.equal(totOut, 230);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10297,7 +10297,7 @@ test("parseKiroCliIncremental early-return path still runs cap + clamp (Bug-1)",
       "cap must drop stale entries on the zero-flat early-return path",
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10390,7 +10390,7 @@ test("parseKiroCliIncremental never re-adds requests whose cursor entry was age-
     assert.equal(r3.eventsAggregated, 0, "third run must not re-add either");
     assert.equal(await tokensInOldBucket(), 2000, "old bucket total is stable across syncs");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10462,7 +10462,7 @@ test("parseOmpIncremental parses a single session and queues correct 30-min buck
     assert.equal(queued[0].total_tokens, 120);
     assert.equal(queued[0].hour_start, "2026-04-05T14:00:00.000Z");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10529,7 +10529,7 @@ test("parseOmpIncremental skips an oversized record and still counts usage after
     assert.equal((await readJsonLines(queuePath)).length, 1);
     assert.equal(cursors.omp.fileOffsets[filePath].size, fileSize);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10587,7 +10587,7 @@ test("parseOmpIncremental retries a half-written final record", async () => {
     assert.equal(latest.output_tokens, 30);
     assert.equal(latest.total_tokens, 180);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10621,7 +10621,7 @@ test("parseOmpIncremental dedupes by entry id across two runs", async () => {
     const res2 = await parseOmpIncremental({ sessionFiles: [filePath], cursors, queuePath });
     assert.equal(res2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10649,7 +10649,7 @@ test("parseOmpIncremental skips entries without usage field", async () => {
     assert.equal(res.eventsAggregated, 0);
     assert.equal(res.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10676,7 +10676,7 @@ test("parseOmpIncremental skips entries where message.role !== 'assistant'", asy
     const res = await parseOmpIncremental({ sessionFiles: [filePath], cursors, queuePath });
     assert.equal(res.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10696,7 +10696,7 @@ test("parseOmpIncremental handles file with no assistant messages (zero queued)"
     assert.equal(res.eventsAggregated, 0);
     assert.equal(res.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10717,7 +10717,7 @@ test("OMP_HOME env override redirects discovery", async () => {
     assert.equal(result.length, 1);
     assert.ok(result[0].endsWith(".jsonl"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10746,7 +10746,7 @@ test("parseOmpIncremental computes totalTokens fallback when usage.totalTokens m
     assert.equal(queued[0].cached_input_tokens, 10);
     assert.equal(queued[0].cache_creation_input_tokens, 5);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10775,7 +10775,7 @@ test("parseOmpIncremental counts pure-reasoning rows (only reasoningTokens > 0)"
     assert.equal(queued[0].reasoning_output_tokens, 42);
     assert.equal(queued[0].total_tokens, 42);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10807,7 +10807,7 @@ test("resolveOmpSubagentFiles discovers nested subagent jsonl and skips main fil
     assert.equal(mainResult.length, 1);
     assert.ok(mainResult[0].endsWith("session-1.jsonl"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10845,7 +10845,7 @@ test("parseOmpIncremental counts subagent files toward the same omp bucket", asy
     assert.equal(queued[0].total_tokens, 360);
     assert.equal(queued[0].hour_start, "2026-04-05T14:00:00.000Z");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10871,7 +10871,7 @@ test("parseOmpIncremental dedupes subagent entries across two runs", async () =>
     const res2 = await parseOmpIncremental({ sessionFiles: [], subagentFiles: [subPath], cursors, queuePath });
     assert.equal(res2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10958,7 +10958,7 @@ test("parseOmpIncremental backfills project usage from the session header cwd", 
     assert.equal(projectRowsAfterAppend.at(-1).total_tokens, 180);
     assert.equal(projectRowsAfterAppend.at(-1).conversation_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -10992,7 +10992,7 @@ test("parsePiIncremental preserves the legacy 'pi' source when provider is missi
     assert.equal(queued[0].total_tokens, 120);
     assert.equal(queued[0].hour_start, "2026-04-05T14:00:00.000Z");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11024,7 +11024,7 @@ test("parsePiIncremental splits Anthropic and GitHub Copilot providers into inde
     assert.equal(bySource.get("pi-anthropic").input_tokens, 100);
     assert.equal(bySource.get("pi-github-copilot").input_tokens, 300);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11055,7 +11055,7 @@ test("parsePiIncremental dedupes by entry id across two runs (state under cursor
     const res2 = await parsePiIncremental({ sessionFiles: [filePath], cursors, queuePath });
     assert.equal(res2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11084,7 +11084,7 @@ test("parsePiIncremental counts pure-reasoning rows (only reasoningTokens > 0)",
     assert.equal(queued[0].reasoning_output_tokens, 7);
     assert.equal(queued[0].total_tokens, 7);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11119,7 +11119,7 @@ test("parsePiIncremental routes provider 'dots' to the pi-dots source", async ()
     assert.equal(queued[0].output_tokens, 20);
     assert.equal(queued[0].total_tokens, 120);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11150,7 +11150,7 @@ test("parsePiIncremental does not double-count 'dots' provider rows on a second 
     assert.equal(queued[0].source, "pi-dots");
     assert.equal(queued[0].total_tokens, 120);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11179,7 +11179,7 @@ test("resolvePiSessionFiles includes nested pi-subagents transcripts", async () 
     const result = resolvePiSessionFiles({ HOME: home });
     assert.deepEqual(result, [mainFile, nestedFile].sort((a, b) => a.localeCompare(b)));
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11201,7 +11201,7 @@ test("resolvePrimeAgentSessionFiles discovers flat sessions and nested child ses
       [mainFile, childFile].sort((a, b) => a.localeCompare(b)),
     );
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11250,7 +11250,7 @@ test("parsePrimeAgentIncremental reads usage metadata with an independent cursor
     const second = await parsePrimeAgentIncremental({ sessionFiles: [filePath], cursors, queuePath });
     assert.equal(second.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11287,7 +11287,7 @@ test("parsePrimeAgentIncremental retries a trailing JSON fragment after the writ
     assert.equal(queued.at(-1).source, "prime-agent-openai");
     assert.equal(queued.at(-1).total_tokens, 52);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11307,8 +11307,8 @@ test("TOKENTRACKER_PRIME_AGENT_DIR expands HOME and overrides default discovery"
       1,
     );
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(relocated, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(relocated, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11330,8 +11330,8 @@ test("PI_CODING_AGENT_DIR redirects pi discovery when ~/.pi install signal exist
     assert.equal(result.length, 1);
     assert.ok(result[0].endsWith(".jsonl"));
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11347,8 +11347,8 @@ test("PI_CODING_AGENT_DIR redirects omp discovery when no ~/.pi install signal e
     assert.equal(ompResult.length, 1);
     assert.ok(ompResult[0].endsWith(".jsonl"));
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11366,8 +11366,8 @@ test("PI_CODING_AGENT_DIR is owned by pi when ~/.pi exists; omp falls back to de
     assert.equal(piResult.length, 1);
     assert.deepEqual(ompResult, []);
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11388,9 +11388,9 @@ test("TOKENTRACKER_PI_AGENT_DIR overrides PI_CODING_AGENT_DIR and the default fo
     assert.equal(result.length, 1);
     assert.ok(result[0].startsWith(ttPiTmp));
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(ttPiTmp, { recursive: true, force: true });
-    await fs.rm(sharedTmp, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(ttPiTmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(sharedTmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11414,8 +11414,8 @@ test("decidePiCodingAgentDirOwner ignores a stray FILE at ~/.pi", async () => {
     const ompResult = resolveOmpSessionFiles({ HOME: home, PI_CODING_AGENT_DIR: tmp });
     assert.equal(ompResult.length, 1, "stray file at ~/.pi must not steal PI_CODING_AGENT_DIR from omp");
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11464,9 +11464,9 @@ test("TOKENTRACKER_OMP_AGENT_DIR forces omp ownership even when ~/.pi exists", a
     assert.equal(piResult.length, 1);
     assert.ok(piResult[0].startsWith(sharedTmp));
   } finally {
-    await fs.rm(home, { recursive: true, force: true });
-    await fs.rm(ompTmp, { recursive: true, force: true });
-    await fs.rm(sharedTmp, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(ompTmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await fs.rm(sharedTmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11555,7 +11555,7 @@ test("parseCraftIncremental parses a single session header into a 30-min bucket"
     assert.equal(queued[0].total_tokens, 7800);
     assert.equal(queued[0].hour_start, "2026-04-05T14:00:00.000Z");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11617,7 +11617,7 @@ test("parseCraftIncremental aggregates growing snapshots into the same bucket wi
     assert.equal(bucket.input_tokens, 300);
     assert.equal(bucket.output_tokens, 60);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11673,7 +11673,7 @@ test("parseCraftIncremental routes growth into a new hour bucket when lastMessag
     assert.equal(byHour.get(h2).input_tokens, 150);
     assert.equal(byHour.get(h2).output_tokens, 25);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11732,7 +11732,7 @@ test("parseCraftIncremental cap evicts least-recently-seen sessions, not inserti
     // Concretely: the OLDEST of the 5000 one-shots (lastSeenAt=2000) is gone.
     assert.ok(!surviving["other-0"], "least-recently-seen one-shot should have been evicted");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11756,7 +11756,7 @@ test("parseCraftIncremental dedups when the header has not changed across runs",
     assert.equal(res2.eventsAggregated, 0);
     assert.equal(res2.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11776,7 +11776,7 @@ test("parseCraftIncremental skips entries with zero usage", async () => {
     assert.equal(res.eventsAggregated, 0);
     assert.equal(res.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11803,7 +11803,7 @@ test("CRAFT_CONFIG_DIR redirects discovery to default workspaces folder", async 
     assert.equal(files.length, 1);
     assert.ok(files[0].endsWith("session.jsonl"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11821,7 +11821,7 @@ test("resolveCraftWorkspaceRoots layers user-relocated workspaces from config.js
     const roots = resolveCraftWorkspaceRoots({ CRAFT_CONFIG_DIR: tmp });
     assert.ok(roots.includes(externalRoot));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11849,7 +11849,7 @@ test("parseCraftIncremental falls back to craft-unknown model when header.model 
     const queued = await readJsonLines(queuePath);
     assert.equal(queued[0].model, "craft-unknown");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11926,7 +11926,7 @@ test("parseGrokBuildIncremental appends cumulative buckets across sessions", asy
     assert.equal(thirdRun.eventsAggregated, 0);
     assert.equal(thirdRun.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -11981,7 +11981,7 @@ test("parseGrokBuildIncremental queues deltas for later snapshots of the same se
     assert.equal(queued[1].conversation_count, 8);
     assert.equal(cursors.grok.sessionSnapshots["grok-session-long"].totalTokens, 50_000);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12037,7 +12037,7 @@ test("parseGrokBuildIncremental buckets Grok sessions by UTC half hour", async (
     assert.equal(queued[0].hour_start, "2026-04-05T14:00:00.000Z");
     assert.equal(queued[1].hour_start, "2026-04-05T14:30:00.000Z");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12107,7 +12107,7 @@ test("parseGrokBuildIncremental reads Grok updates metadata by event timestamp",
     assert.equal(cursors.grok.sessionSnapshots["grok-session-updates"].source, "updates");
     assert.equal(cursors.grok.sessionSnapshots["grok-session-updates"].lastEventId, "evt-2");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12165,7 +12165,7 @@ test("parseGrokBuildIncremental resumes Grok updates from the stored byte offset
       Buffer.byteLength(decoy + "\n" + appended + "\n"),
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12215,7 +12215,7 @@ test("parseGrokBuildIncremental re-reads a partial Grok updates line once it com
     assert.equal(queued.length, 1);
     assert.equal(queued[0].total_tokens, 100);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12276,7 +12276,7 @@ test("parseGrokBuildIncremental re-reads truncated Grok updates without double c
     assert.equal(last.total_tokens, 50);
     assert.equal(cursors.grok.sessionSnapshots["grok-session-truncate"].totalTokens, 300);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12328,7 +12328,7 @@ test("parseGrokBuildIncremental applies Grok compaction residual once", async ()
     assert.equal(secondRun.bucketsQueued, 0);
     assert.equal((await readJsonLines(queuePath)).length, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12374,7 +12374,7 @@ test("parseGrokBuildIncremental preserves zero current context after compaction"
     assert.equal(queued[0].total_tokens, 500);
     assert.equal(cursors.grok.sessionSnapshots["grok-session-zero-context"].totalTokens, 500);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12449,7 +12449,7 @@ test("parseGrokBuildIncremental upgrades legacy Grok cursor by rebuilding from u
     assert.equal(secondRun.bucketsQueued, 0);
     assert.equal(cursors.grok.sessionSnapshots["grok-session-v2"].totalTokens, 250);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12519,7 +12519,7 @@ test("parseGrokBuildIncremental baselines legacy Grok seenSessions before counti
     assert.equal(queued[0].conversation_count, 2);
     assert.equal(cursors.grok.sessionSnapshots["grok-session-legacy"].totalTokens, 750);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12602,7 +12602,7 @@ test("parseGrokBuildIncremental preserves legacy baseline marker across zero-tok
     assert.equal(queued[0].output_tokens, 66);
     assert.equal(cursors.grok.sessionSnapshots["grok-session-delayed"].totalTokens, 750);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12620,7 +12620,7 @@ test("resolveGrokBuildSessions includes sessions with updates only", async () =>
     assert.equal(sessions[0].updatesPath, path.join(sessionDir, "updates.jsonl"));
     assert.equal(sessions[0].signalsPath, path.join(sessionDir, "signals.json"));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12675,7 +12675,7 @@ test("parseGrokBuildIncremental does not mark zero-token sessions as seen", asyn
     assert.equal(queued[0].total_tokens, 42);
     assert.deepEqual(cursors.grok.seenSessions, ["grok-session-zero"]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12743,7 +12743,7 @@ test("parseAntigravityIncremental bills only newly added context per planner cal
     );
     assert.equal(queued[0].billable_total_tokens, queued[0].total_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12801,7 +12801,7 @@ test("parseAntigravityIncremental delta billing is O(N), not O(N^2)", async () =
       `expected linear billing (${totalInput}) < quadratic floor (${quadraticLowerBound})`,
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12860,7 +12860,7 @@ test("parseAntigravityIncremental counts old context for newly appended planner 
     assert.equal(queued[0].output_tokens, 5);
     assert.equal(queued[0].total_tokens, queued[0].input_tokens + queued[0].output_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12939,7 +12939,7 @@ test("listAntigravitySessionFiles discovers transcripts across sibling 2.0 brain
     );
     assert.equal(partialInventory.complete, false);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -12992,7 +12992,7 @@ test("parseAntigravityIncremental does not skip append after trailing newline", 
     assert.equal(queued[0].output_tokens, 5);
     assert.equal(queued[0].total_tokens, queued[0].input_tokens + queued[0].output_tokens);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13041,7 +13041,7 @@ test("parseAntigravityIncremental does not advance cursor over partial JSON line
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "gemini-3.5-flash");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13082,7 +13082,7 @@ test("parseAntigravityIncremental uses CJK-aware token estimates", async () => {
     assert.equal(queued[0].output_tokens, antigravityTestTokens(answer));
     assert.ok(queued[0].input_tokens > Math.ceil(prompt.length / 4));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13119,7 +13119,7 @@ test("parseAntigravityIncremental preserves unknown model as visible usage", asy
     assert.equal(queued[0].model, "antigravity-unknown");
     assert.ok(queued[0].total_tokens > 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13155,7 +13155,7 @@ test("parseAntigravityIncremental normalizes non-Flash model settings without de
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "claude-haiku-4-6");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13203,7 +13203,7 @@ test("parseAntigravityIncremental falls back to settings.json model", async () =
     assert.equal(queued.length, 1);
     assert.equal(queued[0].model, "claude-sonnet-4");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13248,7 +13248,7 @@ for (const eventType of ["USER_INPUT", "USER_SETTINGS_CHANGE"]) {
       assert.equal(queued.length, 1);
       assert.equal(queued[0].model, "claude-haiku-4-6");
     } finally {
-      await fs.rm(tmp, { recursive: true, force: true });
+      await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   });
 }
@@ -13452,7 +13452,7 @@ test("Antigravity recovers a measured generation absent from the transcript usin
     assert.equal(result.usageBuckets.length, 2);
     assert.equal(result.usageBuckets.reduce((sum, bucket) => sum + bucket.total_tokens, 0), 350);
     assert.ok(result.usageBuckets.some((bucket) => bucket.timestamp.startsWith("2026-04-05T14:30")));
-  } finally { await fs.rm(tmp, { recursive: true, force: true }); }
+  } finally { await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
 });
 
 test("extractAntigravityGenInfo derives absent response output from combined output", () => {
@@ -13656,7 +13656,7 @@ test("parseAntigravityIncremental preserves exact totals while SQLite is unavail
     assert.equal(cursors.files[transcriptPath].lastLine, previousLine);
     assert.equal(cursors.files[transcriptPath].dbReadOk, false);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13716,7 +13716,7 @@ test("parseAntigravityIncremental ignores SQLite -shm read-mark changes", async 
     assert.equal(third.bucketsQueued, 0);
     assert.equal((await readJsonLines(queuePath)).length, queueBeforeThird.length);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13791,7 +13791,7 @@ test("parseAntigravityIncremental records cached input tokens and reasoning toke
         queued[0].reasoning_output_tokens,
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13858,7 +13858,7 @@ test("parseAntigravityIncremental falls back to outputTokens minus reasoning whe
     assert.equal(queued[0].cached_input_tokens, 4500);
     assert.equal(queued[0].total_tokens, 1500 + 4500 + 300 + 50);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13922,7 +13922,7 @@ test("parseAntigravityIncremental uses SQLite context size without inferring cac
     assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
     assert.equal(queued[0].usage_is_incomplete, true);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -13974,7 +13974,7 @@ test("parseAntigravityIncremental does not invent cache hits on a repeated conte
     assert.equal(queued[0].cached_input_tokens, 0);
     assert.equal(queued[0].conversation_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14028,7 +14028,7 @@ test("parseAntigravityIncremental bills full context after a model switch", asyn
     assert.equal(byModel["claude-sonnet-4-6"].input_tokens, 40000);
     assert.equal(byModel["claude-sonnet-4-6"].cached_input_tokens, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14115,7 +14115,7 @@ test("parseAntigravityIncremental SQLite full scan matches incremental append", 
     assert.equal(incLatest.output_tokens, fullLatest.output_tokens);
     assert.equal(incLatest.conversation_count, fullLatest.conversation_count);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14204,7 +14204,7 @@ test("parseAntigravityIncremental reconciles a legacy cursor with SQLite context
     assert.equal(sqliteRow.conversation_count, 2);
     assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14285,7 +14285,7 @@ test("parseAntigravityIncremental resumes a sqlite cursor without re-walking est
     assert.equal(latest.cached_input_tokens, 0);
     assert.equal(cursors.files[transcriptPath].usageSource, "estimated");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14368,7 +14368,7 @@ test("parseAntigravityIncremental sparse sqlite full scan matches incremental ap
     assert.equal(incLatest.cached_input_tokens, 0);
     assert.equal(fullLatest.cached_input_tokens, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14445,7 +14445,7 @@ test("parseAntigravityIncremental re-walk with sparse sqlite rebuilds historical
     assert.equal(sqliteRow.cached_input_tokens, 0);
     assert.equal(sqliteRow.conversation_count, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14549,7 +14549,7 @@ test("parseAntigravityIncremental migrates legacy v0.96.2 cursor on unchanged fi
     assert.equal(second.bucketsQueued, 0);
     assert.equal(fssync.existsSync(queuePath), false);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14697,7 +14697,7 @@ test("parseAntigravityIncremental migrates a legacy cursor with an appended tran
     assert.equal(second.bucketsQueued, 0);
     assert.equal((await readJsonLines(queuePath)).length, queued.length);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14814,7 +14814,7 @@ test("parseAntigravityIncremental preserves legacy baseline without double-count
       "baseline aggregate must not double-count historical turns when SQLite reconciles",
     );
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -14852,7 +14852,7 @@ test("parseAntigravityIncremental does not commit state when queue append fails"
     );
     assert.deepEqual(cursors, before);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15027,7 +15027,7 @@ test("parseAntigravityIncremental processes appended legacy session when another
     // 0 (old aggregate) + 300 (new turn) = 300
     assert.equal(latest.cached_input_tokens, 300);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15128,7 +15128,7 @@ test("parseAntigravityIncremental does not drift legacy aggregate on partial dis
     assert.equal(secondSync.bucketsQueued, 0);
     assert.deepEqual(cursors.hourly.buckets[aggregateKey].totals, baselineTotals);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15188,7 +15188,7 @@ test("parseAntigravityIncremental keeps contextTokens on the same scale when tur
     // Total input should be 2000, NOT 24000!
     assert.equal(row.input_tokens, 2000, "Turn 2 input delta must use the dbContextTokens scale");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15265,7 +15265,7 @@ test("parseAntigravityIncremental rebuilds when an incomplete ledger meets a SQL
     assert.equal(third.bucketsQueued, 0);
     assert.equal((await readJsonLines(queuePath)).length, queued.length);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15371,7 +15371,7 @@ test("parseAntigravityIncremental defers incomplete-ledger rebuilds for partial 
     assert.equal(latest.cached_input_tokens, 4300);
     assert.ok(cursors.files[second.transcriptPath]);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15468,7 +15468,7 @@ test("parseAntigravityIncremental reconciles delayed SQLite metadata updates and
     assert.equal(third.bucketsQueued, 0);
     assert.equal((await readJsonLines(queuePath)).length, 2);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15551,7 +15551,7 @@ test("parseAntigravityIncremental corrects a session synced before the extractor
     assert.equal(again.bucketsQueued, 0, "the correction runs once");
     assert.equal((await readJsonLines(queuePath)).length, rows);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15611,7 +15611,7 @@ test("parseAntigravityIncremental rebuilds a capped ledger synced before the ext
     assert.equal(again.bucketsQueued, 0, "the rebuild runs once");
     assert.equal((await readJsonLines(queuePath)).length, rows);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15724,7 +15724,7 @@ test("parseAntigravityIncremental rebuilds capped ledgers when project attributi
     assert.equal(projectRows.get("acme/alpha|antigravity|2026-04-05T13:00:00.000Z").total_tokens, 0);
     assert.equal(projectRows.get("acme/beta|antigravity|2026-04-05T14:00:00.000Z").total_tokens, 3200);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15817,7 +15817,7 @@ test("parseAntigravityIncremental reconciles project queue totals on SQLite meta
     assert.equal(third.bucketsQueued, 0);
     assert.equal(third.projectBucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -15953,7 +15953,7 @@ test("parseAntigravityIncremental reconciles SQLite correction with transcript a
     assert.equal((await readJsonLines(queuePath)).length, queued.length);
     assert.equal((await readJsonLines(projectQueuePath)).length, projectQueued.length);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16033,7 +16033,7 @@ test("parseAntigravityIncremental multi-turn reconciliation does not overcount e
     assert.equal(fourth.eventsAggregated, 0);
     assert.equal(fourth.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16081,7 +16081,7 @@ test("parseKimiCodeIncremental reads step.end events with Anthropic-style usage"
     const result2 = await parseKimiCodeIncremental({ wireFiles: [wireFile], cursors, queuePath });
     assert.equal(result2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16109,7 +16109,7 @@ test("parseKimiCodeIncremental handles OpenAI-compat usage (cached folded into i
     assert.equal(queued[0].cached_input_tokens, 4000);
     assert.equal(queued[0].output_tokens, 120);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16155,7 +16155,7 @@ test("parseKimiCodeIncremental reads step.end events with camelCase usage (kimi-
     const result2 = await parseKimiCodeIncremental({ wireFiles: [wireFile], cursors, queuePath });
     assert.equal(result2.eventsAggregated, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16169,7 +16169,7 @@ test("parseKimiCodeIncremental returns zero when no wire files exist", async () 
     assert.equal(result.eventsAggregated, 0);
     assert.equal(result.bucketsQueued, 0);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16187,7 +16187,7 @@ test("resolveKimiCodeWireFiles walks agents/<name>/wire.jsonl inside sessions", 
     assert.equal(files.length, 2);
     assert.ok(files.every((f) => f.endsWith("wire.jsonl")));
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16198,7 +16198,7 @@ test("resolveKimiCodeDefaultModel extracts model from config.toml", async () => 
     const model = resolveKimiCodeDefaultModel({ KIMI_CODE_HOME: tmp });
     assert.equal(model, "kimi-k2.6");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16232,7 +16232,7 @@ test("parseKimiCodeIncremental persists model from config.update on cursor for i
     const lastEntry = queued[queued.length - 1];
     assert.equal(lastEntry.model, "kimi-k2.6");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16308,7 +16308,7 @@ test("parseCodeartsIncremental reads finished assistant rows from the AgentCore 
     assert.equal(q2.length, 2);
     assert.equal(q2[1].total_tokens, 2000);
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -16323,6 +16323,6 @@ test("parseCodeartsIncremental skips a missing db without touching cursors", asy
     assert.equal(result.eventsAggregated, 0);
     assert.ok(cursors.codearts, "cursor state is still written");
   } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
+    await fs.rm(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });

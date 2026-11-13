@@ -1,15 +1,22 @@
 /**
  * End-to-end test for `tracker status --json` / `--light` / `--diagnostics`.
  *
- * Boots the real CLI in a child process against the real ~/.tokentracker
- * state, then asserts the output shape. Designed to catch regressions where
- * a future refactor of status.js drops/renames a top-level summary key that
- * AI agents or CI scripts depend on.
+ * Boots the real CLI in a child process, but against an ISOLATED
+ * TOKENTRACKER_HOME fixture — never the real ~/.tokentracker. Two reasons:
+ * (1) the real tracker dir holds multi-MB caches / a concurrently-written
+ * cursors.json, so a full status scan could exceed any fixed timeout under a
+ * loaded suite (these four used to sit in flaky-red.txt for exactly that);
+ * (2) real-machine state (device token, installed providers) makes the
+ * assertions depend on whatever the workstation happens to have. The fixture
+ * keeps the E2E property (real CLI child process, real output shape) while
+ * making both the data and the runtime deterministic (~0.1s per run).
  */
 "use strict";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
@@ -18,11 +25,21 @@ const TRACKER = path.resolve(__dirname, "..", "bin", "tracker.js");
 function runStatus(args) {
   const res = spawnSync(process.execPath, [TRACKER, "status", ...args], {
     encoding: "utf-8",
-    // 全量 npm test 高负载下（4574 项并行）真实 CLI 子进程可能超 30s，余量放宽。
+    // 全量 npm test 高负载下真实 CLI 子进程也可能超时，余量放宽。fixture 家目录
+    // 让单次 status 只有 ~0.1s，这个 90s 只是防挂死护栏，不是常态耗时。
     timeout: 90_000,
+    env: { ...process.env, TOKENTRACKER_HOME: STATUS_FIXTURE_HOME },
   });
   return res;
 }
+
+// 空的家目录夹具：queue 为空（0 bytes pending）、未设置 device token、未安装
+// 任何 provider —— 恰好让「结构断言」在最小确定状态下验证。注意
+// TOKENTRACKER_HOME 本身就是根（getTrackerRootDir 直接返回它），所以 tracker
+// 目录是 <fixture>/tracker，不是 <fixture>/.tokentracker/tracker。
+const STATUS_FIXTURE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "tt-status-fixture-"));
+fs.mkdirSync(path.join(STATUS_FIXTURE_HOME, "tracker"), { recursive: true });
+test.after(() => fs.rmSync(STATUS_FIXTURE_HOME, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
 
 test("status --json emits a JSON object with required summary fields", () => {
   const res = runStatus(["--json"]);
