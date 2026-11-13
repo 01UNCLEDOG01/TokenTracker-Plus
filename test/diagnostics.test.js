@@ -14,6 +14,14 @@ test("diagnostics redacts device token and home paths", async () => {
   const prevCodexHome = process.env.CODEX_HOME;
   const prevTokenTrackerGrokHome = process.env.TOKENTRACKER_GROK_HOME;
   const prevGrokHome = process.env.GROK_HOME;
+  // The fixture's config.json pins a placeholder instance baseUrl. resolveRuntimeConfig
+  // only accepts a config-side deviceToken when config.baseUrl matches the SELECTED
+  // instance, so an ambient TOKENTRACKER_INSFORGE_* export (e.g. a dev shell wired
+  // to a self-hosted instance) silently redirects the selection and flips the assert
+  // to "unset". Clear the instance-scoping vars like the other env manipulations.
+  const prevInsforgeBase = process.env.TOKENTRACKER_INSFORGE_BASE_URL;
+  const prevInsforgeAnonKey = process.env.TOKENTRACKER_INSFORGE_ANON_KEY;
+  const prevInsforgeDashboard = process.env.TOKENTRACKER_DASHBOARD_URL;
   const prevWrite = process.stdout.write;
 
   try {
@@ -21,6 +29,9 @@ test("diagnostics redacts device token and home paths", async () => {
     process.env.CODEX_HOME = path.join(tmp, ".codex");
     delete process.env.TOKENTRACKER_GROK_HOME;
     process.env.GROK_HOME = path.join(tmp, ".grok");
+    delete process.env.TOKENTRACKER_INSFORGE_BASE_URL;
+    delete process.env.TOKENTRACKER_INSFORGE_ANON_KEY;
+    delete process.env.TOKENTRACKER_DASHBOARD_URL;
 
     const trackerDir = path.join(tmp, ".tokentracker", "tracker");
     const grokHandlerPath = path.join(tmp, ".tokentracker", "bin", "grok-session-end-hook.cjs");
@@ -122,6 +133,12 @@ test("diagnostics redacts device token and home paths", async () => {
     else process.env.TOKENTRACKER_GROK_HOME = prevTokenTrackerGrokHome;
     if (prevGrokHome === undefined) delete process.env.GROK_HOME;
     else process.env.GROK_HOME = prevGrokHome;
+    if (prevInsforgeBase === undefined) delete process.env.TOKENTRACKER_INSFORGE_BASE_URL;
+    else process.env.TOKENTRACKER_INSFORGE_BASE_URL = prevInsforgeBase;
+    if (prevInsforgeAnonKey === undefined) delete process.env.TOKENTRACKER_INSFORGE_ANON_KEY;
+    else process.env.TOKENTRACKER_INSFORGE_ANON_KEY = prevInsforgeAnonKey;
+    if (prevInsforgeDashboard === undefined) delete process.env.TOKENTRACKER_DASHBOARD_URL;
+    else process.env.TOKENTRACKER_DASHBOARD_URL = prevInsforgeDashboard;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
