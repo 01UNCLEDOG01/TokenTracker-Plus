@@ -780,7 +780,9 @@ export function getAvatarResonanceFrame(resonanceTier, theme) {
 
 /** 头像框的脉冲叠层类：顶级共鸣只让外圈呼吸，头像图片保持不动。 */
 export function getAvatarFramePulseClass(resonanceTier) {
-  return resonanceTier >= 4 ? "ring-2 ring-cyan-300 animate-pulse motion-reduce:animate-none" : null;
+  return resonanceTier >= 4
+    ? "ring-2 ring-cyan-300 shadow-lg shadow-cyan-300/70 animate-pulse motion-reduce:animate-none"
+    : null;
 }
 
 export function getEquippedBadgeStyle(resonanceTier, theme) {

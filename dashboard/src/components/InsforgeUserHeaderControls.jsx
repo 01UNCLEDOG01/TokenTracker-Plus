@@ -45,7 +45,7 @@ function initialsFromName(name) {
 
 /**
  * Compact identity control. Avatar + name navigate to /settings?section=account;
- * the equipped title badge next to the name navigates to /achievements.
+ * the equipped title badge under the name navigates to /achievements.
  * Sign-in shows the login modal as before.
  */
 export function InsforgeUserHeaderControls({ className, variant = "header", collapsed = false, onAfterAction }) {
@@ -132,7 +132,7 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
   const avatarRing = equippedTitle
     ? getAvatarResonanceFrame(resonanceTier, equippedTitle.theme)
     : "ring-1 ring-oai-gray-300 dark:ring-oai-gray-700";
-  // 闪烁只挂独立叠层，头像本体（图片/首字母）保持不动（站主 2026-11-13）。
+  // 闪烁只挂独立叠层：头像本体（图片/首字母）保持不动（站主 2026-11-13）。
   const pulseClass = equippedTitle ? getAvatarFramePulseClass(resonanceTier) : null;
 
   const identityTooltip = [displayName, equippedTitle ? `【${titleDisplayName(equippedTitle)}】` : null]
@@ -142,40 +142,50 @@ export function InsforgeUserHeaderControls({ className, variant = "header", coll
   const avatarNode = (dim) => {
     const size = dim === 20 ? "h-5 w-5" : "h-8 w-8";
     const initials = initialsFromName(displayName);
+    // 头像本体三态（图片 / 无头像占位图标 / 首字母）用语句分支拼装，
+    // 避免 JSX 里层层嵌套三元（也会踩 ui-hardcode 扫描器的误报）。
+    let body;
+    if (avatarSrc && !avatarFailed) {
+      body = (
+        <img
+          src={avatarSrc}
+          alt=""
+          width={dim}
+          height={dim}
+          className="h-full w-full rounded-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setAvatarFailed(true)}
+        />
+      );
+    } else if (initials === "?") {
+      body = (
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-oai-brand-600/30 text-white">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className={dim === 20 ? "w-3 h-3 opacity-80" : "w-4 h-4 opacity-80"}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+          </svg>
+        </span>
+      );
+    } else {
+      body = (
+        <span
+          className={cn(
+            "flex h-full w-full items-center justify-center rounded-full bg-oai-brand-600 font-semibold text-white",
+            dim === 20 ? "text-[9px]" : "text-xs",
+          )}
+        >
+          {initials}
+        </span>
+      );
+    }
     return (
       <span className={cn("relative inline-flex shrink-0 items-center justify-center rounded-full", size, avatarRing)}>
-        {avatarSrc && !avatarFailed ? (
-          <img
-            src={avatarSrc}
-            alt=""
-            width={dim}
-            height={dim}
-            className="h-full w-full rounded-full object-cover"
-            referrerPolicy="no-referrer"
-            onError={() => setAvatarFailed(true)}
-          />
-        ) : initials === "?" ? (
-          <span className="flex h-full w-full items-center justify-center rounded-full bg-oai-brand-600/30 text-white">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              className={dim === 20 ? "w-3 h-3 opacity-80" : "w-4 h-4 opacity-80"}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-            </svg>
-          </span>
-        ) : (
-          <span
-            className={cn(
-              "flex h-full w-full items-center justify-center rounded-full bg-oai-brand-600 font-semibold text-white",
-              dim === 20 ? "text-[9px]" : "text-xs",
-            )}
-          >
-            {initials}
-          </span>
-        )}
+        {body}
         {pulseClass && (
           <span
             aria-hidden
