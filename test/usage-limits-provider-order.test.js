@@ -52,7 +52,7 @@ test("usage-limits Promise.all argument order matches the positional destructure
   // real bug lived). Additionally pin the providers this guard was written
   // for explicitly, so a future reorder of any of them fails with a clear
   // name regardless of where they sit in the tail.
-  for (const name of ["vyceai", "opendesign", "mistral", "openaiCredits", "minimaxCode"]) {
+  for (const name of ["vyceai", "opendesign", "mistral", "openaiCredits", "minimaxCode", "hark"]) {
     assert.ok(fetchIds.includes(name), `fetch list must contain '${name}'`);
     assert.ok(names.includes(name), `destructure must contain '${name}'`);
     assert.equal(fetchIds.indexOf(name), fetchIds.lastIndexOf(name), `'${name}' appears exactly once in the fetch list`);

@@ -991,6 +991,18 @@ function renderProviderExtra(kind, data, picker = null, mode = LIMIT_DISPLAY_MOD
       </StatusLine>
     );
   }
+  if (kind === "hark_topup" && Number(data.hark_topup) > 0) {
+    // Enabled automatic top-up with positive spend: an unmetered USD line
+    // beside the quota bars (TM #1431 semantics — spend, not a window).
+    return (
+      <StatusLine>
+        {copy("limits.label.hark_topup", {
+          currency: "$",
+          amount: formatCreditAmount(Number(data.hark_topup), { maximumFractionDigits: 2 }),
+        })}
+      </StatusLine>
+    );
+  }
   if (kind === "copilot_otel" && !data.otel_has_files && !data.otel_enabled) {
     return <CopilotOtelHint defaultDir={data.otel_default_dir} />;
   }
@@ -1155,6 +1167,11 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
           <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
         </CollapsibleCredentialSection>
       ) : null}
+      {id === "hark" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <HarkCookieInput onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
       {id === "zcode" && data.start_plan?.configured ? (
         <ZcodeStartPlanSection data={data.start_plan} mode={mode} now={now} />
       ) : null}
@@ -1217,6 +1234,11 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
             <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
           </CollapsibleCredentialSection>
         ) : null}
+        {id === "hark" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <HarkCookieInput onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
         {id === "opencodeGo" ? <OpenCodeGoSetupHint onSaved={onKeySaved} /> : null}
         {id === "commandCode" ? <CommandCodeSetupHint /> : null}
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
@@ -1262,6 +1284,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
       {id === "mistral" ? <MistralCookieInput onSaved={onKeySaved} /> : null}
       {id === "openaiCredits" ? <OpenaiCreditsCredentialsInput onSaved={onKeySaved} /> : null}
+      {id === "hark" ? <HarkCookieInput onSaved={onKeySaved} /> : null}
       </>,
       expanded,
       onToggle,
@@ -2089,6 +2112,115 @@ function OpenDesignCookieInput({ onSaved }) {
   );
 }
 
+// Paste box for the Hark session token. Accepts the bare better-auth token or
+// the whole Cookie line containing __Secure-hark.session_token (encoded or
+// decoded spellings are one account). Saved by the loopback backend to
+// hark-credentials.json, the same file the usage fetch reads. Never echoed
+// back; sent only to the local API. On macOS a signed-in Hark.app desktop
+// session is discovered automatically, so this box is the override/fallback,
+// not the setup gate.
+function HarkCookieInput({ onSaved }) {
+  const [cookie, setCookie] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = cookie.trim();
+    if (!value || status === "saving") return;
+    setStatus("saving");
+    setError(false);
+    try {
+      const res = await fetch("/functions/tokentracker-hark-cookie", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ cookie: value }),
+      });
+      if (!res.ok) throw new Error();
+      setCookie("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("idle");
+      setError(true);
+    }
+  };
+
+  const onClear = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch("/functions/tokentracker-hark-cookie", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ clear: true }),
+      });
+      if (!res.ok) throw new Error();
+      setCookie("");
+      setStatus("idle");
+      setError(false);
+      onSaved?.();
+    } catch (_e) {
+      setError(true);
+    }
+  };
+
+  return (
+    <form
+      className="mt-1.5 space-y-1.5"
+      onSubmit={onSubmit}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={cookie}
+          onChange={(e) => {
+            setCookie(e.target.value);
+            setStatus("idle");
+            setError(false);
+          }}
+          placeholder={copy("limits.harkCookie.placeholder")}
+          aria-label={copy("limits.harkCookie.placeholder")}
+          autoComplete="new-password"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[11px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+        />
+        <button
+          type="submit"
+          disabled={!cookie.trim() || status === "saving"}
+          className="shrink-0 rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.qoderCookie.saving")
+            : status === "saved"
+              ? copy("limits.qoderCookie.saved")
+              : copy("limits.qoderCookie.save")}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="shrink-0 rounded-md border border-oai-gray-300 px-2 py-1 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 transition-colors"
+        >
+          {copy("limits.harkCookie.clear")}
+        </button>
+      </div>
+      <div className="text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+        {error ? copy("limits.qoderCookie.save_failed") : copy("limits.harkCookie.note")}
+      </div>
+    </form>
+  );
+}
+
 // Paste box for the hand-copied Mistral Admin Cookie. Same contract as the
 // OpenDesign box: a session credential only the user's own browser holds,
 // saved by the loopback backend to the same file the usage fetch reads
@@ -2343,8 +2475,8 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, order, visibility, displayMode, onProviderKeySaved = null }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, order, visibility, displayMode, onProviderKeySaved = null }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
   // the six-row cap and would lock the picker. Prune it and persist the
@@ -2382,7 +2514,7 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
       if (pruned.length === prev.length) return prev;
       return writePetLimitSelection(pruned);
     });
-  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode, dataById.raccoon]);
+  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode, dataById.raccoon, dataById.hark]);
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);

@@ -272,6 +272,7 @@ export function LimitsPage() {
                 mistral={usageLimits?.mistral}
                 openaiCredits={usageLimits?.openaiCredits}
                 minimaxCode={usageLimits?.minimaxCode}
+                hark={usageLimits?.hark}
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}

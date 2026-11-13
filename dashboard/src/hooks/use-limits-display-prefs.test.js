@@ -165,6 +165,7 @@ describe("useLimitsDisplayPrefs", () => {
         "qoderCn",
         "sensenova",
         "zcode",
+        "hark",
       ].sort(),
     );
   });

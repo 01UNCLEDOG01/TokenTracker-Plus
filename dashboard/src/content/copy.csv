@@ -527,6 +527,13 @@ settings.appearance.currency.opt.gbp,ui,SettingsPage,SettingsPage,currency_opt_g
 settings.appearance.currency.opt.cny,ui,SettingsPage,SettingsPage,currency_opt_cny,CNY (¥),,active
 settings.appearance.currency.opt.jpy,ui,SettingsPage,SettingsPage,currency_opt_jpy,JPY (¥),,active
 settings.appearance.currency.opt.hkd,ui,SettingsPage,SettingsPage,currency_opt_hkd,HKD (HK$),,active
+settings.appearance.currency.opt.aud,ui,SettingsPage,SettingsPage,currency_opt_aud,AUD (A$),,active
+settings.appearance.currency.opt.brl,ui,SettingsPage,SettingsPage,currency_opt_brl,BRL (R$),,active
+settings.appearance.currency.opt.cad,ui,SettingsPage,SettingsPage,currency_opt_cad,CAD (C$),,active
+settings.appearance.currency.opt.chf,ui,SettingsPage,SettingsPage,currency_opt_chf,CHF (CHF),,active
+settings.appearance.currency.opt.inr,ui,SettingsPage,SettingsPage,currency_opt_inr,INR (₹),,active
+settings.appearance.currency.opt.krw,ui,SettingsPage,SettingsPage,currency_opt_krw,KRW (₩),,active
+settings.appearance.currency.opt.sgd,ui,SettingsPage,SettingsPage,currency_opt_sgd,SGD (S$),,active
 settings.appearance.currency.rate_source.default,ui,SettingsPage,SettingsPage,rate_source_default,Bundled default rate,,active
 settings.appearance.currency.rate_source.fetched,ui,SettingsPage,SettingsPage,rate_source_fetched,Source: open.er-api.com,,active
 settings.appearance.currency.rate_updated,ui,SettingsPage,SettingsPage,rate_updated,updated {{when}},,active
@@ -2181,6 +2188,13 @@ limits.label.minimax_code_points,ui,LimitsPage,UsageLimitsPanel,minimax_code_poi
 limits.label.minimax_code_5h,ui,LimitsPage,UsageLimitsPanel,minimax_code_5h,5h,,active
 limits.label.minimax_code_weekly,ui,LimitsPage,UsageLimitsPanel,minimax_code_weekly,Weekly,,active
 limits.label.minimax_code_video,ui,LimitsPage,UsageLimitsPanel,minimax_code_video,Video,,active
+limits.provider.hark,ui,LimitsPage,UsageLimitsPanel,provider_hark,Hark,,active
+limits.label.hark_daily,ui,LimitsPage,UsageLimitsPanel,hark_daily,Daily,,active
+limits.label.hark_monthly,ui,LimitsPage,UsageLimitsPanel,hark_monthly,Monthly,,active
+limits.label.hark_topup,ui,LimitsPage,UsageLimitsPanel,hark_topup,"Top-up this period: {{currency}}{{amount}}",,active
+limits.harkCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,hark_cookie_placeholder,Paste the Hark session token (bare token or whole Cookie: line),,active
+limits.harkCookie.clear,ui,LimitsPage,UsageLimitsPanel,hark_cookie_clear,Clear saved token,,active
+limits.harkCookie.note,ui,LimitsPage,UsageLimitsPanel,hark_cookie_note,"Hark.app on macOS is discovered automatically while signed in; paste a token here to override it or to connect on other platforms. Copy the whole Cookie line containing __Secure-hark.session_token from hark.com in your browser's developer tools.",,active
 dashboard.speed.fetch_failed,ui,DashboardPage,DataDetails,speed_fetch_failed,Speed data failed to load this time.,,active
 dashboard.speed.retry,ui,DashboardPage,DataDetails,speed_retry,Retry,,active
 limits.label.qoder_team_credits,ui,LimitsPage,UsageLimitsPanel,qoder_team_credits,Team Credits,,active

@@ -358,6 +358,16 @@ function MistralIcon({ size = 16, className = "" }) {
   );
 }
 
+// Hark — inline mono comet mark, traced from the product's own icon set
+// (upstream token-monitor assets/icons/hark.svg, currentColor path).
+function HarkIcon({ size = 16, className = "" }) {
+  return (
+    <svg width={size} height={size} viewBox="24 24 271 271" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M235,40 218,61 199,80 172,102 146,119 121,132 102,140 62,152 25,158 24,161 56,166 80,172 111,183 147,201 170,216 194,235 221,262 231,275 236,279 246,271 262,254 274,237 280,226 289,203 293,186 294,173 295,172 295,147 294,146 294,138 290,119 285,104 277,87 266,70 257,59 236,40Z" />
+    </svg>
+  );
+}
+
 // OpenAI Platform API credits — inline mono coin mark. This provider tracks a
 // prepaid balance (not a plan), so a stacked-coin glyph reads better than the
 // OpenAI knot, which would need a color asset we do not ship.
@@ -444,6 +454,7 @@ const PROVIDER_ICON_MAP = {
   "MINIMAX-CODE": MinimaxIcon,
   OPENDESIGN: OpenDesignIcon,
   MISTRAL: MistralIcon,
+  HARK: HarkIcon,
   "OPENAI-CREDITS": OpenaiCreditsIcon,
   OPENCODE: OpenCodeIcon,
   OMP: OmpIcon,

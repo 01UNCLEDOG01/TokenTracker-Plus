@@ -55,6 +55,7 @@ const { fetchMinimaxLimits } = require("./minimax-limits");
 const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchVyceAiLimits } = require("./vyceai-limits");
 const { fetchOpendesignLimits } = require("./opendesign-limits");
+const { fetchHarkLimits } = require("./hark-limits");
 const { fetchMistralLimits } = require("./mistral-limits");
 const { fetchOpenaiCreditsLimits } = require("./openai-credits-limits");
 const { fetchMinimaxCodeLimits } = require("./minimax-code-limits");
@@ -98,7 +99,7 @@ const USAGE_LIMITS_PROVIDER_IDS = Object.freeze([
   "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy",
   "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae",
   "codearts", "clinePass", "agentRouter", "vyceai", "opendesign",
-  "mistral", "openaiCredits", "minimaxCode",
+  "mistral", "openaiCredits", "minimaxCode", "hark",
 ]);
 
 // Normalize a caller-supplied hidden-provider list (array, Set, or
@@ -4919,7 +4920,7 @@ async function fetchUsageLimitsUncached({
   // (#956).
   const hiddenSentinel = Promise.resolve({ configured: false });
   const hiddenSettled = Promise.resolve({ status: "fulfilled", value: { configured: false } });
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, raccoonDaily, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, raccoonDaily, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode, hark] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -5096,6 +5097,10 @@ async function fetchUsageLimitsUncached({
     hiddenSet.has("mistral") ? hiddenSentinel : fetchMistralLimits({ home, fetchImpl: providerFetch, nowMs }),
     hiddenSet.has("openaiCredits") ? hiddenSentinel : fetchOpenaiCreditsLimits({ home, fetchImpl: providerFetch, nowMs }),
     hiddenSet.has("minimaxCode") ? hiddenSentinel : fetchMinimaxCodeLimits({ home, fetchImpl: providerFetch, nowMs }),
+    // Hark account quotas (hark.com billing summary): saved session cookie or
+    // the macOS desktop binarycookies store. Appended last so the positional
+    // destructure above stays aligned (order guard: provider-order test).
+    hiddenSet.has("hark") ? hiddenSentinel : fetchHarkLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;
@@ -5636,6 +5641,7 @@ async function fetchUsageLimitsUncached({
     mistral: withPlanLabel(mistral, mistral?.plan_name, "Mistral"),
     openaiCredits: withPlanLabel(openaiCredits, openaiCredits?.plan_name, "OpenAI API Credits"),
     minimaxCode: withPlanLabel(minimaxCode, minimaxCode?.plan_name, "MiniMax Code"),
+    hark: withPlanLabel(hark, hark?.plan_name, "Hark"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

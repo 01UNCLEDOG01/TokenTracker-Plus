@@ -1727,6 +1727,74 @@ test("opendesign-cookie route saves a cookie only for an authenticated loopback 
   assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_cookie" });
 });
 
+test("hark-cookie route saves and clears a session token only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const { credentialsPath } = require("../src/lib/hark-limits");
+  // Isolate the store: the route writes through os.homedir(), but
+  // getTrackerRootDir honours TOKENTRACKER_HOME, so pointing it at a temp dir
+  // keeps this test away from a real saved credential on the dev machine.
+  const prevHome = process.env.TOKENTRACKER_HOME;
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hark-route-test-"));
+  process.env.TOKENTRACKER_HOME = tmpRoot;
+  const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+  const token = await getLocalAuthToken(handler);
+  const credFile = credentialsPath(os.homedir());
+  assert.equal(credFile, path.join(tmpRoot, "hark-credentials.json"));
+  const url = new URL("http://127.0.0.1/functions/tokentracker-hark-cookie");
+  try {
+    // Wrong method is rejected before any credential work.
+    const getRes = createResponse();
+    await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+    assert.equal(getRes.statusCode, 405);
+
+    // Unauthenticated POST is rejected.
+    const anonRes = createResponse();
+    await handler(createRequest({ method: "POST", body: JSON.stringify({ cookie: "x" }) }), anonRes, url);
+    assert.equal(anonRes.statusCode, 401);
+
+    // Authenticated POST writes the 0600 credentials file (never echoed back).
+    const sessionToken = "AiR0sEsh3tUqREjdg0dsF7c0dZ0bXxrE6VX8a3jvq4o.aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcd";
+    const okRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ cookie: `__Secure-hark.session_token=${sessionToken}` }),
+    }), okRes, url);
+    assert.equal(okRes.statusCode, 200);
+    const okBody = JSON.parse(okRes.body.toString("utf8"));
+    assert.deepEqual(okBody, { saved: true });
+    const stored = JSON.parse(fs.readFileSync(credFile, "utf8"));
+    assert.equal(stored.cookie, sessionToken);
+
+    // A value that is not a session token is rejected with 400 (not a
+    // fake-success 200) — the paste box keys its "Saved" state off HTTP.
+    const badRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ cookie: "bare-token-no-equals" }),
+    }), badRes, url);
+    assert.equal(badRes.statusCode, 400);
+    assert.deepEqual(JSON.parse(badRes.body.toString("utf8")), { error: "invalid_cookie" });
+
+    // An authenticated clear removes the saved cookie so discovery can fall
+    // back to env/desktop again.
+    const clearRes = createResponse();
+    await handler(createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": token },
+      body: JSON.stringify({ clear: true }),
+    }), clearRes, url);
+    assert.equal(clearRes.statusCode, 200);
+    assert.deepEqual(JSON.parse(clearRes.body.toString("utf8")), { saved: true, cleared: true });
+    assert.equal(fs.existsSync(credFile), false);
+  } finally {
+    if (prevHome === undefined) delete process.env.TOKENTRACKER_HOME;
+    else process.env.TOKENTRACKER_HOME = prevHome;
+    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (_e) { }
+  }
+});
+
 test("opencode-go-key route saves an API key only for an authenticated loopback POST", async () => {
   const { createLocalApiHandler } = require("../src/lib/local-api");
   const { credentialsPath } = require("../src/lib/opencode-go-limits");

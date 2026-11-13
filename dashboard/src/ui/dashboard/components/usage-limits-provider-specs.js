@@ -497,6 +497,30 @@ export const PROVIDER_LIMIT_SPECS = {
       ];
     },
   },
+  hark: {
+    // Hark account quotas (hark.com billing summary): a daily token ceiling
+    // plus the monthly pool, per-feature allowances when the plan publishes
+    // them (labels come from the summary, like the Claude scoped windows),
+    // and an unmetered top-up spend line. Daily rows pace off the fixed 24h
+    // length; monthly rows ride their reset timestamp. An unlimited plan
+    // renders no bars — just the plan label.
+    extra: "hark_topup",
+    windows(data) {
+      const rows = [
+        { key: "daily", labelKey: "limits.label.hark_daily", window: data.primary_window, windowSeconds: 86400 },
+        { key: "monthly", labelKey: "limits.label.hark_monthly", window: data.secondary_window },
+      ];
+      const features = Array.isArray(data.feature_windows)
+        ? data.feature_windows.map((w, i) => ({
+          key: `feature-${i}`,
+          label: typeof w.label === "string" && w.label ? w.label : `Feature ${i + 1}`,
+          window: w,
+          ...(w.limit_window_seconds === 86400 ? { windowSeconds: 86400 } : {}),
+        }))
+        : [];
+      return [...rows, ...features].filter((row) => row.window);
+    },
+  },
 };
 
 const GROK_PRODUCT_LABEL_KEYS = {
@@ -603,5 +627,9 @@ export function usageLimitsLabelCopyAnchor() {
     copy("limits.provider.opendesign"),
     copy("limits.label.opendesign_5h"),
     copy("limits.label.opendesign_weekly"),
+    copy("limits.provider.hark"),
+    copy("limits.label.hark_daily"),
+    copy("limits.label.hark_monthly"),
+    copy("limits.label.hark_topup"),
   ];
 }

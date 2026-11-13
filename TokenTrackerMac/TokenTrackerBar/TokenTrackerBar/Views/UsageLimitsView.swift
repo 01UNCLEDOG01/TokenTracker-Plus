@@ -287,6 +287,10 @@ struct UsageLimitsView: View {
             if let minimaxCode = limits.minimaxCode, minimaxCode.configured, minimaxCode.error == nil {
                 return toolSection(id: id, title: planTitle(Strings.providerMinimaxCode, minimaxCode.planLabel), assetName: "MinimaxLogo", toolName: Strings.providerMinimaxCode, specs: minimaxCodeSpecs(minimaxCode), statusLines: minimaxCodeStatusLines(minimaxCode), updatedAtISO: minimaxCode.capturedAt)
             }
+        case "hark":
+            if let hark = limits.hark, hark.configured, hark.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerHark, hark.planLabel), assetName: nil, toolName: Strings.providerHark, specs: harkSpecs(hark), statusLines: harkStatusLines(hark), updatedAtISO: hark.capturedAt)
+            }
         default:
             break
         }
@@ -739,6 +743,24 @@ struct UsageLimitsView: View {
         if let w = m.secondaryWindow { specs.append(makeSpec(Strings.minimaxCodeWeeklyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
         if let w = m.minimaxCodeVideoWindow { specs.append(makeSpec(Strings.minimaxCodeVideoLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
         return specs
+    }
+
+    private func harkSpecs(_ h: HarkLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = h.primaryWindow { specs.append(makeSpec(Strings.harkDailyLabel, w.usedPercent, windowSeconds: w.limitWindowSeconds, iso: w.resetAt)) }
+        if let w = h.secondaryWindow { specs.append(makeSpec(Strings.harkMonthlyLabel, w.usedPercent, iso: w.resetAt)) }
+        // Per-feature allowances carry their own API label ("Daily Messages",
+        // …); rows without one are skipped rather than given a fake name.
+        for feature in h.featureWindows ?? [] {
+            guard let label = feature.label, !label.isEmpty else { continue }
+            specs.append(makeSpec(label, feature.usedPercent, windowSeconds: feature.limitWindowSeconds, iso: feature.resetAt))
+        }
+        return specs
+    }
+
+    private func harkStatusLines(_ h: HarkLimits) -> [String] {
+        guard let topup = h.harkTopup, topup.isFinite, topup > 0 else { return [] }
+        return [Strings.harkTopupLine(String(format: "$%.2f", topup))]
     }
 
     private func minimaxCodeStatusLines(_ m: MinimaxCodeLimits) -> [String] {

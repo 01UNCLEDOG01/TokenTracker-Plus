@@ -6062,6 +6062,44 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- hark-cookie (POST) ---
+    // Persist a hand-copied Hark session token from the limits page paste
+    // box. Same contract as opendesign-cookie: loopback auth required, POST
+    // only, never echoed back, and a normalized-but-rejected value answers
+    // 400 instead of a fake 200.
+    if (p === "/functions/tokentracker-hark-cookie") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const { writeCookieFile, clearCookieFile } = require("./hark-limits");
+        if (body?.clear === true) {
+          const cleared = clearCookieFile({ home: os.homedir() });
+          json(res, cleared.saved === false ? { error: cleared.error || "clear_failed" } : cleared, cleared.saved === false ? 400 : 200);
+          return true;
+        }
+        const cookie = typeof body?.cookie === "string" ? body.cookie : "";
+        const result = writeCookieFile({ home: os.homedir(), cookie });
+        if (result.saved === false) {
+          // Forward the real cause (invalid value vs. permissions/disk) —
+          // a failed write must not masquerade as a bad token.
+          json(res, { error: result.error || "invalid_cookie" }, 400);
+          return true;
+        }
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save cookie" }, 400);
+      }
+      return true;
+    }
+
     // --- opencode-go-key (POST) ---
     // Persist the OpenCode Go credential pasted into the limits page card.
     // Same contract as the cookie paste boxes: loopback auth required, POST

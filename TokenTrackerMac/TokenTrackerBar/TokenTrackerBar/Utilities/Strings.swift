@@ -132,6 +132,7 @@ enum Strings {
     static var providerMistral: String { "Mistral" }
     static var providerOpenaiCredits: String { t("OpenAI API Credits", "OpenAI API 额度", "OpenAI API 額度", "OpenAI API クレジット", "OpenAI API 크레딧", "OpenAI API-Guthaben") }
     static var providerMinimaxCode: String { "MiniMax Code" }
+    static var providerHark: String { "Hark" }
 
     /// One Qoder credit pool row, named the way the official usage panel names
     /// it (dashboard `QODER_POOL_LABEL_KEYS`).
@@ -172,6 +173,17 @@ enum Strings {
     static var apigotoSubscriptionLabel: String { t("Subscription period", "订阅期", "訂閱期", "サブスク期間", "구독 기간", "Abo-Zeitraum") }
     static var openaiCreditsMeterLabel: String { t("API credits", "API 额度", "API 額度", "API クレジット", "API 크레딧", "API-Guthaben") }
     static var raccoonDailyLabel: String { t("Daily points", "每日积分", "每日積分", "デイリーポイント", "데일리 포인트", "Tägliche Punkte") }
+    static var harkDailyLabel: String { t("Daily", "每日", "每日", "Daily", "Daily", "Täglich") }
+    static var harkMonthlyLabel: String { t("Monthly", "每月", "每月", "Monthly", "Monthly", "Monatlich") }
+
+    static func harkTopupLine(_ amount: String) -> String {
+        t("Top-up this period: \(amount)",
+          "本期自动充值：\(amount)",
+          "本期自動儲值：\(amount)",
+          "今期のチャージ: \(amount)",
+          "이번 기간 충전액: \(amount)",
+          "Aufladung in diesem Zeitraum: \(amount)")
+    }
 
     // MARK: Fork provider balances / status lines
 

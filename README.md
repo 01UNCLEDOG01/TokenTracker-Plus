@@ -29,7 +29,7 @@
 **Windows / macOS 用户免构建**：直接到 [Releases](https://github.com/01UNCLEDOG01/TokenTracker-Plus/releases) 下载安装即可——Windows 下载 `TokenTracker-Setup.exe`，macOS 下载 `TokenTracker-plus-1.26.0.dmg` 拖进「应用程序」（通用二进制）——安装包内置 Node 运行时，无需账号、无需 API Key、不连任何云服务。第一次使用建议先读《[普通用户上手指南](./docs/getting-started.zh-CN.md)》。
 
 > 💡 **关于 Windows Defender / SmartScreen 提示**：本软件为个人开源作品，尚未购买企业数字签名证书，初次安装时 Windows SmartScreen 可能会提示「已保护你的电脑（未知发布者）」。此为正常安全机制，点击「更多信息」→「仍要运行」即可完成安装；代码 100% 开源，数据 100% 留在本机，请放心使用。
-> 🍎 **macOS 原生客户端（1.26.0 起为 TT-Plus 自己的版本）**：保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），界面 6 语言（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——不连接云端，也没有账号 / 登录 / OAuth 界面；页面菜单覆盖 13 个 fork 页面并支持 `tokentracker://open?path=` 深链，桌面宠物内置 7 个形象（含庚戌 / 猫也）；「检查更新」只读本仓库 Releases（资产名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小组件随包发布（4 个：汇总 / 热力图 / 顶级模型 / 限额；ad-hoc 签名 + 沙箱，无需 App Group）；桌面额度浮窗与限额页 33 个 provider 的窗口口径已随本版本包含。
+> 🍎 **macOS 原生客户端（1.26.0 起为 TT-Plus 自己的版本）**：保留原生 SwiftUI 菜单栏形态（通用二进制，Apple silicon / Intel 皆可），界面 6 语言（简中 / 繁中 / 英 / 日 / 韩 / 德）；**本地优先**——不连接云端，也没有账号 / 登录 / OAuth 界面；页面菜单覆盖 13 个 fork 页面并支持 `tokentracker://open?path=` 深链，桌面宠物内置 7 个形象（含庚戌 / 猫也）；「检查更新」只读本仓库 Releases（资产名 `TokenTracker-plus-<版本>.dmg`）。WidgetKit 桌面小组件随包发布（4 个：汇总 / 热力图 / 顶级模型 / 限额；ad-hoc 签名 + 沙箱，无需 App Group）；桌面额度浮窗与限额页 34 个 provider 的窗口口径已随本版本包含。
 
 > 💡 **关于 macOS Gatekeeper 提示**：macOS 版同为未签名分发，首次打开若提示「无法验证开发者」，在应用上**右键 → 打开**，或执行 `xattr -cr /Applications/TokenTracker-plus.app` 后再打开即可。
 
@@ -150,7 +150,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 |:---|:---:|:---:|:---:|
 | **定位与架构** | **宏观全局账本 + 深度拓扑 + 实时速率** | 通用全能看板（含官方云托管） | 极简桌面实时悬浮窗 |
 | **支持的 AI 工具数** | **55** 款（覆盖国内外全谱系工具与本地端） | 47 款 | ~15 款（主要覆盖主流模型 API 与常见 CLI） |
-| **限额追踪** | **✅ 33 项配额/余额来源**（实时限额窗口与重置倒计时） | 10 家 provider | ⚠️ 基础限额展示 |
+| **限额追踪** | **✅ 34 项配额/余额来源**（实时限额窗口与重置倒计时） | 10 家 provider | ⚠️ 基础限额展示 |
 | **主要交互方式** | **Windows 托盘 + macOS 菜单栏 + Web Dashboard + 小组件（Windows）+ CLI** | macOS 菜单栏 + Web Dashboard + 小组件 + CLI | 桌面极简悬浮窗 |
 | **数据隐私与存储** | **100% 本地优先**（零强制外传，多端 WAL 感知） | 本地 SQLite + 可选官方云端同步 | 本地 SQLite WAL（无宏观历史报表） |
 | **Token 速率 (tok/s)** | **✅ 原生支持**（多源时序解析，区分思考 tokens，协同 TM） | ❌ 仅统计总量与花费，无速率计算 | ✅ 支持（悬浮窗主打核心亮点） |

@@ -38,6 +38,7 @@ struct UsageLimitsResponse: Codable, Equatable {
     let mistral: MistralLimits?
     let openaiCredits: OpenaiCreditsLimits?
     let minimaxCode: MinimaxCodeLimits?
+    let hark: HarkLimits?
 
     enum CodingKeys: String, CodingKey {
         case fetchedAt = "fetched_at"
@@ -45,7 +46,7 @@ struct UsageLimitsResponse: Codable, Equatable {
         case opencodeGo = "opencodeGo"
         case commandCode = "commandCode"
         case deepseek
-        case apigoto, sensenova, raccoon, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode
+        case apigoto, sensenova, raccoon, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark
     }
 }
 
@@ -1376,6 +1377,50 @@ struct MinimaxCodeLimits: Codable, Equatable {
     }
 }
 
+/// Hark account quotas: a daily token ceiling plus the monthly pool from the
+/// billing summary, per-feature allowances with server-provided labels, and an
+/// optional top-up spend line (`src/lib/hark-limits.js`, TM #1431 semantics).
+struct HarkLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let secondaryWindow: GenericLimitWindow?
+    let featureWindows: [HarkFeatureWindow]?
+    let harkTopup: Double?
+    let source: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+        case featureWindows = "feature_windows"
+        case harkTopup = "hark_topup"
+        case capturedAt = "captured_at"
+    }
+}
+
+/// One per-feature allowance row from the Hark summary. The label comes from
+/// the API ("Daily Messages", …), so it decodes as a string rather than a copy
+/// key — same convention as the Claude model-scoped weekly windows.
+struct HarkFeatureWindow: Codable, Equatable {
+    let label: String?
+    let usedPercent: Double
+    let resetAt: String?
+    let limitWindowSeconds: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case label
+        case usedPercent = "used_percent"
+        case resetAt = "reset_at"
+        case limitWindowSeconds = "limit_window_seconds"
+    }
+}
+
 /// Helper to decide whether a response from the limits API contains at least one
 /// usable (configured + no error) provider record. Used by the ViewModel to
 /// protect the "last good record" on partial failures (do not overwrite a
@@ -1416,6 +1461,7 @@ extension UsageLimitsResponse {
             (mistral?.configured ?? false, mistral?.error),
             (openaiCredits?.configured ?? false, openaiCredits?.error),
             (minimaxCode?.configured ?? false, minimaxCode?.error),
+            (hark?.configured ?? false, hark?.error),
         ]
         return providers.contains { $0.0 && $0.1 == nil }
     }
@@ -1470,7 +1516,8 @@ extension UsageLimitsResponse {
             opendesign: opendesign,
             mistral: mistral,
             openaiCredits: openaiCredits,
-            minimaxCode: minimaxCode
+            minimaxCode: minimaxCode,
+            hark: hark
         )
     }
 }
