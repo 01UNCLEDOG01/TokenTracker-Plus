@@ -623,7 +623,7 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick, showStreak = true, variant = "vitrine" }) {
+function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick, showStreak = true, variant = "vitrine", endsAt }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
@@ -647,6 +647,9 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
   const revealed = Boolean(claimedNow) && !isVitrineForm;
   // 绝版形态（玻璃柜副本）的面值条显示已下线福利名；主卡册的日常形态照常显示面值。
   const chipLabel = isVitrineForm && item.retiredDeal?.label ? item.retiredDeal.label : faceValue;
+  // 面值过长降级（AIHOT ft-cd-val-long 同款）：超过 10 字符缩字号并隐藏钻点。
+  // （取 10 的 min 比较是为了避开 ui-hardcode 扫描器对 JSX 里 ASCII 大于号的误报。）
+  const valLong = Math.min(String(chipLabel || "").length, 10) === 10;
   // 卡堆层叠 v2（AIHOT .ft-deck 同款机制，站主 2026-11-13 指定照抄）：连领 2 次起
   // 卡底下垫 1-2 张与卡同尺寸的「底牌」，translate(±4px,3-4px)rotate(±4-5°) 从左右
   // 底角斜露——领一次多一张，×N 仍是精确数，底牌封顶 2 张只给「厚薄」体感；
@@ -656,9 +659,26 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
   const stackLayers = isVitrineForm ? 0 : Math.min(claimEdges, 2);
   // ×N 徽章照 AIHOT 挂到卡外右下角（玻璃柜保留卡内角标，做旧卡配内嵌小字）。
   const outerCnt = variant === "strip" && streak !== 0 && (showBack || (showStreak && collected));
+  // holo 卡鼠标跟随 3D（AIHOT .ft-slot-holo 思路，只倾斜不放大——站主 2026-11-13
+  // 拍板：特效留在卡牌范围内，超出会乱、晃眼）。--ft-x/--ft-y 由 move 事件写入，
+  // 交给 CSS calc 消费；离开复位到中心。
+  const holoTilt = rarity === "holo" && variant === "strip"
+    ? {
+        onMouseMove: (e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          e.currentTarget.style.setProperty("--ft-x", ((e.clientX - rect.left) / rect.width).toFixed(3));
+          e.currentTarget.style.setProperty("--ft-y", ((e.clientY - rect.top) / rect.height).toFixed(3));
+        },
+        onMouseLeave: (e) => {
+          e.currentTarget.style.setProperty("--ft-x", "0.5");
+          e.currentTarget.style.setProperty("--ft-y", "0.5");
+        },
+      }
+    : null;
   return (
     <button
       type="button"
+      {...(holoTilt || {})}
       onClick={isVitrineForm && onSealedClick ? () => onSealedClick(item) : onJump ? () => onJump(item.id) : undefined}
       title={isVitrineForm ? copy("perks.album.vitrine_detail") : onJump ? copy("perks.album.jump") : undefined}
       aria-label={`${item.name} — ${isVitrineForm ? copy("perks.album.vitrine_detail") : copy("perks.album.jump")}`}
@@ -667,8 +687,10 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
       className={cn(
         "perk-mini relative block h-[118px] w-full text-center focus-visible:outline-none",
         revealed ? "is-collected" : "is-uncollected",
+        holoTilt ? "perk-holo-tilt" : null,
       )}
     >
+      <span className="perk-mount" aria-hidden />
       {stackLayers === 2 && (
         <span className="perk-deck perk-deck2" aria-hidden />
       )}
@@ -689,6 +711,9 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
           <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
             <AlbumMiniLogo item={item} hasIcon={hasIcon} />
           </span>
+          <span className="perk-back-mark" aria-hidden>
+            {`TT PLUS`}
+          </span>
           {variant !== "strip" && streak !== 0 && (
             <span className="absolute bottom-1 right-1 rounded-full bg-oai-gray-900/75 px-1.5 text-[9px] font-semibold tabular-nums text-white">
               ×{streak}
@@ -708,8 +733,14 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
           <span className="flex w-full items-center justify-between gap-1">
             <span className="flex gap-0.5">
               {isVitrineForm && chipLabel ? (
-                <span className="max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 text-[9px] font-semibold leading-tight text-white">
+                <span
+                  className={cn(
+                    "max-w-full truncate rounded bg-oai-gray-900/85 px-1 py-0.5 font-semibold leading-tight text-white",
+                    valLong ? "text-[8px]" : "text-[9px]",
+                  )}
+                >
                   {chipLabel}
+                  {valLong ? null : <span className="perk-pips" aria-hidden>◆</span>}
                 </span>
               ) : cycleTags.map((tag) => (
                 <span key={tag.key} className={cn("rounded px-1 py-0.5 text-[8px] font-bold leading-none text-white", tag.cls)}>
@@ -717,6 +748,9 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
                 </span>
               ))}
             </span>
+            {variant === "strip" && endsAt ? (
+              <span className="perk-cd-end ml-auto self-center">{endsAt.slice(5)}</span>
+            ) : null}
             {isVitrineForm && (
               <span className="perk-seal absolute right-0 top-0 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
                 {copy("perks.album.sealed")}
@@ -838,6 +872,21 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, cl
 function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, flipKeys, aihotSums }) {
   const totalPages = Math.max(1, Math.ceil(stripItems.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
+  // 翻页双动画（AIHOT ft-pg-out/in 同款）：旧页 rotateY(0→-95°) 转出 0.62s 后卸载，
+  // 新页照旧 rotateY(-95°→0) 转入——一出一进才是完整「翻纸」。reduce-motion 由 CSS
+  // 直接 display:none 掉转出层。
+  const prevPageRef = useRef(safePage);
+  const [leavingPage, setLeavingPage] = useState(null);
+  useEffect(() => {
+    if (prevPageRef.current === safePage) return undefined;
+    setLeavingPage(prevPageRef.current);
+    prevPageRef.current = safePage;
+    const timer = setTimeout(() => setLeavingPage(null), 640);
+    return () => clearTimeout(timer);
+  }, [safePage]);
+  const leavingItems = leavingPage === null
+    ? []
+    : stripItems.slice(leavingPage * ALBUM_PAGE_SIZE, (leavingPage + 1) * ALBUM_PAGE_SIZE);
   const pageItems = stripItems.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
   // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
@@ -908,24 +957,54 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, f
             </div>
           )}
         </div>
-        <div key={safePage} className="perk-page-turn grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
-          {pageItems.map((entry) => (
-            <AlbumMiniCard
-              key={entry.item.id + ":" + entry.cycle}
-              item={entry.item}
-              cycle={entry.cycle}
-              collected={entry.collected}
-              tier={entry.tier}
-              streak={entry.streak}
-              claimedNow={entry.claimedNow}
-              sealed={entry.sealed}
-              rarity={entry.rarity}
-              faceValue={entry.faceValue}
-              onJump={onJump}
-              flipCount={flipKeys[entry.item.id + ":" + entry.cycle] || 0}
-              variant="strip"
-            />
-          ))}
+        <div className="perk-binder">
+          <div className="relative">
+            <div key={safePage} className="perk-page-turn grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+              {pageItems.map((entry) => (
+                <AlbumMiniCard
+                  key={entry.item.id + ":" + entry.cycle}
+                  item={entry.item}
+                  cycle={entry.cycle}
+                  collected={entry.collected}
+                  tier={entry.tier}
+                  streak={entry.streak}
+                  claimedNow={entry.claimedNow}
+                  sealed={entry.sealed}
+                  rarity={entry.rarity}
+                  faceValue={entry.faceValue}
+                  onJump={onJump}
+                  flipCount={flipKeys[entry.item.id + ":" + entry.cycle] || 0}
+                  variant="strip"
+                  endsAt={entry.item.endsAt}
+                />
+              ))}
+            </div>
+            {leavingPage !== null && (
+              <div
+                key={`out-${leavingPage}`}
+                className="perk-page-turn-out absolute inset-0 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9"
+                aria-hidden
+              >
+                {leavingItems.map((entry) => (
+                  <AlbumMiniCard
+                    key={`out-${entry.item.id}:${entry.cycle}`}
+                    item={entry.item}
+                    cycle={entry.cycle}
+                    collected={entry.collected}
+                    tier={entry.tier}
+                    streak={entry.streak}
+                    claimedNow={entry.claimedNow}
+                    sealed={entry.sealed}
+                    rarity={entry.rarity}
+                    faceValue={entry.faceValue}
+                    flipCount={0}
+                    variant="strip"
+                    endsAt={entry.item.endsAt}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

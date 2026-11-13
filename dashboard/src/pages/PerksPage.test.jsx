@@ -432,6 +432,12 @@ describe("PerksPage", () => {
     const album = screen.getByText("我的卡册").closest("div.mb-8");
     const cards = [...album.querySelectorAll(".perk-mini")];
     expect(cards.length).toBe(18); // 每页 18 张（两排×9）
+    // 拟物吸收（AIHOT .ft-mount 同款）：每张卡底下都有虚线卡座
+    for (const card of cards) {
+      expect(card.querySelector(".perk-mount")).toBeTruthy();
+    }
+    // 装订页容器（.ft-pg 同款装订孔在 CSS，容器类挂上即可）
+    expect(album.querySelector(".perk-binder")).toBeTruthy();
     // 档位排序不变式：任意相邻两张，前者的档位权重不低于后者（琥珀→灰）
     const TIER_RANK = { amber: 5, rose: 4, purple: 3, blue: 2, success: 1, neutral: 0 };
     const rankOf = (card) => {
@@ -469,6 +475,8 @@ describe("PerksPage", () => {
     expect(waitingBack.textContent).toContain("×");
     // streak=1 只有卡本体，不垫底牌（底牌从第 2 次领取开始堆）
     expect(waitingBack.querySelectorAll(".perk-deck").length).toBe(0);
+    // 卡背水印字（.ft-cd-back-mark 同款）
+    expect(waitingBack.querySelector(".perk-back-mark")?.textContent).toBe("TT PLUS");
     // retired 卡（qoder_cn 免费调用下线）：玻璃柜里的做旧纸卡 + 绝版章 + 「领过 N 次」小字；
     // 同一张卡的日常形态仍留在主卡册（站主 2026-11-12 定谳：两个形态并存）
     const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.querySelector(".perk-seal"));

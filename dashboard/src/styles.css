@@ -1502,6 +1502,110 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   100% { transform: scale(1); }
 }
 
+/* —— AIHOT 拟物与细节吸收（站主 2026-11-13 拍板：好的保留、缺的学，特效不出卡）—— */
+/* 装订页（.ft-pg 同款）：左侧 3 个装订孔 + 装订条底色，深浅主题各一套。 */
+.tt-perks-page .perk-binder {
+  --perk-binder: #212c30;
+  --perk-hole: rgba(0, 0, 0, 0.42);
+  border-radius: 12px;
+  padding: 10px 8px 12px 26px;
+  background:
+    radial-gradient(circle at 11px 22%, var(--perk-hole) 0 3.5px, transparent 4px),
+    radial-gradient(circle at 11px 50%, var(--perk-hole) 0 3.5px, transparent 4px),
+    radial-gradient(circle at 11px 78%, var(--perk-hole) 0 3.5px, transparent 4px),
+    var(--perk-binder);
+}
+:root:not(.dark) .tt-perks-page .perk-binder {
+  --perk-binder: #eef1ef;
+  --perk-hole: rgba(32, 42, 48, 0.13);
+}
+/* 虚线卡座（.ft-mount 同款）：每张卡（含未收）底下垫虚线槽位轮廓。 */
+.tt-perks-page .perk-mount {
+  position: absolute;
+  inset: -3px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  pointer-events: none;
+}
+:root:not(.dark) .tt-perks-page .perk-mount {
+  border-color: rgba(32, 42, 48, 0.18);
+}
+/* 卡背水印字（.ft-cd-back-mark 同款）：青背 logo 下的品牌小字。 */
+.tt-perks-page .perk-back-mark {
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+/* 卡面截止小字（.ft-cd-end 同款）：写了 endsAt 的卡在正面右上印 MM-DD。 */
+.tt-perks-page .perk-cd-end {
+  color: #8b7d63;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+/* 面值钻点（.ft-cd-pips 同款）。 */
+.tt-perks-page .perk-pips {
+  color: #a5afac;
+  font-size: 6.5px;
+  line-height: 1;
+  margin-left: 2px;
+}
+/* holo 正面卡内动效（.ft-cd-holo 同款，全部 clip 在卡内——站主拍板特效不出卡）：
+   彩虹轮盘垫底 + 星星贴纸闪烁；既有扫光在背面档位上原样保留。 */
+.tt-perks-page .perk-card-front.perk-front-holo {
+  isolation: isolate;
+  background: linear-gradient(135deg, #fff5fa 0%, #fffbe9 30%, #f0fff7 55%, #edf8ff 78%, #f7f0ff 100%);
+}
+.tt-perks-page .perk-card-front.perk-front-holo::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130px;
+  height: 130px;
+  margin: -65px 0 0 -65px;
+  z-index: -1;
+  background: conic-gradient(#ff5fa2, #ffa443, #ffe45c, #5df2a3, #3fd8ff, #7a83ff, #d77cff, #ff5fa2);
+  animation: perk-holo-wheel 6s linear infinite;
+}
+.tt-perks-page .perk-card-front.perk-front-holo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C12.7 7.6 16.4 11.3 24 12 16.4 12.7 12.7 16.4 12 24 11.3 16.4 7.6 12.7 0 12 7.6 11.3 11.3 7.6 12 0Z'/%3E%3C/svg%3E") 8px 12px / 7px 7px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C12.7 7.6 16.4 11.3 24 12 16.4 12.7 12.7 16.4 12 24 11.3 16.4 7.6 12.7 0 12 7.6 11.3 11.3 7.6 12 0Z'/%3E%3C/svg%3E") 64px 30px / 5px 5px no-repeat;
+  animation: perk-holo-twinkle 2.2s ease-in-out infinite;
+}
+@keyframes perk-holo-wheel {
+  to { transform: rotate(1turn); }
+}
+@keyframes perk-holo-twinkle {
+  50% { opacity: 0.55; }
+}
+/* holo 鼠标跟随倾斜（只倾斜不放大；更高优先级覆盖通用 hover 抬卡）。 */
+@media (hover: hover) {
+  .tt-perks-page .perk-mini.perk-holo-tilt:hover .perk-mini-card {
+    transform: rotateX(calc((0.5 - var(--ft-y, 0.5)) * 20deg)) rotateY(calc((var(--ft-x, 0.5) - 0.5) * 24deg));
+  }
+}
+/* 翻页转出层（ft-pg-out 同款）：旧页绕左缘转走，0.62s 后由 JS 卸载。 */
+.tt-perks-page .perk-page-turn-out {
+  transform-origin: 0 50%;
+  animation: perk-page-turn-out 0.62s cubic-bezier(0.45, 0.05, 0.35, 1) both;
+}
+@keyframes perk-page-turn-out {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; filter: brightness(0.82); transform: perspective(2600px) rotateY(-95deg); }
+}
+
 /* 卡册翻页：仿 AIHOT 的 rotateY 翻纸（0.62s cubic-bezier(.45,.05,.35,1)）。 */
 .tt-perks-page .perk-page-turn {
   transform-origin: 0 50%;
@@ -1552,6 +1656,14 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   /* ×N 徽章弹入同属领取反馈的附属动效，reduce 下直接免掉。 */
   .tt-perks-page .perk-mini.is-collected .perk-cnt {
     animation: none;
+  }
+  /* 装饰性循环动效（holo 轮盘/星星）reduce 下停摆；翻页转出层直接不渲染视觉。 */
+  .tt-perks-page .perk-card-front.perk-front-holo::before,
+  .tt-perks-page .perk-card-front.perk-front-holo::after {
+    animation: none;
+  }
+  .tt-perks-page .perk-page-turn-out {
+    display: none;
   }
 }
 
