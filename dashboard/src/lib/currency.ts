@@ -4,7 +4,10 @@ export const CURRENCY_USD = "USD";
 // Back-compat alias — some legacy callers still reference this constant by name.
 export const CURRENCY_CNY = "CNY";
 
-export const SUPPORTED_CURRENCY_CODES = ["USD", "EUR", "GBP", "CNY", "JPY", "HKD"] as const;
+export const SUPPORTED_CURRENCY_CODES = [
+  "USD", "EUR", "GBP", "CNY", "JPY", "HKD",
+  "AUD", "BRL", "CAD", "CHF", "INR", "KRW", "SGD",
+] as const;
 export type CurrencyCode = (typeof SUPPORTED_CURRENCY_CODES)[number];
 
 interface CurrencyMeta {
@@ -19,6 +22,13 @@ const CURRENCY_META: Record<CurrencyCode, CurrencyMeta> = {
   CNY: { symbol: "¥", labelKey: "settings.appearance.currency.opt.cny" },
   JPY: { symbol: "¥", labelKey: "settings.appearance.currency.opt.jpy" },
   HKD: { symbol: "HK$", labelKey: "settings.appearance.currency.opt.hkd" },
+  AUD: { symbol: "A$", labelKey: "settings.appearance.currency.opt.aud" },
+  BRL: { symbol: "R$", labelKey: "settings.appearance.currency.opt.brl" },
+  CAD: { symbol: "C$", labelKey: "settings.appearance.currency.opt.cad" },
+  CHF: { symbol: "CHF", labelKey: "settings.appearance.currency.opt.chf" },
+  INR: { symbol: "₹", labelKey: "settings.appearance.currency.opt.inr" },
+  KRW: { symbol: "₩", labelKey: "settings.appearance.currency.opt.krw" },
+  SGD: { symbol: "S$", labelKey: "settings.appearance.currency.opt.sgd" },
 };
 
 // Bundled defaults — last known good snapshot, used until the live fetch lands.
@@ -30,6 +40,15 @@ export const DEFAULT_RATES: Record<CurrencyCode, number> = {
   CNY: 7.2,
   JPY: 155,
   HKD: 7.8,
+  // 2026-11 snapshot for the TM #1449/#1452 additions — display-only fallbacks
+  // until the first live fetch lands (open.er-api.com drives the real rates).
+  AUD: 1.55,
+  BRL: 5.4,
+  CAD: 1.4,
+  CHF: 0.88,
+  INR: 88,
+  KRW: 1400,
+  SGD: 1.3,
 };
 
 export const CURRENCY_STORAGE_KEY = "tokentracker-currency";

@@ -69,6 +69,14 @@ describe("getCurrencySymbol", () => {
     expect(getCurrencySymbol("CNY")).toBe("¥");
     expect(getCurrencySymbol("JPY")).toBe("¥");
     expect(getCurrencySymbol("HKD")).toBe("HK$");
+    // TM #1449/#1452 additions.
+    expect(getCurrencySymbol("AUD")).toBe("A$");
+    expect(getCurrencySymbol("BRL")).toBe("R$");
+    expect(getCurrencySymbol("CAD")).toBe("C$");
+    expect(getCurrencySymbol("CHF")).toBe("CHF");
+    expect(getCurrencySymbol("INR")).toBe("₹");
+    expect(getCurrencySymbol("KRW")).toBe("₩");
+    expect(getCurrencySymbol("SGD")).toBe("S$");
   });
 
   it("falls back to $ for unknown / invalid codes", () => {
@@ -80,9 +88,9 @@ describe("getCurrencySymbol", () => {
 });
 
 describe("getSupportedCurrencies", () => {
-  it("returns 6 entries with code/symbol/labelKey", () => {
+  it("returns 13 entries with code/symbol/labelKey", () => {
     const list = getSupportedCurrencies();
-    expect(list).toHaveLength(6);
+    expect(list).toHaveLength(13);
     for (const item of list) {
       expect(typeof item.code).toBe("string");
       expect(typeof item.symbol).toBe("string");
