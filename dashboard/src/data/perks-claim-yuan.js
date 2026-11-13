@@ -34,9 +34,12 @@ export const PERKS_CLAIM_YUAN = {
   tuanjie_cowork: { daily: 2.57 },  // ¥77.18/月 ÷30
   scnet: { once: 60 },              // 新户 1 亿 Token = ¥60（一次性）
   sensenova: { once: 60 },          // ≈¥60/月（永久免费）
-  // opencode：日签卡（站主 2026-11-13 定谳，限免日额度）——daily 供累计/本月；once 仅供
-  // AIHOT limited deal 的「今天还能领」估值（deal kind=limited 映射到 once）。
-  opencode: { daily: 1.0, once: 30 },
+  // opencode：日签卡（站主 2026-11-13 定谳：5 个限免模型各自独立日额度、可叠加，
+  // 「一天肯定不止 ¥1」——按 LongCat 100 次/日 + 其余 4 模型保守各 30-50 次 ≈ 250 次/日，
+  // 编程单次约 10-15k tokens ≈ 2.5-4M tokens/日，Flash 类混合价 ≈¥2/M ≈ ¥5-8/日，取 ¥6。
+  // 月化 ≈¥180 已触 rose 门槛——改档需站主拍板，暂维持 purple 挂账。
+  // once ¥30 仅供 AIHOT limited deal 的「今天还能领」估值（deal kind=limited→once）。
+  opencode: { daily: 6, once: 30 },
   opencode_go: {},                  // 纯付费渠道，无免费额度
   autoclaw: { daily: 1.0 },         // 站主折扣口径 ≈¥30/月 ÷30（新户礼数额不锚定，不入单次）
   autoclaw_intl: { daily: 1.2 },    // ≈¥36/月 ÷30
