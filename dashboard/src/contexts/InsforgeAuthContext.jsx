@@ -3,7 +3,7 @@ import {
   allowInsforgeSessionRestore,
   getInsforgeConfigurationError,
   getInsforgeConnectionHost,
-  getOrCreateInsforgeClient,
+  ensureInsforgeClient,
   INSFORGE_INSTANCE_CHANGED_EVENT,
   isCloudInsforgeConfigured,
   isCurrentInsforgeClient,
@@ -103,13 +103,18 @@ export function InsforgeAuthProvider({ children }) {
   }, [user?.id]);
 
   useEffect(() => {
+    let alive = true;
     if (!isCloudInsforgeConfigured()) {
       setClient(null);
       setUser(null);
       setLoading(false);
-      return;
+      return () => { alive = false; };
     }
-    setClient(getOrCreateInsforgeClient());
+    // SDK 动态加载（2026-11-13 性能批）：加载期间保持 loading，不误判未登录。
+    void ensureInsforgeClient()
+      .then((next) => { if (alive) setClient(next); })
+      .catch(() => { if (alive) { setClient(null); setLoading(false); } });
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {

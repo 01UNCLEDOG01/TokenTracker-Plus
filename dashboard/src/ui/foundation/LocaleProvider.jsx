@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useLayoutEffect, useMemo, useState } from "react";
-import { setCopyLocale } from "../../lib/copy";
+import { ensureCopyLocale, preloadCopyLocale, setCopyLocale } from "../../lib/copy";
 import {
   getInitialLocalePreference,
   normalizeLocalePreference,
@@ -40,19 +40,25 @@ export function LocaleProvider({ children }) {
 
   useLayoutEffect(() => {
     if (locale !== SYSTEM_LOCALE || typeof window === "undefined") return undefined;
-    const handleChange = () => syncResolvedLocale(resolvePreferredLocale(SYSTEM_LOCALE), setResolvedLocale);
+    const handleChange = () => {
+      const next = resolvePreferredLocale(SYSTEM_LOCALE);
+      void ensureCopyLocale(next).then(() => syncResolvedLocale(next, setResolvedLocale));
+    };
     window.addEventListener("languagechange", handleChange);
     return () => window.removeEventListener("languagechange", handleChange);
   }, [locale]);
 
   const setLocale = useCallback((value) => {
     const next = normalizeLocalePreference(value);
-    syncResolvedLocale(resolvePreferredLocale(next), setResolvedLocale);
+    const resolved = resolvePreferredLocale(next);
     setLocaleState(next);
     persistLocalePreference(next);
     if (isNativeEmbed()) {
       setNativeSetting("locale", next);
     }
+    // 语言包按需加载：先预热新语言，加载完再应用（期间界面保持旧语言）。
+    preloadCopyLocale(resolved);
+    void ensureCopyLocale(resolved).then(() => syncResolvedLocale(resolved, setResolvedLocale));
   }, []);
 
   const contextValue = useMemo(

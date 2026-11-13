@@ -1705,6 +1705,7 @@ export const PERK_PROVIDERS = [
     "tips": "券面 20 元按一次性福利计；官网 https://qianfan.cloud.baidu.com。",
     "officialUrl": "https://ernie.baidu.com",
     "hasInvite": false,
+    "endsAt": "2026-11-30",
     "checkedAt": "2026-11-13",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
@@ -1833,6 +1834,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://cloud.tencent.com/product/tokenhub；≈¥2.4 按保守下限计。",
     "officialUrl": "https://www.tencent.com/zh-cn/tencent-launches-hy4-joining-the-ranks-of-the-worlds-leading-open-source-ai-models/",
     "hasInvite": false,
+    "endsAt": "2026-12-31",
     "checkedAt": "2026-11-13",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
@@ -1849,6 +1851,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://developers.weixin.qq.com；10 亿 Token 量级按 amber 档，实际可消耗受云开发场景限制，价值待端内实测后复核。",
     "officialUrl": "https://developers.weixin.qq.com",
     "hasInvite": false,
+    "endsAt": "2026-12-31",
     "checkedAt": "2026-11-13",
     "sourceUrl": "https://aihot.news/free-tokens"
   },

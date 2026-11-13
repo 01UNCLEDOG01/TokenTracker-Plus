@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+// 形状扫描是全量枚举的重计算：慢机上并发跑会顶到默认超时（2026-11-13），
+// 本文件单独放宽到 120s。
+vi.setConfig({ testTimeout: 120_000 })
 import { BotEngine, type RenderedEye } from './engine'
 import { decalageDesYeux, POUR_TESTS } from './eyefit'
 import { EXPRESSIONS } from './expressions'

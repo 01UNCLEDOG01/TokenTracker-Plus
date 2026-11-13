@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ChevronDown, ChevronUp, GripHorizontal, Settings2, ArrowUpRight, Check, X } from "lucide-react";
-import { copy, setCopyLocale } from "./lib/copy";
+import { copy, ensureCopyLocale, setCopyLocale } from "./lib/copy";
 import { desktopQuotaRows, selectQuotaRows, mergeQuotaSnapshot, quotaPeriodLabel, quotaResetCountdown } from "./lib/desktop-quota.js";
 import { limitProviderName } from "./lib/limits-providers.js";
 import "./quota.css";
@@ -17,7 +17,7 @@ export function QuotaWidget() {
   useEffect(() => {
     const receive = event => {
       if (event.data?.type !== "quota:context") return;
-      setCopyLocale(event.data.locale);
+      void ensureCopyLocale(event.data.locale).then(() => setCopyLocale(event.data.locale));
       setContext(previous => ({ ...event.data, limits: mergeQuotaSnapshot(previous.limits, event.data.limits) }));
     };
     window.chrome?.webview?.addEventListener("message", receive);

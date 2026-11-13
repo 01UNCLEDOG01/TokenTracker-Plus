@@ -1,19 +1,4 @@
 import copyRegistry from "virtual:tokentracker-copy-registry";
-import zhCore from "../content/i18n/zh/core.json";
-import zhDashboard from "../content/i18n/zh/dashboard.json";
-import zhMarketing from "../content/i18n/zh/marketing.json";
-import zhTwCore from "../content/i18n/zh-TW/core.json";
-import zhTwDashboard from "../content/i18n/zh-TW/dashboard.json";
-import zhTwMarketing from "../content/i18n/zh-TW/marketing.json";
-import jaCore from "../content/i18n/ja/core.json";
-import jaDashboard from "../content/i18n/ja/dashboard.json";
-import jaMarketing from "../content/i18n/ja/marketing.json";
-import koCore from "../content/i18n/ko/core.json";
-import koDashboard from "../content/i18n/ko/dashboard.json";
-import koMarketing from "../content/i18n/ko/marketing.json";
-import deCore from "../content/i18n/de/core.json";
-import deDashboard from "../content/i18n/de/dashboard.json";
-import deMarketing from "../content/i18n/de/marketing.json";
 import {
   DE_LOCALE,
   getInitialLocalePreference,
@@ -25,41 +10,55 @@ import {
   ZH_TW_LOCALE,
 } from "./locale";
 
-const LOCALE_REGISTRIES: Record<string, TranslationRegistry> = {
-  [ZH_CN_LOCALE]: {
-    ...zhCore,
-    ...zhDashboard,
-    ...zhMarketing,
-  },
-  [ZH_TW_LOCALE]: {
-    ...zhTwCore,
-    ...zhTwDashboard,
-    ...zhTwMarketing,
-  },
-  [JA_LOCALE]: {
-    ...jaCore,
-    ...jaDashboard,
-    ...jaMarketing,
-  },
-  [KO_LOCALE]: {
-    ...koCore,
-    ...koDashboard,
-    ...koMarketing,
-  },
-  [DE_LOCALE]: {
-    ...deCore,
-    ...deDashboard,
-    ...deMarketing,
-  },
-};
-
+// 语言包按语言拆分为独立 chunk（2026-11-13 性能批）：原来 5 种语言 + copy.csv
+// 打进同一个 906KB 模块，首屏全量解析；现在 copy() 仍是同步 API，但注册表在
+// 首次使用该语言时异步加载（bootstrap 会先确保默认语言就位再挂载 React，
+// 语言切换走 ensureCopyLocale → setCopyLocale 两段）。
 type AnyRecord = Record<string, any>;
 type TranslationRegistry = Record<string, string>;
 
+const LOCALE_LOADERS: Record<string, () => Promise<{ default: TranslationRegistry }>> = {
+  [ZH_CN_LOCALE]: () => import("./i18n-registry/zh"),
+  [ZH_TW_LOCALE]: () => import("./i18n-registry/zh-tw"),
+  [JA_LOCALE]: () => import("./i18n-registry/ja"),
+  [KO_LOCALE]: () => import("./i18n-registry/ko"),
+  [DE_LOCALE]: () => import("./i18n-registry/de"),
+};
+
+const loadedRegistries: Record<string, TranslationRegistry> = {};
+const pendingLoads: Record<string, Promise<TranslationRegistry>> = {};
+
 let currentLocale = resolvePreferredLocale(getInitialLocalePreference());
 
+/**
+ * 确保某个语言包已加载（幂等、并发去重）。返回该语言的注册表。
+ * 未识别的语言返回空表（copy() 会回退到 copy.csv 的英文原文）。
+ */
+export async function ensureCopyLocale(locale: any): Promise<TranslationRegistry> {
+  const normalized = normalizeResolvedLocale(locale);
+  if (loadedRegistries[normalized]) return loadedRegistries[normalized];
+  const loader = LOCALE_LOADERS[normalized];
+  if (!loader) return {};
+  if (!pendingLoads[normalized]) {
+    pendingLoads[normalized] = loader()
+      .then((mod) => {
+        loadedRegistries[normalized] = mod.default || {};
+        return loadedRegistries[normalized];
+      })
+      .finally(() => {
+        delete pendingLoads[normalized];
+      });
+  }
+  return pendingLoads[normalized];
+}
+
+/** 预热（不阻塞）：用于系统语言变化等「稍后会用到」的场景。 */
+export function preloadCopyLocale(locale: any) {
+  void ensureCopyLocale(locale).catch(() => {});
+}
+
 function getLocaleRegistry() {
-  return (LOCALE_REGISTRIES[currentLocale] || {}) as TranslationRegistry;
+  return (loadedRegistries[currentLocale] || {}) as TranslationRegistry;
 }
 
 function getTranslatedText(key: any) {

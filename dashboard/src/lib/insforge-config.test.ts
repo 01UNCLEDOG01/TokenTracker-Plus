@@ -19,8 +19,8 @@ describe("instance-bound frontend SDK", () => {
     vi.stubEnv("VITE_INSFORGE_BASE_URL", "https://build.example");
     vi.stubEnv("VITE_INSFORGE_ANON_KEY", anon("build"));
     const config = await import("./insforge-config");
-    const client = config.getOrCreateInsforgeClient();
-    expect(config.getOrCreateInsforgeClient()).toBe(client);
+    const client = (await config.ensureInsforgeClient());
+    expect((await config.ensureInsforgeClient())).toBe(client);
     expect(sdk.create).toHaveBeenCalledTimes(1);
     expect(sdk.create.mock.calls[0][0].auth.detectOAuthCallback).toBe(true);
   });
@@ -36,7 +36,7 @@ describe("instance-bound frontend SDK", () => {
     expect(config.getInsforgeAnonKey()).toBe("");
     expect(config.isCloudInsforgeConfigured()).toBe(false);
     expect(config.getInsforgeConnectionHost()).toBeNull();
-    expect(config.getOrCreateInsforgeClient()).toBeNull();
+    expect((await config.ensureInsforgeClient())).toBeNull();
   });
   it("treats the CLI's local-only runtime descriptor as a valid no-cloud state", async () => {
     // Exact payload the CLI serves for an offline / single-machine run
@@ -55,7 +55,7 @@ describe("instance-bound frontend SDK", () => {
     expect(config.getInsforgeRemoteUrl()).toBe("");
     expect(config.getInsforgeAnonKey()).toBe("");
     expect(config.getInsforgeConnectionHost()).toBeNull();
-    expect(config.getOrCreateInsforgeClient()).toBeNull();
+    expect((await config.ensureInsforgeClient())).toBeNull();
     expect(sdk.create).not.toHaveBeenCalled();
   });
   it("still surfaces a genuinely broken self-hosted runtime descriptor", async () => {
@@ -74,7 +74,7 @@ describe("instance-bound frontend SDK", () => {
       expect(config.isCloudInsforgeConfigured()).toBe(false);
       expect(config.isOfficialInsforgeInstance()).toBe(false);
       expect(config.getInsforgeConnectionHost()).toBeNull();
-      expect(config.getOrCreateInsforgeClient()).toBeNull();
+      expect((await config.ensureInsforgeClient())).toBeNull();
     }
     expect(sdk.create).not.toHaveBeenCalled();
   });
@@ -90,27 +90,27 @@ describe("instance-bound frontend SDK", () => {
     expect(config.isOfficialInsforgeInstance()).toBe(false);
     expect(config.getInsforgeConnectionHost()).toBe("self-host.example");
     expect(config.getInsforgeConfigurationError()).toBeNull();
-    expect(config.getOrCreateInsforgeClient()).not.toBeNull();
+    expect((await config.ensureInsforgeClient())).not.toBeNull();
   });
   it("does not expose the official key when custom VITE deployment forgot its key", async () => {
     vi.stubEnv("VITE_INSFORGE_BASE_URL", "https://custom.example");
     const config = await import("./insforge-config");
     expect(config.getInsforgeConfigurationError()).toBe("missing_backend_anon_key");
     expect(config.getInsforgeAnonKey()).toBe("");
-    expect(config.getOrCreateInsforgeClient()).toBeNull();
+    expect((await config.ensureInsforgeClient())).toBeNull();
     expect(sdk.create).not.toHaveBeenCalled();
   });
   it("clears only SDK auth/PKCE when the instance changes and refuses stale clients", async () => {
     vi.stubEnv("VITE_INSFORGE_BASE_URL", "https://build.example");
     vi.stubEnv("VITE_INSFORGE_ANON_KEY", anon("build"));
     const config = await import("./insforge-config");
-    const original: any = config.getOrCreateInsforgeClient();
+    const original: any = (await config.ensureInsforgeClient());
     sessionStorage.setItem("insforge_pkce_verifier", "old-pkce");
     localStorage.setItem("insforge_auth", "old-auth");
     localStorage.setItem("tt.providerPrefs", "keep");
     localStorage.setItem("tt.local.history", "keep");
     window.__TOKENTRACKER_RUNTIME_CONFIG__ = { baseUrl: "https://other.example", anonKey: anon("other") };
-    const replacement = config.getOrCreateInsforgeClient();
+    const replacement = (await config.ensureInsforgeClient());
     expect(replacement).not.toBe(original);
     expect(original.tokenManager.clearSession).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem("insforge_pkce_verifier")).toBeNull();
@@ -124,7 +124,7 @@ describe("instance-bound frontend SDK", () => {
   it("marks only same-origin runtime proxies and never adds that header to direct remote calls", async () => {
     window.__TOKENTRACKER_RUNTIME_CONFIG__ = { baseUrl: "https://private.example", anonKey: anon("private") };
     const config = await import("./insforge-config");
-    config.getOrCreateInsforgeClient();
+    (await config.ensureInsforgeClient());
     const transport = sdk.create.mock.calls[0][0].fetch;
     const request = vi.fn().mockResolvedValue(new Response("{}"));
     vi.stubGlobal("fetch", request);

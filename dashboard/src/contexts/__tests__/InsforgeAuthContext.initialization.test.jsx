@@ -9,6 +9,10 @@ import { InsforgeAuthProvider, useInsforgeAuth } from "../InsforgeAuthContext.js
 const state = vi.hoisted(() => ({ configured: true, callbackCaptured: null, resolve: null, pending: null }));
 const client = { auth: {} };
 vi.mock("../../lib/insforge-config", () => ({
+  ensureInsforgeClient: async () => {
+    state.callbackCaptured = new URLSearchParams(window.location.search).get("insforge_code");
+    return client;
+  },
   getOrCreateInsforgeClient: () => {
     state.callbackCaptured = new URLSearchParams(window.location.search).get("insforge_code");
     return client;

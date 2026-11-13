@@ -10,6 +10,7 @@ const client = vi.hoisted(() => ({ auth: {
   getCurrentUser: vi.fn(async () => ({ data: { user: state.signedIn ? { id: "fixture-user" } : null } })),
 } }));
 vi.mock("../../lib/insforge-config", () => ({
+  ensureInsforgeClient: async () => client,
   getOrCreateInsforgeClient: () => client,
   isCloudInsforgeConfigured: () => true,
   getInsforgeConfigurationError: () => null,

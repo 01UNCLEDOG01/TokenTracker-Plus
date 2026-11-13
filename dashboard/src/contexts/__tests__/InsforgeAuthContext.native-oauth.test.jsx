@@ -11,6 +11,7 @@ const client = {
 };
 
 vi.mock("../../lib/insforge-config", () => ({
+  ensureInsforgeClient: async () => client,
   getOrCreateInsforgeClient: () => client,
   isCloudInsforgeConfigured: () => true,
   getInsforgeConfigurationError: () => null,

@@ -1,4 +1,4 @@
-import { createClient } from "@insforge/sdk";
+import type { createClient as CreateClient } from "@insforge/sdk";
 import { functionUrlFor } from "./function-url";
 import { validateInsforgeDeployment } from "./insforge-deployment-config.mjs";
 
@@ -94,7 +94,20 @@ export function getInsforgeConnectionHost(): string | null {
   return new URL(config.baseUrl).host;
 }
 
-let insforgeClientSingleton: ReturnType<typeof createClient> | null = null;
+type InsforgeClient = ReturnType<typeof CreateClient>;
+
+// SDK 按需加载（2026-11-13 性能批）：@insforge/sdk 326KB 不进首屏关键路径，
+// 首次需要客户端时动态 import；类型用 type-only 导入（构建期擦除）。
+let sdkCreateClient: typeof CreateClient | null = null;
+async function ensureSdkCreateClient(): Promise<typeof CreateClient> {
+  if (!sdkCreateClient) {
+    const mod = await import("@insforge/sdk");
+    sdkCreateClient = mod.createClient;
+  }
+  return sdkCreateClient;
+}
+
+let insforgeClientSingleton: InsforgeClient | null = null;
 let clientIdentity = "";
 let restoreBlocked = false;
 
@@ -127,7 +140,19 @@ export function isCurrentInsforgeClient(client: unknown): boolean {
   return hasInsforgeCloudBackend(config) && client === insforgeClientSingleton && clientIdentity === `${config.baseUrl}\0${config.anonKey}`;
 }
 
-export function getOrCreateInsforgeClient(): ReturnType<typeof createClient> | null {
+export function getOrCreateInsforgeClient(): InsforgeClient | null {
+  // 同步兼容入口：SDK 尚未加载时返回 null（调用方应改用 ensureInsforgeClient）。
+  if (!sdkCreateClient) return insforgeClientSingleton;
+  return buildInsforgeClient(sdkCreateClient);
+}
+
+/** 确保 SDK 已加载并返回（或创建）客户端；首屏后异步调用。 */
+export async function ensureInsforgeClient(): Promise<InsforgeClient | null> {
+  const create = await ensureSdkCreateClient();
+  return buildInsforgeClient(create);
+}
+
+function buildInsforgeClient(createClient: typeof CreateClient): InsforgeClient | null {
   const config = getInsforgeConfiguration();
   if (!hasInsforgeCloudBackend(config)) {
     if (insforgeClientSingleton) resetInsforgeClientForInstanceChange();

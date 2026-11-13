@@ -1325,6 +1325,11 @@ export default defineConfig(({ mode }) => {
             if (id.includes("__vite-browser-external")) {
               return "browser-external";
             }
+            // React 运行时独立成 chunk（2026-11-13 性能批）：版本不随业务代码变，
+            // 跨发布命中 immutable 缓存，二次访问少解析。
+            if (/node_modules[\/](react|react-dom|scheduler|react-router|react-router-dom)[\/]/.test(id)) {
+              return "react-vendor";
+            }
           },
         },
       },

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/insforge-config", () => ({
+  ensureInsforgeClient: async () => client,
   getOrCreateInsforgeClient: () => null,
   isCloudInsforgeConfigured: () => false,
   getInsforgeConfigurationError: () => null,

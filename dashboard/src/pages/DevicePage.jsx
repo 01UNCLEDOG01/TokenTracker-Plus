@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useInsforgeAuth } from "../contexts/InsforgeAuthContext";
 import { copy } from "../lib/copy";
-import { getOrCreateInsforgeClient } from "../lib/insforge-config";
 
 /**
  * /device — OAuth-style device flow approval page.
@@ -15,14 +14,10 @@ import { getOrCreateInsforgeClient } from "../lib/insforge-config";
  */
 
 function buildGrantUrl() {
-  // The Insforge baseUrl drives both the SDK and the edge functions; reading
-  // from getOrCreateInsforgeClient() avoids hardcoding the production URL
-  // here (dev/staging may differ).
-  const client = getOrCreateInsforgeClient();
-  // SDK doesn't expose its baseUrl as a public field; fall back to the same
-  // VITE env var that initialized the client. Local-first fork: no bundled
-  // fallback instance — without VITE_INSFORGE_BASE_URL there is no grant URL
-  // and the device-approval flow is unavailable.
+  // 设备授权入口地址取构建期 VITE 变量（SDK 已改按需加载，不再为读 URL
+  // 触发客户端创建）。Local-first fork: no bundled fallback instance —
+  // without VITE_INSFORGE_BASE_URL there is no grant URL and the
+  // device-approval flow is unavailable.
   const baseUrl =
     (import.meta.env && import.meta.env.VITE_INSFORGE_BASE_URL) || "";
   if (!baseUrl) return "";

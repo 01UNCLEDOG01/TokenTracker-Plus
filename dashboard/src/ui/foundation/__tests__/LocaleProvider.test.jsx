@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useLocale } from "../../../hooks/useLocale.js";
 import { setCopyLocale, copy } from "../../../lib/copy";
@@ -68,15 +68,20 @@ it("updates localized copy immediately when the language changes", async () => {
     await user.click(screen.getByRole("button", { name: "zh" }));
   });
 
-  expect(screen.getByTestId("language-label")).toHaveTextContent("语言");
-  expect(document.documentElement.lang).toBe("zh-CN");
+  // 语言包按语言拆 chunk 后切换异步生效（等加载完成再断言）
+  await waitFor(() => {
+    expect(screen.getByTestId("language-label")).toHaveTextContent("语言");
+    expect(document.documentElement.lang).toBe("zh-CN");
+  });
 
   await act(async () => {
     await user.click(screen.getByRole("button", { name: "zh-tw" }));
   });
 
-  expect(screen.getByTestId("language-label")).toHaveTextContent(ZH_TW_LANGUAGE_LABEL);
-  expect(document.documentElement.lang).toBe("zh-TW");
+  await waitFor(() => {
+    expect(screen.getByTestId("language-label")).toHaveTextContent(ZH_TW_LANGUAGE_LABEL);
+    expect(document.documentElement.lang).toBe("zh-TW");
+  });
 
   await act(async () => {
     await user.click(screen.getByRole("button", { name: "en" }));
