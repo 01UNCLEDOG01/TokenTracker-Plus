@@ -64,6 +64,8 @@ async function withTempHome(fn) {
   const saved = {
     HOME: process.env.HOME,
     USERPROFILE: process.env.USERPROFILE,
+    APPDATA: process.env.APPDATA,
+    LOCALAPPDATA: process.env.LOCALAPPDATA,
     CODEX_HOME: process.env.CODEX_HOME,
     CODE_HOME: process.env.CODE_HOME,
     XDG_DATA_HOME: process.env.XDG_DATA_HOME,
@@ -73,6 +75,8 @@ async function withTempHome(fn) {
   try {
     process.env.HOME = home;
     process.env.USERPROFILE = home;
+    process.env.APPDATA = path.join(home, "AppData", "Roaming");
+    process.env.LOCALAPPDATA = path.join(home, "AppData", "Local");
     process.env.CODEX_HOME = path.join(home, ".codex");
     process.env.CODE_HOME = path.join(home, ".code");
     process.env.XDG_DATA_HOME = path.join(home, ".local", "share");
@@ -86,6 +90,15 @@ async function withTempHome(fn) {
     }
     await fs.rm(home, { recursive: true, force: true });
   }
+}
+
+// Lock acquisition/cleanup must not launch unrelated real-client collectors.
+function syncFixture(home, argv) {
+  return cmdSync(argv, {
+    home,
+    trackerDataDir: path.join(home, ".tokentracker", "tracker"),
+    scanSources: [],
+  });
 }
 
 function captureStream(stream) {
@@ -200,7 +213,7 @@ test("sync warns and records a queryable marker when the lock cannot be acquired
     const stderr = captureStream(process.stderr);
     const stdout = captureStream(process.stdout);
     try {
-      await cmdSync([]);
+      await syncFixture(home, []);
     } finally {
       stdout.restore();
       stderr.restore();
@@ -242,7 +255,7 @@ test("sync clears a stale skip marker once the lock is acquired again", async ()
 
     const stdout = captureStream(process.stdout);
     try {
-      await cmdSync(["--auto"]);
+      await syncFixture(home, ["--auto"]);
     } finally {
       stdout.restore();
     }
@@ -256,7 +269,7 @@ test("sync releases its lock when stale skip marker cleanup fails", async () => 
     const trackerDir = path.join(home, ".tokentracker", "tracker");
     await fs.mkdir(path.join(trackerDir, "sync.skip.json"), { recursive: true });
 
-    await assert.rejects(cmdSync(["--auto"]), (error) => (
+    await assert.rejects(syncFixture(home, ["--auto"]), (error) => (
       error?.code === "EISDIR" || error?.code === "EPERM"
     ));
 

@@ -17,6 +17,8 @@ async function withTempHome(fn) {
   const saved = {
     HOME: process.env.HOME,
     USERPROFILE: process.env.USERPROFILE,
+    APPDATA: process.env.APPDATA,
+    LOCALAPPDATA: process.env.LOCALAPPDATA,
     CODEX_HOME: process.env.CODEX_HOME,
     CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR,
     CODE_HOME: process.env.CODE_HOME,
@@ -33,6 +35,8 @@ async function withTempHome(fn) {
   try {
     process.env.HOME = home;
     process.env.USERPROFILE = home;
+    process.env.APPDATA = path.join(home, "AppData", "Roaming");
+    process.env.LOCALAPPDATA = path.join(home, "AppData", "Local");
     process.env.CODEX_HOME = path.join(home, ".codex");
     delete process.env.CLAUDE_CONFIG_DIR;
     process.env.CODE_HOME = path.join(home, ".code");
@@ -56,6 +60,16 @@ async function withTempHome(fn) {
     }
     await fs.rm(home, { recursive: true, force: true });
   }
+}
+
+// These tests exercise backend migration, not discovery of installed tools.
+// HOME alone does not isolate Windows APPDATA or explicit provider roots.
+function syncFixture(home, argv) {
+  return cmdSync(argv, {
+    home,
+    trackerDataDir: path.join(home, ".tokentracker", "tracker"),
+    scanSources: [],
+  });
 }
 
 async function writeTrackerState(home, { config, queue, queueState } = {}) {
@@ -114,7 +128,7 @@ test("resolveRuntimeConfig drops a persisted retired or upstream URL", () => {
 test("sync drops a retired persisted backend without replaying anything", async () => {
   await withTempHome(async (home) => {
     const trackerDir = await writeTrackerState(home, {});
-    await cmdSync(["--auto"]);
+    await syncFixture(home, ["--auto"]);
 
     const queue = sampleQueueLine();
     await writeTrackerState(home, {
@@ -137,7 +151,7 @@ test("sync drops a retired persisted backend without replaying anything", async 
       calls.push(String(url));
       throw new Error("a local-only install must not dial any host");
     };
-    await cmdSync(["--auto"]);
+    await syncFixture(home, ["--auto"]);
 
     const config = await readJsonFile(path.join(trackerDir, "config.json"));
     assert.equal(config.baseUrl, undefined, "the dead instance URL must be gone");
@@ -178,7 +192,7 @@ test("device-login refuses a retired persisted backend without dialing it", asyn
 test("sync leaves a configured base URL untouched", async () => {
   await withTempHome(async (home) => {
     const trackerDir = await writeTrackerState(home, {});
-    await cmdSync(["--auto"]);
+    await syncFixture(home, ["--auto"]);
 
     await writeTrackerState(home, {
       config: {
@@ -190,7 +204,7 @@ test("sync leaves a configured base URL untouched", async () => {
       queueState: { offset: 500, updatedAt: "2026-07-27T00:00:00.000Z" },
     });
 
-    await cmdSync(["--auto"]);
+    await syncFixture(home, ["--auto"]);
 
     const config = await readJsonFile(path.join(trackerDir, "config.json"));
     assert.equal(config.baseUrl, "https://current.example");

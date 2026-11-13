@@ -1,6 +1,5 @@
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -522,9 +521,9 @@ describe("LeaderboardPage window-session cache reuse", { timeout: 30000 }, () =>
     });
   });
 
-  // Two full-table userEvent transitions can exceed 5s on Windows under load.
+  // These cases verify route/cache commits, not hover or pointer sequencing.
+  // Dispatch the click directly, then await the resulting state explicitly.
   it("does not show old context data after period changes, but reuses matching cached context when returning", async () => {
-    const user = userEvent.setup();
     const totalContextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",
       baseUrl: "https://edge.example",
@@ -560,22 +559,20 @@ describe("LeaderboardPage window-session cache reuse", { timeout: 30000 }, () =>
 
     expect(screen.getAllByText("Preloaded User").length).toBeGreaterThan(0);
 
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: "Week" }));
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Week User").length).toBeGreaterThan(0);
+      expect(screen.queryAllByText("Preloaded User")).toHaveLength(0);
     });
 
-    expect(screen.getAllByText("Week User").length).toBeGreaterThan(0);
-    expect(screen.queryAllByText("Preloaded User")).toHaveLength(0);
-
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: "All" }));
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Preloaded User").length).toBeGreaterThan(0);
+      expect(screen.queryAllByText("Week User")).toHaveLength(0);
     });
-
-    expect(screen.getAllByText("Preloaded User").length).toBeGreaterThan(0);
   }, 15000);
 
   it("clears the visible rows instead of rendering stale data when switching to an uncached context", async () => {
-    const user = userEvent.setup();
     const totalContextKey = getLeaderboardPreloadContextKey({
       accessMode: "cloud",
       baseUrl: "https://edge.example",
@@ -589,11 +586,43 @@ describe("LeaderboardPage window-session cache reuse", { timeout: 30000 }, () =>
 
     expect(screen.getAllByText("Preloaded User").length).toBeGreaterThan(0);
 
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: "Week" }));
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    await waitFor(() => {
+      expect(screen.queryAllByText("Preloaded User")).toHaveLength(0);
+      expect(screen.getByTestId("leaderboard-skeleton")).toBeInTheDocument();
     });
+  });
 
-    expect(screen.queryAllByText("Preloaded User")).toHaveLength(0);
-    expect(screen.getByTestId("leaderboard-skeleton")).toBeInTheDocument();
+  it("ignores a previous period response that arrives after the new period has loaded", async () => {
+    const totalContextKey = getLeaderboardPreloadContextKey({
+      accessMode: "cloud", baseUrl: "https://edge.example", mockEnabled: false, userId: "user-1",
+    });
+    publishLeaderboardPreloadState(preloadedData, { contextKey: totalContextKey });
+    let resolveTotal;
+    let resolveWeek;
+    getLeaderboard.mockImplementation(({ period }) => new Promise((resolve) => {
+      if (period === "week") resolveWeek = resolve;
+      else resolveTotal = resolve;
+    }));
+    renderLeaderboard();
+    await waitFor(() => expect(resolveTotal).toBeTypeOf("function"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    await waitFor(() => {
+      expect(resolveWeek).toBeTypeOf("function");
+      expect(screen.queryAllByText("Preloaded User")).toHaveLength(0);
+      expect(screen.getByTestId("leaderboard-skeleton")).toBeInTheDocument();
+    });
+    await act(async () => {
+      resolveWeek({ ...preloadedData, entries: [{ ...preloadedData.entries[0], display_name: "Current Week User" }] });
+    });
+    expect(screen.getAllByText("Current Week User").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      resolveTotal({ ...preloadedData, entries: [{ ...preloadedData.entries[0], display_name: "Late Previous User" }] });
+    });
+    expect(screen.queryAllByText("Late Previous User")).toHaveLength(0);
+    expect(screen.getAllByText("Current Week User").length).toBeGreaterThan(0);
+    expect(readLeaderboardPreloadState(totalContextKey).data).toEqual(preloadedData);
   });
 });

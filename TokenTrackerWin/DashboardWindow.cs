@@ -365,6 +365,7 @@ internal sealed class DashboardWindow : Window
     private async Task InitializeWebViewCoreAsync()
     {
         if (_coreReady) return;
+        Diag.StartupStage("webview-start");
 
         // WebView2 needs a writable user-data folder; the exe dir may be read-only
         // (Program Files). Persist under LocalAppData so login/cookies survive restarts.
@@ -383,6 +384,7 @@ internal sealed class DashboardWindow : Window
         var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder, null);
         await _webView.EnsureCoreWebView2Async(env);
         _coreReady = true;
+        Diag.StartupStage("webview-ready");
 
         // Now that the controller exists, explicitly set a fully transparent default
         // background. On the composition control this genuinely makes the surface
@@ -432,6 +434,7 @@ internal sealed class DashboardWindow : Window
         // Top-level navigations away from the local server go to the system browser.
         core.NavigationStarting += (_, e) =>
         {
+            Diag.StartupStage("navigation-start");
             Log($"nav starting uriPresent={!string.IsNullOrEmpty(e.Uri)} uriLen={e.Uri?.Length ?? 0}");
             if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
                 && uri.Scheme is "http" or "https"
@@ -464,6 +467,8 @@ internal sealed class DashboardWindow : Window
             }
         };
 
+        core.DOMContentLoaded += (_, _) => Diag.StartupStage("document-ready");
+
         // SPA route changes (history.pushState) don't raise NavigationCompleted; this
         // does, so we can observe the callback page's client-side redirect to /dashboard.
         core.HistoryChanged += (_, _) =>
@@ -491,7 +496,21 @@ internal sealed class DashboardWindow : Window
                 {
                     using var doc = JsonDocument.Parse(msg);
                     if (!doc.RootElement.TryGetProperty("type", out var t)) return;
-                    if (t.GetString() == "saveCloudUsageExport")
+                    if (t.GetString() == "startupTiming")
+                    {
+                        if (!ReferenceEquals(sender, core) || !ReferenceEquals(core, _webView.CoreWebView2)
+                            || !CloudUsageExport.PermitsSource(e.Source, core.Source, _server.BaseUrl)) return;
+                        if (!doc.RootElement.TryGetProperty("stage", out var stageValue)
+                            || stageValue.ValueKind != JsonValueKind.String) return;
+                        var stage = stageValue.GetString();
+                        if (stage is not ("shell-visible" or "dashboard-data-ready")) return;
+                        if (!doc.RootElement.TryGetProperty("elapsedMs", out var timeValue)
+                            || timeValue.ValueKind != JsonValueKind.Number
+                            || !timeValue.TryGetDouble(out var elapsedMs)
+                            || !double.IsFinite(elapsedMs) || elapsedMs < 0 || elapsedMs > 86_400_000) return;
+                        Diag.StartupStage(stage, elapsedMs);
+                    }
+                    else if (t.GetString() == "saveCloudUsageExport")
                     {
                         // Core.WebMessageReceived is emitted by the top-level document;
                         // iframe messages use the separate CoreWebView2Frame event.

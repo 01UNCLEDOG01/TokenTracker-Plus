@@ -8,6 +8,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        Diag.StartupStage("host-main");
         InstallExceptionGuards();
 
         // Windows launches us with the full tokentracker://… URL as an argument when a

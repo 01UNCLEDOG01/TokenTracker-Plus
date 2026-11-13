@@ -32,6 +32,8 @@ import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderC
 import { LocalProfileIdentity } from "../../components/LocalProfileIdentity.jsx";
 import { isLocalOnlyDeployment } from "../../lib/insforge-config";
 import { isNativeApp, isNativeEmbed, isNativeWindowsApp } from "../../lib/native-bridge.js";
+import { preloadNavigationPage } from "../../lib/navigation-preload.js";
+import { markStartupStage } from "../../lib/startup-performance.js";
 
 const STORAGE_KEY = "tt.sidebarCollapsed";
 
@@ -142,24 +144,18 @@ function NavGroupLabel({ label, collapsed, first }) {
   );
 }
 
-// 福利指南是懒加载页：首次点击要等 chunk 下载。悬停/聚焦就先把 chunk 取回来，
-// 点进去时只剩渲染成本（站主 2026-11-12 反馈首访 >5s）。
-let perksChunkPromise = null;
-function prefetchPerksChunk() {
-  if (perksChunkPromise) return;
-  perksChunkPromise = import("../../pages/PerksPage.jsx").catch(() => {
-    perksChunkPromise = null;
-  });
-}
-
 function NavItem({ item, collapsed, active, onClick }) {
   const Icon = item.icon;
+  const preload = () => {
+    if (!active) void preloadNavigationPage(item.to);
+  };
   return (
     <Link
       to={item.to}
       onClick={onClick}
-      onMouseEnter={item.id === "perks" ? prefetchPerksChunk : undefined}
-      onFocus={item.id === "perks" ? prefetchPerksChunk : undefined}
+      onMouseEnter={preload}
+      onFocus={preload}
+      onTouchStart={preload}
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
       aria-current={active ? "page" : undefined}
@@ -605,6 +601,14 @@ function MobileTopBar({ open, onOpenDrawer, menuButtonRef }) {
  *                tapping hamburger opens a slide-in drawer with the same nav.
  */
 export function AppLayout({ children }) {
+  useEffect(() => {
+    // Two frames allow the committed shell to paint before recording readiness.
+    let frame;
+    const first = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => markStartupStage("shell-visible"));
+    });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(frame); };
+  }, []);
   const { collapsed, toggle } = useSidebarCollapsed();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef(null);

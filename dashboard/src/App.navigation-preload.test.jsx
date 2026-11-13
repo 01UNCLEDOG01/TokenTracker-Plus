@@ -23,6 +23,8 @@ const TEXT = {
   profile: "Profile page",
   reveal: "reveal main content",
   settings: "Settings page",
+  sessions: "Sessions page",
+  sessionsNav: "Sessions nav",
   skills: "Skills page",
   widgets: "Widgets page",
   wrapped: "Wrapped page",
@@ -39,6 +41,11 @@ const insforgeMock = vi.hoisted(() => ({
 }));
 
 const pending = vi.hoisted(() => new Promise(() => {}));
+const sessionsChunk = vi.hoisted(() => {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+});
 
 vi.mock("./lib/dashboard-preload.js", () => ({
   getLeaderboardPreloadContextKey: vi.fn((options = {}) =>
@@ -113,6 +120,7 @@ vi.mock("./ui/components/Sidebar.jsx", async () => {
         <nav>
           <Link to="/limits">{TEXT.limitsNav}</Link>
           <Link to="/leaderboard">{TEXT.leaderboardNav}</Link>
+          <Link to="/sessions">{TEXT.sessionsNav}</Link>
         </nav>
         {children}
       </div>
@@ -156,6 +164,10 @@ vi.mock("./pages/WrappedPage.jsx", () => ({ default: () => <main>{TEXT.wrapped}<
 vi.mock("./pages/SettingsPage.jsx", () => ({ SettingsPage: () => <main>{TEXT.settings}</main> }));
 vi.mock("./pages/SkillsPage.jsx", () => ({ SkillsPage: () => <main>{TEXT.skills}</main> }));
 vi.mock("./pages/WidgetsPage.jsx", () => ({ WidgetsPage: () => <main>{TEXT.widgets}</main> }));
+vi.mock("./pages/SessionsPage.jsx", async () => {
+  await sessionsChunk.promise;
+  return { SessionsPage: () => <main>{TEXT.sessions}</main> };
+});
 
 function renderApp(initialPath = "/dashboard") {
   window.history.pushState({}, "", initialPath);
@@ -202,5 +214,24 @@ describe("App navigation while preload is pending", () => {
     });
 
     expect(await screen.findByText(TEXT.leaderboard)).toBeInTheDocument();
+  });
+
+  it("keeps navigation visible and usable while a page chunk is pending", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    expect(await screen.findByText(TEXT.dashboard)).toBeInTheDocument();
+    await act(async () => {
+      await user.click(screen.getByRole("link", { name: TEXT.sessionsNav }));
+    });
+
+    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: TEXT.limitsNav })).toBeVisible();
+    await act(async () => {
+      await user.click(screen.getByRole("link", { name: TEXT.limitsNav }));
+    });
+    expect(await screen.findByText(TEXT.limits)).toBeVisible();
+    await act(async () => { sessionsChunk.resolve(); });
+    expect(screen.getByText(TEXT.limits)).toBeVisible();
+    expect(screen.queryByText(TEXT.sessions)).not.toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from "
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { useLocale } from "./hooks/useLocale.js";
+import { markStartupStage } from "./lib/startup-performance.js";
 import { copy } from "./lib/copy";
 import { ThemeProvider } from "./ui/foundation/ThemeProvider.jsx";
 import { useInsforgeAuth } from "./contexts/InsforgeAuthContext.jsx";
@@ -109,8 +110,8 @@ const DashboardPage = lazyPage(() =>
 const IpCheckPage = lazyPage(() => import("./pages/IpCheckPage.jsx"));
 const PerksPage = lazyPage(() => import("./pages/PerksPage.jsx"));
 
-// 福利指南首访时 chunk 还在路上：给一屏骨架，别让 Suspense fallback=null 白屏几秒。
-function PerksRouteSkeleton() {
+// Keep navigation usable while the requested page chunk is loading.
+function RouteSkeleton() {
   return (
     <div className="flex flex-1 flex-col px-4 pt-8 sm:px-6" aria-busy="true">
       <div className="mx-auto w-full max-w-7xl">
@@ -260,6 +261,7 @@ export default function App() {
     if (!isDashboardDefaultPath) return;
     if (!dashboardMainContentVisibleRef.current) {
       dashboardMainContentVisibleRef.current = true;
+      markStartupStage("dashboard-data-ready");
       markDashboardMainContentVisible();
     }
     if (!dashboardResourcePreloadStartedRef.current) {
@@ -434,7 +436,7 @@ export default function App() {
     if (showSidebar) {
       content = (
         <AppLayout>
-          {pageNode}
+          <Suspense key={normalizedPath} fallback={<RouteSkeleton />}>{pageNode}</Suspense>
           {!isLocalMode && <footer className="px-4 py-6"><LegalLinks /></footer>}
         </AppLayout>
       );
@@ -448,7 +450,7 @@ export default function App() {
       <ThemeProvider>
         <ToastProvider>
           <LoginModalProvider>
-            <Suspense fallback={isPerksPath ? <PerksRouteSkeleton /> : null}>{content}</Suspense>
+            <Suspense fallback={<RouteSkeleton />}>{content}</Suspense>
             {!isLocalMode && !showSidebar && !hasLandingFooter && (
               <footer className="px-4 py-6"><LegalLinks /></footer>
             )}

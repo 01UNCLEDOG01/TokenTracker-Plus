@@ -1,21 +1,12 @@
-const { cmdInit } = require("./commands/init");
-const { cmdSync } = require("./commands/sync");
-const { cmdStatus } = require("./commands/status");
-const { cmdDiagnostics } = require("./commands/diagnostics");
-const { cmdDoctor } = require("./commands/doctor");
-const { cmdUninstall } = require("./commands/uninstall");
-const { cmdServe } = require("./commands/serve");
-const { cmdDeviceLogin } = require("./commands/device-login");
-const { cmdWrapped } = require("./commands/wrapped");
-const { cmdSessions } = require("./commands/sessions");
-const { cmdBackup, cmdRestore } = require("./commands/backup");
+// Load only the chosen command. Eagerly importing sync/init/backup here made
+// every desktop launch load the whole collector before serve could listen.
 
 async function run(argv) {
   const [command, ...rest] = argv;
 
   // No args → launch dashboard
   if (!command) {
-    await cmdServe(argv);
+    await require("./commands/serve").cmdServe(argv);
     return;
   }
 
@@ -32,40 +23,40 @@ async function run(argv) {
 
   switch (command) {
     case "serve":
-      await cmdServe(rest);
+      await require("./commands/serve").cmdServe(rest);
       return;
     case "init":
-      await cmdInit(rest);
+      await require("./commands/init").cmdInit(rest);
       return;
     case "sync":
-      await cmdSync(rest);
+      await require("./commands/sync").cmdSync(rest);
       return;
     case "status":
-      await cmdStatus(rest);
+      await require("./commands/status").cmdStatus(rest);
       return;
     case "diagnostics":
-      await cmdDiagnostics(rest);
+      await require("./commands/diagnostics").cmdDiagnostics(rest);
       return;
     case "doctor":
-      await cmdDoctor(rest);
+      await require("./commands/doctor").cmdDoctor(rest);
       return;
     case "uninstall":
-      await cmdUninstall(rest);
+      await require("./commands/uninstall").cmdUninstall(rest);
       return;
     case "device-login":
-      await cmdDeviceLogin(rest);
+      await require("./commands/device-login").cmdDeviceLogin(rest);
       return;
     case "wrapped":
-      await cmdWrapped(rest);
+      await require("./commands/wrapped").cmdWrapped(rest);
       return;
     case "sessions":
-      await cmdSessions(rest);
+      await require("./commands/sessions").cmdSessions(rest);
       return;
     case "backup":
-      await cmdBackup(rest);
+      await require("./commands/backup").cmdBackup(rest);
       return;
     case "restore":
-      await cmdRestore(rest);
+      await require("./commands/backup").cmdRestore(rest);
       return;
     default:
       throw new Error(`Unknown command: ${command}`);

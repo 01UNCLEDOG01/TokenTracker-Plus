@@ -3,6 +3,7 @@ const os = require("node:os");
 const path = require("node:path");
 const fssync = require("node:fs");
 const cp = require("node:child_process");
+const { markStartupStage } = require("../lib/startup-timing");
 
 const { resolveTrackerPaths } = require("../lib/tracker-paths");
 const { createLocalApiHandler, resolveQueuePath } = require("../lib/local-api");
@@ -75,6 +76,7 @@ function getLocalServerUrl(port) {
 }
 
 async function cmdServe(argv) {
+  markStartupStage("serve-start");
   const opts = parseArgs(argv);
 
   // An explicit port may already belong to this exact installation (for
@@ -113,10 +115,14 @@ async function cmdServe(argv) {
   //     /functions/tokentracker-sessions call otherwise rescans every
   //     transcript on the machine (tens of seconds on a cold start).
   setTimeout(() => {
+    markStartupStage("sessions-warmup-start");
     try {
       const { buildSessionAnalytics } = require("../lib/session-analytics");
-      Promise.resolve(buildSessionAnalytics()).catch(() => {});
-    } catch (_e) { /* best effort */ }
+      Promise.resolve(buildSessionAnalytics()).then(
+        () => markStartupStage("sessions-warmup-ready"),
+        () => markStartupStage("sessions-warmup-failed"),
+      );
+    } catch (_e) { markStartupStage("sessions-warmup-failed"); }
   }, 2500);
 
   // 2.1 Refresh LiteLLM pricing data in the background. The seed snapshot is
@@ -154,7 +160,9 @@ async function cmdServe(argv) {
     // package.json from disk.
     serverVersion: CURRENT_PACKAGE_VERSION,
   });
+  markStartupStage("api-handler-ready");
 
+  let firstHtmlReported = false;
   const server = http.createServer(async (req, res) => {
     try {
       // 审计 2026-10-25 P0-1：DNS rebinding 把恶意域名解析到 127.0.0.1 后，浏览器以
@@ -188,6 +196,15 @@ async function cmdServe(argv) {
       }
 
       // Static files
+      // Record the first HTML completion without logging the requested URL.
+      if (!firstHtmlReported && (url.pathname === "/" || url.pathname === "/index.html" || shouldServeSpaFallback(req, url))) {
+        res.once("finish", () => {
+          if (!firstHtmlReported && res.statusCode === 200) {
+            firstHtmlReported = true;
+            markStartupStage("first-html-sent");
+          }
+        });
+      }
       const served = await serveStaticFile(dashboardDir, url.pathname, res, { localRuntimeConfig: true, acceptEncoding: req.headers["accept-encoding"] });
       if (served) return;
 
@@ -232,6 +249,7 @@ async function cmdServe(argv) {
     return;
   }
 
+  markStartupStage("http-listening");
   {
     const url = getLocalServerUrl(port);
     process.stdout.write(

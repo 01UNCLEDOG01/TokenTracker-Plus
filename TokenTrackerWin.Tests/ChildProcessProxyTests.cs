@@ -10,6 +10,10 @@ public sealed class ChildProcessProxyTests
     public void AcceptsProcessStartInfoChildEnvironment()
     {
         var startInfo = new ProcessStartInfo { UseShellExecute = false };
+        // ProcessStartInfo inherits the test runner's proxy variables. This case
+        // specifically models no explicit child proxy, not the host machine.
+        foreach (var name in new[] { "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy" })
+            startInfo.Environment.Remove(name);
         var proxy = new StubProxy(_ => new Uri("http://127.0.0.1:7897"));
 
         var source = ChildProcessProxy.Configure(startInfo.Environment, proxy);

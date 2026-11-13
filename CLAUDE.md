@@ -6,9 +6,9 @@ Guidance for Claude Code working in this repository. Every line here is loaded i
 
 ## Project shape
 
-Token Tracker is a local-first AI token usage tracker. **This fork ships Windows + source only** — there is no macOS or Linux client (the upstream `TokenTrackerBar/` and `TokenTrackerLinux/` were deleted 2026-10-28; do not re-add cross-platform surfaces).
+Token Tracker is a local-first AI token usage tracker. This fork ships Windows, a separate native macOS client under `TokenTrackerMac/`, and source. Platform scope and release authority are defined in `AGENTS.md`.
 
-- **CLI** (`src/`, CommonJS, Node ≥20) — entry `bin/tracker.js` → `src/cli.js`. `serve` runs a local HTTP server on `:7680`, `sync` parses logs into `~/.tokentracker/queue.jsonl`.
+- **CLI** (`src/`, CommonJS, Node ≥20) — entry `bin/tracker.js` → `src/cli.js`, loading only the selected command. `serve` runs a local HTTP server on `:7680`; `sync` writes the queue resolved by `tracker-paths.js`.
 - **Dashboard** (`dashboard/`, React 18 + Vite 7 + TS strict + Tailwind) — built to `dashboard/dist/`, served by the CLI locally.
 - **Windows app** (`TokenTrackerWin/`, .NET 8 WinForms + WPF + WebView2) — launches the bundled CLI `serve` on a dynamic loopback port (avoids the DoSvc-held `:7680`), hosts the dashboard in WebView2, registers the `tokentracker://` deep-link for OAuth. Built `EmbeddedServer/` (Node + CLI + dashboard) is bundled by `scripts/bundle-node.ps1` so the `.exe` is self-contained. Dashboard adaptations are gated behind `isNativeWindowsApp()` (`dashboard/src/lib/native-bridge.js`).
 
@@ -89,7 +89,7 @@ UTC, half-hour buckets, append-only — readers take the latest entry per `(sour
 
 ## Release workflow
 
-This fork ships **source + a Windows installer built locally** (the fixed chain lives in `AGENTS.md` 「发版链固定顺序」 and the internal, local-only `GATE_REGISTRY.md` §4): `bundle-node.ps1` (自带 PET dashboard 构建) → `dotnet publish` → delete-then-copy `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → stop app → silent install → hash/version smoke → record size + SHA-256. Upload the exe to a **draft** GitHub Release as `TokenTracker-Setup.exe` and Publish only after the owner approves. Hot-updates (no installer) go through `npm run mirror:installed` into both installed copies with a five-endpoint smoke.
+Follow `AGENTS.md` 「发版链固定顺序」 and the local `GATE_REGISTRY.md` §4 for platform packaging, versioning and Publish authority. Windows uses `bundle-node.ps1` (PET dashboard build) → `dotnet publish -c Release -r win-x64 --self-contained true` → stage `EmbeddedServer` → `verify-windows-package.cjs` → `dotnet test` → `ISCC` → install → hash/version smoke. Use a fresh staging directory or the governed replacement procedure; do not copy an existing child into itself. macOS uses its own bundle/package scripts and must be verified on a Mac. `npm run mirror:installed` refreshes both Windows runtime trees with a five-endpoint smoke; it does not rebuild the native shell.
 
 `TokenTrackerWin/EmbeddedServer/` bundles the CLI runtime and built dashboard — bumping only `package.json` leaves desktop-app users on the stale embedded copy.
 
@@ -106,7 +106,7 @@ When the user says "release" or "发 release", that is explicit approval for the
 ### Steps
 
 1. Bump the version in **one** place — `package.json` is the single source of truth. Run `npm version <X.Y.Z|patch|minor>` (or `npm run sync-versions` after hand edits): the `version` npm-lifecycle hook runs `scripts/sync-versions.cjs`, which syncs the version into every file listed in `scripts/version-files.cjs` and `git add`s them so they land in the version commit. They all stay in lockstep automatically — don't hand-edit any of them.
-2. `git commit` with pathspec and `git push origin standalone:main` (development happens on the `standalone` branch; `origin` = this repo). While the repo is private the paid CI jobs stay skipped by an `if: github.event.repository.private == false` guard, so only ubuntu jobs execute and nothing is billed. There is **no npm publish path**: this project ships source plus a Windows installer only (owner's standing call).
+2. `git commit` with pathspec and `git push origin standalone:main` (development happens on the `standalone` branch; `origin` = this repo). The Windows CI job retains its public-repository guard. There is no npm publish path; platform packages follow `AGENTS.md`.
 3. The Windows package is built **locally, not by CI** — follow the fixed chain above, then record size + SHA-256 in the ledger.
 
 Release notes: one English line, no markdown sections (`Fix token stats inflation caused by duplicate queue entries`).

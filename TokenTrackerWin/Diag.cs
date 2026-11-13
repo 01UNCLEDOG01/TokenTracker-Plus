@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 
 namespace TokenTrackerWin;
 
@@ -8,6 +9,15 @@ namespace TokenTrackerWin;
 /// </summary>
 internal static class Diag
 {
+    private static readonly long StartedAt = Stopwatch.GetTimestamp();
+
+    public static void StartupStage(string stage, double? documentMs = null)
+    {
+        var elapsedMs = Stopwatch.GetElapsedTime(StartedAt).TotalMilliseconds;
+        var pageTime = documentMs is { } ms ? $" documentMs={ms:F0}" : "";
+        Log("startup", $"stage={stage} elapsedMs={elapsedMs:F0}{pageTime}");
+    }
+
     private static readonly string LogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TokenTracker", "windows-host.log");

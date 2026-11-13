@@ -158,6 +158,7 @@ internal sealed class ServerManager : IDisposable
         Log($"picked port {Port}");
         if (_stopping) return;
         var expectedBaseUrl = BaseUrl;
+        Diag.StartupStage("server-launch");
         var process = LaunchServer(runtime.Value.NodePath, runtime.Value.EntryPath);
 
         // LaunchServer can race StopServer after its own initial check.  Make
@@ -180,6 +181,7 @@ internal sealed class ServerManager : IDisposable
             && IsCurrentServerProcess(process))
         {
             if (_stopping || !IsCurrentServerProcess(process)) return;
+            Diag.StartupStage("server-ready");
             SetStatus(ServerStatus.Running);
             StartHealthLoop(process, expectedBaseUrl);
 

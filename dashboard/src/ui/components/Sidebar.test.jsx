@@ -1,9 +1,14 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppLayout, getNavGroups } from "./Sidebar.jsx";
+import { preloadNavigationPage } from "../../lib/navigation-preload.js";
+
+vi.mock("../../lib/navigation-preload.js", () => ({
+  preloadNavigationPage: vi.fn(() => Promise.resolve()),
+}));
 
 const LABELS = {
   "nav.group.general": "General",
@@ -79,6 +84,7 @@ describe("getNavGroups", () => {
 
 describe("AppLayout sidebar controls", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     window.localStorage.clear();
     desktopMatches = false;
     mediaListeners = new Set();
@@ -92,6 +98,21 @@ describe("AppLayout sidebar controls", () => {
       removeListener: (_listener) => {},
       dispatchEvent: vi.fn(),
     }));
+  });
+
+  it("preloads only the intended destination on hover, focus or touch", () => {
+    renderLayout();
+    expect(preloadNavigationPage).not.toHaveBeenCalled();
+    const sessions = screen.getByRole("link", { name: "Sessions" });
+    fireEvent.mouseEnter(sessions);
+    expect(preloadNavigationPage).toHaveBeenLastCalledWith("/sessions");
+    fireEvent.focus(screen.getByRole("link", { name: "Limits" }));
+    expect(preloadNavigationPage).toHaveBeenLastCalledWith("/limits");
+    fireEvent.touchStart(screen.getByRole("link", { name: "Skills" }));
+    expect(preloadNavigationPage).toHaveBeenLastCalledWith("/skills");
+    expect(preloadNavigationPage).toHaveBeenCalledTimes(3);
+    fireEvent.mouseEnter(screen.getByRole("link", { name: "Settings" }));
+    expect(preloadNavigationPage).toHaveBeenCalledTimes(3);
   });
 
   it("collapses and expands the desktop sidebar and persists the preference", async () => {
