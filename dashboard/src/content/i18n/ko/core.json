@@ -672,6 +672,7 @@
   "perks.album.refresh": "다음 갱신",
   "perks.album.next": "다음",
   "perks.album.jump": "아래 카드로 이동",
+  "perks.album.preview": "상세 보기",
   "perks.scroll.top": "맨 위로",
   "perks.scroll.bottom": "맨 아래로",
   "perks.deal.left_days": "{{days}}일 남음",

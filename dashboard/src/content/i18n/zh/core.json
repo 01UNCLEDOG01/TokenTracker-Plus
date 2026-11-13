@@ -989,6 +989,7 @@
   "perks.album.refresh": "下次刷新",
   "perks.album.next": "下一页",
   "perks.album.jump": "跳到下方卡片",
+  "perks.album.preview": "查看详情",
   "perks.scroll.top": "回到顶部",
   "perks.scroll.bottom": "回到底部",
   "perks.deal.left_days": "还剩 {{days}} 天",

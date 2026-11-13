@@ -1989,6 +1989,7 @@ perks.filter.claimed,ui,PerksPage,PerksPage,filter_claimed,Claimed,,active
 perks.filter.unclaimed,ui,PerksPage,PerksPage,filter_unclaimed,Pending,,active
 perks.tier.all,ui,PerksPage,PerksPage,tier_all,All tiers,,active
 perks.album.jump,ui,PerksPage,PerksPage,album_jump,Jump to the card below,,active
+perks.album.preview,ui,PerksPage,PerksPage,album_preview,View details,,active
 perks.scroll.top,ui,PerksPage,PerksPage,scroll_top,Back to top,,active
 perks.scroll.bottom,ui,PerksPage,PerksPage,scroll_bottom,Jump to bottom,,active
 perks.deal.left_days,ui,PerksPage,PerksPage,deal_left_days,"{{days}} days left",,active

@@ -672,6 +672,7 @@
   "perks.album.refresh": "次の更新",
   "perks.album.next": "次へ",
   "perks.album.jump": "下のカードへジャンプ",
+  "perks.album.preview": "詳細を見る",
   "perks.scroll.top": "ページ上部へ",
   "perks.scroll.bottom": "ページ下部へ",
   "perks.deal.left_days": "残り {{days}} 日",

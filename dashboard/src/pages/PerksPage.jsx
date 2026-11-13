@@ -15,6 +15,7 @@ import {
   List,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { copy, getCopyLocale } from "../lib/copy";
 import { getPublicVisibility, setPublicVisibility } from "../lib/api";
@@ -327,7 +328,7 @@ function ClaimDateAdjust({ date, today, monthScoped, onApply }) {
   );
 }
 
-function PerkCard({ item, claims, claimDay, onToggleClaim, onAdjustClaimDate, aihot, flashed }) {
+function PerkCard({ item, claims, claimDay, onToggleClaim, onAdjustClaimDate, aihot }) {
   // 活动截止倒计时（只有数据里写了 endsAt 的卡才有）
   const deadline = perkDaysLeft(item.endsAt);
   const [copied, setCopied] = useState(false);
@@ -365,7 +366,6 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, onAdjustClaimDate, ai
       className={cn(
         "perk-card-cv group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-oai-gray-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-oai-gray-300 hover:shadow-md dark:border-oai-gray-800/90 dark:bg-oai-gray-900/80 dark:hover:border-oai-gray-700 dark:hover:shadow-black/40",
         // 卡册点击跳转后的高亮闪烁（2026-11-11 站主要求点击联动）。
-        flashed ? "perk-card-flash" : null,
       )}
     >
       <div>
@@ -670,7 +670,7 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onJump, flipCount, onSealedClick, showStreak = true, variant = "vitrine", endsAt }) {
+function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onPreview, flipCount, onSealedClick, showStreak = true, variant = "vitrine", endsAt }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反）：
@@ -726,9 +726,9 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
     <button
       type="button"
       {...(holoTilt || {})}
-      onClick={isVitrineForm && onSealedClick ? () => onSealedClick(item) : onJump ? () => onJump(item.id) : undefined}
-      title={isVitrineForm ? copy("perks.album.vitrine_detail") : onJump ? copy("perks.album.jump") : undefined}
-      aria-label={`${item.name} — ${isVitrineForm ? copy("perks.album.vitrine_detail") : copy("perks.album.jump")}`}
+      onClick={isVitrineForm && onSealedClick ? () => onSealedClick(item) : onPreview ? () => onPreview(item) : undefined}
+      title={isVitrineForm ? copy("perks.album.vitrine_detail") : onPreview ? copy("perks.album.preview") : undefined}
+      aria-label={`${item.name} — ${isVitrineForm ? copy("perks.album.vitrine_detail") : copy("perks.album.preview")}`}
       data-perk-id={item.id}
       data-flip-key={flipKey}
       className={cn(
@@ -916,7 +916,7 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, cl
   );
 }
 
-function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, flipKeys, aihotSums }) {
+function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview, flipKeys, aihotSums }) {
   const totalPages = Math.max(1, Math.ceil(stripItems.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   // 翻页双动画（AIHOT ft-pg-out/in 同款）：旧页 rotateY(0→-95°) 转出 0.62s 后卸载，
@@ -1019,7 +1019,7 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onJump, f
                   sealed={entry.sealed}
                   rarity={entry.rarity}
                   faceValue={entry.faceValue}
-                  onJump={onJump}
+                  onPreview={onPreview}
                   flipCount={flipKeys[entry.item.id + ":" + entry.cycle] || 0}
                   variant="strip"
                   endsAt={entry.item.endsAt}
@@ -1109,19 +1109,6 @@ export function PerksPage() {
   // 卡册（AIHOT 式，常驻页首）：albumPage 记卡牌带翻页位置。
   const [albumPage, setAlbumPage] = useState(0);
   // 卡册小卡 → 下方详情卡的点击联动：目标卡平滑滚动 + 边框闪烁高亮。
-  const [flashedId, setFlashedId] = useState(null);
-  const flashTimer = useRef(null);
-  useEffect(() => () => clearTimeout(flashTimer.current), []);
-  const jumpToCard = (id) => {
-    // 先摘 class 再下一帧挂回：同卡连点也能重播闪烁动画。
-    setFlashedId(null);
-    requestAnimationFrame(() => {
-      setFlashedId(id);
-      document.getElementById(`perk-${id}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setFlashedId(null), 1300);
-    });
-  };
   // AIHOT 快照只做后台对时：页面先用静态数据整页渲染，快照回来后才补角标，
   // 任何失败都静默保持原样（信源挂了不影响福利指南本身）。
   const [aihotData, setAihotData] = useState(null);
@@ -1220,13 +1207,15 @@ export function PerksPage() {
     };
   }, []);
 
-  // 领取（标记，非取消）后把视口带回卡册里那张小卡——翻面动画在页首，
-  // 人在明细卡处领取根本看不到（站主 2026-11-12）。effect 放在 albumItems
-  // 之后：领取会改排序，页码必须按领取后的卡册顺序算。
-  const pendingScrollId = useRef(null);
+  // 弹窗详情（站主 2026-11-13 拍板②：卡册小卡点击弹窗，替代「跳下去再跳回来」
+  // 的来回滚动——弹窗里可直接点注册链接/标记已领取，标记后自动关闭并原地翻牌）。
+  const [previewItem, setPreviewItem] = useState(null);
+  // ⑤ 「未领取」筛选下领取的卡会立刻被筛走，翻面没有落点——刚领的那张在卡册里
+  // 多留 1.6s（足够翻完 0.58s 动画）再移除。
+  const [keepClaimedKey, setKeepClaimedKey] = useState(null);
   // 连击翻面计数（per 卡）：翻面重播由 scheduleFlip 显式调度（站主 2026-11-13：
-  // 详情卡领取也要看到翻牌特效，且翻面不能抢在平滑滚动到位之前放完）。
-  // 放主组件层——翻页容器按页 key 重建时组件内定时器会被清掉（教训）。
+  // 详情卡/弹窗领取也要看到翻牌特效）。放主组件层——翻页容器按页 key 重建时
+  // 组件内定时器会被清掉（教训）。
   const [flipKeys, setFlipKeys] = useState({});
   // 绝版卡弹窗：玻璃柜里的卡点击后展示已下线福利的详情（站主 2026-11-12）。
   const [sealedDetail, setSealedDetail] = useState(null);
@@ -1237,7 +1226,7 @@ export function PerksPage() {
     }, delay);
   };
 
-  const toggleClaim = (item, cycle) => {
+  const toggleClaim = (item, cycle, opts = {}) => {
     const day = getPerkClaimDay();
     const wasClaimed = isPerkClaimed(item, claims, claimDay, selectedCategory);
     const next = togglePerkClaim(unsavedClaims.current ?? readPerksClaims() ?? claims, item, cycle, day);
@@ -1246,9 +1235,12 @@ export function PerksPage() {
     unsavedClaims.current = writePerksClaims(next) ? null : next;
     pushClaimsToServer(next);
     if (!wasClaimed) {
-      pendingScrollId.current = item.id;
-      // 900ms：等平滑滚回卡册的那张卡到位再翻，否则动画在人看到之前就放完了。
-      scheduleFlip(`${item.id}:${cycle}`, 900);
+      const key = `${item.id}:${cycle}`;
+      setKeepClaimedKey(key);
+      window.setTimeout(() => setKeepClaimedKey(null), 1600);
+      // 弹窗路径：先关弹窗（跳回卡册视野），350ms 后原地翻牌；行内卡片路径同理。
+      scheduleFlip(key, opts.fromModal ? 350 : 300);
+      if (opts.fromModal) setPreviewItem(null);
     }
   };
 
@@ -1322,6 +1314,15 @@ export function PerksPage() {
         expanded.push({ item, cycle });
       }
     }
+    // ⑤ 刚领取的卡在「未领取」筛选下会立刻被筛走、翻面没有落点——暂时留 1.6s。
+    if (keepClaimedKey) {
+      const sep = keepClaimedKey.lastIndexOf(":");
+      const keepId = keepClaimedKey.slice(0, sep);
+      const keepCycle = keepClaimedKey.slice(sep + 1);
+      const kept = expanded.some((entry) => entry.item.id === keepId && entry.cycle === keepCycle);
+      const keepItem = kept ? null : PERK_PROVIDERS.find((row) => row.id === keepId);
+      if (keepItem) expanded.push({ item: keepItem, cycle: keepCycle });
+    }
     const ranked = expanded.map(({ item, cycle }) => {
       const streak = getPerkClaimStreak(item, claims, cycle);
       const claimedNow = Boolean(getPerkClaimDate(item, claims, cycle, claimDay));
@@ -1373,7 +1374,7 @@ export function PerksPage() {
       || (CYCLE_RANK[a.cycle] ?? 9) - (CYCLE_RANK[b.cycle] ?? 9),
     );
     return ranked;
-  }, [filteredItems, claims, claimDay, selectedCategory, aihotIndex]);
+  }, [filteredItems, claims, claimDay, selectedCategory, aihotIndex, keepClaimedKey]);
 
   // 绝版展示柜（站主 2026-11-12：绝版卡「封装到玻璃柜」，和还能领的卡不混在
   // 一起）：只陈列领到过的绝版卡，没领过的绝版按 AIHOT 规则不放出来。
@@ -1405,20 +1406,20 @@ export function PerksPage() {
     return items;
   }, [claims, claimDay, aihotIndex]);
 
+  // 弹窗 Esc 关闭 + 打开时锁背景滚动（站主 2026-11-13 ② 弹窗详情）。
   useEffect(() => {
-    const id = pendingScrollId.current;
-    if (!id) return;
-    pendingScrollId.current = null;
-    const idx = albumItems.findIndex(function (entry) { return entry.item.id === id; });
-    if (idx < 0) return;
-    setAlbumPage(Math.floor(idx / ALBUM_PAGE_SIZE));
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        document.querySelector(`.perk-mini[data-perk-id="${id}"]`)
-          ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-      }),
-    );
-  }, [albumItems]);
+    if (!previewItem) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setPreviewItem(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [previewItem]);
 
   // 卡册翻页随筛选结果收缩回合法范围，避免「清除筛选后跳回旧页码」。
   useEffect(() => {
@@ -1466,7 +1467,7 @@ export function PerksPage() {
             claimDay={claimDay}
             page={albumPage}
             onPageChange={setAlbumPage}
-            onJump={jumpToCard}
+            onPreview={setPreviewItem}
             flipKeys={flipKeys}
             aihotSums={aihotSums}
           />
@@ -1513,6 +1514,40 @@ export function PerksPage() {
                     ) : null}
                   </div>
                 ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {/* 弹窗详情（站主 2026-11-13 ②）：卡册小卡点击弹出这张卡——可直接点
+              注册链接或标记已领取；标记后自动关闭并在卡册原地翻牌，不再上下跳转。 */}
+          {previewItem ? (
+            <div
+              className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-black/55 p-4 pt-10 backdrop-blur-[2px]"
+              role="dialog"
+              aria-modal="true"
+              aria-label={previewItem.name}
+              onClick={() => setPreviewItem(null)}
+            >
+              <div
+                className="relative w-full max-w-lg"
+                onClick={function (event) { event.stopPropagation(); }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(null)}
+                  aria-label={copy("perks.album.vitrine_close")}
+                  className="absolute -right-1 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white text-oai-gray-500 shadow-md ring-1 ring-oai-gray-200 transition hover:text-oai-black dark:bg-oai-gray-800 dark:text-oai-gray-300 dark:ring-oai-gray-700 dark:hover:text-white"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+                <PerkCard
+                  item={localizePerk(previewItem, locale)}
+                  claims={claims}
+                  claimDay={claimDay}
+                  onToggleClaim={(item, cycle) => toggleClaim(item, cycle, { fromModal: true })}
+                  onAdjustClaimDate={adjustClaimDate}
+                  aihot={buildAihotSignal(previewItem, aihotIndex)}
+                />
               </div>
             </div>
           ) : null}
@@ -1731,7 +1766,6 @@ export function PerksPage() {
                   onToggleClaim={toggleClaim}
                   onAdjustClaimDate={adjustClaimDate}
                   aihot={buildAihotSignal(item, aihotIndex)}
-                  flashed={flashedId === item.id}
                 />
               ))}
             </div>

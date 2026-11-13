@@ -958,6 +958,7 @@
   "perks.album.refresh": "下次重新整理",
   "perks.album.next": "下一頁",
   "perks.album.jump": "跳到下方卡片",
+  "perks.album.preview": "檢視詳情",
   "perks.scroll.top": "回到頂部",
   "perks.scroll.bottom": "回到底部",
   "perks.deal.left_days": "還剩 {{days}} 天",

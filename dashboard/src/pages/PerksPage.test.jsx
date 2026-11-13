@@ -521,43 +521,33 @@ describe("PerksPage", () => {
     expect(ALBUM_PAGE_SIZE).toBe(18);
   });
 
-  it("卡册小卡点击联动：平滑滚动到下方详情卡并闪烁高亮，1.3s 后摘除", () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const scrollSpy = vi.fn();
-    const originalScrollIntoView = Element.prototype.scrollIntoView;
-    Element.prototype.scrollIntoView = function spy() { scrollSpy(this); };
-    try {
-      render(
-        <ToastProvider>
-          <PerksPage />
-        </ToastProvider>
-      );
+  it("卡册小卡点击弹出详情弹窗（不滚动跳转），弹窗内标记领取后自动关闭并原地翻牌", async () => {
+    localStorage.clear();
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
 
-      // 卡册第一页 18 张全是 button；暗卡文本为空（悬念设计），品牌名走 aria-label
-      const albumJumpButtons = screen.getAllByTitle("跳到下方卡片");
-      // 主卡册第一页 18 张 + 玻璃柜里的已领绝版卡（qoder_cn）都可点
-      expect(albumJumpButtons.length).toBeGreaterThanOrEqual(18);
-      const firstCard = albumJumpButtons[0];
-      const miniName = firstCard.getAttribute("aria-label").split(" — ")[0];
-      expect(miniName.length).toBeGreaterThan(0);
+    // 卡册小卡一律「查看详情」入口（站主 2026-11-13 ②：弹窗替代来回跳转）
+    const cards = screen.getAllByTitle("查看详情");
+    expect(cards.length).toBeGreaterThanOrEqual(18);
+    const firstCard = cards[0];
+    const miniName = firstCard.getAttribute("aria-label").split(" — ")[0];
+    expect(miniName.length).toBeGreaterThan(0);
 
-      // 点击 → 滚动触发 + 通过品牌名反查详情卡（卡册与详情同源，必须能跳）
-      fireEvent.click(firstCard);
-      // jumpToCard 走 requestAnimationFrame：fake timers 下手动推进一帧
-      act(() => { vi.advanceTimersByTime(16); });
-      expect(scrollSpy).toHaveBeenCalledTimes(1);
-      const matched = PERK_PROVIDERS.find((row) => row.name === miniName);
-      expect(matched).toBeTruthy();
-      const detailCard = document.getElementById(`perk-${matched.id}`);
-      expect(detailCard).toBeTruthy();
-      expect(detailCard.className).toContain("perk-card-flash");
-
-      // 1.3s 后摘除，动画不残留
-      act(() => { vi.advanceTimersByTime(1400); });
-      expect(detailCard.className).not.toContain("perk-card-flash");
-    } finally {
-      Element.prototype.scrollIntoView = originalScrollIntoView;
-    }
+    fireEvent.click(firstCard);
+    const dialog = screen.getByRole("dialog", { name: miniName });
+    expect(dialog).toBeTruthy();
+    // 弹窗里可直接标记领取
+    fireEvent.click(within(dialog).getByRole("button", { name: /标记已领取/ }));
+    // 标记后弹窗自动关闭
+    expect(screen.queryByRole("dialog", { name: miniName })).toBeNull();
+    // 350ms 后卡册原地翻牌（flip-key 递增）
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 500)); });
+    const flipped = [...document.querySelectorAll(".perk-mini")]
+      .find((node) => (node.getAttribute("aria-label") || "").startsWith(miniName));
+    expect(flipped?.getAttribute("data-flip-key")).toBe("1");
   });
 
   it("领取翻面：等待态青背（图2）翻成正面揭示（图3），flip-key 递增且按钮禁用", async () => {
@@ -653,40 +643,47 @@ describe("PerksPage", () => {
     expect(stored.providers.ant_ling.monthly.count).toBe(1);
   });
 
-  it("明细卡标记已领取后视口滚回卡册对应小卡（翻面动画要被看见）", () => {
-    // （此块内 scrollIntoView 用 this 包装，见下方赋值）
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const scrollSpy = vi.fn();
-    const originalScrollIntoView = Element.prototype.scrollIntoView;
-    Element.prototype.scrollIntoView = function spy() { scrollSpy(this); };
-    try {
-      localStorage.clear();
-      render(
-        <ToastProvider>
-          <PerksPage />
-        </ToastProvider>
-      );
+  it("明细卡行内标记已领取：不再滚动跳转，卡册对应小卡原地翻牌", async () => {
+    localStorage.clear();
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
 
-      // 未领取时点明细卡的标记按钮 → 滚到卡册里那张小卡
-      const detail = screen.getByRole("heading", { name: "Agnes AI" }).closest(".group");
-      fireEvent.click(within(detail).getByRole("button", { name: "标记已领取" }));
-      // 页码切换 + 双 rAF 后平滑滚动到 data-perk-id 小卡（翻面在那里）
-      act(() => { vi.advanceTimersByTime(32); });
-      expect(scrollSpy).toHaveBeenCalled();
-      // 多个调用者可能碰 scrollIntoView：锁定滚到 agnes 小卡的那次
-      const targets = scrollSpy.mock.calls.map((call) => call[0]).filter((el) => el && typeof el.getAttribute === "function");
-      const scrolledTo = targets.find((el) => el.getAttribute("data-perk-id") === "agnes");
-      expect(scrolledTo).toBeTruthy();
-      expect(scrolledTo.className).toContain("perk-mini");
+    // 行内详情卡标记（弹窗之外的入口同样要出翻牌特效，站主 2026-11-13）。
+    // 用第一页的讯飞星火（agnes 排在后面的页，卡册只渲染当前页）。
+    const detail = screen.getByRole("heading", { name: /讯飞星火/ }).closest(".group");
+    fireEvent.click(within(detail).getByRole("button", { name: "标记已领取" }));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)); });
+    const card = [...document.querySelectorAll(".perk-mini")]
+      .find((node) => node.getAttribute("data-perk-id") === "spark");
+    expect(card).toBeTruthy();
+    expect(card.getAttribute("data-flip-key")).toBe("1");
+  });
 
-      // 取消领取不触发滚动（只有标记才滚）
-      scrollSpy.mockClear();
-      fireEvent.click(within(detail).getByRole("button", { name: "已领取（{{date}}）" }));
-      act(() => { vi.advanceTimersByTime(32); });
-      expect(scrollSpy).not.toHaveBeenCalled();
-    } finally {
-      Element.prototype.scrollIntoView = originalScrollIntoView;
-    }
+  it("「待领取」筛选下从弹窗标记：卡片暂留在卡册里播完翻面再移除", async () => {
+    localStorage.clear();
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    fireEvent.click(screen.getByText("待领取").closest("button"));
+    const album = screen.getByText("我的卡册").closest("div.mb-8");
+    const first = [...album.querySelectorAll(".perk-mini")][0];
+    expect(first).toBeTruthy();
+    const miniName = (first.getAttribute("aria-label") || "").split(" — ")[0];
+    fireEvent.click(first);
+    const dialog = screen.getByRole("dialog", { name: miniName });
+    fireEvent.click(within(dialog).getByRole("button", { name: /标记已领取/ }));
+    // 翻面窗口内卡片仍在（不被「待领取」筛选瞬移走）
+    const present = () => [...album.querySelectorAll(".perk-mini")]
+      .some((node) => (node.getAttribute("aria-label") || "").startsWith(miniName));
+    expect(present()).toBe(true);
+    // 1.6s 后按筛选规则移除
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1900)); });
+    expect(present()).toBe(false);
   });
 
   it("绝版卡点击弹窗：展示已下线福利详情（面值条写限时福利，非 faceValue）", async () => {

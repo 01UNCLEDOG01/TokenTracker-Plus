@@ -669,6 +669,7 @@
   "perks.album.refresh": "Nächste Aktualisierung",
   "perks.album.next": "Weiter",
   "perks.album.jump": "Zur Karte unten springen",
+  "perks.album.preview": "Details ansehen",
   "perks.scroll.top": "Zurück nach oben",
   "perks.scroll.bottom": "Zum Ende springen",
   "perks.deal.left_days": "Noch {{days}} Tage",
