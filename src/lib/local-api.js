@@ -686,6 +686,22 @@ function traeFoldMap() {
   }
   return traeFoldByEdition;
 }
+
+// Startup warm-up: the cold-start ceiling window (the first fold window, up
+// to TRAE_FOLD_REFRESH_MS, before the async evidence load lands) showed the
+// owner a ~4x TRAE cost spike on a fresh app start — 2026-11-14, right after
+// an app restart, Kimi-K2.7-Code priced ¥23,799.82 at the ceiling and
+// self-healed to ¥5,768.76 within one refresh window. Kick the background
+// load shortly after module load so a human opening the dashboard never
+// races it; a failed warm-up leaves the empty pool and the next fold window
+// retries exactly as before. Skipped under the test runner (the probe must
+// never touch the real tracker home) and unref'd so short-lived CLI
+// processes exit without waiting on it.
+if (!process.env.NODE_TEST_CONTEXT) {
+  setTimeout(() => {
+    try { traeFoldMap(); } catch { /* warm-up is best-effort */ }
+  }, 5_000).unref();
+}
 function foldTraeRowCost(row, cost) {
   const source = String(row?.source || "").toLowerCase();
   if (source !== "trae" && source !== "trae-cn") return cost;
