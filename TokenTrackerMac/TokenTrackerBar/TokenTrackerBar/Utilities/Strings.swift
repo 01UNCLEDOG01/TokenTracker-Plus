@@ -134,6 +134,10 @@ enum Strings {
     static var providerMinimaxCode: String { "MiniMax Code" }
     static var providerHark: String { "Hark" }
 
+    static var providerTodayCn: String { "Today" }
+    static var todayMonthlyLabel: String { "Total usage (%)" }
+    static func todayResetsLine(_ count: Int) -> String { "Quota resets left: (count)" }
+
     /// One Qoder credit pool row, named the way the official usage panel names
     /// it (dashboard `QODER_POOL_LABEL_KEYS`).
     static func qoderPoolLabel(_ key: String?) -> String {

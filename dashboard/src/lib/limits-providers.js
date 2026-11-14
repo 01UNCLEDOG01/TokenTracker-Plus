@@ -36,6 +36,7 @@ export const LIMIT_PROVIDER_IDS = [
   "openaiCredits",
   "minimaxCode",
   "hark",
+  "todayCn",
 ];
 
 /** Keys for ProviderIcon — mono logos use inline SVG; colored logos use /brand-logos/. */
@@ -106,6 +107,8 @@ export const LIMIT_PROVIDER_ICON_KEYS = {
   // Hark (hark.com) quotas — inline mono comet mark from the product's own
   // icon set (currentColor path, upstream token-monitor assets/icons/hark.svg).
   hark: "HARK",
+  // Today (todayai.cn) — colored logo from the official site (brand-logos/today-cn.png).
+  todayCn: "TODAY_CN",
 };
 
 export function limitProviderIconKey(id) {
@@ -182,6 +185,8 @@ export function limitProviderName(id) {
       return copy("limits.provider.minimax_code");
     case "hark":
       return copy("limits.provider.hark");
+    case "todayCn":
+      return copy("limits.provider.today_cn");
     default:
       return String(id || "");
   }

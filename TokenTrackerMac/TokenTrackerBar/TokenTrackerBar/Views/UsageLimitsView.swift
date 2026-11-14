@@ -291,6 +291,10 @@ struct UsageLimitsView: View {
             if let hark = limits.hark, hark.configured, hark.error == nil {
                 return toolSection(id: id, title: planTitle(Strings.providerHark, hark.planLabel), assetName: nil, toolName: Strings.providerHark, specs: harkSpecs(hark), statusLines: harkStatusLines(hark), updatedAtISO: hark.capturedAt)
             }
+        case "todayCn":
+            if let today = limits.todayCn, today.configured, today.error == nil {
+                return toolSection(id: id, title: planTitle(Strings.providerTodayCn, today.planLabel), assetName: nil, toolName: Strings.providerTodayCn, specs: todaySpecs(today), statusLines: todayStatusLines(today), updatedAtISO: today.capturedAt)
+            }
         default:
             break
         }
@@ -763,6 +767,23 @@ struct UsageLimitsView: View {
         return [Strings.harkTopupLine(String(format: "$%.2f", topup))]
     }
 
+    /// Today percent-only metering: windows carry a synthetic limit of 100,
+    /// so the bar reads as a true percent-of-allowance gauge. Feature rows use
+    /// the API's own labels; rows without one are skipped, not renamed.
+    private func todaySpecs(_ t: TodayCnLimits) -> [LimitWindowSpec] {
+        var specs: [LimitWindowSpec] = []
+        if let w = t.primaryWindow { specs.append(makeSpec(Strings.todayMonthlyLabel, w.usedPercent, iso: w.resetAt)) }
+        for feature in t.featureWindows ?? [] {
+            guard let label = feature.label, !label.isEmpty else { continue }
+            specs.append(makeSpec(label, feature.usedPercent, iso: feature.resetAt))
+        }
+        return specs
+    }
+
+    private func todayStatusLines(_ t: TodayCnLimits) -> [String] {
+        guard let resets = t.todayResets, resets.isFinite, resets >= 0 else { return [] }
+        return [Strings.todayResetsLine(Int(resets))]
+    }
     private func minimaxCodeStatusLines(_ m: MinimaxCodeLimits) -> [String] {
         guard let points = m.minimaxCodePoints, points.isFinite else { return [] }
         return [Strings.minimaxCodePointsLine(points: Strings.creditAmountText(points, maximumFractionDigits: 0))]

@@ -39,7 +39,7 @@ final class LimitsSettingsStore: ObservableObject {
     /// provider appended on the web lands in the same slot natively; the parity
     /// test test/mac-limits-providers.test.js fails if this list ever misses a
     /// dashboard id.
-    static let allProviders: [String] = ["claude", "codex", "cursor", "gemini", "kimi", "kiro", "grok", "copilot", "antigravity", "apigoto", "sensenova", "zcode", "opencodeGo", "commandCode", "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy", "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae", "codearts", "clinePass", "agentRouter", "opendesign", "mistral", "openaiCredits", "minimaxCode", "hark"]
+    static let allProviders: [String] = ["claude", "codex", "cursor", "gemini", "kimi", "kiro", "grok", "copilot", "antigravity", "apigoto", "sensenova", "zcode", "opencodeGo", "commandCode", "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy", "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae", "codearts", "clinePass", "agentRouter", "opendesign", "mistral", "openaiCredits", "minimaxCode", "hark", "todayCn"]
 
     static let displayNames: [String: String] = [
         "claude": "Claude",
@@ -76,6 +76,7 @@ final class LimitsSettingsStore: ObservableObject {
         "openaiCredits": "OpenAI API Credits",
         "minimaxCode": "MiniMax Code",
         "hark": "Hark",
+        "todayCn": "Today",
     ]
 
     /// Providers whose visibility switch is also the consent to fetch them.

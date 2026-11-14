@@ -39,6 +39,7 @@ struct UsageLimitsResponse: Codable, Equatable {
     let openaiCredits: OpenaiCreditsLimits?
     let minimaxCode: MinimaxCodeLimits?
     let hark: HarkLimits?
+    let todayCn: TodayCnLimits?
 
     enum CodingKeys: String, CodingKey {
         case fetchedAt = "fetched_at"
@@ -46,7 +47,7 @@ struct UsageLimitsResponse: Codable, Equatable {
         case opencodeGo = "opencodeGo"
         case commandCode = "commandCode"
         case deepseek
-        case apigoto, sensenova, raccoon, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark
+        case apigoto, sensenova, raccoon, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn
     }
 }
 
@@ -1421,6 +1422,32 @@ struct HarkFeatureWindow: Codable, Equatable {
     }
 }
 
+/// Today (todayai.cn) plan/usage: percent-only metering (the API publishes no
+/// absolute token counts — windows carry a synthetic limit of 100), plus the
+/// unused quota-reset credits from the invite ladder (`src/lib/today-limits.js`).
+struct TodayCnLimits: Codable, Equatable {
+    let configured: Bool
+    let error: String?
+    let planLabel: String?
+    let planName: String?
+    let primaryWindow: GenericLimitWindow?
+    let featureWindows: [HarkFeatureWindow]?
+    let todayResets: Double?
+    let todayEntitlementEndsAt: String?
+    let source: String?
+    let capturedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case configured, error, source
+        case planLabel = "plan_label"
+        case planName = "plan_name"
+        case primaryWindow = "primary_window"
+        case featureWindows = "feature_windows"
+        case todayResets = "today_resets"
+        case todayEntitlementEndsAt = "today_entitlement_ends_at"
+        case capturedAt = "captured_at"
+    }
+}
 /// Helper to decide whether a response from the limits API contains at least one
 /// usable (configured + no error) provider record. Used by the ViewModel to
 /// protect the "last good record" on partial failures (do not overwrite a
@@ -1462,6 +1489,7 @@ extension UsageLimitsResponse {
             (openaiCredits?.configured ?? false, openaiCredits?.error),
             (minimaxCode?.configured ?? false, minimaxCode?.error),
             (hark?.configured ?? false, hark?.error),
+            (todayCn?.configured ?? false, todayCn?.error),
         ]
         return providers.contains { $0.0 && $0.1 == nil }
     }

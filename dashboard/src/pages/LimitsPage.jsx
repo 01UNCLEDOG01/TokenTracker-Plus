@@ -273,6 +273,8 @@ export function LimitsPage() {
                 openaiCredits={usageLimits?.openaiCredits}
                 minimaxCode={usageLimits?.minimaxCode}
                 hark={usageLimits?.hark}
+                todayCn={usageLimits?.todayCn}
+                todayCn={usageLimits?.todayCn}
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}

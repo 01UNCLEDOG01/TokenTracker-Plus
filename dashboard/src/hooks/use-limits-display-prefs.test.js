@@ -166,6 +166,7 @@ describe("useLimitsDisplayPrefs", () => {
         "sensenova",
         "zcode",
         "hark",
+        "todayCn",
       ].sort(),
     );
   });

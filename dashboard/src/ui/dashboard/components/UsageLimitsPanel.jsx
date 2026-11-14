@@ -2606,8 +2606,8 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, order, visibility, displayMode, onProviderKeySaved = null }) {
-  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark };
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn, order, visibility, displayMode, onProviderKeySaved = null }) {
+  const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
   // the six-row cap and would lock the picker. Prune it and persist the
@@ -2645,7 +2645,7 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
       if (pruned.length === prev.length) return prev;
       return writePetLimitSelection(pruned);
     });
-  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode, dataById.raccoon, dataById.hark]);
+  }, [dataById.claude, dataById.codex, dataById.cursor, dataById.gemini, dataById.kimi, dataById.kiro, dataById.grok, dataById.antigravity, dataById.apigoto, dataById.sensenova, dataById.copilot, dataById.zcode, dataById.opencodeGo, dataById.commandCode, dataById.qoder, dataById.qoderCn, dataById.codingPlan, dataById.agentPlan, dataById.devin, dataById.workbuddy, dataById.workbuddyAi, dataById.minimax, dataById.trae, dataById.traeMain, dataById.codearts, dataById.agentRouter, dataById.opendesign, dataById.mistral, dataById.openaiCredits, dataById.minimaxCode, dataById.raccoon, dataById.hark, dataById.todayCn]);
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);
