@@ -622,6 +622,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _petItem.Text = visible ? _strings.HidePet : _strings.ShowPet;
     }
 
+    /// <summary>Apply the web slider's continuous pet scale (1.27.0 parity with macOS).</summary>
+    private void SetPetScale(string? value)
+    {
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale)) return;
+        if (_petWindow is not null) _petWindow.ApplyScale(scale);
+        else PetWindow.PersistScale(scale);
+        UpdatePetSizeChecks(PetScale.NearestSize(scale));
+        PushDashboardPetSettings();
+    }
+
     private void SetPetSize(string size)
     {
         var normalized = PetWindow.NormalizeSize(size);
@@ -836,6 +846,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             case "size":
                 SetPetSize(value ?? PetWindow.SizeMedium);
                 break;
+            case "petScale":
+                SetPetScale(value);
+                break;
             case "character":
                 SetPetCharacter(value ?? PetWindow.CharacterClawd);
                 break;
@@ -892,6 +905,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _dashboard?.PushPetSettings(
             _petWindow?.IsVisible == true,
             PetWindow.CurrentSize,
+            PetWindow.CurrentScale,
             PetWindow.CurrentCharacter,
             PetWindow.CurrentBotColor,
             _monitorWindow?.Enabled == true,

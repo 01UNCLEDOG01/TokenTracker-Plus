@@ -68,6 +68,8 @@ internal sealed class PetWindow : Window
     private UsagePoller.UsageStats _stats;
     private bool _connected = true;
     private double _bubbleBand = MinBubbleBand;
+    /// <summary>Current free-scale factor; presets are anchors on this continuous scale.</summary>
+    private double _scale = ScaleMedium;
     private bool _isAdjustingBubbleLayout;
     private bool _isDragging;
     private double _lastDragLeft;
@@ -109,9 +111,9 @@ internal sealed class PetWindow : Window
         }
 
         Title = Constants.AppDisplayName + " Pet";
-        var (w, h) = SizeDimensions(CurrentSize);
-        Width = w;
-        Height = h;
+        _scale = CurrentScale;
+        Width = WindowWidth;
+        Height = HeightForScale(_scale);
         WindowStyle = WindowStyle.None;          // no OS chrome
         ResizeMode = ResizeMode.NoResize;
         // Per-pixel transparency: layered window whose alpha comes from the
@@ -533,7 +535,7 @@ internal sealed class PetWindow : Window
     {
         if (!double.IsFinite(requestedHeight)) return;
 
-        var baseHeight = BaseHeightFor(CurrentSize);
+        var baseHeight = HeightForScale(_scale);
         var spriteAreaHeight = baseHeight - MinBubbleBand;
         var workArea = SystemParameters.WorkArea;
         var maxBand = Math.Max(MinBubbleBand, workArea.Height - spriteAreaHeight);
@@ -873,24 +875,69 @@ internal sealed class PetWindow : Window
         catch { /* page mid-navigation */ }
     }
 
-    /// <summary>Resize the floating pet (small / medium / large) live + persist the choice.</summary>
+    /// <summary>Resize the floating pet (preset anchor) live + persist the choice.</summary>
     public void ApplySize(string size)
     {
         var normalized = NormalizeSize(size);
-        var (w, h) = SizeDimensions(normalized);
+        ApplyScale(PetScale.AnchorForSize(normalized), persistPreset: normalized);
+    }
+
+    /// <summary>Resize the floating pet to a continuous scale (1.27.0 free-size slider
+    /// parity with the macOS host) and persist it.</summary>
+    public void ApplyScale(double scale)
+    {
+        ApplyScale(scale, persistPreset: null);
+    }
+
+    private void ApplyScale(double scale, string? persistPreset)
+    {
+        var clamped = PetScale.Normalize(scale);
         var oldBottom = Top + Height;
-        Width = w;
-        Height = h + (_bubbleBand - MinBubbleBand);
+        Width = WindowWidth;
+        Height = PetScale.HeightFor(clamped) + (_bubbleBand - MinBubbleBand);
         if (!double.IsNaN(oldBottom)) Top = oldBottom - Height;
         if (_miniMode) ApplyEdgePlacement(animated: false);
-        WriteSettings(s => s["PetSize"] = normalized);
+        WriteSettings(s =>
+        {
+            s["PetScale"] = clamped;
+            if (persistPreset is not null) s["PetSize"] = persistPreset;
+        });
     }
 
     /// <summary>Persist a size choice without a live window (used when the pet is closed).</summary>
     public static void PersistSize(string size)
     {
         var normalized = NormalizeSize(size);
-        WriteSettings(s => s["PetSize"] = normalized);
+        WriteSettings(s =>
+        {
+            s["PetSize"] = normalized;
+            s["PetScale"] = AnchorForSize(normalized);
+        });
+    }
+
+    /// <summary>Persist a free-scale choice without creating the floating window.</summary>
+    public static void PersistScale(double scale) =>
+        WriteSettings(s => s["PetScale"] = PetScale.Normalize(scale));
+
+    /// <summary>The persisted free-scale choice; falls back to the preset anchor for
+    /// settings files written before the slider existed.</summary>
+    public static double CurrentScale
+    {
+        get
+        {
+            try
+            {
+                if (File.Exists(SettingsPath)
+                    && JsonNode.Parse(File.ReadAllText(SettingsPath))?.AsObject() is { } s
+                    && s["PetScale"] is JsonValue v
+                    && v.TryGetValue<double>(out var raw))
+                {
+                    return PetScale.Normalize(raw);
+                }
+            }
+            catch { /* unreadable settings file */ }
+            return PetScale.AnchorForSize(CurrentSize);
+        }
     }
 
     /// <summary>Switch the visible companion identity and persist it.</summary>
@@ -1060,9 +1107,11 @@ internal sealed class PetWindow : Window
     // Windows are a touch wider than tall so the hover bubble has room; the sprite
     // tracks the smaller (height) dimension.
 
-    public const string SizeSmall = "small";
-    public const string SizeMedium = "medium";
-    public const string SizeLarge = "large";
+    // Preset strings live in PetScale (single source; the test project compiles that
+    // file without WPF) — aliased here so existing call sites stay unchanged.
+    public const string SizeSmall = PetScale.SizeSmall;
+    public const string SizeMedium = PetScale.SizeMedium;
+    public const string SizeLarge = PetScale.SizeLarge;
 
     public const string CharacterClawd = "clawd";
     public const string CharacterBot = "bot";
@@ -1084,6 +1133,12 @@ internal sealed class PetWindow : Window
             _ => SizeMedium,
         };
     }
+
+    // ── Free-size slider (1.27.0 parity with the macOS host) ───────────────
+    //
+    // Scale math lives in PetScale (compiled into the test project too). The host
+    // echoes `petScale` (a number); the pet page then swaps the preset buttons for
+    // a continuous slider and posts setPetSetting { key: "petScale" }.
 
     public static string NormalizeCharacter(string? value)
     {
@@ -1144,15 +1199,6 @@ internal sealed class PetWindow : Window
 
     private double TuckedLeft(double workAreaRight)
         => workAreaRight - SpriteLeftInset - EdgePeek;
-
-    private static (double Width, double Height) SizeDimensions(string size) => size switch
-    {
-        SizeSmall => (WindowWidth, 230),
-        SizeLarge => (WindowWidth, 286),
-        _ => (WindowWidth, 254),
-    };
-
-    private static double BaseHeightFor(string size) => SizeDimensions(size).Height;
 
     // v0.81.2 persisted the top-left of the old narrow host. Use its width once
     // when migrating to center-based placement so the visible sprite does not jump.

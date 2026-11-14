@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T09:44:18.361Z",
+  "generatedAt": "2026-11-14T11:00:10.859Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
@@ -129,13 +129,6 @@
         "TokenTracker Plus"
       ]
     },
-    "dashboard/src/pages/PerksPage.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "96; const collapsed = long && !expanded; return ("
-      ]
-    },
     "dashboard/src/pages/SessionsPage.jsx": {
       "colors": 0,
       "rawText": 2,
@@ -181,6 +174,13 @@
       "rawText": 3,
       "rawTextTokens": [
         "0 && ("
+      ]
+    },
+    "dashboard/src/pages/perks/PerkCard.jsx": {
+      "colors": 0,
+      "rawText": 1,
+      "rawTextTokens": [
+        "96; const collapsed = long && !expanded; return ("
       ]
     },
     "dashboard/src/pet.jsx": {

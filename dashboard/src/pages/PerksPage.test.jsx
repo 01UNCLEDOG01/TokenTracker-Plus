@@ -1,7 +1,8 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
-import { PerksPage, buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, cardRarity } from "./PerksPage.jsx";
+import { PerksPage } from "./PerksPage.jsx";
+import { buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, cardRarity } from "./perks/album-data.js";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 import zhDashboard from "../content/i18n/zh/dashboard.json";

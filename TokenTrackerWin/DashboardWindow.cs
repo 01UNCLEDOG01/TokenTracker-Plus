@@ -692,10 +692,10 @@ internal sealed class DashboardWindow : Window
         if (_coreReady) WebViewMemoryTarget.Apply(_webView.CoreWebView2, IsWebViewActive || _oauthInFlight, Log);
     }
 
-    public void PushPetSettings(bool visible, string size, string character, string botColor, bool monitor = false, string actionLock = "auto", bool islandMode = true, bool quota = false, string trayStyle = "cat")
+    public void PushPetSettings(bool visible, string size, double petScale, string character, string botColor, bool monitor = false, string actionLock = "auto", bool islandMode = true, bool quota = false, string trayStyle = "cat")
     {
         if (!_coreReady) return;
-        var json = JsonSerializer.Serialize(new { visible, size, character, botColor, monitor, actionLock, islandMode, quota, trayStyle });
+        var json = JsonSerializer.Serialize(new { visible, size, petScale, character, botColor, monitor, actionLock, islandMode, quota, trayStyle });
         try
         {
             _ = _webView.CoreWebView2.ExecuteScriptAsync(

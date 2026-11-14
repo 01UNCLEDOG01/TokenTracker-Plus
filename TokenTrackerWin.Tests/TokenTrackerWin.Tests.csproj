@@ -28,6 +28,7 @@
     <Compile Include="../TokenTrackerWin/UsagePoller.cs" Link="UsagePoller.cs" />
     <Compile Include="../TokenTrackerWin/TokenUnits.cs" Link="TokenUnits.cs" />
     <Compile Include="../TokenTrackerWin/AutoUpdatePolicy.cs" Link="AutoUpdatePolicy.cs" />
+    <Compile Include="../TokenTrackerWin/PetScale.cs" Link="PetScale.cs" />
     <Compile Include="../TokenTrackerWin/UpdateIntegrity.cs" Link="UpdateIntegrity.cs" />
     <Compile Include="../TokenTrackerWin/UpdateReleaseClient.cs" Link="UpdateReleaseClient.cs" />
     <Compile Include="../TokenTrackerWin/UpdateChecker.cs" Link="UpdateChecker.cs" />
