@@ -1366,20 +1366,24 @@ export function PerksPage() {
       if (tierFilter !== "all" && item.badgeType !== tierFilter) {
         return false;
       }
-      // Search Query — 名称/徽章/标签（中英）任意子串即命中；描述仅对 ≥3 字符的
-      // 查询参与（站主 2026-11-14：输入 "to" 不该撞上每张卡描述里的 "token"——
-      // 短查询只搜名称类字段，长输入仍可全文搜）。
+      // Search Query — 两层（站主 2026-11-14 两次定谳）：
+      //   短 ASCII 查询（<3 字符，纯字母数字）只搜**名称**（中英）——"to"/"ag"
+      //   是前缀搜索意图，badge/tags 里的 "token"/"Agent" 之类词内子串不算命中
+      //   （"ag" 撞 AutoClaw 的「一键安装Agent」即翻车案例）；
+      //   其余查询（≥3 字符或含 CJK）搜名称+徽章+标签+描述全文——中文 2 字词
+      //   （"签到"/"免费"）不会撞英文词内部，保持全文召回。
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
         const shown = localizePerk(item, locale);
-        const zhName = `${item.name} ${item.badge} ${item.tags.join(" ")}`.toLowerCase();
-        const zhDesc = item.description.toLowerCase();
+        const shortAscii = query.length < 3 && /^[a-z0-9_-]+$/.test(query);
+        const zhName = item.name.toLowerCase();
+        const zhRest = `${item.badge} ${item.tags.join(" ")} ${item.description}`.toLowerCase();
         const isEn = shown !== item;
-        const enName = isEn ? `${shown.name} ${shown.badge} ${shown.tags.join(" ")}`.toLowerCase() : "";
-        const enDesc = isEn ? shown.description.toLowerCase() : "";
+        const enName = isEn ? shown.name.toLowerCase() : "";
+        const enRest = isEn ? `${shown.badge} ${shown.tags.join(" ")} ${shown.description}`.toLowerCase() : "";
         if (zhName.includes(query) || enName.includes(query)) return true;
-        if (query.length >= 3) return zhDesc.includes(query) || enDesc.includes(query);
-        return false;
+        if (shortAscii) return false;
+        return zhRest.includes(query) || enRest.includes(query);
       }
       return true;
     });

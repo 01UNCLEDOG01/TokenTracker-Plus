@@ -18,7 +18,7 @@ const ORDERED_IDS = [
   "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
   "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "modelscope", "muse_ai", "nvidia_nim", "opencode",
   "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "rime",
-  "sensenova", "somark", "stepaudio", "teleagent", "tencent_adp", "edgeone", "tencent_ima", "tokenhub", "today_cn",
+  "sensenova", "somark", "stepaudio", "teleagent", "tencent_adp", "edgeone", "tencent_ima", "tencent_ima_once", "tokenhub", "today_cn",
   "trae_cn", "trae", "unisound_maas", "vyceai", "wechat_miniprogram", "workbuddy_intl", "workbuddy", "wps_lingxi",
   "zcode", "zcode_intl", "zed",
 ];
@@ -158,6 +158,32 @@ describe("PerksPage", () => {
 
     expect(screen.getByRole("heading", { level: 3, name: /硅基流动/ })).toBeInTheDocument();
     expect(screen.queryByText(/智谱开放平台/)).not.toBeInTheDocument();
+  });
+
+  it("短 ASCII 查询只搜名称（站主 2026-11-14：\"ag\" 不该撞 AutoClaw 的「一键安装Agent」徽章）", () => {
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const input = screen.getByPlaceholderText(/搜索服务商/);
+    // 名称含 ag 的卡命中
+    fireEvent.change(input, { target: { value: "ag" } });
+    expect(screen.getByRole("heading", { level: 3, name: /Agent Router/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 3, name: /Agnes AI/ }).length).toBe(2);
+    // AutoClaw 名称无 ag——徽章「一键安装Agent」的词内子串不算命中
+    expect(screen.queryByRole("heading", { level: 3, name: /AutoClaw 国内版/ })).not.toBeInTheDocument();
+    // "to"：名称含 to（Today/APIGOTO/AutoClaw）命中
+    fireEvent.change(input, { target: { value: "to" } });
+    expect(screen.getByRole("heading", { level: 3, name: /Today \(中国版\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /AutoClaw 国内版/ })).toBeInTheDocument();
+    // 中文 2 字查询保持全字段召回（CJK 无词内子串噪音）：「签到」命中 tags
+    fireEvent.change(input, { target: { value: "签到" } });
+    expect(screen.getByRole("heading", { level: 3, name: /Agent2API/ })).toBeInTheDocument();
+    // ≥3 字符 ASCII 恢复全字段（描述参与）
+    fireEvent.change(input, { target: { value: "agent" } });
+    expect(screen.getByRole("heading", { level: 3, name: /Agent Router/ })).toBeInTheDocument();
   });
 
   it("applies search and claimed state together", () => {
