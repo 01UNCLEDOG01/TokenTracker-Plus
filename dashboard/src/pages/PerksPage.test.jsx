@@ -16,9 +16,9 @@ const ORDERED_IDS = [
   "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepseek", "devin", "doubaowork",
   "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "officeace", "volcengine",
   "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
-  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "modelscope", "nvidia_nim", "opencode",
+  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "modelscope", "muse_ai", "nvidia_nim", "opencode",
   "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "rime",
-  "sensenova", "somark", "stepaudio", "teleagent", "tencent_adp", "edgeone", "tencent_ima", "tokenhub",
+  "sensenova", "somark", "stepaudio", "teleagent", "tencent_adp", "edgeone", "tencent_ima", "tokenhub", "today_cn",
   "trae_cn", "trae", "unisound_maas", "vyceai", "wechat_miniprogram", "workbuddy_intl", "workbuddy", "wps_lingxi",
   "zcode", "zcode_intl", "zed",
 ];

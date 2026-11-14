@@ -254,6 +254,25 @@ function renderBoldText(text) {
   });
 }
 
+// ⚠️ 安全红线句（「第三方中转聚合站/网关：请求经其服务器转发，勿发送密钥/隐私/
+// 敏感代码…」）自动加粗 + 红色（站主 2026-11-14：聚合站安全性无法保证，这句必须
+// 醒目、不能淹没在 tips 文本里）。只认「⚠️ 第三方中转」开头的整句——Qoder 等卡的
+// ⚠️ 可用性告警保持原样，不跟着变色。警告句内部不再解析加粗（红色即全部强调）。
+function renderRichText(text) {
+  if (!text || typeof text !== "string") return text;
+  const segments = text.split(/(⚠️\s*第三方中转[^。]*。)/g);
+  return segments.map((seg, i) => {
+    if (seg.startsWith("⚠️")) {
+      return (
+        <strong key={"warn-" + i} className="font-semibold text-red-600 dark:text-red-400">
+          {seg}
+        </strong>
+      );
+    }
+    return renderBoldText(seg);
+  });
+}
+
 /// 福利卡描述：超过 96 字默认收束到三行（点击展开/收起），短描述原样渲染。
 /// 展开状态留在卡片实例上——切页/筛选项变化重排时按新实例重置，可接受。
 function PerkCardDescription({ text }) {
@@ -275,7 +294,7 @@ function PerkCardDescription({ text }) {
             : undefined
         }
       >
-        {renderBoldText(text)}
+        {renderRichText(text)}
       </p>
       {long ? (
         <button
@@ -431,7 +450,7 @@ function PerkCard({ item, claims, claimDay, onToggleClaim, onAdjustClaimDate, ai
         {item.tips && (
           <div className="mt-3 flex items-start gap-2 rounded-xl bg-oai-gray-50/80 p-2.5 text-[11px] leading-relaxed text-oai-gray-500 border border-oai-gray-200/50 dark:bg-oai-gray-950/60 dark:text-oai-gray-300 dark:border-oai-gray-800/60">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-400" aria-hidden />
-            <span className="flex-1">{item.tips}</span>
+            <span className="flex-1">{renderRichText(item.tips)}</span>
           </div>
         )}
 
@@ -926,18 +945,45 @@ function AlbumStats({ claimableTodayYuan, claimedMonthYuan, totalClaimedYuan, cl
 function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview, flipKeys, aihotSums, vitrineCount = 0 }) {
   const totalPages = Math.max(1, Math.ceil(stripItems.length / ALBUM_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  // 翻页双动画（AIHOT ft-pg-out/in 同款）：旧页 rotateY(0→-95°) 转出 0.62s 后卸载，
-  // 新页照旧 rotateY(-95°→0) 转入——一出一进才是完整「翻纸」。reduce-motion 由 CSS
-  // 直接 display:none 掉转出层。
-  const prevPageRef = useRef(safePage);
-  const [leavingPage, setLeavingPage] = useState(null);
+  // 翻页状态机（2026-11-14 实扒 AIHOT free-tokens JS 对齐）：一次翻页只有一层在动、
+  // 且永远渲染在最上层，另一层完全静止垫底——
+  //   往前翻（目标页码更大）：新页**无动画**垫底，旧页 ft-pg-out 在上层转走，旧页
+  //   消失的那一刻新页已完整在其下（站主指认的「消失了才出现新页」，没有转入动画）。
+  //   往回翻（目标页码更小）：旧页静止垫底，新页 ft-pg-in 在上层转入盖住旧页。
+  // 640ms 后清转场（AIHOT 同款常量；动画本体 0.62s）。reduce-motion 时 CSS 把两个
+  // 覆盖层 display:none、基底层无动画，等效直接跳页。
+  const prevShownRef = useRef(safePage);
+  const [shown, setShown] = useState(safePage);
+  const [flip, setFlip] = useState(null); // { page, anim: "out" | "in" }
   useEffect(() => {
-    if (prevPageRef.current === safePage) return undefined;
-    setLeavingPage(prevPageRef.current);
-    prevPageRef.current = safePage;
-    const timer = setTimeout(() => setLeavingPage(null), 640);
+    if (safePage === prevShownRef.current) return undefined;
+    const from = prevShownRef.current;
+    const forward = safePage > from;
+    let timer;
+    if (forward) {
+      prevShownRef.current = safePage;
+      setShown(safePage);
+      setFlip({ page: from, anim: "out" });
+      timer = setTimeout(() => setFlip(null), 640);
+    } else {
+      setFlip({ page: safePage, anim: "in" });
+      timer = setTimeout(() => {
+        prevShownRef.current = safePage;
+        setShown(safePage);
+        setFlip(null);
+      }, 640);
+    }
     return () => clearTimeout(timer);
   }, [safePage]);
+  // 筛选收缩后 shown 可能越界：无声吸附回合法页（不走动画）。
+  const clampedShown = Math.min(shown, totalPages - 1);
+  useEffect(() => {
+    if (clampedShown === shown) return undefined;
+    prevShownRef.current = clampedShown;
+    setShown(clampedShown);
+    setFlip(null);
+    return undefined;
+  }, [clampedShown, shown]);
   // 翻页白闪的主要来源是「新页 remount → 品牌图标重新请求/解码」。点击翻页前
   // 先把相邻两页的图标拉进浏览器缓存，翻过去时直接命中（站主 2026-11-13）。
   useEffect(() => {
@@ -953,10 +999,34 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview
     }
   }, [safePage, totalPages, stripItems]);
 
-  const leavingItems = leavingPage === null
+  // 覆盖层卡片与基底层共用同一套渲染；key 前缀区分两层，防 React 复用错位。
+  // 覆盖层 flipCount 恒 0：flipKey 靠 key 重挂载重播翻面动画，覆盖层挂载时若带
+  // 真实计数会重播「领取翻面」（旧转出层就因此显式传 0）。
+  function renderAlbumCards(entries, keyPrefix, liveFlip) {
+    return entries.map((entry) => (
+      <AlbumMiniCard
+        key={keyPrefix + entry.item.id + ":" + entry.cycle}
+        item={entry.item}
+        cycle={entry.cycle}
+        collected={entry.collected}
+        tier={entry.tier}
+        streak={entry.streak}
+        claimedNow={entry.claimedNow}
+        sealed={entry.sealed}
+        rarity={entry.rarity}
+        faceValue={entry.faceValue}
+        onPreview={onPreview}
+        flipCount={liveFlip ? (flipKeys[entry.item.id + ":" + entry.cycle] || 0) : 0}
+        variant="strip"
+        endsAt={entry.item.endsAt}
+      />
+    ));
+  }
+
+  const flipItems = flip === null
     ? []
-    : stripItems.slice(leavingPage * ALBUM_PAGE_SIZE, (leavingPage + 1) * ALBUM_PAGE_SIZE);
-  const pageItems = stripItems.slice(safePage * ALBUM_PAGE_SIZE, (safePage + 1) * ALBUM_PAGE_SIZE);
+    : stripItems.slice(flip.page * ALBUM_PAGE_SIZE, (flip.page + 1) * ALBUM_PAGE_SIZE);
+  const pageItems = stripItems.slice(clampedShown * ALBUM_PAGE_SIZE, (clampedShown + 1) * ALBUM_PAGE_SIZE);
   const collected = items.filter((entry) => entry.collected).length;
   // 绝版 = 已收藏 + 活动已结束（AIHOT 的「绝版」口径），只做计数与盖章，不重排。
   // 按「卡」去重计数：绝版卡若有日/月两个周期条目，不能算成两张（站主 2026-11-13 ④）。
@@ -1030,49 +1100,28 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview
         </div>
         <div className="perk-binder">
           <div className="relative">
-            <div key={safePage} className="perk-page-turn grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
-              {pageItems.map((entry) => (
-                <AlbumMiniCard
-                  key={entry.item.id + ":" + entry.cycle}
-                  item={entry.item}
-                  cycle={entry.cycle}
-                  collected={entry.collected}
-                  tier={entry.tier}
-                  streak={entry.streak}
-                  claimedNow={entry.claimedNow}
-                  sealed={entry.sealed}
-                  rarity={entry.rarity}
-                  faceValue={entry.faceValue}
-                  onPreview={onPreview}
-                  flipCount={flipKeys[entry.item.id + ":" + entry.cycle] || 0}
-                  variant="strip"
-                  endsAt={entry.item.endsAt}
-                />
-              ))}
+            {/* Base layer: fully static (AIHOT-style — only the overlay moves). */}
+            <div key={clampedShown} className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+              {renderAlbumCards(pageItems, "", true)}
             </div>
-            {leavingPage !== null && (
+            {/* Forward: old page turns away on top; the new page sits static beneath. */}
+            {flip !== null && flip.anim === "out" && (
               <div
-                key={`out-${leavingPage}`}
+                key={`out-${flip.page}`}
                 className="perk-page-turn-out absolute inset-0 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9"
                 aria-hidden
               >
-                {leavingItems.map((entry) => (
-                  <AlbumMiniCard
-                    key={`out-${entry.item.id}:${entry.cycle}`}
-                    item={entry.item}
-                    cycle={entry.cycle}
-                    collected={entry.collected}
-                    tier={entry.tier}
-                    streak={entry.streak}
-                    claimedNow={entry.claimedNow}
-                    sealed={entry.sealed}
-                    rarity={entry.rarity}
-                    faceValue={entry.faceValue}
-                    flipCount={0}
-                    variant="strip"
-                    endsAt={entry.item.endsAt}
-                  />
-                ))}
+                {renderAlbumCards(flipItems, "out-", false)}
+              </div>
+            )}
+            {/* Backward: new page turns in on top, covering the static old page. */}
+            {flip !== null && flip.anim === "in" && (
+              <div
+                key={`in-${flip.page}`}
+                className="perk-page-turn-in absolute inset-0 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9"
+                aria-hidden
+              >
+                {renderAlbumCards(flipItems, "in-", false)}
               </div>
             )}
           </div>

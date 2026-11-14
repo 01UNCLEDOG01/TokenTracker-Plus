@@ -181,6 +181,14 @@ export const PERKS_EN = {
       "The free tier counts calls, not total tokens; which models and parameters each request may use is governed by the platform docs; some models may require opt-in or throttling — the site is authoritative.",
     tags: ["Alibaba family", "CN direct access", "Qwen full lineup", "OpenAI-compatible"],
   },
+  muse_ai: {
+    badge: "Invite: both sides get 1B tokens (redeem within 48h of signup)",
+    description:
+      "Meta’s personal AI agent (muse.ai, app and web): **new accounts can enter an invite code within 48 hours of signup, and both sides get 1B tokens** (verified in-client by the owner, 2026-11-14; redemption path: app Settings → Redeem token, or muse.ai → Settings → Usage → redeem code). Tokens are consumable only inside Muse; burn rate and equivalent value have no public pricing — in-app terms prevail.",
+    tips:
+      "Owner’s invite code: 14TGK4 (27 uses left as of 2026-11-14); the 48-hour window cannot be extended. Site: https://muse.ai.",
+    tags: ["Personal AI agent", "In-app use only", "Invite rewards"],
+  },
 };
 
 /**

@@ -472,6 +472,11 @@ const PROVIDER_ICON_MAP = {
 // `fill="currentColor"`) must render through the inline component path so they
 // inherit the surrounding text color, since <img> doesn't resolve currentColor.
 const PROVIDER_LOGO_MAP = {
+  // 2026-11-14 个人助理批：muse.ai（Meta Muse）favicon.ico 与 Today 中国版
+  // today-logo-icon.png（256×256，官网图标地址直出）。文件在 public/brand-logos/。
+  // 注意 slug 用 MUSE_AI：MUSE 已被限额来源「Muse Code」占用，不能串台。
+  MUSE_AI: "/brand-logos/muse-ai.ico?v=1",
+  TODAY_CN: "/brand-logos/today-cn.png?v=1",
   // AIHOT 2026-11-13 吸收的新卡：21 家品牌图标（官网 favicon / apple-touch /
   // AIHOT 自带资源；SoMark 为页面内联 SVG 字标）。文件在 public/brand-logos/。
   OFFICEACE: "/brand-logos/officeace.ico?v=1",

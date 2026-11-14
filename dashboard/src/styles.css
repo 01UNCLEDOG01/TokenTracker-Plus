@@ -1615,19 +1615,21 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   100% { opacity: 0; filter: brightness(0.82); transform: perspective(2600px) rotateY(-95deg); }
 }
 
-/* 卡册翻页：AIHOT ft-pg-in 原版关键帧逐字对齐（0.62s cubic-bezier(.45,.05,.35,1)）。
-   2026-11-14 站主指认差异：AIHOT 是「被翻起的那页消失的同时才出现新页」，而我们
-   点按钮新页立刻出现。真因=此前为修「透底板」把 in 的起点抬到 opacity 0.75 /
-   -70°——新页挂载瞬间就半可见。恢复 AIHOT 原版（0% opacity:0 + rotateY(-95°)）
-   后不再需要那种 workaround：转出层在 DOM 里后渲染、盖在新页上方且 70% 前一直
-   不透明，新页 0-30% 的半透明帧永远被旧页挡住，透不到底板；70% 旧页开始消失时
-   新页已翻起到位（30% 即 opacity 1），观感与 AIHOT 一致。 */
-.tt-perks-page .perk-page-turn {
+/* 卡册翻页（2026-11-14 实扒 AIHOT free-tokens JS+CSS 对齐）：一次翻页只有一层在
+   动、且永远渲染在最上层，另一层完全静止垫底——
+     往前翻 = 旧页 .perk-page-turn-out 在上层转走，新页**无动画**静止垫底（所以
+     「被翻起的那页消失时新页已完整在其下」，AIHOT 前进方向没有转入动画）；
+     往回翻 = 新页 .perk-page-turn-in 在上层转入，旧页静止垫底。
+   转场 640ms 后由 JS 清（AIHOT 同款常量；动画本体 0.62s cubic-bezier(.45,.05,.35,1)）。
+   基底层不再带动画（早间版曾让新旧两层同时各自动画，与 AIHOT 的「单动层」状态机
+   不符——站主复核后仍觉不同，遂按其 JS 逻辑重写）。 */
+.tt-perks-page .perk-page-turn-in {
   transform-origin: 0 50%;
   animation: perk-page-turn 0.62s cubic-bezier(0.45, 0.05, 0.35, 1) both;
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
+/* ft-pg-in 原版关键帧：起点 opacity 0 + rotateY(-95°)，30% 即全不透明。 */
 @keyframes perk-page-turn {
   0% { opacity: 0; filter: brightness(0.82); transform: perspective(2600px) rotateY(-95deg); }
   30% { opacity: 1; }
@@ -1655,8 +1657,9 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tt-perks-page .perk-page-turn {
-    animation: none;
+  /* 翻页 reduce 下直接跳页：基底层无动画，两个转场覆盖层不渲染视觉。 */
+  .tt-perks-page .perk-page-turn-in {
+    display: none;
   }
   .tt-perks-page .perk-mini .perk-mini-card {
     transition: none;
