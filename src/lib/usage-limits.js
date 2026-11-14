@@ -5102,6 +5102,11 @@ async function fetchUsageLimitsUncached({
     // the macOS desktop binarycookies store. Appended last so the positional
     // destructure above stays aligned (order guard: provider-order test).
     hiddenSet.has("hark") ? hiddenSentinel : fetchHarkLimits({ home, fetchImpl: providerFetch, nowMs }),
+    // Today (todayai.cn) plan/usage: pasted session cookie → auth token
+    // exchange → percent-only pricing status + unused quota resets. Appended
+    // last so the positional destructure above stays aligned (order guard:
+    // provider-order test).
+    hiddenSet.has("todayCn") ? hiddenSentinel : fetchTodayLimits({ home, fetchImpl: providerFetch, nowMs }),
   ]);
 
   let claude;
