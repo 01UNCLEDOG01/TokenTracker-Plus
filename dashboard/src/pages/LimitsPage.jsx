@@ -110,7 +110,7 @@ function NotificationBlockedBubble() {
 
 export function LimitsPage() {
   const preloadedUsageLimits = readUsageLimitsPreloadState();
-  const { data: usageLimits, error, isLoading, refresh } = useUsageLimits(
+  const { data: usageLimits, error, isLoading, refresh, refreshProvider } = useUsageLimits(
     preloadedUsageLimits
       ? { initialRefresh: true, initialState: preloadedUsageLimits, publishToPreloadCache: true }
       : { initialRefresh: true, publishToPreloadCache: true },
@@ -275,6 +275,7 @@ export function LimitsPage() {
                 hark={usageLimits?.hark}
                 todayCn={usageLimits?.todayCn}
                 todayCn={usageLimits?.todayCn}
+                onProviderRefresh={refreshProvider}
                 order={prefs.order}
                 visibility={prefs.visibility}
                 displayMode={prefs.displayMode}

@@ -528,4 +528,47 @@ describe("usage limits on a public host", () => {
     expect(getUsageLimits).not.toHaveBeenCalled();
     expect(result.current).toMatchObject({ data: null, error: null, isLoading: false });
   });
+
+  it("refreshProvider merges only the target row and never lets hidden sentinels overwrite existing data", async () => {
+    vi.mocked(getUsageLimits).mockResolvedValue(freshLimits);
+    const { result } = renderHook(() => useUsageLimits({ initialState: { data: existingLimits } }));
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+    const kimiBefore = result.current.data?.kimi;
+    // 单卡刷新 kimi：响应里其他 provider 都是 hidden 哨兵占位——
+    // 只有 kimi 行允许写回（TM #1456 语义，2026-11-14）。
+    let applied: any = null;
+    vi.mocked(getUsageLimits).mockImplementation(async (opts: any) => ({
+      ...existingLimits,
+      fetched_at: "2026-05-30T11:00:00.000Z",
+      kimi: { configured: true, primary_window: { used_percent: 7, reset_at: "2026-05-30T12:30:00.000Z" } },
+      claude: { configured: false, error: null },
+      codex: { configured: false, error: null },
+      ...(opts?.hiddenProviders?.length ? {} : {}),
+    }));
+    await act(async () => {
+      applied = await result.current.refreshProvider("kimi");
+    });
+    expect(applied).not.toBeNull();
+    expect(applied.kimi.primary_window.used_percent).toBe(7);
+    // 既有行不被哨兵覆盖：claude/codex 保持原 configured 值。
+    expect(applied.claude).toEqual((existingLimits as any).claude);
+    expect(applied.codex).toEqual((existingLimits as any).codex);
+    // 请求只带 refresh+hidden=其余全部（除目标）。
+    expect(getUsageLimits).toHaveBeenLastCalledWith(expect.objectContaining({
+      refresh: true,
+      hiddenProviders: expect.arrayContaining(["claude", "codex"]),
+    }));
+    const call = vi.mocked(getUsageLimits).mock.calls.at(-1)?.[0] as any;
+    expect(call.hiddenProviders).not.toContain("kimi");
+  });
+
+  it("refreshProvider refuses unknown and user-hidden provider ids", async () => {
+    const { result } = renderHook(() => useUsageLimits({ initialState: { data: existingLimits } }));
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+    vi.mocked(getUsageLimits).mockClear();
+    await act(async () => {
+      expect(await result.current.refreshProvider("not-a-provider")).toBeNull();
+    });
+    expect(getUsageLimits).not.toHaveBeenCalled();
+  });
 });

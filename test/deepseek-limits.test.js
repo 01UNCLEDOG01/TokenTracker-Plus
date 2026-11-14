@@ -12,7 +12,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { fetchDeepSeekLimits } = require("../src/lib/deepseek-limits");
+const { fetchDeepSeekLimits, normalizeDeepseekWebToken } = require("../src/lib/deepseek-limits");
 
 function sandbox() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-deepseek-"));
@@ -122,6 +122,139 @@ test("serves the last good snapshot when the endpoint blips", async () => {
   }
 });
 
+// —— TM #1442（2026-11-14）：可选控制台 web token 解锁本月 Search/Fetch 费用行 ——
+
+function balanceBody() {
+  return {
+    is_available: true,
+    balance_infos: [{ currency: "CNY", total_balance: "12.34", granted_balance: "2.00", topped_up_balance: "10.34" }],
+  };
+}
+
+
+const WEB_TOKEN = "web-session-token-value";
+
+test("normalizeDeepseekWebToken accepts bare/pasted tokens and rejects junk", () => {
+  assert.equal(normalizeDeepseekWebToken(WEB_TOKEN), WEB_TOKEN);
+  assert.equal(normalizeDeepseekWebToken("Bearer " + WEB_TOKEN), WEB_TOKEN);
+  assert.equal(normalizeDeepseekWebToken("Authorization: Bearer " + WEB_TOKEN), WEB_TOKEN);
+  assert.equal(normalizeDeepseekWebToken("not a token"), "");
+  assert.equal(normalizeDeepseekWebToken(""), "");
+});
+
+function consoleBody({ withFees = true, shapeDrift = false, nowMs = Date.parse("2026-11-18T04:00:00.000Z") } = {}) {
+  const buckets = (cost) => [{ cost }];
+  const series = [
+    { model: "server-tool-search", buckets: withFees ? buckets(0.4) : buckets(0) },
+    { model: "tool-search", buckets: withFees ? buckets(0.6) : buckets(0) },
+    { model: "server-tool-fetch", buckets: withFees ? buckets(1.5) : buckets(0) },
+    { model: "deepseek-chat", buckets: buckets(99) },
+  ];
+  return {
+    code: 0,
+    data: {
+      biz_code: 0,
+      biz_data: shapeDrift
+        ? { start: 1, end: 2, data: [] }
+        : (() => {
+            // 与实现同公式回显窗口（严格契约校验 start/end 必须一致）。
+            const date = new Date(nowMs);
+            const tz = -date.getTimezoneOffset() * 60;
+            return {
+              start: Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), 1) / 1000) - tz,
+              end: Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate() + 1) / 1000) - tz,
+              data: [{ currency: "CNY", series, function_series: [] }],
+            };
+          })(),
+    },
+  };
+}
+
+test("optional console fees ride along when the web token is present", async () => {
+  const home = sandbox();
+  try {
+    fs.writeFileSync(credsFile(home), JSON.stringify({ api_key: "sk-test", web_token: WEB_TOKEN }));
+    const calls = [];
+    const result = await fetchDeepSeekLimits({
+      home,
+      nowMs: Date.parse("2026-11-18T04:00:00.000Z"),
+      fetchImpl: async (url) => {
+        calls.push(String(url));
+        if (String(url).includes("platform.deepseek.com")) {
+          assert.match(String(url), /start=/);
+          assert.match(String(url), /end=/);
+          assert.match(String(url), /tz=/);
+          return jsonResponse(consoleBody({ nowMs: Date.parse("2026-11-18T04:00:00.000Z") }));
+        }
+        return jsonResponse(balanceBody());
+      },
+    });
+    assert.equal(result.configured, true);
+    assert.equal(result.deepseek_total_balance, 12.34);
+    // 搜索 0.4+0.6=1.0；抓取 1.5；无关模型（deepseek-chat 99）不计入。
+    assert.equal(result.deepseek_search_spend, 1);
+    assert.equal(result.deepseek_fetch_spend, 1.5);
+  } finally { cleanup(home); }
+});
+
+test("no web token → balance only, no console call", async () => {
+  const home = sandbox();
+  try {
+    fs.writeFileSync(credsFile(home), JSON.stringify({ api_key: "sk-test" }));
+    let consoleCalled = false;
+    const result = await fetchDeepSeekLimits({
+      home,
+      fetchImpl: async (url) => {
+        if (String(url).includes("platform.deepseek.com")) { consoleCalled = true; return jsonResponse({}); }
+        return jsonResponse(balanceBody());
+      },
+    });
+    assert.equal(result.configured, true);
+    assert.equal(result.deepseek_search_spend, undefined);
+    assert.equal(consoleCalled, false);
+  } finally { cleanup(home); }
+});
+
+test("console failure/shape drift never sinks the balance", async () => {
+  const home = sandbox();
+  try {
+    fs.writeFileSync(credsFile(home), JSON.stringify({ api_key: "sk-test", web_token: WEB_TOKEN }));
+    for (const respond of [
+      async () => ({ ok: false, status: 500, json: async () => ({}) }),
+      async () => jsonResponse(consoleBody({ shapeDrift: true })),
+      async () => { throw new Error("network down"); },
+    ]) {
+      const result = await fetchDeepSeekLimits({
+        home,
+        fetchImpl: async (url) => {
+          if (String(url).includes("platform.deepseek.com")) return await respond();
+          return jsonResponse(balanceBody());
+        },
+      });
+      assert.equal(result.configured, true);
+      assert.equal(result.deepseek_total_balance, 12.34);
+      assert.equal(result.deepseek_search_spend, undefined);
+      assert.equal(result.deepseek_fetch_spend, undefined);
+    }
+  } finally { cleanup(home); }
+});
+
+test("zero-fee months render no fees line", async () => {
+  const home = sandbox();
+  try {
+    fs.writeFileSync(credsFile(home), JSON.stringify({ api_key: "sk-test", web_token: WEB_TOKEN }));
+    const result = await fetchDeepSeekLimits({
+      home,
+      nowMs: Date.parse("2026-11-18T04:00:00.000Z"),
+      fetchImpl: async (url) => {
+        if (String(url).includes("platform.deepseek.com")) return jsonResponse(consoleBody({ withFees: false }));
+        return jsonResponse(balanceBody());
+      },
+    });
+    assert.equal(result.deepseek_search_spend, undefined);
+    assert.equal(result.deepseek_fetch_spend, undefined);
+  } finally { cleanup(home); }
+});
 test("surfaces the failure when the endpoint blips with nothing cached", async () => {
   const home = sandbox();
   try {

@@ -54,6 +54,7 @@ const SOURCE_FILTERS = [
   { id: "raccoon", label: () => "SenseTime Raccoon" },
   { id: "kimi", label: () => copy("leaderboard.column.kimi") },
   { id: "omp", label: () => "oh-my-pi" },
+  { id: "pi", label: () => "Pi" },
 ];
 
 const DATE_RANGES = [

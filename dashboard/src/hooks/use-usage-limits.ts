@@ -10,6 +10,7 @@ import {
   isLimitsPrefsStorageKey,
   LIMITS_PREFS_CHANGED_EVENT,
 } from "./use-limits-display-prefs.js";
+import { LIMIT_PROVIDER_IDS } from "../lib/limits-providers.js";
 
 /**
  * Hidden provider rows must never outlive the user's provider selection
@@ -286,6 +287,48 @@ export function useUsageLimits(options?: UseUsageLimitsOptions) {
     }
   }, [applyHidden, beginRequest, currentHidden, localEnabled, publishSuccessfulState]);
 
+  // Single-provider forced refresh (TM #1456 semantics): the card's refresh
+  // button asks the loopback backend for just this provider (every other id
+  // goes into `hidden`, which narrows the fetch) and merges ONLY that row —
+  // the response's hidden-sentinel placeholders must never overwrite rows
+  // that are already on screen. Resolves with the merged payload, or null
+  // when the provider id is unknown/hidden, the request failed, or a newer
+  // request superseded this one.
+  const refreshProvider = useCallback(async (id: string): Promise<UsageLimitsData | null> => {
+    if (!localEnabled || !LIMIT_PROVIDER_IDS.includes(id)) return null;
+    if (applyHidden().includes(id)) return null;
+    const others = LIMIT_PROVIDER_IDS.filter((provider: string) => provider !== id);
+    const isCurrent = beginRequest();
+    try {
+      const res = await getUsageLimits({
+        refresh: true,
+        devinEnabled: isDevinProviderSelected(),
+        hiddenProviders: [...new Set([...others, ...currentHidden()])].filter((p) => p !== id),
+      });
+      if (!isCurrent()) return null;
+      const nextData = res && typeof res === "object" ? res as UsageLimitsData : null;
+      const fresh = nextData
+        ? (nextData as unknown as Record<string, unknown>)[id]
+        : null;
+      if (!fresh || typeof fresh !== "object") return null;
+      let applied: UsageLimitsData | null = null;
+      setData((prev) => {
+        if (!prev) return prev;
+        const merged = { ...prev, [id]: fresh } as UsageLimitsData;
+        applied = merged;
+        return merged;
+      });
+      setError(null);
+      setIsLoading(false);
+      const merged = applied;
+      if (merged) publishSuccessfulState(merged, "manual-refresh");
+      return merged;
+    } catch (err) {
+      if (!isCurrent()) return null;
+      return null;
+    }
+  }, [applyHidden, beginRequest, currentHidden, localEnabled, publishSuccessfulState]);
+
   const refreshFromServerCache = useCallback(async () => {
     if (!localEnabled) return;
     const isCurrent = beginRequest();
@@ -378,5 +421,5 @@ export function useUsageLimits(options?: UseUsageLimitsOptions) {
     })();
   }, [applyHidden, beginRequest, currentHidden, hasInitialState, initialRefresh, localEnabled, publishSuccessfulState]);
 
-  return { data, error, isLoading, refresh };
+  return { data, error, isLoading, refresh, refreshProvider };
 }

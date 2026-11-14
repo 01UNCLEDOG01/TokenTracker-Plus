@@ -790,6 +790,7 @@ limits.label.sensenova_flash_lite_weekly,ui,LimitsPage,UsageLimitsPanel,sensenov
 limits.label.sensenova_grant,ui,LimitsPage,UsageLimitsPanel,sensenova_grant,Granted credits: {{credits}} · expires {{date}},,active
 limits.provider.zcode,ui,LimitsPage,UsageLimitsPanel,provider_zcode,ZCode,,active
 provider.display.omp,ui,*,ProviderDisplay,omp,oh-my-pi,,active
+provider.display.pi,ui,*,ProviderDisplay,pi,Pi,,active
 provider.display.omo,ui,*,ProviderDisplay,omo,OmO,,active
 provider.display.minimax_code,ui,*,ProviderDisplay,minimax_code,MiniMax Code,,active
 provider.display.command_code,ui,*,ProviderDisplay,command_code,Command Code,,active
@@ -2205,6 +2206,12 @@ limits.harkCookie.note,ui,LimitsPage,UsageLimitsPanel,hark_cookie_note,"Hark.app
 limits.provider.today_cn,ui,LimitsPage,UsageLimitsPanel,provider_today_cn,Today,,active
 limits.label.today_monthly,ui,LimitsPage,UsageLimitsPanel,today_monthly,Total usage (%),,active
 limits.label.today_resets,ui,LimitsPage,UsageLimitsPanel,today_resets,"Quota resets left: {{count}}",,active
+limits.card.refresh_aria,ui,LimitsPage,UsageLimitsPanel,card_refresh_aria,"Refresh {{provider}} quota",,active
+limits.label.deepseek_search,ui,LimitsPage,UsageLimitsPanel,deepseek_search,"Console Search this month: {{currency}}{{amount}}",,active
+limits.label.deepseek_fetch,ui,LimitsPage,UsageLimitsPanel,deepseek_fetch,"Console Fetch this month: {{currency}}{{amount}}",,active
+limits.deepseekKey.api_placeholder,ui,LimitsPage,UsageLimitsPanel,deepseek_api_placeholder,Paste the DeepSeek API key (platform.deepseek.com),,active
+limits.deepseekKey.web_placeholder,ui,LimitsPage,UsageLimitsPanel,deepseek_web_placeholder,"Optional: console web token — adds this month's Search / Fetch fees",,active
+limits.deepseekKey.note,ui,LimitsPage,UsageLimitsPanel,deepseek_note,"API key drives the balance card; the optional console token (from platform.deepseek.com in your browser devtools, Authorization header) adds this month's Search / Fetch fee line. Sent only to the local API, never echoed.",,active
 limits.todayCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,today_cookie_placeholder,Paste the Today session token (bare token or whole Cookie: line),,active
 limits.todayCookie.clear,ui,LimitsPage,UsageLimitsPanel,today_cookie_clear,Clear saved token,,active
 limits.todayCookie.note,ui,LimitsPage,UsageLimitsPanel,today_cookie_note,"Today's desktop app keeps its session in an encrypted store — paste the whole Cookie line containing __Secure-better-auth.session_token (from todayai.cn in your browser's or the app's developer tools). The session lasts about two months; re-paste when it expires.",,active

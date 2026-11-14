@@ -24,7 +24,7 @@ const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
 const { fetchProviderServiceStatus } = require("./provider-status");
 const { readCursorStateSummary } = require("./cursor-store");
-const { resolveTrackerPathsSync } = require("./tracker-paths");
+const { getTrackerRootDir, resolveTrackerPathsSync } = require("./tracker-paths");
 
 const SYNC_TIMEOUT_MS = 120_000;
 // A failed account-view request should not stall every dashboard refresh
@@ -6123,6 +6123,40 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- deepseek-key (POST) ---
+    // Persist the DeepSeek credentials pasted into the limits page card: the
+    // required open-platform API key plus the optional console web token
+    // (TM #1442 fee line). Writes deepseek-credentials.json — the same file
+    // the usage fetch reads; loopback auth required, values never echoed.
+    if (p === "/functions/tokentracker-deepseek-key") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const apiKey = typeof body?.api_key === "string" ? body.api_key.trim() : "";
+        if (!apiKey) {
+          json(res, { error: "api_key is required" }, 400);
+          return true;
+        }
+        const { normalizeDeepseekWebToken } = require("./deepseek-limits");
+        const webToken = normalizeDeepseekWebToken(body?.web_token);
+        const file = path.join(getTrackerRootDir({ home: os.homedir() }), "deepseek-credentials.json");
+        fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+        fs.writeFileSync(file, JSON.stringify({ api_key: apiKey, ...(webToken ? { web_token: webToken } : {}) }, null, 2), { mode: 0o600 });
+        try { fs.chmodSync(file, 0o600); } catch { /* best effort */ }
+        json(res, { saved: true });
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save credentials" }, 400);
+      }
+      return true;
+    }
     // --- today-cookie (POST) ---
     // Persist a hand-copied Today (todayai.cn) session token from the limits
     // page paste box. Same contract as hark-cookie: loopback auth required,

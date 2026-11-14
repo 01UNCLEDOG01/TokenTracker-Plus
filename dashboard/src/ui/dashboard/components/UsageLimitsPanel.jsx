@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, Gift, Globe } from "lucide-react";
+import { ChevronDown, Gift, Globe, RefreshCw } from "lucide-react";
 import { Card } from "../../components";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
 import { copy, getCopyLocale } from "../../../lib/copy";
@@ -449,6 +449,28 @@ function StatusBadge({ label, age = null, tone = "live", tooltip = null }) {
   );
 }
 
+// Single-card refresh button (TM #1456): asks the loopback backend for just
+// this provider and spins in place. stopPropagation keeps the click from
+// toggling the card's expand state.
+function CardRefreshButton({ id, name, onProviderRefresh, refreshing }) {
+  if (!onProviderRefresh) return null;
+  const label = copy("limits.card.refresh_aria", { provider: name });
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={refreshing}
+      onClick={(e) => {
+        e.stopPropagation();
+        onProviderRefresh(id);
+      }}
+      className="flex h-5 w-5 items-center justify-center rounded text-oai-gray-400 transition-colors hover:bg-oai-gray-100 hover:text-oai-gray-600 disabled:opacity-50 dark:hover:bg-oai-gray-800 dark:hover:text-oai-gray-300"
+    >
+      <RefreshCw size={12} aria-hidden className={refreshing ? "animate-spin" : ""} />
+    </button>
+  );
+}
 function ToolGroup({ name, providerId, children, expandable = false, expanded = false, onToggle, badge = null, rightAdornment = null, toggleOnHeader = false }) {
   const providerKey = limitProviderIconKey(providerId);
   const header = (
@@ -953,6 +975,19 @@ function renderProviderExtra(kind, data, picker = null, mode = LIMIT_DISPLAY_MOD
       </StatusLine>
     );
   }
+  if (kind === "deepseek_balance" && (Number(data.deepseek_search_spend) > 0 || Number(data.deepseek_fetch_spend) > 0)) {
+    // TM #1442: optional console token unlocks this month's Search / Fetch
+    // tool fees — a second status line beside the balance, same currency.
+    const currency = typeof data.deepseek_currency === "string" ? data.deepseek_currency : "";
+    const parts = [];
+    if (Number(data.deepseek_search_spend) > 0) {
+      parts.push(copy("limits.label.deepseek_search", { currency, amount: formatCreditAmount(Number(data.deepseek_search_spend), { maximumFractionDigits: 2 }) }));
+    }
+    if (Number(data.deepseek_fetch_spend) > 0) {
+      parts.push(copy("limits.label.deepseek_fetch", { currency, amount: formatCreditAmount(Number(data.deepseek_fetch_spend), { maximumFractionDigits: 2 }) }));
+    }
+    if (parts.length) return <StatusLine>{parts.join(" · ")}</StatusLine>;
+  }
   if (kind === "trae_wallets" && Number.isFinite(Number(data.trae_available_points))) {
     // Older cached payloads carry only the nearest-expiry summary; keep that
     // line until the next fetch supplies trae_grants (then the per-batch bars
@@ -1122,7 +1157,7 @@ function ZcodeOtherRegionSection({ data, mode, now }) {
   );
 }
 
-function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, now = Date.now(), onKeySaved = null, petPicker = null) {
+function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, now = Date.now(), onKeySaved = null, petPicker = null, onProviderRefresh = null, refreshing = false) {
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
   // Pace is computed once per window here and shared by the bar + the detail.
@@ -1143,6 +1178,7 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       expanded={expanded}
       onToggle={onToggle}
       badge={badge}
+      rightAdornment={<CardRefreshButton id={id} name={title} onProviderRefresh={onProviderRefresh} refreshing={refreshing} />}
       toggleOnHeader={id === "zcode"}
     >
       <LimitWindowSection mode={mode} rows={rows} extra={extra} expanded={expanded}
@@ -1176,6 +1212,11 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
           <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
         </CollapsibleCredentialSection>
       ) : null}
+      {id === "deepseek" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <DeepSeekCredentialsInput onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
       {id === "hark" ? (
         <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
           <HarkCookieInput onSaved={onKeySaved} />
@@ -1198,7 +1239,7 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
 
 // Provider row for states without usable limit data (not connected, inactive,
 // fetch error).
-function renderUnlinkedProvider(id, statusNodes, expanded, onToggle) {
+function renderUnlinkedProvider(id, statusNodes, expanded, onToggle, onProviderRefresh = null, refreshing = false) {
   return (
     <ToolGroup
       key={id}
@@ -1207,13 +1248,14 @@ function renderUnlinkedProvider(id, statusNodes, expanded, onToggle) {
       expandable={false}
       expanded={expanded}
       onToggle={onToggle}
+      rightAdornment={<CardRefreshButton id={id} name={limitProviderName(id)} onProviderRefresh={onProviderRefresh} refreshing={refreshing} />}
     >
       {statusNodes}
     </ToolGroup>
   );
 }
 
-function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(), onKeySaved = null, petPicker = null) {
+function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(), onKeySaved = null, petPicker = null, onProviderRefresh = null, refreshing = false) {
   if (!PROVIDER_LIMIT_SPECS[id]) return null;
   if (!data?.configured) {
     return renderUnlinkedProvider(
@@ -1248,6 +1290,11 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
             <OpenaiCreditsCredentialsInput onSaved={onKeySaved} />
           </CollapsibleCredentialSection>
         ) : null}
+        {id === "deepseek" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <DeepSeekCredentialsInput onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
         {id === "hark" ? (
           <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
             <HarkCookieInput onSaved={onKeySaved} />
@@ -1274,6 +1321,8 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
       <StatusLine>{copy("limits.opencodeGo.status.inactive")}</StatusLine>,
       expanded,
       onToggle,
+      onProviderRefresh,
+      refreshing,
     );
   }
   // WorkBuddy deletes its IPC endpoint when the desktop client quits, so
@@ -1285,6 +1334,8 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
       <StatusLine>{copy("limits.status.client_not_running", { app: limitProviderName(id) })}</StatusLine>,
       expanded,
       onToggle,
+      onProviderRefresh,
+      refreshing,
     );
   }
   if (data.error) {
@@ -1303,11 +1354,14 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
       {id === "mistral" ? <MistralCookieInput onSaved={onKeySaved} /> : null}
       {id === "openaiCredits" ? <OpenaiCreditsCredentialsInput onSaved={onKeySaved} /> : null}
+      {id === "deepseek" ? <DeepSeekCredentialsInput onSaved={onKeySaved} /> : null}
       {id === "hark" ? <HarkCookieInput onSaved={onKeySaved} /> : null}
       {id === "todayCn" ? <TodayCookieInput onSaved={onKeySaved} /> : null}
       </>,
       expanded,
       onToggle,
+      onProviderRefresh,
+      refreshing,
     );
   }
 
@@ -1377,7 +1431,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
       tooltip={copy("limits.provenance.tooltip", { source: provenance.source, confidence: provenance.confidence })}
     />;
   }
-  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, now, onKeySaved, petPicker);
+  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, now, onKeySaved, petPicker, onProviderRefresh, refreshing);
 }
 
 function CopilotOtelHint({ defaultDir }) {
@@ -2132,6 +2186,90 @@ function OpenDesignCookieInput({ onSaved }) {
   );
 }
 
+// Paste box for the DeepSeek credentials: the required open-platform API key
+// (balance meter) plus the optional console web token (TM #1442 — unlocks
+// this month's Search / Fetch fee line). Both saved by the loopback backend
+// to deepseek-credentials.json, the same file the usage fetch reads. Never
+// echoed back; sent only to the local API.
+function DeepSeekCredentialsInput({ onSaved }) {
+  const [apiKey, setApiKey] = useState("");
+  const [webToken, setWebToken] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const key = apiKey.trim();
+    if (!key || status === "saving") return;
+    setStatus("saving");
+    setError(false);
+    try {
+      const res = await fetch("/functions/tokentracker-deepseek-key", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ api_key: key, web_token: webToken.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error();
+      setApiKey("");
+      setWebToken("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("idle");
+      setError(true);
+    }
+  };
+
+  return (
+    <form
+      className="mt-1.5 space-y-1.5"
+      onSubmit={onSubmit}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="password"
+        value={apiKey}
+        onChange={(e) => { setApiKey(e.target.value); setStatus("idle"); setError(false); }}
+        placeholder={copy("limits.deepseekKey.api_placeholder")}
+        aria-label={copy("limits.deepseekKey.api_placeholder")}
+        autoComplete="new-password"
+        spellCheck={false}
+        className="w-full rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[11px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+      />
+      <input
+        type="password"
+        value={webToken}
+        onChange={(e) => { setWebToken(e.target.value); setStatus("idle"); setError(false); }}
+        placeholder={copy("limits.deepseekKey.web_placeholder")}
+        aria-label={copy("limits.deepseekKey.web_placeholder")}
+        autoComplete="new-password"
+        spellCheck={false}
+        className="w-full rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[11px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={!apiKey.trim() || status === "saving"}
+          className="shrink-0 rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.qoderCookie.saving")
+            : status === "saved"
+              ? copy("limits.qoderCookie.saved")
+              : copy("limits.qoderCookie.save")}
+        </button>
+      </div>
+      <div className="text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+        {error ? copy("limits.qoderCookie.save_failed") : copy("limits.deepseekKey.note")}
+      </div>
+    </form>
+  );
+}
 // Paste box for the Hark session token. Accepts the bare better-auth token or
 // the whole Cookie line containing __Secure-hark.session_token (encoded or
 // decoded spellings are one account). Saved by the loopback backend to
@@ -2606,7 +2744,7 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn, order, visibility, displayMode, onProviderKeySaved = null }) {
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn, order, visibility, displayMode, onProviderKeySaved = null, onProviderRefresh = null }) {
   const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
@@ -2649,6 +2787,8 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
   const containerRef = useRef(null);
   const labelWidth = useWidestLabelWidth(containerRef);
   const [expandedId, setExpandedId] = useState(null);
+  // Single-card refresh (TM #1456): which provider id is spinning right now.
+  const [refreshingId, setRefreshingId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   // 宠物悬浮窗勾选：默认 null（走前 6 行），一旦勾过就按 localStorage 的列表来。
   const [petLimitRows, setPetLimitRows] = useState(() => readPetLimitSelection() || []);
@@ -2707,6 +2847,13 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
         // "not connected" to its windows without a manual page reload.
         onProviderKeySaved,
         { selected: petLimitRows, onToggle: togglePetLimitRow },
+        onProviderRefresh
+          ? async (providerId) => {
+              setRefreshingId(providerId);
+              try { await onProviderRefresh(providerId); } finally { setRefreshingId(null); }
+            }
+          : null,
+        refreshingId === id,
       );
     })
     .filter(Boolean);

@@ -209,7 +209,7 @@ export function groupSessions(sessions, mode) {
 
 // Kept in sync with the tabs in SessionsPage: a source the session layer can
 // emit but the parser rejects silently folds into "all".
-export const SESSION_SOURCES = ["claude", "codex", "grok", "workbuddy", "workbuddy-ai", "opencode", "loomy", "dsh", "zcode", "kimi", "omp"];
+export const SESSION_SOURCES = ["claude", "codex", "grok", "workbuddy", "workbuddy-ai", "opencode", "loomy", "dsh", "zcode", "kimi", "omp", "pi"];
 
 export function parseSessionFilters(search) {
   const params = new URLSearchParams(search);

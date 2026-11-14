@@ -19,8 +19,19 @@ const { getTrackerRootDir } = require("./tracker-paths");
 // error). API keys do not expire, so there is no refresh chain here — the
 // card re-reads the key file every poll and serves the last good snapshot on
 // network blips, like every other provider.
+//
+// Optional add-on (TM #1442, 2026-11-14): a signed-in DeepSeek *console*
+// session token ("web token") unlocks the private per-month cost endpoint, so
+// the card can also show this month's Search / Fetch tool fees. Strictly
+// optional — a missing/failed console call leaves the balance untouched.
 
 const DEEPSEEK_BALANCE_URL = "https://api.deepseek.com/user/balance";
+const DEEPSEEK_CONSOLE_COST_URL = "https://platform.deepseek.com/api/v0/usage/by_api_key/cost";
+// The console bills these tools under two historical model names each.
+const CONSOLE_TOOL_NAMES = {
+  deepseek_search_spend: ["server-tool-search", "tool-search"],
+  deepseek_fetch_spend: ["server-tool-fetch", "tool-fetch"],
+};
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 function credentialsPath(home) {
@@ -56,8 +67,69 @@ function readCredentials(home) {
     const creds = JSON.parse(fs.readFileSync(credentialsPath(home), "utf8"));
     if (!creds || typeof creds !== "object") return null;
     const key = typeof creds.api_key === "string" ? creds.api_key.trim() : "";
-    return key ? { api_key: key } : null;
+    if (!key) return null;
+    const webToken = normalizeDeepseekWebToken(creds.web_token);
+    return { api_key: key, web_token: webToken };
   } catch {
+    return null;
+  }
+}
+
+// Accept a bare or pasted Authorization token; reject anything that is not one
+// (control chars, whitespace, `;` — a Cookie: line pasted by mistake is not a
+// console session token).
+function normalizeDeepseekWebToken(value) {
+  const raw = String(value || "").trim()
+    .replace(/^cookie\s*:\s*/iu, "")
+    .replace(/^authorization\s*:\s*/iu, "")
+    .replace(/^bearer\s+/iu, "")
+    .trim();
+  return /[\u0000-\u001f\u007f;\s]/u.test(raw) ? "" : raw;
+}
+
+// One console call for the current month. Both window boundaries are fixed to
+// a single timezone offset (the console-local one) so a DST change cannot
+// split the month. Strict contract: code/biz_code must be 0, the echoed
+// start/end must match the request, and every bucket cost must be a finite
+// non-negative number — otherwise null (no fees row; the balance is intact).
+// TM #1442 keeps an in-process hour cache; our provider poll already sits
+// behind a 30s TTL, so the extra layer is skipped on purpose.
+async function fetchToolSpends(webToken, currency, { fetchImpl, timeoutMs, nowMs }) {
+  if (!webToken) return null;
+  const date = new Date(nowMs);
+  const tz = -date.getTimezoneOffset() * 60;
+  const start = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), 1) / 1000) - tz;
+  const end = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate() + 1) / 1000) - tz;
+  try {
+    const query = new URLSearchParams({ start: String(start), end: String(end), tz: String(tz) });
+    const res = await fetchImpl(`${DEEPSEEK_CONSOLE_COST_URL}?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${webToken}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const data = body?.data?.biz_data;
+    if (body?.code !== 0 || body?.data?.biz_code !== 0) return null;
+    if (data?.start !== start || data?.end !== end) return null;
+    const row = (Array.isArray(data.data) ? data.data : []).find(
+      (item) => String(item?.currency || "").toUpperCase() === String(currency || "").toUpperCase(),
+    );
+    const lists = [row?.series, row?.function_series].filter((list) => Array.isArray(list));
+    if (!lists.length) return null;
+    const entries = lists.flat();
+    const spends = {};
+    for (const [field, names] of Object.entries(CONSOLE_TOOL_NAMES)) {
+      const costs = entries
+        .filter((item) => names.includes(item?.model))
+        .flatMap((item) => (Array.isArray(item?.buckets) ? item.buckets : []))
+        .map((bucket) => Number(bucket?.cost));
+      if (!costs.length || costs.some((cost) => !Number.isFinite(cost) || cost < 0)) return null;
+      const total = costs.reduce((sum, cost) => sum + cost, 0);
+      if (total > 0) spends[field] = total;
+    }
+    return spends;
+  } catch {
+    // Optional console failures leave the balance intact; retry next poll.
     return null;
   }
 }
@@ -69,6 +141,7 @@ async function fetchDeepSeekLimits({
   fetchImpl = fetch,
   nowMs = Date.now(),
   timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  deepseekWebToken = null,
 } = {}) {
   const creds = readCredentials(home);
   if (!creds) return { configured: false, error: null };
@@ -96,6 +169,11 @@ async function fetchDeepSeekLimits({
     return { configured: true, error: "balance response carries no currency row" };
   }
 
+  const toolSpends = await fetchToolSpends(
+    deepseekWebToken || creds.web_token || "",
+    String(primary.currency || "CNY"),
+    { fetchImpl, timeoutMs, nowMs },
+  );
   const result = {
     configured: true,
     plan_name: null,
@@ -104,6 +182,7 @@ async function fetchDeepSeekLimits({
     deepseek_total_balance: total,
     deepseek_granted_balance: Number.isFinite(granted) ? granted : 0,
     deepseek_available: payload?.is_available === true,
+    ...(toolSpends || {}),
     source: "provider-api",
   };
   writeLastGood(home, {
@@ -116,4 +195,4 @@ async function fetchDeepSeekLimits({
   return result;
 }
 
-module.exports = { fetchDeepSeekLimits };
+module.exports = { fetchDeepSeekLimits, normalizeDeepseekWebToken, DEEPSEEK_CONSOLE_COST_URL, CONSOLE_TOOL_NAMES };
