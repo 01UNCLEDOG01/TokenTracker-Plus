@@ -521,6 +521,28 @@ export const PROVIDER_LIMIT_SPECS = {
       return [...rows, ...features].filter((row) => row.window);
     },
   },
+  todayCn: {
+    // Today (todayai.cn) plan/usage from /v1/pricing/status + /v1/pricing/resets:
+    // the API publishes ONLY percent-of-allowance (no absolute token counts
+    // anywhere), so every window carries a synthetic limit of 100 and
+    // percent_only: true — bars are true percent meters, labels say so. The
+    // unused quota-reset credits (invite rewards) render as an unmetered
+    // extra line.
+    extra: "today_resets",
+    windows(data) {
+      const rows = [
+        { key: "monthly", labelKey: "limits.label.today_monthly", window: data.primary_window },
+      ];
+      const features = Array.isArray(data.feature_windows)
+        ? data.feature_windows.map((w, i) => ({
+          key: `feature-${i}`,
+          label: typeof w.label === "string" && w.label ? w.label : `Feature ${i + 1}`,
+          window: w,
+        }))
+        : [];
+      return [...rows, ...features].filter((row) => row.window);
+    },
+  },
 };
 
 const GROK_PRODUCT_LABEL_KEYS = {

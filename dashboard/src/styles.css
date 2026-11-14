@@ -1541,7 +1541,9 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   letter-spacing: 2px;
   line-height: 1;
 }
-/* 卡面截止小字（.ft-cd-end 同款）：写了 endsAt 的卡在正面右上印 MM-DD。 */
+/* 卡面截止小字（.ft-cd-end 同款）：写明截止的卡在正面右上印「还剩 N 天」。
+   AIHOT 截止联动（2026-11-14）：自家人工 endsAt 优先、AIHOT 映射 deal 的
+   ends_at 兜底；≤3 天红色警示（AIHOT 列表红字同款语义）。 */
 .tt-perks-page .perk-cd-end {
   color: #8b7d63;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
@@ -1549,6 +1551,12 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   font-weight: 600;
   letter-spacing: 0.5px;
   line-height: 1;
+}
+.tt-perks-page .perk-cd-end-hot {
+  color: #dc2626;
+}
+.dark .tt-perks-page .perk-cd-end-hot {
+  color: #f87171;
 }
 /* 面值钻点（.ft-cd-pips 同款）。 */
 .tt-perks-page .perk-pips {
@@ -1876,4 +1884,14 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 @keyframes perk-front-holo-shift {
   0% { background-position: 0 0, 0% 50%; }
   100% { background-position: 0 0, 300% 50%; }
+}
+
+/* 成就页禁文本选择（站主 2026-11-14：3D 徽章旋转时拖选文字很丑）。壳层注入的
+   *{user-select:text} 是全站放开，这里对成就页与成就弹窗单独收回到 none。 */
+.tt-achievements-page,
+.tt-achievements-page *,
+.tt-achievements-modal,
+.tt-achievements-modal * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }

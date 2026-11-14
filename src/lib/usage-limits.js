@@ -56,6 +56,7 @@ const { fetchAgentRouterLimits } = require("./agentrouter-limits");
 const { fetchVyceAiLimits } = require("./vyceai-limits");
 const { fetchOpendesignLimits } = require("./opendesign-limits");
 const { fetchHarkLimits } = require("./hark-limits");
+const { fetchTodayLimits } = require("./today-limits");
 const { fetchMistralLimits } = require("./mistral-limits");
 const { fetchOpenaiCreditsLimits } = require("./openai-credits-limits");
 const { fetchMinimaxCodeLimits } = require("./minimax-code-limits");
@@ -99,7 +100,7 @@ const USAGE_LIMITS_PROVIDER_IDS = Object.freeze([
   "qoder", "qoderCn", "codingPlan", "agentPlan", "devin", "workbuddy",
   "workbuddyAi", "raccoon", "deepseek", "minimax", "traeMain", "trae",
   "codearts", "clinePass", "agentRouter", "vyceai", "opendesign",
-  "mistral", "openaiCredits", "minimaxCode", "hark",
+  "mistral", "openaiCredits", "minimaxCode", "hark", "todayCn",
 ]);
 
 // Normalize a caller-supplied hidden-provider list (array, Set, or
@@ -4920,7 +4921,7 @@ async function fetchUsageLimitsUncached({
   // (#956).
   const hiddenSentinel = Promise.resolve({ configured: false });
   const hiddenSettled = Promise.resolve({ status: "fulfilled", value: { configured: false } });
-  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, raccoonDaily, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode, hark] = await Promise.all([
+  const [claudeResult, codexResult, cursor, kimi, gemini, kiro, antigravity, copilot, grok, zcode, opencodeGoRaw, qoder, qoderCn, codingPlan, agentPlan, commandCodeRaw, devinRaw, workbuddy, workbuddyAi, apigoto, sensenova, claudeServiceStatus, raccoon, raccoonDaily, deepseek, minimax, traeGateway, traeMainGateway, codeartsGateway, clinePassGateway, agentRouter, vyceai, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn] = await Promise.all([
     claudeToken && !freshClaudeCache && !claudeRetryAtMs
       ? withProviderTimeout(fetchClaudeUsageLimits(claudeToken, { fetchImpl: providerFetch, maxAttempts: 1 }), "Claude", providerTimeoutMs).then(
           (value) => ({ status: "fulfilled", value }),
@@ -5642,6 +5643,7 @@ async function fetchUsageLimitsUncached({
     openaiCredits: withPlanLabel(openaiCredits, openaiCredits?.plan_name, "OpenAI API Credits"),
     minimaxCode: withPlanLabel(minimaxCode, minimaxCode?.plan_name, "MiniMax Code"),
     hark: withPlanLabel(hark, hark?.plan_name, "Hark"),
+    todayCn: withPlanLabel(todayCn, todayCn?.plan_name, "Today"),
   };
 
   for (const [providerName, provider] of Object.entries(data)) {

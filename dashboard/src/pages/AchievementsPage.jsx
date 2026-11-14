@@ -51,7 +51,7 @@ export default function AchievementsPage() {
   const total = BADGE_CATALOG.length;
 
   return (
-    <div className="flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
+    <div className="tt-achievements-page flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
       <main className="flex-1 pb-12 pt-8 sm:pb-16 sm:pt-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           {/* Header section with title and stats */}
@@ -137,11 +137,19 @@ export default function AchievementsPage() {
                   <span className="text-xs text-oai-gray-400 dark:text-oai-gray-500">{copy("achievements.sort.label")}</span>
                   <button
                     type="button"
-                    onClick={() => setActiveSortBy(activeSortBy === "earned" ? "difficulty" : "earned")}
+                    onClick={() =>
+                      setActiveSortBy(
+                        activeSortBy === "earned" ? "difficulty" : activeSortBy === "difficulty" ? "unlock" : "earned",
+                      )
+                    }
                     className="inline-flex items-center gap-1 rounded-md border border-oai-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-oai-gray-700 shadow-sm transition hover:bg-oai-gray-50 dark:border-oai-gray-800 dark:bg-oai-gray-900 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800"
-                    title={activeSortBy === "earned" ? copy("achievements.sort.to_difficulty") : copy("achievements.sort.to_tier")}
+                    title={activeSortBy === "earned" ? copy("achievements.sort.to_difficulty") : activeSortBy === "difficulty" ? copy("achievements.sort.to_unlock") : copy("achievements.sort.to_tier")}
                   >
-                    {activeSortBy === "earned" ? copy("achievements.sort.tier") : copy("achievements.sort.difficulty")}
+                    {activeSortBy === "earned"
+                      ? copy("achievements.sort.tier")
+                      : activeSortBy === "difficulty"
+                        ? copy("achievements.sort.difficulty")
+                        : copy("achievements.sort.unlock")}
                   </button>
                 </div>
               </div>

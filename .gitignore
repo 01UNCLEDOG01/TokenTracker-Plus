@@ -190,3 +190,7 @@ TokenTrackerMac/artifacts/
 # local audit/review artefacts (two-agent mac audits, 2026-11-10)
 .ci-logs/
 /.build/derived*/
+
+# Today CN 会话令牌（站主手工保存，永不入库；文件本体在仓库外 D:\TokenTrackerPlus\pending\，此处为防御性标记）
+pending/today-session.txt
+pending/*-session.txt

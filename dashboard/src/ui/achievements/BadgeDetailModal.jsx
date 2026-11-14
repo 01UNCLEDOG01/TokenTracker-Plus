@@ -193,6 +193,14 @@ function BadgeDetailBody({ badge, onClose }) {
           <dt className="text-oai-gray-500 dark:text-oai-gray-400">{copy("achievements.modal.value_label")}</dt>
           <dd className="font-mono font-semibold tabular-nums text-oai-black dark:text-white">{valueText}</dd>
         </div>
+        {earned ? (
+          <div className="flex items-baseline justify-between gap-3 text-sm">
+            <dt className="text-oai-gray-500 dark:text-oai-gray-400">{copy("achievements.modal.unlock_date")}</dt>
+            <dd className="font-mono font-semibold tabular-nums text-oai-black dark:text-white">
+              {achievedDate || copy("achievements.modal.unlock_date_unrecorded")}
+            </dd>
+          </div>
+        ) : null}
         {view.tier >= 1 && viewThresholdText ? (
           <div className="flex items-baseline justify-between gap-3 text-sm">
             <dt className="text-oai-gray-500 dark:text-oai-gray-400">
@@ -287,7 +295,7 @@ export function BadgeDetailModal({ badge, onClose }) {
 
   if (inline) {
     return (
-      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <div className="tt-achievements-modal fixed inset-0 z-[120] flex items-center justify-center p-4">
         <div
           className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
           onClick={onClose}
@@ -309,7 +317,7 @@ export function BadgeDetailModal({ badge, onClose }) {
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="cost-modal-backdrop z-[110]" />
-        <Dialog.Viewport className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+        <Dialog.Viewport className="tt-achievements-modal fixed inset-0 z-[120] flex items-center justify-center p-4">
           <Dialog.Popup className={cn("cost-modal-popup", POPUP_CLASS)}>
             <Dialog.Title render={<h2 className="sr-only" />}>
               {(BADGE_BY_ID.get(badge.id)?.hidden && (badge.tier || 0) < 1)

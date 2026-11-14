@@ -1410,6 +1410,8 @@ achievements.tier.diamond,dashboard,*,AchievementBadge,tier_diamond,Diamond,,act
 achievements.modal.locked,dashboard,*,BadgeDetailModal,locked,Locked,,active
 achievements.modal.achieved_label,dashboard,*,BadgeDetailModal,achieved_label,Achieved,,active
 achievements.modal.value_label,dashboard,*,BadgeDetailModal,value_label,Current value,,active
+achievements.modal.unlock_date,dashboard,AchievementsPage,BadgeDetailModal,unlock_date,Unlocked,,active
+achievements.modal.unlock_date_unrecorded,dashboard,AchievementsPage,BadgeDetailModal,unlock_date_unrecorded,Not recorded (unlocked before date tracking),,active
 achievements.modal.progress_to_next,dashboard,*,BadgeDetailModal,progress_to_next,Progress to {{tier}},,active
 achievements.modal.max_tier,dashboard,*,BadgeDetailModal,max_tier,Max tier reached,,active
 achievements.modal.close,dashboard,*,BadgeDetailModal,close,Close,,active
@@ -1543,6 +1545,8 @@ achievements.sort.tier,dashboard,AchievementsPage,AchievementsPage,sort_tier,By 
 achievements.sort.difficulty,dashboard,AchievementsPage,AchievementsPage,sort_difficulty,By Difficulty,,active
 achievements.sort.to_tier,dashboard,AchievementsPage,AchievementsPage,sort_to_tier,Sort by highest earned tier,,active
 achievements.sort.to_difficulty,dashboard,AchievementsPage,AchievementsPage,sort_to_difficulty,Sort by difficulty (easy to hard),,active
+achievements.sort.unlock,dashboard,AchievementsPage,AchievementsPage,sort_unlock,By Unlock Time (newest first),,active
+achievements.sort.to_unlock,dashboard,AchievementsPage,AchievementsPage,sort_to_unlock,Sort by unlock time (newest first),,active
 heatmap.3d.voxel.level7,dashboard,*,ActivityHeatmap3D,voxel_level7,Daily usage reached {{value}} tokens! Gravitational singularity triggered!,,active
 achievements.scope.local,dashboard,*,AchievementsSection,scope_local,Local,,active
 achievements.page.suggest,dashboard,AchievementsPage,AchievementsPage,suggest,Have an idea for a new badge?,,active
@@ -2198,6 +2202,12 @@ limits.label.hark_topup,ui,LimitsPage,UsageLimitsPanel,hark_topup,"Top-up this p
 limits.harkCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,hark_cookie_placeholder,Paste the Hark session token (bare token or whole Cookie: line),,active
 limits.harkCookie.clear,ui,LimitsPage,UsageLimitsPanel,hark_cookie_clear,Clear saved token,,active
 limits.harkCookie.note,ui,LimitsPage,UsageLimitsPanel,hark_cookie_note,"Hark.app on macOS is discovered automatically while signed in; paste a token here to override it or to connect on other platforms. Copy the whole Cookie line containing __Secure-hark.session_token from hark.com in your browser's developer tools.",,active
+limits.provider.today_cn,ui,LimitsPage,UsageLimitsPanel,provider_today_cn,Today,,active
+limits.label.today_monthly,ui,LimitsPage,UsageLimitsPanel,today_monthly,Total usage (%),,active
+limits.label.today_resets,ui,LimitsPage,UsageLimitsPanel,today_resets,"Quota resets left: {{count}}",,active
+limits.todayCookie.placeholder,ui,LimitsPage,UsageLimitsPanel,today_cookie_placeholder,Paste the Today session token (bare token or whole Cookie: line),,active
+limits.todayCookie.clear,ui,LimitsPage,UsageLimitsPanel,today_cookie_clear,Clear saved token,,active
+limits.todayCookie.note,ui,LimitsPage,UsageLimitsPanel,today_cookie_note,"Today's desktop app keeps its session in an encrypted store — paste the whole Cookie line containing __Secure-better-auth.session_token (from todayai.cn in your browser's or the app's developer tools). The session lasts about two months; re-paste when it expires.",,active
 dashboard.speed.fetch_failed,ui,DashboardPage,DataDetails,speed_fetch_failed,Speed data failed to load this time.,,active
 dashboard.speed.retry,ui,DashboardPage,DataDetails,speed_retry,Retry,,active
 limits.label.qoder_team_credits,ui,LimitsPage,UsageLimitsPanel,qoder_team_credits,Team Credits,,active

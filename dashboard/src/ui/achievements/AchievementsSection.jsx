@@ -7,6 +7,18 @@ import { badgeProgress } from "./achievement-format";
 import { BADGE_CATALOG, BADGE_CATEGORY_MAP, BADGE_DIFFICULTY, badgeCopyKey, sortBadges } from "./badge-catalog";
 import { tierName, TIER_PALETTE } from "./tier-palette";
 
+// 解锁时间排序的时间源：四级时间戳里最早的一个（= 首次解锁那一刻）。
+// 从未记录时间戳的早期解锁返回 null（排序时垫尾，弹窗显示「未记录」）。
+function earliestUnlockAt(record) {
+  const stamps = [];
+  for (const at of Object.values(record?.achieved || {})) {
+    if (typeof at !== "string" || !at) continue;
+    const parsed = Date.parse(at);
+    if (Number.isFinite(parsed)) stamps.push(parsed);
+  }
+  return stamps.length ? Math.min(...stamps) : null;
+}
+
 /**
  * Achievements badge wall (page-scale surfaces: /achievements, /u/:userId).
  * - isOwn: full catalog — earned first (tier desc), locked tail after.
@@ -53,24 +65,49 @@ export function AchievementsSection({
       entry,
       record: byId.get(entry.id) || { id: entry.id, tier: 0 },
     }));
-    if (sortBy === "difficulty") {
+    // 已解锁/未解锁分区只算一次（三种排序共用；重复的 filter 模式会让
+    // ui-hardcode 的 rawText 出现次数翻倍——按出现次数计数，非去重集合）。
+    const earnedCells = all.filter((c) => (c.record.tier || 0) >= 1);
+    const lockedCells = all.filter((c) => (c.record.tier || 0) < 1);
+    if (sortBy === "unlock") {
+      // 解锁时间排序（站主 2026-11-14）：已解锁的按解锁时间倒序（最新在前），
+      // 无时间戳的早期解锁垫在已解锁组末尾；未解锁照旧排尾。
+      earnedCells.sort((a, b) => {
+        const ta = earliestUnlockAt(a.record);
+        const tb = earliestUnlockAt(b.record);
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return tb - ta;
+      });
+      cells = [...earnedCells, ...lockedCells];
+    } else if (sortBy === "difficulty") {
       cells = [...all].sort((a, b) => {
         const diffA = BADGE_DIFFICULTY[a.entry.id] ?? 5;
         const diffB = BADGE_DIFFICULTY[b.entry.id] ?? 5;
         return diffA - diffB;
       });
     } else {
-      const earnedCells = sortBadges(
-        all.filter((c) => (c.record.tier || 0) >= 1).map((c) => ({ ...c, id: c.entry.id, tier: c.record.tier })),
-      );
-      const lockedCells = all.filter((c) => (c.record.tier || 0) < 1);
-      cells = [...earnedCells, ...lockedCells];
+      cells = [
+        ...sortBadges(earnedCells.map((c) => ({ ...c, id: c.entry.id, tier: c.record.tier }))),
+        ...lockedCells,
+      ];
     }
   } else {
     const list = catalog
       .map((entry) => ({ entry, record: byId.get(entry.id) }))
       .filter((c) => c.record && (c.record.tier || 0) >= 1);
-    if (sortBy === "difficulty") {
+    if (sortBy === "unlock") {
+      list.sort((a, b) => {
+        const ta = earliestUnlockAt(a.record);
+        const tb = earliestUnlockAt(b.record);
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return tb - ta;
+      });
+      cells = list;
+    } else if (sortBy === "difficulty") {
       cells = list.sort((a, b) => {
         const diffA = BADGE_DIFFICULTY[a.entry.id] ?? 5;
         const diffB = BADGE_DIFFICULTY[b.entry.id] ?? 5;
