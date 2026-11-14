@@ -1545,7 +1545,8 @@ extension UsageLimitsResponse {
             mistral: mistral,
             openaiCredits: openaiCredits,
             minimaxCode: minimaxCode,
-            hark: hark
+            hark: hark,
+            todayCn: todayCn
         )
     }
 }
