@@ -555,3 +555,101 @@ test("parseQoderNewIncremental keeps the strict billable gate for non-credit sou
   assert.equal(queueRows(queuePath).length, 0);
 });
 
+// ── Cache-inclusive input (remote-chat route, upstream TT #1109) ──
+//
+// Qoder CLI 1.1.8x / agent 1.1.79+ copy Chat Completions prompt_tokens into
+// input_tokens, so cache reads (and any cache writes) are a subset of it.
+// Those records carry context_usage_ratio = input_tokens / context window.
+// Rows without the field (older Anthropic-shaped CN/BYOK transcripts) or
+// whose cache counts exceed input stay disjoint. Without the split every
+// inclusive row double-counted its cache reads in both input and cache columns.
+
+function inclusiveRecord(msgId, usage, ts) {
+  return {
+    type: "assistant",
+    timestamp: ts,
+    uuid: msgId,
+    sessionId: "sess-inclusive",
+    cwd: "/tmp/proj",
+    message: {
+      id: msgId,
+      role: "assistant",
+      model: "qmodel_38max",
+      content: [{ type: "tool_use", name: "Read" }],
+      usage,
+    },
+  };
+}
+
+test("parseQoderNewIncremental splits cache-inclusive input on context_usage_ratio records", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const sessionFile = path.join(tmp, "sess.jsonl");
+  writeJsonl(sessionFile, [
+    inclusiveRecord(
+      "m1",
+      { credits: 2, billable: true, input_tokens: 1_000_000, cache_read_input_tokens: 800_000, cache_creation_input_tokens: 50_000, output_tokens: 20_000, context_usage_ratio: 0.35 },
+      "2026-11-13T11:00:00.000Z",
+    ),
+  ]);
+  const cursors = {};
+  const res = await parseQoderNewIncremental({ sessionFiles: [sessionFile], cursors, queuePath, sourceKey: "qoder", cursorKey: "qoderNew" });
+  assert.equal(res.messagesProcessed, 1);
+  const row = queueRows(queuePath).find((r) => r.source === "qoder");
+  // input 1_000_000 minus cached 800_000 minus creation 50_000 = 150_000 fresh
+  assert.equal(row.input_tokens, 150_000);
+  assert.equal(row.cached_input_tokens, 800_000);
+  assert.equal(row.cache_creation_input_tokens, 50_000);
+  assert.equal(row.output_tokens, 20_000);
+  // total stays the honest sum of the parts (1_020_000), not 2_020_000
+  assert.equal(row.total_tokens, 1_020_000);
+});
+
+test("parseQoderNewIncremental keeps Anthropic-shaped rows disjoint (no context_usage_ratio)", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const sessionFile = path.join(tmp, "sess.jsonl");
+  writeJsonl(sessionFile, [
+    inclusiveRecord(
+      "m2",
+      { credits: 1, billable: true, input_tokens: 300_000, cache_read_input_tokens: 100_000, cache_creation_input_tokens: 0, output_tokens: 10_000 },
+      "2026-11-13T11:05:00.000Z",
+    ),
+  ]);
+  const cursors = {};
+  await parseQoderNewIncremental({ sessionFiles: [sessionFile], cursors, queuePath, sourceKey: "qoder", cursorKey: "qoderNew" });
+  const row = queueRows(queuePath).find((r) => r.source === "qoder");
+  assert.equal(row.input_tokens, 300_000);
+  assert.equal(row.total_tokens, 410_000);
+});
+
+test("parseQoderNewIncremental keeps rows whose cache counts exceed input disjoint even with a ratio", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const sessionFile = path.join(tmp, "sess.jsonl");
+  writeJsonl(sessionFile, [
+    inclusiveRecord(
+      "m3",
+      { credits: 1, billable: true, input_tokens: 50_000, cache_read_input_tokens: 60_000, cache_creation_input_tokens: 0, output_tokens: 5_000, context_usage_ratio: 0.02 },
+      "2026-11-13T11:10:00.000Z",
+    ),
+  ]);
+  const cursors = {};
+  await parseQoderNewIncremental({ sessionFiles: [sessionFile], cursors, queuePath, sourceKey: "qoder", cursorKey: "qoderNew" });
+  const row = queueRows(queuePath).find((r) => r.source === "qoder");
+  // cach > inp would make the subtraction negative — the disjoint shape wins
+  assert.equal(row.input_tokens, 50_000);
+  assert.equal(row.total_tokens, 115_000);
+});

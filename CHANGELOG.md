@@ -6,6 +6,10 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.30.3] - 2026-11-14
+
+- **修复：Qoder BYOK / 新版远程会话的缓存读取不再重复计入输入 token**（重新吸收上游 TT #1109，面向开源用户的 BYOK/remote-chat 形态——CLI 1.1.8x+ 把含缓存的 prompt_tokens 整个塞进输入列导致缓存双计；按记录自带的 context_usage_ratio 信号正确拆分，旧格式记录不受影响）。**credits 订阅用户（token 字段恒为 0）完全不受影响，用量与费用口径与 1.30.2 一致**。判别假设已登记 KNOWN_ISSUES KI-066 长期观察。
+
 ## [1.30.2] - 2026-11-14
 
 - **修复：卡册翻牌口径恢复 AIHOT 原版三态**（实扒 aihot.news/free-tokens 生产代码定谳，撤销 1.30.1 的「统一青背」改判）：**从未领取 = 灰暗正面**（AIHOT `.ft-cd-ghost` 原值：正面沉进背景 opacity 0.62、无阴影，与「已领取揭示」的亮正面明确区分）、**历史领过今天没领 = 青色卡背等待态**、**今天领了 = 翻面亮正面揭示，次日翻回青背**。
