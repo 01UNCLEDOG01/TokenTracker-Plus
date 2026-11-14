@@ -20,14 +20,18 @@ function listPricingFiles(dir) {
   return fs.readdirSync(dir).filter((name) => fs.statSync(path.join(dir, name)).isFile()).sort();
 }
 
-test("pricing tables in install trees match src byte-for-byte", () => {
+test("pricing tables in install trees match src byte-for-byte", (t) => {
   const srcFiles = listPricingFiles(SRC_DIR);
   assert.ok(srcFiles.length > 0, "src/lib/pricing must not be empty");
-  for (const [label, treeDir] of TREES) {
-    if (!fs.existsSync(treeDir)) {
-      test.skip(`${label}: tree not present on this machine`);
-      continue;
-    }
+  // Skip ONCE up front: a nested test.skip() scheduled right before the parent
+  // returns gets cancelled by the runner ("did not finish before its parent")
+  // and paints the parent red on machines without any install tree (CI/mac).
+  const present = TREES.filter(([, treeDir]) => fs.existsSync(treeDir));
+  if (present.length === 0) {
+    t.skip("no install tree on this machine (CI / pure source checkout)");
+    return;
+  }
+  for (const [label, treeDir] of present) {
     const treeFiles = listPricingFiles(treeDir);
     assert.deepEqual(
       treeFiles,
