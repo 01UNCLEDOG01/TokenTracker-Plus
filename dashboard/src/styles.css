@@ -1412,10 +1412,9 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
 .tt-perks-page .perk-mini.is-uncollected .perk-card-ghost:hover {
   opacity: 0.92;
 }
-@media (prefers-color-scheme: dark) {
-  .tt-perks-page .perk-card-ghost {
-    filter: brightness(0.82) saturate(0.7);
-  }
+/* 面板固定暗主题（.dark 跟随面板主题而非系统，与 1375/1387 行的 .dark 前缀一致） */
+.dark .tt-perks-page .perk-card-ghost {
+  filter: brightness(0.82) saturate(0.7);
 }
 /* 背面 = 已收的青色卡背（AIHOT .ft-cd-back 原样：双向斜纹 + 160deg 青绿渐变 + 3px 白边）。 */
 .tt-perks-page .perk-card-back {
