@@ -13,6 +13,7 @@ import {
   fetchPetLimitSelectionRemote,
   readPetLimitSelection,
 } from "./lib/pet-limit-selection.js";
+import { readPetSnapshot, writePetSnapshot } from "./lib/pet-window-snapshot.mjs";
 import {
   normalizePetCharacter,
   parsePetActionLock,
@@ -158,17 +159,25 @@ function readPetUnitSystem() {
   return typeof window !== "undefined" && window.__ttPetTokenUnitSystem === "chinese" ? "chinese" : "western";
 }
 
+// 重启闪默认宠物（站主 2026-11-14）：壳的设置快照经 ExecuteScriptAsync 在页面加载
+// 后才注入，React 挂载时 __ttPet* 还没就位，默认形象先渲染一帧、快照到了再切——
+// 就是每次重启「先 Claude 后自己选的」那一下。快照落在独立 profile 的 localStorage
+// （见 lib/pet-window-snapshot.mjs），挂载时直接兜底；壳快照到达后仍以壳为准。
 function readPetCharacter() {
-  return normalizePetCharacter(typeof window !== "undefined" ? window.__ttPetCharacter : null);
+  const injected = typeof window !== "undefined" ? window.__ttPetCharacter : null;
+  return normalizePetCharacter(injected ?? readPetSnapshot().character ?? null);
 }
 
 function readPetBotColor() {
   const value = typeof window !== "undefined" ? window.__ttPetBotColor : null;
-  return BOT_COLOR_CHOICES.includes(value) ? value : "auto";
+  if (BOT_COLOR_CHOICES.includes(value)) return value;
+  const remembered = readPetSnapshot().botColor;
+  return BOT_COLOR_CHOICES.includes(remembered) ? remembered : "auto";
 }
 
 function readPetActionLock() {
-  return parsePetActionLock(typeof window !== "undefined" ? window.__ttPetActionLock : null);
+  const injected = typeof window !== "undefined" ? window.__ttPetActionLock : null;
+  return parsePetActionLock(injected ?? readPetSnapshot().actionLock ?? null);
 }
 
 function post(type) {
@@ -581,6 +590,11 @@ function Pet() {
   const idleTimer = useRef(0);
   const wakeTimer = useRef(0);
   const modelStatusTimer = useRef(0);
+
+  // 形象/挂件设置一变就落本地（见 readPetCharacter 的快照兜底说明）。
+  useEffect(() => {
+    writePetSnapshot({ character, botColor, actionLock });
+  }, [character, botColor, actionLock]);
 
   // Subscribe to miniMode, sleep, and model status updates pushed by the host.
   useEffect(() => {

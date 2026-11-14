@@ -1614,6 +1614,26 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   70% { opacity: 1; }
   100% { opacity: 0; filter: brightness(0.82); transform: perspective(2600px) rotateY(-95deg); }
 }
+/* 转动页 = 一张实体纸（AIHOT .ft-pg 同款）：装订孔 + 纸底色画在页面上，翻动时是
+   一张不透明的纸在转，而不是透明容器里飘着卡片（站主 2026-11-14 指认「太透明、
+   不像真翻书」）。覆盖层外扩到装订页全幅（含 padding 与孔位），静止帧与外层装订
+   底纹逐像素重合；transform-origin 左缘即装订脊。投影给纸页厚度感（AIHOT
+   .ft-pg-out/in 同款）。 */
+.tt-perks-page .perk-page-turn-out,
+.tt-perks-page .perk-page-turn-in {
+  inset: -10px -8px -12px -26px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 11px 22%, var(--perk-hole) 0 3.5px, transparent 4px),
+    radial-gradient(circle at 11px 50%, var(--perk-hole) 0 3.5px, transparent 4px),
+    radial-gradient(circle at 11px 78%, var(--perk-hole) 0 3.5px, transparent 4px),
+    var(--perk-binder);
+  box-shadow: 0 10px 30px rgba(20, 30, 30, 0.18);
+}
+.tt-perks-page .perk-page-turn-in {
+  align-content: start;
+  pointer-events: none;
+}
 
 /* 卡册翻页（2026-11-14 实扒 AIHOT free-tokens JS+CSS 对齐）：一次翻页只有一层在
    动、且永远渲染在最上层，另一层完全静止垫底——
