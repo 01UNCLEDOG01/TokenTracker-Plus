@@ -7107,19 +7107,12 @@ function qoderNewTimestampMs(record) {
     || 0;
 }
 
-// Qoder's remote-chat route (CLI 1.1.8x, agent 1.1.79+) copies Chat Completions
-// prompt_tokens straight into input_tokens, so it already includes the cache
-// counts — same contract as legacy normalizeQoderTokens. Those records also
-// carry context_usage_ratio (= input_tokens / context window), which is only
-// meaningful for a cache-inclusive prompt count. Rows without it (older
-// Anthropic-shaped CN/BYOK transcripts) or whose cache counts exceed input
-// stay disjoint. Upstream TT #1109 (2026-11-13) — without the split every
-// inclusive row double-counted its cache reads in both input and cache columns.
-function isQoderCacheInclusiveUsage(usage) {
-  const ratio = usage?.context_usage_ratio;
-  return typeof ratio === "number" && Number.isFinite(ratio);
-}
-
+// 2026-11-14 实测裁定：上游 TT #1109（cache-inclusive 拆分）不吸收——本机
+// 262 个 Qoder 会话文件全扫，input_tokens>0 的行数为 0（站主两版 Qoder 均为
+// credits 计费形态，token 字段恒为 0，normalizeQoderNewTokens 直接走 null
+// 分支只计对话数），双计 bug 对本机数据不存在；上游修复面向其 BYOK/CN 带
+// token 的用户形态。保留 normalizeQoderNewTokens 的 credits-only 语义原样，
+// 等真实 cache-inclusive 行出现（CLI 1.1.8x+ 的 BYOK 记录）再按上游参照移植。
 function normalizeQoderNewTokens(usage) {
   if (!usage || typeof usage !== "object") return null;
   const credits = Number(usage.credits ?? usage.original_credits ?? 0);
@@ -7140,17 +7133,14 @@ function normalizeQoderNewTokens(usage) {
     const cach = Math.max(0, Math.trunc(cached));
     const out = Math.max(0, Math.trunc(output));
     const cc = Math.max(0, Math.trunc(cacheCreation));
-    const inclusive = isQoderCacheInclusiveUsage(usage) && cach + cc <= inp;
-    const ordinary = inclusive ? inp - cach - cc : inp;
-    const total = ordinary + cach + cc + out;
     return {
-      input_tokens: ordinary,
+      input_tokens: inp,
       cached_input_tokens: cach,
       cache_creation_input_tokens: cc,
       output_tokens: out,
       reasoning_output_tokens: 0,
-      total_tokens: total,
-      billable_total_tokens: total,
+      total_tokens: inp + cach + cc + out,
+      billable_total_tokens: inp + cach + cc + out,
       credits: Number.isFinite(credits) && credits > 0 ? credits : 0,
       usage_precision: null,
     };

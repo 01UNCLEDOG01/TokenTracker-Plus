@@ -673,12 +673,13 @@ function AlbumMiniLogo({ item, hasIcon }) {
 function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onPreview, flipCount, onSealedClick, showStreak = true, variant = "vitrine", endsAt }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
-  // AIHOT 翻牌口径（站主 2026-11-12 图2/图3 定谳，方向与直觉相反；
-  // 2026-11-14 改判：从没领过的卡也归入「等待领取」——统一青背，
-  // 悬念面取消，正面只在领取揭示/玻璃柜绝版出现）：
-  //   青色卡背 = 「等待领取」——今天还没领（无论历史领没领过），稀有度金/闪材质刻在卡背上；
-  //   纸质正面 = 领取揭示后的样子（图3）——今天领过（claimedNow）、或绝版（盖红章）。
-  // 领取瞬间：卡从青背 rotateY 翻成正面（「翻牌领福利」），次日自动翻回等待态。
+  // AIHOT 翻牌口径（2026-11-14 实扒 aihot.news/free-tokens 生产代码定谳，站主裁定
+  // 恢复三态——11-14 早间「统一青背」的改判撤销）：
+  //   青色卡背 = 「等待领取」——历史领过、今天还没领（AIHOT .ft-cd-back）；
+  //   灰暗正面 = 从没领过（AIHOT .ft-cd-ghost：front + plain 灰纸材质 +
+  //     opacity:.62 + box-shadow:none，aria-label「还没领」）——悬念面保留但必须灰暗；
+  //   亮正面 = 今天领了（claimedNow）翻面揭示（AIHOT 领取后翻回 front）。
+  // 领取瞬间：卡从青背 rotateY 翻成正面（「翻牌领福利」），次日自动翻回青背。
   // 绝版形态（玻璃柜副本）：同卡的第二形态，做旧+盖戳，点击弹窗。
   const isVitrineForm = sealed && variant === "vitrine";
   // 卡型标签（站主 2026-11-12）：每张小卡代表一个周期（日/月/一各一张卡）。
@@ -688,8 +689,11 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
     once: { key: "once", label: copy("perks.cycle.once"), cls: "bg-amber-600/85" },
   };
   const cycleTags = [cycleTagMap[cycle] || cycleTagMap.daily];
-  // 主卡册日常形态照常翻转（青背=今天还没领，无论历史）；玻璃柜副本恒为正面（展示已下线福利+章）。
-  const showBack = !claimedNow && !isVitrineForm;
+  // 主卡册日常形态照常翻转；玻璃柜副本恒为正面（展示已下线福利+章）。
+  const showBack = collected && !claimedNow && !isVitrineForm;
+  // 从没领过 = AIHOT ft-cd-ghost：亮正面变灰暗（CSS perk-card-ghost），
+  // 不翻背——AIHOT 的未获得卡始终显示正面（opacity .62 沉进背景）。
+  const isGhost = !isVitrineForm && !collected && !claimedNow;
   // 领取瞬间翻面重播：flipKey 由父层（PerksPage）统一管理——翻页容器按页
   // key 重建会清掉组件内的延迟定时器。翻转目标是正面，key 挂在正面节点上。
   const flipKey = flipCount || 0;
@@ -776,6 +780,7 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
           className={cn(
             "perk-mini-card perk-card-front absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-lg border border-oai-gray-200/80 p-1.5",
             isVitrineForm ? "perk-card-aged" : null,
+            isGhost ? "perk-card-ghost" : null,
             !isVitrineForm && rarity ? "perk-front-" + rarity : null,
           )}
         >

@@ -482,16 +482,16 @@ describe("PerksPage", () => {
     expect(waitingBack.querySelectorAll(".perk-deck").length).toBe(0);
     // 卡背水印字（.ft-cd-back-mark 同款）
     expect(waitingBack.querySelector(".perk-back-mark")?.textContent).toBe("TT PLUS");
-    // 站主 2026-11-14 改判：从没领过的卡也归「等待领取」——统一青背
-    // （旧口径「从没领过=正面悬念面」取消）；无 ×N 徽章、无底牌堆叠
-    const neverClaimed = cards.find((card) =>
+    // 站主 2026-11-14 定谳（实扒 AIHOT .ft-cd-ghost）：从没领过的卡 = 灰暗正面
+    // （正面挂着 perk-card-ghost：opacity .62 沉底 + 无阴影），不翻背、无 ×N
+    const ghostFront = cards.find((card) =>
       card.className.includes("is-uncollected") &&
-      card.querySelector(".perk-card-back") &&
-      !card.querySelector(".perk-cnt") &&
-      card.querySelectorAll(".perk-deck").length === 0,
+      card.querySelector(".perk-card-front.perk-card-ghost") &&
+      !card.querySelector(".perk-card-back"),
     );
-    expect(neverClaimed).toBeTruthy();
-    expect(neverClaimed.textContent).not.toContain("×");
+    expect(ghostFront).toBeTruthy();
+    expect(ghostFront.textContent).not.toContain("×");
+    expect(ghostFront.querySelectorAll(".perk-deck").length).toBe(0);
     // retired 卡（qoder_cn 免费调用下线）：玻璃柜里的做旧纸卡 + 绝版章 + 「领过 N 次」小字；
     // 同一张卡的日常形态仍留在主卡册（站主 2026-11-12 定谳：两个形态并存）
     const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.querySelector(".perk-seal"));
