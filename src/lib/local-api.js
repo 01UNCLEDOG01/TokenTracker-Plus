@@ -5727,17 +5727,20 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             const unlocked = localAchievements
               .filter((badge) => (badge?.tier || 0) > 0 && badge.achieved)
               .map((badge) => {
-                const earned = earnedValues[badge.id];
-                const values = earned
-                  ? BADGE_TIER_KEYS.reduce((map, key) => {
-                      if (Number.isFinite(earned[key])) map[key] = earned[key];
-                      return map;
-                    }, {})
-                  : undefined;
+                const earned = earnedValues[badge.id] || {};
+                // HOMOGENEOUS rows: every entry carries the full values map
+                // (nulls for unrecorded tiers). The self-host PostgREST surface
+                // builds its column set from the payload — heterogeneous rows
+                // dropped the column entirely when the first row lacked it
+                // (the upsert itself now unions keys, but stay explicit).
+                const values = BADGE_TIER_KEYS.reduce((map, key) => {
+                  map[key] = Number.isFinite(earned[key]) ? earned[key] : null;
+                  return map;
+                }, {});
                 return {
                   id: badge.id,
                   achieved: BADGE_TIER_KEYS.reduce((map, key) => { map[key] = badge.achieved[key] || null; return map; }, {}),
-                  ...(values && Object.keys(values).length > 0 ? { values } : {}),
+                  values,
                 };
               });
             if (unlocked.length > 0) {

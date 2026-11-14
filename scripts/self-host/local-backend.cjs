@@ -356,8 +356,14 @@ async function handleDatabase(tx, url, method, raw, send, acceptsObject) {
     // emits a single object for .upsert({...}) / .insert({...}).
     const rows = Array.isArray(rawRows) ? rawRows : [rawRows];
     if (!rows.length) throw new Error("Expected SDK insert rows");
-    const names = Object.keys(rows[0]);
-    const values = rows.flatMap((row) => names.map((name) => row[name]));
+    // Column set = UNION across rows with missing keys → NULL (real PostgREST
+    // semantics). Keying on rows[0] alone silently dropped a column that only
+    // later rows carried — the badge-sync bulk upload (heterogeneous `values`:
+    // 11 of 31 entries carried readings) stored 31 rows and lost every value.
+    const nameSet = new Set();
+    for (const row of rows) for (const key of Object.keys(row)) nameSet.add(key);
+    const names = [...nameSet];
+    const values = rows.flatMap((row) => names.map((name) => (row[name] === undefined ? null : row[name])));
     // PostgREST upsert: POST with on_conflict=<cols> means INSERT ... ON CONFLICT
     // DO UPDATE. The public-visibility function saves github_url via upsert,
     // so this must be supported (it used to 500 with "Unsupported SQL filter").

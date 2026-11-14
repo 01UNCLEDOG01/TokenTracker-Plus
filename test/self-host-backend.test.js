@@ -274,6 +274,23 @@ test("badge sync stores per-tier earning values that follow the timestamp winner
   assert.equal(junk.response.status,400);
 });
 
+test("heterogeneous bulk upserts keep every column (挣到值 bulk-upload regression)",async()=>{
+  // The self-host PostgREST surface used to key INSERT/DO UPDATE columns off
+  // rows[0] alone — a bulk upload whose FIRST row lacked `values` (only 11 of
+  // 31 entries carried readings) stored 31 rows and silently dropped every
+  // earned_values. Columns must union across rows; missing keys → NULL.
+  const owner=await instance.user();
+  const mixed=await instance.request("tokentracker-badge-sync",{device_id:"hetero-probe",badges:[
+    {id:"hetero_a",achieved:{bronze:"2026-11-14T00:00:00Z",silver:null,gold:null,diamond:null}},
+    {id:"hetero_b",achieved:{bronze:"2026-11-14T00:00:00Z",silver:null,gold:null,diamond:null},values:{bronze:77,silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(mixed.response.status,200,mixed.data.error);
+  assert.equal(mixed.data.stored,2);
+  const wall=new Map((await instance.request("tokentracker-badge-sync",undefined,owner)).data.badges.map(b=>[b.id,b]));
+  assert.equal(wall.get("hetero_a").earned_values?.bronze ?? null,null,"first row without values stores nulls");
+  assert.equal(wall.get("hetero_b").earned_values?.bronze,77,"second row's value must survive the shared column set");
+});
+
 test("leaderboard snapshots key on (user, device) so a multi-device account can publish one row per machine",async()=>{
   // Regression guard for the per-device split (11634a4): the writer inserts
   // device_id and relies on a (period, window, user, device) unique key. Without
