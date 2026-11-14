@@ -179,14 +179,20 @@ function buildAihotSignal(item, aihotIndex) {
   const providers = PERKS_AIHOT_PROVIDERS[item.id];
   if (!providers || !aihotIndex) return null;
   let latest = "";
+  let endsAt = "";
   for (const provider of providers) {
     const deal = aihotIndex.byProvider.get(provider);
     if (deal && (deal.verified_at || "") > latest) latest = deal.verified_at || "";
+    // 截止日取映射 deals 里**最早**的非空 ends_at（最先失效的那个福利决定卡面警示）
+    if (deal?.ends_at) {
+      const t = Date.parse(deal.ends_at);
+      if (Number.isFinite(t) && (!endsAt || t < Date.parse(endsAt))) endsAt = deal.ends_at;
+    }
   }
   // 下架提示独立于在架日期：全部 provider 上轮在架、本轮消失也要出信号。
   const dropped = providers.every((provider) => !aihotIndex.byProvider.has(provider)) && providers.every((provider) => aihotIndex.dropped.has(provider));
   if (!latest && !dropped) return null;
-  return { date: latest ? beijingDate(latest) : "", dropped };
+  return { date: latest ? beijingDate(latest) : "", dropped, endsAt };
 }
 
 function ProviderLogo({ item }) {
@@ -348,8 +354,9 @@ function ClaimDateAdjust({ date, today, monthScoped, onApply }) {
 }
 
 function PerkCard({ item, claims, claimDay, onToggleClaim, onAdjustClaimDate, aihot }) {
-  // 活动截止倒计时（只有数据里写了 endsAt 的卡才有）
-  const deadline = perkDaysLeft(item.endsAt);
+  // 活动截止倒计时：自家人工 endsAt 优先，AIHOT 映射 deal 的最早 ends_at 兜底
+  // （AIHOT 列表红字「还剩 N 天」同源数据，2026-11-14 联动）。
+  const deadline = perkDaysLeft(item.endsAt || aihot?.endsAt);
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = (e) => {
@@ -649,11 +656,12 @@ function formatCountdown(msLeft) {
 //   未领取 = 纸质正面（面值条 + 图标底座 + 品牌名），深色主题下也是浅色卡；
 //   已领取 = 翻到青色卡背（双向斜纹 + 3px 白边 + 白底圆形 logo + ×N），领取瞬间 rotateY 翻面。
 // 只渲染当前那一面：同品牌名不会在页面/无障碍树里出现两次（下方详情卡还有一份 h3）。
-// 活动截止倒计时：endsAt 是北京时间自然日（YYYY-MM-DD），当日 23:59 失效。
-// 只给数据里写明截止日的卡加了 endsAt，没写的不编。
+// 活动截止倒计时：endsAt 两种格式都收——自家数据是北京时间自然日（YYYY-MM-DD，
+// 当日 23:59 失效）；AIHOT 快照是完整 ISO 时间戳（含 T/Z，直接 parse）。
+// 只给写明截止日的卡显示，没写的不编。
 export function perkDaysLeft(endsAt, nowMs = Date.now()) {
   if (!endsAt) return null;
-  const end = Date.parse(`${endsAt}T23:59:59+08:00`);
+  const end = Date.parse(endsAt.includes("T") ? endsAt : `${endsAt}T23:59:59+08:00`);
   if (!Number.isFinite(end)) return null;
   const ms = end - nowMs;
   return { ended: ms <= 0, days: Math.max(0, Math.ceil(ms / 86400000)) };
@@ -689,7 +697,7 @@ function AlbumMiniLogo({ item, hasIcon }) {
   return <span className="font-mono text-[11px] font-bold text-oai-gray-700">{item.name.charAt(0).toUpperCase()}</span>;
 }
 
-function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onPreview, flipCount, onSealedClick, showStreak = true, variant = "vitrine", endsAt }) {
+function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, sealed, rarity, faceValue, onPreview, flipCount, onSealedClick, showStreak = true, variant = "vitrine", endsLabel, endsHot }) {
   const hasIcon = item.provider ? hasProviderIcon(item.provider) : false;
   const accent = PERK_TIER_ACCENT[item.badgeType] || PERK_TIER_ACCENT.neutral;
   // AIHOT 翻牌口径（2026-11-14 实扒 aihot.news/free-tokens 生产代码定谳，站主裁定
@@ -821,8 +829,8 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
                 </span>
               ))}
             </span>
-            {variant === "strip" && endsAt ? (
-              <span className="perk-cd-end ml-auto self-center">{endsAt.slice(5)}</span>
+            {variant === "strip" && endsLabel ? (
+              <span className={cn("perk-cd-end ml-auto self-center", endsHot ? "perk-cd-end-hot" : null)}>{endsLabel}</span>
             ) : null}
             {isVitrineForm && (
               <span className="perk-seal absolute right-0 top-0 rounded px-1 py-0.5 text-[8px] font-extrabold tracking-wider">
@@ -1018,7 +1026,8 @@ function AlbumStrip({ items, stripItems, claimDay, page, onPageChange, onPreview
         onPreview={onPreview}
         flipCount={liveFlip ? (flipKeys[entry.item.id + ":" + entry.cycle] || 0) : 0}
         variant="strip"
-        endsAt={entry.item.endsAt}
+        endsLabel={entry.endsLabel}
+        endsHot={entry.endsHot}
       />
     ));
   }
@@ -1431,6 +1440,21 @@ export function PerksPage() {
         return best;
       })();
       const monthlyClaimed = cycle === "monthly" && Boolean(getPerkClaimDate(item, claims, "monthly", claimDay));
+      // AIHOT 截止联动（站主 2026-11-14：AIHOT 列表有红字「还剩 N 天」，我们有
+      // ends_at 却只印 MM-DD 日期）：自家人工 endsAt 优先，映射 deal 的最早非空
+      // ends_at 兜底——perkDaysLeft 双格式兼容。绝版判定暂不联动 AIHOT ends_at
+      // （口径是 AIHOT 的非站主核对，挂账观察）。
+      const endsRaw = item.endsAt || (() => {
+        const providers = PERKS_AIHOT_PROVIDERS[item.id];
+        if (!providers) return "";
+        let best = "";
+        for (const provider of providers) {
+          const candidate = aihotIndex.byProvider.get(provider)?.ends_at;
+          if (candidate && (!best || Date.parse(candidate) < Date.parse(best))) best = candidate;
+        }
+        return best;
+      })();
+      const endsDeadline = perkDaysLeft(endsRaw);
       // 绝版 = 活动结束（站主 2026-11-12 口径）：AIHOT 把该 provider 标记为
       // dropped（下线活动，如 workbuddy 国际版 DeepSeek 免费调用）、或数据里
       // 写了 endsAt 且已过期、或显式 retired 标记——与是否领取过无关。
@@ -1452,6 +1476,8 @@ export function PerksPage() {
         ),
         collected: streak > 0,
         sealed,
+        endsLabel: endsDeadline ? (endsDeadline.ended ? "已结束" : `还剩 ${endsDeadline.days} 天`) : "",
+        endsHot: Boolean(endsDeadline && !endsDeadline.ended && endsDeadline.days <= 3),
         faceValue: deal?.label || null,
         // 「今天还能领」= 该卡映射 deal 的折算值（今日尚未领取时计入合计），
         // 与 AIHOT 顶部口径一致：所有 counted 估值都算今天可领。

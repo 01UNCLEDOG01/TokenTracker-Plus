@@ -430,7 +430,24 @@ describe("PerksPage", () => {
     getCopyLocale.mockReturnValue("zh");
   });
 
-  it("AIHOT 式卡册：常驻页首、统计头、暗卡悬念、收卡进度、圆点翻页", () => {
+  it("AIHOT 式卡册：常驻页首、统计头、暗卡悬念、收卡进度、圆点翻页", async () => {
+    // AIHOT 截止联动（站主 2026-11-14：AIHOT 列表红字「还剩 N 天」同源数据）：
+    // mock 一条 2 天后截止的 deal（映射第一页的 ACE Music，从未领取=ghost 正面）
+    // → 小卡显示红字「还剩 2 天」
+    vi.stubGlobal("fetch", vi.fn((url) => {
+      if (String(url).includes("aihot-free-tokens")) {
+        const ends = new Date(Date.now() + 2 * 86400000).toISOString();
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            schema: 1,
+            items: [{ id: "ace-music-invite", kind: "limited", provider: "智谱 ZCode", title: "ZCode 邀请送积分", ends_at: ends, verified_at: "2026-11-14T02:00:00.000Z", counted: true }],
+            dropped_providers: [],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    }));
     localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
       schema: 3,
       providers: {
@@ -447,6 +464,9 @@ describe("PerksPage", () => {
         <PerksPage />
       </ToastProvider>
     );
+
+    // AIHOT 快照异步落地（fetch mock）后才生成截止小字
+    await waitFor(() => expect(document.querySelector('[data-perk-id="zcode"] .perk-cd-end')).toBeTruthy());
 
     // 卡册常驻：不需要切换按钮，页首直接有「我的卡册」+ 统计头
     expect(screen.getByText("我的卡册")).toBeInTheDocument();
@@ -520,6 +540,12 @@ describe("PerksPage", () => {
     expect(ghostFront).toBeTruthy();
     expect(ghostFront.textContent).not.toContain("×");
     expect(ghostFront.querySelectorAll(".perk-deck").length).toBe(0);
+    // AIHOT 截止联动（站主 2026-11-14）：mock 的 ZCode deal 2 天后截止 →
+    // 从未领取（ghost 正面、渲染页内）的 zcode 卡显示红字「还剩 2 天」（≤3 天 hot 类）
+    const endBadge = document.querySelector('[data-perk-id="zcode"] .perk-cd-end');
+    expect(endBadge).toBeTruthy();
+    expect(endBadge.textContent).toBe("还剩 2 天");
+    expect(endBadge.className).toContain("perk-cd-end-hot");
     // retired 卡（qoder_cn 免费调用下线）：玻璃柜里的做旧纸卡 + 绝版章 + 「领过 N 次」小字；
     // 同一张卡的日常形态仍留在主卡册（站主 2026-11-12 定谳：两个形态并存）
     const sealedCard = [...document.querySelectorAll(".perk-mini")].find((card) => card.querySelector(".perk-seal"));
