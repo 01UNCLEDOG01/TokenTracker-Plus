@@ -192,7 +192,7 @@ export const PERKS_EN = {
   muse_ai: {
     badge: "Invite: both sides get 1B tokens (redeem within 48h of signup)",
     description:
-      "Meta’s personal AI agent (muse.ai, app and web): **new accounts can enter an invite code within 48 hours of signup, and both sides get 1B tokens** (verified in-client by the owner, 2026-11-14; redemption path: app Settings → Redeem token, or muse.ai → Settings → Usage → redeem code). Tokens are consumable only inside Muse; burn rate and equivalent value have no public pricing — in-app terms prevail.",
+      "Meta’s personal AI agent (muse.ai, app and web): **new accounts can enter an invite code within 48 hours of signup, and both sides get 1B tokens** (verified in-client by the owner, 2026-11-14; redemption path: app Settings → Redeem token, or muse.ai → Settings → Usage → redeem code). **Each invite code can be used up to 30 times** — 1B from your own signup + 30 × 1B from a fully-used code = up to **31B permanent tokens** per account, plus a weekly-resetting free allowance (amount per in-app terms). Tokens are consumable only inside Muse; burn rate and equivalent value have no public pricing — in-app terms prevail.",
     tips:
       "Owner’s invite code: 14TGK4 (27 uses left as of 2026-11-14); the 48-hour window cannot be extended. Site: https://muse.ai.",
     tags: ["Personal AI agent", "In-app use only", "Invite rewards"],

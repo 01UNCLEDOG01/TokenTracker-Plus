@@ -83,6 +83,8 @@ if (!rows.length) fail("PERK_PROVIDERS 为空");
 
 const seenIds = new Map();
 const seenHosts = new Map();
+// 允许多张条目共用 officialUrl 主机的白名单（产品族拆周期卡时用）。
+const SHARED_OFFICIAL_HOSTS = new Set(["ima.qq.com"]);
 
 for (const [index, row] of rows.entries()) {
   const id = row.id || `#${index}`;
@@ -114,8 +116,14 @@ for (const [index, row] of rows.entries()) {
     if (url.protocol !== "https:") fail(`${id}: ${key} 必须走 https`);
     if (key === "officialUrl") {
       const host = url.host.toLowerCase();
-      if (seenHosts.has(host)) fail(`${id}: officialUrl 主机 ${host} 与「${seenHosts.get(host)}」重复`);
-      else seenHosts.set(host, row.name);
+      // 同一产品的多周期条目共用一个官网主机（站主铁律 2026-11-14：一次性/每日/每月
+      // 福利必须分别做卡，ima 因此拆「日」与「新人一次性」两条目）。登记进白名单的
+      // 主机必须真是同一产品的官方站——这条规则本身是为了抓复制粘贴与编造。
+      if (seenHosts.has(host) && !SHARED_OFFICIAL_HOSTS.has(host)) {
+        fail(`${id}: officialUrl 主机 ${host} 与「${seenHosts.get(host)}」重复`);
+      } else if (!seenHosts.has(host)) {
+        seenHosts.set(host, row.name);
+      }
     }
   }
 
