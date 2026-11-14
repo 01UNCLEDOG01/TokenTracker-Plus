@@ -69,7 +69,7 @@ internal sealed class PetWindow : Window
     private bool _connected = true;
     private double _bubbleBand = MinBubbleBand;
     /// <summary>Current free-scale factor; presets are anchors on this continuous scale.</summary>
-    private double _scale = ScaleMedium;
+    private double _scale = PetScale.Medium;
     private bool _isAdjustingBubbleLayout;
     private bool _isDragging;
     private double _lastDragLeft;
@@ -113,7 +113,7 @@ internal sealed class PetWindow : Window
         Title = Constants.AppDisplayName + " Pet";
         _scale = CurrentScale;
         Width = WindowWidth;
-        Height = HeightForScale(_scale);
+        Height = PetScale.HeightFor(_scale);
         WindowStyle = WindowStyle.None;          // no OS chrome
         ResizeMode = ResizeMode.NoResize;
         // Per-pixel transparency: layered window whose alpha comes from the
@@ -535,7 +535,7 @@ internal sealed class PetWindow : Window
     {
         if (!double.IsFinite(requestedHeight)) return;
 
-        var baseHeight = HeightForScale(_scale);
+        var baseHeight = PetScale.HeightFor(_scale);
         var spriteAreaHeight = baseHeight - MinBubbleBand;
         var workArea = SystemParameters.WorkArea;
         var maxBand = Math.Max(MinBubbleBand, workArea.Height - spriteAreaHeight);
@@ -911,7 +911,7 @@ internal sealed class PetWindow : Window
         WriteSettings(s =>
         {
             s["PetSize"] = normalized;
-            s["PetScale"] = AnchorForSize(normalized);
+            s["PetScale"] = PetScale.AnchorForSize(normalized);
         });
     }
 
