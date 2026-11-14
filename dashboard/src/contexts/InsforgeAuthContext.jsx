@@ -352,6 +352,28 @@ export function InsforgeAuthProvider({ children }) {
   const [cloudDisplayName, setCloudDisplayName] = useState(null);
   // 自定义头像（设置页上传/保存后即时传播给侧栏头像，2026-11-12）。
   const [customAvatarUrl, setCustomAvatarUrl] = useState(null);
+  // 头像本地缓存（2026-11-14 站主：重启后头像要好几秒才出来——回填链是
+  // SDK 鉴权 → token → public-visibility 往返，冷启动时侧栏头像空窗数秒）。
+  // 缓存按 user.id 存上次取到的 avatar_url：挂载即回显、API 回来再刷新；
+  // 设置页上传走同一个入口（setCustomAvatarUrlWithCache），缓存天然同步。
+  const avatarCacheKey = (uid) => `tt.avatar_cache.${uid}`;
+  const readCachedAvatar = (uid) => {
+    try {
+      return window.localStorage.getItem(avatarCacheKey(uid));
+    } catch {
+      return null;
+    }
+  };
+  const writeCachedAvatar = (uid, url) => {
+    try {
+      if (url) window.localStorage.setItem(avatarCacheKey(uid), url);
+      else window.localStorage.removeItem(avatarCacheKey(uid));
+    } catch { /* 存储不可用时静默 */ }
+  };
+  const setCustomAvatarUrlWithCache = useCallback((url) => {
+    setCustomAvatarUrl(url);
+    if (user?.id) writeCachedAvatar(user.id, url);
+  }, [user?.id]);
   const [displayNameResolved, setDisplayNameResolved] = useState(false);
   const authDisplayName = useMemo(() => pickDisplayNameFromUser(user), [user]);
 
@@ -365,13 +387,19 @@ export function InsforgeAuthProvider({ children }) {
       setCustomAvatarUrl(null);
       return;
     }
+    // 先回显本地缓存（同账号上次取到的头像），再向服务端要最新值——
+    // 冷启动时头像不再空窗数秒。
+    if (user?.id) setCustomAvatarUrl(readCachedAvatar(user.id));
     let active = true;
     (async () => {
       try {
         const token = await resolveInsforgeClientAccessToken(client);
         if (!active || !token) return;
         const data = await getPublicVisibility({ accessToken: token });
-        if (active) setCustomAvatarUrl(data?.avatar_url || null);
+        if (active) {
+          setCustomAvatarUrl(data?.avatar_url || null);
+          if (user?.id) writeCachedAvatar(user.id, data?.avatar_url || null);
+        }
       } catch { /* ignore */ }
     })();
     return () => { active = false; };
@@ -445,7 +473,7 @@ export function InsforgeAuthProvider({ children }) {
       loading,
       displayName,
       customAvatarUrl,
-      setCustomAvatarUrl,
+      setCustomAvatarUrl: setCustomAvatarUrlWithCache,
       refreshUser,
       refreshDisplayName,
       signInWithOAuth,
@@ -464,6 +492,7 @@ export function InsforgeAuthProvider({ children }) {
     loading,
     displayName,
     customAvatarUrl,
+    setCustomAvatarUrlWithCache,
     refreshUser,
     refreshDisplayName,
     signInWithOAuth,
