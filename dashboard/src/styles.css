@@ -1600,19 +1600,23 @@ html.native-windows-app .tt-native-glass-shell aside[data-native-sidebar] {
   100% { opacity: 0; filter: brightness(0.82); transform: perspective(2600px) rotateY(-95deg); }
 }
 
-/* 卡册翻页：仿 AIHOT 的 rotateY 翻纸（0.62s cubic-bezier(.45,.05,.35,1)）。 */
+/* 卡册翻页：AIHOT ft-pg-in 原版关键帧逐字对齐（0.62s cubic-bezier(.45,.05,.35,1)）。
+   2026-11-14 站主指认差异：AIHOT 是「被翻起的那页消失的同时才出现新页」，而我们
+   点按钮新页立刻出现。真因=此前为修「透底板」把 in 的起点抬到 opacity 0.75 /
+   -70°——新页挂载瞬间就半可见。恢复 AIHOT 原版（0% opacity:0 + rotateY(-95°)）
+   后不再需要那种 workaround：转出层在 DOM 里后渲染、盖在新页上方且 70% 前一直
+   不透明，新页 0-30% 的半透明帧永远被旧页挡住，透不到底板；70% 旧页开始消失时
+   新页已翻起到位（30% 即 opacity 1），观感与 AIHOT 一致。 */
 .tt-perks-page .perk-page-turn {
   transform-origin: 0 50%;
   animation: perk-page-turn 0.62s cubic-bezier(0.45, 0.05, 0.35, 1) both;
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
-/* 起点不再压到 opacity 0.2：那几帧能透过卡片看到底板，就是「闪一下」的观感。
-   0.75 + 收窄到 -70° 后，起始帧已经是「几乎翻好的纸」，视觉上只剩翻页运动。 */
 @keyframes perk-page-turn {
-  0% { opacity: 0.75; filter: brightness(0.9); transform: rotateY(-70deg); }
+  0% { opacity: 0; filter: brightness(0.82); transform: perspective(2600px) rotateY(-95deg); }
   30% { opacity: 1; }
-  100% { opacity: 1; filter: brightness(1); transform: rotateY(0deg); }
+  100% { opacity: 1; filter: brightness(1); transform: perspective(2600px) rotateY(0deg); }
 }
 
 /* 福利卡内容可见性优化：53 张长卡只在进入视口时布局/绘制（DOM 仍全量存在）。 */

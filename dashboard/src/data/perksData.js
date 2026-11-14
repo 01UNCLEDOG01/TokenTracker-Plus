@@ -1449,7 +1449,7 @@ export const PERK_PROVIDERS = [
       "邀请返利"
     ],
     "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10。免费用户可用 4 款（按牌价计费、消耗注册金/签到金）：Claude Sonnet 4.6、DeepSeek V4.1 Flash、Agnes 3.0 Flash 均无日限额；GPT 6 Luna 单独带日限额 50M。另 Promotional Allowance 每日 10M 统一配额（GLM 5.3 Flash、Beam 1.0、Nemotron，$0，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。稳定性提示（2026-11-11 端内核对）：该站近期服务不稳，多次出现模型不可用/网关报错，且必须海外网络环境，体验波动概率明显高于同价位聚合站；按稳定性折算后档位下调为蓝，建议只作备用线路。",
-    "tips": "免费档按牌价计费、消耗注册金与签到金；付费 Lite/Pro 解锁 DeepSeek 4.1 Flash 1017、GPT 5.6 Sol/Terra、GPT 6 Astra（维护中）、Claude Sonnet 4.6 Pro。价格须知：站内牌价为转售价、显著高于官方刊例（如 gpt-6-luna 站内 $2/M、官方刊例 $0.10/M，溢价约 20 倍），注册金与签到金消耗更快；TokenTracker 面板金额按官方刊例折算，与站内账单口径不同属正常。模型列表实时变动，接入前先看「模型列表」页。⚠️ 第三方中转聚合网关：请求经其服务器转发，勿发送密钥/隐私/敏感代码，Key 用独立账号注册并可随时吊销。2026-11-13 站主实测：服务器近期故障未修复，暂不可用（恢复后以端内为准）。",
+    "tips": "免费档按牌价计费、消耗注册金与签到金；付费 Lite/Pro 解锁 DeepSeek 4.1 Flash 1017、GPT 5.6 Sol/Terra、GPT 6 Astra（维护中）、Claude Sonnet 4.6 Pro。价格须知：站内牌价为转售价、显著高于官方刊例（如 gpt-6-luna 站内 $2/M、官方刊例 $0.10/M，溢价约 20 倍），注册金与签到金消耗更快；TokenTracker 面板金额按官方刊例折算，与站内账单口径不同属正常。模型列表实时变动，接入前先看「模型列表」页。⚠️ 第三方中转聚合网关：请求经其服务器转发，勿发送密钥/隐私/敏感代码，Key 用独立账号注册并可随时吊销。2026-11-13 站主实测：服务器故障暂不可用；2026-11-14 站主反馈已恢复可用，可再试（如再遇网关报错/模型不可用，以端内为准）。",
     "inviteUrl": "https://vyceai.com/signup?ref=VYCE_868RV5",
     "officialUrl": "https://vyceai.com",
     "inviteCode": "VYCE_868RV5",
@@ -1618,15 +1618,17 @@ export const PERK_PROVIDERS = [
     "sortNames": ["TENCENT IMA"],
     "provider": "tencent_ima",
     "category": ["client","daily_claim"],
-    "badge": "每日签到领 50 算力（DeepSeek 等内置模型）",
+    "claimCycles": ["daily", "once"],
+    "badge": "每日登录领 50 算力 · 新人送 500 算力",
     "badgeType": "success",
-    "tags": ["限产品内使用","客户端签到"],
-    "description": "腾讯 ima Copilot 内置模型（如 DeepSeek 系列，具体可选项以客户端为准）：**每日签到领 50 算力**（2026-11-13 AIHOT 核实）。仅限 ima 产品内使用。",
-    "tips": "签到入口在客户端；官网 https://ima.qq.com。",
+    "tags": ["限产品内使用","登录即发","邀请返利"],
+    "description": "腾讯 ima Copilot 内置模型（如 DeepSeek 系列，具体可选项以客户端为准），算力仅限 ima 产品内消耗：**每日登录领 50 算力，单次 7 天内有效**（2026-11-14 端内实测：登录自动发放，无需手动签到）；**新人福利 500 算力，3 个月有效**（注册即发，端内实测单次有效期 2026-11-14 至 2027-02-12）。邀请活动：邀 1 位新用户得 100 算力（31 天有效），被邀请人同样领新人福利。每日 50 算力由 AIHOT 于 2026-11-13 先行核实。",
+    "tips": "算力明细在客户端「用量统计」页可查（赠送算力明细列每日登录与新人福利各自的发放日与有效期）；邀请链接在 App 内「邀请好友」页生成。官网 https://ima.qq.com。",
     "officialUrl": "https://ima.qq.com",
-    "hasInvite": false,
-    "checkedAt": "2026-11-13",
-    "sourceUrl": "https://aihot.news/free-tokens"
+    "inviteUrl": "https://ima.qq.com/copilot-invite-reward-token/assist/V_5sR6OCkur6Wxsf9PCbnw",
+    "hasInvite": true,
+    "checkedAt": "2026-11-14",
+    "sourceUrl": "https://ima.qq.com"
   },
   {
     "id": "ace_music",

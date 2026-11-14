@@ -188,7 +188,7 @@ AIHOT 首页 2026-11-13 快照核对后新收录。估值口径同全表：美�
 |---|---|---|---|
 | `officeace` | 华为果办 OfficeAce | blue | 100 积分/日 × ¥0.02/分（果办无公开单价，保守） |
 | `meoo` | 秒悟 Meoo | blue | 2000 积分/日，单价未公开 → 保守 ¥2/日 |
-| `tencent_ima` | 腾讯 ima | success | 50 算力/日 |
+| `tencent_ima` | 腾讯 ima | success | 50 算力/日 + 新人 500 算力（一次性）；算力无公开购价 → 保守锚 1 算力 ≈ ¥0.01（2026-11-14 站主端内实测补新人/邀请福利，卡带 claimCycles=daily+once） |
 | `ace_music` | ACE Music | success | 20 积分/日（10 首歌/日） |
 | `astudio` | 讯飞 AStudio | blue | 100 积分/日 × ¥0.004/分 + 新户 1000 |
 | `wps_lingxi` | WPS 灵犀 | success | 100 智点/日（第 7 天起 200） |

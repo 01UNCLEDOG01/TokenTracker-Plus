@@ -20,7 +20,17 @@ export function nextPerkClaimDayDelay(nowMs = Date.now()) {
   return Math.max(1_000, tomorrow - nowMs);
 }
 
+const CLAIM_CYCLES = new Set(["daily", "monthly", "once"]);
+
 export function getPerkClaimCycles(item) {
+  // 显式 claimCycles（2026-11-14 ima：同一产品既有「每日登录 50 算力」又有
+  // 「新人 500 算力」两种周期）优先于 category 推导——一张条目按 provider×cycle
+  // 展开成多张周期卡，与 workbuddy 日/月两卡同一模型，且不用为同官网开第二张条目
+  // （officialUrl 主机全局唯一的门禁不为此放宽）。
+  if (Array.isArray(item?.claimCycles)) {
+    const cycles = [...new Set(item.claimCycles)].filter((cycle) => CLAIM_CYCLES.has(cycle));
+    if (cycles.length) return cycles;
+  }
   const cycles = [];
   if (item.category?.includes("daily_claim")) cycles.push("daily");
   if (item.category?.includes("monthly_claim")) cycles.push("monthly");

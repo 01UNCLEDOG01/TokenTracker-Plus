@@ -29,6 +29,14 @@ describe("perk claim calendar and state (schema 3: {last, count})", () => {
       once: { once: { last: "2026-10-01", count: 1 } },
     };
     expect(getPerkClaimCycles(mixed)).toEqual(["daily", "monthly"]);
+    // 显式 claimCycles：一张条目展开 daily+once（ima 每日 50 算力 + 新人 500 算力），
+    // 非法值被过滤、非法数组回退 category 推导（2026-11-14）。
+    const ima = { id: "tencent_ima", category: ["client", "daily_claim"], claimCycles: ["daily", "once", "bogus"] };
+    expect(getPerkClaimCycles(ima)).toEqual(["daily", "once"]);
+    expect(getPerkClaimCycles({ id: "bad", category: ["daily_claim"], claimCycles: ["nope"] })).toEqual(["daily"]);
+    expect(getPerkClaimCycles({ id: "bad2", claimCycles: "daily" })).toEqual(["once"]);
+    expect(getPerkClaimDate(ima, { tencent_ima: { once: { last: "2026-11-14", count: 1 } } }, "once", "2026-11-14")).toBe("2026-11-14");
+    expect(getPerkClaimStreak(ima, { tencent_ima: { once: { last: "2026-11-14", count: 1 } } }, "once")).toBe(1);
     expect(isPerkClaimed(mixed, claims, "2026-11-03")).toBe(true);
     expect(getPerkClaimDate(mixed, claims, "daily", "2026-11-04")).toBeNull();
     expect(getPerkClaimDate(mixed, claims, "monthly", "2026-11-30")).toBe("2026-11-01");
