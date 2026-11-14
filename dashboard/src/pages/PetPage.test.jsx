@@ -369,7 +369,6 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
   });
 
   it("renders the free-size slider on hosts that echo petScale and posts raw scale", async () => {
-    const user = userEvent.setup();
     const messages = installMacBridge();
     render(<PetPage />);
 
@@ -386,9 +385,10 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
 
     const slider = await screen.findByRole("slider", { name: copy("pet.controls.size") });
     expect(slider).toHaveValue("1.4");
-    // The preset segmented control is replaced by the slider + anchor chips.
-    expect(screen.queryByRole("button", { name: copy("pet.size.medium") })).not.toBeNull();
-    expect(screen.getByRole("button", { name: copy("pet.size.medium") })).toHaveAttribute("aria-pressed", "true");
+    // The slider is the only size control on petScale hosts — the 小/中/大
+    // anchor chips died 2026-11-14 (站主令：有滑杆就不需要按钮).
+    expect(screen.queryByRole("button", { name: copy("pet.size.medium") })).toBeNull();
+    expect(screen.queryByRole("button", { name: copy("pet.size.large") })).toBeNull();
 
     // Moving the slider posts the raw continuous scale — the host clamps.
     // jsdom has no range-keyboard handling, so drive the input with a change
@@ -398,13 +398,6 @@ it("hides the free-float mode and 动作 picker on a macOS host that does not su
     });
     await waitFor(() => {
       expect(messages).toContainEqual({ type: "setPetSetting", key: "petScale", value: 1.6 });
-    });
-
-    // An anchor chip posts the legacy `size` key — the host maps it to the
-    // preset's anchor scale, keeping the bridge contract backward-compatible.
-    await user.click(screen.getByRole("button", { name: copy("pet.size.large") }));
-    await waitFor(() => {
-      expect(messages).toContainEqual({ type: "setPetSetting", key: "size", value: "large" });
     });
   });
 
