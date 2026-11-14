@@ -52,9 +52,10 @@ function startServer(handler) {
   });
 }
 
-async function fetchAchievements(port) {
+async function fetchAchievements(port, { view } = {}) {
+  const suffix = view ? `?view=${view}` : "";
   const body = await new Promise((resolve, reject) => {
-    http.get(`http://127.0.0.1:${port}/functions/tokentracker-achievements`, (res) => {
+    http.get(`http://127.0.0.1:${port}/functions/tokentracker-achievements${suffix}`, (res) => {
       let data = "";
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => resolve(data));
@@ -144,6 +145,19 @@ test("achievements merge the account union and mark remote-only raises", async (
     const post = upstreamPosts[upstreamPosts.length - 1];
     assert.ok(Array.isArray(post?.badges), "the local unlock set must be uploaded");
     assert.ok(post.badges.every((badge) => badge.id && badge.achieved), "entries carry id + achieved");
+
+    // ?view=local (成就页「本机」页签): the same server must answer with the
+    // pre-merge device wall — no union raises, no merge marker — while the
+    // default scope keeps serving the union.
+    const localOnly = await fetchAchievements(server.address().port, { view: "local" });
+    assert.ok(localOnly.achievements.every((badge) => badge.remote_raised === undefined),
+      "scope=local must not leak the union into the device wall");
+    const localCannon = localOnly.achievements.find((badge) => badge.id === "code_cannon");
+    assert.equal(localCannon.tier, 0);
+    assert.equal(localCannon.local_tier, undefined);
+    assert.equal(localOnly.badges_merged_from_account, undefined);
+    const mergedAgain = await fetchAchievements(server.address().port);
+    assert.equal(mergedAgain.achievements.find((badge) => badge.id === "code_cannon").tier, 1);
   } finally {
     server.close();
     upstream.close();

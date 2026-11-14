@@ -4,7 +4,7 @@ import { BADGE_BY_ID } from "../ui/achievements/badge-catalog.js";
 import { TITLES_REGISTRY } from "../ui/achievements/title-registry.js";
 import { getLocalAchievements } from "../lib/api";
 import { triggerAchievementNotification } from "../ui/achievements/SteamAchievementToast.jsx";
-import { pollAchievements, useAchievements } from "./use-achievements.js";
+import { pollAchievements, pollLocalAchievements, useAchievements, useLocalAchievements } from "./use-achievements.js";
 
 vi.mock("../lib/api", () => ({ getLocalAchievements: vi.fn() }));
 vi.mock("../ui/achievements/SteamAchievementToast.jsx", () => ({
@@ -225,5 +225,106 @@ describe("achievement notification artwork", () => {
     const stored = JSON.parse(localStorage.getItem(TITLE_KEY)).frugal_archmage;
     expect(stored.unlocked).toBe(true);
     expect(stored.tier).toBeGreaterThan(0);
+  });
+});
+
+describe("local scope view (成就页「本机」页签)", () => {
+  const LOCAL_BADGE_KEY = "tokentracker:achievement_tiers_local";
+  const LOCAL_CACHE_KEY = "tokentracker:cached_achievements_local";
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it("fetches with view=local and never fires toasts, titles, or union writes", async () => {
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 0 }));
+    localStorage.setItem(TITLE_KEY, JSON.stringify({ frugal_archmage: { unlocked: false, tier: 0 } }));
+    // A server that honors view=local answers with the pure device wall —
+    // the union's remote_raised markers never appear in it (that downgrade
+    // path has its own test below).
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{ id: "kill_line", tier: 2 }],
+    });
+
+    const result = await pollLocalAchievements();
+
+    expect(getLocalAchievements).toHaveBeenCalledWith(expect.objectContaining({ view: "local" }));
+    expect(result[0].tier).toBe(2);
+    expect(triggerAchievementNotification).not.toHaveBeenCalled();
+    // Titles and the union's high-water mark belong to the union poller alone.
+    expect(localStorage.getItem(TITLE_KEY)).toBe(JSON.stringify({ frugal_archmage: { unlocked: false, tier: 0 } }));
+    expect(localStorage.getItem(BADGE_KEY)).toBe(JSON.stringify({ kill_line: 0 }));
+  });
+
+  it("downgrades a union payload that an old server returned for view=local", async () => {
+    // A server without ?view=local support answers the union wall; the local
+    // tab must never show it under a 本机 label — derive the device tiers from
+    // the payload's own local_tier markers instead.
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{
+        id: "kill_line",
+        tier: 2,
+        remote_raised: true,
+        local_tier: 0,
+        next_threshold: 60,
+        thresholds: [50, 60, 70, 80],
+      }],
+    });
+
+    const result = await pollLocalAchievements();
+
+    expect(result[0].tier).toBe(0);
+    expect(result[0].remote_raised).toBeUndefined();
+    expect(result[0].local_tier).toBeUndefined();
+    // The union's next_threshold pointed past the union tier; the device wall
+    // aims at its OWN next bar (bronze → 50), not the union's (silver → 60).
+    expect(result[0].next_threshold).toBe(50);
+  });
+
+  it("caches the downgraded wall, so an old server's union never repaints as 本机", async () => {
+    // Regression for the adversarial-review P1: during the hot-mirror window
+    // (new dashboard + not-yet-restarted server) every poll stores the raw
+    // response; the next mount paints the cache before the fetch resolves.
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{ id: "kill_line", tier: 4, remote_raised: true, local_tier: 0 }],
+    });
+    await pollLocalAchievements();
+
+    getLocalAchievements.mockReturnValue(new Promise(() => {}));
+    const { result, unmount } = renderHook(() => useLocalAchievements());
+
+    expect(result.current.achievements[0]).toMatchObject({ tier: 0 });
+    expect(result.current.achievements[0].remote_raised).toBeUndefined();
+    unmount();
+  });
+
+  it("keeps its own high-water mark, separate from the union's", async () => {
+    // The union wall saw diamond (another device); this device only earned silver.
+    localStorage.setItem(BADGE_KEY, JSON.stringify({ kill_line: 4 }));
+    getLocalAchievements.mockResolvedValue({ achievements: [{ id: "kill_line", tier: 2 }] });
+
+    expect((await pollLocalAchievements())[0].tier).toBe(2);
+    expect(JSON.parse(localStorage.getItem(LOCAL_BADGE_KEY)).kill_line).toBe(2);
+
+    // A dip in this device's own reading still floors at the local mark —
+    // "once unlocked, always unlocked" applies to the local scope too.
+    getLocalAchievements.mockResolvedValue({
+      achievements: [{ id: "kill_line", tier: 1, thresholds: [50, 60, 70, 80] }],
+    });
+    expect((await pollLocalAchievements())[0]).toMatchObject({ tier: 2, next_threshold: 70 });
+  });
+
+  it("paints from the local cache before the first response", () => {
+    localStorage.setItem(LOCAL_BADGE_KEY, JSON.stringify({ kill_line: 2 }));
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify([
+      { id: "kill_line", tier: 1, metric_value: 20, thresholds: [50, 60, 70, 80], next_threshold: 60 },
+    ]));
+    getLocalAchievements.mockReturnValue(new Promise(() => {}));
+
+    const { result, unmount } = renderHook(() => useLocalAchievements());
+
+    expect(result.current.achievements[0]).toMatchObject({ tier: 2, metric_value: 20, next_threshold: 70 });
+    unmount();
   });
 });

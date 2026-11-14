@@ -5580,6 +5580,15 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     if (p === "/functions/tokentracker-achievements") {
       // 远端并集合并（读缓存，不阻塞）+ 异步上报本机解锁集。
       const serveAchievements = (payload) => {
+        // ?view=local（成就页「本机」页签）：吐合并前的纯本机墙——不碰云端
+        // 并集、不触发上报。上报节奏归默认视图的 60s 轮询管，本机页签不该
+        // 搅动它。参数名刻意用 view 而非 scope：同一个 url 还会流进用量口径
+        // 读取器（getRequestedUsageScope 读 scope），"local" 在那边会被规整成
+        // "personal" 而悄悄丢源。
+        if (url.searchParams?.get("view") === "local") {
+          json(res, payload);
+          return payload;
+        }
         const { achievements, raised } = mergeRemoteBadgeTiers(payload.achievements, _badgeRemoteCache?.badges);
         const merged = raised > 0
           ? { ...payload, achievements, badges_merged_from_account: raised }

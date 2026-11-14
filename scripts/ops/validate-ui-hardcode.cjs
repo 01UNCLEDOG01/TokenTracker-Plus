@@ -36,7 +36,9 @@ function scanAll() {
   let totalColors = 0;
   let totalRawText = 0;
 
-  for (const file of files) {
+  // readdirSync order is not stable (APFS), so insert keys SORTED — otherwise
+  // every --update rewrites the whole baseline and diffs become pure noise.
+  for (const file of files.slice().sort()) {
     const rel = path.relative(ROOT, file).replace(/\\/g, "/");
     const counts = scanFile(file);
     if (counts.colors || counts.rawText) {

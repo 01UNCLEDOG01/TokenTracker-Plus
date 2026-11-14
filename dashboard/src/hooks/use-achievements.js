@@ -9,14 +9,18 @@ import { copy } from "../lib/copy";
 const TIERS_STORAGE_KEY = "tokentracker:achievement_tiers";
 const TITLE_RESONANCE_STORAGE_KEY = "tokentracker:title_resonance_tiers";
 const ACHIEVEMENTS_CACHE_KEY = "tokentracker:cached_achievements";
+// 成就页「本机」页签的独立存储：水位与首屏缓存各一套，云端并集抬过的等级
+// 绝不能漏进本机视图（新 key 从空起步，无旧形状要迁移）。
+const LOCAL_TIERS_STORAGE_KEY = "tokentracker:achievement_tiers_local";
+const LOCAL_ACHIEVEMENTS_CACHE_KEY = "tokentracker:cached_achievements_local";
 
-function getCachedAchievements() {
+function getCachedAchievements(cacheKey = ACHIEVEMENTS_CACHE_KEY, tiersKey = TIERS_STORAGE_KEY) {
   try {
-    const raw = localStorage.getItem(ACHIEVEMENTS_CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return floorAchievementsAtHighWater({ achievements: parsed });
+      return floorAchievementsAtHighWater({ achievements: parsed }, tiersKey);
     }
   } catch {
     // ignore
@@ -24,9 +28,9 @@ function getCachedAchievements() {
   return null;
 }
 
-function readHighWaterTiers() {
+function readHighWaterTiers(tiersKey = TIERS_STORAGE_KEY) {
   try {
-    const raw = localStorage.getItem(TIERS_STORAGE_KEY);
+    const raw = localStorage.getItem(tiersKey);
     const parsed = raw ? JSON.parse(raw) : null;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     return Object.fromEntries(Object.entries(parsed).filter(([, tier]) =>
@@ -45,9 +49,9 @@ function readHighWaterTiers() {
 // achievement. Floor every displayed tier at the best tier this browser has
 // ever observed — toasts stay honest because max(live, highWater) > highWater
 // is exactly "the live reading climbed above the mark".
-function floorAchievementsAtHighWater(data) {
+function floorAchievementsAtHighWater(data, tiersKey = TIERS_STORAGE_KEY) {
   const achievements = Array.isArray(data?.achievements) ? data.achievements : [];
-  const prevTiers = readHighWaterTiers();
+  const prevTiers = readHighWaterTiers(tiersKey);
   if (!prevTiers) return achievements;
   return achievements.map((badge) => {
     if (!badge?.id) return badge;
@@ -153,6 +157,62 @@ export async function pollAchievements({ timeZone } = {}) {
   return achievements;
 }
 
+// 旧服务端不认识 ?view=local 时会把并集墙原样吐回来——绝不能把它挂在
+// 「本机」名下。降级：按 payload 自带的 local_tier 标记还原本机等级，解锁
+// 时间退化为并集的最早值，进度条按本机等级重推下一档门槛。新服务端（view
+// 生效）不会出现 remote_raised，此函数原样放行。
+function downgradeMergedToLocal(badge) {
+  if (!badge?.remote_raised) return badge;
+  const localTier = Number(badge.local_tier);
+  const tier = Number.isFinite(localTier) ? localTier : 0;
+  const { remote_raised: _ignored, local_tier: _ignoredTier, ...rest } = badge;
+  return {
+    ...rest,
+    tier,
+    // The union payload's next_threshold points past the union tier — re-derive
+    // it from the device's own tier or the 本机 progress bar aims at the wrong bar.
+    next_threshold: Array.isArray(rest.thresholds)
+      ? (tier >= rest.thresholds.length ? null : rest.thresholds[tier])
+      : rest.next_threshold,
+  };
+}
+
+/**
+ * 成就页「本机」页签的取数：view=local 直取服务端合并前的纯本机墙。
+ * 与 pollAchievements 的差异——不发解锁弹窗、不写共鸣标题、不碰云端并集的
+ * 水位/缓存 key（弹窗与标题的判定只属于全量轮询；本机页签只是另一个口径的
+ * 显示层）。水位同样按「解锁即永久」保留，但用的是本机自己的 key，所以云端
+ * 并集抬过的等级不会漏进来。
+ */
+export async function pollLocalAchievements({ timeZone } = {}) {
+  const tz = timeZone || getBrowserTimeZone();
+  const data = await getLocalAchievements({
+    timeZone: tz,
+    tzOffsetMinutes: getBrowserTimeZoneOffsetMinutes(),
+    view: "local",
+  });
+  // Cache the DOWNGRADED wall, never the raw response: an old server keeps
+  // answering the union for as long as the hot-mirror window lasts, and the
+  // next mount paints this cache before the fetch resolves.
+  const downgraded = (Array.isArray(data?.achievements) ? data.achievements : []).map(downgradeMergedToLocal);
+  const achievements = floorAchievementsAtHighWater(
+    { achievements: downgraded },
+    LOCAL_TIERS_STORAGE_KEY,
+  );
+  try {
+    const prevTiers = readHighWaterTiers(LOCAL_TIERS_STORAGE_KEY);
+    const highWaterTiers = {};
+    for (const b of achievements) {
+      if (b && b.id) highWaterTiers[b.id] = Math.max(b.tier || 0, prevTiers?.[b.id] || 0);
+    }
+    localStorage.setItem(LOCAL_TIERS_STORAGE_KEY, JSON.stringify(highWaterTiers));
+    localStorage.setItem(LOCAL_ACHIEVEMENTS_CACHE_KEY, JSON.stringify(downgraded));
+  } catch {
+    // Safe handling for storage restrictions
+  }
+  return achievements;
+}
+
 /**
  * Background watcher mounted globally in AppLayout/App.
  * Periodically polls achievements every intervalMs (default 60s) so toasts
@@ -208,12 +268,14 @@ export function useAchievementWatcher({ intervalMs = 60000, enabled = true } = {
 }
 
 /**
- * Local achievements with real-time unlock detection and Steam audio-visual alerts.
- * Status machine, never throws — the achievements page renders the locked catalog on error.
+ * Shared status machine for the two achievements views (云端并集 / 本机).
+ * Cache-first paint, never throws — the page renders the locked catalog on error.
+ * The poller owns everything beyond fetching: the union poller also fires
+ * toasts and persists title resonance; the local poller only floors + caches.
  */
-export function useAchievements({ enabled = true } = {}) {
+function useAchievementsView({ enabled, poller, cacheKey, tiersKey }) {
   const [state, setState] = useState(() => {
-    const cached = typeof window !== "undefined" ? getCachedAchievements() : null;
+    const cached = typeof window !== "undefined" ? getCachedAchievements(cacheKey, tiersKey) : null;
     if (cached) {
       return { status: "ready", achievements: cached, error: null };
     }
@@ -228,7 +290,7 @@ export function useAchievements({ enabled = true } = {}) {
     }
     let cancelled = false;
     setState((prev) => ({ ...prev, status: "loading" }));
-    pollAchievements({ timeZone })
+    poller({ timeZone })
       .then((achievements) => {
         if (cancelled) return;
         setState({
@@ -244,9 +306,34 @@ export function useAchievements({ enabled = true } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, timeZone]);
+  }, [enabled, timeZone, poller, cacheKey, tiersKey]);
 
   return state;
+}
+
+/**
+ * 云端并集视图（默认）：本机计算 + 账号级并集合并后的墙。
+ * Local achievements with real-time unlock detection and Steam audio-visual alerts.
+ */
+export function useAchievements({ enabled = true } = {}) {
+  return useAchievementsView({
+    enabled,
+    poller: pollAchievements,
+    cacheKey: ACHIEVEMENTS_CACHE_KEY,
+    tiersKey: TIERS_STORAGE_KEY,
+  });
+}
+
+/**
+ * 本机视图：只显示这台设备自己挣到的等级、解锁时间与数值。
+ */
+export function useLocalAchievements({ enabled = true } = {}) {
+  return useAchievementsView({
+    enabled,
+    poller: pollLocalAchievements,
+    cacheKey: LOCAL_ACHIEVEMENTS_CACHE_KEY,
+    tiersKey: LOCAL_TIERS_STORAGE_KEY,
+  });
 }
 
 export default useAchievements;

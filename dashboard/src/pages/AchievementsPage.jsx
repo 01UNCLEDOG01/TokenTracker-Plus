@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useAchievements } from "../hooks/use-achievements.js";
+import { useAchievements, useLocalAchievements } from "../hooks/use-achievements.js";
 import { copy } from "../lib/copy";
 import { AchievementsSection } from "../ui/achievements/AchievementsSection.jsx";
 import { BADGE_CATALOG, BADGE_CATEGORIES, BADGE_CATEGORY_MAP, badgeCopyKey } from "../ui/achievements/badge-catalog.js";
@@ -31,24 +31,47 @@ function GridSkeleton() {
 }
 
 export default function AchievementsPage() {
-  // Every badge the local queue can judge is computed on this machine; no
-  // account, network call, or sign-in gate is involved. The two cross-user
-  // badges (trendsetter / podium) stay locked offline and say so in the note.
-  const local = useAchievements();
+  // Two scopes over one catalog (站主 2026-11-14 拍板：页内页签，默认云端):
+  //   cloud = 本机计算 + 账号级并集（任一设备解锁全设备显示，等级取最高、
+  //           解锁时间取最早）—— 打开页面的默认口径;
+  //   local = 这台设备自己挣到的墙（scope=local，服务端跳过并集合并）。
+  // The two cross-user badges (trendsetter / podium) stay locked on the local
+  // scope and say so in the note.
+  const cloud = useAchievements();
+  const local = useLocalAchievements();
+  const [scope, setScope] = useState("cloud");
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [selectedTitleInfo, setSelectedTitleInfo] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSortBy, setActiveSortBy] = useState("earned");
-  const loading = local.status === "loading";
-  // One merged wall: the local endpoint is now the only source, but keeping
-  // the `merged` name also keeps the UI-hardcode scanner's existing token.
-  const merged = Array.isArray(local.achievements) ? local.achievements : [];
+  const activeView = scope === "local" ? local : cloud;
+  const loading = activeView.status === "loading";
+  // One merged wall per scope: keeping the `merged` name also keeps the
+  // UI-hardcode scanner's existing token.
+  const merged = Array.isArray(activeView.achievements) ? activeView.achievements : [];
   const earnedCount = useMemo(
     () => merged.filter((b) => (b?.tier || 0) >= 1).length,
     [merged],
   );
+  const cloudEarned = useMemo(
+    () => (Array.isArray(cloud.achievements) ? cloud.achievements : []).filter((b) => (b?.tier || 0) >= 1).length,
+    [cloud.achievements],
+  );
+  const localEarned = useMemo(
+    () => (Array.isArray(local.achievements) ? local.achievements : []).filter((b) => (b?.tier || 0) >= 1).length,
+    [local.achievements],
+  );
   const total = BADGE_CATALOG.length;
+
+  // 切口径即换数据源：已打开的详情弹窗是旧口径的对象快照，直接关掉，
+  // 不允许「云端页签打开的弹窗停在本机页签上」的混合状态。
+  const switchScope = (next) => {
+    if (next === scope) return;
+    setScope(next);
+    setSelectedBadge(null);
+    setSelectedTitleInfo(null);
+  };
 
   return (
     <div className="tt-achievements-page flex flex-1 flex-col font-oai text-oai-black antialiased dark:text-oai-white">
@@ -61,7 +84,7 @@ export default function AchievementsPage() {
                 {copy("achievements.page.title")}
               </h1>
               <p className="mt-1.5 text-sm text-oai-gray-500 dark:text-oai-gray-400">
-                {copy("achievements.page.local_note")}
+                {copy(scope === "local" ? "achievements.page.local_note" : "achievements.page.cloud_note")}
               </p>
             </div>
             {!loading && (
@@ -88,6 +111,44 @@ export default function AchievementsPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Scope tabs: 云端并集（默认）/ 本机 — same chip language as the
+              category row below, one step larger so the two rows read as
+              different levels. Toggle buttons with aria-pressed (no tablist
+              machinery) match the page's existing chip patterns. Counts stay
+              hidden until each wall is ready. */}
+          <div
+            className="mb-5 flex items-center gap-1.5"
+            role="group"
+            aria-label={copy("achievements.page.scope_aria")}
+          >
+            {[
+              { key: "cloud", label: copy("achievements.page.scope_cloud"), count: cloudEarned, ready: cloud.status === "ready" },
+              { key: "local", label: copy("achievements.page.scope_local"), count: localEarned, ready: local.status === "ready" },
+            ].map((tab) => {
+              const isActive = scope === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => switchScope(tab.key)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-oai-gray-900 text-white dark:bg-white dark:text-oai-gray-950 shadow-sm"
+                      : "text-oai-gray-600 hover:bg-oai-gray-100 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800/60"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {tab.ready ? (
+                    <span className={`text-xs tabular-nums ${isActive ? "opacity-75" : "text-oai-gray-400 dark:text-oai-gray-500"}`}>
+                      {tab.count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
           {/* Synergies & Titles banner */}

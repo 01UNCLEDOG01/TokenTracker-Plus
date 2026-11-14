@@ -48,6 +48,41 @@ export function resolveTierView(badge, viewTier) {
   };
 }
 
+/**
+ * The three lines engraved on the coin's back. The live local reading only
+ * appears when the viewed tier was earned on this device: a union-raised
+ * tier's true earning value lives on another device (never synced), so the
+ * back shows the bar that tier required instead — the same thing previewing
+ * any other tier does — and never pairs 达成于 with 本机数值.
+ */
+export function resolveCoinBackLines({
+  hiddenLocked,
+  formattedIssueNumber,
+  view,
+  viewDate,
+  valueText,
+  viewThresholdText,
+  name,
+  previewedTierIsRemote,
+}) {
+  if (hiddenLocked) return [copy("achievements.modal.locked"), "···", name];
+  if (formattedIssueNumber) {
+    return [
+      copy("achievements.modal.achieved_label"),
+      copy("achievements.modal.issue_number", { number: formattedIssueNumber }),
+      viewDate || name,
+    ];
+  }
+  if (view.achieved) {
+    return [
+      copy("achievements.modal.achieved_label"),
+      view.viewingCurrent && !previewedTierIsRemote ? valueText : viewThresholdText || valueText,
+      viewDate || name,
+    ];
+  }
+  return [copy("achievements.modal.locked"), viewThresholdText || "···", name];
+}
+
 function TierTrack({ badge, viewTier, onSelect }) {
   return (
     <div className="flex items-center gap-1">
@@ -87,7 +122,7 @@ function TierTrack({ badge, viewTier, onSelect }) {
   );
 }
 
-function BadgeDetailBody({ badge, onClose }) {
+export function BadgeDetailBody({ badge, onClose }) {
   const entry = BADGE_BY_ID.get(badge.id);
   const currentTier = badge.tier || 0;
   // Hidden badge still locked: the whole dialog stays anonymous — name,
@@ -102,6 +137,13 @@ function BadgeDetailBody({ badge, onClose }) {
   const view = resolveTierView(badge, viewTier);
 
   const earned = currentTier >= 1;
+  // 云端并集视图：remote_raised 表示当前等级是别的设备抬上来的。此时
+  // metric_value 是本机实时读数，与并集等级无关——数值行必须换成「本机数值」，
+  // 预览到 union 抬上来的等级时再补一行来源标注，否则会读成
+  // 「钻石条件 100 但当前数值 6」的矛盾（站主 2026-11-14 点名）。
+  const remoteRaised = Boolean(badge?.remote_raised);
+  const localTier = Number(badge?.local_tier ?? currentTier);
+  const previewedTierIsRemote = remoteRaised && view.achieved && view.tier > localTier;
   const tName = earned ? tierName(currentTier) : null;
   const achievedDate = formatDate(
     earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null,
@@ -116,21 +158,16 @@ function BadgeDetailBody({ badge, onClose }) {
   const viewDate = formatDate(view.date);
   const viewThresholdText =
     !hiddenLocked && view.threshold != null ? formatBadgeValue(entry?.format, view.threshold) : null;
-  const backLines = hiddenLocked
-    ? [copy("achievements.modal.locked"), "···", name]
-    : formattedIssueNumber
-      ? [
-          copy("achievements.modal.achieved_label"),
-          copy("achievements.modal.issue_number", { number: formattedIssueNumber }),
-          viewDate || name,
-        ]
-      : view.achieved
-        ? [
-            copy("achievements.modal.achieved_label"),
-            view.viewingCurrent ? valueText : viewThresholdText || valueText,
-            viewDate || name,
-          ]
-        : [copy("achievements.modal.locked"), viewThresholdText || "···", name];
+  const backLines = resolveCoinBackLines({
+    hiddenLocked,
+    formattedIssueNumber,
+    view,
+    viewDate,
+    valueText,
+    viewThresholdText,
+    name,
+    previewedTierIsRemote,
+  });
 
   return (
     <div className="flex flex-col items-center px-6 pb-6 pt-5 text-center">
@@ -187,10 +224,19 @@ function BadgeDetailBody({ badge, onClose }) {
           </span>
         ) : null}
       </div>
+      {previewedTierIsRemote ? (
+        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          {copy("achievements.modal.remote_tier_note")}
+        </p>
+      ) : null}
 
       <dl className="mt-5 w-full space-y-3 border-t border-oai-gray-200/70 pt-4 text-left dark:border-oai-gray-800/60">
         <div className="flex items-baseline justify-between gap-3 text-sm">
-          <dt className="text-oai-gray-500 dark:text-oai-gray-400">{copy("achievements.modal.value_label")}</dt>
+          <dt className="text-oai-gray-500 dark:text-oai-gray-400">
+            {remoteRaised
+              ? copy("achievements.modal.local_value_label")
+              : copy("achievements.modal.value_label")}
+          </dt>
           <dd className="font-mono font-semibold tabular-nums text-oai-black dark:text-white">{valueText}</dd>
         </div>
         {earned ? (
@@ -217,9 +263,12 @@ function BadgeDetailBody({ badge, onClose }) {
               <span>
                 {currentTier >= 4
                   ? copy("achievements.modal.max_tier")
-                  : copy("achievements.modal.progress_to_next", {
-                      tier: copy(`achievements.tier.${nextTierName}`),
-                    })}
+                  : copy(
+                      remoteRaised ? "achievements.modal.progress_to_next_local" : "achievements.modal.progress_to_next",
+                      {
+                        tier: copy(`achievements.tier.${nextTierName}`),
+                      },
+                    )}
               </span>
               {currentTier < 4 && badge.next_threshold != null ? (
                 <span className="font-mono tabular-nums">

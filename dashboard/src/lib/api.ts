@@ -460,11 +460,19 @@ export async function getLocalMachineIdentity() {
   return fetchLocalJson(PATHS.machineId);
 }
 
-export async function getLocalAchievements({ timeZone, tzOffsetMinutes }: AnyRecord = {}) {
+export async function getLocalAchievements({ timeZone, tzOffsetMinutes, view }: AnyRecord = {}) {
   if (isMockEnabled()) {
+    // Mock mode serves one demo wall for both scopes — fine for storybook
+    // demos, never shipped as a real reading.
     return getMockAchievements();
   }
-  return fetchLocalJson(PATHS.achievements, buildTimeZoneParams({ timeZone, tzOffsetMinutes }));
+  const params = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  // view=local: 成就页「本机」页签——服务端跳过云端并集合并，返回纯本机墙。
+  // Wire param deliberately named `view`, NOT `scope`: the same URL flows into
+  // the usage-scope reader (getRequestedUsageScope reads `scope`), where
+  // "local" normalizes to "personal" and would silently drop source rows.
+  if (view) params.view = view;
+  return fetchLocalJson(PATHS.achievements, params);
 }
 
 async function fetchInsforgeFunction(slug: string, options: {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T08:10:15.041Z",
+  "generatedAt": "2026-11-14T09:44:18.361Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
@@ -7,16 +7,25 @@
   },
   "totals": {
     "colors": 511,
-    "rawText": 180
+    "rawText": 176
   },
   "files": {
-    "dashboard/src/components/InsforgeUserHeaderControls.jsx": {
-      "colors": 0,
-      "rawText": 3,
+    "dashboard/src/components/LeaderboardSummaryCard.test.jsx": {
+      "colors": 1,
+      "rawText": 0,
+      "rawTextTokens": []
+    },
+    "dashboard/src/components/LoginCard.jsx": {
+      "colors": 4,
+      "rawText": 1,
       "rawTextTokens": [
-        ") : avatarSrc && !avatarFailed ? (",
-        ") : initialsFromName(displayName) === \"?\" ? ("
+        "); const GITHUB_ICON = ("
       ]
+    },
+    "dashboard/src/components/SortableColumnHeader.jsx": {
+      "colors": 4,
+      "rawText": 0,
+      "rawTextTokens": []
     },
     "dashboard/src/components/leaderboard/CommunityStatsModal.jsx": {
       "colors": 0,
@@ -37,29 +46,12 @@
         "= 1)) && ("
       ]
     },
-    "dashboard/src/components/LeaderboardSummaryCard.test.jsx": {
-      "colors": 1,
-      "rawText": 0,
-      "rawTextTokens": []
-    },
-    "dashboard/src/components/LoginCard.jsx": {
-      "colors": 4,
-      "rawText": 1,
-      "rawTextTokens": [
-        "); const GITHUB_ICON = ("
-      ]
-    },
     "dashboard/src/components/settings/MenuBarSection.jsx": {
       "colors": 0,
       "rawText": 1,
       "rawTextTokens": [
         "GitHub"
       ]
-    },
-    "dashboard/src/components/SortableColumnHeader.jsx": {
-      "colors": 4,
-      "rawText": 0,
-      "rawTextTokens": []
     },
     "dashboard/src/hooks/use-trend-data.issue360.test.tsx": {
       "colors": 2,
@@ -73,6 +65,11 @@
       "rawText": 0,
       "rawTextTokens": []
     },
+    "dashboard/src/lib/bot-appearance.js": {
+      "colors": 2,
+      "rawText": 0,
+      "rawTextTokens": []
+    },
     "dashboard/src/lib/bot/decor.ts": {
       "colors": 1,
       "rawText": 0,
@@ -83,22 +80,10 @@
       "rawText": 0,
       "rawTextTokens": []
     },
-    "dashboard/src/lib/bot-appearance.js": {
-      "colors": 2,
-      "rawText": 0,
-      "rawTextTokens": []
-    },
     "dashboard/src/lib/pet-appearance.js": {
       "colors": 6,
       "rawText": 0,
       "rawTextTokens": []
-    },
-    "dashboard/src/pages/AchievementsPage.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "= 1).length, [merged], ); const total = BADGE_CATALOG.length; return ("
-      ]
     },
     "dashboard/src/pages/DashboardPage.jsx": {
       "colors": 1,
@@ -142,6 +127,13 @@
       "rawTextTokens": [
         ") : realSignedIn ? (",
         "TokenTracker Plus"
+      ]
+    },
+    "dashboard/src/pages/PerksPage.jsx": {
+      "colors": 0,
+      "rawText": 1,
+      "rawTextTokens": [
+        "96; const collapsed = long && !expanded; return ("
       ]
     },
     "dashboard/src/pages/SessionsPage.jsx": {
@@ -238,8 +230,8 @@
       "rawText": 3,
       "rawTextTokens": [
         "= 1 && viewThresholdText ? (",
-        "= 1; const tName = earned ? tierName(currentTier) : null; const achievedDate = formatDate( earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null, ); const valueText = hiddenLocked ? \"???\" : formatBadgeValue(entry?.format, badge.metric_value); const progress = hiddenLocked ? 0 : badgeProgress(badge); const nextTierName = currentTier",
-        "= index + 1; const selected = viewTier === index + 1; const at = formatDate(badge.achieved?.[name]); const palette = TIER_PALETTE[name]; return ("
+        "= index + 1; const selected = viewTier === index + 1; const at = formatDate(badge.achieved?.[name]); const palette = TIER_PALETTE[name]; return (",
+        "localTier; const tName = earned ? tierName(currentTier) : null; const achievedDate = formatDate( earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null, ); const valueText = hiddenLocked ? \"???\" : formatBadgeValue(entry?.format, badge.metric_value); const progress = hiddenLocked ? 0 : badgeProgress(badge); const nextTierName = currentTier"
       ]
     },
     "dashboard/src/ui/achievements/BadgeMini.jsx": {
@@ -354,11 +346,10 @@
     },
     "dashboard/src/ui/dashboard/components/DeviceUsageCard.jsx": {
       "colors": 0,
-      "rawText": 6,
+      "rawText": 5,
       "rawTextTokens": [
         ") : ( /* Display state: the whole row toggles the filter; rename is a sibling overlay (a button must not nest inside a button — invalid DOM). */",
         "0 ? ((tokens / total) * 100).toFixed(1) : \"0.0\"; const isSelected = selectedDeviceId === d.id; const name = formatDeviceLabel(d) || copy(\"dashboard.device_card.unnamed\"); const isEditing = editingId === d.id; const fillClass = isSelected ? \"bg-oai-brand\" : anySelected ? \"bg-oai-gray-300 dark:bg-oai-gray-600\" : \"bg-oai-brand/50\"; // While filtering, fade unselected rows so the active device stands out. const itemOpacity = anySelected && !isSelected ? \"opacity-40 hover:opacity-80\" : \"opacity-100\"; return (",
-        "0 ? ((tokens / total) * 100).toFixed(1) : \"0.0\"; const rowOpacity = anySelected ? \"opacity-40\" : \"opacity-100\"; return (",
         "; if (p.includes(\"linux\")) return",
         "; if (p.includes(\"win\")) return",
         "; return"
@@ -522,6 +513,15 @@
         "grouping"
       ]
     },
+    "dashboard/src/ui/marketing/MarketingLanding.jsx": {
+      "colors": 0,
+      "rawText": 3,
+      "rawTextTokens": [
+        ") : ( // 未登录：Sign In 展示为主行动实色按钮，点击唤起 Modal",
+        ") : signedIn ? ( // 已登录：Open Dashboard 升级为主行动实色按钮",
+        "TokenTracker Plus"
+      ]
+    },
     "dashboard/src/ui/marketing/components/BorderGlow.jsx": {
       "colors": 6,
       "rawText": 0,
@@ -531,15 +531,6 @@
       "colors": 2,
       "rawText": 0,
       "rawTextTokens": []
-    },
-    "dashboard/src/ui/marketing/MarketingLanding.jsx": {
-      "colors": 0,
-      "rawText": 3,
-      "rawTextTokens": [
-        ") : ( // 未登录：Sign In 展示为主行动实色按钮，点击唤起 Modal",
-        ") : signedIn ? ( // 已登录：Open Dashboard 升级为主行动实色按钮",
-        "TokenTracker Plus"
-      ]
     },
     "dashboard/src/ui/marketing/v3/CapabilitiesSection.jsx": {
       "colors": 1,
@@ -569,13 +560,13 @@
         "0 ? Math.max(6, Math.round((tokens / maxTokens) * 100)) : 0; return ("
       ]
     },
-    "dashboard/src/ui/marketing/v3/palette.js": {
-      "colors": 21,
+    "dashboard/src/ui/marketing/v3/TokenGalaxy.jsx": {
+      "colors": 2,
       "rawText": 0,
       "rawTextTokens": []
     },
-    "dashboard/src/ui/marketing/v3/TokenGalaxy.jsx": {
-      "colors": 2,
+    "dashboard/src/ui/marketing/v3/palette.js": {
+      "colors": 21,
       "rawText": 0,
       "rawTextTokens": []
     },
@@ -613,13 +604,6 @@
         "0; return (",
         "The TokenTracker Plus",
         "→ TokenTracker-Plus"
-      ]
-    },
-    "dashboard/src/pages/PerksPage.jsx": {
-      "colors": 0,
-      "rawText": 1,
-      "rawTextTokens": [
-        "96; const collapsed = long && !expanded; return ("
       ]
     }
   }

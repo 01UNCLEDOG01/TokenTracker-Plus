@@ -1401,6 +1401,10 @@ nav.achievements,shared,*,Sidebar,nav_achievements,Achievements,,active
 achievements.section.title,dashboard,*,AchievementsSection,section_title,Achievements,,active
 achievements.page.title,dashboard,AchievementsPage,AchievementsPage,page_title,Achievements,,active
 achievements.page.local_note,dashboard,AchievementsPage,AchievementsPage,local_note,Judged from this device's queue; every badge unlocks offline.,,active
+achievements.page.scope_local,dashboard,AchievementsPage,AchievementsPage,scope_local,This device,,active
+achievements.page.scope_cloud,dashboard,AchievementsPage,AchievementsPage,scope_cloud,Cloud,,active
+achievements.page.scope_aria,dashboard,AchievementsPage,AchievementsPage,scope_aria,Switch achievement view: this device or cloud,,active
+achievements.page.cloud_note,dashboard,AchievementsPage,AchievementsPage,cloud_note,Account-wide union: unlocked on any device shows on every device.,,active
 achievements.signin.prompt,dashboard,AchievementsPage,AchievementsPage,signin_prompt,Sign in to earn cloud achievements and show them on the leaderboard.,,active
 achievements.mini.tooltip,dashboard,LeaderboardPage,BadgeMini,mini_tooltip,{{name}} — {{tier}},,active
 achievements.badge.aria,dashboard,*,AchievementsSection,badge_aria,{{name}} — {{tier}},,active
@@ -1411,6 +1415,9 @@ achievements.tier.diamond,dashboard,*,AchievementBadge,tier_diamond,Diamond,,act
 achievements.modal.locked,dashboard,*,BadgeDetailModal,locked,Locked,,active
 achievements.modal.achieved_label,dashboard,*,BadgeDetailModal,achieved_label,Achieved,,active
 achievements.modal.value_label,dashboard,*,BadgeDetailModal,value_label,Current value,,active
+achievements.modal.local_value_label,dashboard,*,BadgeDetailModal,local_value_label,This device's value,,active
+achievements.modal.remote_tier_note,dashboard,*,BadgeDetailModal,remote_tier_note,Earned on another device,,active
+achievements.modal.progress_to_next_local,dashboard,*,BadgeDetailModal,progress_to_next_local,Progress to {{tier}} (this device),,active
 achievements.modal.unlock_date,dashboard,AchievementsPage,BadgeDetailModal,unlock_date,Unlocked,,active
 achievements.modal.unlock_date_unrecorded,dashboard,AchievementsPage,BadgeDetailModal,unlock_date_unrecorded,Not recorded (unlocked before date tracking),,active
 achievements.modal.progress_to_next,dashboard,*,BadgeDetailModal,progress_to_next,Progress to {{tier}},,active
