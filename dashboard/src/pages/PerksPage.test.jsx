@@ -14,7 +14,7 @@ const ORDERED_IDS = [
   "ace_music", "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling",
   "apigoto", "autoclaw", "autoclaw_intl", "wenxin", "qianfan", "bigmodel", "catpaw", "cerebras",
   "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepseek", "devin", "doubaowork",
-  "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "officeace", "volcengine",
+  "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "hark", "officeace", "volcengine",
   "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
   "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "modelscope", "muse_ai", "nvidia_nim", "opencode",
   "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "rime",
@@ -217,8 +217,10 @@ describe("PerksPage", () => {
     // 2026-11-11：NVIDIA Build 改用「按速率免费的长期免费档」迁入 permanent_free（16→17）。
     // 2026-11-13：端砚免费直用下线（改墨点折扣计费），移出 permanent_free（17→16）。
     // 2026-11-13：opencode 限免模型是每日额度，补 daily_claim 周期（站主定谳，日签 17→18）。
-    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("30");
+    // 2026-11-14：Hark 卡入册 permanent_free（30→31）；新增 personal 分组（today/muse/hark 三张）。
+    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("31");
     expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("25");
+    expect(screen.getByText("个人 AI 助手").closest("button")).toHaveTextContent("3");
   });
 
   it("所有服务商卡片均包含简明清晰的官网直达入口且文案统一", () => {

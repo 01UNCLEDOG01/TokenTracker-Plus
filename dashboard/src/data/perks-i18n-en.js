@@ -181,6 +181,14 @@ export const PERKS_EN = {
       "The free tier counts calls, not total tokens; which models and parameters each request may use is governed by the platform docs; some models may require opt-in or throttling — the site is authoritative.",
     tags: ["Alibaba family", "CN direct access", "Qwen full lineup", "OpenAI-compatible"],
   },
+  hark: {
+    badge: "Free to use · ad-free (free-tier AI quota undisclosed)",
+    description:
+      "Personal AI assistant (hark.com, desktop app and web): manages orders, email, scheduled tasks and other life admin. Official pricing stance is **Free to use. Never see ads.** — free to use, no ads (checked on the official pricing page, 2026-11-14); the free tier’s concrete model quota / credits allowance has no published numeric terms — in-app terms prevail. This app’s limits card reads the hark.com billing-summary endpoint (requires a signed-in session cookie; the macOS desktop session can be discovered automatically).",
+    tips:
+      "Limits-card integration lives on the Limits page (save a session cookie or paste a session token). Site: https://hark.com.",
+    tags: ["Personal AI agent", "Free to use", "Ad-free", "macOS client"],
+  },
   muse_ai: {
     badge: "Invite: both sides get 1B tokens (redeem within 48h of signup)",
     description:

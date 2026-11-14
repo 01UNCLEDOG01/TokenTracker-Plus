@@ -883,6 +883,7 @@ perks.cat.free_tier,ui,PerksPage,PerksPage,cat_free_tier,Daily / Permanent Free,
 perks.cat.big_quota,ui,PerksPage,PerksPage,cat_big_quota,Large Trial Quota,,active
 perks.cat.gateway,ui,PerksPage,PerksPage,cat_gateway,Aggregator Platforms,,active
 perks.cat.client,ui,PerksPage,PerksPage,cat_client,Clients & Apps,,active
+perks.cat.personal,ui,PerksPage,PerksPage,cat_personal,Personal AI Assistants,,active
 perks.claim.mark,ui,PerksPage,PerksPage,claim_mark,Mark as claimed,,active
 perks.claim.claimed,ui,PerksPage,PerksPage,claim_claimed,Claimed on {{date}},,active
 perks.copy.success,ui,PerksPage,PerksPage,copy_success,Copied {{name}} invitation code: {{code}},,active

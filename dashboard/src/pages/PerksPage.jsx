@@ -1366,13 +1366,20 @@ export function PerksPage() {
       if (tierFilter !== "all" && item.badgeType !== tierFilter) {
         return false;
       }
-      // Search Query — match both the Chinese source and the English overlay
+      // Search Query — 名称/徽章/标签（中英）任意子串即命中；描述仅对 ≥3 字符的
+      // 查询参与（站主 2026-11-14：输入 "to" 不该撞上每张卡描述里的 "token"——
+      // 短查询只搜名称类字段，长输入仍可全文搜）。
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
         const shown = localizePerk(item, locale);
-        const zhHay = `${item.name} ${item.description} ${item.badge} ${item.tags.join(" ")}`.toLowerCase();
-        const enHay = shown === item ? "" : `${shown.name} ${shown.description} ${shown.badge} ${shown.tags.join(" ")}`.toLowerCase();
-        return zhHay.includes(query) || enHay.includes(query);
+        const zhName = `${item.name} ${item.badge} ${item.tags.join(" ")}`.toLowerCase();
+        const zhDesc = item.description.toLowerCase();
+        const isEn = shown !== item;
+        const enName = isEn ? `${shown.name} ${shown.badge} ${shown.tags.join(" ")}`.toLowerCase() : "";
+        const enDesc = isEn ? shown.description.toLowerCase() : "";
+        if (zhName.includes(query) || enName.includes(query)) return true;
+        if (query.length >= 3) return zhDesc.includes(query) || enDesc.includes(query);
+        return false;
       }
       return true;
     });

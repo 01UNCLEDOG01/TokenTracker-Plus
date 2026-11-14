@@ -60,6 +60,10 @@ export const PERK_CATEGORIES = [
   {
     "id": "client",
     "label": "客户端/工作台"
+  },
+  {
+    "id": "personal",
+    "label": "个人 AI 助手"
   }
 ];
 
@@ -1635,14 +1639,16 @@ export const PERK_PROVIDERS = [
     "name": "Muse",
     "sortNames": ["MUSE"],
     "provider": "muse_ai",
-    "category": ["big_quota","client"],
+    "category": ["big_quota","client","personal"],
     "badge": "邀请双方各得 10 亿 token（注册 48 小时内填码）",
     "badgeType": "amber",
     "tags": ["个人 AI 助理","限产品内使用","邀请返利"],
     "description": "Meta 的个人 AI 智能体（muse.ai，App 与网页端）：**新账号注册后 48 小时内在设置里填邀请码，填码双方各得 10 亿 token**（2026-11-14 站主端内核实；兑换入口：App 设置 → Redeem token，网页版 muse.ai → 设置 → 用量 → 兑换邀请码）。token 仅限 muse 产品内消耗，消耗速率与等效价值无公开口径，以站内为准。",
     "tips": "站主邀请码 14TGK4（2026-11-14 时剩余 27 次），48 小时窗口过期后无法补填。官网 https://muse.ai。",
     "officialUrl": "https://muse.ai/",
-    "hasInvite": false,
+    "hasInvite": true,
+    "inviteUrl": "https://muse.ai/",
+    "inviteCode": "14TGK4",
     "checkedAt": "2026-11-14",
     "sourceUrl": "https://muse.ai/"
   },
@@ -1651,7 +1657,7 @@ export const PERK_PROVIDERS = [
     "name": "Today (中国版)",
     "sortNames": ["TODAY CN"],
     "provider": "today_cn",
-    "category": ["big_quota","client"],
+    "category": ["big_quota","client","personal"],
     "badge": "新用户领 3 亿 Tokens + 3 个月 Pro（基础版永久免费）",
     "badgeType": "purple",
     "tags": ["个人 AI 助理","限产品内使用","新人福利","邀请返利"],
@@ -1663,6 +1669,22 @@ export const PERK_PROVIDERS = [
     "hasInvite": true,
     "checkedAt": "2026-11-14",
     "sourceUrl": "https://todayai.cn/"
+  },
+  {
+    "id": "hark",
+    "name": "Hark",
+    "sortNames": ["HARK"],
+    "provider": "hark",
+    "category": ["permanent_free","personal","client"],
+    "badge": "Free to use · 无广告（免费档 AI 额度口径未公开）",
+    "badgeType": "neutral",
+    "tags": ["个人 AI 助理","免费使用","无广告","macOS 客户端"],
+    "description": "个人 AI 助理（hark.com，桌面 App 与网页端）：管理订单、邮件、定时任务等生活事务。官方定价口径 **Free to use. Never see ads.**——免费使用、无广告（2026-11-14 官网 pricing 页核对）；免费档的具体模型额度 / credits 配额未见公开数字口径，以站内为准。本软件的限额卡读取 hark.com 账单摘要接口（需登录态 Cookie，macOS 桌面会话可自动发现）。",
+    "tips": "限额卡接入见限额页 Hark 卡（保存会话 Cookie 或粘贴会话 token）。官网 https://hark.com。",
+    "officialUrl": "https://hark.com/",
+    "hasInvite": false,
+    "checkedAt": "2026-11-14",
+    "sourceUrl": "https://hark.com/pricing"
   },
   {
     "id": "ace_music",

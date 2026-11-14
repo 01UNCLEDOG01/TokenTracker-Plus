@@ -964,6 +964,7 @@
   "perks.cat.big_quota": "赠送大额额度",
   "perks.cat.gateway": "聚合平台",
   "perks.cat.client": "客户端/工作台",
+  "perks.cat.personal": "个人 AI 助手",
   "perks.claim.mark": "标记已领取",
   "perks.claim.claimed": "已领取（{{date}}）",
   "perks.copy.success": "已复制 {{name}} 邀请码：{{code}}",

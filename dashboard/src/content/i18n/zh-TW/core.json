@@ -933,6 +933,7 @@
   "perks.cat.big_quota": "贈送大額額度",
   "perks.cat.gateway": "聚合平台",
   "perks.cat.client": "用戶端/工作台",
+  "perks.cat.personal": "個人 AI 助手",
   "perks.claim.mark": "標記已領取",
   "perks.claim.claimed": "已領取（{{date}}）",
   "perks.copy.success": "已複製 {{name}} 邀請碼：{{code}}",
