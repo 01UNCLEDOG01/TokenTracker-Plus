@@ -8,11 +8,16 @@
  * the union across devices, so every device shows the same achievement wall.
  *
  * Endpoints (Bearer required — badges are account data, not public):
- *   POST { badges: [{ id, achieved: {bronze?,silver?,gold?,diamond?} }], device_id? }
+ *   POST { badges: [{ id, achieved: {bronze?,silver?,gold?,diamond?},
+ *                     values?: {bronze?,silver?,gold?,diamond?} }], device_id? }
  *        → merges per (user, badge): each tier keeps the EARLIEST timestamp
  *          across devices, tier = highest non-null tier. Idempotent: re-posting
- *          the same set never moves a timestamp forward.
- *   GET  → { badges: [{ id, tier, achieved, device_id, updated_at }] }
+ *          the same set never moves a timestamp forward. `values` carries the
+ *          earning device's live reading per tier (挣到值, KI-084); each tier's
+ *          stored value follows that tier's earliest-timestamp winner, and an
+ *          absent/null value never erases one (an old client that unlocked
+ *          earlier simply leaves the value unknown, not wrong).
+ *   GET  → { badges: [{ id, tier, achieved, earned_values, device_id, updated_at }] }
  *
  * Validation: badge ids match the local catalog's slug shape; timestamps must
  * parse as dates (ISO). Unknown ids are accepted and stored (a newer client
@@ -111,9 +116,33 @@ function getClient(incomingApiKey?: string) {
 }
 
 type AchievedMap = Partial<Record<(typeof TIER_KEYS)[number], string | null>>;
+type EarnedValuesMap = Partial<Record<(typeof TIER_KEYS)[number], number | null>>;
 
 function isTimestamp(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && Number.isFinite(Date.parse(value));
+}
+
+/** Readings must be plain non-negative finite numbers; junk is rejected, not guessed. */
+function isEarnedValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 1e15;
+}
+
+function normalizeEarnedValues(raw: unknown): EarnedValuesMap | null {
+  if (raw == null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: EarnedValuesMap = {};
+  const source = raw as Record<string, unknown>;
+  for (const tier of TIER_KEYS) {
+    const value = source[tier];
+    if (value == null) {
+      out[tier] = null;
+    } else if (isEarnedValue(value)) {
+      out[tier] = value;
+    } else {
+      return null;
+    }
+  }
+  return out;
 }
 
 function normalizeAchieved(raw: unknown): AchievedMap | null {
@@ -153,6 +182,41 @@ function mergeAchieved(base: AchievedMap, incoming: AchievedMap): AchievedMap {
   return out;
 }
 
+/**
+ * 挣到值 follows each tier's timestamp winner. Equal or missing timestamps
+ * prefer an already-stored value (a re-upload from the same device, or a tier
+ * nobody earned yet, must not erase one). A winner without a value leaves the
+ * value null — an old client that genuinely unlocked earlier makes the value
+ * UNKNOWN, and showing another device's reading instead would be a lie.
+ */
+function mergeEarnedValues(
+  base: EarnedValuesMap | null,
+  incoming: EarnedValuesMap | null,
+  baseAchieved: AchievedMap,
+  incomingAchieved: AchievedMap,
+): EarnedValuesMap {
+  const out: EarnedValuesMap = {};
+  for (const tier of TIER_KEYS) {
+    const baseAt = baseAchieved[tier] ?? null;
+    const incomingAt = incomingAchieved[tier] ?? null;
+    const baseValue = base?.[tier] ?? null;
+    const incomingValue = incoming?.[tier] ?? null;
+    let value: number | null;
+    if (baseAt && incomingAt) {
+      const order = Date.parse(incomingAt) - Date.parse(baseAt);
+      value = order < 0 ? incomingValue : order > 0 ? baseValue : (baseValue ?? incomingValue);
+    } else if (incomingAt) {
+      value = incomingValue;
+    } else if (baseAt) {
+      value = baseValue;
+    } else {
+      value = baseValue ?? incomingValue;
+    }
+    out[tier] = value ?? null;
+  }
+  return out;
+}
+
 export default async function (req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
@@ -171,13 +235,14 @@ export default async function (req: Request): Promise<Response> {
     if (req.method === "GET") {
       const { data, error } = await client.database
         .from(TABLE)
-        .select("badge_id, achieved, tier, device_id, updated_at")
+        .select("badge_id, achieved, earned_values, tier, device_id, updated_at")
         .eq("user_id", userId);
       if (error) throw new Error(error.message);
       const badges = (data as Array<Record<string, unknown>>).map((row) => ({
         id: row.badge_id,
         tier: Number(row.tier) || tierFromAchieved(row.achieved as AchievedMap),
         achieved: row.achieved,
+        earned_values: row.earned_values ?? null,
         device_id: row.device_id,
         updated_at: row.updated_at,
       }));
@@ -196,10 +261,10 @@ export default async function (req: Request): Promise<Response> {
       if (incoming.length > MAX_BADGES) return json({ error: "invalid_request", message: "too many badges" }, 400);
       const deviceId = typeof body.device_id === "string" ? body.device_id.slice(0, 64) : "";
 
-      const parsed = new Map<string, AchievedMap>();
+      const parsed = new Map<string, { achieved: AchievedMap; values: EarnedValuesMap | null }>();
       for (const raw of incoming) {
         if (!raw || typeof raw !== "object") return json({ error: "invalid_request", message: "badge entries must be objects" }, 400);
-        const { id, achieved } = raw as Record<string, unknown>;
+        const { id, achieved, values } = raw as Record<string, unknown>;
         if (typeof id !== "string" || !BADGE_ID_RE.test(id)) {
           return json({ error: "invalid_request", message: "badge id must be a catalog slug" }, 400);
         }
@@ -207,31 +272,45 @@ export default async function (req: Request): Promise<Response> {
         if (!achievedMap) {
           return json({ error: "invalid_request", message: `badge ${id}: achieved must map tier keys to ISO timestamps` }, 400);
         }
-        parsed.set(id, achievedMap);
+        const valuesMap = normalizeEarnedValues(values);
+        if (values !== undefined && values !== null && !valuesMap) {
+          return json({ error: "invalid_request", message: `badge ${id}: values must map tier keys to non-negative numbers` }, 400);
+        }
+        parsed.set(id, { achieved: achievedMap, values: valuesMap });
       }
 
       const ids = [...parsed.keys()];
       const { data: existingRows, error: readErr } = await client.database
         .from(TABLE)
-        .select("badge_id, achieved")
+        .select("badge_id, achieved, earned_values")
         .eq("user_id", userId)
         .in("badge_id", ids);
       if (readErr) throw new Error(readErr.message);
-      const existing = new Map<string, AchievedMap>();
+      const existing = new Map<string, { achieved: AchievedMap; values: EarnedValuesMap | null }>();
       for (const row of (existingRows as Array<Record<string, unknown>>) ?? []) {
-        existing.set(String(row.badge_id), (row.achieved ?? {}) as AchievedMap);
+        existing.set(String(row.badge_id), {
+          achieved: (row.achieved ?? {}) as AchievedMap,
+          values: (row.earned_values ?? null) as EarnedValuesMap | null,
+        });
       }
 
       // Read-merge-write per badge. Two devices racing converge anyway: each
       // keeps the earliest timestamp it saw, and the next upload from the other
-      // side cannot move a timestamp forward.
+      // side cannot move a timestamp forward. 挣到值 rides the same merge: the
+      // stored value always belongs to the tier's timestamp winner.
       let stored = 0;
-      for (const [badgeId, incomingMap] of parsed) {
-        const merged = mergeAchieved(existing.get(badgeId) ?? {}, incomingMap);
-        const tier = tierFromAchieved(merged);
+      for (const [badgeId, incomingEntry] of parsed) {
+        const existingEntry = existing.get(badgeId) ?? { achieved: {}, values: null };
+        const mergedAchieved = mergeAchieved(existingEntry.achieved, incomingEntry.achieved);
+        const mergedValues = mergeEarnedValues(existingEntry.values, incomingEntry.values, existingEntry.achieved, incomingEntry.achieved);
+        const tier = tierFromAchieved(mergedAchieved);
         if (tier === 0) continue;
         const { error } = await client.database.from(TABLE).upsert(
-          [{ user_id: userId, badge_id: badgeId, achieved: merged, tier, device_id: deviceId }],
+          [{
+            user_id: userId, badge_id: badgeId,
+            achieved: mergedAchieved, earned_values: mergedValues,
+            tier, device_id: deviceId,
+          }],
           { onConflict: "user_id,badge_id" },
         );
         if (error) throw new Error(error.message);

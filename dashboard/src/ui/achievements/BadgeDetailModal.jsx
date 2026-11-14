@@ -50,10 +50,11 @@ export function resolveTierView(badge, viewTier) {
 
 /**
  * The three lines engraved on the coin's back. The live local reading only
- * appears when the viewed tier was earned on this device: a union-raised
- * tier's true earning value lives on another device (never synced), so the
- * back shows the bar that tier required instead — the same thing previewing
- * any other tier does — and never pairs 达成于 with 本机数值.
+ * appears when the viewed tier was earned on this device. For a union-raised
+ * tier the earning device's own reading rides in `badge.values` (挣到值,
+ * KI-084) and shows as remoteEarnedText when present; without it the back
+ * shows the bar that tier required — the same thing previewing any other
+ * tier does — and never pairs 达成于 with 本机数值.
  */
 export function resolveCoinBackLines({
   hiddenLocked,
@@ -64,6 +65,7 @@ export function resolveCoinBackLines({
   viewThresholdText,
   name,
   previewedTierIsRemote,
+  remoteEarnedText,
 }) {
   if (hiddenLocked) return [copy("achievements.modal.locked"), "···", name];
   if (formattedIssueNumber) {
@@ -76,7 +78,9 @@ export function resolveCoinBackLines({
   if (view.achieved) {
     return [
       copy("achievements.modal.achieved_label"),
-      view.viewingCurrent && !previewedTierIsRemote ? valueText : viewThresholdText || valueText,
+      view.viewingCurrent && !previewedTierIsRemote
+        ? valueText
+        : (previewedTierIsRemote && remoteEarnedText) || viewThresholdText || valueText,
       viewDate || name,
     ];
   }
@@ -144,6 +148,13 @@ export function BadgeDetailBody({ badge, onClose }) {
   const remoteRaised = Boolean(badge?.remote_raised);
   const localTier = Number(badge?.local_tier ?? currentTier);
   const previewedTierIsRemote = remoteRaised && view.achieved && view.tier > localTier;
+  // 挣到值（KI-084）：并集合并后的 payload 会带各档挣到值（时间戳胜者设备
+  // 的实测读数）。仅当预览的等级确实是远端抬上来的才展示，取不到就回落到
+  // 门槛值（旧数据没有这一列）。
+  const remoteEarnedValue = previewedTierIsRemote ? Number(badge?.values?.[view.name]) : NaN;
+  const remoteEarnedText = Number.isFinite(remoteEarnedValue)
+    ? formatBadgeValue(entry?.format, remoteEarnedValue)
+    : null;
   const tName = earned ? tierName(currentTier) : null;
   const achievedDate = formatDate(
     earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null,
@@ -167,6 +178,7 @@ export function BadgeDetailBody({ badge, onClose }) {
     viewThresholdText,
     name,
     previewedTierIsRemote,
+    remoteEarnedText,
   });
 
   return (
@@ -226,7 +238,9 @@ export function BadgeDetailBody({ badge, onClose }) {
       </div>
       {previewedTierIsRemote ? (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-          {copy("achievements.modal.remote_tier_note")}
+          {remoteEarnedText
+            ? copy("achievements.modal.remote_tier_note_value", { value: remoteEarnedText })
+            : copy("achievements.modal.remote_tier_note")}
         </p>
       ) : null}
 

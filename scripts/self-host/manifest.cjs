@@ -104,6 +104,9 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // Achievement union: per-(user, badge) merged unlock map. See
     // tokentracker-badge-sync.ts for the semantics.
     {id:"19-account-badges",sql:read("migrations/20261113060000_self-host-account-badges.sql")},
+    // 挣到值 per-tier readings (KI-084): tokentracker-badge-sync stores each
+    // tier's earning-device value alongside the unlock timestamps.
+    {id:"21-badge-earned-values",sql:read("migrations/20261114120000_self-host-badge-earned-values.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

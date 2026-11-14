@@ -22,6 +22,7 @@ const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 const { createCloudDeviceTokenStore } = require("./cloud-device-token");
 const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
+const { captureBadgeEarnedValues } = require("./badge-earned-values");
 const { fetchProviderServiceStatus } = require("./provider-status");
 const { readCursorStateSummary } = require("./cursor-store");
 const { getTrackerRootDir, resolveTrackerPathsSync } = require("./tracker-paths");
@@ -5589,7 +5590,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           json(res, payload);
           return payload;
         }
-        const { achievements, raised } = mergeRemoteBadgeTiers(payload.achievements, _badgeRemoteCache?.badges);
+        const { achievements, raised } = mergeRemoteBadgeTiers(payload.achievements, _badgeRemoteCache?.badges, _achievementsCache?.earnedValues);
         const merged = raised > 0
           ? { ...payload, achievements, badges_merged_from_account: raised }
           : payload;
@@ -5602,8 +5603,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
 
       // 跨设备并集：本机各等级时间戳与远端合并（更早者胜）；远端更高的等级
       // 原样上屏并标记 remote_raised（dashboard 对它只抬水位、不发弹窗——
-      // 解锁弹窗只属于真正挣到它的那台设备）。
-      const mergeRemoteBadgeTiers = (localAchievements, remoteBadges) => {
+      // 解锁弹窗只属于真正挣到它的那台设备）。挣到值（KI-084）跟随时间戳
+      // 走：某档解锁时间戳的胜者的挣到值就是该档展示值，胜者没带值就空缺
+      // （弹窗回落到门槛值），绝不拿别的设备的读数冒充。
+      const mergeRemoteBadgeTiers = (localAchievements, remoteBadges, localEarnedValues = {}) => {
         if (!Array.isArray(remoteBadges) || remoteBadges.length === 0) {
           return { achievements: localAchievements, raised: 0 };
         }
@@ -5618,6 +5621,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const merged = localAchievements.map((badge) => {
           const remote = remoteById.get(badge?.id);
           if (!remote) return badge;
+          // 挣到值取「合并前」的本机时间戳判定胜负——合并循环会把本机时间戳
+          // 覆写成远端的更早值，用合并后的表就分不清「远端严格更早」和「平局」。
+          const localOriginal = badge.achieved || {};
           const achieved = { ...badge.achieved };
           let changed = false;
           for (const tierKey of BADGE_TIER_KEYS) {
@@ -5629,7 +5635,31 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
               changed = true;
             }
           }
-          if (!changed) return badge;
+          // 挣到值（KI-084）：每档取「该档时间戳胜者设备」的实测读数。胜者没
+          // 带值就空缺（弹窗回落到门槛值），绝不拿另一台设备的读数冒充——
+          // 与边缘函数 mergeEarnedValues 同一不变式（对抗审查 F1）。
+          const earnedValues = {};
+          let hasEarnedValues = false;
+          const localValues = localEarnedValues?.[badge.id];
+          for (const tierKey of BADGE_TIER_KEYS) {
+            const remoteAt = remote.achieved?.[tierKey] || null;
+            const localAt = localOriginal[tierKey] || null;
+            const remoteValue = remote.earned_values?.[tierKey];
+            const localValue = localValues?.[tierKey];
+            let value;
+            if (remoteAt && localAt) {
+              const order = Date.parse(remoteAt) - Date.parse(localAt);
+              value = order < 0 ? remoteValue : order > 0 ? localValue : (remoteValue ?? localValue);
+            } else {
+              value = remoteAt ? remoteValue : localValue;
+            }
+            if (Number.isFinite(value)) {
+              earnedValues[tierKey] = value;
+              hasEarnedValues = true;
+            }
+          }
+          const values = hasEarnedValues ? earnedValues : undefined;
+          if (!changed) return values ? { ...badge, values } : badge;
           const thresholds = Array.isArray(badge.thresholds) ? badge.thresholds : [];
           let tier = 0;
           for (let index = BADGE_TIER_KEYS.length - 1; index >= 0; index -= 1) {
@@ -5637,7 +5667,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           }
           if (tier <= (badge.tier || 0)) {
             // Same tier: fill the earlier unlock dates, nothing else moves.
-            return { ...badge, achieved };
+            return values ? { ...badge, achieved, values } : { ...badge, achieved };
           }
           raised += 1;
           return {
@@ -5647,6 +5677,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             next_threshold: tier >= thresholds.length ? null : thresholds[tier],
             remote_raised: true,
             local_tier: badge.tier || 0,
+            ...(values ? { values } : {}),
           };
         });
         return { achievements: merged, raised };
@@ -5666,14 +5697,18 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         if (_badgeSyncInFlight || Date.now() < _badgeSyncNextAttemptAt) return;
         const context = badgeSyncContext();
         if (!context) return;
+        // 挣到值（KI-084）：上次重算时捕获的本机读数表，随解锁集一起上传。
+        const earnedValues = _achievementsCache?.earnedValues || {};
         // The upload only carries unlocked badges, so the signature is the
-        // unlock set itself: identical set + fresh remote cache = no network.
+        // unlock set itself (挣到值也在内：首捕值入表即触发一次上传):
+        // identical set + fresh remote cache = no network.
         const signature = JSON.stringify(localAchievements.map((badge) => [
           badge.id,
           badge.achieved?.bronze ?? null,
           badge.achieved?.silver ?? null,
           badge.achieved?.gold ?? null,
           badge.achieved?.diamond ?? null,
+          earnedValues[badge.id] || null,
         ]));
         const cacheFresh = _badgeRemoteCache && Date.now() - _badgeRemoteCache.fetchedAt < BADGE_REMOTE_TTL_MS;
         if (cacheFresh && signature === _badgeUploadSignature) return;
@@ -5691,10 +5726,20 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             if (minted.csrfToken) setRelayCsrfToken(minted.csrfToken);
             const unlocked = localAchievements
               .filter((badge) => (badge?.tier || 0) > 0 && badge.achieved)
-              .map((badge) => ({
-                id: badge.id,
-                achieved: BADGE_TIER_KEYS.reduce((map, key) => { map[key] = badge.achieved[key] || null; return map; }, {}),
-              }));
+              .map((badge) => {
+                const earned = earnedValues[badge.id];
+                const values = earned
+                  ? BADGE_TIER_KEYS.reduce((map, key) => {
+                      if (Number.isFinite(earned[key])) map[key] = earned[key];
+                      return map;
+                    }, {})
+                  : undefined;
+                return {
+                  id: badge.id,
+                  achieved: BADGE_TIER_KEYS.reduce((map, key) => { map[key] = badge.achieved[key] || null; return map; }, {}),
+                  ...(values && Object.keys(values).length > 0 ? { values } : {}),
+                };
+              });
             if (unlocked.length > 0) {
               await fetchAccountFunction({
                 baseUrl: runtime.baseUrl, anonKey: runtime.anonKey, accessToken: minted.accessToken,
@@ -5762,6 +5807,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         // real values instead of dropping them to zero while a rebuild runs.
         const sessions = readStoredSessions();
         const achievements = computeLocalAchievements(queueRows, projectRows, { timeZoneContext, sessions });
+        // 挣到值捕获（KI-084）：首观察的实时读数落盘，随 badge-sync 上传。
+        // 放在重算路径上（缓存直答不重捕），文件只在学到新值时改写。
+        const earnedValues = captureBadgeEarnedValues(path.dirname(qp), achievements);
         const payload = {
           generated_at: new Date().toISOString(),
           achievements,
@@ -5776,6 +5824,8 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           // The LOCAL (pre-merge) set: the uploader must post what this device
           // earned, never the union it received back.
           localAchievements: achievements,
+          // 挣到值表（本地捕获）：并集合并按时间戳胜者取值 + 上传体携带。
+          earnedValues,
           // Kept so the background session refresh can re-derive the badges
           // without replaying the queue a second time.
           queueRows,
@@ -5802,6 +5852,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
               sessions_pending: false,
             };
             cache.localAchievements = achievements;
+            cache.earnedValues = captureBadgeEarnedValues(path.dirname(qp), achievements);
             cache.recomputing = false;
           })
           .catch((error) => {

@@ -423,6 +423,7 @@
   "achievements.modal.value_label": "Aktueller Wert",
   "achievements.modal.local_value_label": "Wert dieses Geräts",
   "achievements.modal.remote_tier_note": "Auf einem anderen Gerät erreicht",
+  "achievements.modal.remote_tier_note_value": "Auf einem anderen Gerät erreicht · Wert zum Zeitpunkt: {{value}}",
   "achievements.modal.progress_to_next_local": "Fortschritt zu {{tier}} (dieses Gerät)",
   "achievements.modal.progress_to_next": "Fortschritt zu {{tier}}",
   "achievements.modal.max_tier": "Höchste Stufe erreicht",

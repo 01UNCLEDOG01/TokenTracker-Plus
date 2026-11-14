@@ -1417,6 +1417,7 @@ achievements.modal.achieved_label,dashboard,*,BadgeDetailModal,achieved_label,Ac
 achievements.modal.value_label,dashboard,*,BadgeDetailModal,value_label,Current value,,active
 achievements.modal.local_value_label,dashboard,*,BadgeDetailModal,local_value_label,This device's value,,active
 achievements.modal.remote_tier_note,dashboard,*,BadgeDetailModal,remote_tier_note,Earned on another device,,active
+achievements.modal.remote_tier_note_value,dashboard,*,BadgeDetailModal,remote_tier_note_value,Earned on another device · value at the time: {{value}},,active
 achievements.modal.progress_to_next_local,dashboard,*,BadgeDetailModal,progress_to_next_local,Progress to {{tier}} (this device),,active
 achievements.modal.unlock_date,dashboard,AchievementsPage,BadgeDetailModal,unlock_date,Unlocked,,active
 achievements.modal.unlock_date_unrecorded,dashboard,AchievementsPage,BadgeDetailModal,unlock_date_unrecorded,Not recorded (unlocked before date tracking),,active

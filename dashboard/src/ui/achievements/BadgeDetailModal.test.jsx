@@ -115,6 +115,21 @@ describe("coin back lines vs the union wall (站主 2026-11-14: 本机数值不�
     expect(lines).toEqual(["achievements.modal.achieved_label", "100", "2026/9/23"]);
   });
 
+  it("a union-raised tier with a synced earning value engraves that value", () => {
+    // 挣到值 (KI-084): the earning device's own reading rides the union —
+    // the back face shows it instead of the bare threshold.
+    const lines = resolveCoinBackLines({
+      ...base,
+      hiddenLocked: false,
+      view: { tier: 4, achieved: true, viewingCurrent: true },
+      valueText: "6",
+      viewThresholdText: "100",
+      previewedTierIsRemote: true,
+      remoteEarnedText: "132",
+    });
+    expect(lines).toEqual(["achievements.modal.achieved_label", "132", "2026/9/23"]);
+  });
+
   it("keeps the threshold behavior for previewed lower and locked tiers", () => {
     expect(resolveCoinBackLines({
       ...base,
@@ -152,6 +167,21 @@ describe("badge detail body annotations", () => {
     expect(screen.getByText("achievements.modal.remote_tier_note")).toBeInTheDocument();
     expect(screen.getByText("achievements.modal.local_value_label")).toBeInTheDocument();
     expect(screen.queryByText("achievements.modal.value_label")).toBeNull();
+  });
+
+  it("shows the earning device's synced reading in the remote-tier annotation", () => {
+    // 挣到值 (KI-084): the merged payload carries per-tier readings from the
+    // timestamp-winning device — the annotation names the number that earned
+    // the diamond instead of leaving only the threshold.
+    render(
+      <BadgeDetailBody
+        badge={{ ...remoteStreak, values: { bronze: 6, silver: 6, gold: 6, diamond: 132 } }}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("achievements.modal.remote_tier_note_value")).toBeInTheDocument();
+    expect(screen.queryByText("achievements.modal.remote_tier_note")).toBeNull();
   });
 
   it("keeps the plain labels for a badge this device earned itself", () => {

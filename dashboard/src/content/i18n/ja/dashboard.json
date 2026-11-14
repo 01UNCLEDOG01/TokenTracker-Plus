@@ -412,6 +412,7 @@
   "achievements.modal.value_label": "現在の値",
   "achievements.modal.local_value_label": "この端末の値",
   "achievements.modal.remote_tier_note": "この等級は別の端末で達成しました",
+  "achievements.modal.remote_tier_note_value": "この等級は別の端末で達成しました · 達成時の値 {{value}}",
   "achievements.modal.progress_to_next_local": "{{tier}}までの進捗（この端末）",
   "achievements.modal.progress_to_next": "{{tier}}までの進捗",
   "achievements.modal.max_tier": "最高ティア達成",

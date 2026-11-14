@@ -412,6 +412,7 @@
   "achievements.modal.value_label": "현재 값",
   "achievements.modal.local_value_label": "이 기기 값",
   "achievements.modal.remote_tier_note": "이 등급은 다른 기기에서 달성했습니다",
+  "achievements.modal.remote_tier_note_value": "이 등급은 다른 기기에서 달성했습니다 · 달성 시 값 {{value}}",
   "achievements.modal.progress_to_next_local": "{{tier}}까지 진행률(이 기기)",
   "achievements.modal.progress_to_next": "{{tier}}까지 진행률",
   "achievements.modal.max_tier": "최고 티어 달성",

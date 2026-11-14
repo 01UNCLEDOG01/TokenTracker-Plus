@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T11:00:10.859Z",
+  "generatedAt": "2026-11-14T11:56:03.845Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
@@ -231,7 +231,7 @@
       "rawTextTokens": [
         "= 1 && viewThresholdText ? (",
         "= index + 1; const selected = viewTier === index + 1; const at = formatDate(badge.achieved?.[name]); const palette = TIER_PALETTE[name]; return (",
-        "localTier; const tName = earned ? tierName(currentTier) : null; const achievedDate = formatDate( earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null, ); const valueText = hiddenLocked ? \"???\" : formatBadgeValue(entry?.format, badge.metric_value); const progress = hiddenLocked ? 0 : badgeProgress(badge); const nextTierName = currentTier"
+        "localTier; // 挣到值（KI-084）：并集合并后的 payload 会带各档挣到值（时间戳胜者设备 // 的实测读数）。仅当预览的等级确实是远端抬上来的才展示，取不到就回落到 // 门槛值（旧数据没有这一列）。 const remoteEarnedValue = previewedTierIsRemote ? Number(badge?.values?.[view.name]) : NaN; const remoteEarnedText = Number.isFinite(remoteEarnedValue) ? formatBadgeValue(entry?.format, remoteEarnedValue) : null; const tName = earned ? tierName(currentTier) : null; const achievedDate = formatDate( earned ? badge.achieved?.[tName] || (latestAchievedAt(badge) ? new Date(latestAchievedAt(badge)).toISOString() : null) : null, ); const valueText = hiddenLocked ? \"???\" : formatBadgeValue(entry?.format, badge.metric_value); const progress = hiddenLocked ? 0 : badgeProgress(badge); const nextTierName = currentTier"
       ]
     },
     "dashboard/src/ui/achievements/BadgeMini.jsx": {

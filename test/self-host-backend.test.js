@@ -223,6 +223,57 @@ test("badge sync unions per-device achievements with earliest unlock timestamps"
   assert.equal(badTime.response.status,400);
 });
 
+test("badge sync stores per-tier earning values that follow the timestamp winner (挣到值 KI-084)",async()=>{
+  // 挣到值 (站主 2026-11-14): each device uploads the live reading it saw when
+  // a tier first unlocked; the stored value per tier belongs to that tier's
+  // earliest-timestamp winner. An old client that unlocked earlier makes the
+  // value UNKNOWN (null) — never another device's reading.
+  const owner=await instance.user();
+  const cols=(await instance.db.query("SELECT column_name FROM information_schema.columns WHERE table_name='tokentracker_account_badges'")).rows.map(r=>r.column_name);
+  assert.ok(cols.includes("earned_values"),"migration step 21 must add earned_values");
+  // PC earns bronze first (2026-06-01) and uploads its reading (132).
+  const pc=await instance.request("tokentracker-badge-sync",{device_id:"PC-20231215YOKN",badges:[
+    {id:"streak",achieved:{bronze:"2026-06-01T00:00:00Z",silver:null,gold:null,diamond:null},values:{bronze:132,silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(pc.response.status,200,pc.data.error);
+  // mac earns bronze later (2026-07-01) with its own reading (99): the value
+  // must stay 132 — the earliest unlock's device wins the value too.
+  const mac=await instance.request("tokentracker-badge-sync",{device_id:"Mac Mini M6",badges:[
+    {id:"streak",achieved:{bronze:"2026-07-01T00:00:00Z",silver:null,gold:null,diamond:null},values:{bronze:99,silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(mac.response.status,200);
+  const wall=new Map((await instance.request("tokentracker-badge-sync",undefined,owner)).data.badges.map(b=>[b.id,b]));
+  const money=wall.get("streak");
+  assert.equal(money.achieved.bronze,"2026-06-01T00:00:00Z");
+  assert.equal(money.earned_values.bronze,132,"the earliest unlock's device reading wins");
+  // A tie (same timestamps, re-upload) keeps the already-stored value — an
+  // identical re-post never erases anything.
+  const tie=await instance.request("tokentracker-badge-sync",{device_id:"Mac Mini M6",badges:[
+    {id:"streak",achieved:{bronze:"2026-06-01T00:00:00Z",silver:null,gold:null,diamond:null},values:{bronze:99,silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(tie.response.status,200);
+  const afterTie=new Map((await instance.request("tokentracker-badge-sync",undefined,owner)).data.badges.map(b=>[b.id,b]));
+  assert.equal(afterTie.get("streak").earned_values.bronze,132,"a tie must not overwrite the stored value");
+  // An old client (no values field) that unlocked EARLIER makes the value
+  // unknown rather than borrowing the newer device's reading.
+  const legacy=await instance.request("tokentracker-badge-sync",{device_id:"Old-Client",badges:[
+    {id:"streak",achieved:{bronze:"2026-05-01T00:00:00Z",silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(legacy.response.status,200);
+  const afterLegacy=new Map((await instance.request("tokentracker-badge-sync",undefined,owner)).data.badges.map(b=>[b.id,b]));
+  assert.equal(afterLegacy.get("streak").achieved.bronze,"2026-05-01T00:00:00Z");
+  assert.equal(afterLegacy.get("streak").earned_values.bronze,null,"a winner without a value stays unknown");
+  // Junk readings are rejected outright, not coerced.
+  const negative=await instance.request("tokentracker-badge-sync",{badges:[
+    {id:"streak",achieved:{bronze:"2026-06-01T00:00:00Z",silver:null,gold:null,diamond:null},values:{bronze:-1,silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(negative.response.status,400);
+  const junk=await instance.request("tokentracker-badge-sync",{badges:[
+    {id:"streak",achieved:{bronze:"2026-06-01T00:00:00Z",silver:null,gold:null,diamond:null},values:{bronze:"132",silver:null,gold:null,diamond:null}},
+  ]},owner);
+  assert.equal(junk.response.status,400);
+});
+
 test("leaderboard snapshots key on (user, device) so a multi-device account can publish one row per machine",async()=>{
   // Regression guard for the per-device split (11634a4): the writer inserts
   // device_id and relies on a (period, window, user, device) unique key. Without

@@ -429,6 +429,7 @@
   "achievements.modal.value_label": "当前数值",
   "achievements.modal.local_value_label": "本机数值",
   "achievements.modal.remote_tier_note": "该等级在其他设备达成",
+  "achievements.modal.remote_tier_note_value": "该等级在其他设备达成 · 挣到时数值 {{value}}",
   "achievements.modal.progress_to_next_local": "距{{tier}}进度（本机）",
   "achievements.modal.progress_to_next": "距{{tier}}进度",
   "achievements.modal.max_tier": "已达最高等级",

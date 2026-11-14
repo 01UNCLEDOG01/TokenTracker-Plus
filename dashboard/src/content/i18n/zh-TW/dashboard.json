@@ -413,6 +413,7 @@
   "achievements.modal.value_label": "目前數值",
   "achievements.modal.local_value_label": "本機數值",
   "achievements.modal.remote_tier_note": "該等級在其他裝置達成",
+  "achievements.modal.remote_tier_note_value": "該等級在其他裝置達成 · 掙到時數值 {{value}}",
   "achievements.modal.progress_to_next_local": "距{{tier}}進度（本機）",
   "achievements.modal.progress_to_next": "距{{tier}}進度",
   "achievements.modal.max_tier": "已達最高等級",
