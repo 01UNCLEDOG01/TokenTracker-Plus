@@ -331,6 +331,7 @@ cp .env.example .env.local
 - **License**：本项目遵循 [MIT 许可证](./LICENSE)。
 - **上游项目**：致敬并感谢原作者 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) 的杰出工作与开源贡献。
 - **AI 结对开发**：本 fork 的大量功能实现与日常维护由维护者与 AI 编码智能体（OpenAI Codex、ChatGPT 等）结对完成，在此一并致谢。
+- **AIHOT 数据致谢**：福利指南与全球模型榜的 AIHOT 数据来自数字生命卡兹克（Kazik）的开源项目 [AIHOT](https://aihot.news)，长期公开维护，在此致谢。
 - **第三方声明**：详见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。Clawd 角色形象归 Anthropic 所有，本项目与 Anthropic 官方无关联。
 - **商标免责**：本项目提及的所有产品名称、商标与厂商标识（包括 `dashboard/public/brand-logos/` 中的品牌图标）均归其各自所有者所有，仅用于识别与兼容性说明，不代表任何官方赞助、从属或背书。
 - **原创宠物资产**：猫也（Yeacat）与庚戌（Gengxu）为站主原创品牌资产，不随 MIT 许可授权——随软件正常使用不受影响，未经书面授权不得提取、再分发或二次创作，详见 [LICENSE-ASSETS.md](./LICENSE-ASSETS.md)。

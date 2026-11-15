@@ -329,6 +329,7 @@ If you have multiple devices and want an aggregated view, deploy `scripts/self-h
 - **License**: Released under the [MIT License](./LICENSE).
 - **Upstream Project**: Grateful acknowledgement to [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) for the foundational architecture and open-source contributions.
 - **AI Pair Development**: A large share of this fork's features and day-to-day maintenance is built by the maintainer pairing with AI coding agents (OpenAI Codex, ChatGPT, and others) — many thanks to them.
+- **AIHOT Data**: The perks guide and the AIHOT board build on [AIHOT](https://aihot.news) (aihot.news), the open-source project by 数字生命卡兹克 (Kazik), maintained publicly for a long time — thank you.
 - **Third-Party Notices**: See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Clawd mascot design is copyright Anthropic; this project has no official affiliation with Anthropic.
 - **Trademark Disclaimer**: All product names, trademarks, and brand marks mentioned in this project (including the brand icons in `dashboard/public/brand-logos/`) are property of their respective owners; they are used for identification and compatibility reference only and do not imply any sponsorship, affiliation, or endorsement.
 - **Original Pet Assets**: The Yeacat and Gengxu pet characters are the author's proprietary brand assets and are NOT licensed under the MIT license — in-app use as shipped is fine, but extraction, redistribution or derivative works require written permission. See [LICENSE-ASSETS.md](./LICENSE-ASSETS.md).
