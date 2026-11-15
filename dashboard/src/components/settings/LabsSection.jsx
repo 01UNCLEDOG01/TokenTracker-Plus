@@ -3,6 +3,7 @@ import { copy } from "../../lib/copy";
 import { SectionCard, SettingsRow, ToggleSwitch } from "./Controls.jsx";
 import { useQualityPerDollarPref } from "../../hooks/use-quality-per-dollar-pref.js";
 import { useSessionEfficiencyPref } from "../../hooks/use-session-efficiency-pref.js";
+import { useIpCheckNavPref } from "../../hooks/use-ip-check-nav-pref.js";
 import { useNativeSettings } from "../../hooks/use-native-settings.js";
 
 function BetaLabel({ labelKey }) {
@@ -23,6 +24,7 @@ function BetaLabel({ labelKey }) {
 export function LabsSection() {
   const { enabled: qpdEnabled, toggle: toggleQpd } = useQualityPerDollarPref();
   const { enabled: sessionsEnabled, toggle: toggleSessions } = useSessionEfficiencyPref();
+  const { enabled: ipCheckNavEnabled, toggle: toggleIpCheckNav } = useIpCheckNavPref();
   // Dynamic Island is a native macOS feature: the toggle drives the Swift app
   // through the NativeBridge (not localStorage), and only renders when the
   // macOS bridge advertises support (Windows/browser never send the flag).
@@ -79,6 +81,17 @@ export function LabsSection() {
             checked={sessionsEnabled}
             onChange={toggleSessions}
             ariaLabel={copy("settings.labs.sessions.aria")}
+          />
+        }
+      />
+      <SettingsRow
+        label={copy("settings.labs.ipcheck.label")}
+        hint={copy("settings.labs.ipcheck.hint")}
+        control={
+          <ToggleSwitch
+            checked={ipCheckNavEnabled}
+            onChange={toggleIpCheckNav}
+            ariaLabel={copy("settings.labs.ipcheck.aria")}
           />
         }
       />

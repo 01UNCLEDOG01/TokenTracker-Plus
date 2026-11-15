@@ -80,6 +80,13 @@ describe("getNavGroups", () => {
     expect(links(getNavGroups({ localOnly: true }))).not.toContain("/cloud");
     expect(links(getNavGroups({ localOnly: true }))).toContain("/settings");
   });
+
+  it("hides the Claude IP Check entry unless the labs toggle opts in", () => {
+    const links = (groups) => groups.flatMap((group) => group.items.map((item) => item.to));
+    // 默认隐藏（站主 2026-11-15）；/ip-check 直达链接不受影响。
+    expect(links(getNavGroups())).not.toContain("/ip-check");
+    expect(links(getNavGroups({ ipCheckVisible: true }))).toContain("/ip-check");
+  });
 });
 
 describe("AppLayout sidebar controls", () => {

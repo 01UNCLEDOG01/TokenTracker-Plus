@@ -26,6 +26,7 @@ import { copy } from "../../lib/copy";
 import { cn } from "../../lib/cn";
 import { useTheme } from "../../hooks/useTheme.js";
 import { useLocale } from "../../hooks/useLocale.js";
+import { useIpCheckNavPref } from "../../hooks/use-ip-check-nav-pref.js";
 import { shouldFetchGithubStars } from "../dashboard/util/should-fetch-github-stars.js";
 import { GITHUB_REPO } from "../../lib/brand";
 import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderControls.jsx";
@@ -37,7 +38,7 @@ import { markStartupStage } from "../../lib/startup-performance.js";
 
 const STORAGE_KEY = "tt.sidebarCollapsed";
 
-export function getNavGroups({ localOnly = false } = {}) {
+export function getNavGroups({ localOnly = false, ipCheckVisible = false } = {}) {
   // copy() must be called at render time so locale switches apply.
   // Validator regex picks up these literal calls.
   const groups = [
@@ -60,7 +61,9 @@ export function getNavGroups({ localOnly = false } = {}) {
         { id: "widgets", to: "/widgets", icon: LayoutGrid, label: copy("nav.widgets") },
         { id: "pet", to: "/pet-settings", icon: PawPrint, label: copy("nav.pet") },
         { id: "skills", to: "/skills", icon: Puzzle, label: copy("nav.skills") },
-        { id: "ip-check", to: "/ip-check", icon: Globe, label: copy("nav.ip_check") },
+        // Claude IP 检查默认从侧栏隐藏（站主 2026-11-15）；/ip-check 直达链接始终可用，
+        // 设置·实验室里可固定到侧栏。
+        ...(ipCheckVisible ? [{ id: "ip-check", to: "/ip-check", icon: Globe, label: copy("nav.ip_check") }] : []),
         { id: "perks", to: "/perks", icon: Gift, label: copy("nav.perks") },
         { id: "service-status", to: "/service-status", icon: Activity, label: copy("nav.service_status") },
       ],
@@ -350,7 +353,8 @@ function SidebarBody({
   // labels stay stale after a language switch.
   const { resolvedLocale } = useLocale();
   const localOnly = isLocalOnlyDeployment();
-  const navGroups = useMemo(() => getNavGroups({ localOnly }), [resolvedLocale, localOnly]);
+  const { enabled: ipCheckVisible } = useIpCheckNavPref();
+  const navGroups = useMemo(() => getNavGroups({ localOnly, ipCheckVisible }), [resolvedLocale, localOnly, ipCheckVisible]);
 
   return (
     <>
