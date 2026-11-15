@@ -159,6 +159,9 @@ node bin/tracker.js doctor     # System diagnostics and health check
 | **Cost Valuation Truth** | **✅ Strict List Pricing** (Rejects `-free` zeroing; WorkBuddy points) | ⚠️ Forces `-free` routes to $0; points unrefined | ⚠️ Basic pricing config with limited scope |
 | **Achievements** | **✅ 65 Offline Achievements** (Local queue & debut catalog, 17 synergy titles) | ⚠️ Depends on official cloud server & leaderboard | ❌ No achievement system |
 | **Desktop Companion** | **✅ Desktop Pet + Quota Pill + Floating Cards** | ✅ macOS menu bar mascot / Basic widgets | ⚠️ Basic floating window |
+| **Provider Perks Guide** | **✅ 79 providers + AIHOT-style claim album** (five rarity tiers, streaks, sealed vitrine) | ❌ none | ❌ none |
+| **Dual global model boards** | **✅ Artificial Analysis + AIHOT boards on one page** (CNY pricing, zero config) | ❌ none | ❌ none |
+| **Backend & multi-device** | **✅ Local-first single machine by default; optional self-hosted backend (multi-device sync, no vendor lock-in)** | ⚠️ official cloud hosting only | ❌ local only |
 | **Open Source & Transparency** | **✅ 100% Open Source** (Fully auditable, MIT) | ✅ Open Source (MIT) | ⚠️ Packaged Electron asar binary |
 
 ---
@@ -239,6 +242,17 @@ The repo supports **55 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 | **TRAE CN** | Per-request parsing of the merged architecture & session drill-down; cache hit is estimated (the client stopped writing cache fields after 2026-09) |
 | **TRAE** (Intl) | Per-request parsing with exact cache; copies deduplicated by request id |
 
+**Quota & account source extensions (this fork, 35 sources in total):**
+
+| Source | Integration & notes |
+|---|---|
+| **Hark** | Reads hark.com account quotas automatically: daily token cap, monthly pool, per-function breakdown and auto top-up amount |
+| **Today (China)** | Session-cookie integration: Pro tier validity, monthly/per-category usage and remaining overlap grants (the API only exposes percentages; the panel renders them as-is) |
+| **OpenAI API credits** | Official credits balance reader |
+| **Mistral** | Official quota integration |
+| **MiniMax Code (OAuth)** | OAuth lane integration |
+| **OpenCode Go** | Reworked quota import (local CLI key bridge) |
+
 ---
 
 ## 🏗️ How It Works
@@ -314,6 +328,7 @@ If you have multiple devices and want an aggregated view, deploy `scripts/self-h
 
 - **License**: Released under the [MIT License](./LICENSE).
 - **Upstream Project**: Grateful acknowledgement to [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker) for the foundational architecture and open-source contributions.
+- **AI Pair Development**: A large share of this fork's features and day-to-day maintenance is built by the maintainer pairing with AI coding agents (OpenAI Codex, ChatGPT, and others) — many thanks to them.
 - **Third-Party Notices**: See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Clawd mascot design is copyright Anthropic; this project has no official affiliation with Anthropic.
 - **Trademark Disclaimer**: All product names, trademarks, and brand marks mentioned in this project (including the brand icons in `dashboard/public/brand-logos/`) are property of their respective owners; they are used for identification and compatibility reference only and do not imply any sponsorship, affiliation, or endorsement.
 - **Original Pet Assets**: The Yeacat and Gengxu pet characters are the author's proprietary brand assets and are NOT licensed under the MIT license — in-app use as shipped is fine, but extraction, redistribution or derivative works require written permission. See [LICENSE-ASSETS.md](./LICENSE-ASSETS.md).
