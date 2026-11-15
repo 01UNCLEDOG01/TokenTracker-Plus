@@ -337,6 +337,16 @@ describe("PerksPage", () => {
     expect(screen.getAllByRole("heading", { name: "WorkBuddy 国内版" }).length).toBeGreaterThanOrEqual(1);
   });
 
+  it("分类筛选「每日可领取积分」时，卡册条带只出每日周期卡（多周期 provider 的月卡不混入）", () => {
+    render(<ToastProvider><PerksPage /></ToastProvider>);
+    fireEvent.click(screen.getByText("每日可领取积分").closest("button"));
+    const strip = document.querySelector(".perk-binder");
+    expect(strip).not.toBeNull();
+    // WorkBuddy 同时有日/月/一三张卡：周期锁定后条带只保留每日卡；
+    // 详情列表（provider 级）与玻璃柜（独立于筛选）不受影响。
+    expect(strip.querySelectorAll('[data-perk-id="workbuddy"]').length).toBe(1);
+  });
+
   it("updates open pages across Beijing midnight without clearing monthly marks", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-03T15:59:59Z"));

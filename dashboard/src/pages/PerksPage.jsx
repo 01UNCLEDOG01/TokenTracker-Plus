@@ -311,9 +311,19 @@ export function PerksPage() {
   const albumItems = useMemo(() => {
     // 每周期独立成卡（站主 2026-11-12）：同一软件有几种可领周期就出几张卡，
     // 每张卡的稀有度/次数只看自己那个周期。详情卡保持一张（领取按钮分行）。
+    // 分类筛选若指向领取周期（每日/每月可领取积分），卡册条带只出该周期的卡——
+    // 否则 WorkBuddy 这类多周期卡的月卡会混进「每日可领取积分」筛选（站主 2026-11-15）。
+    // 玻璃柜不受此约束（2026-11-12 裁决：筛选不隐藏绝版卡）。
+    const cycleLockedByCategory =
+      selectedCategory === "daily_claim"
+        ? "daily"
+        : selectedCategory === "monthly_claim"
+          ? "monthly"
+          : null;
     const expanded = [];
     for (const item of filteredItems) {
       for (const cycle of getPerkClaimCycles(item)) {
+        if (cycleLockedByCategory && cycle !== cycleLockedByCategory) continue;
         expanded.push({ item, cycle });
       }
     }
