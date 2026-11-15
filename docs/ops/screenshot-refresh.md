@@ -34,7 +34,7 @@ TOKENTRACKER_HOME="D:/TokenTrackerPlus/demo-home" node bin/tracker.js serve --po
 | perks.png | 侧栏「福利指南」 | 卡册统计头 + 翻页卡牌带 + 绝版玻璃柜同框 |
 | global-models.png | 侧栏「全球模型榜」 | AA 智能榜表格 |
 | pet.png | 侧栏「桌面宠物」 | 选中「庚戌」 |
-| widgets-overview.png | 原生窗口合成图 | 无法用浏览器拍；需计算机操作截托盘浮窗/小组件或沿用旧图 |
+| widgets-overview.png | 原生窗口合成图 | **沿用旧图**（2026-11-15 站主裁决：四个小组件 UI 无变化即用原图）；未来小组件改版时才需要手截四窗口后拼合 |
 
 坑：SPA 元素常「可见但不可点击」（Playwright actionability 超时）——改用 `playwright.evaluate` 里 `document.querySelectorAll('[role=tab]')` 找文本后 `el.click()`，或 `tab.cua.click` 坐标点击。
 
