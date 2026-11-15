@@ -401,10 +401,18 @@ test("all cloud cost paths keep Pi Copilot subscription rows at zero cost", () =
     assert.ok(source.includes('"pi-github-copilot"'), `${name}: Pi Copilot source missing`);
     assert.ok(source.includes('"pi-copilot"'), `${name}: Pi Copilot alias missing`);
     if (name === "tokentracker-account-model-breakdown.ts") {
+      // 2026-11-15: the per-row pricing moved into this file's own
+      // computeRowCost so the TRAE fold can derive the input leg. The
+      // subscription bypass lives inside it now.
       assert.match(
         source,
-        /ma\.totalCostUsd \+= subscriptionBacked\s*\? 0/,
+        /if \(src === "pi-github-copilot" \|\| src === "pi-copilot" \|\| src === "lmstudio"\) return 0;/,
         `${name}: subscription rows must bypass model pricing`,
+      );
+      assert.match(
+        source,
+        /ma\.totalCostUsd \+= foldTraeRowCost\(row, computeRowCost\(row\), evidence\);/,
+        `${name}: per-row cost must go through the TRAE fold`,
       );
     } else {
       assert.match(
@@ -563,7 +571,7 @@ test("all cloud cost paths retain DeepSeek V4 peak/off-peak pricing tiers", () =
   const breakdown = readEdge("tokentracker-account-model-breakdown.ts");
   assert.match(
     breakdown,
-    /ma\.totalCostUsd \+= subscriptionBacked/,
+    /ma\.totalCostUsd \+= foldTraeRowCost\(row, computeRowCost\(row\), evidence\);/,
     "model breakdown must price each pricing-tier row before collapsing models",
   );
 });

@@ -184,6 +184,7 @@ const {
   parseRetryAfterMs,
 } = require("../lib/upload-throttle");
 const { compactPendingQueue, iterateQueueLines, sessionSnapshotMs } = require("../lib/upload-queue");
+const { readTraeEvidencePools, evidenceRowsForUpload } = require("../lib/trae-fold-evidence");
 const { persistQoderEstimateRows } = require("../lib/qoder-estimate-upload");
 const { persistVyceaiUsageRows } = require("../lib/vyceai-usage");
 const AUTO_UPLOAD_CONFIG = {
@@ -4901,6 +4902,13 @@ async function drainQueueToCloud({ baseUrl, anonKey, deviceToken, queuePath, que
 
   const queueSize = await safeStatSize(queuePath);
   const limit = Math.min(Math.max(1, Math.floor(Number(batchSize || 200))), MAX_INGEST_BUCKETS);
+  // TRAE cache-fold evidence rides the FIRST batch of a drain (owner report
+  // 2026-11-15: the account view billed TRAE CN at the ceiling because the
+  // cloud had no measured pools). Read lazily so a drain that never reaches a
+  // batch pays nothing; a device with no TRAE history uploads nothing, so it
+  // can never clobber a real pool cloud-side. If the read fails, the drain
+  // proceeds without evidence — the next sync retries.
+  let evidenceRows = null;
 
   try {
     for (let batch = 0; batch < batchBudget; batch++) {
@@ -4934,6 +4942,13 @@ async function drainQueueToCloud({ baseUrl, anonKey, deviceToken, queuePath, que
       const remainingMs = deadline - Date.now();
       if (remainingMs <= 0) break;
       requestSignal = AbortSignal.timeout(Math.max(1, Math.ceil(remainingMs)));
+      if (evidenceRows === null) {
+        try {
+          evidenceRows = evidenceRowsForUpload(await readTraeEvidencePools());
+        } catch {
+          evidenceRows = [];
+        }
+      }
       const res = await fetchFunctionResponse(functionUrlFor(root, INGEST_SLUG), {
         method: "POST",
         headers,
@@ -4944,6 +4959,7 @@ async function drainQueueToCloud({ baseUrl, anonKey, deviceToken, queuePath, que
           ...(result.sessionStates.length > 0
             ? { account_session_states: result.sessionStates }
             : {}),
+          ...(evidenceRows.length > 0 ? { trae_evidence: evidenceRows } : {}),
         }),
       });
 

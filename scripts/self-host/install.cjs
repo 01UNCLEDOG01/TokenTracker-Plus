@@ -39,11 +39,12 @@ function buildSql({transactional=true}={}) {
   });
   const verify=`DO $verify$ DECLARE v_name text; BEGIN
     FOREACH v_name IN ARRAY ARRAY['tokentracker_devices','tokentracker_device_codes','tokentracker_device_tokens',
-      'tokentracker_hourly','tokentracker_device_machine','tokentracker_account_session_states','tokentracker_cloud_machines'] LOOP
+      'tokentracker_hourly','tokentracker_device_machine','tokentracker_account_session_states','tokentracker_cloud_machines',
+      'tokentracker_account_trae_evidence'] LOOP
       IF to_regclass('public.'||v_name) IS NULL THEN RAISE EXCEPTION 'Installed table is missing: %',v_name; END IF;
     END LOOP;
     FOREACH v_name IN ARRAY ARRAY['cloud_membership(uuid,text)','cloud_account_access(uuid,text,text)',
-      'cloud_ingest_usage(text,text,jsonb,jsonb,text)','cloud_issue_device_token(uuid,text,text,text,text,text[],uuid,text,boolean,text)',
+      'cloud_ingest_usage(text,text,jsonb,jsonb,text)','cloud_ingest_usage(text,text,jsonb,jsonb,text,jsonb)','cloud_issue_device_token(uuid,text,text,text,text,text[],uuid,text,boolean,text)',
       'account_summary_wire(uuid,uuid,timestamptz,timestamptz,text,integer,text,text)',
       'account_daily_wire(uuid,uuid,timestamptz,timestamptz,text,integer,text,text)',
       'account_heatmap_wire(uuid,uuid,timestamptz,timestamptz,text,integer,text,text)',

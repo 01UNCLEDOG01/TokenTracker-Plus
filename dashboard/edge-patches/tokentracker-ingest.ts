@@ -166,6 +166,36 @@ export default async function (req: Request): Promise<Response> {
   for (const r of states) stateMap.set(r.source + "|" + r.session_id, r);
   const stateRows = Array.from(stateMap.values());
 
+  // TRAE cache-fold evidence (src/lib/trae-fold-evidence.js): the client's
+  // per-edition, per-model measured pools. The SQL upsert keeps the largest
+  // measured volume per pool, so retries are idempotent and a device with no
+  // TRAE history (empty pools → no rows here) never clobbers a real one.
+  const rawEvidence = Array.isArray(body.trae_evidence) ? body.trae_evidence : [];
+  if (rawEvidence.length > 200) {
+    return json({ error: "Too many TRAE evidence rows (max 200)" }, 400);
+  }
+  const EVIDENCE_EDITIONS = new Set(["trae-cn", "trae"]);
+  const evidenceRows: Record<string, unknown>[] = [];
+  for (const r of rawEvidence) {
+    const edition = typeof r?.edition === "string" ? r.edition.trim().toLowerCase() : "";
+    const model = typeof r?.model === "string" ? r.model.trim() : "";
+    const hits = Number(r?.hits);
+    const volume = Number(r?.volume);
+    // Fail closed on a malformed pool: a bogus rate would silently reprice
+    // every TRAE row of the account.
+    if (
+      !EVIDENCE_EDITIONS.has(edition) ||
+      !model ||
+      model.length > 200 ||
+      !Number.isSafeInteger(hits) || hits < 0 ||
+      !Number.isSafeInteger(volume) || volume <= 0 ||
+      hits > volume
+    ) {
+      return json({ error: "Invalid TRAE evidence row" }, 400);
+    }
+    evidenceRows.push({ edition, model, hits, volume });
+  }
+
   if ((!Array.isArray(buckets) || buckets.length === 0) && stateRows.length === 0) {
     return json({ error: "No usage buckets provided" }, 400);
   }
@@ -173,6 +203,15 @@ export default async function (req: Request): Promise<Response> {
     return json({ error: "Too many buckets (max 500)" }, 400);
   }
 
+  // Fail closed on a malformed coverage signal before any mapping: garbage
+  // would silently reprice every TRAE row of the account.
+  for (const b of buckets) {
+    if (b?.cache_observed_input_tokens == null) continue;
+    const v = Number(b.cache_observed_input_tokens);
+    if (!Number.isSafeInteger(v) || v < 0) {
+      return json({ error: "Invalid cache_observed_input_tokens" }, 400);
+    }
+  }
   const mappedRows = buckets.map((b: Record<string, unknown>) => ({
     user_id: userId,
     device_id: deviceId,
@@ -191,6 +230,17 @@ export default async function (req: Request): Promise<Response> {
     // paths sent `conversations`. Reading only `conversations` zeroed the
     // column for every CLI upload since 2026-04-18 — accept both.
     conversations: b.conversation_count ?? b.conversations ?? 0,
+    // Coverage signal for the TRAE cache fold (owner report 2026-11-15): the
+    // CLI queue emits it on every TRAE-family row, but this wire used to drop
+    // it — so the account view priced unreported TRAE cache at the list-price
+    // ceiling (trae-cn $6,003 of the $10,292 account total). Absent → NULL →
+    // the SQL COALESCEs to 0 → the fold treats the row as unmeasured, the same
+    // semantics the local fold applies to pre-signal rows. Pre-validated below
+    // (fail closed, like the token columns): garbage would silently reprice
+    // every TRAE row of the account.
+    cache_observed_input_tokens: b.cache_observed_input_tokens == null
+      ? null
+      : Number(b.cache_observed_input_tokens),
   }));
 
   // Dedupe within the batch by (hour_start, source, model), keeping the row
@@ -215,6 +265,7 @@ export default async function (req: Request): Promise<Response> {
       p_token_hash: tokenHash, p_rows: rows, p_states: stateRows,
       p_upload_id: typeof body.upload_id === "string" && /^[0-9a-f-]{36}$/i.test(body.upload_id)
         ? body.upload_id : null,
+      p_evidence: evidenceRows,
     });
     if (!result.ok) return cloudFailure(result, corsHeaders);
     return json(result);

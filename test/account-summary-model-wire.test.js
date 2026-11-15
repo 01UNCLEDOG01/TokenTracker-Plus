@@ -20,17 +20,19 @@ const names = {
   model_names: [null, "", "gpt-6.1-sol", "deepseek-v4-pro", "local/x", "auto", '日本語"', "unpriced/local"],
   pricing_tiers: [null, "", "off_peak", "peak"],
 };
+// Decoders since 2026-11-15 append the trailing cache_observed slot (0 for
+// these old-shape rows — the wire packer trims trailing zeros).
 const costDims = [
-  [null, null, null, "9007199254740993", 2, "3", 0, 0],
-  ["", "", "", 1, 2, 3, "0", 0],
-  ["codex", "gpt-6.1-sol", "", "1000000", 100000, 3000, 0, 100],
-  ["deepseek", "deepseek-v4-pro", "peak", 1000000, 200000, 300000, 0, 0],
-  ["deepseek", "deepseek-v4-pro", "off_peak", 1000000, 200000, 300000, 0, 0],
-  ["lmstudio", "local/x", null, 10000, 10000, 0, 0, 0],
-  ["workbuddy", "auto", null, 123, 45, 67, 0, 0],
-  ["unsloth", "unpriced/local", null, 12, 3, 0, 0, 0],
-  ["pi-copilot", '日本語"', null, 500, 100, 0, 0, 0],
-  ["codex", '日本語"', null, 0, 0, 0, 0, 0],
+  [null, null, null, "9007199254740993", 2, "3", 0, 0, 0],
+  ["", "", "", 1, 2, 3, "0", 0, 0],
+  ["codex", "gpt-6.1-sol", "", "1000000", 100000, 3000, 0, 100, 0],
+  ["deepseek", "deepseek-v4-pro", "peak", 1000000, 200000, 300000, 0, 0, 0],
+  ["deepseek", "deepseek-v4-pro", "off_peak", 1000000, 200000, 300000, 0, 0, 0],
+  ["lmstudio", "local/x", null, 10000, 10000, 0, 0, 0, 0],
+  ["workbuddy", "auto", null, 123, 45, 67, 0, 0, 0],
+  ["unsloth", "unpriced/local", null, 12, 3, 0, 0, 0, 0],
+  ["pi-copilot", '日本語"', null, 500, 100, 0, 0, 0, 0],
+  ["codex", '日本語"', null, 0, 0, 0, 0, 0, 0],
 ];
 const packedCostDims = [
   [0, 0, 0, "9007199254740993", 2, "3"],

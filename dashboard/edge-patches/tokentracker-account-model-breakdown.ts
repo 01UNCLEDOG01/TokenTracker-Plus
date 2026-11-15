@@ -841,10 +841,12 @@ interface GroupedRow {
 }
 
 // [source, model, pricing_tier, total, input, output, cache_read, cache_write,
-// reasoning] already summed over [from, to], as returned by
-// account_model_breakdown_compact.
+// reasoning, cache_observed] already summed over [from, to], as returned by
+// account_model_breakdown_compact. The trailing observed slot (2026-11-15)
+// feeds the TRAE cache fold; a missing slot defaults to 0 = unmeasured.
 type CompactDim = [string | null, string | null, string | null, number | string,
-  number | string, number | string, number | string, number | string, number | string];
+  number | string, number | string, number | string, number | string, number | string,
+  ...(number | string)[]];
 
 interface ModelBreakdownWire {
   source_names: (string | null)[];
@@ -864,6 +866,7 @@ function decodeModelBreakdownWire(data: unknown): CompactDim[] {
   return wire.dims.map((row): CompactDim => [
     wire.source_names[row[0]], wire.model_names[row[1]], wire.pricing_tiers[row[2]],
     token(row, 3), token(row, 4), token(row, 5), token(row, 6), token(row, 7), token(row, 8),
+    token(row, 9),
   ]);
 }
 
@@ -886,6 +889,157 @@ const compactInFlight = new Map<string, Promise<CompactDim[]>>();
  * keep their separate prices, and the loop below re-splits them into the same
  * model entry exactly as the per-day rows did.
  */
+
+// ── TRAE cache-fold evidence ─────────────────────────────────────────────────
+// Byte-for-byte aligned with tokentracker-account-summary.ts (the pricing
+// copies are deliberately per-file; test/edge-pricing-parity.test.js pins the
+// shared parts). Semantics must stay in lockstep with foldTraeRowCost in
+// src/lib/local-api.js — owner report 2026-11-15: without the uploaded pools
+// this view priced TRAE's unreported cache at the list-price ceiling.
+interface TraeEvidencePool { hits: number; volume: number; }
+interface TraeEditionEvidence { byModel: Record<string, TraeEvidencePool>; recognizedRate: number; }
+type TraeEvidenceState = Record<string, TraeEditionEvidence>;
+
+const EVIDENCE_TTL_MS = 5 * 60_000; // matches TRAE_FOLD_REFRESH_MS locally
+const evidenceCache = new Map<string, { fetchedAt: number; value: TraeEvidenceState }>();
+const evidenceInFlight = new Map<string, Promise<TraeEvidenceState>>();
+
+async function fetchTraeEvidence(
+  client: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<TraeEvidenceState> {
+  const cached = evidenceCache.get(userId);
+  if (cached && Date.now() - cached.fetchedAt < EVIDENCE_TTL_MS) return cached.value;
+  const existing = evidenceInFlight.get(userId);
+  if (existing) return existing;
+  const pending = (async () => {
+    try {
+      const { data, error } = await client.database
+        .from("tokentracker_account_trae_evidence")
+        .select("edition, model, hits, volume")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      const state: TraeEvidenceState = {};
+      for (const row of (data ?? []) as Array<{ edition: string; model: string; hits: number | string; volume: number | string }>) {
+        const edition = String(row.edition || "");
+        if (edition !== "trae-cn" && edition !== "trae") continue;
+        const volume = Number(row.volume) || 0;
+        if (!(volume > 0)) continue;
+        const model = String(row.model || "");
+        const slot = state[edition] || (state[edition] = { byModel: {}, recognizedRate: 0 });
+        const acc = slot.byModel[model] || { hits: 0, volume: 0 };
+        acc.hits += Number(row.hits) || 0;
+        acc.volume += volume;
+        slot.byModel[model] = acc;
+      }
+      // Recognized hit rate (owner ruling 2026-11-07): the median across the
+      // edition's own fielded models — applied to models with no fielded
+      // history. Never borrowed across editions, never fabricated.
+      for (const edition of Object.keys(state)) {
+        const rates = Object.values(state[edition].byModel)
+          .filter((acc) => acc.volume > 0)
+          .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
+          .sort((a, b) => a - b);
+        if (rates.length) {
+          const mid = Math.floor(rates.length / 2);
+          state[edition].recognizedRate = rates.length % 2
+            ? rates[mid]
+            : (rates[mid - 1] + rates[mid]) / 2;
+        }
+      }
+      evidenceCache.set(userId, { fetchedAt: Date.now(), value: state });
+      if (evidenceCache.size > 64) {
+        const oldest = evidenceCache.keys().next().value;
+        if (oldest) evidenceCache.delete(oldest);
+      }
+      return state;
+    } catch (error) {
+      const stale = evidenceCache.get(userId);
+      if (stale && Date.now() - stale.fetchedAt < COMPACT_STALE_IF_ERROR_MS) return stale.value;
+      // Missing evidence must never fail the request: rows stay at the ceiling.
+      console.error("trae evidence fetch failed", (error as Error).message);
+      return {};
+    }
+  })().finally(() => evidenceInFlight.delete(userId));
+  evidenceInFlight.set(userId, pending);
+  return pending;
+}
+
+// Port of foldTraeRowCost (src/lib/local-api.js), at dim granularity. See the
+// summary copy for the deviation note (dim coverage vs per-row).
+function foldTraeRowCost(
+  row: GroupedRow & { cache_observed_input_tokens: number | null },
+  cost: number,
+  evidence: TraeEvidenceState,
+): number {
+  const source = String(row?.source || "").toLowerCase();
+  if (source !== "trae" && source !== "trae-cn") return cost;
+  if (row?.cache_observed_input_tokens == null) return cost;
+  const model = String(row?.model || "");
+  const inputSide = (Number(row?.input_tokens) || 0) +
+    (Number(row?.cached_input_tokens) || 0) +
+    (Number(row?.cache_creation_input_tokens) || 0);
+  if (!(inputSide > 0)) return cost;
+  const observed = Math.max(0, Number(row.cache_observed_input_tokens) || 0);
+  const coverage = Math.min(observed / inputSide, 1);
+  if (coverage >= 0.5) return cost;
+  const unmeasured = Math.min(inputSide - observed, Number(row?.input_tokens) || 0);
+  if (!(unmeasured > 0)) return cost;
+  const editionState = evidence?.[source];
+  const acc = editionState?.byModel?.[model];
+  const h = acc && acc.volume > 0
+    ? Math.min(Math.max(acc.hits / acc.volume, 0), 1)
+    : (editionState && editionState.recognizedRate > 0
+        ? Math.min(Math.max(editionState.recognizedRate, 0), 1)
+        : 0);
+  if (!(h > 0)) return cost;
+  const pricing = getRowPricing({ model, source: row.source, pricing_tier: row.pricing_tier });
+  const inputRate = Number(pricing?.input);
+  const cacheRate = Number(pricing?.cache_read);
+  if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
+  const discount = Math.min(cacheRate / inputRate, 1);
+  const fresh = Number(row?.input_tokens) || 0;
+  if (!(fresh > 0)) return cost;
+  const costWithoutInput = computeRowCost({ ...row, input_tokens: 0 });
+  const inputLegCost = cost - costWithoutInput;
+  if (!(inputLegCost > 0)) return cost;
+  const unmeasuredCost = inputLegCost * (unmeasured / fresh);
+  const foldFactor = (1 - h) + h * discount;
+  return cost - unmeasuredCost + unmeasuredCost * foldFactor;
+}
+
+// Prices one already-day-folded dim row. Same semantics as this file's former
+// inline expression — extracted verbatim so the TRAE fold can derive the row's
+// own input-leg price via `input_tokens: 0` (repricing at the naive list rate
+// produced negative folds on off-peak DeepSeek rows, owner-reported 2026-11-07).
+function computeRowCost(row: GroupedRow & { cache_observed_input_tokens?: number | null }): number {
+  const src = String(row.source || "");
+  const mdl = String(row.model || "unknown").trim() || "unknown";
+  const unslothUnpriced = src === "unsloth" && /^(local|unpriced)\//i.test(mdl);
+  const modelForPricing = unslothUnpriced
+    ? "__tokentracker_unpriced_unsloth_model__"
+    : src === "workbuddy" && mdl.toLowerCase() === "auto"
+      ? "hy3-preview-agent"
+      : mdl;
+  const p = getRowPricing({ ...row, model: modelForPricing });
+  if (src === "pi-github-copilot" || src === "pi-copilot" || src === "lmstudio") return 0;
+  const reportedCost = Number(row.total_cost_usd);
+  if (
+    SOURCES_WITH_AUTHORITATIVE_COST.has(src) &&
+    Number.isFinite(reportedCost) &&
+    reportedCost > 0
+  ) return reportedCost;
+  const reasoningIncludedInOutput =
+    src === "codex" || src === "acode" || src === "every-code" ||
+    src === "cline" || src === "omo" || src === "muse";
+  return ((Number(row.input_tokens) || 0) * (p.input || 0) +
+    (Number(row.output_tokens) || 0) * (p.output || 0) +
+    (Number(row.cached_input_tokens) || 0) * (p.cache_read || 0) +
+    (Number(row.cache_creation_input_tokens) || 0) * (p.cache_write ?? 0) +
+    (reasoningIncludedInOutput ? 0 : (Number(row.reasoning_output_tokens) || 0) * (p.output || 0))) /
+    1_000_000;
+}
+
 async function fetchCompactDims(
   client: ReturnType<typeof createClient>,
   userId: string,
@@ -1044,7 +1198,7 @@ async function handleAccountRequest(req: Request): Promise<Response> {
   // `r.bucket >= from && r.bucket <= to` filter this used to do here — then
   // summed the days away. `bucket` and `conversations` are gone because nothing
   // below reads them.
-  const filtered: GroupedRow[] = dims.map((d) => ({
+  const filtered: (GroupedRow & { cache_observed_input_tokens: number | null })[] = dims.map((d) => ({
     bucket: "",
     source: d[0] as string,
     model: d[1] as string,
@@ -1055,6 +1209,10 @@ async function handleAccountRequest(req: Request): Promise<Response> {
     cached_input_tokens: Number(d[6]) || 0,
     cache_creation_input_tokens: Number(d[7]) || 0,
     reasoning_output_tokens: Number(d[8]) || 0,
+    // Trailing slot (2026-11-15): measured-cache coverage for the TRAE fold.
+    // A missing slot degrades to 0 = unmeasured (the wire packer trims
+    // trailing zeros); the fold's actual gate is the evidence pool.
+    cache_observed_input_tokens: d.length > 9 ? Math.max(0, Number(d[9]) || 0) : 0,
     conversations: 0,
   }));
 
@@ -1082,6 +1240,10 @@ async function handleAccountRequest(req: Request): Promise<Response> {
   });
 
   const bySource = new Map<string, SourceAgg>();
+  // TRAE rows fold with the uploaded evidence pools (owner report 2026-11-15:
+  // the ceiling-priced trae-cn share was $6,003 of a $10,292 account total).
+  // Missing evidence keeps the ceiling — never fail the request over it.
+  const evidence = await fetchTraeEvidence(client, userId);
   for (const row of filtered) {
     const src = row.source || "unknown";
     const mdl = String(row.model || "unknown").trim() || "unknown";
@@ -1111,31 +1273,7 @@ async function handleAccountRequest(req: Request): Promise<Response> {
     ma.totals.cached_input_tokens += Number(row.cached_input_tokens) || 0;
     ma.totals.cache_creation_input_tokens += Number(row.cache_creation_input_tokens) || 0;
     ma.totals.reasoning_output_tokens += Number(row.reasoning_output_tokens) || 0;
-    const unslothUnpriced = src === "unsloth" && /^(local|unpriced)\//i.test(mdl);
-    const modelForPricing = unslothUnpriced
-      ? "__tokentracker_unpriced_unsloth_model__"
-      : src === "workbuddy" && mdl.toLowerCase() === "auto"
-        ? "hy3-preview-agent"
-        : mdl;
-    const p = getRowPricing({ ...row, model: modelForPricing });
-    const subscriptionBacked =
-      src === "pi-github-copilot" || src === "pi-copilot" || src === "lmstudio";
-    const reasoningIncludedInOutput =
-      src === "codex" || src === "acode" || src === "every-code" ||
-      src === "cline" || src === "omo" || src === "muse";
-    const reportedCost = Number(row.total_cost_usd);
-    ma.totalCostUsd += subscriptionBacked
-      ? 0
-      : SOURCES_WITH_AUTHORITATIVE_COST.has(src) &&
-          Number.isFinite(reportedCost) &&
-          reportedCost > 0
-        ? reportedCost
-      : ((Number(row.input_tokens) || 0) * (p.input || 0) +
-        (Number(row.output_tokens) || 0) * (p.output || 0) +
-        (Number(row.cached_input_tokens) || 0) * (p.cache_read || 0) +
-        (Number(row.cache_creation_input_tokens) || 0) * (p.cache_write ?? 0) +
-        (reasoningIncludedInOutput ? 0 : (Number(row.reasoning_output_tokens) || 0) * (p.output || 0))) /
-        1_000_000;
+    ma.totalCostUsd += foldTraeRowCost(row, computeRowCost(row), evidence);
   }
 
   const sources = Array.from(bySource.values()).map((s) => {

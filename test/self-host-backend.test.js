@@ -375,3 +375,99 @@ test("the CommonJS self-host wrapper uses reserved internal routing and leaves t
     delete instance.env.INSFORGE_INTERNAL_URL;delete instance.env.API_KEY;
   }
 });
+
+// ── TRAE cache-fold evidence + device attachment (owner report 2026-11-15) ──
+// The account surfaces priced TRAE's unreported cache at the list-price
+// ceiling (trae-cn $6,003 of a $10,292 account total) because the ingest
+// dropped cache_observed_input_tokens and no evidence table existed. The
+// device card excluded trae-cn while the summary included it, so the hero and
+// the device rows disagreed by exactly the trae-cn volume.
+
+const traeRow=(tokens,extra={})=>({hour_start:"2026-10-01T12:00:00Z",source:"trae-cn",model:"Kimi-K2.7-Code",
+  input_tokens:tokens,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+  reasoning_output_tokens:0,total_tokens:tokens,billable_total_tokens:tokens,total_cost_usd:0,
+  conversation_count:1,cache_observed_input_tokens:0,...extra});
+
+test("trae-cn folds with uploaded evidence and stays at the ceiling without it",async()=>{
+  const owner=await instance.user();const device=await issue(owner,"Trae host");
+  const Q="from=2026-10-01&to=2026-10-01&tz=UTC";
+  // 3B unreported-input tokens at kimi-k2.7-code (0.95 in / 0.19 cache read):
+  // ceiling = $2,850. The store keeps the row's coverage signal verbatim.
+  assert.equal((await upload(device.token,[traeRow(3_000_000_000)])).response.status,200);
+  const ceiling=await instance.request("tokentracker-account-summary?"+Q,undefined,owner);
+  assert.equal(ceiling.response.status,200,ceiling.data.error);
+  assert.equal(Number(ceiling.data.totals.total_cost_usd),2850);
+  // The same batch also carries the edition's measured pool: 84% hits on the
+  // same model. Folded = ceiling × ((1−h) + h×(cache_read/input)) = 2850 × 0.328.
+  const withEvidence=await instance.request("tokentracker-ingest",{
+    buckets:[traeRow(3_000_000_000)],
+    trae_evidence:[{edition:"trae-cn",model:"Kimi-K2.7-Code",hits:84,volume:100}],
+  },device.token);
+  assert.equal(withEvidence.response.status,200,withEvidence.data.error);
+  const folded=await instance.request("tokentracker-account-summary?"+Q,undefined,owner);
+  assert.equal(Number(folded.data.totals.total_cost_usd),934.8);
+  // The model-breakdown view prices the same row the same way — the hero and
+  // the cards must never disagree again (this was the 11-07-class bug).
+  const breakdown=await instance.request("tokentracker-account-model-breakdown?"+Q,undefined,owner);
+  const trae=breakdown.data.sources.find((s)=>s.source==="trae-cn");
+  assert.equal(Number(trae.totals.total_cost_usd),934.8);
+  // A well-covered row (observed = whole input side) keeps its ceiling — the
+  // fold must never double-discount measured rows.
+  const covered=await instance.request("tokentracker-ingest",{buckets:[
+    traeRow(1_000_000,{hour_start:"2026-10-01T15:00:00Z",cache_observed_input_tokens:1_000_000}),
+  ]},device.token);
+  assert.equal(covered.response.status,200);
+  const after=await instance.request("tokentracker-account-summary?"+Q,undefined,owner);
+  assert.equal(Number(after.data.totals.total_cost_usd),935.75);
+  // A malformed pool fails closed instead of silently repricing the account.
+  const bad=await instance.request("tokentracker-ingest",{
+    buckets:[traeRow(1,{hour_start:"2026-10-01T16:00:00Z"})],
+    trae_evidence:[{edition:"trae-cn",model:"Kimi-K2.7-Code",hits:200,volume:100}],
+  },device.token);
+  assert.equal(bad.response.status,400);
+  // The largest measured pool wins: re-uploading a smaller pool must not
+  // shrink the evidence the fold uses (empty-device uploads stay empty).
+  const smaller=await instance.request("tokentracker-ingest",{
+    buckets:[traeRow(1_000_000,{hour_start:"2026-10-01T17:00:00Z"})],
+    trae_evidence:[{edition:"trae-cn",model:"Kimi-K2.7-Code",hits:1,volume:2}],
+  },device.token);
+  assert.equal(smaller.response.status,200);
+  // The pool stayed at 84/100 (largest wins): the new row folds at h=0.84 →
+  // 0.95 × 0.328 = $0.3116. Had the pool shrunk to 1/2, the row would price
+  // 0.95 × 0.6 = $0.57 instead.
+  const still=await instance.request("tokentracker-account-summary?"+Q,undefined,owner);
+  assert.equal(Number(still.data.totals.total_cost_usd),936.0616);
+});
+
+test("trae-cn and cursor attach to their owning device; device rows sum to the account total",async()=>{
+  const owner=await instance.user();
+  const first=await issue(owner,"Oldest host");const second=await issue(owner,"Newer host");
+  // Make "oldest" deterministic: the cursor arm attaches to the oldest active
+  // device that has cursor rows, ordered by created_at.
+  await instance.db.query("UPDATE tokentracker_devices SET created_at=now()-interval '1 hour' WHERE id=$1",[first.device_id]);
+  const cursorRow=(tokens)=>({hour_start:"2026-10-01T12:00:00Z",source:"cursor",model:"composer-1",
+    input_tokens:tokens,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+    reasoning_output_tokens:0,total_tokens:tokens,billable_total_tokens:tokens,total_cost_usd:0,conversation_count:1});
+  const codexRow=(tokens)=>({hour_start:"2026-10-01T12:00:00Z",source:"codex",model:"gpt-6",
+    input_tokens:tokens,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+    reasoning_output_tokens:0,total_tokens:tokens,billable_total_tokens:tokens,total_cost_usd:0,conversation_count:1});
+  assert.equal((await upload(first.token,[traeRow(101),cursorRow(10)])).response.status,200);
+  // Cursor is an account-level cloud API: every device stores an identical
+  // copy. Both devices upload it; the reads must dedup it onto one device.
+  assert.equal((await upload(second.token,[cursorRow(10),codexRow(50)])).response.status,200);
+  const Q="from=2026-10-01&to=2026-10-01&tz=UTC";
+  const devices=await instance.request("tokentracker-account-devices?"+Q,undefined,owner);
+  assert.equal(devices.response.status,200,devices.data.error);
+  const rows=Object.fromEntries(devices.data.devices.map((d)=>[d.id,d.total_tokens]));
+  assert.equal(rows[first.device_id],111); // trae-cn 101 + own cursor copy 10
+  assert.equal(rows[second.device_id],50); // no cursor here — it belongs to the oldest device
+  assert.deepEqual(devices.data.account_sources,[]); // nothing invisible anymore
+  // The account-wide totals equal the device rows: the 854.7 vs 753.5亿 gap
+  // from the owner report cannot come back.
+  const all=await instance.request("tokentracker-account-summary?"+Q,undefined,owner);
+  assert.equal(all.data.totals.total_tokens,161);
+  const onlySecond=await instance.request(`tokentracker-account-summary?${Q}&device_id=${second.device_id}`,undefined,owner);
+  assert.equal(onlySecond.data.totals.total_tokens,50); // the old wire attached cursor to EVERY device
+  const onlyFirst=await instance.request(`tokentracker-account-summary?${Q}&device_id=${first.device_id}`,undefined,owner);
+  assert.equal(onlyFirst.data.totals.total_tokens,111);
+});

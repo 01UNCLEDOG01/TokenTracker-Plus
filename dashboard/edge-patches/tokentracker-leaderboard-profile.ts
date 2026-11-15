@@ -751,12 +751,135 @@ interface UsageRow {
   reasoning_output_tokens: number | null;
   total_cost_usd?: number | null;
   pricing_tier?: string;
+  // Measured-cache coverage (2026-11-15): account_usage_grouped carries it for
+  // the TRAE cache fold. This file reads grouped rows as objects (not the
+  // packed wire), so the field is present whenever the deployed SQL has the
+  // column; absent (pre-deploy SQL) → the fold skips, the safe side.
+  cache_observed_input_tokens?: number | null;
 }
 
 // One row per (UTC day, source, model) as returned by account_usage_grouped
 // with p_trunc="day" and no tz override.
 interface GroupedRow extends UsageRow {
   bucket: string;
+}
+
+// ── TRAE cache-fold evidence ─────────────────────────────────────────────────
+// Byte-for-byte aligned with tokentracker-account-summary.ts (the pricing
+// copies are deliberately per-file; test/edge-pricing-parity.test.js pins the
+// shared parts). Semantics must stay in lockstep with foldTraeRowCost in
+// src/lib/local-api.js — owner report 2026-11-15: without the uploaded pools
+// the account surfaces priced TRAE's unreported cache at the list-price
+// ceiling. The profile reads account_usage_grouped directly, so its rows carry
+// the coverage signal once the SQL is deployed.
+interface TraeEvidencePool { hits: number; volume: number; }
+interface TraeEditionEvidence { byModel: Record<string, TraeEvidencePool>; recognizedRate: number; }
+type TraeEvidenceState = Record<string, TraeEditionEvidence>;
+
+const EVIDENCE_TTL_MS = 5 * 60_000; // matches TRAE_FOLD_REFRESH_MS locally
+const evidenceCache = new Map<string, { fetchedAt: number; value: TraeEvidenceState }>();
+const evidenceInFlight = new Map<string, Promise<TraeEvidenceState>>();
+
+async function fetchTraeEvidence(
+  client: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<TraeEvidenceState> {
+  const cached = evidenceCache.get(userId);
+  if (cached && Date.now() - cached.fetchedAt < EVIDENCE_TTL_MS) return cached.value;
+  const existing = evidenceInFlight.get(userId);
+  if (existing) return existing;
+  const pending = (async () => {
+    try {
+      const { data, error } = await client.database
+        .from("tokentracker_account_trae_evidence")
+        .select("edition, model, hits, volume")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      const state: TraeEvidenceState = {};
+      for (const row of (data ?? []) as Array<{ edition: string; model: string; hits: number | string; volume: number | string }>) {
+        const edition = String(row.edition || "");
+        if (edition !== "trae-cn" && edition !== "trae") continue;
+        const volume = Number(row.volume) || 0;
+        if (!(volume > 0)) continue;
+        const model = String(row.model || "");
+        const slot = state[edition] || (state[edition] = { byModel: {}, recognizedRate: 0 });
+        const acc = slot.byModel[model] || { hits: 0, volume: 0 };
+        acc.hits += Number(row.hits) || 0;
+        acc.volume += volume;
+        slot.byModel[model] = acc;
+      }
+      // Recognized hit rate (owner ruling 2026-11-07): the median across the
+      // edition's own fielded models — applied to models with no fielded
+      // history. Never borrowed across editions, never fabricated.
+      for (const edition of Object.keys(state)) {
+        const rates = Object.values(state[edition].byModel)
+          .filter((acc) => acc.volume > 0)
+          .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
+          .sort((a, b) => a - b);
+        if (rates.length) {
+          const mid = Math.floor(rates.length / 2);
+          state[edition].recognizedRate = rates.length % 2
+            ? rates[mid]
+            : (rates[mid - 1] + rates[mid]) / 2;
+        }
+      }
+      evidenceCache.set(userId, { fetchedAt: Date.now(), value: state });
+      if (evidenceCache.size > 64) {
+        const oldest = evidenceCache.keys().next().value;
+        if (oldest) evidenceCache.delete(oldest);
+      }
+      return state;
+    } catch {
+      // No stale-serve layer here (this file has no compact cache to reuse);
+      // missing evidence keeps the ceiling and never fails the request.
+      return {};
+    }
+  })().finally(() => evidenceInFlight.delete(userId));
+  evidenceInFlight.set(userId, pending);
+  return pending;
+}
+
+// Port of foldTraeRowCost (src/lib/local-api.js), at day-dim granularity. See
+// the summary copy for the deviation note (dim coverage vs per-row).
+function foldTraeRowCost(
+  row: UsageRow,
+  cost: number,
+  evidence: TraeEvidenceState,
+): number {
+  const source = String(row?.source || "").toLowerCase();
+  if (source !== "trae" && source !== "trae-cn") return cost;
+  if (row?.cache_observed_input_tokens == null) return cost;
+  const model = String(row?.model || "");
+  const inputSide = (Number(row?.input_tokens) || 0) +
+    (Number(row?.cached_input_tokens) || 0) +
+    (Number(row?.cache_creation_input_tokens) || 0);
+  if (!(inputSide > 0)) return cost;
+  const observed = Math.max(0, Number(row.cache_observed_input_tokens) || 0);
+  const coverage = Math.min(observed / inputSide, 1);
+  if (coverage >= 0.5) return cost;
+  const unmeasured = Math.min(inputSide - observed, Number(row?.input_tokens) || 0);
+  if (!(unmeasured > 0)) return cost;
+  const editionState = evidence?.[source];
+  const acc = editionState?.byModel?.[model];
+  const h = acc && acc.volume > 0
+    ? Math.min(Math.max(acc.hits / acc.volume, 0), 1)
+    : (editionState && editionState.recognizedRate > 0
+        ? Math.min(Math.max(editionState.recognizedRate, 0), 1)
+        : 0);
+  if (!(h > 0)) return cost;
+  const pricing = getRowPricing({ model, source: row.source, pricing_tier: row.pricing_tier });
+  const inputRate = Number(pricing?.input);
+  const cacheRate = Number(pricing?.cache_read);
+  if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
+  const discount = Math.min(cacheRate / inputRate, 1);
+  const fresh = Number(row?.input_tokens) || 0;
+  if (!(fresh > 0)) return cost;
+  const costWithoutInput = computeRowCost({ ...row, input_tokens: 0 });
+  const inputLegCost = cost - costWithoutInput;
+  if (!(inputLegCost > 0)) return cost;
+  const unmeasuredCost = inputLegCost * (unmeasured / fresh);
+  const foldFactor = (1 - h) + h * discount;
+  return cost - unmeasuredCost + unmeasuredCost * foldFactor;
 }
 
 function computeRowCost(row: UsageRow): number {
@@ -1171,11 +1294,16 @@ export default async function (req: Request): Promise<Response> {
   let periodTotalTokens = 0;
   let periodTotalCost = 0;
 
+  // TRAE rows fold with the uploaded evidence pools (owner report 2026-11-15:
+  // the ceiling-priced trae-cn share was $6,003 of a $10,292 account total).
+  // Missing evidence keeps the ceiling — never fail the request over it.
+  const evidence = await fetchTraeEvidence(client, userId);
+
   for (const row of groupedRows) {
     const day = String(row.bucket || "");
     if (!day) continue;
     const tokens = Number(row.total_tokens) || 0;
-    const cost = computeRowCost(row);
+    const cost = foldTraeRowCost(row, computeRowCost(row), evidence);
     if (day >= heatmapStartDay && day < heatmapEndDay) {
       heatmapByDay.set(day, (heatmapByDay.get(day) || 0) + tokens);
       if (row.model && tokens > 0) {

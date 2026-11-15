@@ -593,3 +593,37 @@ test("other edge functions remain plain alongside the direct model response adap
     );
   }
 });
+
+// TRAE cache-fold evidence (owner report 2026-11-15: the account hero billed
+// trae-cn at the list ceiling — $6,003 of $10,292 — because the cloud had no
+// coverage signal and no evidence pool). Every pricing copy that reads the
+// compact account chains must consult the fold; the migration must carry both
+// halves. The leaderboard rollup family is excluded until it carries the
+// coverage signal (folding without it would double-discount reported rows).
+const TRAE_FOLD_FUNCTIONS = [
+  "tokentracker-account-summary.ts",
+  "tokentracker-account-daily.ts",
+  "tokentracker-account-model-breakdown.ts",
+  "tokentracker-leaderboard-profile.ts",
+];
+test("account pricing copies consult the TRAE evidence fold", () => {
+  for (const file of TRAE_FOLD_FUNCTIONS) {
+    const source = read(`dashboard/edge-patches/${file}`);
+    assert.match(source, /function foldTraeRowCost\(/u, `${file} must carry the fold`);
+    assert.match(source, /tokentracker_account_trae_evidence/u, `${file} must read the evidence table`);
+    assert.match(source, /cache_observed_input_tokens/u, `${file} must consume the coverage signal`);
+  }
+  // The ingest must store the coverage signal and pass the evidence through.
+  const ingest = read("dashboard/edge-patches/tokentracker-ingest.ts");
+  assert.match(ingest, /cache_observed_input_tokens/u);
+  assert.match(ingest, /p_evidence/u);
+  const migration = read("migrations/20261115120000_self-host-trae-fold-evidence.sql");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.tokentracker_account_trae_evidence/u);
+  assert.match(migration, /cache_observed_input_tokens bigint/u);
+  // The manifest step sits before the LAST step: b04dead's rule — the final
+  // step must never touch account_usage_grouped.
+  const manifestSource = read("scripts/self-host/manifest.cjs");
+  const traeStep = manifestSource.indexOf("20b-trae-fold-evidence");
+  const lastStep = manifestSource.lastIndexOf("id:\"");
+  assert.ok(traeStep > 0 && traeStep < lastStep, "the fold migration must not be the last step");
+});

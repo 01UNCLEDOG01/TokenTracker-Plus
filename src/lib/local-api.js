@@ -24,8 +24,8 @@ const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
 const { captureBadgeEarnedValues } = require("./badge-earned-values");
 const { fetchProviderServiceStatus } = require("./provider-status");
-const { readCursorStateSummary } = require("./cursor-store");
-const { getTrackerRootDir, resolveTrackerPathsSync } = require("./tracker-paths");
+const { getTrackerRootDir } = require("./tracker-paths");
+const { readTraeEvidencePools } = require("./trae-fold-evidence");
 
 const SYNC_TIMEOUT_MS = 120_000;
 // A failed account-view request should not stall every dashboard refresh
@@ -605,53 +605,12 @@ let traeFoldByEdition = null;
 let traeFoldLoadedAt = 0;
 let traeFoldLoading = false;
 async function loadTraeFoldState() {
-  const state = {};
-  for (const edition of TRAE_EDITIONS) state[edition] = emptyTraeEditionState();
-  // Read the CURRENT cursor generation via cursor-store (AGENTS.md global
-  // rule: cursors.json is a frozen legacy compat copy once cursor-store-v2 is
-  // active — reading it directly prices the dry spell off stale evidence).
-  const summary = await readCursorStateSummary({
-    // Resolve via tracker-paths so TOKENTRACKER_HOME (tests, probes, alternate
-    // installs) points the fold evidence at the same root every other
-    // consumer reads — a raw homedir join reads the wrong root when the env
-    // override is set.
-    trackerDir: resolveTrackerPathsSync().trackerDir,
-  });
-  const buckets = summary?.cursors?.hourly?.buckets || {};
-  for (const [bucketKey, bucket] of Object.entries(buckets)) {
-    const edition = bucketKey.startsWith("trae-cn|")
-      ? "trae-cn"
-      : bucketKey.startsWith("trae|")
-        ? "trae"
-        : null;
-    if (!edition) continue;
-    const bucketTotals = bucket?.totals || {};
-    const observedVolume = Number(bucketTotals.cache_observed_input_tokens) || 0;
-    if (!(observedVolume > 0)) continue;
-    const observedModel = bucketKey.split("|")[1] || "unknown";
-    const acc = state[edition].byModel[observedModel] || { hits: 0, volume: 0 };
-    acc.hits += Number(bucketTotals.cached_input_tokens) || 0;
-    acc.volume += observedVolume;
-    state[edition].byModel[observedModel] = acc;
-  }
-  // Recognized hit rate (owner ruling 2026-11-07): the median across the
-  // edition's own fielded models' measured rates — same edition, same agent
-  // workload. Applied to models the owner never used (no fielded history),
-  // combined with each model's OFFICIAL cache-read price ratio from the
-  // pricing tables. Nothing is fabricated: no fielded models at all, or a
-  // model without official cache pricing, stays at the ceiling.
-  for (const edition of TRAE_EDITIONS) {
-    const rates = Object.values(state[edition].byModel)
-      .filter((acc) => acc.volume > 0)
-      .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
-      .sort((a, b) => a - b);
-    if (rates.length) {
-      const mid = Math.floor(rates.length / 2);
-      state[edition].recognizedRate = rates.length % 2
-        ? rates[mid]
-        : (rates[mid - 1] + rates[mid]) / 2;
-    }
-  }
+  // The pool reader lives in trae-fold-evidence.js — the SAME reader sync.js
+  // uploads to the self-host backend, so the account view prices TRAE rows
+  // with exactly the evidence this fold used (owner report 2026-11-15: the
+  // account hero billed TRAE CN at the ceiling because the cloud had no
+  // evidence and no coverage signal).
+  const state = await readTraeEvidencePools();
   return state;
 }
 function traeFoldMap() {

@@ -816,7 +816,7 @@ interface GroupedRow {
  *                  [from, to].
  */
 interface CompactSummary {
-  cost_dims: [string | null, string | null, string | null, number | string, number | string, number | string, number | string, number | string][];
+  cost_dims: [string | null, string | null, string | null, number | string, number | string, number | string, number | string, number | string, ...(number | string)[]][];
   day_rollup: [string, number | string, number | string][];
   range_totals: Record<string, number | string>;
 }
@@ -857,7 +857,7 @@ function decodeSummaryWire(data: unknown): CompactSummary {
   return {
     cost_dims: wire.cost_dims.map((row): CompactSummary["cost_dims"][number] => [
       wire.source_names[row[0]], wire.model_names[row[1]], wire.pricing_tiers[row[2]],
-      token(row, 3), token(row, 4), token(row, 5), token(row, 6), token(row, 7),
+      token(row, 3), token(row, 4), token(row, 5), token(row, 6), token(row, 7), token(row, 8),
     ]),
     day_rollup: wire.day_rollup.map((row) => [
       new Date(startMs + row[0] * 86_400_000).toISOString().slice(0, 10), row[1], row[2],
@@ -984,8 +984,8 @@ interface DayRoll {
 // source / model / pricing_tier and the five priced token columns, so the
 // remaining GroupedRow fields are filled with the neutral values the per-day
 // rows would have contributed.
-function costOfDim(dim: CompactSummary["cost_dims"][number]): number {
-  return computeRowCost({
+function dimToRow(dim: CompactSummary["cost_dims"][number]): GroupedRow & { cache_observed_input_tokens: number | null } {
+  return {
     bucket: "",
     source: dim[0] ?? "",
     model: dim[1] ?? "unknown",
@@ -995,11 +995,164 @@ function costOfDim(dim: CompactSummary["cost_dims"][number]): number {
     cached_input_tokens: Number(dim[5]) || 0,
     cache_creation_input_tokens: Number(dim[6]) || 0,
     reasoning_output_tokens: Number(dim[7]) || 0,
+    // Trailing slot (2026-11-15): the measured-cache coverage signal. A
+    // missing slot degrades to 0 = unmeasured (the wire packer trims trailing
+    // zeros, so a real observed=0 dim arrives slotless); the fold's actual
+    // gate is the evidence pool — without uploaded pools every row stays at
+    // the ceiling.
+    cache_observed_input_tokens: dim.length > 8 ? Math.max(0, Number(dim[8]) || 0) : 0,
     total_tokens: 0,
     conversations: 0,
-  });
+  };
 }
 
+function costOfDim(dim: CompactSummary["cost_dims"][number]): number {
+  return computeRowCost(dimToRow(dim));
+}
+
+// ── TRAE cache-fold evidence ─────────────────────────────────────────────────
+// The uploaded per-edition, per-model pools (tokentracker_account_trae_evidence,
+// fed by src/lib/trae-fold-evidence.js through the ingest). Without them the
+// account view priced TRAE's unreported cache at the list-price ceiling —
+// trae-cn $6,003 of the owner's $10,292 account total while 本机数据 (which
+// folds with the same evidence) showed a quarter of that. Semantics must stay
+// in lockstep with foldTraeRowCost in src/lib/local-api.js.
+interface TraeEvidencePool { hits: number; volume: number; }
+interface TraeEditionEvidence { byModel: Record<string, TraeEvidencePool>; recognizedRate: number; }
+type TraeEvidenceState = Record<string, TraeEditionEvidence>;
+
+const EVIDENCE_TTL_MS = 5 * 60_000; // matches TRAE_FOLD_REFRESH_MS locally
+const evidenceCache = new Map<string, { fetchedAt: number; value: TraeEvidenceState }>();
+const evidenceInFlight = new Map<string, Promise<TraeEvidenceState>>();
+
+async function fetchTraeEvidence(
+  client: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<TraeEvidenceState> {
+  const cached = evidenceCache.get(userId);
+  if (cached && Date.now() - cached.fetchedAt < EVIDENCE_TTL_MS) return cached.value;
+  const existing = evidenceInFlight.get(userId);
+  if (existing) return existing;
+  const pending = (async () => {
+    try {
+      const { data, error } = await client.database
+        .from("tokentracker_account_trae_evidence")
+        .select("edition, model, hits, volume")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      const state: TraeEvidenceState = {};
+      for (const row of (data ?? []) as Array<{ edition: string; model: string; hits: number | string; volume: number | string }>) {
+        const edition = String(row.edition || "");
+        if (edition !== "trae-cn" && edition !== "trae") continue;
+        const volume = Number(row.volume) || 0;
+        if (!(volume > 0)) continue;
+        const model = String(row.model || "");
+        const slot = state[edition] || (state[edition] = { byModel: {}, recognizedRate: 0 });
+        const acc = slot.byModel[model] || { hits: 0, volume: 0 };
+        acc.hits += Number(row.hits) || 0;
+        acc.volume += volume;
+        slot.byModel[model] = acc;
+      }
+      // Recognized hit rate (owner ruling 2026-11-07): the median across the
+      // edition's own fielded models — applied to models with no fielded
+      // history. Never borrowed across editions, never fabricated.
+      for (const edition of Object.keys(state)) {
+        const rates = Object.values(state[edition].byModel)
+          .filter((acc) => acc.volume > 0)
+          .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
+          .sort((a, b) => a - b);
+        if (rates.length) {
+          const mid = Math.floor(rates.length / 2);
+          state[edition].recognizedRate = rates.length % 2
+            ? rates[mid]
+            : (rates[mid - 1] + rates[mid]) / 2;
+        }
+      }
+      evidenceCache.set(userId, { fetchedAt: Date.now(), value: state });
+      if (evidenceCache.size > 64) {
+        const oldest = evidenceCache.keys().next().value;
+        if (oldest) evidenceCache.delete(oldest);
+      }
+      return state;
+    } catch (error) {
+      const stale = evidenceCache.get(userId);
+      if (stale && Date.now() - stale.fetchedAt < COMPACT_STALE_IF_ERROR_MS) return stale.value;
+      // Missing evidence must never fail the request: rows stay at the ceiling.
+      console.error("trae evidence fetch failed", (error as Error).message);
+      return {};
+    }
+  })().finally(() => evidenceInFlight.delete(userId));
+  evidenceInFlight.set(userId, pending);
+  return pending;
+}
+
+// Port of foldTraeRowCost (src/lib/local-api.js), at dim granularity: the dims
+// aggregate the same (source, model, pricing_tier) rows the local fold walks,
+// and computeRowCost is linear in the token columns, so the fold is exact up
+// to one deviation — coverage is the dim's summed ratio instead of per-row.
+// TRAE-family dims mix reported and unreported rows only in the deepseek
+// family, whose rates are small; the deviation is documented in the batch
+// ledger rather than approximated away.
+function foldTraeRowCost(
+  row: GroupedRow & { cache_observed_input_tokens: number | null },
+  cost: number,
+  evidence: TraeEvidenceState,
+): number {
+  const source = String(row?.source || "").toLowerCase();
+  if (source !== "trae" && source !== "trae-cn") return cost;
+  // Chains that do not carry the coverage signal (the leaderboard rollup
+  // family) must keep the ceiling: folding without coverage would
+  // double-discount exactly the best-reported rows.
+  if (row?.cache_observed_input_tokens == null) return cost;
+  const model = String(row?.model || "");
+  // Row-level measured-coverage gate (owner review 2026-11-07): computeRowCost
+  // already bills the row's MEASURED cache at the cache rate, so a row whose
+  // cache read was reported must never be folded again — the old whole-row
+  // factor double-discounted exactly the best-covered months and folded
+  // output/reasoning, which are not cacheable.
+  const inputSide = (Number(row?.input_tokens) || 0) +
+    (Number(row?.cached_input_tokens) || 0) +
+    (Number(row?.cache_creation_input_tokens) || 0);
+  if (!(inputSide > 0)) return cost;
+  const observed = Math.max(0, Number(row.cache_observed_input_tokens) || 0);
+  const coverage = Math.min(observed / inputSide, 1);
+  if (coverage >= 0.5) return cost; // measured truth — priced by computeRowCost already
+  // Clamp to the fresh input column: cache-creation volume is part of the
+  // input side but not of the fresh column, and an unclamped unmeasured could
+  // exceed it — the proportional fold would then over-draw the input leg and
+  // go negative. Under-folding by the creation share is the conservative side.
+  const unmeasured = Math.min(inputSide - observed, Number(row?.input_tokens) || 0);
+  if (!(unmeasured > 0)) return cost;
+  // Evidence priority, scoped to the row's OWN edition: the model's own
+  // fielded history; without it, the edition's recognized rate (median across
+  // that edition's fielded models). Never the other edition's pool.
+  const editionState = evidence?.[source];
+  const acc = editionState?.byModel?.[model];
+  const h = acc && acc.volume > 0
+    ? Math.min(Math.max(acc.hits / acc.volume, 0), 1)
+    : (editionState && editionState.recognizedRate > 0
+        ? Math.min(Math.max(editionState.recognizedRate, 0), 1)
+        : 0);
+  if (!(h > 0)) return cost;
+  const pricing = getRowPricing({ model, source: row.source, pricing_tier: row.pricing_tier });
+  const inputRate = Number(pricing?.input);
+  const cacheRate = Number(pricing?.cache_read);
+  if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
+  const discount = Math.min(cacheRate / inputRate, 1);
+  // Fold ONLY the unmeasured input-side volume, at the row's OWN effective
+  // input price: derive it from the row (cost minus the cost of everything
+  // but input) so time-of-use and other row-level rate adjustments are
+  // inherited — repricing at the naive list rate produced negative folds on
+  // off-peak DeepSeek rows (owner-reported 2026-11-07).
+  const fresh = Number(row?.input_tokens) || 0;
+  if (!(fresh > 0)) return cost;
+  const costWithoutInput = computeRowCost({ ...row, input_tokens: 0 });
+  const inputLegCost = cost - costWithoutInput;
+  if (!(inputLegCost > 0)) return cost;
+  const unmeasuredCost = inputLegCost * (unmeasured / fresh);
+  const foldFactor = (1 - h) + h * discount;
+  return cost - unmeasuredCost + unmeasuredCost * foldFactor;
+}
 
 export default async function (req: Request): Promise<Response> {
   if (req.method === "OPTIONS")
@@ -1093,8 +1246,15 @@ export default async function (req: Request): Promise<Response> {
   // duplicated into SQL as a sixth copy.
   const rt = compact.range_totals;
   const num = (key: string) => Number(rt[key]) || 0;
+  // TRAE rows fold with the uploaded evidence pools (owner report 2026-11-15:
+  // the ceiling-priced trae-cn share was $6,003 of a $10,292 total). Missing
+  // evidence keeps the ceiling — never fail the request over it.
+  const evidence = await fetchTraeEvidence(client, userId);
   let totalCost = 0;
-  for (const dim of compact.cost_dims) totalCost += costOfDim(dim);
+  for (const dim of compact.cost_dims) {
+    const row = dimToRow(dim);
+    totalCost += foldTraeRowCost(row, computeRowCost(row), evidence);
+  }
 
   const totals = {
     total_tokens: num("total_tokens"),

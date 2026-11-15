@@ -101,6 +101,14 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // days and 7/8 of the trae-cn volume. Re-apply the hourly semantics on top.
     {id:"20-account-trea-cn-restore",sql:read("migrations/20261113230000_account-grouped-trea-cn-restore.sql")},
 
+    // TRAE fold evidence reaches the cloud (owner report 2026-11-15: the account
+    // hero billed trae-cn at the list ceiling — $6,003 of $10,292 — because the
+    // ingest dropped cache_observed_input_tokens and no evidence table existed).
+    // Stores the coverage signal + per-edition fold pools, widens the compact/wire
+    // dims with a trailing observed slot, and attaches cursor to its owning device.
+    // The fold itself stays read-side in the edge TypeScript.
+    {id:"20b-trae-fold-evidence",sql:read("migrations/20261115120000_self-host-trae-fold-evidence.sql")},
+
     // Achievement union: per-(user, badge) merged unlock map. See
     // tokentracker-badge-sync.ts for the semantics.
     {id:"19-account-badges",sql:read("migrations/20261113060000_self-host-account-badges.sql")},
