@@ -109,10 +109,10 @@ export const PERKS_EN = {
     name: "WorkBuddy AI (International)",
     badge: "100 points on the 1st monthly + 30 the day after each chat day",
     description:
-      "WorkBuddy international (workbuddy.ai), with accounts fully separate from the China edition (workbuddy.cn). Current perks: 100 points granted on the 1st of each month, and 30 points auto-credited the next day for each day you chat (verified 2026-11-01). DeepSeek-V4.1-Flash free calls ended (owner verified on 2026-11-02); HY3 remains available for free. Daily caps and campaign windows follow the in-app terms. Invite program (in-app invite dialog, 2026-11-11): a friend who signs up through your link and completes a first question earns you 100 points, and the friend receives 350 (100 invite + 250 new-user). Note the China edition has switched to a 100-point daily check-in \u2014 the two editions differ.",
+      "WorkBuddy international (workbuddy.ai), with accounts fully separate from the China edition (workbuddy.cn). Current perks: 100 points granted on the 1st of each month, and 30 points auto-credited the next day for each day you chat (verified 2026-11-01). DeepSeek-V4.1-Flash free calls ended (owner verified on 2026-11-02). Hy4 flash is now live in both editions with a free trial from Nov 16 through Nov 30, 23:59 (official announcement, 2026-11-16); HY3 will be retired from the app (official announcement 2026-11-16 \u2014 owner verified it was still free on 2026-11-02). Daily caps and campaign windows follow the in-app terms. Invite program (in-app invite dialog, 2026-11-11): a friend who signs up through your link and completes a first question earns you 100 points, and the friend receives 350 (100 invite + 250 new-user). Note the China edition has switched to a 100-point daily check-in \u2014 the two editions differ.",
     tips:
       "Accounts and points are not shared with the China edition (workbuddy.cn); points validity follows the in-app terms, with usage and grant history on the in-site balance & usage page.",
-    tags: ["AI client", "International", "Separate accounts", "Free HY3"],
+    tags: ["AI client", "International", "Separate accounts", "Hy4 flash free trial"],
   },
   zcode: {
     name: "ZCode (Z.AI Coding Agent)",

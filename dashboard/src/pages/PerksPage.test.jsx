@@ -433,7 +433,7 @@ describe("PerksPage", () => {
     expect(screen.getByText(/Zhipu Open Platform/)).toBeInTheDocument();
     expect(screen.getByText(/An AI-first code editor by Anysphere/)).toBeInTheDocument();
     expect(screen.getByText(/DeepSeek-V4\.1-Flash free calls ended/)).toBeInTheDocument();
-    expect(screen.getByText(/HY3 remains available for free/)).toBeInTheDocument();
+    expect(screen.getByText(/Hy4 flash is now live in both editions/)).toBeInTheDocument();
     // 纯中国卡无 overlay，保持中文
     expect(screen.getByRole("heading", { level: 3, name: /阿里百炼/ })).toBeInTheDocument();
     const names = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
