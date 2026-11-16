@@ -549,6 +549,12 @@ settings.account.copy,ui,SettingsPage,SettingsPage,copy,Copy,,active
 settings.account.copied,ui,SettingsPage,SettingsPage,copied,Copied,,active
 settings.account.publicProfile,ui,SettingsPage,SettingsPage,public_profile,Public profile,,active
 settings.account.publicProfileHint,ui,SettingsPage,SettingsPage,public_profile_hint,Show your usage on the public leaderboard.,,active
+settings.account.cloudSync,ui,SettingsPage,AccountSection,cloud_sync,Cloud sync,,active
+settings.account.cloudSyncOnHint,ui,SettingsPage,AccountSection,cloud_sync_on_hint,On: local usage uploads to your account so every device shares one summary.,,active
+settings.account.cloudSyncOffHint,ui,SettingsPage,AccountSection,cloud_sync_off_hint,Off: usage stays on this machine only and is never uploaded.,,active
+settings.account.cloudSyncPending,ui,SettingsPage,AccountSection,cloud_sync_pending,Syncing…,,active
+settings.account.cloudSyncError,ui,SettingsPage,AccountSection,cloud_sync_error,Cloud sync failed.,,active
+settings.account.cloudSyncRetry,ui,SettingsPage,AccountSection,cloud_sync_retry,Retry,,active
 settings.account.displayNameAnonymousHint,ui,SettingsPage,SettingsPage,display_name_anon_hint,Anonymous — your name and avatar are hidden on the leaderboard,,active
 settings.account.displayNameDisabledWhileAnon,ui,SettingsPage,SettingsPage,display_name_disabled,Turn on the switch first to edit your name,,active
 settings.account.githubUrl,ui,SettingsPage,SettingsPage,github_url,GitHub profile,,active

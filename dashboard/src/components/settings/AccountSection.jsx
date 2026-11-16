@@ -34,7 +34,48 @@ function AccountProfileSection({ settings }) {
         unavailable={settings.publicProfileAvailable === false}
       />
       <PublicProfileDetails visible={settings.publicProfileOn} name={settings.name} github={settings.github} avatar={settings.avatar} />
+      <CloudSyncRow settings={settings} />
     </SectionCard>
+  );
+}
+
+// 2026-11-16 恢复：云同步开关的渲染层在设置重构时被删（useCloudSyncControl 成了
+// 死代码，本机宿主下两端都没有任何 UI 能开同步——mac 端新装因此永远不上传）。
+// 按 v1.10.5 之前 CloudSection.jsx 的旧行为最小复植进账号区，文案键新登记。
+function CloudSyncRow({ settings }) {
+  if (!settings.showLocalCloudSync) return null;
+  return (
+    <>
+      <SettingsRow
+        label={copy("settings.account.cloudSync")}
+        hint={copy(settings.cloudSyncOn ? "settings.account.cloudSyncOnHint" : "settings.account.cloudSyncOffHint")}
+        control={
+          <ToggleSwitch
+            checked={settings.cloudSyncOn}
+            disabled={settings.cloudSyncPending}
+            onChange={() => (settings.cloudSyncOn ? settings.handleCloudSyncDisable() : settings.handleCloudSyncToggle())}
+            ariaLabel={copy("settings.account.cloudSync")}
+          />
+        }
+      />
+      {settings.cloudSyncOn && settings.cloudSyncPending ? (
+        <p role="status" className="pb-2 text-xs text-oai-gray-500 dark:text-oai-gray-400">
+          {copy("settings.account.cloudSyncPending")}
+        </p>
+      ) : null}
+      {settings.cloudSyncOn && settings.cloudSyncError && !settings.cloudSyncPending ? (
+        <p role="alert" className="pb-2 text-xs text-red-600 dark:text-red-400">
+          {copy("settings.account.cloudSyncError")}
+          <button
+            type="button"
+            onClick={settings.handleCloudSyncRetry}
+            className="ml-2 underline underline-offset-2"
+          >
+            {copy("settings.account.cloudSyncRetry")}
+          </button>
+        </p>
+      ) : null}
+    </>
   );
 }
 
