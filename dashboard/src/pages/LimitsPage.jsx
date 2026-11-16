@@ -274,7 +274,6 @@ export function LimitsPage() {
                 minimaxCode={usageLimits?.minimaxCode}
                 hark={usageLimits?.hark}
                 todayCn={usageLimits?.todayCn}
-                todayCn={usageLimits?.todayCn}
                 onProviderRefresh={refreshProvider}
                 order={prefs.order}
                 visibility={prefs.visibility}

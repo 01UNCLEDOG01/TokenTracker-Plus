@@ -47,7 +47,10 @@ export const PERKS_AIHOT_PROVIDERS = {
   scnet: ["超算互联网"],
   siliconflow: ["硅基流动"],
   qwen: ["阿里云百炼"],
-  deepseek: ["DeepSeek"],
+  // deepseek 曾映射 ["DeepSeek"]——AIHOT 2026-11-16 把 DeepSeek（DSH ¥6 新户
+  // 体验额度条目）从在架列表下掉，dropped 联动给整卡误盖绝版章；卡主体是官方
+  // 低价 API（仍 alive），按「卡主体福利死亡才算绝版」口径解除映射（站主
+  // 2026-11-16 拍板清章）。DSH ¥6 的历史口径仍留在卡片描述里。
   volcengine: ["火山方舟"],
   huawei_codearts: ["华为云码道"],
   autoclaw: ["智谱 AutoClaw"],
