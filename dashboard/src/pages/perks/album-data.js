@@ -101,10 +101,13 @@ export function buildAihotSignal(item, aihotIndex) {
 // 常常只是一条「信息位条目」，它下架 ≠ 卡主体福利死亡——deepseek 的 DSH ¥6
 // 新户额度被 AIHOT 无声移除（未进其 ended 名单、无下架原因），dropped 联动却给
 // 官方低价 API 平台卡盖了整卡绝版章（2026-11-16 站主拍板清章后立此守卫）。
-// 注意 getPerkClaimCycles 对未声明周期卡兜底返回 ["once"]，不能拿它当判据。
+// 注意 getPerkClaimCycles 对未声明周期卡兜底返回 ["once"]，不能拿它当判据；
+// 显式 claimCycles 也要过滤非法周期值（与 CLAIM_CYCLES 口径一致）。
+const SEAL_CLAIM_CYCLES = new Set(["daily", "monthly", "once"]);
+
 export function advertisesClaimCycles(item) {
   return Boolean(
-    (Array.isArray(item?.claimCycles) && item.claimCycles.length > 0)
+    (Array.isArray(item?.claimCycles) && item.claimCycles.some((cycle) => SEAL_CLAIM_CYCLES.has(cycle)))
       || item?.category?.includes("daily_claim")
       || item?.category?.includes("monthly_claim"),
   );

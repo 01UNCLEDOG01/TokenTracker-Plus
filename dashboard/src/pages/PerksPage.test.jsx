@@ -132,6 +132,8 @@ describe("PerksPage", () => {
     expect(advertisesClaimCycles({ category: ["featured"] })).toBe(false);
     expect(advertisesClaimCycles({ category: ["client", "daily_claim"] })).toBe(true);
     expect(advertisesClaimCycles({ claimCycles: ["once"] })).toBe(true);
+    expect(advertisesClaimCycles({ claimCycles: ["bogus"] })).toBe(false);
+    expect(advertisesClaimCycles({ claimCycles: [] })).toBe(false);
     expect(shouldSealByAihotDrop({ id: "deepseek", category: ["featured"] }, { byProvider: new Map(), dropped: new Set() })).toBe(false);
   });
 

@@ -63,7 +63,7 @@ export const PERKS_CLAIM_YUAN = {
   agnes_web: { daily: 0.3 },        // ¥9–18/月 取下限 ÷30
   trae: { monthly: 7.2 },           // 免费档每月 $1 额度
   joycode: { monthly: 6.8 },        // 月 10,000 积分 = ¥6.80
-  deepseek: { once: 6 },            // 官方赠额 ≈¥6
+  deepseek: { once: 6 },            // 官方赠额 ≈¥6（AIHOT 11-16 已无声移除该条目，公开渠道查无官方出处，孤证保留）
   juflowai: { once: 5 },            // 实名领 ¥5 体验金
   unisound_maas: { once: 4 },       // ¥4–8 取下限
   volcengine: { once: 1.2 },        // ≈¥1.20/月（永久免费）
