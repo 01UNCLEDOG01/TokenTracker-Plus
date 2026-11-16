@@ -58,3 +58,17 @@ export const PERKS_AIHOT_PROVIDERS = {
   opencode: ["OpenCode"],
   opencode_go: ["OpenCode"],
 };
+
+// 站主 2026-11-16 拍板：这批 AIHOT 出身卡（2026-11-13 吸收批照 AIHOT 候选新开、
+// 卡主体就是 AIHOT 活动本身）豁免「声明领取周期」守卫，保留「下架即盖章」——
+// AIHOT 把它们下架基本等于活动死亡。其余未声明周期的平台卡仍被守卫挡住
+// （2026-11-16 deepseek 误章教训：AIHOT 条目只是平台卡的注脚）。
+export const AIHOT_DROP_SEAL_ALWAYS = new Set([
+  "devin",
+  "tokenhub",
+  "qianfan",
+  "wechat_miniprogram",
+  "minicpm_ocr",
+  "stepaudio",
+  "somark",
+]);

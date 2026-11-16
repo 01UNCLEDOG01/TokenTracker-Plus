@@ -121,12 +121,16 @@ describe("PerksPage", () => {
     expect(doubaoCard.textContent).not.toContain("AIHOT 最新快照已无此家福利");
   });
 
-  it("AIHOT 下架→绝版联动守卫：只对声明领取周期的卡盖章（站主 2026-11-16）", () => {
-    const aihotIndex = { byProvider: new Map(), dropped: new Set(["字节 TRAE", "腾讯 WorkBuddy"]) };
+  it("AIHOT 下架→绝版联动守卫：声明周期卡盖章 + AIHOT 出身卡白名单豁免（站主 2026-11-16）", () => {
+    const aihotIndex = { byProvider: new Map(), dropped: new Set(["字节 TRAE", "腾讯 WorkBuddy", "Devin Desktop"]) };
     // 声明了领取周期（category 或 claimCycles）→ AIHOT 下架照常盖章
     expect(shouldSealByAihotDrop({ id: "trae_cn", category: ["client", "daily_claim"] }, aihotIndex)).toBe(true);
     expect(shouldSealByAihotDrop({ id: "workbuddy_intl", claimCycles: ["daily", "monthly"] }, aihotIndex)).toBe(true);
-    // 信息位卡（deepseek 平台卡，2026-11-16 已解除映射）：AIHOT 条目只是注脚，下架不盖章
+    // 白名单豁免（站主拍板）：AIHOT 出身卡主体就是活动，未声明周期也下架即盖章
+    expect(shouldSealByAihotDrop({ id: "devin", category: ["featured"] }, aihotIndex)).toBe(true);
+    // 白名单豁免也只对「真的被下架」生效
+    expect(shouldSealByAihotDrop({ id: "devin", category: ["featured"] }, { byProvider: new Map(), dropped: new Set() })).toBe(false);
+    // 信息位平台卡（deepseek 2026-11-16 已解除映射）：AIHOT 条目只是注脚，下架不盖章
     expect(shouldSealByAihotDrop({ id: "deepseek", category: ["featured"] }, aihotIndex)).toBe(false);
     // 守卫判据本身：未声明周期卡不算（getPerkClaimCycles 的 ["once"] 兜底不是声明）
     expect(advertisesClaimCycles({ category: ["featured"] })).toBe(false);
@@ -134,7 +138,6 @@ describe("PerksPage", () => {
     expect(advertisesClaimCycles({ claimCycles: ["once"] })).toBe(true);
     expect(advertisesClaimCycles({ claimCycles: ["bogus"] })).toBe(false);
     expect(advertisesClaimCycles({ claimCycles: [] })).toBe(false);
-    expect(shouldSealByAihotDrop({ id: "deepseek", category: ["featured"] }, { byProvider: new Map(), dropped: new Set() })).toBe(false);
   });
 
   it("builds a prefilled GitHub issue URL for a perk card", () => {

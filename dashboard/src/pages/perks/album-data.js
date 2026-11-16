@@ -6,7 +6,7 @@ import {
   normalizePerkClaims, migrateLegacyPerkClaims,
 } from "../../lib/perks-claims.mjs";
 import { PERK_PROVIDERS } from "../../data/perksData.js";
-import { PERKS_AIHOT_PROVIDERS } from "../../data/perks-aihot-map.js";
+import { PERKS_AIHOT_PROVIDERS, AIHOT_DROP_SEAL_ALWAYS } from "../../data/perks-aihot-map.js";
 
 export function readPerksClaims() {
   try {
@@ -114,9 +114,13 @@ export function advertisesClaimCycles(item) {
 }
 
 export function shouldSealByAihotDrop(item, aihotIndex) {
-  if (!aihotIndex || !advertisesClaimCycles(item)) return false;
+  if (!aihotIndex) return false;
   const providers = PERKS_AIHOT_PROVIDERS[item.id];
-  return Boolean(providers && providers.some((provider) => aihotIndex.dropped.has(provider)));
+  if (!providers) return false;
+  if (!providers.some((provider) => aihotIndex.dropped.has(provider))) return false;
+  // 白名单豁免（站主 2026-11-16 拍板：AIHOT 出身卡下架即盖章），
+  // 其余未声明领取周期的平台卡被守卫挡住。
+  return AIHOT_DROP_SEAL_ALWAYS.has(item.id) || advertisesClaimCycles(item);
 }
 
 export const ALBUM_PAGE_SIZE = 18;
