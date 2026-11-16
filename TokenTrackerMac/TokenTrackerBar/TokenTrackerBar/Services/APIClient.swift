@@ -123,12 +123,17 @@ actor APIClient {
         if drain {
             // Sync Now keeps the bounded background scan, while --drain still
             // flushes the complete local backlog and gives the request lock priority.
+            // publishAccount unlocks the server-side device-token issuance (KI-067,
+            // 2026-11-17): without it the local-sync route never sets
+            // TOKENTRACKER_LOCAL_SYNC_DEVICE_TOKEN for a panel-less native request,
+            // so the child collected into the local queue but never uploaded —
+            // the mac backlog that only landed when the dashboard was opened.
             body = Data(
-                #"{"auto":true,"background":true,"allLocalSources":true,"drain":true}"#.utf8
+                #"{"auto":true,"background":true,"allLocalSources":true,"drain":true,"publishAccount":true}"#.utf8
             )
         } else if auto {
             body = Data(
-                #"{"auto":true,"background":true,"allLocalSources":true}"#.utf8
+                #"{"auto":true,"background":true,"allLocalSources":true,"publishAccount":true}"#.utf8
             )
         } else {
             body = Data("{}".utf8)
