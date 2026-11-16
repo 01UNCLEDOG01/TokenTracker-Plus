@@ -207,6 +207,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // GPT-6.1 Sol Standard pricing (issue #737), verified 2026-10-02.
   // https://developers.openai.com/api/docs/models/gpt-6.1-sol
   "gpt-6.1-sol": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
+  // GPT-6.1 Terra (litellm:exact, synced 2026-11-16) — before this entry the
+  // account view billed the owner's 192M terra rows at $0.
+  "gpt-6.1-terra": { input: 1, output: 5, cache_read: 0.05, cache_write: 1.25 },
   "gpt-5-mini": { input: 0.25, output: 2, cache_read: 0.025 },
   "o3": { input: 2, output: 8, cache_read: 0.5 },
   // ── Google Gemini ──
@@ -215,13 +218,24 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "gemini-2.5-pro-preview-05-06": { input: 1.25, output: 10, cache_read: 0.125 },
   "gemini-2.5-flash": { input: 0.3, output: 2.5, cache_read: 0.03 },
   "gemini-3-flash-preview": { input: 0.5, output: 3, cache_read: 0.05 },
-  // Antigravity reports Gemini 3.8 Flash under these ids; LiteLLM prices both
-  // at the 2.5-flash card (0.3 in / 2.5 out / 0.03 cache-read), cache writes
-  // free (litellm:exact, 2026-10-13).
-  "gemini-3.8-flash-n": { input: 0.3, output: 2.5, cache_read: 0.03, cache_write: 0 },
-  "gemini-3.8-flash-tiered": { input: 0.3, output: 2.5, cache_read: 0.03, cache_write: 0 },
+  // Antigravity reports Gemini 3.8 Flash as the bare id and as -n / -tiered.
+  // LiteLLM repriced the whole family onto the 3.8-flash card ($0.75 / $3.75 /
+  // $0.075 cache-read, cache writes free — litellm:exact, re-synced 2026-11-16;
+  // the 2026-10-13 snapshot still carried the 2.5-flash card at 0.3/2.5, which
+  // under-priced the owner's 4.4B-token antigravity history by $174 in the
+  // account view). Pre-batch the bare id fell through the includes chain to
+  // the gemini-3-flash-preview card, and the -n/-tiered ids hit the stale
+  // 0.3/2.5 card via exact lookup.
+  "gemini-3.8-flash": { input: 0.75, output: 3.75, cache_read: 0.075, cache_write: 0 },
+  "gemini-3.8-flash-n": { input: 0.75, output: 3.75, cache_read: 0.075, cache_write: 0 },
+  "gemini-3.8-flash-tiered": { input: 0.75, output: 3.75, cache_read: 0.075, cache_write: 0 },
   "gemini-3-pro-preview": { input: 2, output: 12, cache_read: 0.2 },
   "gemini-3.1-pro-preview": { input: 2, output: 12, cache_read: 0.2 },
+  // Codex reports the OpenRouter :free id; the local matcher routes it to the
+  // google/gemma-4-26b-a4b-it card (curated-overrides.json: OpenRouter input
+  // 0.09 with DeepInfra output 0.34, cache read at the 0.1x convention). Pinned
+  // directly so the cloud prices the same (2026-11-16).
+  "google/gemma-4-26b-a4b-it:free": { input: 0.09, output: 0.34, cache_read: 0.009, cache_write: 0.09 },
   // ── Cursor Composer ──
   "composer-1": { input: 1.25, output: 10, cache_read: 0.125 },
   "composer-1.5": { input: 3.5, output: 17.5, cache_read: 0.35 },
@@ -277,6 +291,16 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "MiniMax-M2.7": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0.375 },
   "MiniMax-M2.7-highspeed": { input: 0.6, output: 2.4, cache_read: 0.06, cache_write: 0.375 },
   "minimax-m3": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0 },
+  // The M3.1 SKU must not be captured by the generic minimax-m3 entry above:
+  // its cache read is 0.03, not 0.06 (curated-overrides.json, official launch
+  // pricing). Without this key the fuzzy chain matched minimax-m3 and
+  // over-priced the owner's cache-heavy M3.1 rows by $24 (2026-11-16).
+  "minimax-m3.1-flash": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
+  // Same card for the -preview SKU (curated exact key): without it the fuzzy
+  // chain captures minimax-m3 and doubles the cache-read rate (2026-11-16).
+  "minimax-m3.1-flash-preview": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
+  // MiniMax Code's agent model (litellm:prefix-strip, 2026-11-16).
+  "agnes-2.5-flash": { input: 0.03, output: 0.15, cache_read: 0, cache_write: 0 },
   "deepseek-v4-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   "deepseek-v4-pro": { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 },
   "deepseek-v4-flash-vision-exp": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
@@ -349,6 +373,8 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "mimo-v2.5-pro": { input: 1, output: 3, cache_read: 0.2 },
   "mimo-v2.5": { input: 0.4, output: 2, cache_read: 0.08 },
   "mimo-v2-flash": { input: 0.1, output: 0.3, cache_read: 0.02 },
+  // WorkBuddy reports the V2.6 Pro id (litellm:prefix-strip, 2026-11-16).
+  "mimo-v2.6-pro": { input: 0.348, output: 0.696, cache_read: 0.00288, cache_write: 0 },
   // OpenRouter free route: the local matcher's contained matching bills it at
   // the deepseek-chat card; pinned here so the cloud prices the same (2026-10-16).
   "mimo-v2.6-flash-free": { input: 0.14, output: 0.28, cache_read: 0.0028 },
@@ -534,8 +560,10 @@ function getModelPricing(model: string, source = "") {
     // still what gets stored/displayed.
     model = model.replace(/_/g, "-");
   }
-  const exact = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()];
-  if (exact) return exact;
+  // Cline zero-billing guards run BEFORE the exact table: the local matcher
+  // applies them at step 0, so a Cline row reporting an id that also exists in
+  // MODEL_PRICING (e.g. a :free-suffixed OpenRouter id pinned below) must bill
+  // $0 on the edge too — ordering gap exposed by the 2026-11-16 gemma pin.
   const lower = model.toLowerCase();
   if (source === "cline" && lower.endsWith(":free")) return ZERO_PRICING;
   // Cline's own gateway namespaces (`cline-free/*` free tier, `cline-pass/*`
@@ -546,6 +574,8 @@ function getModelPricing(model: string, source = "") {
   // reports its own positive cost still wins earlier via
   // SOURCES_WITH_AUTHORITATIVE_COST.
   if (lower.includes("cline-free/") || lower.includes("cline-pass/")) return ZERO_PRICING;
+  const exact = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()];
+  if (exact) return exact;
   // SenseNova-hosted models report with an `sn-` namespace prefix through the
   // agent2api gateway and zcode (sn-deepseek-v4-1-flash = DeepSeek V4.1 Flash
   // served from SenseNova's Token Plan). The upstream SKU sits after the
@@ -614,6 +644,12 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("gpt-6-astra")) return MODEL_PRICING["gpt-6-astra"];
   if (lower.includes("gpt-6-sol")) return MODEL_PRICING["gpt-6-sol"];
   if (lower.includes("gpt-6.1-sol")) return MODEL_PRICING["gpt-6.1-sol"];
+  // The terra family carries reasoning-effort suffixes like sol/luna do; the
+  // bare key alone would bill gpt-6.1-terra-high at $0 (2026-11-16).
+  if (lower.includes("gpt-6.1-terra")) return MODEL_PRICING["gpt-6.1-terra"];
+  // Prefixed/free-suffixed gemma spellings route to the same card the local
+  // curated fuzzy entry uses (2026-11-16).
+  if (lower.includes("gemma-4-26b-a4b-it")) return MODEL_PRICING["google/gemma-4-26b-a4b-it:free"];
   // gpt-5.6 tiers: sol/terra/luna carry reasoning-effort suffixes (solhigh,
   // etc.), so match by substring. Specific tiers precede the generic gpt-5.6
   // fallback (the public gpt-5.6 alias points to the flagship sol tier).
