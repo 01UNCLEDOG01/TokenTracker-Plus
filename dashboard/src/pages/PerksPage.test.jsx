@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { PerksPage } from "./PerksPage.jsx";
-import { buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, cardRarity } from "./perks/album-data.js";
+import { buildPerksFeedbackUrl, albumBrightnessTier, ALBUM_PAGE_SIZE, perkDaysLeft, cardRarity, advertisesClaimCycles, shouldSealByAihotDrop } from "./perks/album-data.js";
 import { ToastProvider } from "../ui/components/Toast.jsx";
 import zhCore from "../content/i18n/zh/core.json";
 import zhDashboard from "../content/i18n/zh/dashboard.json";
@@ -119,6 +119,20 @@ describe("PerksPage", () => {
     await waitFor(() => expect(screen.getAllByText("AIHOT 最新快照已无此家福利").length).toBe(2));
     const doubaoCard = screen.getByRole("heading", { name: "豆包工作 (Doubao Work)" }).closest("div.group");
     expect(doubaoCard.textContent).not.toContain("AIHOT 最新快照已无此家福利");
+  });
+
+  it("AIHOT 下架→绝版联动守卫：只对声明领取周期的卡盖章（站主 2026-11-16）", () => {
+    const aihotIndex = { byProvider: new Map(), dropped: new Set(["字节 TRAE", "腾讯 WorkBuddy"]) };
+    // 声明了领取周期（category 或 claimCycles）→ AIHOT 下架照常盖章
+    expect(shouldSealByAihotDrop({ id: "trae_cn", category: ["client", "daily_claim"] }, aihotIndex)).toBe(true);
+    expect(shouldSealByAihotDrop({ id: "workbuddy_intl", claimCycles: ["daily", "monthly"] }, aihotIndex)).toBe(true);
+    // 信息位卡（deepseek 平台卡，2026-11-16 已解除映射）：AIHOT 条目只是注脚，下架不盖章
+    expect(shouldSealByAihotDrop({ id: "deepseek", category: ["featured"] }, aihotIndex)).toBe(false);
+    // 守卫判据本身：未声明周期卡不算（getPerkClaimCycles 的 ["once"] 兜底不是声明）
+    expect(advertisesClaimCycles({ category: ["featured"] })).toBe(false);
+    expect(advertisesClaimCycles({ category: ["client", "daily_claim"] })).toBe(true);
+    expect(advertisesClaimCycles({ claimCycles: ["once"] })).toBe(true);
+    expect(shouldSealByAihotDrop({ id: "deepseek", category: ["featured"] }, { byProvider: new Map(), dropped: new Set() })).toBe(false);
   });
 
   it("builds a prefilled GitHub issue URL for a perk card", () => {

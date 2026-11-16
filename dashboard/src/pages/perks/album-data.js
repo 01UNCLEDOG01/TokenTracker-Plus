@@ -96,6 +96,26 @@ export function buildAihotSignal(item, aihotIndex) {
   return { date: latest ? beijingDate(latest) : "", dropped, endsAt };
 }
 
+// 站主 2026-11-16 守卫：「AIHOT 下架 → 绝版章」只对声明了领取周期的卡生效
+// （category 含 daily_claim/monthly_claim，或显式 claimCycles）。AIHOT 对平台卡
+// 常常只是一条「信息位条目」，它下架 ≠ 卡主体福利死亡——deepseek 的 DSH ¥6
+// 新户额度被 AIHOT 无声移除（未进其 ended 名单、无下架原因），dropped 联动却给
+// 官方低价 API 平台卡盖了整卡绝版章（2026-11-16 站主拍板清章后立此守卫）。
+// 注意 getPerkClaimCycles 对未声明周期卡兜底返回 ["once"]，不能拿它当判据。
+export function advertisesClaimCycles(item) {
+  return Boolean(
+    (Array.isArray(item?.claimCycles) && item.claimCycles.length > 0)
+      || item?.category?.includes("daily_claim")
+      || item?.category?.includes("monthly_claim"),
+  );
+}
+
+export function shouldSealByAihotDrop(item, aihotIndex) {
+  if (!aihotIndex || !advertisesClaimCycles(item)) return false;
+  const providers = PERKS_AIHOT_PROVIDERS[item.id];
+  return Boolean(providers && providers.some((provider) => aihotIndex.dropped.has(provider)));
+}
+
 export const ALBUM_PAGE_SIZE = 18;
 
 // 价值档位排序权重（站主 2026-11-12：卡册按档位色从琥珀排到灰，不管领取状态）。

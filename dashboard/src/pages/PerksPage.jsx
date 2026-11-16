@@ -19,7 +19,7 @@ import { localizePerk } from "../data/perks-i18n-en.js";
 import { comparePerks } from "../data/perks-sort.mjs";
 import {
   ALBUM_PAGE_SIZE, TIER_RANK, AIHOT_PROVIDER_TO_CARD, albumBrightnessTier,
-  perkDaysLeft, cardRarity, buildAihotSignal,
+  perkDaysLeft, cardRarity, buildAihotSignal, shouldSealByAihotDrop,
   readPerksClaims, writePerksClaims, buildPerksFeedbackUrl,
 } from "./perks/album-data.js";
 import { PerkCard } from "./perks/PerkCard.jsx";
@@ -370,12 +370,10 @@ export function PerksPage() {
       // 绝版 = 活动结束（站主 2026-11-12 口径）：AIHOT 把该 provider 标记为
       // dropped（下线活动，如 workbuddy 国际版 DeepSeek 免费调用）、或数据里
       // 写了 endsAt 且已过期、或显式 retired 标记——与是否领取过无关。
+      // 2026-11-16 守卫：dropped 分支只对声明领取周期的卡生效（信息位卡不盖章）。
       const sealed = item.retired === true
         || Boolean(perkDaysLeft(item.endsAt)?.ended)
-        || (() => {
-          const providers = PERKS_AIHOT_PROVIDERS[item.id];
-          return Boolean(providers && providers.some((provider) => aihotIndex.dropped.has(provider)));
-        })();
+        || shouldSealByAihotDrop(item, aihotIndex);
       return {
         item,
         cycle,
