@@ -7,7 +7,10 @@ export const PERKS_AIHOT_PROVIDERS = {
   // —— AIHOT 2026-11-13 吸收的新卡（provider 名为快照原值）——
   officeace: ["华为云 OfficeAce"],
   meoo: ["秒悟 Meoo"],
-  tencent_ima: ["腾讯 ima"],
+  // tencent_ima 曾映射 ["腾讯 ima"]——AIHOT 2026-11-17 无声移除（其已结束名单
+  // 无 ima、无下架原因），而每日 50 算力 2026-11-14 站主端内实测仍 alive，
+  // dropped 联动误盖绝版章（deepseek 同款）。按站主口径解除映射清章；活动
+  // 真伪待站主 ima 端内复核，复活后再挂回。
   ace_music: ["ACE Music"],
   astudio: ["科大讯飞 AStudio"],
   wps_lingxi: ["WPS 灵犀"],
