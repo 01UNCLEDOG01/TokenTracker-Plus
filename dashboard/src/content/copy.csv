@@ -221,6 +221,8 @@ trend.zoom.insight.massive,ui,TrendMonitorZoomModal,TrendMonitorZoomModal,zoom_i
 heatmap.title,ui,ActivityHeatmap,ActivityHeatmap,title,Activity Heatmap,,active
 heatmap.empty,ui,ActivityHeatmap,ActivityHeatmap,empty_state,No activity data yet.,,active
 heatmap.legend.less,ui,ActivityHeatmap,ActivityHeatmap,legend_less,Less,,active
+heatmap.snapshot.at,ui,ActivityHeatmap,ActivityHeatmap,snapshot_at,Data snapshot {{time}},,active
+heatmap.snapshot.cached,ui,ActivityHeatmap,ActivityHeatmap,snapshot_cached,"(local cache)",,active
 heatmap.legend.more,ui,ActivityHeatmap,ActivityHeatmap,legend_more,More,,active
 heatmap.legend.utc,ui,ActivityHeatmap,ActivityHeatmap,legend_utc,UTC,,active
 heatmap.unit.tokens,ui,ActivityHeatmap,ActivityHeatmap,unit_tokens,tokens,,active

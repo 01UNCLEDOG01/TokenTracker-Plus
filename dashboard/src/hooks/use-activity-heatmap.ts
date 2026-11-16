@@ -55,6 +55,9 @@ export function useActivityHeatmap({
   const [daily, setDaily] = useState<any[]>([]);
   const [heatmap, setHeatmap] = useState<any | null>(null);
   const [source, setSource] = useState("edge");
+  // 数据快照时间（2026-11-16）：热力图是时点快照，跨设备数据落库后同一天的数字
+  // 会变（mac 积压回传实测 +2.5 亿 glm）——把抓取时间暴露出去，让「变了」可对账。
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
@@ -147,6 +150,7 @@ export function useActivityHeatmap({
     setDaily([]);
     setHeatmap(null);
     setSource("edge");
+    setFetchedAt(null);
     setError(null);
     setLoading(true);
   }, [scopeKey]);
@@ -187,6 +191,7 @@ export function useActivityHeatmap({
             if (!isCurrent()) return;
             setHeatmap(cached.heatmap);
             setDaily(cached.daily || []);
+            setFetchedAt(typeof cached.fetchedAt === "string" ? cached.fetchedAt : null);
             setSource("cache");
             return;
           }
@@ -216,6 +221,7 @@ export function useActivityHeatmap({
             weekStartsOn,
           });
           if (!isCurrent()) return;
+          setFetchedAt(new Date().toISOString());
           setDaily(rows);
           setHeatmap({
             ...localHeatmap,
@@ -255,6 +261,7 @@ export function useActivityHeatmap({
         setHeatmap(res || null);
         setDaily([]);
         setSource("edge");
+        setFetchedAt(new Date().toISOString());
         if (res && cacheAllowed) {
           writeCache({
             heatmap: res,
@@ -287,6 +294,7 @@ export function useActivityHeatmap({
       });
       const rows = Array.isArray(dailyRes?.data) ? dailyRes.data : [];
       if (!isCurrent()) return;
+      setFetchedAt(new Date().toISOString());
       setDaily(rows);
       const localHeatmap = buildActivityHeatmap({
         dailyRows: rows,
@@ -328,6 +336,7 @@ export function useActivityHeatmap({
           if (!isCurrent()) return;
           setHeatmap(cached.heatmap);
           setDaily(cached.daily || []);
+          setFetchedAt(typeof cached.fetchedAt === "string" ? cached.fetchedAt : null);
           setSource("cache");
           setError(null);
         } else {
@@ -382,6 +391,7 @@ export function useActivityHeatmap({
       setError(null);
       setHeatmap(null);
       setSource("edge");
+      setFetchedAt(null);
       return;
     }
     if (!cacheAllowed) {
@@ -390,11 +400,13 @@ export function useActivityHeatmap({
       setError(null);
       setHeatmap(null);
       setSource("edge");
+      setFetchedAt(null);
     } else {
       const cached = readCache();
       if (cached?.heatmap) {
         setHeatmap(cached.heatmap);
         setDaily(cached.daily || []);
+        setFetchedAt(typeof cached.fetchedAt === "string" ? cached.fetchedAt : null);
         setSource("cache");
       }
     }
@@ -414,5 +426,5 @@ export function useActivityHeatmap({
 
   const normalizedSource = mockEnabled ? "mock" : source === "client" ? "edge" : source;
 
-  return { range, daily, heatmap, source: normalizedSource, loading, error, refresh };
+  return { range, daily, heatmap, source: normalizedSource, loading, error, fetchedAt, refresh };
 }

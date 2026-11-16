@@ -645,6 +645,8 @@ export function DashboardPage({
     daily: heatmapDaily,
     heatmap,
     loading: heatmapLoading,
+    source: heatmapSource,
+    fetchedAt: heatmapFetchedAt,
     refresh: refreshHeatmap,
   } = useActivityHeatmap({
     baseUrl,
@@ -1242,6 +1244,8 @@ export function DashboardPage({
   const activityHeatmapBlock = (
     <ActivityHeatmap
       heatmap={heatmap}
+      snapshotAt={heatmapFetchedAt}
+      snapshotFromCache={heatmapSource === "cache"}
       costByDay={heatmapCostByDay}
       timeZoneLabel={timeZoneLabel}
       timeZoneShortLabel={timeZoneShortLabel}

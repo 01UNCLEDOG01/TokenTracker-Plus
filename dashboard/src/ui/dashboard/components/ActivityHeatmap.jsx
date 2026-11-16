@@ -115,6 +115,10 @@ export function ActivityHeatmap({
   timeZoneLabel,
   timeZoneShortLabel,
   hideLegend = false,
+  // 数据快照时间（2026-11-16）：热力图是时点快照，跨设备数据落库后同一天的数字
+  // 会变——把抓取时间摆到台面上，让「数字变了」可对账。null = 尚无成功抓取。
+  snapshotAt = null,
+  snapshotFromCache = false,
   // When `true`, the heatmap renders bare: no outer card chrome (rounded
   // border + bg + padding), no inner title row (heading + 2D/3D toggle +
   // timezone label). Use this when the host already provides a section
@@ -130,6 +134,16 @@ export function ActivityHeatmap({
   const { formatTokens, formatTokensTooltip } = useTokenFormat();
   const isDark = resolvedTheme === "dark";
   const heatmapColors = isDark ? HEATMAP_COLORS_DARK : HEATMAP_COLORS_LIGHT;
+  const snapshotTimeLabel = useMemo(() => {
+    if (!snapshotAt) return "";
+    const ts = Date.parse(snapshotAt);
+    if (!Number.isFinite(ts)) return "";
+    try {
+      return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(ts);
+    } catch {
+      return "";
+    }
+  }, [snapshotAt]);
   const scrollRef = useRef(null);
   const mainContainerRef = useRef(null);
   
@@ -627,15 +641,25 @@ export function ActivityHeatmap({
 
       {/* Legend */}
       {!hideLegend && (
-        <div className="flex items-center justify-center gap-2 mt-3">
-          <span className="text-[10px] text-oai-gray-400 dark:text-oai-gray-400">{copy("heatmap.legend.less")}</span>
-          <div className="flex gap-0.5">
-            {heatmapColors.map((c, i) => (
-              <span key={i} className="rounded-[1px]" style={{ width: 10, height: 10, background: c }} />
-            ))}
+        <>
+          <div className="flex items-center justify-center gap-2 mt-3">
+            <span className="text-[10px] text-oai-gray-400 dark:text-oai-gray-400">{copy("heatmap.legend.less")}</span>
+            <div className="flex gap-0.5">
+              {heatmapColors.map((c, i) => (
+                <span key={i} className="rounded-[1px]" style={{ width: 10, height: 10, background: c }} />
+              ))}
+            </div>
+            <span className="text-[10px] text-oai-gray-400 dark:text-oai-gray-400">{copy("heatmap.legend.more")}</span>
           </div>
-          <span className="text-[10px] text-oai-gray-400 dark:text-oai-gray-400">{copy("heatmap.legend.more")}</span>
-        </div>
+          {snapshotAt ? (
+            <div className="flex items-center justify-center mt-1">
+              <span className="text-[10px] text-oai-gray-400 dark:text-oai-gray-400">
+                {copy("heatmap.snapshot.at", { time: snapshotTimeLabel })}
+                {snapshotFromCache ? copy("heatmap.snapshot.cached") : ""}
+              </span>
+            </div>
+          ) : null}
+        </>
       )}
 
       {/* 3D Interactive Fullscreen Modal */}

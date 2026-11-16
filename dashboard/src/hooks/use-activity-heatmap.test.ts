@@ -130,3 +130,61 @@ describe("useActivityHeatmap request ordering", () => {
     expect(result.current.loading).toBe(false);
   });
 });
+
+describe("useActivityHeatmap 数据快照时间（2026-11-16：跨设备数据落库后数字会变，快照必须可对账）", () => {
+  beforeEach(() => {
+    vi.mocked(fetchCloudUsageHeatmap).mockReset();
+    vi.mocked(fetchCloudUsageDaily).mockReset();
+    window.localStorage.clear();
+  });
+
+  it("成功抓取后暴露 fetchedAt（ISO 可解析）", async () => {
+    vi.mocked(fetchCloudUsageHeatmap).mockResolvedValue({
+      weeks: [[{ day: "2026-08-20", level: 2, total_tokens: 200 }]],
+      active_days: 1,
+    });
+    const { result } = renderHook(() =>
+      useActivityHeatmap({
+        baseUrl: "https://app.example-dashboard.com",
+        cacheKey: "heatmap-ts-ok",
+        weeks: 4,
+        timeZone: "UTC",
+        accountView: true,
+        accountAccessToken: "jwt-token",
+        now: new Date("2026-08-20T12:00:00Z"),
+      }),
+    );
+    await waitFor(() => expect(result.current.fetchedAt).toBeTruthy());
+    expect(Number.isFinite(Date.parse(result.current.fetchedAt as string))).toBe(true);
+    expect(result.current.source).toBe("edge");
+  });
+
+  it("热力图+日账双失败回落缓存时保留快照时间且不冒充新数据", async () => {
+    vi.mocked(fetchCloudUsageHeatmap).mockResolvedValueOnce({
+      weeks: [[{ day: "2026-08-20", level: 2, total_tokens: 200 }]],
+      active_days: 1,
+    });
+    const { result } = renderHook(() =>
+      useActivityHeatmap({
+        baseUrl: "https://app.example-dashboard.com",
+        cacheKey: "heatmap-ts-cache",
+        weeks: 4,
+        timeZone: "UTC",
+        accountView: true,
+        accountAccessToken: "jwt-token",
+        now: new Date("2026-08-20T12:00:00Z"),
+      }),
+    );
+    await waitFor(() => expect(result.current.fetchedAt).toBeTruthy());
+
+    vi.mocked(fetchCloudUsageHeatmap).mockRejectedValueOnce(new Error("heatmap busy"));
+    vi.mocked(fetchCloudUsageDaily).mockRejectedValueOnce(new Error("daily busy"));
+    await act(async () => {
+      await result.current.refresh();
+    });
+    await waitFor(() => expect(result.current.source).toBe("cache"));
+    expect(result.current.fetchedAt).toBeTruthy();
+    expect(Number.isFinite(Date.parse(result.current.fetchedAt as string))).toBe(true);
+    expect(result.current.error).toBe(null);
+  });
+});

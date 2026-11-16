@@ -82,6 +82,8 @@
   "heatmap.title": "Heatmap",
   "heatmap.empty": "Noch keine Aktivitätsdaten vorhanden.",
   "heatmap.legend.less": "Weniger",
+  "heatmap.snapshot.at": "Daten-Snapshot {{time}}",
+  "heatmap.snapshot.cached": "(lokaler Cache)",
   "heatmap.legend.more": "Mehr",
   "heatmap.legend.utc": "UTC",
   "heatmap.unit.tokens": "Token",

@@ -89,6 +89,8 @@
   "heatmap.title": "熱力圖",
   "heatmap.empty": "尚無活動資料。",
   "heatmap.legend.less": "少",
+  "heatmap.snapshot.at": "數據快照 {{time}}",
+  "heatmap.snapshot.cached": "（本機快取）",
   "heatmap.legend.more": "多",
   "heatmap.legend.utc": "UTC",
   "heatmap.unit.tokens": "Token",

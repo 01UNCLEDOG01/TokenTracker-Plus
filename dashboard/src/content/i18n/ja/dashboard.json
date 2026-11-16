@@ -87,6 +87,8 @@
   "heatmap.title": "ヒートマップ",
   "heatmap.empty": "まだアクティビティデータがありません。",
   "heatmap.legend.less": "少",
+  "heatmap.snapshot.at": "データスナップショット {{time}}",
+  "heatmap.snapshot.cached": "（ローカルキャッシュ）",
   "heatmap.legend.more": "多",
   "heatmap.legend.utc": "UTC",
   "heatmap.unit.tokens": "トークン",
