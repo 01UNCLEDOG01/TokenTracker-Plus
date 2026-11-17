@@ -653,3 +653,129 @@ test("parseQoderNewIncremental keeps rows whose cache counts exceed input disjoi
   assert.equal(row.input_tokens, 50_000);
   assert.equal(row.total_tokens, 115_000);
 });
+
+test("parseQoderNewIncremental resolves auto rows from runtime-config (#1092 port)", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const sessionFile = path.join(tmp, "sess1.jsonl");
+  const CUSTOM = "qoder-custom-abcdefab-abcd-abcd-abcd-abcdefabcdef/glm-5.3-flash";
+  const rec = (model, ts, msgId, input, output) => ({
+    type: "assistant",
+    timestamp: ts,
+    uuid: msgId,
+    sessionId: "sess-1",
+    cwd: "/tmp/proj",
+    message: {
+      id: msgId,
+      role: "assistant",
+      model,
+      content: [{ type: "tool_use", name: "Read" }],
+      usage: { billable: true, input_tokens: input, output_tokens: output },
+    },
+  });
+  const cfg = (model, tsMs) => ({ type: "runtime-config", sessionId: "sess-1", model, timestamp: tsMs });
+  const T = (s) => Date.parse(s);
+  // File order is deliberately out of chronological order: the runtime-config
+  // timeline must be sorted by timestamp, not line order.
+  writeJsonl(sessionFile, [
+    rec("auto", "2026-08-30T09:55:00.000Z", "m-before", 10, 4), // before any config → stays "auto"
+    cfg(CUSTOM, T("2026-08-30T10:00:00.000Z")), // custom-provider prefixed real model
+    rec("auto", "2026-08-30T10:05:00.000Z", "m-glm", 20, 8), // inherits glm-5.3-flash
+    cfg("qmodel_38max", T("2026-08-30T10:10:00.000Z")), // later config must not rewrite earlier turns
+    rec("auto", "2026-08-30T10:15:00.000Z", "m-38max", 30, 12), // inherits qmodel_38max
+    cfg("auto", T("2026-08-30T10:20:00.000Z")), // session really selected Auto
+    rec("auto", "2026-08-30T10:25:00.000Z", "m-real-auto", 40, 16), // stays "auto"
+  ]);
+  const cursors = {};
+  const res = await parseQoderNewIncremental({
+    sessionFiles: [sessionFile],
+    cursors,
+    queuePath,
+    sourceKey: "qoder",
+    cursorKey: "qoderNew",
+  });
+  assert.equal(res.messagesProcessed, 4);
+  const rows = queueRows(queuePath).filter((r) => r.source === "qoder");
+  const byModel = {};
+  for (const row of rows) byModel[row.model] = (byModel[row.model] || 0) + row.total_tokens;
+  // glm bucket = stripped custom prefix; 38max = later config; the two
+  // unresolved rows (pre-config + real Auto selection) stay under "auto".
+  assert.equal(byModel["glm-5.3-flash"], 28);
+  assert.equal(byModel["qmodel_38max"], 42);
+  assert.equal(byModel["auto"], 70);
+  assert.equal(Object.keys(byModel).length, 3);
+});
+
+test("parseQoderNewIncremental corrects historical auto rows on re-parse (subtract old bucket, add new)", async (t) => {
+  const tmp = tempDir();
+  const { dir, queuePath } = tempQueue();
+  t.after(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const sessionFile = path.join(tmp, "sess2.jsonl");
+  // Round 1: transcript has no runtime-config yet (older client build) — the
+  // row lands under the literal "auto". Round 2: the same message now carries
+  // a runtime-config row (client gained the feature); the model change must
+  // subtract from the auto bucket and add to the resolved one.
+  const buildRecords = (withConfig) => {
+    const records = [];
+    if (withConfig) {
+      records.push({ type: "runtime-config", sessionId: "sess-2", model: "qmodel_38max", timestamp: Date.parse("2026-08-30T10:59:59.000Z") });
+    }
+    records.push({
+      type: "assistant",
+      timestamp: "2026-08-30T11:00:00.000Z",
+      uuid: "m1",
+      sessionId: "sess-2",
+      cwd: "/tmp/proj",
+      message: {
+        id: "m1",
+        role: "assistant",
+        model: "auto",
+        content: [{ type: "tool_use", name: "Read" }],
+        usage: { billable: true, input_tokens: 100, output_tokens: 50 },
+      },
+    });
+    return records;
+  };
+  writeJsonl(sessionFile, buildRecords(false));
+  const cursors = {};
+  const first = await parseQoderNewIncremental({
+    sessionFiles: [sessionFile],
+    cursors,
+    queuePath,
+    sourceKey: "qoder",
+    cursorKey: "qoderNew",
+  });
+  assert.equal(first.messagesProcessed, 1);
+  const autoRows = queueRows(queuePath).filter((r) => r.source === "qoder" && r.model === "auto");
+  assert.equal(autoRows.length, 1);
+
+  writeJsonl(sessionFile, buildRecords(true));
+  const second = await parseQoderNewIncremental({
+    sessionFiles: [sessionFile],
+    cursors,
+    queuePath,
+    sourceKey: "qoder",
+    cursorKey: "qoderNew",
+  });
+  assert.equal(second.eventsAggregated, 1, "model change must re-emit the bucket");
+  // The queue is append-only: readers take the LAST row per bucket key, so
+  // assert on the final snapshot per (model, hour) — the auto bucket must be
+  // zeroed by the subtraction and the resolved bucket must carry the tokens.
+  const rows2 = queueRows(queuePath).filter((r) => r.source === "qoder");
+  const lastByBucket = new Map();
+  for (const row of rows2) {
+    lastByBucket.set(row.model + "|" + row.hour_start, row);
+  }
+  const autoLast = lastByBucket.get("auto|" + rows2.find((r) => r.model === "auto")?.hour_start);
+  assert.ok(autoLast, "auto bucket must still have a (zeroed) snapshot row");
+  assert.equal(autoLast.total_tokens, 0, "stale auto bucket must be fully subtracted");
+  const resolved = [...lastByBucket.values()].find((r) => r.model === "qmodel_38max");
+  assert.equal(resolved.total_tokens, 150);
+});

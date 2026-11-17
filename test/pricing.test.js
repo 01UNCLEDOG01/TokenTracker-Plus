@@ -587,6 +587,33 @@ test("index: Antigravity gemini-4-argon backend variants inherit the published A
   assert.equal(base.input, expected.input);
 });
 
+test("pricing: Gemini 4 Carbon/Hydrogen + Muse Wonder SKUs price with effort suffixes (upstream TT v1.5.22 c58cf51)", () => {
+  // Effort-decorated ids (Cursor decoration suffixes for gemini-4-*; Muse's
+  // own -extra-high/-max for muse-wonder) must ride the curated substring
+  // rules instead of falling to the gemini-3 catch-all or staying unpriced.
+  const cases = [
+    ["gemini-4-carbon", 2, 10, 0.1],
+    ["gemini-4-carbon-high", 2, 10, 0.1],
+    ["gemini-4-hydrogen", 1.5, 7.5, 0.075],
+    ["gemini-4-hydrogen-low", 1.5, 7.5, 0.075],
+    ["muse-wonder-1.0", 4, 20, 0.2],
+    ["muse-wonder-1.0-max", 4, 20, 0.2],
+    ["muse-wonder-1.0-extra-high", 4, 20, 0.2],
+  ];
+  for (const [model, input, output, cacheRead] of cases) {
+    // source=qoder is intentionally excluded: Qoder international rows are
+    // credit-billed and price at the qwen3.8-flash reference rate by design
+    // (see QODER_INTL_CREDIT_REFERENCE_MODEL), regardless of model id.
+    for (const source of [undefined, "cursor", "antigravity"]) {
+      const info = pricing.getModelPricingInfo(model, source ? { source } : {});
+      assert.equal(info.status, "priced", `${model} ${source || "no-source"}`);
+      assert.equal(info.input, input, `${model} input`);
+      assert.equal(info.output, output, `${model} output`);
+      assert.equal(info.cache_read, cacheRead, `${model} cache_read`);
+    }
+  }
+});
+
 test("matcher: convertLitellmEntry rounds away float drift (1e-7 * 1e6 must be 0.1)", () => {
   const out = matcher.convertLitellmEntry({
     input_cost_per_token: 1e-6,

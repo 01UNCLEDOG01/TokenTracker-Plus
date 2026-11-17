@@ -294,6 +294,27 @@
       "cache_write": 0,
       "note": "Google Gemini 4 Argon introductory list rate (through 2026-11-30) matching Cursor Other Models pool: $2/M input, $0.10/M cached input, $10/M output. Effort suffixes (-high/-medium/-low/-minimal) are stripped by normalizeCursorModel. Sources: https://cursor.com/docs/models-and-pricing and https://ai.google.dev/gemini-api/docs/pricing"
     },
+    "gemini-4-carbon": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_read": 0.1,
+      "cache_write": 0,
+      "note": "Google Gemini 4 Carbon (Cursor Other Models pool): $2/M input, $0.10/M cached input, $10/M output. Effort suffixes ride the substring rule. Carbon Cyber Permissive variants have independent prices — not listed here, add a specific entry if traffic appears. Ported from upstream TT v1.5.22 c58cf51."
+    },
+    "gemini-4-hydrogen": {
+      "input": 1.5,
+      "output": 7.5,
+      "cache_read": 0.075,
+      "cache_write": 0,
+      "note": "Google Gemini 4 Hydrogen introductory list rate: $1.5/M input, $0.075/M cached input, $7.5/M output. Effort suffixes ride the substring rule. Ported from upstream TT v1.5.22 c58cf51."
+    },
+    "muse-wonder-1.0": {
+      "input": 4.0,
+      "output": 20.0,
+      "cache_read": 0.2,
+      "cache_write": 0,
+      "note": "Muse Wonder 1.0 (muse.ai — same vendor family as Today CN): $4/M input, $0.20/M cached input, $20/M output. Suffixes (-minimal/-low/-medium/-high/-xhigh/-extra-high/-max) ride the substring rule. Ported from upstream TT v1.5.22 c58cf51."
+    },
     "MiniMax-M2.7": {
       "input": 0.3,
       "output": 1.2,
@@ -1371,6 +1392,18 @@
     {
       "match": "gemini-4.argon",
       "ref": "gemini-4-argon"
+    },
+    {
+      "match": "gemini-4-carbon",
+      "ref": "gemini-4-carbon"
+    },
+    {
+      "match": "gemini-4-hydrogen",
+      "ref": "gemini-4-hydrogen"
+    },
+    {
+      "match": "muse-wonder-1.0",
+      "ref": "muse-wonder-1.0"
     },
     {
       "match": "kiro",

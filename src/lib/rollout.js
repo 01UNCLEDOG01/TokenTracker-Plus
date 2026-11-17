@@ -7070,6 +7070,13 @@ async function listQoderNewSessionFiles(projectsDir) {
   return out;
 }
 
+function qoderStripCustomProviderPrefix(model) {
+  return (typeof model === "string" ? model : "").replace(
+    /^qoder-custom-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i,
+    "",
+  );
+}
+
 function qoderNewModelFromRecord(record) {
   const msgModel = record?.message?.model;
   const direct = typeof msgModel === "string" ? msgModel.trim() : "";
@@ -7077,11 +7084,23 @@ function qoderNewModelFromRecord(record) {
   // ("qoder-custom-<uuid>/glm-5.3-flash"). Keep the bare model id so bucket
   // keys stay stable across reinstalls and don't fragment per user; official
   // ids (e.g. "qmodel_38max") have no prefix and pass through unchanged.
-  const stripped = direct.replace(
-    /^qoder-custom-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i,
-    "",
-  );
-  return normalizeModelInput(stripped) || "qoder-agent";
+  return normalizeModelInput(qoderStripCustomProviderPrefix(direct)) || "qoder-agent";
+}
+
+// Qoder transcripts record the session's selected model as runtime-config rows
+// (upstream TT #1092): assistant rows stamped model:"auto" inherit the latest
+// runtime-config model at or before their own timestamp. A later config must
+// not rewrite earlier turns, and a session that really selected Auto stays
+// "auto" so the unresolved router stays distinguishable in the model tab.
+function resolveQoderRuntimeAutoModel(configTimeline, tsMs) {
+  if (!Array.isArray(configTimeline) || !configTimeline.length) return null;
+  let hit = null;
+  for (const entry of configTimeline) {
+    if (entry.tsMs <= tsMs) hit = entry;
+    else break;
+  }
+  if (!hit || hit.model === "auto") return null;
+  return hit.model;
 }
 
 function qoderNewMessageKey(record, filePath, lineIndex = 0) {
@@ -7232,6 +7251,27 @@ async function parseQoderNewIncremental({
       continue;
     }
     const lines = raw.split("\n");
+    // First pass: collect this file's runtime-config timeline (#1092 port).
+    // Both Qoder editions share this parser and the file IS the session
+    // (filename = sessionId), so one timeline per file is the whole lookup.
+    const runtimeConfigTimeline = [];
+    for (const line of lines) {
+      if (!line.includes("runtime-config")) continue;
+      let cfg;
+      try {
+        cfg = JSON.parse(line);
+      } catch (_e) {
+        continue;
+      }
+      if (cfg?.type !== "runtime-config") continue;
+      const cfgTsMs = typeof cfg.timestamp === "number" && Number.isFinite(cfg.timestamp)
+        ? cfg.timestamp
+        : Date.parse(cfg.timestamp);
+      if (!Number.isFinite(cfgTsMs)) continue;
+      const cfgModel = normalizeModelInput(qoderStripCustomProviderPrefix(cfg.model)) || "auto";
+      runtimeConfigTimeline.push({ tsMs: cfgTsMs, model: cfgModel });
+    }
+    runtimeConfigTimeline.sort((a, b) => a.tsMs - b.tsMs);
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
       if (!line.trim()) continue;
@@ -7266,6 +7306,11 @@ async function parseQoderNewIncremental({
       const messageKey = qoderNewMessageKey(record, filePath, lineIdx);
       if (!messageKey) continue;
       const model = qoderNewModelFromRecord(record);
+      // #1092 port: "auto" rows inherit the runtime-config model at or before
+      // their own timestamp; unresolved sessions keep the literal "auto".
+      const resolvedModel = model === "auto"
+        ? resolveQoderRuntimeAutoModel(runtimeConfigTimeline, timestampMs) || model
+        : model;
       const totals = base ? {
         input_tokens: base.input_tokens,
         cached_input_tokens: base.cached_input_tokens,
@@ -7308,7 +7353,7 @@ async function parseQoderNewIncremental({
       currentByKey.set(messageKey, {
         totals,
         bucketStart,
-        model,
+        model: resolvedModel,
         projectKey,
         projectRef,
         filePath,
