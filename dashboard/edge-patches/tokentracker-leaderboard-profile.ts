@@ -100,6 +100,14 @@ function getClient() {
 const MODEL_PRICING: Record<string, { input: number; output: number; cache_read: number; cache_write?: number }> = {
   // ── Anthropic Claude ──
   "claude-fable-5": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+  "claude-fable-5-2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-fable-5.2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-fable-5-2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-fable-5.2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-mythos-5-2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-mythos-5.2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-mythos-5-2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-mythos-5.2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
   "claude-opus-5": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
   "claude-opus-5-fast": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
   "claude-opus-4-6": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
@@ -157,7 +165,9 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // https://developers.openai.com/api/docs/models/gpt-6-astra
   // Cloud buckets do not retain per-request context/service tier. Use the
   // standard short-context estimate; never infer long context from totals.
+  "gpt-6.2-astra": { input: 8, output: 40, cache_read: 0.4, cache_write: 10 },
   "gpt-6-astra": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+  "gpt-6.2-sol": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
   // GPT-6 Sol Standard USD/MTok, verified 2026-09-24:
   // https://developers.openai.com/api/docs/models/gpt-6-sol
   "gpt-6-sol": { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
@@ -167,6 +177,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // GPT-6.1 Terra (litellm:exact, synced 2026-11-16) — before this entry the
   // account view billed the owner's 192M terra rows at $0.
   "gpt-6.1-terra": { input: 1, output: 5, cache_read: 0.05, cache_write: 1.25 },
+  "gpt-6-cyber": { input: 20, output: 100, cache_read: 2, cache_write: 25 },
   "gpt-5-mini": { input: 0.25, output: 2, cache_read: 0.025 },
   "o3": { input: 2, output: 8, cache_read: 0.5 },
   // ── Google Gemini ──
@@ -589,7 +600,11 @@ function getModelPricing(model: string, source = "") {
   // entries (space-bunny-free, stealth/space-bunny-alpha) resolve to it
   // (curated alias, 2026-10-13).
   if (lower.includes("space-bunny")) return MODEL_PRICING["space-bunny"];
+  if (lower.includes("fable-5-2-fast") || lower.includes("fable-5.2-fast")) return MODEL_PRICING["claude-fable-5-2-fast"];
+  if (lower.includes("fable-5-2") || lower.includes("fable-5.2")) return MODEL_PRICING["claude-fable-5-2"];
   if (lower.includes("fable")) return MODEL_PRICING["claude-fable-5"];
+  if (lower.includes("mythos-5-2-fast") || lower.includes("mythos-5.2-fast")) return MODEL_PRICING["claude-mythos-5-2-fast"];
+  if (lower.includes("mythos-5-2") || lower.includes("mythos-5.2")) return MODEL_PRICING["claude-mythos-5-2"];
   // Opus 5 fast mode bills at 2x the standard Opus tier ($10/$50), so the
   // -fast matcher must precede both the opus-5 and the generic opus fallback.
   if (/opus-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-opus-5-5"];
@@ -601,9 +616,12 @@ function getModelPricing(model: string, source = "") {
   if (/haiku-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-haiku-5-5"];
   if (lower.includes("haiku")) return MODEL_PRICING["claude-haiku-4-5-20251001"];
   if (lower.includes("sonnet")) return MODEL_PRICING["claude-sonnet-4-6"];
+  if (lower.includes("gpt-6.2-astra")) return MODEL_PRICING["gpt-6.2-astra"];
   if (lower.includes("gpt-6-astra")) return MODEL_PRICING["gpt-6-astra"];
-  if (lower.includes("gpt-6-sol")) return MODEL_PRICING["gpt-6-sol"];
+  if (lower.includes("gpt-6.2-sol")) return MODEL_PRICING["gpt-6.2-sol"];
   if (lower.includes("gpt-6.1-sol")) return MODEL_PRICING["gpt-6.1-sol"];
+  if (lower.includes("gpt-6-sol")) return MODEL_PRICING["gpt-6-sol"];
+  if (lower.includes("gpt-6-cyber")) return MODEL_PRICING["gpt-6-cyber"];
   // The terra family carries reasoning-effort suffixes like sol/luna do; the
   // bare key alone would bill gpt-6.1-terra-high at $0 (2026-11-16).
   if (lower.includes("gpt-6.1-terra")) return MODEL_PRICING["gpt-6.1-terra"];

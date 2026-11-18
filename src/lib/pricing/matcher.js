@@ -51,7 +51,7 @@ function normalizeAntigravityModel(model) {
     lower = lower.substring(7);
   }
 
-  if (/^claude-(sonnet|opus|haiku)-4\.\d+/.test(lower)) {
+  if (/^claude-(sonnet|opus|haiku|fable|mythos)-4\.\d+/.test(lower)) {
     return lower.replace(/^claude-(sonnet|opus|haiku)-4\.(\d+)/, "claude-$1-4-$2");
   }
   if (lower.startsWith("gpt-oss-120b")) return "antigravity-gpt-oss-120b";
@@ -77,7 +77,7 @@ function normalizeZedModel(model) {
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
   if (/^claude-(sonnet|opus|haiku)-\d+\.\d+/.test(m)) {
-    m = m.replace(/^(claude-(?:sonnet|opus|haiku)-\d+)\.(\d+)/, "$1-$2");
+    m = m.replace(/^(claude-(?:sonnet|opus|haiku|fable|mythos)-\d+)\.(\d+)/, "$1-$2");
   }
   return m;
 }
@@ -103,13 +103,13 @@ function normalizeClaudeModel(model) {
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
 
-  if (/^claude-(sonnet|opus|haiku|fable)-\d+\.\d+/.test(m)) {
-    return m.replace(/^(claude-(?:sonnet|opus|haiku|fable)-\d+)\.(\d+)/, "$1-$2");
+  if (/^claude-(sonnet|opus|haiku|fable|mythos)-\d+\.\d+/.test(m)) {
+    return m.replace(/^(claude-(?:sonnet|opus|haiku|fable|mythos)-\d+)\.(\d+)/, "$1-$2");
   }
-  if (/^(sonnet|opus|haiku)-\d+[.-]\d+/.test(m)) {
+  if (/^(sonnet|opus|haiku|fable|mythos)-\d+[.-]\d+/.test(m)) {
     return m
-      .replace(/^(sonnet|opus|haiku)-/, "claude-$1-")
-      .replace(/^(claude-(?:sonnet|opus|haiku)-\d+)\.(\d+)/, "$1-$2");
+      .replace(/^(sonnet|opus|haiku|fable|mythos)-/, "claude-$1-")
+      .replace(/^(claude-(?:sonnet|opus|haiku|fable|mythos)-\d+)\.(\d+)/, "$1-$2");
   }
   // Some relays invert tier/version order (`claude-4.6-opus` instead of the
   // canonical `claude-opus-4-6`). Restore it ONLY for major>=4 — Claude 3.x is
@@ -369,7 +369,7 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
     return { hit: true, source: "curated:exact-dot", value: curatedDotContainedExact };
   }
 
-  // Floating Fable aliases (`claude-fable-latest` and every provider's
+  // Floating Fable aliases (`claude-(?:fable|mythos)-latest` and every provider's
   // `…/claude-fable-latest`) retarget on each release. Checked 2026-11-10
   // upstream (#1090): the Anthropic model overview and the Fable 5.2 pages do
   // not document the alias, so nothing pins it to 5.2. Stop here, after exact
@@ -407,7 +407,7 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
       // contains "fable-5.2". fable-5-20 contains "fable-5-2" the same way.
       // The minor must end the id or be followed by a non-digit, so
       // -20261109 and -20 stay off the 5.2 rate.
-      const bounded = /^fable-5[.-]2(?:-fast)?$/.test(needle)
+      const bounded = /^(?:fable|mythos)-5[.-]2(?:-fast)?$/.test(needle)
         ? new RegExp(`${needle.replace(".", "\\.")}(?:$|[^0-9])`)
         : null;
       const matches = (value) => (bounded ? bounded.test(value) : value.includes(needle));

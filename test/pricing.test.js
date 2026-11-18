@@ -859,6 +859,66 @@ test("index: Claude Fable 5.2 fast is its own 2x SKU and -latest stays unpriced"
   }
 });
 
+test("index: Claude Mythos 5.2 and Fast mode price at official rates and do not fall through to Mythos 5", async () => {
+  pricing.resetPricingForTests();
+  const cachePath = tmpCachePath();
+  await pricing.ensurePricingLoaded({
+    cachePath,
+    fetchImpl: makeFetchImpl(FIXTURE_LITELLM),
+  });
+  const standard = { input: 8, output: 40, cache_read: 0.2, cache_write: 10 };
+  const standardIds = [
+    "claude-mythos-5-2",
+    "claude-mythos-5.2",
+    "Claude Mythos 5.2",
+    "anthropic/claude-mythos-5.2",
+    "anthropic/claude-mythos-5-2",
+  ];
+  for (const id of standardIds) {
+    const got = pricing.getModelPricing(id, { source: "claude" });
+    for (const field of Object.keys(standard)) {
+      assert.equal(got[field], standard[field], `${id}.${field}`);
+    }
+  }
+
+  const fast = { input: 16, output: 80, cache_read: 0.4, cache_write: 20 };
+  const fastIds = [
+    "claude-mythos-5-2-fast",
+    "claude-mythos-5.2-fast",
+    "Claude Mythos 5.2 Fast",
+  ];
+  for (const id of fastIds) {
+    const got = pricing.getModelPricing(id, { source: "claude" });
+    for (const field of Object.keys(fast)) {
+      assert.equal(got[field], fast[field], `${id}.${field}`);
+    }
+  }
+
+  assert.equal(pricing.getModelPricingInfo("claude-mythos-latest", { source: "claude" }).status, "unpriced");
+});
+
+test("index: GPT-6.2 Astra/Sol, GPT-6 Cyber, GPT-6.1 Terra price at official rates", async () => {
+  pricing.resetPricingForTests();
+  const cachePath = tmpCachePath();
+  await pricing.ensurePricingLoaded({
+    cachePath,
+    fetchImpl: makeFetchImpl(FIXTURE_LITELLM),
+  });
+  const cases = [
+    ["gpt-6.2-astra", 8, 40, 0.4, 10],
+    ["gpt-6.2-sol", 2, 10, 0.1, 2.5],
+    ["gpt-6-cyber", 20, 100, 2, 25],
+    ["gpt-6.1-terra", 1, 5, 0.05, 1.25],
+  ];
+  for (const [model, input, output, cacheRead, cacheWrite] of cases) {
+    const got = pricing.getModelPricing(model, { source: "codex" });
+    assert.equal(got.input, input, `${model} input`);
+    assert.equal(got.output, output, `${model} output`);
+    assert.equal(got.cache_read, cacheRead, `${model} cache_read`);
+    assert.equal(got.cache_write, cacheWrite, `${model} cache_write`);
+  }
+});
+
 test("index: getModelPricing resolves GLM-5.2 from CURATED for ZCode rows", async () => {
   pricing.resetPricingForTests();
   const cachePath = tmpCachePath();

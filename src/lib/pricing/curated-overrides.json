@@ -282,21 +282,21 @@
       "note": "Cursor Composer 2.5. Cursor Models & Pricing: $0.50/M input, $0.20/M cached input, $2.50/M output; no cache-write rate is published. https://cursor.com/docs/models-and-pricing"
     },
     "composer-2.5-fast": {
-      "input": 3.0,
-      "output": 15.0,
+      "input": 3,
+      "output": 15,
       "cache_read": 0.5,
       "note": "Cursor Composer 2.5 Fast. Cursor Models & Pricing: $3/M input, $0.50/M cached input, $15/M output. Kept separate from the cheaper base SKU."
     },
     "gemini-4-argon": {
-      "input": 2.0,
-      "output": 10.0,
+      "input": 2,
+      "output": 10,
       "cache_read": 0.1,
       "cache_write": 0,
       "note": "Google Gemini 4 Argon introductory list rate (through 2026-11-30) matching Cursor Other Models pool: $2/M input, $0.10/M cached input, $10/M output. Effort suffixes (-high/-medium/-low/-minimal) are stripped by normalizeCursorModel. Sources: https://cursor.com/docs/models-and-pricing and https://ai.google.dev/gemini-api/docs/pricing"
     },
     "gemini-4-carbon": {
-      "input": 2.0,
-      "output": 10.0,
+      "input": 2,
+      "output": 10,
       "cache_read": 0.1,
       "cache_write": 0,
       "note": "Google Gemini 4 Carbon (Cursor Other Models pool): $2/M input, $0.10/M cached input, $10/M output. Effort suffixes ride the substring rule. Carbon Cyber Permissive variants have independent prices — not listed here, add a specific entry if traffic appears. Ported from upstream TT v1.5.22 c58cf51."
@@ -309,8 +309,8 @@
       "note": "Google Gemini 4 Hydrogen introductory list rate: $1.5/M input, $0.075/M cached input, $7.5/M output. Effort suffixes ride the substring rule. Ported from upstream TT v1.5.22 c58cf51."
     },
     "muse-wonder-1.0": {
-      "input": 4.0,
-      "output": 20.0,
+      "input": 4,
+      "output": 20,
       "cache_read": 0.2,
       "cache_write": 0,
       "note": "Muse Wonder 1.0 (muse.ai — same vendor family as Today CN): $4/M input, $0.20/M cached input, $20/M output. Suffixes (-minimal/-low/-medium/-high/-xhigh/-extra-high/-max) ride the substring rule. Ported from upstream TT v1.5.22 c58cf51."
@@ -414,44 +414,44 @@
       "note": "Cursor Grok 4.6. Cursor emits the decorated slug cursor-grok-4.6-medium, and normalizeCursorModel drops the effort word before the lookup, so the key here is the undecorated one. xAI list price per MTok: $2 input, $0.50 cached input, $6 output, doubling above 200K prompt tokens (the same table as Grok 4.5). No cache-write rate is published."
     },
     "cursor-grok-4.6-fast": {
-      "input": 4.0,
-      "output": 12.0,
-      "cache_read": 1.0,
+      "input": 4,
+      "output": 12,
+      "cache_read": 1,
       "cache_write": 0,
       "note": "Cursor Grok 4.6 Fast rate. Cursor publishes $4/M input, $1/M cached input, $12/M output. Kept separate from the cheaper base SKU."
     },
     "cursor-grok-4.7": {
-      "input": 2.0,
-      "output": 6.0,
+      "input": 2,
+      "output": 6,
       "cache_read": 0.5,
       "cache_write": 0,
       "note": "Cursor Grok 4.7 base rate. Cursor Models & Pricing: $2/M input, $0.50/M cached input, $6/M output. Long-context (>256k) premiums are not applied here yet because Cursor CSV rows do not expose per-request long-context flags."
     },
     "cursor-grok-4.7-fast": {
-      "input": 4.0,
-      "output": 12.0,
-      "cache_read": 1.0,
+      "input": 4,
+      "output": 12,
+      "cache_read": 1,
       "cache_write": 0,
       "note": "Cursor Grok 4.7 Fast rate. Cursor publishes $4/M input, $1/M cached input, $12/M output. Kept separate from the cheaper base SKU."
     },
     "grok-4.7": {
-      "input": 2.0,
-      "output": 6.0,
+      "input": 2,
+      "output": 6,
       "cache_read": 0.5,
       "cache_write": 0,
       "note": "xAI short-context rates for bare grok-4.7 ($2/$0.50/$6 per MTok below 200k prompt tokens)."
     },
     "grok-4.7-build-fast": {
-      "input": 4.0,
-      "output": 12.0,
-      "cache_read": 1.0,
+      "input": 4,
+      "output": 12,
+      "cache_read": 1,
       "cache_write": 0,
       "note": "Grok 4.7 Fast / Build rate ($4/$1/$12 per MTok). Recorded by ZCode as grok-4.7-build-fast."
     },
     "grok-4.7-fast": {
-      "input": 4.0,
-      "output": 12.0,
-      "cache_read": 1.0,
+      "input": 4,
+      "output": 12,
+      "cache_read": 1,
       "cache_write": 0,
       "note": "Grok 4.7 Fast alias ($4/$1/$12 per MTok)."
     },
@@ -822,21 +822,21 @@
       "note": "Codename revealed as MiniMax M3.1 Flash (official launch pricing supersedes the models.dev codename entry: input $0.30 / output $1.20 / cache read $0.03 per million, cache_write = input — the codename table had writes free). Owner rule unchanged: usage is valued at list price even when the route was free. The space-bunny-free alias (Trae CN's internal id) keeps routing here."
     },
     "k3-agent": {
-      "input": 3.0,
-      "output": 15.0,
+      "input": 3,
+      "output": 15,
       "cache_read": 0.3,
-      "cache_write": 3.0,
+      "cache_write": 3,
       "note": "Kimi desktop/CLI agent runtime id for Kimi K3 (kimi-k3). Official platform.kimi.ai chat pricing read 2026-10-16: input 3.00, output 15.00, cached input 0.30, cache write 3.00 (5-min TTL tier) USD per million tokens."
     },
     "k2d8-preview": {
       "input": 0.95,
-      "output": 4.0,
+      "output": 4,
       "cache_read": 0.19,
       "note": "Kimi desktop internal id for Kimi K2.8 Preview; no public API price exists for K2.8. Approximated with the official K2 coding tier kimi-k2.7-code (platform.kimi.ai, read 2026-10-16): input (cache miss) 0.95, output 4.00, cached input 0.19 USD per million tokens. No cache-write rate is published for the K2 series."
     },
     "k2d6-agent": {
       "input": 0.95,
-      "output": 4.0,
+      "output": 4,
       "cache_read": 0.16,
       "note": "Kimi desktop/CLI agent runtime id for Kimi K2.6 (kimi-k2.6). Official platform.kimi.ai chat pricing read 2026-10-16: input (cache miss) 0.95, output 4.00, cached input 0.16 USD per million tokens; no cache-write rate published for the K2 series."
     },
@@ -846,6 +846,80 @@
       "cache_read": 0.01,
       "cache_write": 0.13,
       "note": "iFlytek Spark-X2.6 (星火, MoE 293B total / 30B active, 1M context). Official launch pricing read from xinghuo.xfyun.cn/sparkapi on 2026-10-27: limited-time 60% rate 0.9 / 3.6 / 0.08 RMB per MTok input / output / cache-hit (the pre-promo list price is not published; reverse-derived at roughly 1.5 / 6 / 0.13), converted at 7.2 RMB/USD and rounded to two decimals; cache writes bill at the input rate per the AStudio convention. Re-checked 2026-11-13: the 60% rate is still current. Recorded 2026-10-27 source-scoped to loomy because that was then the only source reporting the id; promoted to this global exact card on 2026-11-13 once ZCode began emitting spark-x2.6 as well (~99.4M tokens had shown no cost), folding the loomy-scoped entry in here. Reprice when the launch promotion ends."
+    },
+    "claude-mythos-5-2": {
+      "input": 8,
+      "output": 40,
+      "cache_read": 0.2,
+      "cache_write": 10,
+      "note": "Claude Mythos 5.2 standard tier, verified 2026-11-18. Shared base architecture with Fable 5.2: / per MTok in/out, cache_read .20 (0.025x), 5-min cache_write  (1.25x)."
+    },
+    "claude-mythos-5.2": {
+      "input": 8,
+      "output": 40,
+      "cache_read": 0.2,
+      "cache_write": 10,
+      "note": "Dotted spelling of claude-mythos-5-2."
+    },
+    "anthropic/claude-mythos-5.2": {
+      "input": 8,
+      "output": 40,
+      "cache_read": 0.2,
+      "cache_write": 10,
+      "note": "OpenRouter id for Claude Mythos 5.2."
+    },
+    "anthropic/claude-mythos-5-2": {
+      "input": 8,
+      "output": 40,
+      "cache_read": 0.2,
+      "cache_write": 10,
+      "note": "Provider-qualified id for Claude Mythos 5.2."
+    },
+    "claude-mythos-5-2-fast": {
+      "input": 16,
+      "output": 80,
+      "cache_read": 0.4,
+      "cache_write": 20,
+      "note": "Claude Mythos 5.2 fast mode (2x standard rates): / per MTok."
+    },
+    "claude-mythos-5.2-fast": {
+      "input": 16,
+      "output": 80,
+      "cache_read": 0.4,
+      "cache_write": 20,
+      "note": "Dotted spelling of claude-mythos-5-2-fast."
+    },
+    "gpt-6.2-astra": {
+      "input": 8,
+      "output": 40,
+      "cache_read": 0.4,
+      "cache_write": 10,
+      "priority_multiplier": 2,
+      "ultrafast_multiplier": 6,
+      "note": "Official OpenAI GPT-6.2 Astra standard rates verified 2026-11-17:  input /  output, cache read .40, cache write  per MTok."
+    },
+    "gpt-6.2-sol": {
+      "input": 2,
+      "output": 10,
+      "cache_read": 0.1,
+      "cache_write": 2.5,
+      "priority_multiplier": 2,
+      "ultrafast_multiplier": 6,
+      "note": "Official OpenAI GPT-6.2 Sol standard rates verified 2026-11-17:  input /  output, cache read .10, cache write .5 per MTok."
+    },
+    "gpt-6-cyber": {
+      "input": 20,
+      "output": 100,
+      "cache_read": 2,
+      "cache_write": 25,
+      "note": "Official OpenAI GPT-6 Cyber rates verified 2026-11-05 (Daybreak Red):  input /  output, cache read , cache write  per MTok."
+    },
+    "gpt-6.1-terra": {
+      "input": 1,
+      "output": 5,
+      "cache_read": 0.05,
+      "cache_write": 1.25,
+      "note": "Official OpenAI GPT-6.1 Terra balanced visual reasoning tier:  input /  output, cache read .05, cache write .25 per MTok."
     }
   },
   "alias": {
@@ -1358,6 +1432,22 @@
       "ref": "cline-gateway-models"
     },
     {
+      "match": "gpt-6.2-astra",
+      "ref": "gpt-6.2-astra"
+    },
+    {
+      "match": "gpt-6.2-sol",
+      "ref": "gpt-6.2-sol"
+    },
+    {
+      "match": "gpt-6-cyber",
+      "ref": "gpt-6-cyber"
+    },
+    {
+      "match": "gpt-6.1-terra",
+      "ref": "gpt-6.1-terra"
+    },
+    {
       "match": "gpt-6-astra",
       "ref": "gpt-6-astra"
     },
@@ -1428,6 +1518,22 @@
     {
       "match": "haiku-5.5",
       "ref": "claude-haiku-5.5"
+    },
+    {
+      "match": "mythos-5-2-fast",
+      "ref": "claude-mythos-5-2-fast"
+    },
+    {
+      "match": "mythos-5.2-fast",
+      "ref": "claude-mythos-5.2-fast"
+    },
+    {
+      "match": "mythos-5-2",
+      "ref": "claude-mythos-5-2"
+    },
+    {
+      "match": "mythos-5.2",
+      "ref": "claude-mythos-5.2"
     },
     {
       "match": "fable-5-2-fast",
