@@ -43,6 +43,11 @@ export function useUsageModelBreakdown({
   const [source, setSource] = useState<string>("edge");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True when the account-view fetch fell back to this machine's data (the
+  // server marks such responses with `account_view_fallback`). The cloud scope
+  // must not cache them, and the UI must say so instead of passing local
+  // numbers off as the account aggregate.
+  const [accountFallback, setAccountFallback] = useState(false);
   const hasDataRef = useRef(false);
   hasDataRef.current = breakdown != null;
   const mockEnabled = isMockEnabled();
@@ -70,6 +75,11 @@ export function useUsageModelBreakdown({
       // costs until the exact from/to window recurred (owner-reported). A
       // cache entry without the flag is a miss.
       if (parsed.breakdown.trae_estimate_applied !== true) return null;
+      // A fallback payload is this machine's data, not the account aggregate
+      // — it must never be served from the cloud-scope cache. The hook stopped
+      // writing these (2026-11-20), but entries written by older builds are
+      // still on disk; treat them as a miss so they self-heal.
+      if (parsed.breakdown.account_view_fallback) return null;
       touchLocalStorageCacheKey(
         MODEL_BREAKDOWN_CACHE_INDEX_KEY,
         storageKey,
@@ -140,6 +150,7 @@ export function useUsageModelBreakdown({
     setBreakdown(null);
     setSource("edge");
     setError(null);
+    setAccountFallback(false);
     setLoading(true);
   }, [scopeKey]);
 
@@ -171,11 +182,16 @@ export function useUsageModelBreakdown({
         tzOffsetMinutes,
       });
       if (!isCurrent()) return;
+      // A cloud-scope response marked as fallback is this machine's data —
+      // render it (better than an empty panel during a cloud blip) but never
+      // cache it under the cloud scope and never present it unbadged.
+      const fallbackReason = useCloud && res ? res.account_view_fallback || null : null;
+      setAccountFallback(Boolean(fallbackReason));
       setBreakdown(res || null);
       setSource("edge");
-      if (res && cacheAllowed) {
+      if (res && cacheAllowed && !fallbackReason) {
         writeCache({ breakdown: res, fetchedAt: new Date().toISOString() });
-      } else if (!cacheAllowed) {
+      } else if (!cacheAllowed || fallbackReason) {
         clearCache();
       }
     } catch (e) {
@@ -240,18 +256,21 @@ export function useUsageModelBreakdown({
       setBreakdown(null);
       setSource("edge");
       setError(null);
+      setAccountFallback(false);
     } else {
       const cached = readCache();
       if (cached?.breakdown) {
         setBreakdown(cached.breakdown);
         setSource("cache");
         setError(null);
+        setAccountFallback(false);
         setLoading(false);
       } else {
         // Provider cards must never keep the previous range's breakdown.
         setBreakdown(null);
         setSource("edge");
         setError(null);
+        setAccountFallback(false);
         setLoading(true);
       }
     }
@@ -276,6 +295,7 @@ export function useUsageModelBreakdown({
     source: normalizedSource,
     loading,
     error,
+    accountFallback,
     refresh,
   };
 }

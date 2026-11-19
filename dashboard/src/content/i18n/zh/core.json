@@ -1084,5 +1084,6 @@
   "limits.label.minimax_code_points": "剩余 {{points}} 积分",
   "limits.label.minimax_code_5h": "5 小时",
   "limits.label.minimax_code_weekly": "每周",
-  "limits.label.minimax_code_video": "视频生成"
+  "limits.label.minimax_code_video": "视频生成",
+  "usage.account_fallback_note": "云端汇总暂时不可达，以下暂按本机数据显示，稍后自动恢复。"
 }

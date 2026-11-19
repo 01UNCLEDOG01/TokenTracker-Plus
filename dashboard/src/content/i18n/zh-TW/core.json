@@ -1053,5 +1053,6 @@
   "limits.label.minimax_code_points": "剩餘 {{points}} 積分",
   "limits.label.minimax_code_5h": "5 小時",
   "limits.label.minimax_code_weekly": "每週",
-  "limits.label.minimax_code_video": "影片生成"
+  "limits.label.minimax_code_video": "影片生成",
+  "usage.account_fallback_note": "雲端彙總暫時無法連線，以下暫按本機資料顯示，稍後自動恢復。"
 }

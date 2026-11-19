@@ -742,5 +742,6 @@
   "limits.label.minimax_code_points": "{{points}} 포인트 남음",
   "limits.label.minimax_code_5h": "5시간",
   "limits.label.minimax_code_weekly": "주간",
-  "limits.label.minimax_code_video": "영상 생성"
+  "limits.label.minimax_code_video": "영상 생성",
+  "usage.account_fallback_note": "클라우드 집계에 일시적으로 연결할 수 없습니다 — 지금은 이 기기의 로컬 데이터를 표시하며 곧 자동 복구됩니다."
 }

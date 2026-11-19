@@ -12,7 +12,7 @@ const {
   listExcludedSources,
   normalizeUsageScope,
 } = require("./source-metadata");
-const { accountSlugFor, fetchAccountUsage, fetchAccountFunction, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration } = require("./cloud-account");
+const { accountSlugFor, fetchAccountUsage, fetchAccountFunction, mintAccessToken, invalidateCloudAccountPayloadCache, getCloudAccountSessionGeneration, accountViewUpstreamTimeoutMs } = require("./cloud-account");
 const { resetCloudDeviceUsage, readCloudUsageReset } = require("./cloud-usage-reset");
 const { isTerminalSource } = require("./terminal-sources");
 const { isLoopbackHostname } = require("./loopback-host");
@@ -2658,6 +2658,16 @@ function json(res, data, status) {
   // Endpoints that care already set this header by hand; do it once here so
   // every JSON response is covered.
 
+  // An ?account=1 request that failed over to the local handler carries only
+  // headers by contract — but the dashboard's fetch helper reads no headers,
+  // so a fallback used to render as genuine account data (owner report
+  // 2026-11-20: account cards pinned to this machine's four sources). Mirror
+  // the fallback reason into the body so clients can refuse to cache or can
+  // badge it. Local (non-account) responses are untouched.
+  if (res && res.accountViewFallback && data && typeof data === "object" && !Array.isArray(data)) {
+    data = { ...data, account_view_fallback: res.accountViewFallback };
+  }
+
   res.writeHead(status || 200, {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
@@ -3305,10 +3315,17 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     if (url.searchParams.get("refresh") !== "1" && accountViewFailureUntil(failureKey) > Date.now()) {
       return "transient-backoff";
     }
+    // Heavy slugs (the cross-device model breakdown re-prices every uploaded
+    // row across all devices) need more than the 4s default: one timeout trips
+    // the 2-minute backoff below and silently pins the dashboard's account
+    // cards to this machine's data while summary/daily keep serving the cloud
+    // (owner report 2026-11-20: four-source account cards). See
+    // accountViewUpstreamTimeoutMs in cloud-account.js; an explicit
+    // TOKENTRACKER_HTTP_TIMEOUT_MS override still wins.
     const envTimeout = process.env.TOKENTRACKER_HTTP_TIMEOUT_MS
       ? parseInt(process.env.TOKENTRACKER_HTTP_TIMEOUT_MS, 10)
       : 0;
-    const timeoutMs = envTimeout > 0 ? envTimeout : 4000;
+    const timeoutMs = accountViewUpstreamTimeoutMs(usageSlug, envTimeout);
     try {
       // An identical overlapping read shares the entire probe, including its
       // token mint. A healthy pending read must not look like a cloud outage
@@ -4337,6 +4354,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         if (result === "served") return true;
         res.setHeader("X-TokenTracker-Account-View", "0");
         res.setHeader("X-TokenTracker-Account-Fallback", result);
+        // Body-level mirror of the fallback headers (see json()): the local
+        // handlers below run with this flag set, so their payload says
+        // "this is this machine's data, not the account aggregate".
+        res.accountViewFallback = result;
       }
     }
 

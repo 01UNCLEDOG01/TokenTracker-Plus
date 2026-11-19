@@ -742,5 +742,6 @@
   "limits.label.minimax_code_points": "残り {{points}} ポイント",
   "limits.label.minimax_code_5h": "5時間",
   "limits.label.minimax_code_weekly": "週間",
-  "limits.label.minimax_code_video": "動画生成"
+  "limits.label.minimax_code_video": "動画生成",
+  "usage.account_fallback_note": "クラウド集計に一時的に接続できません。現在はこの端末のローカル値を表示しています。自動的に復旧します。"
 }

@@ -29,6 +29,22 @@ function accountSlugFor(usageSlug) {
   return USAGE_TO_ACCOUNT_SLUG[usageSlug] || null;
 }
 
+// Upstream read budget for the account-view proxy. The cross-device model
+// breakdown is the heaviest aggregate (it re-prices every uploaded row across
+// all devices); its cold first computation can exceed the 4s default, and one
+// timeout trips the 2-minute account-view backoff in local-api, silently
+// pinning the dashboard's account cards to this machine's data. Heavy slugs
+// get room; an explicit TOKENTRACKER_HTTP_TIMEOUT_MS override still wins.
+const ACCOUNT_VIEW_DEFAULT_TIMEOUT_MS = 4000;
+const ACCOUNT_VIEW_HEAVY_TIMEOUT_MS = 15000;
+const ACCOUNT_VIEW_HEAVY_SLUGS = new Set(["tokentracker-usage-model-breakdown"]);
+function accountViewUpstreamTimeoutMs(usageSlug, envTimeoutMs) {
+  if (Number.isFinite(envTimeoutMs) && envTimeoutMs > 0) return envTimeoutMs;
+  return ACCOUNT_VIEW_HEAVY_SLUGS.has(usageSlug)
+    ? ACCOUNT_VIEW_HEAVY_TIMEOUT_MS
+    : ACCOUNT_VIEW_DEFAULT_TIMEOUT_MS;
+}
+
 // The heatmap renders a 52-week grid out of a handful of active days, so the
 // dense form is mostly zero-filled cells and repeated keys: ~42 KB on the wire
 // for ~12 KB of data, and this proxy accounts for 94% of those reads. Asking
@@ -553,6 +569,7 @@ module.exports = {
   getCloudAccountSessionGeneration,
   HEATMAP_ACCOUNT_SLUG,
   accountSlugFor,
+  accountViewUpstreamTimeoutMs,
   accessTokenFromRefreshPayload,
   refreshTokenFromRefreshPayload,
   decodeJwtExpMs,

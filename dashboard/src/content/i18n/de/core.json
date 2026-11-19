@@ -739,5 +739,6 @@
   "limits.label.minimax_code_points": "{{points}} Punkte übrig",
   "limits.label.minimax_code_5h": "5 Std.",
   "limits.label.minimax_code_weekly": "Wöchentlich",
-  "limits.label.minimax_code_video": "Video"
+  "limits.label.minimax_code_video": "Video",
+  "usage.account_fallback_note": "Die Cloud-Zusammenfassung ist vorübergehend nicht erreichbar — vorübergehend werden die Daten dieses Geräts angezeigt; die Ansicht stellt sich automatisch wieder her."
 }

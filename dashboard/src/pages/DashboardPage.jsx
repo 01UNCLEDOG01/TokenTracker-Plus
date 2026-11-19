@@ -485,6 +485,7 @@ export function DashboardPage({
     source: usageSource,
     loading: usageLoading,
     error: usageError,
+    accountFallback: usageAccountFallback,
     refresh: refreshUsage,
   } = useUsageData({
     baseUrl,
@@ -534,6 +535,7 @@ export function DashboardPage({
   const {
     breakdown: modelBreakdown,
     loading: modelBreakdownLoading,
+    accountFallback: modelBreakdownAccountFallback,
     refresh: refreshModelBreakdown,
   } = useUsageModelBreakdown({
     baseUrl,
@@ -1369,6 +1371,12 @@ export function DashboardPage({
   const hasUnpricedUsage = (modelBreakdown?.sources || []).some((source) => (source.models || []).some((model) =>
     model.pricing?.status === "unpriced" && model.cost_source !== "provider_reported" && Number(model.totals?.total_tokens) > 0,
   ));
+  // The account view must never present this machine's data as the account
+  // aggregate without saying so: either hook may have received a fallback
+  // response (server marks them `account_view_fallback`, 2026-11-20).
+  const accountDataFallback = Boolean(
+    accountView && (usageAccountFallback || modelBreakdownAccountFallback),
+  );
   const fleetData = useMemo(
     // Owner ruling 2026-11-03: TRAE's unknown-cache models are priced at the
     // hit rate the owner achieves on the same model at other sources, so every
@@ -1608,6 +1616,7 @@ export function DashboardPage({
       timeZoneRangeLabel={timeZoneRangeLabel}
       usageSourceLabel={usageSourceLabel}
       fleetData={fleetData}
+      accountDataFallback={accountDataFallback}
       hasDetailsActual={hasDetailsActual}
       dailyEmptyPrefix={dailyEmptyPrefix}
       installSyncCmd={installSyncCmd}

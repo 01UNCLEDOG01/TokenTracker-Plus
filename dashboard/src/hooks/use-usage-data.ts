@@ -56,6 +56,11 @@ export function useUsageData({
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True when the account-view fetch fell back to this machine's data (the
+  // server marks such responses with `account_view_fallback`). Cloud-scope
+  // caches must not hold it, and the UI must badge it instead of passing
+  // local numbers off as the account aggregate.
+  const [accountFallback, setAccountFallback] = useState(false);
   const hasDataRef = useRef(false);
   hasDataRef.current = summary != null || (Array.isArray(daily) && daily.length > 0);
   const mockEnabled = isMockEnabled();
@@ -86,6 +91,7 @@ export function useUsageData({
     setSource("edge");
     setFetchedAt(null);
     setError(null);
+    setAccountFallback(false);
     setLoading(true);
   }, [scopeKey]);
 
@@ -99,7 +105,9 @@ export function useUsageData({
         const hasRequestedData = includeSummary
           ? Boolean(parsed?.summary)
           : Array.isArray(parsed?.daily);
-        if (parsed && hasRequestedData) {
+        if (parsed && hasRequestedData && !parsed.accountViewFallback) {
+          // Payloads written from a fallback response are this machine's data,
+          // not the account aggregate — a miss so they self-heal.
           touchLocalStorageCacheKey(USAGE_CACHE_INDEX_KEY, storageKey, USAGE_CACHE_MAX_ENTRIES);
           return parsed;
         }
@@ -338,9 +346,12 @@ export function useUsageData({
       setSource("edge");
       setFetchedAt(nowIso);
 
-      if ((nextSummary || (!includeSummary && includeDaily)) && cacheAllowed) {
+      const accountFallbackReason = useCloud && (summaryRes?.account_view_fallback || dailyRes?.account_view_fallback || null);
+      setAccountFallback(Boolean(accountFallbackReason));
+      if ((nextSummary || (!includeSummary && includeDaily)) && cacheAllowed && !accountFallbackReason) {
         writeCache({
           summary: nextSummary,
+          accountViewFallback: null,
           rolling: nextRolling,
           daily: nextDaily,
           from,
@@ -349,7 +360,7 @@ export function useUsageData({
           includeSummary,
           fetchedAt: nowIso,
         });
-      } else if (!cacheAllowed) {
+      } else if (!cacheAllowed || accountFallbackReason) {
         clearCache();
       }
     } catch (e) {
@@ -528,6 +539,7 @@ export function useUsageData({
     fetchedAt,
     loading,
     error,
+    accountFallback,
     refresh,
   };
 }

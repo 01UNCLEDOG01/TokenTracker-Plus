@@ -2255,3 +2255,4 @@ perks.desc.collapse,dashboard,PerksPage,PerkCard,desc_collapse,收起,,active
 settings.labs.ipcheck.label,ui,SettingsPage,LabsSection,ipcheck_label,Show Claude IP Check,,active
 settings.labs.ipcheck.hint,ui,SettingsPage,LabsSection,ipcheck_hint,Pin the Claude IP Check entry to the sidebar (hidden by default; the page stays reachable via its direct link),,active
 settings.labs.ipcheck.aria,ui,SettingsPage,LabsSection,ipcheck_aria,Toggle the Claude IP Check sidebar entry,,active
+usage.account_fallback_note,ui,DashboardPage,UsageOverview,account_fallback_note,"Cloud summary is temporarily unreachable — showing this machine's data until it recovers.",,active

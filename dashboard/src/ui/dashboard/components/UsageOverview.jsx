@@ -296,6 +296,7 @@ export function UsageOverview({
   summaryCostValue,
   onCostInfo,
   fleetData = [],
+  accountDataFallback = false,
   onRefresh,
   loading,
   announceLoading = false,
@@ -557,6 +558,12 @@ export function UsageOverview({
             )}
           </div>
         </div>
+
+        {accountDataFallback && (
+          <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
+            {copy("usage.account_fallback_note")}
+          </p>
+        )}
 
         {/* Main Stats */}
         <div className="text-center mb-8">

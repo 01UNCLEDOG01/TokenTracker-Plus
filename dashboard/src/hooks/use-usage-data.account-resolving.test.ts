@@ -135,4 +135,31 @@ describe("useUsageData — accountViewResolving gate (double-flash fix)", () => 
     });
     await waitFor(() => expect(result.current.summary).toEqual(SUMMARY.totals));
   });
+
+  it("badges a fallback cloud response and never caches it under the cloud scope", async () => {
+    vi.mocked(fetchCloudUsageDaily).mockResolvedValue({
+      data: [{ day: "2026-06-05", total_tokens: 50 }],
+      account_view_fallback: "transient-upstream",
+    } as any);
+    vi.mocked(fetchCloudUsageSummary).mockResolvedValue({
+      totals: { billable_total_tokens: 50, total_tokens: 50 },
+      rolling: {},
+      account_view_fallback: "transient-upstream",
+    } as any);
+
+    const { result } = renderHook(() =>
+      useUsageData({
+        ...baseProps,
+        accountView: true,
+        accountAccessToken: "jwt-token",
+      }),
+    );
+
+    await waitFor(() => expect(result.current.summary).not.toBeNull());
+    expect(result.current.accountFallback).toBe(true);
+    const cloudKeys = Object.keys(window.localStorage).filter((k) =>
+      k.startsWith("tokentracker.usage.acct-resolving-test.cloud."),
+    );
+    expect(cloudKeys).toEqual([]);
+  });
 });

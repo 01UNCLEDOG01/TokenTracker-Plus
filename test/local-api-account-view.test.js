@@ -288,6 +288,25 @@ test("usage-summary?account=1 falls back to local data when not signed in", asyn
   const body = res.json();
   assert.equal(body.scope, "all");
   assert.equal(body.totals.total_tokens, 120);
+  // The fallback must also be visible in the body: the dashboard's fetch
+  // helper reads no headers, so a fallback used to render (and be cached) as
+  // genuine account data (owner report 2026-11-20).
+  assert.equal(typeof body.account_view_fallback, "string");
+  assert.notEqual(body.account_view_fallback, "");
+
+  // Same endpoint WITHOUT account=1: a plain local read must stay clean.
+  const plain = await call(handler, {
+    endpoint: "/functions/tokentracker-usage-summary?from=2026-04-20&to=2026-04-20&tz=UTC",
+  });
+  assert.equal("account_view_fallback" in plain.json(), false);
+});
+
+test("model-breakdown slug gets the extended upstream timeout", () => {
+  const { accountViewUpstreamTimeoutMs } = require("../src/lib/cloud-account");
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-model-breakdown", 0), 15000);
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", 0), 4000);
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", 8000), 8000);
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", -1), 4000);
 });
 
 test("account-view failures are briefly backed off so refresh fan-out stays responsive", async () => {
