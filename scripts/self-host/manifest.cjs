@@ -115,6 +115,15 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // 挣到值 per-tier readings (KI-084): tokentracker-badge-sync stores each
     // tier's earning-device value alongside the unlock timestamps.
     {id:"21-badge-earned-values",sql:read("migrations/20261114120000_self-host-badge-earned-values.sql")},
+
+    // TRAE span guard back into the account aggregation (2026-11-20 regression
+    // repair): the dedup round applied the canonical aggregation.sql (frozen
+    // pre-10-20 body) straight over the deployed function and reverted both
+    // step 14/20 (trae-cn rides the hourly machine arm) and step 20b
+    // (cursor_owner) in one stroke — the hero lost 82亿 of real trae-cn hourly
+    // volume and every device row re-included the retired SOLO states arm.
+    // Re-applies the step-20b body with the read-time trae span guard.
+    {id:"22-trae-span-guard",sql:read("migrations/20261120200000_self-host-trae-span-guard.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

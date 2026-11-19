@@ -1069,7 +1069,9 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
     // kimi-k2.7-code 3.7B tokens 仅 0.07% cached=按 0 缓存计价）。守卫=跨
     // 区间+大小写不敏感覆盖判定：trae 行在其小时跨度 [H, H+1h) 内同模型有
     // trae-cn 记录时视为同一份用量的副本排除（CN API=官方账本）；trae 独有
-    // 的小时保留。J2900 聚合 SQL 的同名守卫见 scripts/self-host/aggregation.sql。
+    // 的小时保留。J2900 聚合 SQL 的同名守卫见
+    // migrations/20261120200000_self-host-trae-span-guard.sql（canonical
+    // aggregation.sql 按 681be413 冻结在 step 04 字节，守卫只进迁移 step）。
     const traeCnHoursByModel = new Map(); // lower(model) -> Set(hourMs)
     for (const row of allRows) {
       if (String(row?.source || "").toLowerCase() !== "trae-cn") continue;

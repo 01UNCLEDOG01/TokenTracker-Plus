@@ -264,7 +264,8 @@ export default async function (req: Request): Promise<Response> {
   // 重复；旧库不报缓存拆分，kimi-k2.7-code 3.7B tokens 仅 0.07% cached=按
   // 0 缓存计价）。同 (hour_start, model) 已有 trae-cn 行时，trae 行视为
   // 同一份用量的副本跳过（CN API=官方账本）；trae 独有的小时保留。跨批次
-  // 的重复由聚合侧同名守卫兜底（scripts/self-host/aggregation.sql）。
+  // 的重复由聚合侧同名守卫兜底
+  // （migrations/20261120200000_self-host-trae-span-guard.sql）。
   const traeCnCoverage = new Set<string>();
   for (const r of dedupedMap.values()) {
     if (r.source !== "trae-cn" || (Number(r.total_tokens) || 0) <= 0) continue;

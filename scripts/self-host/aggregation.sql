@@ -37,24 +37,6 @@ AS $func$
         OR (
           h.source NOT IN ('cursor', 'trae-cn')
           AND h.device_id = ANY(p_device_ids)
-          -- TRAE 双计守卫（站主裁定 2026-11-20，方案 B）：同一台机器上旧版
-          -- Trae（Work CN）本地库与 Trae CN 官方 API/库覆盖同一段会话，`trae`
-          -- 行会与本函数 trae-cn 臂（session_states）的同一份用量各计一次。
-          -- 实测：剩余 trae 行 39.7 亿中 37.1 亿在 ±1 小时窗内有同模型
-          -- trae-cn 记录（大小写不敏感，CN 同窗记录 140 亿——CN 记录更全），
-          -- 属同一份用量的副本；2.7 亿无 CN 覆盖（CN API 没有的独有记录，
-          -- 保留）。守卫=trae 行在其小时跨度的同模型 trae-cn 覆盖内时排除。
-          AND (
-            h.source <> 'trae'
-            OR NOT EXISTS (
-              SELECT 1 FROM public.tokentracker_hourly tc
-              WHERE tc.user_id = h.user_id
-                AND tc.source = 'trae-cn'
-                AND lower(tc.model) = lower(h.model)
-                AND tc.hour_start >= h.hour_start
-                AND tc.hour_start < h.hour_start + interval '1 hour'
-            )
-          )
         )
       )
   ), hourly AS (
