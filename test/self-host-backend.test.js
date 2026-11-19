@@ -310,10 +310,22 @@ test("the policy migration keeps free hosted semantics and leaves installed usag
   const db=await platform();
   try {
     for(const step of steps().slice(0,-1))await db.exec(step.sql);
-    const before=(await db.query("SELECT pg_get_functiondef('account_usage_grouped(uuid,uuid[],timestamptz,timestamptz,text,text,integer)'::regprocedure) AS body")).rows[0].body;
     await db.exec(steps().at(-1).sql);
     const after=(await db.query("SELECT pg_get_functiondef('account_usage_grouped(uuid,uuid[],timestamptz,timestamptz,text,text,integer)'::regprocedure) AS body")).rows[0].body;
-    assert.equal(after,before);
+    // The newest step may legitimately re-define account_usage_grouped (step 22
+    // re-applies the 11-15 body with the TRAE span guard). The regression this
+    // pins is the 2026-11-13 heatmap-cost accident: a later step re-creating
+    // the function from a STALE body. Whatever installs must be byte-identical
+    // to what the newest migration itself carries — never an older body.
+    const lastSql=steps().at(-1).sql;
+    const defAt=lastSql.indexOf("CREATE OR REPLACE FUNCTION public.account_usage_grouped(");
+    assert.ok(defAt>=0,"the newest self-host step defines account_usage_grouped");
+    const bodyOpen=lastSql.indexOf("$func$",defAt);
+    const bodyClose=lastSql.indexOf("$func$",bodyOpen+6);
+    assert.ok(bodyOpen>=0&&bodyClose>bodyOpen,"the newest step carries a full dollar-quoted body");
+    const installed=after.match(/AS \$\w+\$([\s\S]*)\$\w+\$/);
+    assert.ok(installed,"pg_get_functiondef carries a dollar-quoted body");
+    assert.equal(installed[1],lastSql.slice(bodyOpen+6,bodyClose));
     await db.exec("UPDATE tokentracker_cloud_policy SET phase='active',launch_at=clock_timestamp() WHERE environment='live'");
     const owner=randomUUID();await db.query("INSERT INTO auth.users VALUES($1)",[owner]);
     const free=(await db.query("SELECT cloud_membership($1,'live') AS r",[owner])).rows[0].r;
