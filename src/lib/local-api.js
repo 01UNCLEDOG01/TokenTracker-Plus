@@ -1062,6 +1062,25 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
     const intlCreditRows = qoderIntlCreditRows(allRows, {
       projectsDir: resolveQoderProjectsDir({ home: os.homedir(), env: process.env }),
     });
+    // TRAE 双计守卫（站主裁定 2026-11-20，方案 B）：同一台机器上旧版 Trae
+    // （Work CN）本地库与 Trae CN 官方 API/本地库覆盖同一段会话，`trae` 与
+    // `trae-cn` 行会把同一份用量各计一次（J2900 实测 973 行/≈44.9 亿 tokens
+    // 重复，已清库并存档备份表）。读取时把与 trae-cn 行 (hour_start, model,
+    // total_tokens) 逐位相同的 trae 行视为同一份用量排除；不精确相等的切期
+    // 差额保留。J2900 聚合 SQL 的同名守卫见 scripts/self-host/aggregation.sql。
+    const traeCnUsageKeys = new Set();
+    for (const row of allRows) {
+      if (String(row?.source || "").toLowerCase() !== "trae-cn") continue;
+      if (!(Number(row?.total_tokens) > 0)) continue;
+      traeCnUsageKeys.add(`${row.hour_start}|${row.model}|${Number(row.total_tokens)}`);
+    }
+    const dedupedRows = traeCnUsageKeys.size
+      ? allRows.filter((row) => {
+          if (String(row?.source || "").toLowerCase() !== "trae") return true;
+          if (!(Number(row?.total_tokens) > 0)) return true;
+          return !traeCnUsageKeys.has(`${row.hour_start}|${row.model}|${Number(row.total_tokens)}`);
+        })
+      : allRows;
     // Antigravity's native generation ledger is authoritative at every time
     // granularity. External daily caches must not replace its measured buckets.
     // JoyCode keeps provider-reported task totals outside the queue; derive them
@@ -1071,8 +1090,8 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
     // its card and the queue-backed cards share one aggregation path.
     const raccoonRows = includeJoycode ? raccoonOfficeUsageRows() : [];
     const mergedRows = estimatedRows.length || intlCreditRows.length || joycodeRows.length || raccoonRows.length
-      ? allRows.concat(estimatedRows, intlCreditRows, joycodeRows, raccoonRows)
-      : allRows;
+      ? dedupedRows.concat(estimatedRows, intlCreditRows, joycodeRows, raccoonRows)
+      : dedupedRows;
     return {
       scope,
       allRows: mergedRows,
