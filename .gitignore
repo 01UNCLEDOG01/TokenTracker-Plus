@@ -169,7 +169,6 @@ FORK_STATUS.md
 KNOWN_ISSUES.md
 HANDOFF.md
 GATE_REGISTRY.md
-RELEASE_LEDGER.md  # 2026-11-20 起：发版流水账单列一页（从 GATE_REGISTRY 尾部迁出）
 
 # PowerShell writes its module analysis cache next to the working directory
 # on first run; a494842 accidentally committed one such cache generated during
