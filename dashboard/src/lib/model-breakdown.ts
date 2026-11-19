@@ -389,16 +389,27 @@ function normalizeIntervalModelName(name: any) {
  */
 function applyTraeEstimatedCacheStats(providers: any[]) {
   const peers: any[] = Array.isArray(providers) ? providers : [];
-  const hitRatesByModel = new Map();
+  // 站主裁定 2026-11-20：姊妹 TRAE 版本计入证据池（合并后两版本载同一批
+  // 会话，姊妹的实测命中率=这批行本身的实测率）；自己的近零 sprinkle 仍排除。
+  const TRAE_EDITIONS = new Set(["trae", "trae-cn"]);
+  const externalRates = new Map();
+  const siblingRates = new Map(); // edition -> (model -> [rates])
   for (const peer of peers) {
     const peerSource = String(peer?.source || peer?.label || "").trim().toLowerCase();
-    if (peerSource === "trae" || peerSource === "trae-cn") continue;
+    const isTraeEdition = TRAE_EDITIONS.has(peerSource);
     for (const model of Array.isArray(peer?.models) ? peer.models : []) {
       if (model?.cacheHitRate == null) continue;
       const name = normalizeIntervalModelName(model.name || model.id);
       if (!name) continue;
-      if (!hitRatesByModel.has(name)) hitRatesByModel.set(name, []);
-      hitRatesByModel.get(name).push(Number(model.cacheHitRate));
+      if (isTraeEdition) {
+        if (!siblingRates.has(peerSource)) siblingRates.set(peerSource, new Map());
+        const pool = siblingRates.get(peerSource);
+        if (!pool.has(name)) pool.set(name, []);
+        pool.get(name).push(Number(model.cacheHitRate));
+      } else {
+        if (!externalRates.has(name)) externalRates.set(name, []);
+        externalRates.get(name).push(Number(model.cacheHitRate));
+      }
     }
   }
   const median = (values: number[]) => {
@@ -409,6 +420,7 @@ function applyTraeEstimatedCacheStats(providers: any[]) {
   for (const provider of providers) {
     const source = String(provider?.source || provider?.label || "").trim().toLowerCase();
     if (source !== "trae" && source !== "trae-cn") continue;
+    const siblingEdition = source === "trae" ? "trae-cn" : "trae";
     // Same-tool measured floor: the median hit rate across THIS card's own
     // fielded models. This is the hit rate the server's cost fold uses for
     // models with no fielded history ("recognized rate"); it is a HIT RATE,
@@ -433,23 +445,32 @@ function applyTraeEstimatedCacheStats(providers: any[]) {
       const inputSide = input + cached;
       // Same gate as the server fold: below 50% measured coverage the blend is
       // estimate territory; at/above it the measured figures are truth. With
-      // no coverage signal (pre-v5 / cloud rows) a measured cache also wins;
-      // only a model with neither signal nor measured cache is estimated.
+      // no coverage signal, a measured cache wins ONLY above the sprinkle
+      // floor (5%): a <5% cached sprinkle is TRAE's dry-spell artifact (the
+      // ledger reports no real cache split — kimi-k2.7-code 3.7B tokens at
+      // 0.07% cached), not truth — 站主裁定 2026-11-20.
       const observed = t.cacheObservedInput == null ? null : Number(t.cacheObservedInput);
       const coverage = observed != null && inputSide > 0 ? Math.min(observed / inputSide, 1) : null;
-      const measured = coverage != null ? coverage >= TRAE_MEASURED_COVERAGE_MIN : cached + cc > 0;
+      const measured = coverage != null
+        ? coverage >= TRAE_MEASURED_COVERAGE_MIN
+        : (cached + cc > 0 && (cached + cc) / Math.max(inputSide, 1) >= 0.05);
       const selfRate = Number(t.cacheObservedHitRate);
-      const rates = hitRatesByModel.get(normalizeIntervalModelName(model.name || model.id));
-      // Evidence chain: own fielded rate -> peer median -> same-tool measured
-      // median -> official cache-read price ratio (a conservative last resort
-      // when the card has no fielded history at all).
+      // Evidence chain: own fielded rate -> sibling edition's measured rate
+      // (post-merge the sibling carries the same sessions — 站主裁定
+      // 2026-11-20) -> external peer median -> same-tool measured median ->
+      // official cache-read price ratio (a conservative last resort when the
+      // card has no fielded history at all).
+      const siblingPool = siblingRates.get(siblingEdition)?.get(normalizeIntervalModelName(model.name || model.id));
+      const rates = externalRates.get(normalizeIntervalModelName(model.name || model.id));
       const h = measured
         ? null
         : (Number.isFinite(selfRate) && selfRate > 0
             ? Math.min(Math.max(selfRate / 100, 0), 1)
-            : rates && rates.length
-              ? Math.min(Math.max(median(rates) / 100, 0), 1)
-              : (toolRate ?? cacheDiscountFor(model) ?? null));
+            : siblingPool && siblingPool.length
+              ? Math.min(Math.max(median(siblingPool) / 100, 0), 1)
+              : rates && rates.length
+                ? Math.min(Math.max(median(rates) / 100, 0), 1)
+                : (toolRate ?? cacheDiscountFor(model) ?? null));
       if (h == null) {
         estReused += cached;
         estFresh += input;
@@ -501,13 +522,20 @@ function cacheDiscountFor(model: any): number | null {
 function computeTraeFold(provider: any, fleetData: any) {
   const models: any[] = Array.isArray(provider?.models) ? provider.models : [];
   const peers: any[] = Array.isArray(fleetData) ? fleetData : [];
+  // 站主裁定 2026-11-20：姊妹 TRAE 版本（trae-cn ↔ trae）计入 peer 证据池。
+  // 合并（2026-10-29）后两个版本载的是同一批会话（J2900 实测 900/902 对
+  // 小时桶逐位相同），姊妹版本对同模型的实测命中率就是这批行本身的实测率
+  // ——合并前「国际版断供、CN 命中率不适用」的隔离理由不再成立。自己的
+  // 近零 sprinkle 仍排除（不能拖自己被折算的中位数）。
+  const selfEdition = String(provider?.source || provider?.label || "").trim().toLowerCase();
   const hitRatesByModel = new Map();
   for (const peer of peers) {
     const peerSource = String(peer?.source || peer?.label || "").trim().toLowerCase();
-    // Both TRAE editions are excluded from their own peer pool: a provider's
-    // own near-zero cache figure (the sprinkle the coverage gate is folding)
-    // must not drag the median it is being folded with.
-    if (peerSource === "trae" || peerSource === "trae-cn") continue;
+    // The provider's OWN edition is excluded from its own peer pool: a
+    // provider's own near-zero cache figure (the sprinkle the coverage gate is
+    // folding) must not drag the median it is being folded with. The SIBLING
+    // TRAE edition stays (see the ruling note above).
+    if (selfEdition && peerSource === selfEdition) continue;
     for (const model of Array.isArray(peer?.models) ? peer.models : []) {
       if (model?.cacheHitRate == null) continue;
       const name = normalizeIntervalModelName(model.name || model.id);
@@ -541,17 +569,20 @@ function computeTraeFold(provider: any, fleetData: any) {
     // derived from the hit rate cannot tell "fully measured, low hit rate"
     // from "mostly unmeasured" — folding the former would overwrite real
     // measurements with someone else's median. When the ledger supplies no
-    // signal (other providers, pre-v5 buckets), keep the conservative stance:
-    // any measured cache wins and nothing is folded.
+    // signal (other providers, pre-v5 buckets), a measured cache wins ONLY
+    // above the sprinkle floor (5%): a <5% cached sprinkle is TRAE's
+    // dry-spell artifact (the ledger reports no real cache split — kimi
+    // 3.7B tokens at 0.07% cached), not truth — 站主裁定 2026-11-20.
     // Number(null) === 0 in JS: the null sentinel must be checked before
     // coercion, or "no signal" would read as "zero coverage" and fold.
     const observed = t.cacheObservedInput == null ? null : Number(t.cacheObservedInput);
     const hasObservedSignal = observed != null && Number.isFinite(observed) && inputSide > 0;
     const measuredCoverage = hasObservedSignal ? Math.min(observed / inputSide, 1) : null;
+    const sprinkleRatio = inputSide > 0 ? Math.min(reportedCache / inputSide, 1) : 0;
     const discount =
       measuredCoverage != null
         ? measuredCoverage >= TRAE_MEASURED_COVERAGE_MIN ? null : cacheDiscountFor(model)
-        : reportedCache > 0 ? null : cacheDiscountFor(model);
+        : sprinkleRatio >= 0.05 ? null : cacheDiscountFor(model);
     const rates =
       discount == null
         ? null
@@ -562,7 +593,9 @@ function computeTraeFold(provider: any, fleetData: any) {
     // history (same tool, same model, measured — Sep/Oct 95-97%) outranks
     // current-period peers, whose small samples (another tool's odd 0.1%
     // DeepSeek day) say nothing about TRAE's cache behavior. Peers fill in
-    // only when the model has no fielded history.
+    // only when the model has no fielded history. The SIBLING edition's
+    // measured rate also joins the pool (站主裁定 2026-11-20 — post-merge
+    // the editions carry the same sessions).
     const selfRate = Number(t.cacheObservedHitRate);
     const hitRate = Number.isFinite(selfRate) && selfRate > 0
       ? selfRate

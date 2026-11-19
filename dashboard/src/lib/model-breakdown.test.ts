@@ -516,13 +516,15 @@ describe("buildTraeCostInterval", () => {
   it("builds an interval from the same model's median hit rate at other sources", () => {
     const interval = buildTraeCostInterval(traeCard, [traeCard, ...peers]);
     if (!interval) throw new Error("expected an interval for TRAE with peer evidence");
-    // trae-cn is family-excluded: median of [90, 94] = 92 ->
-    // low = 16.2 * (0.08 + 0.92 * (0.006/0.3))
+    // 站主裁定 2026-11-20: the sibling trae-cn edition now counts as peer
+    // evidence (post-merge the editions carry the same sessions) — median of
+    // [80, 90, 94] = 90 ->
+    // low = 16.2 * ((1 - 0.9) + 0.9 * (0.006/0.3))
     expect(interval.high).toBeCloseTo(16.2, 5);
-    expect(interval.low).toBeCloseTo(16.2 * (0.08 + 0.92 * 0.02), 5);
+    expect(interval.low).toBeCloseTo(16.2 * (0.1 + 0.9 * 0.02), 5);
     expect(interval.low).toBeLessThan(interval.high);
-    // The median hit rate that produced the lower bound: median of [90,94].
-    expect(interval.medianHitRate).toBe(92);
+    // The median hit rate that produced the lower bound: median of [80,90,94].
+    expect(interval.medianHitRate).toBe(90);
   });
 
   it("returns null when no other source observed the model (no fabricated floor)", () => {
@@ -909,10 +911,12 @@ describe("applyTraeEstimatedCosts", () => {
     expect(free.cacheHitRate).toBe(96);
   });
 
-  it("keeps a pre-v5 model (no observed signal) untouched even when a peer exists", () => {
+  it("folds a pre-v5 sprinkle (no observed signal) via the sibling/peer evidence", () => {
     // The sprinkle fixture WITHOUT its observed signal = a pre-v5 bucket:
-    // coverage is genuinely unknown (the hit rate cannot stand in for it), so
-    // the conservative stance wins and nothing is folded.
+    // coverage is unknown, but the cached sprinkle (44K over 74.2M input =
+    // 0.059%) is below the 5% sprinkle floor (站主裁定 2026-11-20: the
+    // sprinkle is the dry-spell artifact, not truth) — the fold now prices it
+    // with the sibling/peer evidence instead of letting the ceiling stand.
     const preV5 = {
       pricing: { pricing_mode: "usd" },
       sources: [
@@ -925,6 +929,46 @@ describe("applyTraeEstimatedCosts", () => {
               name: "deepseek-v4.1-flash",
               pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
               totals: { total_cost_usd: 18, input_tokens: 74_176_000, cached_input_tokens: 44_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174 },
+            },
+          ],
+        },
+        {
+          source: "deepseek",
+          totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 },
+          models: [
+            { model_id: "deepseek-v4.1-flash", name: "deepseek-v4.1-flash", totals: { total_cost_usd: 5, input_tokens: 1_000_000, cached_input_tokens: 9_000_000, cache_creation_input_tokens: 0, conversation_count: 5 } },
+          ],
+        },
+      ],
+    };
+    const fleet = applyTraeEstimatedCosts(buildFleetData(preV5));
+    const cn = fleet.find((f: any) => f.source === "trae-cn");
+    const model = cn.models[0];
+    // The deepseek peer's 90% hit rate folds the ceiling: 18 × ((1-0.9) +
+    // 0.9 × (0.006/0.3)) = 18 × 0.118 = 2.124.
+    expect(model.cost).toBeCloseTo(2.124, 5);
+    expect(model.cacheEstimated).toBe(true);
+    expect(cn.traeEstimate).toBeDefined();
+    expect(cn.traeEstimate.ceilingCost).toBeCloseTo(18, 5);
+    expect(cn.traeEstimate.estimatedCost).toBeCloseTo(2.124, 5);
+  });
+
+  it("keeps a real measured cache (≥5% sprinkle, ≥50% coverage) untouched even with a peer", () => {
+    // The same fixture with a REAL measured cache (44M cached over 74.2M
+    // input = 59% coverage): the ledger measured it — the fold must not
+    // overwrite real measurements with the sibling/peer rate.
+    const preV5 = {
+      pricing: { pricing_mode: "usd" },
+      sources: [
+        {
+          source: "trae-cn",
+          totals: { total_cost_usd: 18, input_tokens: 30_000_000, cached_input_tokens: 44_000_000, cache_creation_input_tokens: 0, conversation_count: 174, cache_observed_input_tokens: 44_000_000 },
+          models: [
+            {
+              model_id: "deepseek-v4.1-flash",
+              name: "deepseek-v4.1-flash",
+              pricing: { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+              totals: { total_cost_usd: 18, input_tokens: 30_000_000, cached_input_tokens: 44_000_000, cache_creation_input_tokens: 0, output_tokens: 0, conversation_count: 174, cache_observed_input_tokens: 44_000_000 },
             },
           ],
         },

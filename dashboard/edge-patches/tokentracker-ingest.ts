@@ -261,19 +261,20 @@ export default async function (req: Request): Promise<Response> {
   // TRAE 双计守卫（站主裁定 2026-11-20，方案 B）：同一台机器上旧版 Trae
   // （Work CN）本地库与 Trae CN 官方 API/本地库覆盖同一段会话，`trae` 与
   // `trae-cn` 行会把同一份用量各计一次（J2900 实测 973 行/≈44.9 亿 tokens
-  // 重复）。同一批内与 trae-cn 行 (hour_start, model, total_tokens) 逐位
-  // 相同的 trae 行视为同一份用量，跳过不入库；不精确相等的切期差额保留。
-  // 跨批次的重复由聚合侧同名守卫兜底（scripts/self-host/aggregation.sql）。
-  const traeCnKeys = new Set<string>();
+  // 重复；旧库不报缓存拆分，kimi-k2.7-code 3.7B tokens 仅 0.07% cached=按
+  // 0 缓存计价）。同 (hour_start, model) 已有 trae-cn 行时，trae 行视为
+  // 同一份用量的副本跳过（CN API=官方账本）；trae 独有的小时保留。跨批次
+  // 的重复由聚合侧同名守卫兜底（scripts/self-host/aggregation.sql）。
+  const traeCnCoverage = new Set<string>();
   for (const r of dedupedMap.values()) {
     if (r.source !== "trae-cn" || (Number(r.total_tokens) || 0) <= 0) continue;
-    traeCnKeys.add(`${r.hour_start}|${r.model}|${Number(r.total_tokens)}`);
+    traeCnCoverage.add(`${r.hour_start}|${r.model}`);
   }
-  const rows = traeCnKeys.size
+  const rows = traeCnCoverage.size
     ? Array.from(dedupedMap.values()).filter((r) => (
         r.source !== "trae" ||
         (Number(r.total_tokens) || 0) <= 0 ||
-        !traeCnKeys.has(`${r.hour_start}|${r.model}|${Number(r.total_tokens)}`)
+        !traeCnCoverage.has(`${r.hour_start}|${r.model}`)
       ))
     : Array.from(dedupedMap.values());
 

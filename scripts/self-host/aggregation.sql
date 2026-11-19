@@ -40,9 +40,11 @@ AS $func$
           -- TRAE 双计守卫（站主裁定 2026-11-20，方案 B）：同一台机器上旧版
           -- Trae（Work CN）本地库与 Trae CN 官方 API/库覆盖同一段会话，`trae`
           -- 行会与本函数 trae-cn 臂（session_states）的同一份用量各计一次
-          -- （J2900 实测 1,765 对重叠桶、900 对逐位相同、≈45 亿 tokens 重复）。
-          -- 与 trae-cn 行 (hour_start, model, total_tokens) 逐位相同的 trae 行
-          -- 视为同一份用量，机器臂不计入；只删/排精确相等的行，切期差额保留。
+          -- （J2900 实测 1,765 对重叠桶、900 对逐位相同、≈45 亿 tokens 重复；
+          -- 旧库不报缓存拆分，kimi-k2.7-code 3.7B tokens 仅 0.07% cached=按
+          -- 0 缓存计价）。同 (user, hour_start, model) 已有 trae-cn 行时，
+          -- trae 行视为同一份用量的副本不计入（CN API=官方账本）；trae 独有
+          -- 的小时（如 10-28/11-02 切期）保留。
           AND (
             h.source <> 'trae'
             OR NOT EXISTS (
@@ -51,7 +53,6 @@ AS $func$
                 AND tc.hour_start = h.hour_start
                 AND tc.model = h.model
                 AND tc.source = 'trae-cn'
-                AND tc.total_tokens = h.total_tokens
             )
           )
         )
