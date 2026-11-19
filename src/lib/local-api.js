@@ -1064,23 +1064,32 @@ async function scopedQueueRows(queuePath, url, { includeJoycode = true } = {}) {
     });
     // TRAE 双计守卫（站主裁定 2026-11-20，方案 B）：同一台机器上旧版 Trae
     // （Work CN）本地库与 Trae CN 官方 API/本地库覆盖同一段会话，`trae` 与
-    // `trae-cn` 行会把同一份用量各计一次（J2900 实测 973 行/≈44.9 亿 tokens
-    // 重复，已清库并存档备份表；旧库不报缓存拆分，kimi-k2.7-code 3.7B
-    // tokens 仅 0.07% cached=按 0 缓存计价）。同 (hour_start, model) 已有
-    // trae-cn 行时，trae 行视为同一份用量的副本排除（CN API=官方账本）；
-    // trae 独有的小时（切期差额）保留。J2900 聚合 SQL 的同名守卫见
-    // scripts/self-host/aggregation.sql。
-    const traeCnCoverage = new Set();
+    // `trae-cn` 行会把同一份用量各计一次（J2900 实测 1,765 对重叠桶、900 对
+    // 逐位相同、≈45 亿 tokens 重复，已清库并存档备份表；旧库不报缓存拆分，
+    // kimi-k2.7-code 3.7B tokens 仅 0.07% cached=按 0 缓存计价）。守卫=跨
+    // 区间+大小写不敏感覆盖判定：trae 行在其小时跨度 [H, H+1h) 内同模型有
+    // trae-cn 记录时视为同一份用量的副本排除（CN API=官方账本）；trae 独有
+    // 的小时保留。J2900 聚合 SQL 的同名守卫见 scripts/self-host/aggregation.sql。
+    const traeCnHoursByModel = new Map(); // lower(model) -> Set(hourMs)
     for (const row of allRows) {
       if (String(row?.source || "").toLowerCase() !== "trae-cn") continue;
       if (!(Number(row?.total_tokens) > 0)) continue;
-      traeCnCoverage.add(`${row.hour_start}|${row.model}`);
+      const key = String(row?.model || "").toLowerCase();
+      const hourMs = Date.parse(row.hour_start);
+      if (!Number.isFinite(hourMs)) continue;
+      if (!traeCnHoursByModel.has(key)) traeCnHoursByModel.set(key, new Set());
+      traeCnHoursByModel.get(key).add(hourMs);
     }
-    const dedupedRows = traeCnCoverage.size
+    const dedupedRows = traeCnHoursByModel.size
       ? allRows.filter((row) => {
           if (String(row?.source || "").toLowerCase() !== "trae") return true;
           if (!(Number(row?.total_tokens) > 0)) return true;
-          return !traeCnCoverage.has(`${row.hour_start}|${row.model}`);
+          const key = String(row?.model || "").toLowerCase();
+          const hours = traeCnHoursByModel.get(key);
+          if (!hours) return true;
+          const hourMs = Date.parse(row.hour_start);
+          if (!Number.isFinite(hourMs)) return true;
+          return !(hours.has(hourMs) || hours.has(hourMs + 1_800_000));
         })
       : allRows;
     // Antigravity's native generation ledger is authoritative at every time
