@@ -68,16 +68,16 @@ jobs:
       - name: Test dashboard surfaces
         run: npm --prefix dashboard test -- src/pages/SkillsPage.test.jsx src/hooks/use-limits-display-prefs.test.js src/ui/dashboard/views/DashboardView.test.jsx src/ui/foundation/BotAnimated.test.jsx src/lib/pets-api.test.js src/pages/PerksPage.test.jsx src/lib/perks-claims.test.js
 
-      # Same checks as `npm run ci:local`, with the dashboard build hoisted above.
+      # Same checks as `npm run ci:local` (test + validate:fast), with the
+      # dashboard build hoisted above. validate:fast is the single-process
+      # runner for all 10 doc/copy/version/art/perks validators (2026-11-20:
+      # converged from a hand-maintained 5-item list to the full fast set so
+      # the two lists cannot drift apart; the redundant architecture-guardrails
+      # rerun is already inside `npm test`).
       - name: Test and validate
         run: |
           npm test
-          npm run validate:copy
-          npm run validate:locale
-          npm run validate:ui-hardcode
-          npm run validate:guardrails
-          npm run validate:versions
-          node --test test/architecture-guardrails.test.js
+          npm run validate:fast
 
   windows-build:
     if: github.event.repository.private == false

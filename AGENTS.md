@@ -5,16 +5,18 @@
 ## Read order for this fork
 
 > **2026-11-01 公开前清扫**：HANDOFF / FORK_STATUS / KNOWN_ISSUES / GATE_REGISTRY 四份内部台账已随 filter-repo 从 git 历史+HEAD 移除，本机继续在仓库根维护（`.gitignore` 挡提交，留底在仓库外归档区）。clone 本仓库看不到这四份文件——本机 AI 协作流程照旧，对外仓库不携带。原内部详细 CHANGELOG 一并退库，仓库里的 `CHANGELOG.md` 是重建的对外版（用户面要点）。
+> **2026-11-20 台账瘦身**：新增第五份内部台账 `RELEASE_LEDGER.md`（发版流水账，自 GATE_REGISTRY 尾部迁出）；四台账只留现役内容，历史段落归档到仓库外归档区（mac `~/TT-ledger-archive/`，Windows 机沿用本机归档区），见下方「台账卫生」。
 
 | 顺序 | 文件 | 用途 |
 |---|---|---|
-| 0 | [HANDOFF.md](./HANDOFF.md) | **接手先读这页**：本轮交接状态、剩余任务与判据、门禁命令、判回归的方法（内部台账，不入库） |
+| 0 | [HANDOFF.md](./HANDOFF.md) | **接手先读这页**：现役一轮交接（终态、剩余任务与判据；历史交接在归档区，不入库） |
 | 1 | [README.md](./README.md) | 对外定位、安装/构建、隐私与许可 |
 | 2 | [FORK_STATUS.md](./FORK_STATUS.md) | 当前 HEAD、部署状态、门禁摘要（内部台账，不入库） |
-| 3 | [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) | 未完成项、待拍板、已知限制（内部台账，不入库） |
+| 3 | [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) | 未完成项、待拍板、已知限制；闭环条目压成一行索引（内部台账，不入库） |
 | 4 | [GATE_REGISTRY.md](./GATE_REGISTRY.md) | 提交/部署前必须跑的门禁（内部台账，不入库） |
-| 5 | [CHANGELOG.md](./CHANGELOG.md) | 对外版变更日志（2026-11-01 重建入库）；详细内部台账已退库 |
-| 6 | [CLAUDE.md](./CLAUDE.md) | 上游架构、代码约定、发布流程参考；fork 规则以本文件为准 |
+| 5 | `RELEASE_LEDGER.md` | 发版/跟打/Publish 逐轮流水账：tag、SHA-256、Release id、网络事故（内部台账，不入库；2026-11-20 起发版记账只写这里，不进 GATE_REGISTRY/HANDOFF/KNOWN_ISSUES） |
+| 6 | [CHANGELOG.md](./CHANGELOG.md) | 对外版变更日志（2026-11-01 重建入库）；详细内部台账已退库 |
+| 7 | [CLAUDE.md](./CLAUDE.md) | 上游架构、代码约定、发布流程参考；fork 规则以本文件为准 |
 
 ## Fork-specific working rules
 
@@ -25,6 +27,7 @@
 - **Hot-mirroring the installed app is one command: `npm run mirror:installed`** (Windows). On macOS the equivalent refresh is `TokenTrackerMac/scripts/bundle-node.sh` + `package-macos.sh`; the mac app bundles its own EmbeddedServer copy, so server-side changes on mac go through re-bundling, not mirroring. Either platform: do not hand-run GATE_REGISTRY §4 — on 2026-10-27 a bare `dashboard:build` without `TOKENTRACKER_BUILD_PET=1` shipped a tree with no `pet.html`/`quota.html`, and the desktop pet rendered the server's 404 body ("Not Found"). Both packaging chains (bundle-node.ps1 / bundle-node.sh) force the PET build themselves and verify enforces pet/quota as sentinels.
 - The legacy worktree/object store (`D:\tt-rebase` / `D:\tt-fork`) was deleted on 2026-10-26 after the one-week keep; the same-disk bare mirror `backup` (`D:\TokenTrackerPlus\archive\tt-fork-backup.git`) was deleted on 2026-10-27 — one disk protects against nothing, and with dual push a bad push would have mirrored anyway. Pre-rewrite history is preserved in private off-repo backups only (read-only archive bundles); it is not reachable from this repository — do not fetch, restore or re-push it. `origin` (TokenTracker-Plus) is the daily push target: push `standalone` → `origin/main`; never push to the upstream author's repo (xiufengsun/TokenTracker).
 - After a work batch: update `FORK_STATUS.md` (current state), append to the internal detailed ledger (本机维护、不入库), and add/remove `KNOWN_ISSUES.md` entries. The ledger files are local-only since 2026-11-01 — never commit them.
+- **台账卫生（2026-11-20 站主批准的瘦身制）**：内部台账（HANDOFF / FORK_STATUS / KNOWN_ISSUES / GATE_REGISTRY / RELEASE_LEDGER）只留现役内容——HANDOFF 只保最新一轮交接，FORK_STATUS 状态表与「当前验收」必须反映实测现状（曾停在 v1.19.2 六版不纠偏就是反面教材），KNOWN_ISSUES 闭环条目压成一行索引，GATE_REGISTRY 不收发版流水账（写 `RELEASE_LEDGER.md`）。完成的日期段落即时归档到仓库外归档区（mac：`~/TT-ledger-archive/<日期>-<主题>/`，先逐字节 `cp -p` 留底再动正文），不许靠删历史省事。
 - Never commit secrets. Put local overrides in `.env.local` (gitignored); `.env.example` is the template. Do **not** create `.dev.vars` (Cloudflare Workers convention, not used here).
 - Merging upstream: any commit that changes pricing/billing semantics must be reconciled against local totals before and after. The upstream `-free` → zero-price rule is permanently rejected in this fork.
 - Before claiming a UI feature is delivered, read the rendered text/DOM, not only the server endpoint.
@@ -62,7 +65,7 @@
 4. **发版链固定顺序**（详见内部台账 GATE_REGISTRY §4，本机维护不入库，坑点已写在注释里）：版本号 → `bundle-node.ps1`（**自带 PET dashboard 构建**——2026-10-31 起不再手工先跑，防陈旧 dist；2026-11-13 起 dist 指纹与构建输入一致时跳过重建，Node 包从国内镜像取并持久缓存、SHA-256 与官方一致才用——旧版直连 nodejs.org 且每次删缓存，实测一次打包 36 分钟全部耗在下载） → `dotnet publish -c Release -r win-x64 --self-contained true`（**三个参数缺一不可**——2026-11-09 FDD 误包事故：漏 `-r` 与 `--self-contained` 会产出无 .NET runtime 的载荷（1029 文件/133MB vs 正确 1266 文件/278MB），壳启动即死且源一致性比对拦不住） → EmbeddedServer 换装进 publish（**robocopy /MIR**；PowerShell `Copy-Item src/*` 通配有「容器→叶项」坑，直接 Copy 会嵌套，1.0.1 首包事故） → `verify-windows-package.cjs`（版本号必须正确、matchedInputs>0、**self-contained 哨兵 coreclr/hostfxr/hostpolicy 缺失即红**——2026-11-09 补，不过不准进 ISCC） → `dotnet test` → `MSYS_NO_PATHCONV=1 ISCC /DMyAppVersion=X.Y.Z`（Git Bash 下 `/D` 会被 MSYS 吃、`$env:` 会被展开——写死 ISCC 路径） → 停 app → `/VERYSILENT` 安装 → FileVersion/端点/哈希冒烟（**包体对账：Setup 应 ≈88.8MB、packageFiles ≈1260**，41.8MB=FDD 废包特征） → 大小 + SHA-256 记账。
    **macOS 行（2026-11-10 起）**：版本号 → `TokenTrackerMac/scripts/bundle-node.sh`（自带 PET 构建 + pinned Node 22.22.2 darwin-arm64 SHA-256 校验） → `TokenTrackerMac/scripts/package-macos.sh`（swiftc → .app → ad-hoc codesign → dmg+zip） → `scripts/verify-macos-package.cjs`（node 二进制 + pet/quota 页哨兵、dist 指纹、Info.plist 与 package.json 版本一致） → `npm test` → 装 `/Applications` 实机冒烟（菜单栏/三窗/端点/退出进程树） → dmg 双开验证单实例 → 大小 + SHA-256 记账。坑：mac 的 npm 在 node_modules/.bin 塞符号链接，bundle-node.sh 已删（运行时不需要，且 verify 的无符号链接断言会红）；打包后不要再动 .app 内文件（会废掉 ad-hoc 签名）。
 5. **tag 与推送**：注释 tag `vX.Y.Z`（2026-10-29 独立仓库起取消 `plus-` 前缀——本仓库已无上游 tag 可冲突）；只推本仓库的 `origin`（同盘备份裸库已退役，不恢复双推）。GitHub Release 先建**草稿**（draft）。站主明确要求收尾包含 Publish 时，AI 在测试、一次对抗审查、文件/运行态同步和 push 完成后，核对 tag、附件 SHA-256 与 CI，直接 Publish 并按版本设置 Latest，无需重复请求确认。未获得 Publish 指令时保留草稿。**Publish 前守卫（2026-11-14）**：核对草稿唯一（同秒重复草稿首犯 v1.32.1=445137952）；建草稿后若重切 tag，必须重绑 Release 的 tag_name 再 Publish——v1.32.1 曾一度 untagged-* 致下载 404（1.27.0 旧坑再现）。
-6. **发版完成的定义**：内部台账四处（CHANGELOG 详细台账 / FORK_STATUS 版本行与门禁表 / HANDOFF 版本行 / GATE_REGISTRY runbook 版本引用）同步更新即算完成——台账均本机维护、不入库，对外仓库只随 `CHANGELOG.md` 对外版同步用户面要点。**对外计数门禁（2026-11-15 站主令）**：README 六语中的福利指南家数 / 限额来源数 / AI 工具数由 `test/readme-sync.test.js` 与代码真值绑死（改计数必须连同代码真值同批提交，措辞重写需同步改门禁正则）；Publish 前 PATCH 仓库 About 描述（计数同源），截图引用文件存在性也在同一门禁内。
+6. **发版完成的定义**：内部台账四处（RELEASE_LEDGER 发版流水账 / FORK_STATUS 版本行与门禁表 / HANDOFF 版本行 / GATE_REGISTRY runbook 版本引用）同步更新即算完成——台账均本机维护、不入库，对外仓库只随 `CHANGELOG.md` 对外版同步用户面要点。**2026-11-20 起发版流水账只写 `RELEASE_LEDGER.md`**，GATE_REGISTRY 保持纯 runbook（只记命令与当前版本引用），HANDOFF/KNOWN_ISSUES 不再追加发版记账段。**对外计数门禁（2026-11-15 站主令）**：README 六语中的福利指南家数 / 限额来源数 / AI 工具数由 `test/readme-sync.test.js` 与代码真值绑死（改计数必须连同代码真值同批提交，措辞重写需同步改门禁正则）；Publish 前 PATCH 仓库 About 描述（计数同源），截图引用文件存在性也在同一门禁内。
 7. **队列迁移纪律**（发版相关，2026-10-25 事故教训）：任何要改写 `queue.jsonl` 的脚本，对账必须模拟**读取端语义**（`createAsyncQueueReader` 的 last-wins/resolve），不能对原始行求和；先备份、先 dry-run、断言失败拒绝写入。
 
 <!-- INSFORGE:START -->
