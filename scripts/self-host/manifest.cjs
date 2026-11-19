@@ -124,6 +124,14 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // volume and every device row re-included the retired SOLO states arm.
     // Re-applies the step-20b body with the read-time trae span guard.
     {id:"22-trae-span-guard",sql:read("migrations/20261120200000_self-host-trae-span-guard.sql")},
+
+    // Ingest-side TRAE cross-batch guard (owner ruling 2026-11-20, option C):
+    // the read-side guards keep the views correct, but a client queue replay
+    // (append-only ledger + watermark reset) kept re-landing covered `trae`
+    // rows — ~37亿 tokens of disk churn. The ingest now refuses a `trae` row
+    // whose hour span holds a same-model trae-cn row, against both the stored
+    // table and its own batch; landed strays stay read-guarded.
+    {id:"23-ingest-trae-cross-batch-guard",sql:read("migrations/20261120210000_self-host-ingest-trae-cross-batch-guard.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

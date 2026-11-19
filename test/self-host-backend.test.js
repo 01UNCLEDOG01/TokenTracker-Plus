@@ -313,19 +313,20 @@ test("the policy migration keeps free hosted semantics and leaves installed usag
     await db.exec(steps().at(-1).sql);
     const after=(await db.query("SELECT pg_get_functiondef('account_usage_grouped(uuid,uuid[],timestamptz,timestamptz,text,text,integer)'::regprocedure) AS body")).rows[0].body;
     // The newest step may legitimately re-define account_usage_grouped (step 22
-    // re-applies the 11-15 body with the TRAE span guard). The regression this
-    // pins is the 2026-11-13 heatmap-cost accident: a later step re-creating
-    // the function from a STALE body. Whatever installs must be byte-identical
-    // to what the newest migration itself carries — never an older body.
-    const lastSql=steps().at(-1).sql;
-    const defAt=lastSql.indexOf("CREATE OR REPLACE FUNCTION public.account_usage_grouped(");
-    assert.ok(defAt>=0,"the newest self-host step defines account_usage_grouped");
-    const bodyOpen=lastSql.indexOf("$func$",defAt);
-    const bodyClose=lastSql.indexOf("$func$",bodyOpen+6);
-    assert.ok(bodyOpen>=0&&bodyClose>bodyOpen,"the newest step carries a full dollar-quoted body");
+    // re-applied the 11-15 body with the TRAE span guard) — or not define it at
+    // all (step 23 guards the ingest instead). The regression this pins is the
+    // 2026-11-13 heatmap-cost accident: a later step re-creating the function
+    // from a STALE body. Whatever installs must be byte-identical to what the
+    // LATEST DEFINING migration itself carries — never an older body.
+    const lastDefining=[...steps()].reverse().find((step)=>step.sql.includes("CREATE OR REPLACE FUNCTION public.account_usage_grouped("));
+    assert.ok(lastDefining,"some self-host step defines account_usage_grouped");
+    const defAt=lastDefining.sql.indexOf("CREATE OR REPLACE FUNCTION public.account_usage_grouped(");
+    const bodyOpen=lastDefining.sql.indexOf("$func$",defAt);
+    const bodyClose=lastDefining.sql.indexOf("$func$",bodyOpen+6);
+    assert.ok(bodyOpen>=0&&bodyClose>bodyOpen,"the defining step carries a full dollar-quoted body");
     const installed=after.match(/AS \$\w+\$([\s\S]*)\$\w+\$/);
     assert.ok(installed,"pg_get_functiondef carries a dollar-quoted body");
-    assert.equal(installed[1],lastSql.slice(bodyOpen+6,bodyClose));
+    assert.equal(installed[1],lastDefining.sql.slice(bodyOpen+6,bodyClose));
     await db.exec("UPDATE tokentracker_cloud_policy SET phase='active',launch_at=clock_timestamp() WHERE environment='live'");
     const owner=randomUUID();await db.query("INSERT INTO auth.users VALUES($1)",[owner]);
     const free=(await db.query("SELECT cloud_membership($1,'live') AS r",[owner])).rows[0].r;
@@ -482,4 +483,80 @@ test("trae-cn and cursor attach to their owning device; device rows sum to the a
   assert.equal(onlySecond.data.totals.total_tokens,50); // the old wire attached cursor to EVERY device
   const onlyFirst=await instance.request(`tokentracker-account-summary?${Q}&device_id=${first.device_id}`,undefined,owner);
   assert.equal(onlyFirst.data.totals.total_tokens,111);
+});
+
+test("the ingest refuses covered TRAE rows across batches and same-batch spans, keeping unique rows",async()=>{
+  const owner=await instance.user();const device=await issue(owner,"Replay host");
+  const cnRow=(tokens,extra={})=>traeRow(tokens,extra);
+  // Batch 1 lands the canonical CN ledger: kimi at 12:00 (the replayed trae
+  // batches that follow carry no trae-cn rows — this is how ~37亿 regrew).
+  assert.equal((await upload(device.token,[cnRow(1_000)])).response.status,200);
+  // Batch 2 (a replay-shaped batch: trae rows only, no trae-cn companion):
+  //  12:00 exact same model              → stored-table coverage → refused
+  //  11:30 span-covered (ci, shifted)    → CN 12:00 sits inside [11:30,12:30) → refused
+  //    (the span is asymmetric by the established ruling: a CN row BEFORE the
+  //     trae row's span start does not cover it — trae 12:30 would survive)
+  //  13:00 no CN companion               → unique trae usage → kept
+  const replay=await upload(device.token,[
+    {hour_start:"2026-10-01T12:00:00Z",source:"trae",model:"kimi-k2.7-code",
+      input_tokens:900,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:900,billable_total_tokens:900,total_cost_usd:0,conversation_count:1},
+    {hour_start:"2026-10-01T11:30:00Z",source:"trae",model:"KIMI-K2.7-CODE",
+      input_tokens:800,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:800,billable_total_tokens:800,total_cost_usd:0,conversation_count:1},
+    {hour_start:"2026-10-01T13:00:00Z",source:"trae",model:"deepseek-v4-flash",
+      input_tokens:700,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:700,billable_total_tokens:700,total_cost_usd:0,conversation_count:1},
+  ]);
+  assert.equal(replay.response.status,200);
+  assert.equal(replay.data.inserted,1); // only the unique 13:00 row landed
+  // Batch 3 closes the same-batch sliver the TypeScript exact-key guard
+  // misses: a trae-cn row at 14:30 and a trae row at 14:00 in ONE batch
+  // (shifted half hour + case differs) — the statement's own batch CTE with
+  // the span + ci match refuses the trae row, the CN row lands.
+  const sameBatch=await upload(device.token,[
+    {hour_start:"2026-10-01T14:00:00Z",source:"trae",model:"GLM-5.2",
+      input_tokens:500,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:500,billable_total_tokens:500,total_cost_usd:0,conversation_count:1},
+    cnRow(600,{hour_start:"2026-10-01T14:30:00Z",model:"glm-5.2"}),
+  ]);
+  assert.equal(sameBatch.response.status,200);
+  assert.equal(sameBatch.data.inserted,1); // only the CN row landed
+  // Replay the SAME batches again: the stored unique row is conflict-updated
+  // (inserted counts it), and the covered rows stay refused — nothing grows.
+  const again=await upload(device.token,[
+    {hour_start:"2026-10-01T13:00:00Z",source:"trae",model:"deepseek-v4-flash",
+      input_tokens:700,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:700,billable_total_tokens:700,total_cost_usd:0,conversation_count:1},
+    {hour_start:"2026-10-01T12:00:00Z",source:"trae",model:"kimi-k2.7-code",
+      input_tokens:900,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:900,billable_total_tokens:900,total_cost_usd:0,conversation_count:1},
+  ]);
+  assert.equal(again.response.status,200);
+  assert.equal(again.data.inserted,1); // conflict-update of the unique row only
+  // Pin the span's asymmetry (one definition across ingest/read/cleanup): a
+  // trae row AFTER the CN row's own hour is NOT covered — trae 12:30 with
+  // only a CN 12:00 row lands. If a future ruling symmetrizes this, update
+  // this test and the read guard together, never one alone.
+  const after=await upload(device.token,[
+    {hour_start:"2026-10-01T12:30:00Z",source:"trae",model:"KIMI-K2.7-CODE",
+      input_tokens:800,output_tokens:0,cached_input_tokens:0,cache_creation_input_tokens:0,
+      reasoning_output_tokens:0,total_tokens:800,billable_total_tokens:800,total_cost_usd:0,conversation_count:1},
+  ]);
+  assert.equal(after.response.status,200);
+  assert.equal(after.data.inserted,1);
+  const stored=await instance.db.query(
+    `SELECT source,model,extract(epoch FROM hour_start)::bigint AS hs,total_tokens FROM tokentracker_hourly
+     WHERE user_id=$1 AND source IN ('trae','trae-cn') ORDER BY hour_start,model`,[owner]);
+  const epoch=(iso)=>Math.floor(Date.parse(iso)/1000);
+  assert.deepEqual(stored.rows.map((r)=>[r.source,r.model,Number(r.hs),Number(r.total_tokens)]),[
+    ["trae-cn","Kimi-K2.7-Code",epoch("2026-10-01T12:00:00Z"),1000],
+    ["trae","KIMI-K2.7-CODE",epoch("2026-10-01T12:30:00Z"),800],
+    ["trae","deepseek-v4-flash",epoch("2026-10-01T13:00:00Z"),700],
+    ["trae-cn","glm-5.2",epoch("2026-10-01T14:30:00Z"),600],
+  ]);
+  // The account view prices only the canonical rows: the covered duplicates
+  // must never surface (2026-10-01, kimi ceiling + deepseek list).
+  const summary=await instance.request("tokentracker-account-summary?from=2026-10-01&to=2026-10-01&tz=UTC",undefined,owner);
+  assert.equal(summary.data.totals.total_tokens,3100); // 1000 + 800 + 700 + 600
 });
