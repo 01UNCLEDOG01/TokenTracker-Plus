@@ -26049,8 +26049,9 @@ async function parseTraeIncremental({
 }
 
 // Ordered candidate app-dir names. The CN IDE build installs as "Trae CN" on
-// Windows; the international build installs as "TRAE SOLO". Both expose the same
-// iCubeServerData entitlement key, so either is a valid Trae IDE install.
+// Windows; the international build installs as "TRAE SOLO"; the CN SOLO build
+// uses its own "TRAE SOLO CN" directory (upstream TT v1.5.24 #1134). All expose
+// the same iCubeServerData entitlement key, so any is a valid Trae IDE install.
 function traeCandidateAppDirs(env = process.env) {
   const override = env.TOKENTRACKER_TRAE_HOME;
   if (typeof override === "string" && override.trim().length > 0) {
@@ -26058,7 +26059,11 @@ function traeCandidateAppDirs(env = process.env) {
   }
   const home = require("node:os").homedir();
   if (process.platform === "darwin") {
-    return [path.join(home, "Library", "Application Support", "TRAE SOLO")];
+    return [
+      path.join(home, "Library", "Application Support", "TRAE SOLO"),
+      path.join(home, "Library", "Application Support", "TRAE SOLO CN"),
+      path.join(home, "Library", "Application Support", "Trae CN"),
+    ];
   }
   if (process.platform === "win32") {
     // A Windows box with no APPDATA still keeps Trae under the standard
@@ -26071,6 +26076,7 @@ function traeCandidateAppDirs(env = process.env) {
     return [
       path.join(appData, "TRAE SOLO"),
       path.join(appData, "Trae CN"),
+      path.join(appData, "TRAE SOLO CN"),
     ];
   }
   // Linux and friends: TRAE SOLO ships official builds for macOS/Windows

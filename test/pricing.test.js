@@ -894,7 +894,81 @@ test("index: Claude Mythos 5.2 and Fast mode price at official rates and do not 
     }
   }
 
-  assert.equal(pricing.getModelPricingInfo("claude-mythos-latest", { source: "claude" }).status, "unpriced");
+  // The alias retargets on release. Both Fable and Mythos must stop after the
+  // exact lookups, including provider-prefixed forms and speed decorations.
+  for (const id of [
+    "claude-mythos-latest",
+    "anthropic/claude-mythos-latest",
+    "claude-mythos-latest-fast",
+    "claude-fable-latest",
+  ]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "claude" }).status, "unpriced", id);
+  }
+});
+
+test("index: GPT-6.2 long-context tier, Astra Law, and dated Ultrafast promo", async () => {
+  pricing.resetPricingForTests();
+  const cachePath = tmpCachePath();
+  await pricing.ensurePricingLoaded({
+    cachePath,
+    fetchImpl: makeFetchImpl(FIXTURE_LITELLM),
+  });
+
+  const short = {
+    source: "codex", input_tokens: 400_000, output_tokens: 1_000,
+    cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0,
+  };
+  const long = {
+    ...short, long_context_input_tokens: 400_000, long_context_output_tokens: 1_000,
+  };
+  const longDelta = (model) => pricing.computeRowCost({ ...long, model }) - pricing.computeRowCost({ ...short, model });
+  // 400K input at 2x plus half of 1K output: 3.2 + 0.02.
+  assert.ok(Math.abs(longDelta("gpt-6.2-astra") - 3.22) < 1e-9);
+  assert.ok(Math.abs(longDelta("gpt-6.2-sol") - 0.805) < 1e-9);
+  assert.ok(Math.abs(longDelta("gpt-6.2-astra-law") - 3.22) < 1e-9);
+
+  // Astra Law publishes no Fast/Ultrafast tier: exact rates, no multipliers.
+  const law = pricing.getModelPricing("gpt-6.2-astra-law", { source: "codex" });
+  assert.equal(law.input, 8);
+  assert.equal(law.output, 40);
+  assert.equal(law.cache_read, 0.4);
+  assert.equal(law.cache_write, 10);
+  assert.equal(law.ultrafast_multiplier, undefined);
+  assert.equal(law.priority_multiplier, undefined);
+
+  const ultrafast = {
+    source: "codex", input_tokens: 1_000_000, output_tokens: 0,
+    cached_input_tokens: 0, cache_creation_input_tokens: 0, reasoning_output_tokens: 0,
+    ultrafast_input_tokens: 1_000_000,
+  };
+  const costAt = (model, stamp) => pricing.computeRowCost({ ...ultrafast, model, hour_start: stamp });
+  // Promo through 2027-03-01T08:00:00Z is 3x; the regular 6x applies after.
+  assert.equal(costAt("gpt-6.2-astra", "2026-11-19T00:00:00Z"), 24);
+  assert.equal(costAt("gpt-6.2-astra", "2027-04-01T00:00:00Z"), 48);
+  assert.equal(costAt("gpt-6.2-sol", "2026-11-19T00:00:00Z"), 6);
+  assert.equal(costAt("gpt-6.2-sol", "2027-04-01T00:00:00Z"), 12);
+  // Law has no speed tier at all.
+  assert.equal(costAt("gpt-6.2-astra-law", "2026-11-19T00:00:00Z"), 8);
+
+  const info = pricing.getModelPricingInfo("gpt-6.2-astra", { source: "codex" });
+  assert.equal(info.ultrafast_multiplier, 3);
+  assert.equal(info.ultrafast_regular_multiplier, 6);
+  assert.equal(info.ultrafast_promotion_ends_at, "2027-03-01T08:00:00Z");
+
+  // Unknown family suffixes must not inherit the Astra/Sol price (upstream #1139).
+  for (const id of [
+    "gpt-6.2-astra-20260101",
+    "gpt-6.2-astra-law-fast",
+    "gpt-6.2-astra-law-priority",
+    "gpt-6.2-sol-preview",
+    "gpt-6.2-terra",
+    "gpt-6-2-astra-preview",
+  ]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "codex" }).status, "unpriced", id);
+  }
+  for (const id of ["gpt-6.2-astra-fast", "openai/gpt-6.2-sol", "openai/gpt-6.2-astra-law", "gpt-6-2-astra"]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "codex" }).status, "priced", id);
+  }
 });
 
 test("index: GPT-6.2 Astra/Sol, GPT-6 Cyber, GPT-6.1 Terra price at official rates", async () => {

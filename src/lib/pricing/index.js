@@ -208,6 +208,10 @@ function computeModelPricingInfo(model, opts, sourceKey) {
       ? { priority_multiplier: Number(rates.priority_multiplier) } : {}),
     ...(Number.isFinite(Number(rates.ultrafast_multiplier)) && Number(rates.ultrafast_multiplier) > 1
       ? { ultrafast_multiplier: Number(rates.ultrafast_multiplier) } : {}),
+    ...(Number.isFinite(Number(rates.ultrafast_regular_multiplier)) && Number(rates.ultrafast_regular_multiplier) > 1
+      ? { ultrafast_regular_multiplier: Number(rates.ultrafast_regular_multiplier) } : {}),
+    ...(typeof rates.ultrafast_promotion_ends_at === "string" && rates.ultrafast_promotion_ends_at
+      ? { ultrafast_promotion_ends_at: rates.ultrafast_promotion_ends_at } : {}),
   };
 }
 
@@ -277,6 +281,24 @@ function getRowPricing(row) {
   };
 }
 
+// Rows are priced at the rate in force when the request happened. Queue
+// buckets carry hour_start; session readers carry created_at / timestamp.
+// Numeric seconds are widened to milliseconds (Trae stores created_at in
+// seconds). Rows with no usable stamp fall back to render time, which only
+// makes a difference in the months around a dated promotion boundary.
+const ROW_TIME_KEYS = ["hour_start", "timestamp", "created_at", "day", "date"];
+function rowTimeMs(row) {
+  for (const key of ROW_TIME_KEYS) {
+    const value = row?.[key];
+    if (value == null || value === "") continue;
+    const ms = typeof value === "number"
+      ? (value < 1e12 ? value * 1000 : value)
+      : Date.parse(value);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return Date.now();
+}
+
 // Same formula and Codex/every-code reasoning-folding rule as the previous
 // computeRowCost in src/lib/local-api.js. Moved here so vite mock + local
 // server share one source of truth.
@@ -323,14 +345,25 @@ function computeRowCost(row) {
   const model = String(row?.model || "").toLowerCase();
   const usesOpenAILongContextTier =
     model === "gpt-5.6" || model.includes("gpt-5.6-sol") || model.includes("gpt-6-astra") ||
-    model.includes("gpt-6-sol") || model.includes("gpt-6.1-sol");
+    model.includes("gpt-6-sol") || model.includes("gpt-6.1-sol") ||
+    model.includes("gpt-6.2-astra") || model.includes("gpt-6.2-sol");
   // Only models whose curated entry carries an explicit Fast/priority rate get
   // the tier premium. The other OpenAI tiers have no published priority price,
   // and inventing one is worse than reporting Standard.
   const priorityMultiplier = Number(pricing.priority_multiplier);
   const hasPriorityRates = Number.isFinite(priorityMultiplier) && priorityMultiplier > 1;
   const ultrafastMultiplierEarly = Number(pricing.ultrafast_multiplier);
-  const hasUltrafastRatesEarly = Number.isFinite(ultrafastMultiplierEarly) && ultrafastMultiplierEarly > 1;
+  const ultrafastRegularMultiplier = Number(pricing.ultrafast_regular_multiplier);
+  const ultrafastPromotionEndsAt = Date.parse(pricing.ultrafast_promotion_ends_at || "");
+  // A dated promotion can lower the Ultrafast multiplier temporarily (GPT-6.2
+  // is 3x through 2027-03-01, then 6x). Pick the rate in force at request time,
+  // not at report time, so re-pricing an old row does not silently double it.
+  const ultrafastMultiplier = (
+    Number.isFinite(ultrafastPromotionEndsAt) &&
+    Number.isFinite(ultrafastRegularMultiplier) && ultrafastRegularMultiplier > 1 &&
+    rowTimeMs(row) >= ultrafastPromotionEndsAt
+  ) ? ultrafastRegularMultiplier : ultrafastMultiplierEarly;
+  const hasUltrafastRatesEarly = Number.isFinite(ultrafastMultiplier) && ultrafastMultiplier > 1;
   if (!usesOpenAILongContextTier && !hasPriorityRates && !hasUltrafastRatesEarly) return baseCost;
 
   const bounded = (value, total) => Math.min(
@@ -364,7 +397,6 @@ function computeRowCost(row) {
     0.5 * longReasoning * (pricing.output || 0)
   ) / 1_000_000 : 0;
 
-  const ultrafastMultiplier = ultrafastMultiplierEarly;
   const hasUltrafastRates = hasUltrafastRatesEarly;
   if (!hasPriorityRates && !hasUltrafastRates) return baseCost + longContextPremium;
 

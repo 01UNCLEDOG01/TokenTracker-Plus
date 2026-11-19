@@ -24,7 +24,19 @@ function resolveTraeDbPaths(env = process.env, { platform = process.platform, ho
     : platform === "darwin"
       ? path.join(home, "Library", "Application Support")
       : env.XDG_CONFIG_HOME || path.join(home, ".config");
-  const roots = customHome ? [customHome] : [path.join(parent, "Trae"), path.join(parent, "TRAE SOLO")];
+  const roots = customHome ? [customHome] : [
+    path.join(parent, "Trae"),
+    path.join(parent, "TRAE SOLO"),
+    // TRAE SOLO CN is a separate install (upstream TT v1.5.24 #1134), not a
+    // rename of TRAE SOLO. It uses the same chat_turn layout, so the generic
+    // projection reads it without special casing.
+    path.join(parent, "TRAE SOLO CN"),
+    // The merged "Trae CN" store has its own richer Windows reader below
+    // (resolveTraeCnLocalDbPath joins chat_session → project). Adding it here
+    // on Windows would double-count every turn; only non-Windows installs,
+    // which that reader does not cover, fall through to this projection.
+    ...(platform === "win32" ? [] : [path.join(parent, "Trae CN")]),
+  ];
   const result = [];
   for (const root of roots) {
     // A decrypted sibling may be an old export. Only an explicit DB override

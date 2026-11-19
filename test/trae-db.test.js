@@ -161,7 +161,7 @@ test("TRAE rejects replacement of a committed WAL frame even when the WAL grows"
   } finally {snapshot.close();}
 });
 
-test("TRAE discovery uses only international live databases on each platform", (t) => {
+test("TRAE discovery covers TRAE SOLO CN and leaves Windows Trae CN to the CN reader", (t) => {
   const dir = temp(t);
   for (const platform of ["win32", "darwin", "linux"]) {
     const parent = platform === "win32" ? path.join(dir, "AppData", "Roaming")
@@ -172,7 +172,12 @@ test("TRAE discovery uses only international live databases on each platform", (
       fs.writeFileSync(path.join(root, "database.db"), "live");
       fs.writeFileSync(path.join(root, "database_decrypted.db"), "stale");
     }
-    assert.deepEqual(resolveTraeDbPaths({}, { platform, home: dir }), ["Trae", "TRAE SOLO"].map((name) =>
+    // Windows reads the merged CN store through resolveTraeCnLocalDbPath's
+    // richer chat_session projection; adding it here would double-count.
+    const expectedNames = platform === "win32"
+      ? ["Trae", "TRAE SOLO", "TRAE SOLO CN"]
+      : ["Trae", "TRAE SOLO", "TRAE SOLO CN", "Trae CN"];
+    assert.deepEqual(resolveTraeDbPaths({}, { platform, home: dir }), expectedNames.map((name) =>
       path.join(parent, name, "ModularData", "ai-agent", "database.db")));
   }
   const custom = path.join(dir, "custom", "ModularData", "ai-agent");

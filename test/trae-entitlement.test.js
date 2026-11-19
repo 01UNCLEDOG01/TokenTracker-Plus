@@ -127,6 +127,17 @@ test("resolveTraeStoragePath finds the CN IDE build (Trae CN) on Windows", () =>
   );
 });
 
+test("resolveTraeStoragePath finds the CN SOLO build (TRAE SOLO CN) on Windows", () => {
+  if (process.platform !== "win32") return; // path layout is Windows-specific
+  const appData = fs.mkdtempSync(path.join(os.tmpdir(), "trae-solo-cn-"));
+  const traeSoloCnDir = path.join(appData, "TRAE SOLO CN");
+  const storagePath = writeStorage(traeSoloCnDir, sampleEntitlement());
+  assert.equal(
+    resolveTraeStoragePath({ APPDATA: appData }),
+    storagePath,
+  );
+});
+
 test("toUtcHalfHourStart buckets to :00 and :30 UTC starts", () => {
   assert.equal(
     toUtcHalfHourStart("2026-08-07T01:15:00.000Z"),

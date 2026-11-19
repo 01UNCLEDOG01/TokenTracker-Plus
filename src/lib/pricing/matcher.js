@@ -364,19 +364,41 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
   if (litellmDotExact) {
     return { hit: true, source: "litellm:exact-dot", value: litellmDotExact };
   }
+
+  // Unknown GPT-6.2 variants stay unpriced (upstream #1139). Only Astra, Sol
+  // and Astra Law have confirmed Standard rates; every other suffix — dated
+  // snapshots, speculative router tiers — must not inherit the family price
+  // through the contained-exact, fuzzy or LiteLLM substring passes. Astra Law
+  // is exact-only: OpenAI publishes no Fast/Ultrafast tier for it, so appending
+  // a speed decoration is an unknown SKU rather than a decorated law rate.
+  // Check the dot-restored form too: `gpt-6-2-astra-preview` normalizes to
+  // `gpt-6.2-astra-preview`, and the contained-exact pass below would otherwise
+  // price it off the bare `gpt-6.2-astra` key.
+  const gpt62Candidates = [lower.trim(), dotForm.trim()]
+    .filter((value) => /(?:^|\/)gpt-6\.2-/.test(value));
+  if (gpt62Candidates.length) {
+    const served = gpt62Candidates.some((value) => (
+      /(?:^|\/)gpt-6\.2-(?:astra|sol)(?:-(?:xhigh|high|medium|low|minimal|priority|ultrafast))?(?:-fast)?$/
+        .test(value) || /(?:^|\/)gpt-6\.2-astra-law$/.test(value)
+    ));
+    if (!served) return { hit: false, source: "miss", value: null };
+  }
+
   const curatedDotContainedExact = lookupContainedExactCaseInsensitive(curated.exact, dotForm);
   if (curatedDotContainedExact) {
     return { hit: true, source: "curated:exact-dot", value: curatedDotContainedExact };
   }
 
-  // Floating Fable aliases (`claude-(?:fable|mythos)-latest` and every provider's
-  // `…/claude-fable-latest`) retarget on each release. Checked 2026-11-10
-  // upstream (#1090): the Anthropic model overview and the Fable 5.2 pages do
-  // not document the alias, so nothing pins it to 5.2. Stop here, after exact
-  // lookups, so the fable-5.2 fuzzy needles cannot price it, but an explicit
-  // exact entry added later still wins. Re-check on the next Fable release
-  // before pointing it anywhere.
-  if (/(?:^|\/)claude-fable-latest(?:$|[^a-z0-9])/.test(lower)) {
+  // Floating Fable/Mythos aliases (`claude-(?:fable|mythos)-latest` and every
+  // provider's `…/claude-fable-latest`) retarget on each release. Checked
+  // 2026-11-10 upstream (#1090): the Anthropic model overview and the Fable 5.2
+  // pages do not document the alias, so nothing pins it to 5.2. Mythos joined
+  // the same guard on 2026-11-19: its 5.2 prices must not leak into
+  // `claude-mythos-latest`, which will point at whatever ships next. Stop here,
+  // after exact lookups, so the fuzzy needles cannot price it, but an explicit
+  // exact entry added later still wins. Re-check on the next release before
+  // pointing it anywhere.
+  if (/(?:^|\/)claude-(?:fable|mythos)-latest(?:$|[^a-z0-9])/.test(lower)) {
     return { hit: false, source: "miss", value: null };
   }
 

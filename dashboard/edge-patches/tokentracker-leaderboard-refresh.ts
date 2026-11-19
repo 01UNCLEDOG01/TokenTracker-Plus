@@ -208,6 +208,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // Cloud buckets do not retain per-request context/service tier. Use the
   // standard short-context estimate; never infer long context from totals.
   "gpt-6.2-astra": { input: 8, output: 40, cache_read: 0.4, cache_write: 10 },
+  "gpt-6.2-astra-law": { input: 8, output: 40, cache_read: 0.4, cache_write: 10 },
   "gpt-6-astra": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
   "gpt-6.2-sol": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
   // GPT-6 Sol Standard USD/MTok, verified 2026-09-24:
@@ -658,9 +659,17 @@ function getModelPricing(model: string, source = "") {
   if (/haiku-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-haiku-5-5"];
   if (lower.includes("haiku")) return MODEL_PRICING["claude-haiku-4-5-20251001"];
   if (lower.includes("sonnet")) return MODEL_PRICING["claude-sonnet-4-6"];
-  if (lower.includes("gpt-6.2-astra")) return MODEL_PRICING["gpt-6.2-astra"];
+  // GPT-6.2 variants are exact-family only (upstream #1139): Astra, Sol and
+  // Astra Law plus documented effort/Fast decorations. Unknown suffixes stay
+  // unpriced instead of inheriting a family rate.
+  if (/(?:^|\/)gpt-6\.2-/.test(lower)) {
+    if (/(?:^|\/)gpt-6\.2-astra-law$/.test(lower)) return MODEL_PRICING["gpt-6.2-astra-law"];
+    if (/(?:^|\/)gpt-6\.2-(?:astra|sol)(?:-(?:xhigh|high|medium|low|minimal|priority|ultrafast))?(?:-fast)?$/.test(lower)) {
+      return MODEL_PRICING[lower.includes("gpt-6.2-sol") ? "gpt-6.2-sol" : "gpt-6.2-astra"];
+    }
+    return ZERO_PRICING;
+  }
   if (lower.includes("gpt-6-astra")) return MODEL_PRICING["gpt-6-astra"];
-  if (lower.includes("gpt-6.2-sol")) return MODEL_PRICING["gpt-6.2-sol"];
   if (lower.includes("gpt-6.1-sol")) return MODEL_PRICING["gpt-6.1-sol"];
   if (lower.includes("gpt-6-sol")) return MODEL_PRICING["gpt-6-sol"];
   if (lower.includes("gpt-6-cyber")) return MODEL_PRICING["gpt-6-cyber"];
