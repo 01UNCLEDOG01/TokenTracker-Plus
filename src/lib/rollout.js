@@ -1778,6 +1778,102 @@ async function resolveOpenclawSessionFiles(env = process.env, deps = {}) {
   return out;
 }
 
+// ── OpenClaw SQLite transcript archives (upstream tokscale 4.23 / TM #1508) ──
+// Deleted and reset sessions remain in the agent store's
+// `session_transcript_archives` table as identity or zstd JSONL blobs,
+// including before their transcript file is published. Payloads are
+// JSONL-ish: one JSON value per record, but pretty-printed records may span
+// physical lines, so values are split by a scanner instead of by newline.
+// Blob and decoded sizes are capped at the same 32 MB bound the Zed reader
+// uses (both mirror tokscale's safety net).
+const MAX_OPENCLAW_ARCHIVE_BLOB_BYTES = 32 * 1024 * 1024;
+
+// Split a decoded archive payload into JSON values. Strings and escapes are
+// tracked, so braces inside message content never split a record; a trailing
+// truncated value is ignored rather than half-parsed.
+function splitOpenclawArchiveJsonValues(text) {
+  const values = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') {
+        inString = false;
+        if (depth === 0 && start >= 0) {
+          values.push(text.slice(start, i + 1));
+          start = -1;
+        }
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      if (depth === 0) start = i;
+      continue;
+    }
+    if (ch === "{" || ch === "[") {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+    if (ch === "}" || ch === "]") {
+      if (depth > 0) {
+        depth -= 1;
+        if (depth === 0 && start >= 0) {
+          values.push(text.slice(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+  }
+  return values;
+}
+
+// One agent DB's archive rows, hex-transported so both the sqlite3 CLI JSON
+// path and the node:sqlite fallback carry the blob intact. The probe and the
+// row query both read softly: a missing table, a legacy schema without the
+// expected columns, or a transient lock all read as "no archives this round".
+// Identity dedup in parseOpenclawSessionFile keeps the next sync from
+// double-counting, and the live transcript_events query already gates locks
+// with throwOnReadFailure.
+async function readOpenclawTranscriptArchives(dbPath) {
+  const probe = await readSqliteJsonRowsAsync(dbPath, `
+    SELECT 1 AS present FROM sqlite_master
+    WHERE type = 'table' AND name = 'session_transcript_archives'
+  `, { readOnly: true, label: "OpenClaw archive probe" });
+  if (!Array.isArray(probe) || probe.length === 0) return [];
+  return await readSqliteJsonRowsAsync(dbPath, `
+    SELECT session_id, generation, encoding, archive_sha256, created_at,
+           hex(archive_blob) AS archive_hex
+    FROM session_transcript_archives
+    WHERE length(archive_blob) <= ${MAX_OPENCLAW_ARCHIVE_BLOB_BYTES}
+    ORDER BY session_id, generation
+  `, { readOnly: true, label: "OpenClaw transcript archive", maxBuffer: 160 * 1024 * 1024 });
+}
+
+// SQLite imports retain transcript identities. Carry forward the counts this
+// session's legacy JSONL transcripts already queued (published sessions/ and
+// session-sqlite-import-archive files), including reset archives, so the same
+// event is never counted twice across the store, its published file and its
+// archive generations.
+function openclawLegacyTranscriptPrior(stagedFiles, agentPrefix, sessionId, prior) {
+  for (const [legacyPath, cursor] of Object.entries(stagedFiles)) {
+    const basename = path.basename(legacyPath);
+    if (cursor.provider !== "openclaw" || !openclawCursorKey(legacyPath).startsWith(agentPrefix)) continue;
+    if (!basename.startsWith(`${sessionId}.jsonl`) &&
+        !(basename.startsWith(`${sessionId}-topic-`) && basename.includes(".jsonl"))) continue;
+    for (const [identity, count] of Object.entries(cursor.usageEvents || {})) {
+      prior[identity] = Math.max(prior[identity] || 0, count);
+    }
+  }
+  return prior;
+}
+
 async function parseOpenclawIncremental({
   sessionFiles,
   cursors,
@@ -1866,24 +1962,14 @@ async function parseOpenclawIncremental({
         if (!sessions.has(row.session_id)) sessions.set(row.session_id, []);
         sessions.get(row.session_id).push(row.event);
       }
+      const dbDir = path.dirname(filePath);
+      const agentDir = path.basename(dbDir) === "agent" && path.basename(path.dirname(path.dirname(dbDir))) === "agents"
+        ? path.dirname(dbDir) : dbDir;
+      const agentPrefix = openclawCursorKey(`${agentDir}${path.sep}`);
       for (const [sessionId, lines] of sessions) {
         const sessionCursorKey = `${key}#${sessionId}`;
-        const prior = { ...(stagedFiles[sessionCursorKey]?.usageEvents || {}) };
-        const dbDir = path.dirname(filePath);
-        const agentDir = path.basename(dbDir) === "agent" && path.basename(path.dirname(path.dirname(dbDir))) === "agents"
-          ? path.dirname(dbDir) : dbDir;
-        const agentPrefix = openclawCursorKey(`${agentDir}${path.sep}`);
-        // SQLite imports retain transcript identities. Carry forward counts
-        // from this session's legacy transcript, including reset archives.
-        for (const [legacyPath, cursor] of Object.entries(stagedFiles)) {
-          const basename = path.basename(legacyPath);
-          if (cursor.provider !== "openclaw" || !openclawCursorKey(legacyPath).startsWith(agentPrefix)) continue;
-          if (!basename.startsWith(`${sessionId}.jsonl`) &&
-              !(basename.startsWith(`${sessionId}-topic-`) && basename.includes(".jsonl"))) continue;
-          for (const [identity, count] of Object.entries(cursor.usageEvents || {})) {
-            prior[identity] = Math.max(prior[identity] || 0, count);
-          }
-        }
+        const prior = openclawLegacyTranscriptPrior(stagedFiles, agentPrefix, sessionId,
+          { ...(stagedFiles[sessionCursorKey]?.usageEvents || {}) });
         const result = await parseOpenclawSessionFile({
           lines, previousUsageEvents: prior, appendOnly: false,
           hourlyState, touchedBuckets, source: fileSource,
@@ -1894,6 +1980,95 @@ async function parseOpenclawIncremental({
           updatedAt: new Date().toISOString(),
         };
         eventsAggregated += result.eventsAggregated;
+      }
+
+      // Deleted/reset sessions persist in session_transcript_archives
+      // (TM #1508, upstream tokscale 4.23): identity or zstd JSONL blobs that
+      // may predate their published transcript file. Parse them per session
+      // through the same identity-dedup chain as the live store — each
+      // generation seeds from the live-merged counts plus the agent's legacy
+      // JSONL transcripts, so an event kept in both the store, its published
+      // file and an archive generation still counts exactly once.
+      const archiveRows = await readOpenclawTranscriptArchives(filePath);
+      if (archiveRows.length) {
+        const archivesBySession = new Map();
+        let archivesWarned = false;
+        const warnArchive = (detail) => {
+          if (archivesWarned) return;
+          archivesWarned = true;
+          console.warn(`[openclaw] ${detail} (${filePath}); skipping the row — identity dedup keeps later syncs safe`);
+        };
+        for (const row of archiveRows) {
+          if (!row || typeof row.archive_hex !== "string" || typeof row.session_id !== "string") continue;
+          const blob = Buffer.from(row.archive_hex, "hex");
+          const digest = String(row.archive_sha256 || "").trim().toLowerCase();
+          if (!digest || crypto.createHash("sha256").update(blob).digest("hex") !== digest) {
+            warnArchive("transcript archive size/digest mismatch");
+            continue;
+          }
+          const encoding = String(row.encoding || "").trim().toLowerCase();
+          let text;
+          try {
+            // decodeZedThreadBlob caps identity blobs and decoded zstd at the
+            // same 32 MB bound; "identity" maps onto its "json" branch.
+            text = await decodeZedThreadBlob({
+              dataType: encoding === "identity" ? "json" : encoding,
+              data: blob,
+            });
+          } catch (_err) {
+            warnArchive(`unreadable transcript archive (encoding ${row.encoding || "unknown"})`);
+            continue;
+          }
+          const lines = splitOpenclawArchiveJsonValues(text);
+          // Upstream falls back to the archive row's created_at for entries
+          // that never carried their own timestamp; inject it the same way so
+          // reset history does not vanish (scale-aware: secs vs ms).
+          const createdMs = Number(row.created_at);
+          const fallbackTimestamp = Number.isFinite(createdMs) && createdMs > 0
+            ? new Date(createdMs > 1e12 ? createdMs : createdMs * 1000).toISOString()
+            : null;
+          const prepared = [];
+          for (const line of lines) {
+            if (!line.includes('"usage"') || !line.includes("totalTokens")) { prepared.push(line); continue; }
+            if (line.includes('"timestamp"') || !fallbackTimestamp) { prepared.push(line); continue; }
+            try {
+              const obj = JSON.parse(line);
+              if (obj && !obj.timestamp) {
+                obj.timestamp = fallbackTimestamp;
+                prepared.push(JSON.stringify(obj));
+                continue;
+              }
+            } catch (_e) { /* the parser skips what it cannot read */ }
+            prepared.push(line);
+          }
+          if (!prepared.length) continue;
+          if (!archivesBySession.has(row.session_id)) archivesBySession.set(row.session_id, []);
+          archivesBySession.get(row.session_id).push(prepared);
+        }
+        for (const [sessionId, generations] of archivesBySession) {
+          const sessionCursorKey = `${key}#${sessionId}`;
+          let prior = openclawLegacyTranscriptPrior(stagedFiles, agentPrefix, sessionId,
+            { ...(stagedFiles[sessionCursorKey]?.usageEvents || {}) });
+          let merged = null;
+          let newEvents = 0;
+          for (const lines of generations) {
+            const result = await parseOpenclawSessionFile({
+              lines, previousUsageEvents: prior, appendOnly: false,
+              hourlyState, touchedBuckets, source: fileSource,
+            });
+            prior = result.usageEvents;
+            merged = result.usageEvents;
+            newEvents += result.eventsAggregated;
+          }
+          if (merged) {
+            stagedFiles[sessionCursorKey] = {
+              provider: "openclaw", usageEvents: merged,
+              hasRealUsage: Object.keys(merged).length > 0,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          eventsAggregated += newEvents;
+        }
       }
       filesProcessed += 1;
       continue;
@@ -29154,6 +29329,7 @@ module.exports = {
   deriveOpencodeMessageFingerprint,
   parseQoderDbIncremental,
   openclawCursorKey,
+  splitOpenclawArchiveJsonValues,
   parseOpenclawIncremental,
   resolveOpenclawHome,
   resolveOpenclawHomes,
