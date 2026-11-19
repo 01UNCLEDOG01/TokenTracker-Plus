@@ -971,6 +971,75 @@ test("index: GPT-6.2 long-context tier, Astra Law, and dated Ultrafast promo", a
   }
 });
 
+test("index: qwen4-max, Gemini 4 Neon, and Mythos 5/5.1 price at official rates (TT #1145/#1149)", async () => {
+  pricing.resetPricingForTests();
+  const cachePath = tmpCachePath();
+  await pricing.ensurePricingLoaded({
+    cachePath,
+    fetchImpl: makeFetchImpl(FIXTURE_LITELLM),
+  });
+
+  const qwen = { input: 1.5, output: 4.5, cache_read: 0.075, cache_write: 1.875 };
+  for (const id of ["qwen4-max", "qwen4-max-2026-01-01", "openai/qwen4-max"]) {
+    const got = pricing.getModelPricing(id, { source: "codex" });
+    for (const [k, v] of Object.entries(qwen)) assert.equal(got[k], v, `${id}.${k}`);
+  }
+  for (const id of ["qwen4-max-preview", "qwen4-max-lite"]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "codex" }).status, "unpriced", id);
+  }
+
+  const neon = { input: 3, output: 15, cache_read: 0.15, cache_write: 0 };
+  for (const id of ["gemini-4-neon", "gemini-4.neon", "gemini-4-neon-high", "gemini-4-neon-xhigh", "google/gemini-4-neon"]) {
+    const got = pricing.getModelPricing(id, { source: "codex" });
+    for (const [k, v] of Object.entries(neon)) assert.equal(got[k], v, `${id}.${k}`);
+  }
+  for (const id of ["gemini-4-neon-lite", "gemini-4-neon-20260101"]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "codex" }).status, "unpriced", id);
+  }
+
+  const mythos5 = { input: 10, output: 50, cache_read: 1, cache_write: 12.5 };
+  for (const [k, v] of Object.entries(mythos5)) {
+    assert.equal(pricing.getModelPricing("claude-mythos-5", { source: "codex" })[k], v, `mythos5.${k}`);
+  }
+  const mythos51 = { input: 10, output: 50, cache_read: 0.25, cache_write: 12.5 };
+  for (const id of ["claude-mythos-5-1", "claude-mythos-5.1", "anthropic/claude-mythos-5.1", "anthropic/claude-mythos-5-1"]) {
+    const got = pricing.getModelPricing(id, { source: "codex" });
+    for (const [k, v] of Object.entries(mythos51)) assert.equal(got[k], v, `${id}.${k}`);
+  }
+
+  // Version-continuation and speculative suffixes stay unpriced — the LiteLLM
+  // reverse-substring pass (step 7) must not rescue them either.
+  for (const id of [
+    "claude-mythos-5.2.1", "claude-mythos-5-20", "claude-mythos-5-preview",
+    "claude-mythos-5.1.1", "claude-mythos-5-2.1", "claude-mythos-latest-preview",
+    "claude-fable-5.2.1", "claude-fable-5-20250901",
+  ]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "codex" }).status, "unpriced", id);
+  }
+  // Known SKUs and the #1075 argon variant inheritance are untouched.
+  for (const id of ["claude-mythos-5-2-fast", "claude-fable-5.2", "gemini-4-argon-b", "gemini-4-argon-trial", "gemini-4-carbon-high"]) {
+    assert.equal(pricing.getModelPricingInfo(id, { source: "codex" }).status, "priced", id);
+  }
+});
+
+test("index: hy4-flash-free bills at the Hy4 preview card — free ≠ 0 (站主裁定 2026-11-20)", async () => {
+  pricing.resetPricingForTests();
+  const cachePath = tmpCachePath();
+  await pricing.ensurePricingLoaded({
+    cachePath,
+    fetchImpl: makeFetchImpl(FIXTURE_LITELLM),
+  });
+  // WorkBuddy-CN emits the -free suffixed id during the limited-free window.
+  // The owner ruling: there is no free-at-zero — usage is recorded at the
+  // model's actual value (the hy4-preview TokenHub card), so the pin is an
+  // explicit curated entry, not an accidental fuzzy inheritance.
+  const rates = { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 };
+  for (const id of ["hy4-flash-free", "hy4-flash", "hy4-preview-agent"]) {
+    const got = pricing.getModelPricing(id, { source: "workbuddy-cn" });
+    for (const [k, v] of Object.entries(rates)) assert.equal(got[k], v, `${id}.${k}`);
+  }
+});
+
 test("index: GPT-6.2 Astra/Sol, GPT-6 Cyber, GPT-6.1 Terra price at official rates", async () => {
   pricing.resetPricingForTests();
   const cachePath = tmpCachePath();

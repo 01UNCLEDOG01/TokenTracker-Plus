@@ -384,6 +384,58 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
     if (!served) return { hit: false, source: "miss", value: null };
   }
 
+  // qwen4-max is exact-SKU only (upstream TT #1145): the bare id and dated
+  // snapshots share the Singapore international card; `qwen4-max-preview` is
+  // a Token-Plan-only SKU and unknown suffixes must not inherit the rate —
+  // the contained-exact pass below would otherwise price them off the bare
+  // `qwen4-max` key.
+  const qwen4MaxCandidates = [lower.trim(), dotForm.trim()]
+    .filter((value) => /(?:^|\/)qwen4-max/.test(value));
+  if (qwen4MaxCandidates.length) {
+    const served = qwen4MaxCandidates.some((value) => (
+      /(?:^|\/)qwen4-max(?:-\d{4}-\d{2}-\d{2})?$/.test(value)
+    ));
+    if (!served) return { hit: false, source: "miss", value: null };
+  }
+
+  // Gemini 4 Neon is strict (upstream TT #1149): the bare id, dotted spellings
+  // and effort suffixes share the card; `-lite` and other unknown suffixes
+  // stay unpriced. Argon/carbon/hydrogen keep their #1075 variant inheritance
+  // — only the new Neon SKU is guarded.
+  const neonCandidates = [lower.trim(), dotForm.trim()]
+    .filter((value) => /(?:^|\/)gemini-4[.-]neon/.test(value));
+  if (neonCandidates.length) {
+    const served = neonCandidates.some((value) => (
+      /(?:^|\/)gemini-4[.-]neon(?:-(?:minimal|low|medium|high|xhigh))?$/.test(value)
+    ));
+    if (!served) return { hit: false, source: "miss", value: null };
+  }
+
+  // Claude Mythos/Fable families are exact-SKU only (upstream TT #1145).
+  // Without this gate the LiteLLM reverse-substring pass (step 7) prices
+  // unknown continuations off whatever mythos/fable key they contain:
+  // `claude-mythos-5-20` and `claude-mythos-5-preview` inherit the Mythos 5
+  // card, `claude-mythos-5.2.1` / `claude-fable-5.2.1` inherit 5.2. Served =
+  // the curated SKUs (5.2/5.2-fast/5.1/5, fable 5/5.2/fast) optionally
+  // followed by a decoration whose FIRST character is not a digit or dot —
+  // that keeps dated snapshots (`-20261109`), effort/fast suffixes and
+  // gateway decorations (`@default`) priced, while version continuations
+  // (`5.2.1`, `5-20` → the `2` then `0`) and speculative suffixes stay miss.
+  // Bare tier-first forms (`mythos-5-2`) and space display names never match
+  // the candidate filter, so their paths are untouched.
+  const mythosFableCandidates = [lower.trim(), dotForm.trim()]
+    .filter((value) => /(?:^|\/)claude-(?:mythos|fable)-/.test(value));
+  if (mythosFableCandidates.length) {
+    const served = mythosFableCandidates.some((value) => (
+      /(?:^|\/)claude-mythos-5(?:[^0-9.-].*)?$/.test(value) ||
+      /(?:^|\/)claude-mythos-5[.-]1(?:[^0-9.].*)?$/.test(value) ||
+      /(?:^|\/)claude-mythos-5[.-]2(?:-fast)?(?:[^0-9.].*)?$/.test(value) ||
+      /(?:^|\/)claude-fable-5(?:[^0-9.-].*)?$/.test(value) ||
+      /(?:^|\/)claude-fable-5[.-]2(?:-fast)?(?:[^0-9.].*)?$/.test(value)
+    ));
+    if (!served) return { hit: false, source: "miss", value: null };
+  }
+
   const curatedDotContainedExact = lookupContainedExactCaseInsensitive(curated.exact, dotForm);
   if (curatedDotContainedExact) {
     return { hit: true, source: "curated:exact-dot", value: curatedDotContainedExact };
@@ -423,15 +475,21 @@ function lookupPricing(model, { curated, litellm, source } = {}) {
       if (!match || !ref) continue;
       const needle = match.toLowerCase();
       if (!curated.exact[ref]) continue;
-      // The Fable 5.2 needles are version-bounded (upstream #1090). A plain
+      // Version-bounded needles (upstream #1090 fable, #1145 mythos). A plain
       // substring lets the dot-restored form of a dated Fable 5 id through:
       // claude-fable-5-20250901 becomes claude-fable-5.20250901, which
       // contains "fable-5.2". fable-5-20 contains "fable-5-2" the same way.
-      // The minor must end the id or be followed by a non-digit, so
-      // -20261109 and -20 stay off the 5.2 rate.
-      const bounded = /^(?:fable|mythos)-5[.-]2(?:-fast)?$/.test(needle)
-        ? new RegExp(`${needle.replace(".", "\\.")}(?:$|[^0-9])`)
-        : null;
+      // The minor must end the id or be followed by a non-digit. The boundary
+      // also rejects `.` since #1145 landed 5.1 beside 5.2: otherwise the
+      // unknown continuation `claude-mythos-5.2.1` would silently bill at the
+      // 5.2 rate (upstream CodeRabbit flagged the same shape). Mythos 5 uses a
+      // tighter `[^0-9.-]` so 5-1/5.2/5-20 never inherit its rate.
+      let bounded = null;
+      if (/^(?:fable|mythos)-5[.-]2(?:-fast)?$/.test(needle) || /^mythos-5[.-]1$/.test(needle)) {
+        bounded = new RegExp(`${needle.replace(".", "\\.")}(?:$|[^0-9.])`);
+      } else if (/^mythos-5$/.test(needle)) {
+        bounded = new RegExp("mythos-5(?:$|[^0-9.-])");
+      }
       const matches = (value) => (bounded ? bounded.test(value) : value.includes(needle));
       if (matches(lower)) {
         return { hit: true, source: "curated:fuzzy", value: curated.exact[ref] };

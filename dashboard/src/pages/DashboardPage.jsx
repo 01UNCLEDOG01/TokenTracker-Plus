@@ -31,6 +31,7 @@ import { getMockNow, isMockEnabled } from "../lib/mock-data";
 import { publishUsageLimitsPreloadState } from "../lib/dashboard-preload.js";
 import { startLocalUsageAutoRefresh } from "../lib/local-usage-auto-refresh";
 import { buildDailyBreakdownRange, selectDailyBreakdownRows } from "../lib/daily-breakdown";
+import { formatSummaryCost } from "../lib/summary-cost";
 import { applyTraeEstimatedCosts, buildFleetData, buildTopModels, resolveDisplayTokens } from "../lib/model-breakdown";
 import { safeWriteClipboard } from "../lib/safe-browser";
 import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
@@ -1398,17 +1399,18 @@ export function DashboardPage({
     }, 0);
   }, [fleetData, modelBreakdown]);
 
-  const summaryCostValue = useMemo(() => {
-    if (hasUnpricedUsage && Number(summary?.total_cost_usd) === 0) return copy("dashboard.cost_breakdown.unpriced_label");
-    const rawCost = Number(summary?.total_cost_usd);
-    // Subtract the TRAE ceiling->estimate delta so the hero total prices TRAE's
-    // unknown-cache models the same way the TRAE card does.
-    const value = formatUsdCurrency(
-      Number.isFinite(rawCost) ? rawCost - traeEstimateCostDelta : summary?.total_cost_usd,
-      { currency, rate },
-    );
-    return hasUnpricedUsage && value !== "-" ? `≥${value}` : value;
-  }, [summary?.total_cost_usd, currency, rate, hasUnpricedUsage, traeEstimateCostDelta]);
+  // Main-card presentation (upstream #1142): the hero shows the plain amount;
+  // the ≥ lower-bound glyph stays in CostAnalysisModal. The TRAE
+  // ceiling->estimate delta still applies before formatting.
+  const summaryCost = useMemo(() => formatSummaryCost({
+    hasUnpricedUsage,
+    totalUsd: Number.isFinite(Number(summary?.total_cost_usd))
+      ? Number(summary?.total_cost_usd) - traeEstimateCostDelta
+      : summary?.total_cost_usd,
+  }), [summary?.total_cost_usd, hasUnpricedUsage, traeEstimateCostDelta]);
+  const summaryCostValue = summaryCost.kind === "unpriced_label"
+    ? copy("dashboard.cost_breakdown.unpriced_label")
+    : formatUsdCurrency(summaryCost.value, { currency, rate });
   const summaryConversationsValue = useMemo(
     () => summary?.conversation_count ?? null,
     [summary?.conversation_count],

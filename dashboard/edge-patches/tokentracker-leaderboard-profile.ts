@@ -108,6 +108,8 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "claude-mythos-5.2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
   "claude-mythos-5-2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
   "claude-mythos-5.2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-mythos-5-1": { input: 10, output: 50, cache_read: 0.25, cache_write: 12.5 },
+  "claude-mythos-5": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
   "claude-opus-5": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
   "claude-opus-5-fast": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
   "claude-opus-4-6": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
@@ -216,6 +218,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "gemini-4-argon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
   "gemini-4-carbon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
   "gemini-4-hydrogen": { input: 1.5, output: 7.5, cache_read: 0.075, cache_write: 0 },
+  "gemini-4-neon": { input: 3, output: 15, cache_read: 0.15, cache_write: 0 },
   "muse-wonder-1.0": { input: 4, output: 20, cache_read: 0.2, cache_write: 0 },
   // ── Moonshot Kimi ──
   "kimi-for-coding": { input: 0.6, output: 2, cache_read: 0.15 },
@@ -328,9 +331,11 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   // Alibaba Model Studio Singapore reference rates; see curated-overrides.json (#715).
   "qwen3.8-flash": { input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 },
   "qwen3.8-max": { input: 1.65, output: 4.951, cache_read: 0.206, cache_write: 2.063 },
+  "qwen4-max": { input: 1.5, output: 4.5, cache_read: 0.075, cache_write: 1.875 },
   "qwen3.7-plus": { input: 0.3333, output: 1.3333, cache_read: 0.0667, cache_write: 0.4167 },
   "hy4-preview": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
   "hy4-preview-agent": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
+  "hy4-flash-free": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
   // ── Misc / Free ──
   "glm-4.7-free": { input: 0, output: 0, cache_read: 0 },
   "nemotron-3-super-free": { input: 0, output: 0, cache_read: 0 },
@@ -604,8 +609,13 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("fable-5-2-fast") || lower.includes("fable-5.2-fast")) return MODEL_PRICING["claude-fable-5-2-fast"];
   if (lower.includes("fable-5-2") || lower.includes("fable-5.2")) return MODEL_PRICING["claude-fable-5-2"];
   if (lower.includes("fable")) return MODEL_PRICING["claude-fable-5"];
-  if (lower.includes("mythos-5-2-fast") || lower.includes("mythos-5.2-fast")) return MODEL_PRICING["claude-mythos-5-2-fast"];
-  if (lower.includes("mythos-5-2") || lower.includes("mythos-5.2")) return MODEL_PRICING["claude-mythos-5-2"];
+  // Mythos needles are version-bounded (upstream #1145): a trailing `.` is a
+  // version continuation (5.2.1), not a decoration — it must not inherit 5.2;
+  // Mythos 5 also rejects `-` so 5-1/5.2/5-20 never inherit its rate.
+  if (/mythos-5[.-]2-fast(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-mythos-5-2-fast"];
+  if (/mythos-5[.-]2(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-mythos-5-2"];
+  if (/mythos-5[.-]1(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-mythos-5-1"];
+  if (/mythos-5(?:$|[^0-9.-])/.test(lower)) return MODEL_PRICING["claude-mythos-5"];
   // Opus 5 fast mode bills at 2x the standard Opus tier ($10/$50), so the
   // -fast matcher must precede both the opus-5 and the generic opus fallback.
   if (/opus-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-opus-5-5"];
@@ -658,7 +668,7 @@ function getModelPricing(model: string, source = "") {
   // Standard Gemini 4 SKUs and their effort levels; other variants have
   // independent prices, including Carbon Cyber Permissive.
   if (lower.includes("gemini-4-argon") || lower.includes("gemini-4.argon")) return MODEL_PRICING["gemini-4-argon"];
-  const gemini4 = lower.trim().match(/(?:^|\/)gemini-4[.-](carbon|hydrogen)(?:-(?:minimal|low|medium|high|xhigh))?$/);
+  const gemini4 = lower.trim().match(/(?:^|\/)gemini-4[.-](carbon|hydrogen|neon)(?:-(?:minimal|low|medium|high|xhigh))?$/);
   if (gemini4) return MODEL_PRICING[`gemini-4-${gemini4[1]}`];
   if (/(?:^|\/)muse-wonder-1[.-]0(?:-(?:minimal|low|medium|high|xhigh|extra-high|max))?$/.test(lower)) return MODEL_PRICING["muse-wonder-1.0"];
   // gemini-3 pro tiers (gemini-3-pro, gemini-3.1-pro, -high, -customtools…)
@@ -737,6 +747,11 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("glm-5")) return MODEL_PRICING["glm-5"];
   if (lower.includes("kiro")) return MODEL_PRICING["kiro-cli-agent"];
   if (lower.includes("hy3")) return MODEL_PRICING["hy3-preview-agent"];
+  // qwen4-max is exact-SKU only (upstream #1145): the bare id and dated
+  // snapshots share the card; -preview (Token Plan only) and other
+  // suffixes stay $0.
+  if (/(?:^|\/)qwen4-max(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim())) return MODEL_PRICING["qwen4-max"];
+  if (/(?:^|\/)qwen4-max/.test(lower)) return ZERO_PRICING;
   if (/(?:^|\/)qwen3[.-]8-flash(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim())) return MODEL_PRICING["qwen3.8-flash"];
   // Qwen3.7 family: Trae CN dash-spells the plus id (qwen-3.7-plus) and tags
   // the max snapshot as a preview; the flash SKU is its own rate (must not

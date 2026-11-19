@@ -6,6 +6,14 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.38.0] - 2026-11-20
+
+- **新增：定价表补齐 Qwen 4 Max、Gemini 4 Neon、Claude Mythos 5 / 5.1**（对齐上游 TokenTracker #1145/#1149）。qwen4-max $1.5/$4.5/读 $0.075/写 $1.875（新加坡国际区官方价；日期快照同价，`-preview` 不继承）；gemini-4-neon $3/$15/读 $0.15（effort 后缀同价，`-lite` 不继承）；Mythos 5.1 $10/$50/读 $0.25、Mythos 5 $10/$50/读 $1。
+- **修复：模型版本边界**。Claude Mythos/Fable 的未知版本续接（如 `5.2.1`、`5-20`、`5-preview`）不再误继承 5.2/5 的价格；带日期快照与 `@default` 网关装饰的合法 id 仍正常计价。
+- **变更：主卡总花费不再带 `≥` 下界符号**（对齐上游 #1142）。有未定价用量时主卡直接显示金额，"至少这个数"的披露保留在成本明细弹窗中。
+- **变更：hy4-flash-free 计价口径**（站主裁定：免费≠0 成本）。WorkBuddy 限免窗口（11-16→11-30）的 `hy4-flash-free` 用量按 hy4-preview 的 TokenHub 牌价记账（显式条目，防止被改成 0）；Hy4 Flash 无独立刊例，腾讯刊价后重估。
+- 发布物：`TokenTracker-plus-Setup-v1.38.0.exe` / `TokenTracker-plus-1.38.0-win-x64.zip`（macOS 包由 mac 会话按同版本打制）。
+
 ## [1.37.0] - 2026-11-19
 
 - **修复：OpenClaw 已删除/重置会话的用量不再丢失**（对齐上游 tokscale 4.23 / Token Monitor #1508）。OpenClaw 删除或重置会话时会把转录归档进本地 SQLite（明文或 zstd 压缩的 JSONL，含尚未落盘成文件的归档）；此前这些用量随会话删除从统计里消失，现在会照常计入，并与在库事件、已发布的转录文件按事件身份去重，不重复计数；无时间戳的归档事件按归档写入时间入桶。
