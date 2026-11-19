@@ -6,6 +6,14 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [Unreleased] - 2026-11-19（热更批次）
+
+- **新增：定价表补齐 Claude Mythos 5.2 / Fast、GPT-6.2 Astra / Sol / Astra Law、GPT-6 Cyber、GPT-6.1 Terra**（对齐上游 TokenTracker v1.5.24 #1139）。Claude Code 与 Codex 用户选用这些模型时按官方价计费，不再记 0；`claude-mythos-latest` 与未知 GPT-6.2 变体保持未定价，避免未来版本别名或快照误套当前价。
+- **修复：GPT-6.2 计费口径**。补上 >272K 输入的长上下文溢价（2x 输入/缓存、1.5x 输出）；Ultrafast（极速档）按用量发生时间取 3x 促销价（至 2027-03-01 08:00 UTC），促销结束后自动回 6x；Astra Law 不套用 Fast/Ultrafast 倍率（官方未公布该档）。
+- **新增：商汤小浣熊福利卡邀请配置**（站主专属链接/邀请码），补充每邀请 1 位注册 1,500 积分、好友完成任务再 1,500、限 20 人、新人任务最高 12,000 积分的实测口径。
+- **新增：TRAE SOLO CN 本地库与授权路径发现**（上游 TokenTracker v1.5.24 #1134 移植）。装了国内版 TRAE SOLO 的用户也能统计用量；Windows 的 Trae CN 继续走专属读取器，不重复计数。
+- 发布物：本批为热更批次，未单独发布安装包；内容随下一版安装器进入。
+
 ## [1.36.0] - 2026-11-17
 
 - **新增：定价表覆盖三个新模型**（Gemini 4 Carbon、Gemini 4 Hydrogen、Muse Wonder 1.0，自上游 TokenTracker v1.5.22 移植）。Cursor / Muse 用户选用这些模型时，费用不再按缺价记 0，effort 后缀变体（如 -high、-max）同样正确计价；Muse Wonder 即 muse.ai（与 Today 同门产品）的模型。
