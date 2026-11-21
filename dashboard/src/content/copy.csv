@@ -1733,9 +1733,7 @@ limits.page.refreshed_at,ui,LimitsPage,LimitsPage,refreshed_at,Limits updated {{
 limits.page.refresh_failed,ui,LimitsPage,LimitsPage,refresh_failed,Couldn't refresh limits.,,active
 limits.page.refresh_partial,ui,LimitsPage,LimitsPage,refresh_partial,"Limits refreshed {{time}}, but some data still comes from cache or failed to update.",,active
 limits.page.refresh_stale,ui,LimitsPage,LimitsPage,refresh_stale,"Refresh finished, but every provider still reports cached or failed data.",,active
-limits.page.usage_gap,ui,LimitsPage,LimitsPage,usage_gap,"Usage gap: sessions are still active for the sources below, but their official transcripts stopped reporting usage after the dates shown. Quota percentages are unaffected: {{sources}}",,active
-limits.page.usage_gap_item,ui,LimitsPage,LimitsPage,usage_gap_item,"{{name}} (since {{date}})",,active
-limits.page.usage_gap_join,ui,LimitsPage,LimitsPage,usage_gap_join,", ",,active
+limits.card.usage_gap,ui,LimitsPage,UsageLimitsPanel,card_usage_gap,"Official transcripts stopped reporting usage after {{date}} (sessions still active, quota percentages unaffected).",,active
 limits.provider.ark_coding_plan,ui,LimitsPage,UsageLimitsPanel,provider_ark_coding_plan,Ark Coding Plan,,active
 limits.label.ark_coding_plan_5h,ui,LimitsPage,UsageLimitsPanel,ark_coding_plan_5h,5h,,active
 limits.label.ark_coding_plan_weekly,ui,LimitsPage,UsageLimitsPanel,ark_coding_plan_weekly,Weekly,,active

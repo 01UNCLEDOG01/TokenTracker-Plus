@@ -3,6 +3,7 @@ import { ChevronDown, Gift, Globe, RefreshCw } from "lucide-react";
 import { Card } from "../../components";
 import { FadeIn } from "../../foundation/FadeIn.jsx";
 import { copy, getCopyLocale } from "../../../lib/copy";
+import { shortUsageDay } from "../../../lib/session-source-labels";
 import { getLocalApiAuthHeaders } from "../../../lib/local-api-auth";
 import { LIMIT_DISPLAY_MODES } from "../../../hooks/use-limits-display-prefs.js";
 import {
@@ -422,6 +423,29 @@ const MANUAL_CREDENTIAL_IDS = new Set([
   "mistral",
   "openaiCredits",
 ]);
+
+// 三态用量门禁（2026-11-22，站主拍板展示位）：限额卡 ↔ 会话源映射——
+// 「源断供」黄字只挂在该源对应的卡展开区里（展开才显示），不做页面级横幅。
+// 只映射有把握的卡；没有对应卡的会话源（dsh/autoclaw/cola/tuanjie-cowork
+// 等纯会话源）黄字无处可挂=不显示，这是卡片级展示的已知边界——宁可漏报，
+// 不回到页面顶上乱挂。traeMain（副账号卡）有意不映射：同一源不在两张卡上
+// 重复亮同一句话。
+const USAGE_GAP_SOURCE_BY_CARD = {
+  qoderCn: "qoder-cn",
+  qoder: "qoder",
+  claude: "claude",
+  codex: "codex",
+  zcode: "zcode",
+  antigravity: "antigravity",
+  kimi: "kimi",
+  grok: "grok",
+  workbuddy: "workbuddy",
+  workbuddyAi: "workbuddy-ai",
+  devin: "devin",
+  minimaxCode: "minimax-code",
+  raccoon: "raccoon",
+  trae: "trae",
+};
 
 function StatusBadge({ label, age = null, tone = "live", tooltip = null }) {
   const colors = STATUS_BADGE_TONES[tone] || STATUS_BADGE_TONES.live;
@@ -1157,7 +1181,7 @@ function ZcodeOtherRegionSection({ data, mode, now }) {
   );
 }
 
-function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, now = Date.now(), onKeySaved = null, petPicker = null, onProviderRefresh = null, refreshing = false) {
+function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge = null, now = Date.now(), onKeySaved = null, petPicker = null, onProviderRefresh = null, refreshing = false, usageGap = null) {
   const spec = PROVIDER_LIMIT_SPECS[id];
   if (!spec) return null;
   // Pace is computed once per window here and shared by the bar + the detail.
@@ -1181,6 +1205,16 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
       rightAdornment={<CardRefreshButton id={id} name={title} onProviderRefresh={onProviderRefresh} refreshing={refreshing} />}
       toggleOnHeader={id === "zcode"}
     >
+      {expanded && usageGap ? (
+        // 三态用量门禁「源断供」黄字：只在本卡展开区显示（站主 11-22 拍板
+        // 撤页面级横幅）。日期=最后一个有用量记录的本地日。
+        <div
+          data-usage-gap-note
+          className="text-[11px] leading-snug text-amber-600 dark:text-amber-400"
+        >
+          {copy("limits.card.usage_gap", { date: shortUsageDay(usageGap.last_usage_day) })}
+        </div>
+      ) : null}
       <LimitWindowSection mode={mode} rows={rows} extra={extra} expanded={expanded}
         picker={petPicker ? { providerId: id, ...petPicker } : null} />
       {id === "opencodeGo" || id === "commandCode" ? (
@@ -1255,7 +1289,7 @@ function renderUnlinkedProvider(id, statusNodes, expanded, onToggle, onProviderR
   );
 }
 
-function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(), onKeySaved = null, petPicker = null, onProviderRefresh = null, refreshing = false) {
+function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(), onKeySaved = null, petPicker = null, onProviderRefresh = null, refreshing = false, usageGap = null) {
   if (!PROVIDER_LIMIT_SPECS[id]) return null;
   if (!data?.configured) {
     return renderUnlinkedProvider(
@@ -1431,7 +1465,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
       tooltip={copy("limits.provenance.tooltip", { source: provenance.source, confidence: provenance.confidence })}
     />;
   }
-  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, now, onKeySaved, petPicker, onProviderRefresh, refreshing);
+  return renderConfiguredProvider(id, data, title, mode, expanded, onToggle, badge, now, onKeySaved, petPicker, onProviderRefresh, refreshing, usageGap);
 }
 
 function CopilotOtelHint({ defaultDir }) {
@@ -2744,7 +2778,7 @@ function QoderCookieInput({ namespace = "cn", onSaved }) {
 // The key is entered here and stored by the backend in a 0600 file — never in
 // the launch environment, whose global scope is what leaked it into other apps
 // (issue 837). The panel only ever sends the key to the loopback backend.
-export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn, order, visibility, displayMode, onProviderKeySaved = null, onProviderRefresh = null }) {
+export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn, order, visibility, displayMode, onProviderKeySaved = null, onProviderRefresh = null, usageGaps = null }) {
   const dataById = { claude, codex, cursor, gemini, kimi, kiro, grok, antigravity, apigoto, sensenova, copilot, zcode, opencodeGo, commandCode, qoder, qoderCn, codingPlan, agentPlan, devin, workbuddy, workbuddyAi, raccoon, deepseek, minimax, trae, traeMain, codearts, clinePass, agentRouter, opendesign, mistral, openaiCredits, minimaxCode, hark, todayCn };
   // Dead-key purge: a picked key that matches no rendered row (a legacy key we
   // could not migrate, or a provider since unconfigured) still counts against
@@ -2833,9 +2867,18 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
     return () => clearInterval(timer);
   }, []);
 
+  // 三态用量门禁（2026-11-22）：后端限额载荷附加的「源断供」清单（纯增量
+  // 字段 usage_gaps），按 USAGE_GAP_SOURCE_BY_CARD 挂到对应卡的展开区。
+  const gapBySource = new Map();
+  for (const gap of Array.isArray(usageGaps) ? usageGaps : []) {
+    if (gap?.source) gapBySource.set(gap.source, gap);
+  }
+
   const groups = effectiveOrder
     .filter((id) => !visibility || visibility[id] !== false)
     .map((id) => {
+      // 三态用量门禁：把「源断供」按卡↔源映射挂到对应卡（无映射的卡=无提示）。
+      const usageGap = gapBySource.get(USAGE_GAP_SOURCE_BY_CARD[id] || "") || null;
       return renderProviderGroup(
         id,
         dataById[id],
@@ -2854,6 +2897,7 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
             }
           : null,
         refreshingId === id,
+        usageGap,
       );
     })
     .filter(Boolean);

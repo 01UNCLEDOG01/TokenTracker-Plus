@@ -10,6 +10,7 @@ import { LimitsPage } from "./LimitsPage.jsx";
 const useUsageLimitsMock = vi.hoisted(() => vi.fn());
 const useLimitsDisplayPrefsMock = vi.hoisted(() => vi.fn());
 const refreshLimitsMock = vi.hoisted(() => vi.fn());
+const panelPropsCapture = vi.hoisted(() => ({ last: null }));
 
 vi.mock("../hooks/use-usage-limits", () => ({
   useUsageLimits: useUsageLimitsMock,
@@ -20,12 +21,15 @@ vi.mock("../hooks/use-limits-display-prefs.js", () => ({
 }));
 
 vi.mock("../ui/dashboard/components/UsageLimitsPanel.jsx", () => ({
-  UsageLimitsPanel: ({ kimi, codex, displayMode }) => (
-    <div data-testid="limits-panel" data-display-mode={displayMode ?? "absent"}>
-      {kimi?.configured ? "Kimi connected" : "Kimi missing"}
-      {codex?.configured ? " Codex connected" : ""}
-    </div>
-  ),
+  UsageLimitsPanel: (props) => {
+    panelPropsCapture.last = props;
+    return (
+      <div data-testid="limits-panel" data-display-mode={props.displayMode ?? "absent"}>
+        {props.kimi?.configured ? "Kimi connected" : "Kimi missing"}
+        {props.codex?.configured ? " Codex connected" : ""}
+      </div>
+    );
+  },
 }));
 
 vi.mock("../components/LimitsPageSkeleton.jsx", () => ({
@@ -66,6 +70,7 @@ describe("LimitsPage", () => {
     }));
     refreshLimitsMock.mockReset();
     refreshLimitsMock.mockResolvedValue(null);
+    panelPropsCapture.last = null;
   });
 
   it("passes Kimi limits from the API response into the limits panel", () => {
@@ -326,21 +331,19 @@ describe("LimitsPage", () => {
     expect(screen.queryByText("Refreshing limits…")).not.toBeInTheDocument();
   });
 
-  it("renders the usage gap banner when the payload carries usage_gaps", () => {
-    useUsageLimitsMock.mockImplementation(() => ({
-      data: {
-        ...apiLimits,
-        usage_gaps: [
-          {
-            source: "qoder-cn",
-            last_usage_day: "2026-11-02",
-            last_activity_day: "2026-11-21",
-            window_days: 3,
-            window_activity_day_count: 3,
-            baseline_day_count: 40,
-          },
-        ],
+  it("forwards usage_gaps from the payload into the limits panel (card-scoped display)", () => {
+    const gaps = [
+      {
+        source: "qoder-cn",
+        last_usage_day: "2026-11-02",
+        last_activity_day: "2026-11-21",
+        window_days: 3,
+        window_activity_day_count: 1,
+        baseline_day_count: 80,
       },
+    ];
+    useUsageLimitsMock.mockImplementation(() => ({
+      data: { ...apiLimits, usage_gaps: gaps },
       error: null,
       isLoading: false,
       refresh: refreshLimitsMock,
@@ -352,49 +355,7 @@ describe("LimitsPage", () => {
       </MemoryRouter>,
     );
 
-    const banner = screen.getByText(/Usage gap:/);
-    expect(banner).toBeInTheDocument();
-    // 源显示名走 session-source-labels（命名基准=SessionsPage 筛选项），
-    // 日期走 MM-DD 短格式——两者都是横幅可读性的合同。
-    expect(banner).toHaveTextContent("Qoder CN (since 11-02)");
-  });
-
-  it("does not render the usage gap banner when the payload has none", () => {
-    render(
-      <MemoryRouter>
-        <LimitsPage />
-      </MemoryRouter>,
-    );
-
-    expect(screen.queryByText(/Usage gap:/)).not.toBeInTheDocument();
-  });
-
-  it("falls back to the raw source id for an unregistered gap source", () => {
-    useUsageLimitsMock.mockImplementation(() => ({
-      data: {
-        ...apiLimits,
-        usage_gaps: [
-          {
-            source: "some-new-source",
-            last_usage_day: "2026-11-02",
-            last_activity_day: "2026-11-21",
-            window_days: 3,
-            window_activity_day_count: 3,
-            baseline_day_count: 40,
-          },
-        ],
-      },
-      error: null,
-      isLoading: false,
-      refresh: refreshLimitsMock,
-    }));
-
-    render(
-      <MemoryRouter>
-        <LimitsPage />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText(/some-new-source \(since 11-02\)/)).toBeInTheDocument();
+    // 展示位=面板内对应卡的展开区（站主 11-22 拍板撤页面级横幅）——页面只透传。
+    expect(panelPropsCapture.last?.usageGaps).toEqual(gaps);
   });
 });
