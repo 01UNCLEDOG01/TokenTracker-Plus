@@ -77,35 +77,58 @@ describe("perk claim calendar and state (schema 3: {last, count})", () => {
     const empty = {};
     // First claim: count 1.
     const first = togglePerkClaim(empty, mixed, "daily", "2026-11-01");
-    expect(first.mixed.daily).toEqual({ last: "2026-11-01", count: 1 });
+    expect(first.mixed.daily).toEqual({ last: "2026-11-01", count: 1, monthKey: "2026-11", monthCount: 1 });
     // Next day re-claim: count 2.
     const second = togglePerkClaim(first, mixed, "daily", "2026-11-02");
-    expect(second.mixed.daily).toEqual({ last: "2026-11-02", count: 2 });
+    expect(second.mixed.daily).toEqual({ last: "2026-11-02", count: 2, monthKey: "2026-11", monthCount: 2 });
     // Unclaim marks the day cleared: reads as not-claimed, lifetime count kept.
     const unclaimed = togglePerkClaim(second, mixed, "daily", "2026-11-02");
-    expect(unclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 2, cleared: "2026-11-02" });
+    expect(unclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 2, monthKey: "2026-11", monthCount: 2, cleared: "2026-11-02" });
     expect(getPerkClaimStreak(mixed, unclaimed, "daily")).toBe(2);
     expect(getPerkClaimDate(mixed, unclaimed, "daily", "2026-11-02")).toBeNull();
     // Same-day re-claim restores the mark WITHOUT bumping count — 领取→取消→领取
     // 不得反复刷 ×N（AIHOT 口径：一天一次，站主 2026-11-12）。
     const reclaimed = togglePerkClaim(unclaimed, mixed, "daily", "2026-11-02");
-    expect(reclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 2 });
+    expect(reclaimed.mixed.daily).toEqual({ last: "2026-11-02", count: 2, monthKey: "2026-11", monthCount: 2 });
     // Toggle again → unclaimed again, count still 2.
     const toggledAgain = togglePerkClaim(reclaimed, mixed, "daily", "2026-11-02");
     expect(toggledAgain.mixed.daily.count).toBe(2);
     // Next day is a fresh day: count 3.
     const nextDay = togglePerkClaim(toggledAgain, mixed, "daily", "2026-11-03");
-    expect(nextDay.mixed.daily).toEqual({ last: "2026-11-03", count: 3 });
+    expect(nextDay.mixed.daily).toEqual({ last: "2026-11-03", count: 3, monthKey: "2026-11", monthCount: 3 });
     // The other period stays untouched.
     expect(reclaimed.mixed.monthly).toBeUndefined();
     expect(() => togglePerkClaim(empty, mixed, "once", "2026-11-03")).toThrow(TypeError);
   });
+  it("tracks the in-month claim count that feeds 本月已领到 (站主 2026-11-21)", () => {
+    // 每次领取在当月累加，换月重置为 1；取消不回退、恢复不重复计数（与累计同口径）。
+    const nov1 = togglePerkClaim({}, mixed, "daily", "2026-11-01");
+    expect(nov1.mixed.daily.monthKey).toBe("2026-11");
+    expect(nov1.mixed.daily.monthCount).toBe(1);
+    const nov15 = togglePerkClaim(nov1, mixed, "daily", "2026-11-15");
+    expect(nov15.mixed.daily.monthCount).toBe(2);
+    const unclaimed = togglePerkClaim(nov15, mixed, "daily", "2026-11-15");
+    expect(unclaimed.mixed.daily.monthCount).toBe(2);
+    const reclaimed = togglePerkClaim(unclaimed, mixed, "daily", "2026-11-15");
+    expect(reclaimed.mixed.daily.monthCount).toBe(2);
+    const dec1 = togglePerkClaim(reclaimed, mixed, "daily", "2026-12-01");
+    expect(dec1.mixed.daily.monthKey).toBe("2026-12");
+    expect(dec1.mixed.daily.monthCount).toBe(1);
+    // normalize 原样保留月度计数：服务端 blob 采纳走 normalize，丢了就蒸发
+    const round = normalizePerkClaims({ schema: 3, providers: { mixed: dec1.mixed } }, [mixed]);
+    expect(round.mixed.daily.monthKey).toBe("2026-12");
+    expect(round.mixed.daily.monthCount).toBe(1);
+    // 非法 monthKey/monthCount 被清洗（旧字段缺失则不出现在结果里）
+    const dirty = normalizePerkClaims({ schema: 3, providers: { mixed: { daily: { last: "2026-11-01", count: 2, monthKey: "2026-1", monthCount: 0 } } } }, [mixed]);
+    expect(dirty.mixed.daily.monthKey).toBeUndefined();
+    expect(dirty.mixed.daily.monthCount).toBeUndefined();
+  });
   it("backfilled monthly claim date survives unclaim→reclaim and validates bounds", () => {
     // 月领 11-05 标记 → 补记到真实领取日 11-02（站主 2026-11-13）
     const marked = togglePerkClaim({}, mixed, "monthly", "2026-11-05");
-    expect(marked.mixed.monthly).toEqual({ last: "2026-11-05", count: 1 });
+    expect(marked.mixed.monthly).toEqual({ last: "2026-11-05", count: 1, monthKey: "2026-11", monthCount: 1 });
     const backfilled = setPerkClaimDate(marked, mixed, "monthly", "2026-11-02", "2026-11-13");
-    expect(backfilled.mixed.monthly).toEqual({ last: "2026-11-02", count: 1 });
+    expect(backfilled.mixed.monthly).toEqual({ last: "2026-11-02", count: 1, monthKey: "2026-11", monthCount: 1 });
     // 取消→同月再标记：恢复标记时保留补记过的原日期（不得被再标记日覆盖）
     const unclaimed = togglePerkClaim(backfilled, mixed, "monthly", "2026-11-13");
     expect(getPerkClaimDate(mixed, unclaimed, "monthly", "2026-11-13")).toBeNull();

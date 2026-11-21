@@ -160,15 +160,25 @@ export function PerksPage() {
     }
     let monthly = 0;
     let totalClaimed = 0;
+    const monthKey = claimDay.slice(0, 7);
     for (const item of PERK_PROVIDERS) {
       const row = claims?.[item.id];
       if (!row) continue;
       for (const cycle of getPerkClaimCycles(item)) {
-        const count = row[cycle]?.count || 0;
+        const entry = row[cycle];
+        if (!entry) continue;
         const price = PERKS_CLAIM_YUAN[item.id]?.[cycle];
         if (!Number.isFinite(price)) continue;
-        totalClaimed += price * count;
-        if (cycle === "monthly" && getPerkClaimDate(item, claims, "monthly", claimDay)) monthly += price;
+        totalClaimed += price * (entry.count || 0);
+        // 本月已领到 = 当月真实领取次数 × 审计价（站主 2026-11-21 口径修正：
+        // 旧版只数月领卡、日签天天领也永远不动，整月冻结）。月度计数
+        // （monthKey/monthCount）随每次领取累加、换月自动重置；升级前的旧
+        // 记录月度次数不可重建——last 落在本月的最少记 1 次；补录桶不参与
+        // （金额账本以实测为准）；取消不回退，与累计同口径。
+        const monthCount = entry.monthKey === monthKey
+          ? (entry.monthCount || 1)
+          : (!entry.monthKey && entry.last && entry.last.slice(0, 7) === monthKey ? 1 : 0);
+        monthly += price * monthCount;
       }
     }
     return { claimable, monthly, totalClaimed };

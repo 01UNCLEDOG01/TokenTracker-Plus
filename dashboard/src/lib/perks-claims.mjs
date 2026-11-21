@@ -47,16 +47,31 @@ function isRecord(value) {
 }
 
 function normalizeCycleEntry(value) {
-  // v3 {last?, count, cleared?}; a bare string is a kept-over v2 date.
-  // cleared = 当天取消的标记（站主 2026-11-12：领取→取消→领取不得反复刷
-  // count——当天取消后重新领取只恢复标记，count 不再 +1）。
+  // v3 {last?, count, cleared?, monthKey?, monthCount?}; a bare string is a
+  // kept-over v2 date. cleared = 当天取消的标记（站主 2026-11-12：领取→取消→
+  // 领取不得反复刷 count——当天取消后重新领取只恢复标记，count 不再 +1）。
+  // monthKey/monthCount（站主 2026-11-21）= 该周期「本月」真实领取次数，驱动
+  // 福利指南「本月已领到」（旧版只数月领卡、日签永远不动）。与 count 同口径：
+  // 只增不减；月份切换后由下一次领取重置。本函数必须原样保留这两个字段，
+  // 否则服务端 blob 采纳一回写就会把月度计数蒸发（GET 采纳走 normalize）。
   if (typeof value === "string") return validDate(value) ? { last: value, count: 1 } : null;
   if (!isRecord(value)) return null;
   const last = validDate(value.last) ? value.last : undefined;
   const count = Number.isSafeInteger(value.count) && value.count > 0 ? value.count : (last ? 1 : 0);
   const cleared = validDate(value.cleared) ? value.cleared : undefined;
+  const monthKey = typeof value.monthKey === "string" && /^\d{4}-\d{2}$/.test(value.monthKey)
+    ? value.monthKey
+    : undefined;
+  const monthCount = monthKey && Number.isSafeInteger(value.monthCount) && value.monthCount > 0
+    ? value.monthCount
+    : (monthKey ? 1 : undefined);
   if (!last && count === 0) return null;
-  return last ? { last, count, cleared } : { count, cleared };
+  const entry = last ? { last, count, cleared } : { count, cleared };
+  if (monthKey) {
+    entry.monthKey = monthKey;
+    entry.monthCount = monthCount;
+  }
+  return entry;
 }
 
 export function normalizePerkClaims(value, providers) {
@@ -136,16 +151,21 @@ export function togglePerkClaim(claims, item, cycle, day) {
   if (getPerkClaimDate(item, claims, cycle, day)) {
     // Unclaim: 标记 cleared（last 与 lifetime count 都保留——亮度不回退），
     // 同一天内重新领取只摘标记、count 不再 +1（AIHOT 口径：一天一次，
-    // 领取→取消→领取不得刷 ×N，站主 2026-11-12）。
+    // 领取→取消→领取不得刷 ×N，站主 2026-11-12）。月度计数同理不减：
+    // 「本月已领到」与累计口径一致，取消不回退金额。
     row[cycle] = { ...entry, cleared: day };
   } else if (entry.cleared === day) {
     // Same-day re-claim after an unclaim: restore the mark, keep count AND the
     // original claim date — 站主 2026-11-13：月领卡补记过的真实领取日不能被
-    // 再标记日覆盖（取消→再标记只恢复标记，日期回到原来的那天）。
+    // 再标记日覆盖（取消→再标记只恢复标记，日期回到原来的那天）。月度计数
+    // 不变（这次领取当初已经计过）。
     row[cycle] = { ...entry, last: entry.last || day, cleared: undefined };
   } else {
-    // (Re-)claim on a fresh day: a new last plus one more lifetime count.
-    row[cycle] = { last: day, count: (entry.count || 0) + 1, cleared: undefined };
+    // (Re-)claim on a fresh day: a new last plus one more lifetime count, and
+    // one more claim in THIS month (monthKey switches → counter resets).
+    const monthKey = day.slice(0, 7);
+    const monthCount = entry.monthKey === monthKey ? (entry.monthCount || 0) + 1 : 1;
+    row[cycle] = { last: day, count: (entry.count || 0) + 1, monthKey, monthCount, cleared: undefined };
   }
   if (Object.keys(row).length) next[item.id] = row;
   else delete next[item.id];

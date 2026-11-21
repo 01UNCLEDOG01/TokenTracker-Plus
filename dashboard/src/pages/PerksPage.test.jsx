@@ -297,8 +297,11 @@ describe("PerksPage", () => {
     const agnesCard = screen.getByRole("heading", { name: "Agnes AI" }).closest(".group");
     fireEvent.click(within(agnesCard).getByRole("button", { name: "标记已领取" }));
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
-    // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录。
-    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1 } } });
+    // 领取记录绑定卡片 id，卡片排序变化不影响已保存的记录（2026-11-21 起
+    // 附带月度计数 monthKey/monthCount，驱动「本月已领到」）。
+    expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers).toEqual({
+      agnes: { once: { last: getPerkClaimDay(), count: 1, monthKey: getPerkClaimDay().slice(0, 7), monthCount: 1 } },
+    });
 
     // 已领取 = 禁用（站主 2026-11-12：点了就不能再点；once 永不刷新）——
     // 重复点击不改状态、不写存储，×N 无法靠来回切换刷次数。
@@ -307,7 +310,7 @@ describe("PerksPage", () => {
     fireEvent.click(claimedButton);
     expect(screen.getAllByText("已领取（{{date}}）")).toHaveLength(1);
     expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers)
-      .toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1 } } });
+      .toEqual({ agnes: { once: { last: getPerkClaimDay(), count: 1, monthKey: getPerkClaimDay().slice(0, 7), monthCount: 1 } } });
   });
 
   it("领取状态筛选按钮能过滤已领取与未标记卡片", () => {
@@ -423,7 +426,9 @@ describe("PerksPage", () => {
     const card = screen.getByRole("heading", { name: "WorkBuddy 国内版" }).closest(".group");
     fireEvent.click(within(card).getByRole("button", { name: "今日未领取 · 标记已领取" }));
     expect(JSON.parse(localStorage.getItem(PERKS_CLAIMS_KEY)).providers.workbuddy).toEqual({
-      daily: { last: getPerkClaimDay(), count: 1 },
+      // daily=本次新领取（带月度计数）；monthly=v2 迁移来的旧记录（无月度计数，
+      // 本月口径按「last 在本月至少 1 次」兜底，见 本月已领到 用例）
+      daily: { last: getPerkClaimDay(), count: 1, monthKey: getPerkClaimDay().slice(0, 7), monthCount: 1 },
       monthly: { last: getPerkClaimDay(), count: 1 },
     });
   });
@@ -982,6 +987,33 @@ describe("PerksPage", () => {
     const devinMini = vitrine.querySelector('.perk-mini[data-perk-id="devin"]');
     expect(devinMini).toBeTruthy();
     expect(devinMini.closest("div").textContent).toContain("未收集");
+  });
+
+  it("本月已领到=当月真实领取次数×审计价，日签/月领全参与（站主 2026-11-21 口径修正）", () => {
+    const claimDay = getPerkClaimDay();
+    const monthKey = claimDay.slice(0, 7);
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: {
+        // 日签当月 20 次（新口径月度计数：旧版这里永远不动）
+        huawei_codearts: { daily: { last: claimDay, count: 20, monthKey, monthCount: 20 } },
+        // 月领卡当月 1 次
+        workbuddy: { monthly: { last: claimDay, count: 3, monthKey, monthCount: 1 } },
+        // 升级前旧记录：last 在本月、无月度计数 → 最少记 1 次
+        trae_cn: { daily: { last: claimDay, count: 7 } },
+        // 上月记录：不进本月，但进累计
+        doubaowork: { daily: { last: claimDay, count: 10, monthKey: "2026-10", monthCount: 9 } },
+      },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+    // 本月 = 4.9×20 + 24.75×1 + 5.0×1 = 127.75 → ¥128（doubaowork 上月不进）
+    expect(screen.getByText("¥128")).toBeInTheDocument();
+    // 累计 = 4.9×20 + 24.75×3 + 5.0×7 + 6.48×10 = 272.05 → ¥272
+    expect(screen.getByText("¥272")).toBeInTheDocument();
   });
 
   it("装机前补录：弹窗标记 → 独立桶落盘 + 玻璃柜移入已收 + 金额口径不动 + 可撤销", () => {
