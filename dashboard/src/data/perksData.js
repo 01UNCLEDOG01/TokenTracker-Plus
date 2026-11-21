@@ -1202,7 +1202,7 @@ export const PERK_PROVIDERS = [
   {
     "id": "qoder_cn",
     "retired": true,
-    "retiredDeal": {"label":"模型限时免费","detail":"Qoder CN 此前的免费模型调用福利已下线（站主实测）。每日 10:00 领 100 Credits 的签到仍照常，不受影响。"},
+    "retiredDeal": {"label":"模型限时免费","detail":"Qoder CN 此前的免费模型调用福利已下线（站主实测）。每日 10:00 领 100 Credits：官方 2026-11-19 10:00 起不再对体验版（免费）用户开放，仅专业版/高级版/旗舰版个人订阅、会员卡与试用期用户可领（官方活动页变更记录，2026-11-21 核对）；已领 Credits 自到账起 30 天内照常可用。"},
     "name": "Qoder CN (国内版)",
     "sortNames": [
       "QODER CN",
@@ -1214,27 +1214,27 @@ export const PERK_PROVIDERS = [
       "client",
       "daily_claim"
     ],
-    "badge": "⚠️ 每日 100 Credits（无免费模型 · 排队严重）",
-    "badgeType": "rose",
+    "badge": "⚠️ 每日 100 Credits 仅付费/试用期（免费档 2026-11-19 起停发）",
+    "badgeType": "success",
     "tags": [
       "阿里通义系",
       "国内免翻",
       "每日主动领取",
       "CLI 可查额度"
     ],
-    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）**；新人下载登录送 **300 Credits + 两周 Pro 试用**（高级模型要在 14 天 Pro 试用期内用）；⚠️ **免费模型已下架（原「Qoduck 每日限免」已结束，2026-11-13 站主核实），现在无免费模型可用，只靠每日 100 Credits；且响应很慢、经常排队，几乎用不动**——纸面价值虽高，实际只能当备用，别当主力。**邀请活动 2026-11-11 已恢复**（端内活动页核实，三重好礼）：好友注册并下载 Qoder 后 7 天内完成一次对话或任务你得 **50 Credits**；好友注册后 7 天内累计 3 天完成对话或任务你得 **100 Credits**；好友注册后 30 天内完成首次订阅你得 **1,000 Credits**（好友另得 500）。",
-    "tips": "⚠️ 端内实测：当前已无免费模型，每日 100 Credits 仍发放但生成排队严重、可用性差，仅作防衰减备份。国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效；邀请奖励在活动页「邀请好友接着赚」进度查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
+    "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**2026-11-19 10:00 起官方调整每日领取资格：每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）不再对体验版（免费）用户开放，仅专业版/高级版/旗舰版个人订阅、会员卡与试用期用户可领**（官方活动页变更记录，2026-11-21 核对）；已领 Credits 30 天内照常可用。新人下载登录送 **300 Credits + 两周 Pro 试用**（高级模型要在 14 天 Pro 试用期内用）；⚠️ **免费模型已下架（原「Qoduck 每日限免」已结束，2026-11-13 站主核实），免费档现在既无免费模型、每日积分也已停发；且响应很慢、经常排队，几乎用不动**——实际只能当备用，别当主力。**邀请活动 2026-11-11 已恢复**（端内活动页核实，三重好礼）：好友注册并下载 Qoder 后 7 天内完成一次对话或任务你得 **50 Credits**；好友注册后 7 天内累计 3 天完成对话或任务你得 **100 Credits**；好友注册后 30 天内完成首次订阅你得 **1,000 Credits**（好友另得 500）。",
+    "tips": "⚠️ 当前已无免费模型；每日 100 Credits 自 2026-11-19 10:00 起仅付费订阅/会员卡/试用期用户可领（官方活动页变更记录），免费档停发；生成排队严重、可用性差，仅作防衰减备份。国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效；邀请奖励在活动页「邀请好友接着赚」进度查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
     "officialUrl": "https://qoder.cn",
     "inviteUrl": "https://qoder.cn/activities?referral_code=4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
     "inviteCode": "4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
     "hasInvite": true,
-    "checkedAt": "2026-11-13",
-    "sourceUrl": "https://docs.qoder.cn/events/invite-friends"
+    "checkedAt": "2026-11-21",
+    "sourceUrl": "https://docs.qoder.cn/events/100credits"
   },
   {
     "id": "qoder",
     "retired": true,
-    "retiredDeal": {"label":"模型限时免费","detail":"Qoder 国际版此前的免费模型调用福利已下线（站主实测）；国际版当前的 Qoduck 每日限免以端内为准。"},
+    "retiredDeal": {"label":"模型限时免费","detail":"Qoder 国际版此前的免费模型调用福利已下线（站主实测）；国际版当前的 Qoduck 每日限免以端内为准。每日领 100 Credits：官方 2026-11-19 10:00（新加坡时区 UTC+8）起仅限 Pro 试用或个人付费订阅（Lite/Pro/Pro+/Ultra）用户，免费用户不再开放，团队与企业订阅亦不适用（官方活动页变更记录，2026-11-21 核对）；已领 Credits 自领取日起 30 天内照常可用。"},
     "name": "Qoder (国际版)",
     "sortNames": [
       "QODER GUOJIBAN",
@@ -1246,21 +1246,21 @@ export const PERK_PROVIDERS = [
       "client",
       "daily_claim"
     ],
-    "badge": "⚠️ 每日 100 Credits（无免费模型 · 排队严重）",
-    "badgeType": "rose",
+    "badge": "⚠️ 每日 100 Credits 仅付费/试用期（免费档 2026-11-19 起停发）",
+    "badgeType": "success",
     "tags": [
       "AI编程",
       "每日主动领取",
       "30天有效",
       "多模型支持"
     ],
-    "description": "面向专业开发者的全流程 AI 编程工具。**每日 10:00 之后需在站内/客户端主动领取 100 Credits（30 天有效）**；新用户注册另赠初始额度；邀请好友注册并在 7 天内完成任务，你得 **50 Credits**。**免费模型已下架（2026-11-13 站主核实）：无免费模型可用，且响应很慢、经常排队，几乎用不动——纸面价值虽高，实际只能当备用。**",
-    "tips": "⚠️ 端内实测：当前已无免费模型，每日 100 Credits 仍发放但生成排队严重、可用性差，仅作防衰减备份。错过当日 10:00 时段不补发，也不累积；额度构成与消耗明细可在客户端用量页与 TokenTracker 的 Qoder 卡片对照查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
+    "description": "面向专业开发者的全流程 AI 编程工具。**2026-11-19 10:00 起（新加坡时区 UTC+8）官方调整每日领取资格：每日 10:00 之后需在客户端 Usage 面板主动领取 100 Credits（30 天有效）仅限 Pro 试用或个人付费订阅（Lite/Pro/Pro+/Ultra）用户，免费用户不再开放，团队与企业订阅亦不适用**（官方活动页变更记录，2026-11-21 核对）；已领 Credits 30 天内照常可用。新用户注册另赠初始额度；邀请好友注册并在 7 天内完成任务，你得 **50 Credits**。**免费模型已下架（2026-11-13 站主核实）：无免费模型可用，且响应很慢、经常排队，几乎用不动——实际只能当备用。**",
+    "tips": "⚠️ 当前已无免费模型；每日 100 Credits 自 2026-11-19 10:00 起仅 Pro 试用/个人付费订阅（Lite/Pro/Pro+/Ultra）可领，免费档停发（官方活动页变更记录）；生成排队严重、可用性差，仅作防衰减备份。错过当日 10:00 时段不补发，也不累积；额度构成与消耗明细可在客户端用量页与 TokenTracker 的 Qoder 卡片对照查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
     "inviteUrl": "https://qoder.com/activities?referral_code=gviloqaY80z3XxsS6W78IIy3uMK3qRlc",
     "officialUrl": "https://qoder.com",
     "inviteCode": "gviloqaY80z3XxsS6W78IIy3uMK3qRlc",
     "hasInvite": true,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-21",
     "sourceUrl": "https://docs.qoder.com/events/100credits"
   },
   {

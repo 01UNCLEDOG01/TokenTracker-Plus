@@ -9,7 +9,7 @@
 // priced them correctly). This test fails loudly on any divergence.
 //
 // To change pricing: edit tokentracker-leaderboard-refresh.ts (canonical),
-// then copy the identical block into the other four files.
+// then copy the identical block into the other five files.
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -27,6 +27,7 @@ const MIRRORS = [
   "tokentracker-account-daily.ts",
   "tokentracker-account-summary.ts",
   "tokentracker-account-model-breakdown.ts",
+  "tokentracker-account-heatmap.ts",
   "tokentracker-leaderboard-profile.ts",
 ];
 

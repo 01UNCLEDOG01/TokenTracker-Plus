@@ -2,7 +2,7 @@
 // 领取账本的 localStorage 读写/迁移链、AIHOT 快照信号、卡册排序权重与
 // 稀有度/亮度档。只放可独立测试的纯函数与常量；卡片 UI 留在 PerksPage.jsx。
 import {
-  PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_V1_CLAIMS_KEY,
+  PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_V1_CLAIMS_KEY, PERKS_BACKFILL_KEY,
   normalizePerkClaims, migrateLegacyPerkClaims,
 } from "../../lib/perks-claims.mjs";
 import { PERK_PROVIDERS } from "../../data/perksData.js";
@@ -36,6 +36,33 @@ export function writePerksClaims(claims) {
     return true;
   } catch {
     // 私密模式等存储不可用时静默降级：标记仅本次会话生效
+    return false;
+  }
+}
+
+// 装机前补录桶读写（{ schema: 1, cards: { [cardId]: "YYYY-MM-DD"(补录日) } }，
+// 语义与口径见 perks-claims.mjs）。损坏/异形载荷按空桶处理——补录只是收集
+// 标记，丢了不伤账本。归一化（剔除未知 id/未来日期）由调用方做。
+export function readPerkBackfill() {
+  try {
+    const raw = window?.localStorage?.getItem(PERKS_BACKFILL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const ok = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      && parsed.schema === 1
+      && parsed.cards && typeof parsed.cards === "object" && !Array.isArray(parsed.cards);
+    return ok ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writePerkBackfill(backfill) {
+  try {
+    window?.localStorage?.setItem(PERKS_BACKFILL_KEY, JSON.stringify(backfill));
+    return true;
+  } catch {
+    // 存储不可用时静默降级：标记仅本次会话生效
     return false;
   }
 }

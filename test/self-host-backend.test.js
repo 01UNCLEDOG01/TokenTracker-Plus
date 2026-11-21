@@ -560,3 +560,26 @@ test("the ingest refuses covered TRAE rows across batches and same-batch spans, 
   const summary=await instance.request("tokentracker-account-summary?from=2026-10-01&to=2026-10-01&tz=UTC",undefined,owner);
   assert.equal(summary.data.totals.total_tokens,3100); // 1000 + 800 + 700 + 600
 });
+
+test("account heatmap prices day cost at read time — the ~0 stored SUM slot is replaced (2026-11-21)",async()=>{
+  const owner=await instance.user();const device=await issue(owner,"Priced heat");
+  // qwen3.8-flash has a parity-pinned price card (input $0.15/M) and no
+  // source-conditional rules, so the expected day cost is exactly 0.15.
+  const buckets=[{...row(1_000_000),model:"qwen3.8-flash"}];
+  assert.equal((await upload(device.token,buckets)).response.status,200);
+  const dense=await instance.request("tokentracker-account-heatmap?weeks=4&to=2026-10-01&tz=UTC",undefined,owner);
+  assert.equal(dense.response.status,200,dense.data.error);
+  const cell=dense.data.weeks.flat().find((c)=>c.day==="2026-10-01");
+  assert.ok(cell,"2026-10-01 cell missing");
+  assert.ok(Math.abs(cell.total_cost_usd-0.15)<1e-9,
+    "priced slot should be $0.15, got "+cell.total_cost_usd);
+  // Same slot through the compact wire the dashboard actually consumes.
+  const compact=await instance.request("tokentracker-account-heatmap?weeks=4&to=2026-10-01&tz=UTC&format=compact",undefined,owner);
+  assert.equal(compact.response.status,200,compact.data.error);
+  const wireDay=compact.data.days.find((d)=>d[0]==="2026-10-01");
+  assert.ok(Math.abs(Number(wireDay[3])-0.15)<1e-9,
+    "compact 4th slot should be $0.15, got "+wireDay[3]);
+  // A day with no usage prices at 0 and keeps the grid shape intact.
+  const empty=dense.data.weeks.flat().find((c)=>c.day==="2026-09-24");
+  assert.equal(empty.total_cost_usd,0);
+});

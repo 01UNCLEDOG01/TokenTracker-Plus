@@ -225,41 +225,67 @@ function AlbumMiniCard({ item, cycle, collected, tier, streak, claimedNow, seale
 
 // 绝版展示柜（站主 2026-11-12「封装到玻璃柜」）：和还能领福利的卡分开陈列。
 // 玻璃质感 = 深色玻璃渐变 + 内阴影高光；绝版卡保持纸面 + 红章 + ×N。
-export function AlbumVitrine({ entries, flipKeys, onSealedClick }) {
-  if (!entries.length) return null;
+// 2026-11-21 扩口径：未收集的绝版卡默认仍不陈列（11-12 定谳不变），但标题栏
+// 多一枚「未收集 N 张」切换——绝版了哪些得有处可查（TokenHub 下架盖章案），
+// 展开后同一网格续接陈列，小字标「未收集」，点击同样进 sealedDetail 弹窗。
+export function AlbumVitrine({ entries, unclaimedEntries, flipKeys, onSealedClick }) {
+  const [showUncollected, setShowUncollected] = useState(false);
+  if (!entries.length && !(unclaimedEntries || []).length) return null;
+  const unclaimed = showUncollected ? (unclaimedEntries || []) : [];
   return (
     <div className="mb-8">
       <div className="perk-vitrine relative overflow-hidden rounded-2xl p-4">
         <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/70 dark:bg-white/25" aria-hidden />
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-oai-black dark:text-white">{copy("perks.album.vitrine")}</h2>
-          <span className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
-            {copy("perks.album.sealed_count", { count: entries.length })}
-          </span>
+          <div className="flex items-center gap-2">
+            {Boolean((unclaimedEntries || []).length) && (
+              <button
+                type="button"
+                onClick={() => setShowUncollected((current) => !current)}
+                aria-expanded={showUncollected}
+                className="rounded-md border border-oai-gray-200 px-2 py-0.5 text-[11px] font-medium text-oai-gray-500 transition hover:bg-oai-gray-100 hover:text-oai-black dark:border-oai-gray-700 dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-white"
+              >
+                {copy("perks.album.vitrine_uncollected", { count: unclaimedEntries.length })}
+              </button>
+            )}
+            <span className="text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
+              {copy("perks.album.sealed_count", { count: entries.length })}
+            </span>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
-          {entries.map((entry) => (
-            <div key={entry.item.id} className="flex flex-col items-center gap-1">
-              <AlbumMiniCard
-                item={entry.item}
-                collected={entry.collected}
-                tier={entry.tier}
-                streak={entry.streak}
-                claimedNow={entry.claimedNow}
-                sealed={entry.sealed}
-                rarity={entry.rarity}
-                faceValue={entry.faceValue}
-                onSealedClick={onSealedClick}
-                flipCount={flipKeys[entry.item.id] || 0}
-                showStreak={false}
-              />
-              {Boolean(entry.streak) && (
-                <span className="text-[10px] text-oai-gray-500 dark:text-oai-gray-400">
-                  {copy("perks.album.vitrine_claims", { count: entry.streak })}
+          {[...entries, ...unclaimed].map((entry) => {
+            // 小字说明先算好再渲染（ui-hardcode 扫描器会把 JSX 里的三元链误报
+            // 成 JSX 文本——用变量绕，同 PerkCard 的 function 表达式先例）。
+            const caption = entry.backfilled
+              ? { key: "perks.album.vitrine_backfill", cls: "text-[10px] font-medium text-emerald-600 dark:text-emerald-400", params: null }
+              : entry.streak
+                ? { key: "perks.album.vitrine_claims", cls: "text-[10px] text-oai-gray-500 dark:text-oai-gray-400", params: { count: entry.streak } }
+                : { key: "perks.album.vitrine_uncollected_chip", cls: "text-[10px] text-oai-gray-400 dark:text-oai-gray-500", params: null };
+            return (
+              <div key={entry.item.id} className="flex flex-col items-center gap-1">
+                <AlbumMiniCard
+                  item={entry.item}
+                  collected={entry.collected}
+                  tier={entry.tier}
+                  streak={entry.streak}
+                  claimedNow={entry.claimedNow}
+                  sealed={entry.sealed}
+                  rarity={entry.rarity}
+                  faceValue={entry.faceValue}
+                  onSealedClick={onSealedClick}
+                  flipCount={flipKeys[entry.item.id] || 0}
+                  showStreak={false}
+                />
+                <span className={caption.cls}>
+                  {caption.params
+                    ? copy(caption.key, caption.params)
+                    : copy(caption.key)}
                 </span>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

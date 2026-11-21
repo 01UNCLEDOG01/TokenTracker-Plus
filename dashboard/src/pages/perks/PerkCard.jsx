@@ -1,6 +1,6 @@
 // 详情大卡（从 PerksPage.jsx 拆出，2026-11-14）：福利卡的完整渲染——徽标、
 // 截止日、富文本描述、来源/反馈行、领取按钮与补记日期。
-import React, { useState } from "react";
+import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   Gift,
   ExternalLink,
@@ -120,18 +120,44 @@ function renderRichText(text) {
   });
 }
 
-/// 福利卡描述：超过 96 字默认收束到三行（点击展开/收起），短描述原样渲染。
-/// 展开状态留在卡片实例上——切页/筛选项变化重排时按新实例重置，可接受。
-function PerkCardDescription({ text }) {
+/// 福利卡描述：收束到三行，只在文本真被截断时出「展开全文」按钮（站主 2026-11-21：
+/// 旧版用 96 字符启发式，短描述也挂按钮、点开没变化，纯属画蛇添足）。
+/// 判定=布局实测：clamp 生效时 scrollHeight 是整段高度、clientHeight 是可见高度，
+/// 差值超过 1px 即有溢出；ResizeObserver 兜宽度变化重排。无布局引擎（jsdom 两值
+/// 皆 0）时退回旧的长度启发式，测试两条路径都可覆盖。展开状态留在卡片实例上——
+/// 切页/筛选项变化重排时按新实例重置，可接受。
+export function PerkCardDescription({ text }) {
   const [expanded, setExpanded] = useState(false);
-  const long = typeof text === "string" && text.length > 96;
-  const collapsed = long && !expanded;
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const textRef = useRef(null);
+
+  const measure = useCallback(() => {
+    const el = textRef.current;
+    if (!el) return;
+    if (el.scrollHeight === 0 && el.clientHeight === 0) {
+      // jsdom/无布局引擎：没有可测的几何，退回长度启发式。
+      setHasOverflow(typeof text === "string" && text.length > 96);
+      return;
+    }
+    setHasOverflow(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+
+  useLayoutEffect(() => {
+    if (expanded) return undefined; // 展开态 clamp 已摘，保留收起时的判定即可
+    measure();
+    if (!textRef.current || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(textRef.current);
+    return () => observer.disconnect();
+  }, [expanded, measure]);
+
   return (
     <div className="mt-3">
       <p
+        ref={textRef}
         className="text-xs leading-relaxed text-oai-gray-600 dark:text-oai-gray-300"
         style={
-          collapsed
+          !expanded
             ? {
                 display: "-webkit-box",
                 WebkitLineClamp: 3,
@@ -143,7 +169,7 @@ function PerkCardDescription({ text }) {
       >
         {renderRichText(text)}
       </p>
-      {long ? (
+      {hasOverflow ? (
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}

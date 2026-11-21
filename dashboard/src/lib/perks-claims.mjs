@@ -167,3 +167,33 @@ export function setPerkClaimDate(claims, item, cycle, date, today) {
   const row = { ...claims[item.id], [cycle]: { ...entry, last: date, cleared: undefined } };
   return { ...claims, [item.id]: row };
 }
+
+// ── 装机前补录（站主 2026-11-21）────────────────────────────────────────────
+// 福利在装 TT-plus 之前就领过的卡（下线前漏标的绝版卡是典型场景）：单独记一张
+// 「补录」桶，只解决玻璃柜的收集状态——不进 streak/稀有度/本月/今天还能领，
+// 也不进累计 ¥（金额账本以 TT-plus 实测领取为准）。刻意不挂进 normalizePerkClaims
+// 的 providers 形状（那里会丢弃未知字段），独立 key 存取；服务端同步时作为
+// perks_claims blob 的顶层兄弟键搭车（tokentracker-public-visibility 整包存储，
+// 旧客户端读 blob 时会忽略该键，安全）。
+export const PERKS_BACKFILL_KEY = "tokentracker.perks.backfill.v1";
+
+export function normalizePerkBackfill(value, providers) {
+  if (!isRecord(value) || value.schema !== 1 || !isRecord(value.cards)) return {};
+  const ids = new Set(providers.map((item) => item.id));
+  const today = getPerkClaimDay();
+  const rows = [];
+  for (const [id, date] of Object.entries(value.cards)) {
+    if (!ids.has(id) || !validDate(date) || date > today) continue;
+    rows.push([id, date]);
+  }
+  return Object.fromEntries(rows);
+}
+
+// 标记/撤销同一入口：已有补录则摘除（撤销），否则盖上当天日期。
+export function togglePerkBackfill(backfill, itemId, day) {
+  if (!validDate(day)) throw new TypeError("Invalid perk backfill date");
+  const cards = { ...(isRecord(backfill) ? backfill.cards : {}) };
+  if (cards[itemId]) delete cards[itemId];
+  else cards[itemId] = day;
+  return { schema: 1, cards };
+}

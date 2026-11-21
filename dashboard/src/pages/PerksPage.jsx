@@ -21,6 +21,7 @@ import {
   ALBUM_PAGE_SIZE, TIER_RANK, AIHOT_PROVIDER_TO_CARD, albumBrightnessTier,
   perkDaysLeft, cardRarity, buildAihotSignal, shouldSealByAihotDrop,
   readPerksClaims, writePerksClaims, buildPerksFeedbackUrl,
+  readPerkBackfill, writePerkBackfill,
 } from "./perks/album-data.js";
 import { PerkCard } from "./perks/PerkCard.jsx";
 import { AlbumStrip, AlbumVitrine, PerkTierLegend } from "./perks/AlbumCards.jsx";
@@ -30,6 +31,7 @@ import {
   getPerkClaimDay, nextPerkClaimDayDelay,
   getPerkClaimCycles, getPerkClaimDate, getPerkClaimStreak, isPerkClaimed, normalizePerkClaims,
   togglePerkClaim, setPerkClaimDate,
+  normalizePerkBackfill, togglePerkBackfill,
 } from "../lib/perks-claims.mjs";
 
 // 价值等级筛选：label 用函数包一层字面量 copy()，这样切语言时实时生效、
@@ -49,19 +51,29 @@ export function PerksPage() {
   const [claims, setClaims] = useState(() => readPerksClaims() ?? {});
   const [claimDay, setClaimDay] = useState(getPerkClaimDay);
   const unsavedClaims = useRef(null);
+  // 装机前补录（站主 2026-11-21）：独立桶，只驱动玻璃柜「已收集」状态，
+  // 不进连击/本月/累计金额口径；ref 镜像供同步闭包取最新值。
+  const [backfill, setBackfillState] = useState(() => normalizePerkBackfill(readPerkBackfill(), PERK_PROVIDERS));
+  const backfillRef = useRef(backfill);
+  const setBackfill = (next) => {
+    backfillRef.current = next;
+    setBackfillState(next);
+  };
   // 领取记录绑定账号（站主 2026-11-12）：登录态下与服务端同步。
   const auth = useInsforgeAuth();
   const claimsSyncAdopted = useRef(false);
   const claimsSyncBusy = useRef(false);
 
-  const pushClaimsToServer = (next) => {
+  const pushClaimsToServer = (next, nextBackfill) => {
     if (!auth?.signedIn || !auth?.getAccessToken || claimsSyncBusy.current) return;
     claimsSyncBusy.current = true;
     (async () => {
       try {
         const token = await auth.getAccessToken();
         if (!token) return;
-        await setPublicVisibility({ accessToken: token, perks_claims: { schema: 3, providers: next } });
+        // 补录桶搭 perks_claims blob 顶层便车（服务端整包存储 ≤200KB 不变）。
+        const blobBackfill = nextBackfill ?? backfillRef.current ?? {};
+        await setPublicVisibility({ accessToken: token, perks_claims: { schema: 3, providers: next, backfill: blobBackfill } });
       } catch { /* 静默：本地已保存 */ } finally {
         claimsSyncBusy.current = false;
       }
@@ -79,10 +91,19 @@ export function PerksPage() {
         const serverClaims = data?.perks_claims;
         if (!alive || !serverClaims || typeof serverClaims !== "object") return;
         const normalized = normalizePerkClaims(serverClaims, PERK_PROVIDERS);
-        if (!Object.keys(normalized).length) return;
+        // 补录桶随 blob 一起采纳（服务端优先，与领取记录同向；blob 无 backfill
+        // 键=旧客户端写入的载荷，保留本地不动）。
+        const serverBackfill = normalizePerkBackfill(serverClaims.backfill, PERK_PROVIDERS);
+        if (!Object.keys(normalized).length && !Object.keys(serverBackfill).length) return;
         claimsSyncAdopted.current = true;
-        setClaims(normalized);
-        writePerksClaims(normalized);
+        if (Object.keys(normalized).length) {
+          setClaims(normalized);
+          writePerksClaims(normalized);
+        }
+        if (Object.keys(serverBackfill).length) {
+          setBackfill(serverBackfill);
+          writePerkBackfill({ schema: 1, cards: serverBackfill });
+        }
       } catch { /* 服务端不可达时保持本地 */ }
     })();
     return () => { alive = false; };
@@ -248,6 +269,16 @@ export function PerksPage() {
     pushClaimsToServer(next);
   };
 
+  // 装机前补录（站主 2026-11-21）：绝版福利在装 TT-plus 之前就领过——标记/撤销
+  // 玻璃柜「已收集」状态，不进连击/金额口径；随 perks_claims blob 搭车云同步。
+  const toggleBackfill = (item) => {
+    const day = getPerkClaimDay();
+    const next = togglePerkBackfill({ schema: 1, cards: backfillRef.current }, item.id, day);
+    setBackfill(normalizePerkBackfill(next, PERK_PROVIDERS));
+    writePerkBackfill(next);
+    pushClaimsToServer(unsavedClaims.current ?? claims, next);
+  };
+
   const categoryCounts = useMemo(() => {
     const counts = { all: PERK_PROVIDERS.length };
     for (const cat of PERK_CATEGORIES) {
@@ -405,13 +436,16 @@ export function PerksPage() {
   }, [filteredItems, claims, claimDay, selectedCategory, aihotIndex, keepClaimedKey]);
 
   // 绝版展示柜（站主 2026-11-12：绝版卡「封装到玻璃柜」，和还能领的卡不混在
-  // 一起）：只陈列领到过的绝版卡，没领过的绝版按 AIHOT 规则不放出来。
+  // 一起）：主列只陈列领到过（或装机前补录过）的绝版卡，没领过的绝版默认不
+  // 放出来（11-12 定谳）；2026-11-21 站主扩口径——未收集列表随「未收集 N 张」
+  // 切换可查，否则像 TokenHub 被下架盖章的卡用户永远不知道绝版了哪些。
   // 主卡册 = 全量卡（绝版卡的日常形态也在卡册里——站主 2026-11-12 定谳：
   // 玻璃柜是同一张卡的「绝版形态」副本，日常卡仍可照常领取）。
   const stripItems = albumItems;
   // 玻璃柜独立于页面筛选（站主 2026-11-12：切换领取/分类筛选不应让绝版卡消失）。
-  const vitrineItems = useMemo(() => {
-    const items = [];
+  const vitrineData = useMemo(() => {
+    const collected = [];
+    const uncollected = [];
     for (const item of PERK_PROVIDERS) {
       const providers = PERKS_AIHOT_PROVIDERS[item.id];
       const sealed = item.retired === true
@@ -419,20 +453,24 @@ export function PerksPage() {
         || Boolean(providers && providers.some(function (provider) { return aihotIndex.dropped.has(provider); }));
       if (!sealed) continue;
       const streak = Math.max(...getPerkClaimCycles(item).map(function (cycle) { return getPerkClaimStreak(item, claims, cycle); }), 0);
-      if (streak <= 0) continue;
-      items.push({
+      const backfilled = Boolean(backfill[item.id]);
+      const entry = {
         item,
-        collected: true,
+        collected: streak > 0 || backfilled,
+        backfilled,
         tier: albumBrightnessTier(streak),
         rarity: null,
         streak,
         claimedNow: isPerkClaimed(item, claims, claimDay, "all"),
         sealed: true,
         faceValue: null,
-      });
+      };
+      if (entry.collected) collected.push(entry);
+      else uncollected.push(entry);
     }
-    return items;
-  }, [claims, claimDay, aihotIndex]);
+    return { collected, uncollected };
+  }, [claims, claimDay, aihotIndex, backfill]);
+  const vitrineItems = vitrineData.collected;
 
   // 行内领取后把视口带回卡册那张小卡（翻牌目标在页首）。
   useEffect(() => {
@@ -514,8 +552,14 @@ export function PerksPage() {
             vitrineCount={vitrineItems.length}
           />
 
-          {/* 绝版展示柜：独立于主卡册（站主 2026-11-12 玻璃柜方案） */}
-          <AlbumVitrine entries={vitrineItems} flipKeys={flipKeys} onSealedClick={setSealedDetail} />
+          {/* 绝版展示柜：独立于主卡册（站主 2026-11-12 玻璃柜方案）；未收集绝版
+              经「未收集 N 张」切换可查（站主 2026-11-21 扩口径） */}
+          <AlbumVitrine
+            entries={vitrineData.collected}
+            unclaimedEntries={vitrineData.uncollected}
+            flipKeys={flipKeys}
+            onSealedClick={setSealedDetail}
+          />
 
           {sealedDetail ? (
             <div
@@ -556,6 +600,35 @@ export function PerksPage() {
                     ) : null}
                   </div>
                 ) : null}
+                {/* 装机前补录（站主 2026-11-21）：福利下线前没来得及装 TT-plus 的
+                    用户也能把「我领过」标记出来——只动收集状态，不碰金额账本。 */}
+                <div className="mt-4 border-t border-oai-gray-200 pt-3 dark:border-oai-gray-800">
+                  {backfill[sealedDetail.id] ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+                        {copy("perks.album.vitrine_backfill")} · {backfill[sealedDetail.id]}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={function () { toggleBackfill(sealedDetail); }}
+                        className="rounded-md px-2 py-1 text-[11px] text-oai-gray-500 transition hover:bg-oai-gray-100 hover:text-oai-black dark:text-oai-gray-400 dark:hover:bg-oai-gray-800 dark:hover:text-white"
+                      >
+                        {copy("perks.album.backfill_undo")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={function () { toggleBackfill(sealedDetail); }}
+                      className="w-full rounded-lg border border-oai-gray-200 px-3 py-2 text-xs font-medium text-oai-gray-600 transition hover:bg-oai-gray-100 hover:text-oai-black dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 dark:hover:text-white"
+                    >
+                      {copy("perks.album.backfill_mark")}
+                    </button>
+                  )}
+                  <p className="mt-2 text-[10px] leading-relaxed text-oai-gray-400 dark:text-oai-gray-500">
+                    {copy("perks.album.backfill_note")}
+                  </p>
+                </div>
               </div>
             </div>
           ) : null}

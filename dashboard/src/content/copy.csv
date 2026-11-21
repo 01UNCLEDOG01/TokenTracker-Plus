@@ -2027,6 +2027,12 @@ perks.album.retired_until,ui,PerksPage,PerksPage,retired_until,This deal ended o
 perks.album.vitrine_close,ui,PerksPage,PerksPage,vitrine_close,Close,,active
 perks.album.vitrine_detail,ui,PerksPage,PerksPage,vitrine_detail,View retired deal details,,active
 perks.album.vitrine_claims,ui,PerksPage,PerksPage,vitrine_claims,Claimed {{count}} times,,active
+perks.album.vitrine_uncollected,ui,PerksPage,AlbumVitrine,vitrine_uncollected,"Uncollected {{count}}",,active
+perks.album.vitrine_uncollected_chip,ui,PerksPage,AlbumVitrine,vitrine_uncollected_chip,Uncollected,,active
+perks.album.vitrine_backfill,ui,PerksPage,PerksPage,vitrine_backfill,Backfilled,,active
+perks.album.backfill_mark,ui,PerksPage,PerksPage,backfill_mark,"Claimed before installing TT-plus? Backfill",,active
+perks.album.backfill_undo,ui,PerksPage,PerksPage,backfill_undo,Undo backfill,,active
+perks.album.backfill_note,ui,PerksPage,PerksPage,backfill_note,Backfill only marks the card as collected; it does not affect streaks, monthly or lifetime amounts (amounts come from claims actually made via TT-plus). The mark syncs with your account.,,active
 cloud.page.subtitle,ui,CloudPage,CloudPage,subtitle,Connect your own backend: self-hosted sync, the private leaderboard and multi-device data all run on your server.,active
 cloud.status.connected,ui,CloudPage,CloudPage,connected,Connected to your self-hosted backend,active
 cloud.status.checking,ui,CloudPage,CloudPage,checking,Checking connection…,active

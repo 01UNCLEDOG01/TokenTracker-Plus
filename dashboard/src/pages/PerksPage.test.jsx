@@ -9,7 +9,7 @@ import zhDashboard from "../content/i18n/zh/dashboard.json";
 import { PERK_PROVIDERS } from "../data/perksData.js";
 import { localizePerk } from "../data/perks-i18n-en.js";
 import { getCopyLocale } from "../lib/copy";
-import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
+import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_BACKFILL_KEY, getPerkClaimDay } from "../lib/perks-claims.mjs";
 
 const ORDERED_IDS = [
   "ace_music", "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling",
@@ -916,8 +916,11 @@ describe("PerksPage", () => {
     // 本文件的 copy mock 返回未插值模板（house style），所以断言模板文本
     expect(screen.getAllByText("还剩 {{days}} 天")).toHaveLength(withDeadline.length);
 
-    // 三张卡暂无过期（均为未来活动），所以统计头不出现「绝版」
-    expect(screen.queryByText(/^绝版 \{\{count\}\} 张$/)).not.toBeInTheDocument(); // 暂无过期活动
+    // 未来截止日的卡（qiniu 2026-11-30、devin 2026-12-05 等）不盖章、不进玻璃柜
+    //（连 2026-11-21 起「未收集」切换可见的未收集绝版列表也不进——绝版只认
+    // 已过期/retired/下架，未来截止日不误盖）
+    expect(document.querySelector('.perk-vitrine .perk-mini[data-perk-id="qiniu"]')).toBeNull();
+    expect(document.querySelector('.perk-vitrine .perk-mini[data-perk-id="devin"]')).toBeNull();
   });
 
   it("稀有度与绝版：等待态卡背按连击挂金档，活动过期即绝版（未领也盖章）并计数", () => {
@@ -953,5 +956,70 @@ describe("PerksPage", () => {
     // → 绝版卡移入玻璃柜独立陈列，纸面盖红章；统计头/玻璃柜各有一份计数
     expect(document.querySelector(".perk-seal")).toBeTruthy();
     expect(screen.getAllByText(/绝版 \{\{count\}\} 张/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("未收集切换：绝版未领的卡默认不陈列，点「未收集 N 张」才出现（站主 2026-11-21 扩口径）", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-12-06T10:00:00+08:00"));
+    // devin endsAt 2026-12-05（假时钟 12-06 已过期）→ 绝版；不种它的领取记录
+    // → 未收集绝版，默认不进玻璃柜网格
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: { qoder_cn: { daily: { last: "2026-12-05", count: 1 } } },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    const vitrine = document.querySelector(".perk-vitrine");
+    expect(vitrine).toBeTruthy();
+    // 默认：devin 不在玻璃柜网格里
+    expect(vitrine.querySelector('.perk-mini[data-perk-id="devin"]')).toBeNull();
+    // 点「未收集 {{count}} 张」切换 → devin 出现，小字「未收集」，可点进弹窗
+    fireEvent.click(screen.getByText("未收集 {{count}} 张"));
+    const devinMini = vitrine.querySelector('.perk-mini[data-perk-id="devin"]');
+    expect(devinMini).toBeTruthy();
+    expect(devinMini.closest("div").textContent).toContain("未收集");
+  });
+
+  it("装机前补录：弹窗标记 → 独立桶落盘 + 玻璃柜移入已收 + 金额口径不动 + 可撤销", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-12-06T10:00:00+08:00"));
+    localStorage.setItem("tokentracker.perks.claims.v3", JSON.stringify({
+      schema: 3,
+      providers: { qoder_cn: { daily: { last: "2026-12-05", count: 1 } } },
+    }));
+    render(
+      <ToastProvider>
+        <PerksPage />
+      </ToastProvider>
+    );
+
+    // 累计金额 = qoder_cn 日签 ¥7.2 ×1 → 展示 ¥7；补录不得改变它
+    expect(screen.getAllByText("¥7").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByText("未收集 {{count}} 张"));
+    const devinMini = document.querySelector('.perk-vitrine .perk-mini[data-perk-id="devin"]');
+    expect(devinMini).toBeTruthy();
+    fireEvent.click(devinMini);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("装 TT-plus 前领过？标记补录");
+
+    fireEvent.click(screen.getByText("装 TT-plus 前领过？标记补录"));
+    // 独立桶落盘（不动 claims 的 v3 桶）
+    const stored = JSON.parse(localStorage.getItem(PERKS_BACKFILL_KEY));
+    expect(stored).toEqual({ schema: 1, cards: { devin: "2026-12-06" } });
+    // 弹窗内出现补录 chip + 撤销按钮
+    expect(dialog.textContent).toContain("补录");
+    expect(screen.getByText("撤销补录")).toBeTruthy();
+    // 金额口径不受影响
+    expect(screen.getAllByText("¥7").length).toBeGreaterThan(0);
+
+    // 撤销 → 桶清空，卡回到未收集
+    fireEvent.click(screen.getByText("撤销补录"));
+    expect(localStorage.getItem(PERKS_BACKFILL_KEY)).toBe(JSON.stringify({ schema: 1, cards: {} }));
+    expect(document.querySelector('.perk-vitrine .perk-mini[data-perk-id="devin"]')).toBeTruthy();
   });
 });

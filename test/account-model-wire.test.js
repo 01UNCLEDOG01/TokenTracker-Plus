@@ -108,7 +108,14 @@ for (const endpoint of ["heatmap", "daily"]) {
       assert.deepEqual([...response.headers], [...previous.headers]);
       assert.equal(await response.text(), await previous.text());
     }
-    assert.equal(edge.calls.length, 1, "the existing in-process cache still avoids a second RPC");
+    // 2026-11-21 起热力图端点除网格 RPC 外还取 account_daily_wire 的 cost_dims
+    // 做读时定价（两个 RPC 共享同一条 30s Postgres 缓存扫描）；同进程缓存仍保证
+    // 第二次请求零新增 RPC。daily 端点维持单 RPC。
+    assert.deepEqual(edge.calls.map((call) => call.name),
+      endpoint === "heatmap"
+        ? ["account_heatmap_wire", "account_daily_wire"]
+        : ["account_daily_wire"],
+      "wire RPCs per request, all served from the in-process cache on repeat requests");
     assert.equal(edge.calls[0].name, `account_${endpoint}_wire`);
     assert.equal(legacy.calls[0].name, `account_${endpoint}_compact`);
     assert.deepEqual(JSON.parse(JSON.stringify(edge.calls[0].args)), JSON.parse(JSON.stringify(legacy.calls[0].args)));

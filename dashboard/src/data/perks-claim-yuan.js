@@ -18,8 +18,8 @@ export const PERKS_CLAIM_YUAN = {
   // 🔴 rose
   teleagent: { daily: 14.95 },      // 月最高 39,000 分 = ¥448.50 ÷30（月礼与日签同池，月领不重复计价）
   agentrouter: { daily: 102.88 },   // $25 × 56.9% 官牌算力 ≈¥102.88/日（审计 §1）
-  qoder_cn: { daily: 7.2 },         // ¥216/月 ÷30
-  qoder: { daily: 7.2 },
+  qoder_cn: { daily: 7.2 },         // ¥216/月 ÷30（2026-11-19 起官方对免费档停发每日领取，仅付费/试用期可领；历史领取照旧计）
+  qoder: { daily: 7.2 },            // 同上（国际版 2026-11-19 10:00 新加坡时区起收紧）
   amd_token_factory: { once: 216 }, // ≈¥216/月（永久免费直连）
   doubaowork: { daily: 6.48 },      // 200 额度 × ¥0.03238（审计 §5 直给）
   workbuddy: { daily: 4.95, monthly: 24.75 },       // 日签 100 分 × ¥0.0495；月 500 基础分
