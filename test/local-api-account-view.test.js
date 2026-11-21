@@ -350,6 +350,51 @@ test("account-view failures are briefly backed off so refresh fan-out stays resp
   }
 });
 
+test("a first transient failure gets a short cooldown; repeated failures escalate", async () => {
+  const queuePath = path.join(tmpHome, "queue.jsonl");
+  writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
+  const trackerDir = path.join(tmpHome, ".tokentracker", "tracker");
+  fs.writeFileSync(path.join(trackerDir, "relay-cookies.json"), JSON.stringify({
+    insforge_refresh_token: "insforge_refresh_token=refresh-flaky; Path=/; HttpOnly; SameSite=Lax",
+  }));
+
+  const realFetch = global.fetch;
+  const realNow = Date.now;
+  let now = 1_800_000_000_000;
+  let refreshCalls = 0;
+  global.fetch = async () => {
+    refreshCalls += 1;
+    throw new Error("offline");
+  };
+  Date.now = () => now;
+  try {
+    const handler = freshHandler(queuePath);
+    const endpoint = "/functions/tokentracker-usage-summary?from=2026-04-20&to=2026-04-20&account=1";
+    const first = await call(handler, { endpoint });
+    assert.equal(first._headers["x-tokentracker-account-fallback"], "transient-network");
+    assert.equal(refreshCalls, 1);
+
+    now += 1_000;
+    const immediate = await call(handler, { endpoint });
+    assert.equal(immediate._headers["x-tokentracker-account-fallback"], "transient-backoff");
+    assert.equal(refreshCalls, 1, "the short cooldown must absorb the rest of the fan-out");
+
+    now += 11_000;
+    const retry = await call(handler, { endpoint });
+    assert.equal(retry._headers["x-tokentracker-account-fallback"], "transient-network");
+    assert.equal(refreshCalls, 2, "a one-off hiccup must be retried after the short window");
+
+    now += 1_000;
+    const repeated = await call(handler, { endpoint });
+    assert.equal(repeated._headers["x-tokentracker-account-fallback"], "transient-backoff");
+    assert.equal(refreshCalls, 2, "a repeated failure must escalate to the long window");
+  } finally {
+    global.fetch = realFetch;
+    Date.now = realNow;
+  }
+});
+
 test("concurrent account-view fan-out shares one pending cloud probe", async () => {
   const queuePath = path.join(tmpHome, "queue.jsonl");
   writeQueue(queuePath, [SAMPLE_ROW]);

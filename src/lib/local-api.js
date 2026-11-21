@@ -32,7 +32,16 @@ const SYNC_TIMEOUT_MS = 120_000;
 // while an expired session or unreachable backend keeps timing out. The first
 // request still falls back normally; subsequent fan-out requests reuse that
 // decision for a short cooldown and return local data immediately.
+// Startup hiccups (backend cold start, one 502) used to trigger the full
+// two-minute window and keep the "cloud summary unreachable" note on screen
+// long after the cloud had recovered (owner report 2026-11-20). Give a first
+// transient failure only a short breathing space; escalate to the long window
+// when the same session keeps failing.
+const ACCOUNT_VIEW_FIRST_FAILURE_BACKOFF_MS = 10_000;
 const ACCOUNT_VIEW_FAILURE_BACKOFF_MS = 2 * 60_000;
+// A failure after a healthy stretch is a fresh hiccup, not part of the last
+// outage, so it starts from the short window again.
+const ACCOUNT_VIEW_FAILURE_RETRY_WINDOW_MS = 60_000;
 const TRACKER_BIN = path.resolve(__dirname, "../../bin/tracker.js");
 const MAX_DEVICE_NAME_LENGTH = 128;
 
@@ -2927,14 +2936,20 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
   }
 
   function accountViewFailureUntil(failureKey) {
-    const until = accountViewFailures.get(failureKey) || 0;
-    if (until > Date.now()) return until;
-    if (until) accountViewFailures.delete(failureKey);
+    const entry = accountViewFailures.get(failureKey);
+    if (!entry) return 0;
+    if (entry.until > Date.now()) return entry.until;
     return 0;
   }
 
   function rememberAccountViewFailure(failureKey) {
-    accountViewFailures.set(failureKey, Date.now() + ACCOUNT_VIEW_FAILURE_BACKOFF_MS);
+    const now = Date.now();
+    const previous = accountViewFailures.get(failureKey);
+    const consecutive = previous && now - previous.lastAt <= ACCOUNT_VIEW_FAILURE_RETRY_WINDOW_MS
+      ? previous.count + 1
+      : 1;
+    const until = now + (consecutive >= 2 ? ACCOUNT_VIEW_FAILURE_BACKOFF_MS : ACCOUNT_VIEW_FIRST_FAILURE_BACKOFF_MS);
+    accountViewFailures.set(failureKey, { until, count: consecutive, lastAt: now });
     // Refresh-token rotation or account switching can produce many keys over a
     // long-lived tray session. Bound the map without affecting the active key.
     while (accountViewFailures.size > 16) {
@@ -3363,6 +3378,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
         throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed" });
       }
       if (out.data == null) {
+        console.warn(`[LocalAPI] account view fallback (transient-upstream) for ${usageSlug}: empty cloud payload`);
         rememberAccountViewFailure(failureKey);
         return "transient-upstream";
       }
@@ -3421,9 +3437,11 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       // erroring, but say so: this is a *temporary* downgrade and the client
       // must not treat it as the user's real data scope.
       const reason = classifyAccountFallback(e);
-      if (getRuntime().debug) {
-        console.warn(`[LocalAPI] account view fallback (${reason}) for ${usageSlug}:`, e?.message || e);
-      }
+      // Only the first slug of a fan-out reaches this catch — the rest are
+      // short-circuited by the cooldown — so one line per outage is enough.
+      // Keeping it unconditional makes the next "cloud summary unreachable"
+      // report diagnosable without asking the owner to flip a debug flag.
+      console.warn(`[LocalAPI] account view fallback (${reason}) for ${usageSlug}:`, e?.message || e);
       rememberAccountViewFailure(failureKey);
       return reason;
     }
