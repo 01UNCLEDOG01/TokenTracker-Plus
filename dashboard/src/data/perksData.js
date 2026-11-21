@@ -1225,10 +1225,10 @@ export const PERK_PROVIDERS = [
     "description": "阿里通义系的 Qoder 国内版（官网 qoder.cn）。**2026-11-19 10:00 起官方调整每日领取资格：每日 10:00 之后主动领取 100 通用 Credits（自到账起 30 天有效）不再对体验版（免费）用户开放，仅专业版/高级版/旗舰版个人订阅、会员卡与试用期用户可领**（官方活动页变更记录，2026-11-21 核对）；已领 Credits 30 天内照常可用。新人下载登录送 **300 Credits + 两周 Pro 试用**（高级模型要在 14 天 Pro 试用期内用）；⚠️ **免费模型已下架（原「Qoduck 每日限免」已结束，2026-11-13 站主核实），免费档现在既无免费模型、每日积分也已停发；且响应很慢、经常排队，几乎用不动**——实际只能当备用，别当主力。**邀请活动 2026-11-11 已恢复**（端内活动页核实，三重好礼）：好友注册并下载 Qoder 后 7 天内完成一次对话或任务你得 **50 Credits**；好友注册后 7 天内累计 3 天完成对话或任务你得 **100 Credits**；好友注册后 30 天内完成首次订阅你得 **1,000 Credits**（好友另得 500）。",
     "tips": "⚠️ 当前已无免费模型；每日 100 Credits 自 2026-11-19 10:00 起仅付费订阅/会员卡/试用期用户可领（官方活动页变更记录），免费档停发；生成排队严重、可用性差，仅作防衰减备份。国内网络直连低延迟，官方 CLI 与 TokenTracker 的 Qoder CN 卡片都能读到实时额度，无需手动填 token；错过 10:00 时段不补发，赠额自到账起 30 天有效；邀请奖励在活动页「邀请好友接着赚」进度查看。速度与排队：2026-11-12 站主实测**速度特别慢、最近用的人多、高峰时段经常排队**，赶时间的任务建议错峰或搭配其他路由。",
     "officialUrl": "https://qoder.cn",
-    "inviteUrl": "https://qoder.cn/activities?referral_code=4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
-    "inviteCode": "4AeeJV7RcGt85vY11RcIA0Hce70qQ3dG",
+    "inviteUrl": "https://qoder.cn/activities?referral_code=HdkSxlgqvcG8KQzL1ZE8FqPbMxMkbqU5",
+    "inviteCode": "HdkSxlgqvcG8KQzL1ZE8FqPbMxMkbqU5",
     "hasInvite": true,
-    "checkedAt": "2026-11-21",
+    "checkedAt": "2026-11-22",
     "sourceUrl": "https://docs.qoder.cn/events/100credits"
   },
   {
