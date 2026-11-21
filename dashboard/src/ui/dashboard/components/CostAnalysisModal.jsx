@@ -1,6 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { X } from "lucide-react";
-import React, { useMemo } from "react";
+import { ChevronDown, X } from "lucide-react";
+import React, { useMemo, useState } from "react";
 import { copy } from "../../../lib/copy";
 import { formatCompactNumber, formatUsdCurrency, toFiniteNumber } from "../../../lib/format";
 import { useCurrency } from "../../../hooks/useCurrency.js";
@@ -32,6 +32,16 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
   fleetData = [],
 }) {
   const { currency, rate } = useCurrency();
+  // 分组收束（站主 2026-11-21）：模型用得多的人一张软件组就是几十行，列表
+  // 长到没法看。默认收束到「软件名+费用小计」一行（组按费用降序，形状一眼
+  // 可见），点分组头展开该组的模型清单；每个模型行内的定价明细展开不受影响。
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+  const toggleGroup = (key) => setExpandedGroups((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
 
   // Memoized so parent re-renders don't re-walk fleetData each tick
   const normalizedFleet = useMemo(() => {
@@ -134,6 +144,8 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
 
                   {normalizedFleet.map((fleet, index) => {
                     const rowGroupId = `fleet-${index}`;
+                    const groupKey = `${fleet.label}-${index}`;
+                    const expanded = expandedGroups.has(groupKey);
                     return (
                       <div
                         key={`${fleet.label}-${index}`}
@@ -141,16 +153,24 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
                         aria-labelledby={rowGroupId}
                         className={index > 0 ? "mt-5" : "mt-2"}
                       >
-                        <div
-                          role="row"
-                          className="flex items-center justify-between gap-4 py-2"
+                        <button
+                          type="button"
+                          id={rowGroupId}
+                          onClick={() => toggleGroup(groupKey)}
+                          aria-expanded={expanded}
+                          aria-controls={`${rowGroupId}-models`}
+                          className="flex w-full items-center justify-between gap-4 py-2 text-left"
                         >
-                          <span
-                            id={rowGroupId}
-                            role="rowheader"
-                            className="flex-1 min-w-0 text-body-sm font-semibold text-oai-black dark:text-oai-white truncate leading-none"
-                          >
-                            {fleet.label}
+                          <span className="flex min-w-0 flex-1 items-center gap-1 text-body-sm font-semibold text-oai-black dark:text-oai-white leading-none">
+                            <ChevronDown
+                              size={14}
+                              strokeWidth={2}
+                              aria-hidden
+                              className={expanded
+                                ? "shrink-0 text-oai-gray-400 transition-transform"
+                                : "shrink-0 -rotate-90 text-oai-gray-400 transition-transform"}
+                            />
+                            <span className="truncate">{fleet.label}</span>
                           </span>
                           <span
                             role="cell"
@@ -158,8 +178,9 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
                           >
                             {fleet.costLabel || "—"}
                           </span>
-                        </div>
+                        </button>
 
+                        <div id={`${rowGroupId}-models`} hidden={!expanded}>
                         {fleet.models.map((model, mi) => (
                           <div
                             key={model.id || `${model.name}-${mi}`}
@@ -184,6 +205,7 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
                             </span>
                           </div>
                         ))}
+                        </div>
                       </div>
                     );
                   })}
