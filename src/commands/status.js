@@ -191,6 +191,41 @@ function formatTraeEntitlementLine(ent) {
   return parts.length ? parts.join(", ") : "unknown";
 }
 
+// 三态用量门禁（2026-11-22）：会话仍在进行但官方 transcript 连续 3 个完整日
+// 无新用量行的源（State A「源断供」）。只读会话索引旁路（session.queue.jsonl）
+// 与用量队列的流式抽取——不整载队列（可达数百 MB）、零上游请求。认证失效是
+// 各额度卡自己的错误态，这里永不混报（判据解耦，见 src/lib/source-usage-gap.js
+// 头注）。索引滞后超 24h 如实标注，避免把陈旧索引误读成「无活动」。
+async function collectUsageGapStatusLines({ trackerDir } = {}) {
+  try {
+    const {
+      computeSourceUsageGapsFromSets,
+      collectDaySets,
+      scanQueueUsageDays,
+      shortDay,
+    } = require("../lib/source-usage-gap");
+    const { readSessionSidecar } = require("../lib/session-analytics");
+    const sidecarPath = path.join(trackerDir, "session.queue.jsonl");
+    const activityBySource = collectDaySets(readSessionSidecar(sidecarPath), "ended_at", {});
+    const usageBySource = await scanQueueUsageDays(path.join(trackerDir, "queue.jsonl"), {});
+    const gaps = computeSourceUsageGapsFromSets({ activityBySource, usageBySource });
+    if (gaps.length === 0) return [];
+    let staleness = "";
+    try {
+      const ageMs = Date.now() - fssync.statSync(sidecarPath).mtimeMs;
+      if (ageMs > 24 * 60 * 60_000) {
+        staleness = ` (session index ${Math.round(ageMs / 3_600_000)}h old; results may lag)`;
+      }
+    } catch { /* no sidecar → gaps would already be empty */ }
+    return gaps.map(
+      (gap) =>
+        `- Usage gap: ${gap.source} — sessions still active, but official transcripts stopped reporting usage after ${shortDay(gap.last_usage_day)}${staleness}`,
+    );
+  } catch {
+    return [];
+  }
+}
+
 async function cmdStatus(argv = []) {
   const opts = parseArgs(argv);
   if (opts.diagnostics) {
@@ -1295,6 +1330,10 @@ async function cmdStatus(argv = []) {
     return;
   }
 
+  // 用量缺口节（三态门禁）：只进人读主路径（--json/--light 已在上面早退，
+  // 不为它们白付一次队列流扫）；失败静默为空数组，门禁故障不能拖垮 status。
+  const usageGapStatusLines = await collectUsageGapStatusLines({ trackerDir });
+
   process.stdout.write(
     [
       `TokenTracker v${pkg.version}`,
@@ -1483,6 +1522,7 @@ async function cmdStatus(argv = []) {
           `- Passive mode: ${passive.length} provider${passive.length !== 1 ? "s" : ""} reading logs without hooks (${passive.map((p) => `${p.name}: ${p.hook_failure_reason || "hook unset"}`).join("; ")})`,
         ];
       })(),
+      ...usageGapStatusLines,
       grokInstalled
         ? `- Grok Build (xAI): ${grokHookState.configured ? "hook installed" : "detected"} (${grokSessions.length} session${grokSessions.length !== 1 ? "s" : ""} found, hook: ${grokHookState.configured ? "yes" : "no"})`
         : null,

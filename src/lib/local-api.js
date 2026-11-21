@@ -6077,7 +6077,33 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           devinEnabled,
           hiddenProviders,
         });
-        json(res, data);
+        // 三态用量门禁（2026-11-22，案例=Qoder CN 11-02 断供）：只做加法——
+        // usage_gaps 是纯增量字段，判定只读会话索引（session.queue.jsonl 旁路
+        // 直读，冷侧 ~60s 的完整扫描不进请求路径）与本机用量队列；会话索引
+        // 滞后 >15min 时后台补一次构建（TTL 内自动去重），下次取数自愈。
+        // 门禁任何异常都不得拖垮限额载荷。
+        let usageGaps = null;
+        try {
+          const tzCtx = getTimeZoneContext(url);
+          const { computeSourceUsageGaps } = require("./source-usage-gap");
+          const { buildSessionAnalytics, readSessionSidecar } = require("./session-analytics");
+          const sidecarPath = path.join(path.dirname(qp), "session.queue.jsonl");
+          const gaps = computeSourceUsageGaps({
+            sessions: readSessionSidecar(sidecarPath),
+            queueRows: await loadSessionQueueRows(),
+            timeZone: tzCtx.timeZone,
+            offsetMinutes: tzCtx.offsetMinutes,
+          });
+          let sidecarStale = true;
+          try {
+            sidecarStale = Date.now() - fs.statSync(sidecarPath).mtimeMs > 15 * 60_000;
+          } catch { /* 无 sidecar 视为陈旧 */ }
+          if (sidecarStale) void buildSessionAnalytics({ force: false }).catch(() => {});
+          usageGaps = gaps;
+        } catch (gapError) {
+          console.warn("[LocalAPI] usage gap gate failed:", gapError?.message || gapError);
+        }
+        json(res, usageGaps ? { ...data, usage_gaps: usageGaps } : data);
       } catch (e) {
         json(res, { error: e?.message || "Unknown error" }, 500);
       }

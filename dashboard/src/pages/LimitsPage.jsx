@@ -5,6 +5,7 @@ import { Bell, BellOff, RefreshCw, Settings as SettingsIcon } from "lucide-react
 import { useUsageLimits } from "../hooks/use-usage-limits";
 import { useLimitsDisplayPrefs } from "../hooks/use-limits-display-prefs.js";
 import { copy, getCopyLocale } from "../lib/copy";
+import { sessionSourceLabel, shortUsageDay } from "../lib/session-source-labels";
 import { LimitsPageSkeleton } from "../components/LimitsPageSkeleton.jsx";
 import { UsageLimitsPanel } from "../ui/dashboard/components/UsageLimitsPanel.jsx";
 import { LocalOnlyNotice } from "../components/LocalOnlyNotice.jsx";
@@ -124,6 +125,28 @@ export function LimitsPage() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [refreshNotice, setRefreshNotice] = React.useState(null);
 
+  // 三态用量门禁（2026-11-22）：后端在限额载荷里附加的「源断供」清单——
+  // 会话仍在进行但官方 transcript 连续 3 个完整日没有新用量行。展示与
+  // refreshNotice 解耦：断供是持久状态，不随手动刷新出现/消失。
+  const usageGaps = React.useMemo(
+    () => (Array.isArray(usageLimits?.usage_gaps) ? usageLimits.usage_gaps : []),
+    [usageLimits],
+  );
+  const usageGapSources = React.useMemo(() => {
+    if (usageGaps.length === 0) return "";
+    return usageGaps
+      .map((gap) =>
+        copy("limits.page.usage_gap_item", {
+          name: sessionSourceLabel(gap?.source),
+          date: shortUsageDay(gap?.last_usage_day),
+        }),
+      )
+      .join(copy("limits.page.usage_gap_join"));
+  }, [usageGaps]);
+  // ui-hardcode 扫描器把 JSX 表达式里的 ASCII 大于号误报成 JSX 文本（台账
+  // 在册误报），布尔值预计算到组件体里绕开。
+  const hasUsageGaps = usageGaps.length > 0;
+
   const handleManualRefresh = React.useCallback(async () => {
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
@@ -226,6 +249,11 @@ export function LimitsPage() {
           {refreshNotice?.kind === "failed" ? (
             <p role="status" className="mb-4 text-sm text-amber-600 dark:text-amber-400">
               {copy("limits.page.refresh_failed")}
+            </p>
+          ) : null}
+          {hasUsageGaps ? (
+            <p role="status" className="mb-4 text-sm text-amber-600 dark:text-amber-400">
+              {copy("limits.page.usage_gap", { sources: usageGapSources })}
             </p>
           ) : null}
 

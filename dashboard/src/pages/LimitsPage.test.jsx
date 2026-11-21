@@ -325,4 +325,76 @@ describe("LimitsPage", () => {
     expect(screen.getByText(/Limits updated/)).toBeInTheDocument();
     expect(screen.queryByText("Refreshing limits…")).not.toBeInTheDocument();
   });
+
+  it("renders the usage gap banner when the payload carries usage_gaps", () => {
+    useUsageLimitsMock.mockImplementation(() => ({
+      data: {
+        ...apiLimits,
+        usage_gaps: [
+          {
+            source: "qoder-cn",
+            last_usage_day: "2026-11-02",
+            last_activity_day: "2026-11-21",
+            window_days: 3,
+            window_activity_day_count: 3,
+            baseline_day_count: 40,
+          },
+        ],
+      },
+      error: null,
+      isLoading: false,
+      refresh: refreshLimitsMock,
+    }));
+
+    render(
+      <MemoryRouter>
+        <LimitsPage />
+      </MemoryRouter>,
+    );
+
+    const banner = screen.getByText(/Usage gap:/);
+    expect(banner).toBeInTheDocument();
+    // 源显示名走 session-source-labels（命名基准=SessionsPage 筛选项），
+    // 日期走 MM-DD 短格式——两者都是横幅可读性的合同。
+    expect(banner).toHaveTextContent("Qoder CN (since 11-02)");
+  });
+
+  it("does not render the usage gap banner when the payload has none", () => {
+    render(
+      <MemoryRouter>
+        <LimitsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(/Usage gap:/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the raw source id for an unregistered gap source", () => {
+    useUsageLimitsMock.mockImplementation(() => ({
+      data: {
+        ...apiLimits,
+        usage_gaps: [
+          {
+            source: "some-new-source",
+            last_usage_day: "2026-11-02",
+            last_activity_day: "2026-11-21",
+            window_days: 3,
+            window_activity_day_count: 3,
+            baseline_day_count: 40,
+          },
+        ],
+      },
+      error: null,
+      isLoading: false,
+      refresh: refreshLimitsMock,
+    }));
+
+    render(
+      <MemoryRouter>
+        <LimitsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/some-new-source \(since 11-02\)/)).toBeInTheDocument();
+  });
 });

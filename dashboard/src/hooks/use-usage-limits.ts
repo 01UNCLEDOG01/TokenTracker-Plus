@@ -86,8 +86,21 @@ type CodexUsageLimits = {
   readonly reset_credits?: CodexResetCredits | null;
 };
 
+// 三态用量门禁（2026-11-22）：后端 usage-limits 端点附加的纯增量字段——
+// 「源断供」态的来源清单（会话仍在进行但官方 transcript 连续 3 个完整日
+// 没有新的用量行）。认证失效/无使用两态不由该字段表达。
+export type UsageGap = {
+  readonly source: string;
+  readonly last_usage_day: string | null;
+  readonly last_activity_day: string | null;
+  readonly window_days: number;
+  readonly window_activity_day_count: number;
+  readonly baseline_day_count: number;
+};
+
 interface UsageLimitsData {
   fetched_at: string;
+  usage_gaps?: readonly UsageGap[];
   claude: { configured: boolean; error?: string | null; plan_label?: string | null; auth_action_required?: string | null; five_hour?: { utilization: number; resets_at?: string }; seven_day?: { utilization: number; resets_at?: string }; seven_day_opus?: { utilization: number; resets_at?: string } | null; extra_usage?: { is_enabled: boolean; monthly_limit?: number | null; used_credits?: number | null; currency?: string | null } | null };
   codex: CodexUsageLimits;
   cursor: { configured: boolean; error?: string | null; plan_label?: string | null; membership_type?: string | null; primary_window?: { used_percent: number; reset_at?: string | null; limit_window_seconds?: number | null } | null; secondary_window?: { used_percent: number; reset_at?: string | null; limit_window_seconds?: number | null } | null; tertiary_window?: { used_percent: number; reset_at?: string | null; limit_window_seconds?: number | null } | null; quaternary_window?: { used_percent: number; reset_at?: string | null; limit_window_seconds?: number | null } | null };
