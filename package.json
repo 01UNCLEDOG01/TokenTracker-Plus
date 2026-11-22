@@ -40,6 +40,7 @@
     "validate:readme": "node scripts/validate-readme-stats.cjs",
     "validate:docs": "node scripts/validate-doc-facts.cjs",
     "validate:perks": "node scripts/validate-perks-data.cjs",
+    "validate:about": "node scripts/validate-about-gate.cjs",
     "validate:copy": "node scripts/validate-copy-registry.cjs",
     "validate:locale": "node scripts/validate-locale-coverage.cjs",
     "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs",

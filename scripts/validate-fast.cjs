@@ -29,6 +29,7 @@ const STEPS = [
   ["validate:art", "scripts/validate-art-versions.cjs"],
   ["validate:docs", "scripts/validate-doc-facts.cjs"],
   ["validate:perks", "scripts/validate-perks-data.cjs"],
+  ["validate:about", "scripts/validate-about-gate.cjs"],
 ];
 
 function run() {
