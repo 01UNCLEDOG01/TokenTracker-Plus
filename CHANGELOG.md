@@ -6,10 +6,14 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.42.1] - 2026-11-23
+
+- **新增：Google Antigravity Orchestrator (Argon) 定价映射**。Antigravity 的 orchestrator 模式按 Gemini 4 Argon 刊例标价（输入 $2/M、输出 $10/M、缓存读 $0.10/M）记账，避免在面板与账户汇总中显示为未定价。
+- **新增：Agnes 3.0 Flash 刊例定价与福利卡片更新**。登记 Agnes 3.0 Flash 官方牌价（输入 $0.05/M、输出 $0.15/M），福利指南提示 Agnes 2.5 Flash 即将下线（2026-11-30）并引导迁移至 3.0。
+
 ## [1.42.0] - 2026-11-22
 
 - **新增：五款 AI 编码工具的会话采集**。T3 Code（通过 antigravity-acp 配置使用 Google Antigravity 的会话自动发现）、DeepAI Code（内嵌 pi 的会话日志）、Junie（JetBrains 官方编码 agent）、OpenCodeReview、Amp（Sourcegraph）——本地工具数 55 → 59。判定与接入方式均来自公开参考实现（上游 TT #1124/#1133 与 MIT 开源的 tokscale/TM 解析器），模型单价照常走价表，未公开价格只记 token 不编金额。
-- **新增：Google Antigravity Orchestrator (Argon) 定价映射**。Antigravity 的 orchestrator 模式按 Gemini 4 Argon 刊例标价（输入 $2/M、输出 $10/M、缓存读 $0.10/M）记账，避免在面板与账户汇总中显示为未定价。
 - **变更：面板与 mac 菜单栏打开时默认显示「今日」消耗**（此前默认「本月」，切换器照常可手动改周期）。
 - 发布物：`TokenTracker-plus-Setup-v1.42.0.exe` / `TokenTracker-plus-1.42.0-win-x64.zip`（Windows，构建树 105148f）；`TokenTracker-plus-1.42.0.dmg` / `TokenTracker-plus-macos-universal-1.42.0.zip`（macOS，mac 会话按同一 tag 打制；SHA-256 见 Release 校验段）。
 ## [1.41.0] - 2026-11-22
