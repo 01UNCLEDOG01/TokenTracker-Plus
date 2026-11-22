@@ -408,6 +408,7 @@ test("matcher: Antigravity model normalization keeps the generation-specific id"
     "antigravity-gpt-oss-120b",
   );
   assert.notEqual(matcher.normalizeAntigravityModel("gpt-oss-20b"), "gpt-4o");
+  assert.equal(matcher.normalizeAntigravityModel("Orchestrator (Argon)"), "antigravity-orchestrator");
 });
 
 test("matcher: Antigravity prices 3.8 Flash at its own SKU, not the 2.5 shim", () => {
@@ -585,6 +586,17 @@ test("index: Antigravity gemini-4-argon backend variants inherit the published A
   const base = pricing.getModelPricingInfo("gemini-4-argon", { source: "antigravity" });
   assert.equal(base.status, "priced");
   assert.equal(base.input, expected.input);
+});
+
+test("index: Antigravity orchestrator (argon) resolves to gemini-4-argon rate", () => {
+  const expected = { input: 2, output: 10, cache_read: 0.1 };
+  for (const model of ["antigravity-orchestrator", "antigravity-orchestrator-argon", "Orchestrator (Argon)"]) {
+    const info = pricing.getModelPricingInfo(model, { source: "antigravity" });
+    assert.equal(info.status, "priced", `${model} should be priced`);
+    assert.equal(info.input, expected.input, `${model} input`);
+    assert.equal(info.output, expected.output, `${model} output`);
+    assert.equal(info.cache_read, expected.cache_read, `${model} cache_read`);
+  }
 });
 
 test("pricing: Gemini 4 Carbon/Hydrogen + Muse Wonder SKUs price with effort suffixes (upstream TT v1.5.22 c58cf51)", () => {

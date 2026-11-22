@@ -308,6 +308,20 @@
       "cache_write": 0,
       "note": "Google Gemini 4 Argon introductory list rate (through 2026-11-30) matching Cursor Other Models pool: $2/M input, $0.10/M cached input, $10/M output. Effort suffixes (-high/-medium/-low/-minimal) are stripped by normalizeCursorModel. Sources: https://cursor.com/docs/models-and-pricing and https://ai.google.dev/gemini-api/docs/pricing"
     },
+    "antigravity-orchestrator": {
+      "input": 2,
+      "output": 10,
+      "cache_read": 0.1,
+      "cache_write": 0,
+      "note": "Google Antigravity Orchestrator (Argon) list rate: $2/M input, $0.10/M cached input, $10/M output. Maps to Gemini 4 Argon list rate."
+    },
+    "antigravity-orchestrator-argon": {
+      "input": 2,
+      "output": 10,
+      "cache_read": 0.1,
+      "cache_write": 0,
+      "note": "Google Antigravity Orchestrator (Argon) list rate: $2/M input, $0.10/M cached input, $10/M output. Maps to Gemini 4 Argon list rate."
+    },
     "gemini-4-carbon": {
       "input": 2,
       "output": 10,
@@ -1011,6 +1025,10 @@
     }
   },
   "alias": {
+    "antigravity-orchestrator": "gemini-4-argon",
+    "antigravity-orchestrator-argon": "gemini-4-argon",
+    "orchestrator": "gemini-4-argon",
+    "orchestrator-argon": "gemini-4-argon",
     "auto": "composer-1",
     "ox-alpha": "glm-5.3-flash",
     "x-preview-f-free": "glm-5.3-flash",

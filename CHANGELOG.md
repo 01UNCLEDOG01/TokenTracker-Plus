@@ -9,6 +9,7 @@
 ## [1.42.0] - 2026-11-22
 
 - **新增：五款 AI 编码工具的会话采集**。T3 Code（通过 antigravity-acp 配置使用 Google Antigravity 的会话自动发现）、DeepAI Code（内嵌 pi 的会话日志）、Junie（JetBrains 官方编码 agent）、OpenCodeReview、Amp（Sourcegraph）——本地工具数 55 → 59。判定与接入方式均来自公开参考实现（上游 TT #1124/#1133 与 MIT 开源的 tokscale/TM 解析器），模型单价照常走价表，未公开价格只记 token 不编金额。
+- **新增：Google Antigravity Orchestrator (Argon) 定价映射**。Antigravity 的 orchestrator 模式按 Gemini 4 Argon 刊例标价（输入 $2/M、输出 $10/M、缓存读 $0.10/M）记账，避免在面板与账户汇总中显示为未定价。
 - **变更：面板与 mac 菜单栏打开时默认显示「今日」消耗**（此前默认「本月」，切换器照常可手动改周期）。
 - 发布物：`TokenTracker-plus-Setup-v1.42.0.exe` / `TokenTracker-plus-1.42.0-win-x64.zip`（Windows，构建树 105148f）；`TokenTracker-plus-1.42.0.dmg` / `TokenTracker-plus-macos-universal-1.42.0.zip`（macOS，mac 会话按同一 tag 打制；SHA-256 见 Release 校验段）。
 ## [1.41.0] - 2026-11-22

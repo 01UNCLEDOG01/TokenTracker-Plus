@@ -55,6 +55,7 @@ function normalizeAntigravityModel(model) {
     return lower.replace(/^claude-(sonnet|opus|haiku)-4\.(\d+)/, "claude-$1-4-$2");
   }
   if (lower.startsWith("gpt-oss-120b")) return "antigravity-gpt-oss-120b";
+  if (lower === "orchestrator" || lower === "antigravity-orchestrator" || (lower.includes("orchestrator") && lower.includes("argon"))) return "antigravity-orchestrator";
 
   return lower;
 }

@@ -284,6 +284,8 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "composer-2.5-fast": { input: 3, output: 15, cache_read: 0.5 },
   // Google Gemini 4 Argon (Cursor Other Models / Google introductory list rate)
   "gemini-4-argon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
+  "antigravity-orchestrator": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
+  "antigravity-orchestrator-argon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
   "gemini-4-carbon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
   "gemini-4-hydrogen": { input: 1.5, output: 7.5, cache_read: 0.075, cache_write: 0 },
   "gemini-4-neon": { input: 3, output: 15, cache_read: 0.15, cache_write: 0 },
@@ -737,7 +739,7 @@ function getModelPricing(model: string, source = "") {
   if (lower.includes("gpt-5")) return MODEL_PRICING["gpt-5"];
   // Standard Gemini 4 SKUs and their effort levels; other variants have
   // independent prices, including Carbon Cyber Permissive.
-  if (lower.includes("gemini-4-argon") || lower.includes("gemini-4.argon")) return MODEL_PRICING["gemini-4-argon"];
+  if (lower.includes("gemini-4-argon") || lower.includes("gemini-4.argon") || lower.includes("orchestrator")) return MODEL_PRICING["gemini-4-argon"];
   const gemini4 = lower.trim().match(/(?:^|\/)gemini-4[.-](carbon|hydrogen|neon)(?:-(?:minimal|low|medium|high|xhigh))?$/);
   if (gemini4) return MODEL_PRICING[`gemini-4-${gemini4[1]}`];
   if (/(?:^|\/)muse-wonder-1[.-]0(?:-(?:minimal|low|medium|high|xhigh|extra-high|max))?$/.test(lower)) return MODEL_PRICING["muse-wonder-1.0"];
