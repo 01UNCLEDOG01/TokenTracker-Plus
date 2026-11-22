@@ -39,7 +39,8 @@ class DashboardViewModel: ObservableObject {
 
     // MARK: - Published State
 
-    @Published var period: DateHelpers.Period = .month
+    // 打开默认「今日」（站主 2026-11-22：每次打开显示当日消耗，不再默认月）。
+    @Published var period: DateHelpers.Period = .day
     @Published var todaySummary: UsageSummaryResponse?
     @Published var summary: UsageSummaryResponse?
     @Published var rollingSummary: UsageSummaryResponse?

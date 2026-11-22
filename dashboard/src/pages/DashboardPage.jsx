@@ -351,7 +351,8 @@ export function DashboardPage({
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
   const mockNow = useMemo(() => getMockNow(), []);
   const cacheKey = publicMode ? null : auth?.userId || auth?.email || "default";
-  const [selectedPeriod, setSelectedPeriod] = useState("month");
+  // 打开默认「今日」（站主 2026-11-22：每次打开显示当日消耗，不再默认月）。
+  const [selectedPeriod, setSelectedPeriod] = useState("day");
   const [customFrom, setCustomFrom] = useState(null);
   const [customTo, setCustomTo] = useState(null);
   const [customRangeOpen, setCustomRangeOpen] = useState(false);
