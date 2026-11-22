@@ -299,7 +299,6 @@
   "settings.menubar.updates": "Aktualisierungen",
   "settings.menubar.autoUpdate": "Automatische Updates",
   "settings.menubar.checkUpdates": "Nach Aktualisierungen suchen",
-  "settings.footer.statusPage": "Systemstatus",
   "leaderboard.github.aria": "GitHub-Profil öffnen",
   "leaderboard.github.tooltipAction": "Klicken, um GitHub-Profil anzuzeigen",
   "leaderboard.github.tooltipPrefix": "Konfiguriere dies in den",

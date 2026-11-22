@@ -6,7 +6,6 @@ import { HeaderGithubStar } from "../components/HeaderGithubStar.jsx";
 import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderControls.jsx";
 import { useInsforgeAuth } from "../../contexts/InsforgeAuthContext.jsx";
 import { useLoginModal } from "../../contexts/LoginModalContext.jsx";
-import { STATUSPAGE_URL } from "../../lib/config";
 import { LV3_CSS_VARS } from "./v3/palette.js";
 import { REPO_URL } from "../../lib/config";
 import { LegalLinks } from "../components/LegalLinks.jsx";
@@ -55,7 +54,6 @@ export function MarketingLanding({
 
   const stats = useCommunityStats();
   const tokenFallback = Number(copy("landing.v3.stats.fallback_tokens")) || 0;
-  const devsFallback = Number(copy("landing.v3.stats.fallback_devs")) || 0;
   const githubLabel = copy("landing.cta.secondary");
 
   return (
@@ -149,7 +147,6 @@ export function MarketingLanding({
           effectsReady={effectsReady}
           stats={stats}
           tokenFallback={tokenFallback}
-          devsFallback={devsFallback}
           installCommand={installCommand}
           installCopied={installCopied}
           onCopyInstallCommand={onCopyInstallCommand}
@@ -166,13 +163,7 @@ export function MarketingLanding({
         <ToolsStrip copy={copy} animate={animate} />
         <HowItWorksSection copy={copy} animate={animate} />
         <PrivacySection copy={copy} animate={animate} />
-        <LeaderboardSection
-          copy={copy}
-          animate={animate}
-          stats={stats}
-          tokenFallback={tokenFallback}
-          devsFallback={devsFallback}
-        />
+        <LeaderboardSection copy={copy} animate={animate} />
         <DownloadSection
           copy={copy}
           animate={animate}
@@ -190,14 +181,6 @@ export function MarketingLanding({
             <Link to="/cloud" className="font-medium text-oai-gray-400 transition-colors hover:text-white">
               {copy("cloud.nav")}
             </Link>
-            <a
-              href={STATUSPAGE_URL}
-              className="font-medium text-oai-gray-400 transition-colors hover:text-white"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {copy("landing.v2.nav.status")}
-            </a>
             <a
               href={REPO_URL}
               className="font-medium text-oai-gray-400 transition-colors hover:text-white"

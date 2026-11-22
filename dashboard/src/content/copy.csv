@@ -51,7 +51,7 @@ error.boundary.hint,shared,*,ErrorBoundary,hint,"Open the console, then reload t
 error.boundary.no_details,shared,*,ErrorBoundary,details,No error details,,active
 error.boundary.action.reload,shared,*,ErrorBoundary,action_reload,Reload,,active
 landing.screenshot.alt,landing,LandingPage,LandingPage,screenshot_alt,TokenTracker dashboard screenshot,,active
-landing.install.command,landing,LandingPage,LandingPage,install_command,npx --yes tokentracker-cli,,active
+landing.install.command,landing,LandingPage,LandingPage,install_command,git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git,,active
 landing.install.action.copy,landing,LandingPage,LandingPage,install_copy,COPY COMMAND,,active
 landing.install.action.copied,landing,LandingPage,LandingPage,install_copied,COPIED,,active
 landing.cta.primary,landing,LandingPage,LandingPage,cta_primary,View Dashboard,,active
@@ -66,15 +66,12 @@ landing.v2.install.os_windows,landing,LandingPage,MarketingLanding,os_windows,Wi
 landing.v2.models.title,landing,LandingPage,MarketingLanding,models_title,SUPPORTED AI CLI TOOLS,,active
 landing.v2.distill.body,landing,LandingPage,MarketingLanding,distill_body,100% local processing. No prompts or code are ever collected.,,active
 landing.v2.footer.line,landing,LandingPage,MarketingLanding,footer_line,TokenTracker Plus — Made for everyone working with AI.,,active
-landing.v2.nav.status,landing,LandingPage,MarketingLanding,nav_status,Status,,active
 landing.v2.nav.github,landing,LandingPage,MarketingLanding,nav_github,GitHub,,active
 landing.v2.nav.privacy,landing,LandingPage,MarketingLanding,nav_privacy,Privacy,,active
 landing.v2.cta.primary,landing,LandingPage,MarketingLanding,cta_primary,Dashboard,,active
 landing.v3.hero.kicker,landing,LandingPage,HeroSection,hero_kicker,Desktop pet · 4 widgets · Achievements,,active
-landing.v3.hero.stat_label,landing,LandingPage,HeroSection,hero_stat_label,Tokens tracked by the community,,active
-landing.v3.stats.devs_syncing,landing,LandingPage,HeroSection,stats_devs_syncing,{{count}} users syncing,,active
-landing.v3.stats.fallback_tokens,landing,LandingPage,HeroSection,stats_fallback_tokens,2200000000000,,active
-landing.v3.stats.fallback_devs,landing,LandingPage,HeroSection,stats_fallback_devs,600,,active
+landing.v3.hero.stat_label,landing,LandingPage,HeroSection,hero_stat_label,Tokens accounted for on the maintainer's own machines,,active
+landing.v3.stats.fallback_tokens,landing,LandingPage,HeroSection,stats_fallback_tokens,85040000000,,active
 landing.v3.tools.count,landing,LandingPage,ToolsStrip,tools_count,{{count}}+ AI coding agents supported out of the box.,,active
 landing.v3.how.kicker,landing,LandingPage,HowItWorksSection,how_kicker,How it works,,active
 landing.v3.how.title,landing,LandingPage,HowItWorksSection,how_title,From keystroke to dashboard in milliseconds.,,active
@@ -101,10 +98,12 @@ landing.v3.privacy.title,landing,LandingPage,PrivacySection,privacy_title,Your p
 landing.v3.privacy.p1,landing,LandingPage,PrivacySection,privacy_p1,Token counts only,,active
 landing.v3.privacy.p2,landing,LandingPage,PrivacySection,privacy_p2,No prompts. No code.,,active
 landing.v3.privacy.p3,landing,LandingPage,PrivacySection,privacy_p3,Open source on GitHub,,active
-landing.v3.leaderboard.panel_title,landing,LandingPage,LeaderboardSection,leaderboard_panel_title,Community rankings (global),,active
-landing.v3.leaderboard.live,landing,LandingPage,LeaderboardSection,leaderboard_live,Live,,active
-landing.v3.leaderboard.anonymous,landing,LandingPage,LeaderboardSection,leaderboard_anonymous,Anonymous,,active
-landing.v3.leaderboard.tokens_synced,landing,LandingPage,LeaderboardSection,leaderboard_tokens_synced,{{count}} tokens synced,,active
+landing.v3.leaderboard.panel_title,landing,LandingPage,LeaderboardSection,leaderboard_panel_title,WHAT TT-PLUS PARSES OUT OF THE BOX,,active
+landing.v3.facts.tools,landing,LandingPage,LeaderboardSection,facts_tools,AI coding tools parsed out of the box,,active
+landing.v3.facts.limits,landing,LandingPage,LeaderboardSection,facts_limits,Quota & balance cards with reset windows,,active
+landing.v3.facts.perks,landing,LandingPage,LeaderboardSection,facts_perks,Perk guides with claim tracking,,active
+landing.v3.facts.footer_left,landing,LandingPage,LeaderboardSection,facts_footer_left,Verified against the code by CI gates,,active
+landing.v3.facts.footer_right,landing,LandingPage,LeaderboardSection,facts_footer_right,100% local-first,,active
 landing.v3.download.title,landing,LandingPage,DownloadSection,download_title,Start tracking in 30 seconds.,,active
 landing.v3.download.subtitle,landing,LandingPage,DownloadSection,download_subtitle,"One command or one download. Free, open source, yours.",,active
 identity_card.rank_label,ui,IdentityCard,IdentityCard,rank_label,Started,,active
@@ -619,7 +618,6 @@ settings.menubar.launchAtLoginHint,ui,SettingsPage,SettingsPage,mb_login_hint,St
 settings.menubar.updates,ui,SettingsPage,SettingsPage,mb_updates,App updates,更新,active
 settings.menubar.autoUpdate,ui,SettingsPage,MenuBarSection,mb_auto_update,Automatic updates,,active
 settings.menubar.checkUpdates,ui,SettingsPage,SettingsPage,mb_check_updates,Check upstream updates,检查更新,active
-settings.footer.statusPage,ui,SettingsPage,NativeAppFooter,status_page,System status,,active
 menubar.slot.primary,ui,WidgetsPage,MenuBarDisplayCard,slot_primary,Primary slot,,active
 menubar.slot.secondary,ui,WidgetsPage,MenuBarDisplayCard,slot_secondary,Secondary slot,,active
 menubar.native_only,ui,WidgetsPage,MenuBarDisplayCard,native_only,Open TokenTrackerBar for macOS to edit the live menu bar display.,,active
@@ -1226,10 +1224,10 @@ dashboard.auth_gate.hero_title,dashboard,DashboardPage,DashboardView,hero_title,
 dashboard.auth_gate.desc,dashboard,DashboardPage,DashboardView,desc,"Securely sync token quotas, concurrent costs, and latency across Claude Code, Cursor, and Gemini CLI in a beautifully unified real-time dashboard.",,active
 dashboard.expired_gate.hero_title,dashboard,DashboardPage,DashboardView,expired_hero_title,Your cloud session has expired,,active
 dashboard.expired_gate.desc,dashboard,DashboardPage,DashboardView,expired_desc,"For privacy and cloud drive security, active sessions expire automatically after a period. Verify again to restore your dashboard instantly.",,active
-landing.v2.leaderboard.kicker,landing,LandingPage,MarketingLanding,leaderboard_kicker,GLOBAL TOKEN LEADERBOARD,,active
-landing.v2.leaderboard.title,landing,LandingPage,MarketingLanding,leaderboard_title,AI Token Efficiency,,active
-landing.v2.leaderboard.subtitle,landing,LandingPage,MarketingLanding,leaderboard_subtitle,Optionally and anonymously sync your local AI token usage to join the global efficiency leaderboard. Benchmark cost efficiency and model rotations with users worldwide.,,active
-landing.v2.leaderboard.view_more,landing,LandingPage,MarketingLanding,view_more,View full leaderboard,,active
+landing.v2.leaderboard.kicker,landing,LandingPage,MarketingLanding,leaderboard_kicker,CROSS-DEVICE ACCOUNT VIEW,,active
+landing.v2.leaderboard.title,landing,LandingPage,MarketingLanding,leaderboard_title,Every device, one ledger.,,active
+landing.v2.leaderboard.subtitle,landing,LandingPage,MarketingLanding,leaderboard_subtitle,"Run the desktop app on a Mac and a Windows box? TT-plus can aggregate both into one account view — self-hosted, optional, still 100% local-first. Parsing, pricing and limits all happen on your hardware.",,active
+landing.v2.leaderboard.view_more,landing,LandingPage,MarketingLanding,view_more,See the code on GitHub,,active
 cmdk.placeholder,ui,CommandPalette,CommandPalette,placeholder,Search pages and skills…,,active
 cmdk.empty,ui,CommandPalette,CommandPalette,empty,No matches,,active
 cmdk.group.pages,ui,CommandPalette,CommandPalette,group_pages,Pages,,active

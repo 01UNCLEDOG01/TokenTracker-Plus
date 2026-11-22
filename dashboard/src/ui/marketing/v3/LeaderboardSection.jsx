@@ -1,20 +1,21 @@
 import React, { useLayoutEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import { gsap } from "./gsap.js";
 import { BorderGlow } from "../components/BorderGlow.jsx";
-import { CountUp } from "../../components/CountUp.jsx";
-import { formatTokensCompact } from "../../../lib/format-tokens.js";
+import { AGENT_LOGOS } from "../agent-logos.js";
+import { LIMIT_PROVIDER_IDS } from "../../../lib/limits-providers.js";
+import { PERK_PROVIDERS } from "../../../data/perksData.js";
+import { REPO_URL } from "../../../lib/config";
 import { LV3 } from "./palette.js";
 
-function rowName(entry, copy) {
-  const name = (entry?.display_name || "").trim();
-  return name || copy("landing.v3.leaderboard.anonymous");
-}
-
-function PodiumRow({ entry, rank, maxTokens, copy, animate }) {
-  const isFirst = rank === 1;
-  const tokens = Number(entry?.total_tokens) || 0;
-  const barPct = maxTokens > 0 ? Math.max(6, Math.round((tokens / maxTokens) * 100)) : 0;
+/**
+ * "What TT-plus parses out of the box" — static product-fact rows rendered in
+ * the visual language of the old community-leaderboard podium. The upstream
+ * section it replaces fetched a global leaderboard that does not exist for
+ * TT-plus (cloud is optional and self-hosted), so public visitors always saw
+ * skeleton rows; every number here is derived from the code's own registries,
+ * the same truth the discovery-metadata and validate:about gates enforce.
+ */
+function FactRow({ rank, label, value, animate, isFirst, maxValue }) {
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-4 transition-colors hover:bg-white/[0.02] sm:px-5">
       <div className="flex min-w-0 items-center gap-3.5">
@@ -23,61 +24,26 @@ function PodiumRow({ entry, rank, maxTokens, copy, animate }) {
         >
           {String(rank).padStart(2, "0")}
         </span>
-        {entry?.avatar_url ? (
-          <img
-            src={entry.avatar_url}
-            alt=""
-            width={24}
-            height={24}
-            loading="lazy"
-            className="h-6 w-6 shrink-0 rounded-full border border-oai-gray-800 object-cover"
-          />
-        ) : (
-          <span
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-oai-gray-800 bg-oai-gray-900 font-mono text-[10px] font-bold text-oai-gray-400"
-            aria-hidden="true"
-          >
-            {rowName(entry, copy).charAt(0).toUpperCase()}
-          </span>
-        )}
         <span className={`truncate text-sm tracking-wide ${isFirst ? "font-bold text-white" : "font-semibold text-oai-gray-200"}`}>
-          {rowName(entry, copy)}
+          {label}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-5">
         <span className="hidden h-[2px] w-16 overflow-hidden rounded-full bg-oai-gray-900 sm:block" aria-hidden="true">
           <span
             className="block h-full rounded-full"
-            style={{ width: `${barPct}%`, background: isFirst ? "var(--lv3-accent)" : LV3.line }}
+            style={{ width: isFirst ? "100%" : `${Math.max(18, Math.round((value / maxValue) * 100))}%`, background: isFirst ? "var(--lv3-accent)" : LV3.line }}
           />
         </span>
         <span className={`font-mono text-sm leading-none tabular-nums ${isFirst ? "font-semibold text-white" : "font-medium text-oai-gray-300"}`}>
-          <CountUp value={tokens} animate={animate} format={(v) => formatTokensCompact(Math.round(v))} />
+          {value}
         </span>
       </div>
     </div>
   );
 }
 
-function SkeletonRow() {
-  return (
-    <div className="flex items-center justify-between px-4 py-4 sm:px-5">
-      <div className="flex items-center gap-3.5">
-        <span className="h-3 w-5 animate-pulse rounded bg-white/10" />
-        <span className="h-6 w-6 animate-pulse rounded-full bg-white/10" />
-        <span className="h-3 w-28 animate-pulse rounded bg-white/10" />
-      </div>
-      <span className="h-3 w-16 animate-pulse rounded bg-white/10" />
-    </div>
-  );
-}
-
-/**
- * Leaderboard teaser backed by the real global leaderboard: live top-3 podium
- * plus community totals in the status bar. Falls back to skeleton rows while
- * loading and to static copy numbers if the fetch fails.
- */
-export function LeaderboardSection({ copy, animate, stats, tokenFallback, devsFallback }) {
+export function LeaderboardSection({ copy, animate }) {
   const sectionRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -99,11 +65,12 @@ export function LeaderboardSection({ copy, animate, stats, tokenFallback, devsFa
     return () => ctx.revert();
   }, [animate]);
 
-  const ready = stats.status === "ready";
-  const top = ready ? stats.top : [];
-  const maxTokens = top.length ? Number(top[0]?.total_tokens) || 0 : 0;
-  const devs = ready ? stats.totalEntries : devsFallback;
-  const tokens = ready ? stats.tokenFloor : tokenFallback;
+  const facts = [
+    { label: copy("landing.v3.facts.tools"), value: AGENT_LOGOS.length },
+    { label: copy("landing.v3.facts.limits"), value: LIMIT_PROVIDER_IDS.length },
+    { label: copy("landing.v3.facts.perks"), value: PERK_PROVIDERS.length },
+  ];
+  const maxValue = facts.reduce(function (m, f) { return Math.max(m, f.value); }, 1);
 
   return (
     <section ref={sectionRef} className="relative border-t border-oai-gray-900 bg-oai-gray-950 py-16 sm:py-24 lg:py-32">
@@ -124,12 +91,14 @@ export function LeaderboardSection({ copy, animate, stats, tokenFallback, devsFa
               {copy("landing.v2.leaderboard.subtitle")}
             </p>
             <div className="pt-4">
-              <Link
-                to="/leaderboard"
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-[8px] bg-white px-6 text-xs font-bold text-oai-gray-950 shadow-sm transition-all duration-200 hover:bg-oai-gray-100 active:scale-[0.98] select-none"
               >
                 {copy("landing.v2.leaderboard.view_more")}
-              </Link>
+              </a>
             </div>
           </div>
 
@@ -148,38 +117,25 @@ export function LeaderboardSection({ copy, animate, stats, tokenFallback, devsFa
             >
               <div className="flex select-none items-center justify-between border-b border-oai-gray-800/80 bg-white/[0.025] px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-oai-gray-500 sm:px-5">
                 <span>{copy("landing.v3.leaderboard.panel_title")}</span>
-                <span className="flex items-center gap-1.5 font-mono text-[color:var(--lv3-accent-soft)]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[color:var(--lv3-accent)]" aria-hidden="true" />
-                  {copy("landing.v3.leaderboard.live")}
-                </span>
               </div>
 
               <div className="divide-y divide-oai-gray-800/60">
-                {ready
-                  ? top.map((entry, i) => (
-                      <PodiumRow
-                        key={entry?.user_id || i}
-                        entry={entry}
-                        rank={i + 1}
-                        maxTokens={maxTokens}
-                        copy={copy}
-                        animate={animate}
-                      />
-                    ))
-                  : [0, 1, 2].map((i) => <SkeletonRow key={i} />)}
+                {facts.map((fact, i) => (
+                  <FactRow
+                    key={fact.label}
+                    label={fact.label}
+                    value={fact.value}
+                    rank={i + 1}
+                    animate={animate}
+                    isFirst={i === 0}
+                    maxValue={maxValue}
+                  />
+                ))}
               </div>
 
               <div className="flex select-none items-center justify-between border-t border-oai-gray-800/80 bg-black/[0.15] px-4 py-2.5 font-mono text-[9px] uppercase tracking-widest text-oai-gray-500 sm:px-5">
-                <span>
-                  {copy("landing.v3.stats.devs_syncing", {
-                    count: (Number(devs) || 0).toLocaleString("en-US"),
-                  })}
-                </span>
-                <span>
-                  {copy("landing.v3.leaderboard.tokens_synced", {
-                    count: `${formatTokensCompact(Number(tokens) || 0)}+`,
-                  })}
-                </span>
+                <span>{copy("landing.v3.facts.footer_left")}</span>
+                <span>{copy("landing.v3.facts.footer_right")}</span>
               </div>
             </BorderGlow>
           </div>

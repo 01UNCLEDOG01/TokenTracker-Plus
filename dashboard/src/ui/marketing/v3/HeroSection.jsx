@@ -31,7 +31,6 @@ export function HeroSection({
   effectsReady,
   stats,
   tokenFallback,
-  devsFallback,
   installCommand,
   installCopied,
   onCopyInstallCommand,
@@ -74,8 +73,13 @@ export function HeroSection({
     return () => ctx.revert();
   }, [animate]);
 
+  // tokenFallback (landing.v3.stats.fallback_tokens) is the account-view
+  // total actually accumulated on the maintainer's own machines as of
+  // 2026-11-22 (~85B tokens across a Windows box and a Mac, tracked by the
+  // tool itself). Static by design: public visitors have no cloud endpoint
+  // to query, so stats.status never reaches "ready" for them. The 0.4%/day
+  // drift keeps the counter visibly alive between releases.
   const tokenTotal = stats.status === "ready" ? stats.tokenFloor : tokenFallback;
-  const devsTotal = stats.status === "ready" ? stats.totalEntries : devsFallback;
   // Estimated live feed: ~0.4% community growth per day, spread across the
   // seconds — enough to keep the trailing digits visibly spinning. The real
   // fetch calibrates the base on every page load.
@@ -190,11 +194,6 @@ export function HeroSection({
                 }
               />
             </p>
-              <p className="font-mono text-sm text-oai-gray-300">
-                {copy("landing.v3.stats.devs_syncing", {
-                  count: (Number(devsTotal) || 0).toLocaleString("en-US"),
-                })}
-              </p>
             </div>
           </div>
 

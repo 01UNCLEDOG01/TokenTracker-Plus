@@ -1,8 +1,12 @@
 import { getInsforgeRemoteUrl } from "./insforge-config";
 
-export const STATUSPAGE_URL = "https://tokentracker.statuspage.io/";
+// TT-plus has no external status page — the upstream one
+// (tokentracker.statuspage.io) belongs to the original author and is not
+// ours to point at. The footer "Status" link was removed with it.
 
-export const REPO_URL = "https://github.com/01UNCLEDOG01/TokenTracker-plus";
+// Canonical casing matters for consistency in docs/screenshots; GitHub
+// redirects either spelling, but every generated link should match the repo.
+export const REPO_URL = "https://github.com/01UNCLEDOG01/TokenTracker-Plus";
 // GitHub's REST API wants `owner/name`, not a browser URL, so derive it from
 // REPO_URL — the update check used to carry its own hardcoded upstream slug.
 export const REPO_SLUG = REPO_URL.replace(/^https:\/\/github\.com\//, "");
@@ -11,11 +15,14 @@ export const PRIVACY_URL = `${REPO_URL}/blob/main/docs/PRIVACY.md`;
 // The releases page lists every asset (used for the "other platforms" link and
 // as the fallback when we can't detect the OS).
 export const RELEASES_URL = `${REPO_URL}/releases/latest`;
-// Stable, version-less asset names so these deep links survive version bumps.
-// macOS: TokenTrackerBar.dmg (already stable). Windows: TokenTracker-Setup.exe
-// (the per-user installer; release-windows.yml uploads this alias every release).
-export const MAC_DMG_URL = `${RELEASES_URL}/download/TokenTrackerBar.dmg`;
-export const WIN_SETUP_URL = `${RELEASES_URL}/download/TokenTracker-Setup.exe`;
+// TT-plus release assets carry the version in their filename
+// (TokenTracker-plus-<version>.dmg / TokenTracker-plus-Setup-v<version>.exe —
+// no stable alias exists), so deep links like
+// `latest/download/<asset>` would 404 within one release. Both platform
+// download buttons therefore point at the latest-release PAGE, where the
+// current four assets are always listed.
+export const MAC_DMG_URL = RELEASES_URL;
+export const WIN_SETUP_URL = RELEASES_URL;
 
 /**
  * 仪表盘/用量等：本地 localhost 一律用空字符串（相对路径走 CLI 内置 API），不访问云端。

@@ -1,11 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Activity, ArrowUpRight, Download } from "lucide-react";
+import { ArrowUpRight, Download } from "lucide-react";
 import { useNativeSettings } from "../../hooks/use-native-settings.js";
 import { useLocale } from "../../hooks/useLocale.js";
 import { ConfirmModal } from "../../ui/components";
 import { showToast } from "../../ui/components/Toast.jsx";
-import { STATUSPAGE_URL, LATEST_RELEASE_API_URL } from "../../lib/config";
+import { LATEST_RELEASE_API_URL } from "../../lib/config";
 import { copy } from "../../lib/copy";
 import { isNativeWindowsApp } from "../../lib/native-bridge.js";
 import { SectionCard, SettingsRow, ToggleSwitch } from "./Controls.jsx";
@@ -214,15 +214,6 @@ export function NativeAppFooter() {
             <span aria-hidden>·</span>
           </>
         )}
-        <a
-          href={STATUSPAGE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 underline-offset-2 transition-colors hover:text-oai-gray-700 hover:underline dark:hover:text-oai-gray-300"
-        >
-          <Activity className="h-3.5 w-3.5" aria-hidden />
-          {copy("settings.footer.statusPage")}
-        </a>
       </div>
 
       {updateModal.open && updateModal.notes ? (
