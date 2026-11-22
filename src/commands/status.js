@@ -70,6 +70,11 @@ const {
   resolvePiAgentDir,
   piAgentDirCollidesWithOmp,
   resolvePrimeAgentSessionFiles,
+  resolveDeepaiCodeSessionsDir,
+  resolveDeepaiCodeSessionFiles,
+  resolveJunieSessionFiles,
+  resolveOpenCodeReviewSessionFiles,
+  resolveAmpThreadFiles,
   resolvePrimeAgentDir,
   resolveCraftSessionFiles,
   resolveCraftConfigDir,
@@ -581,6 +586,32 @@ async function cmdStatus(argv = []) {
   const primeAgentDir = resolvePrimeAgentDir(process.env);
   const primeAgentInstalled = Boolean(primeAgentDir) && fssync.existsSync(path.join(primeAgentDir, "sessions"));
   const primeAgentFiles = primeAgentInstalled ? resolvePrimeAgentSessionFiles(process.env) : [];
+
+  // DeepAI Code (upstream TT #1133) — passive scan of the embedded-pi sessions.
+  const deepaiSessionsDir = resolveDeepaiCodeSessionsDir(process.env);
+  const deepaiInstalled = Boolean(deepaiSessionsDir) && fssync.existsSync(deepaiSessionsDir);
+  const deepaiFiles = deepaiInstalled ? resolveDeepaiCodeSessionFiles(process.env) : [];
+
+  // Junie (JetBrains) — passive scan only (no hooks).
+  const junieSessionsDir = process.env.TOKENTRACKER_JUNIE_HOME
+    ? path.resolve(String(process.env.TOKENTRACKER_JUNIE_HOME))
+    : path.join(home, ".junie", "sessions");
+  const junieInstalled = fssync.existsSync(junieSessionsDir);
+  const junieFiles = junieInstalled ? resolveJunieSessionFiles(process.env) : [];
+
+  // OpenCodeReview — passive scan only (no hooks).
+  const ocrSessionsDir = process.env.TOKENTRACKER_OPENCODE_REVIEW_HOME
+    ? path.resolve(String(process.env.TOKENTRACKER_OPENCODE_REVIEW_HOME))
+    : path.join(home, ".opencodereview", "sessions");
+  const opencodeReviewInstalled = fssync.existsSync(ocrSessionsDir);
+  const opencodeReviewFiles = opencodeReviewInstalled ? resolveOpenCodeReviewSessionFiles(process.env) : [];
+
+  // Amp (Sourcegraph) — passive scan of whole-file JSON threads.
+  const ampThreadsDir = process.env.TOKENTRACKER_AMP_HOME
+    ? path.resolve(String(process.env.TOKENTRACKER_AMP_HOME))
+    : path.join(home, ".local", "share", "amp", "threads");
+  const ampInstalled = fssync.existsSync(ampThreadsDir);
+  const ampFiles = ampInstalled ? resolveAmpThreadFiles(process.env) : [];
 
   // Craft Agents — passive scan only (no hooks).
   const craftConfigDir = resolveCraftConfigDir(process.env);
@@ -1396,6 +1427,18 @@ async function cmdStatus(argv = []) {
         : null,
       primeAgentInstalled
         ? `- Prime Agent: passive reader (${primeAgentFiles.length} session jsonl file${primeAgentFiles.length !== 1 ? "s" : ""} found)`
+        : null,
+      deepaiInstalled
+        ? `- DeepAI Code: passive reader (${deepaiFiles.length} session jsonl file${deepaiFiles.length !== 1 ? "s" : ""} found)`
+        : null,
+      junieInstalled
+        ? `- Junie: passive reader (${junieFiles.length} session jsonl file${junieFiles.length !== 1 ? "s" : ""} found)`
+        : null,
+      opencodeReviewInstalled
+        ? `- OpenCodeReview: passive reader (${opencodeReviewFiles.length} session jsonl file${opencodeReviewFiles.length !== 1 ? "s" : ""} found)`
+        : null,
+      ampInstalled
+        ? `- Amp: passive reader (${ampFiles.length} thread file${ampFiles.length !== 1 ? "s" : ""} found)`
         : null,
       craftInstalled
         ? `- Craft Agents: passive reader (${craftFiles.length} session jsonl file${craftFiles.length !== 1 ? "s" : ""} found)`

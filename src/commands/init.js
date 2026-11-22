@@ -70,6 +70,7 @@ const { resolveTrackerPaths } = require("../lib/tracker-paths");
 const {
   resolveOmpAgentDir,
   resolvePiAgentDir,
+  resolveDeepaiCodeSessionsDir,
   piAgentDirCollidesWithOmp,
   resolvePrimeAgentDir,
   resolveMinimaxCodeSessionsDir,
@@ -172,6 +173,10 @@ const SUPPORTED_PROVIDERS = [
   "MiniMax Code",
   "CodeArts Agent",
   "Command Code",
+  "DeepAI Code",
+  "Junie",
+  "OpenCodeReview",
+  "Amp",
 ];
 
 async function cmdInit(argv, options = {}) {
@@ -878,6 +883,46 @@ async function applyIntegrationSetup({
     const craftConfigDir = process.env.CRAFT_CONFIG_DIR || path.join(home, ".craft-agent");
     if (fssync.existsSync(craftConfigDir)) {
       summary.push({ label: "Craft Agents", status: "detected", detail: "Passive reader (no hook needed)" });
+    }
+  }
+
+  // DeepAI Code (upstream TT #1133): passive reader of the embedded-pi
+  // sessions under ~/.deepai-code/userdata/deepai/pi/<scope>/sessions — no
+  // hook installation needed.
+  {
+    const deepaiSessionsDir = resolveDeepaiCodeSessionsDir(process.env);
+    if (deepaiSessionsDir && fssync.existsSync(deepaiSessionsDir)) {
+      summary.push({ label: "DeepAI Code", status: "detected", detail: "Passive usage reader (no hook needed)" });
+    }
+  }
+
+  // Junie (JetBrains): passive reader of ~/.junie/sessions/<id>/events.jsonl.
+  {
+    const junieSessionsDir = process.env.TOKENTRACKER_JUNIE_HOME
+      ? path.resolve(String(process.env.TOKENTRACKER_JUNIE_HOME))
+      : path.join(home, ".junie", "sessions");
+    if (fssync.existsSync(junieSessionsDir)) {
+      summary.push({ label: "Junie", status: "detected", detail: "Passive usage reader (no hook needed)" });
+    }
+  }
+
+  // OpenCodeReview: passive reader of ~/.opencodereview/sessions.
+  {
+    const ocrSessionsDir = process.env.TOKENTRACKER_OPENCODE_REVIEW_HOME
+      ? path.resolve(String(process.env.TOKENTRACKER_OPENCODE_REVIEW_HOME))
+      : path.join(home, ".opencodereview", "sessions");
+    if (fssync.existsSync(ocrSessionsDir)) {
+      summary.push({ label: "OpenCodeReview", status: "detected", detail: "Passive usage reader (no hook needed)" });
+    }
+  }
+
+  // Amp (Sourcegraph): passive reader of ~/.local/share/amp/threads.
+  {
+    const ampThreadsDir = process.env.TOKENTRACKER_AMP_HOME
+      ? path.resolve(String(process.env.TOKENTRACKER_AMP_HOME))
+      : path.join(home, ".local", "share", "amp", "threads");
+    if (fssync.existsSync(ampThreadsDir)) {
+      summary.push({ label: "Amp", status: "detected", detail: "Passive usage reader (no hook needed)" });
     }
   }
 

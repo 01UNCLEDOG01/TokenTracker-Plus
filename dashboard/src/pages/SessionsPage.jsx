@@ -55,6 +55,10 @@ const SOURCE_FILTERS = [
   { id: "kimi", label: () => copy("leaderboard.column.kimi") },
   { id: "omp", label: () => "oh-my-pi" },
   { id: "pi", label: () => "Pi" },
+  { id: "deepai", label: () => "DeepAI Code" },
+  { id: "junie", label: () => "Junie" },
+  { id: "opencodereview", label: () => "OpenCodeReview" },
+  { id: "amp", label: () => "Amp" },
 ];
 
 const DATE_RANGES = [

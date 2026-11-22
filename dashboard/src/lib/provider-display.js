@@ -20,6 +20,10 @@ const SPECIAL_PROVIDER_NAMES = {
   raccoon: "商汤小浣熊",
   codearts: "CodeArts Agent",
   autoclaw: "AutoClaw",
+  deepai: "DeepAI Code",
+  junie: "Junie",
+  opencodereview: "OpenCodeReview",
+  amp: "Amp",
   "tuanjie-cowork": "Tuanjie Cowork",
   mimo: "Xiaomi MiMo",
 };

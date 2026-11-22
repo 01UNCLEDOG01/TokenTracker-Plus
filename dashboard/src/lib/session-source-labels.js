@@ -26,6 +26,10 @@ const SESSION_SOURCE_LABELS = {
   "trae-cn": "Trae CN",
   "minimax-code": "MiniMax Code",
   devin: "Devin",
+  deepai: "DeepAI Code",
+  junie: "Junie",
+  opencodereview: "OpenCodeReview",
+  amp: "Amp",
 };
 
 export function sessionSourceLabel(source) {

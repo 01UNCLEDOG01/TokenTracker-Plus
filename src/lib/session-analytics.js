@@ -28,7 +28,18 @@ const fsp = require("node:fs/promises");
 const os = require("node:os");
 const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
-const { resolveAutoClawSessionFiles, resolveColaSessionFiles, scanAutoClawSession, scanColaSession } = require("./agent-jsonl-sessions");
+const {
+  resolveAutoClawSessionFiles,
+  resolveColaSessionFiles,
+  scanAutoClawSession,
+  scanColaSession,
+  resolveJunieSessionFiles,
+  scanJunieSession,
+  resolveOpenCodeReviewSessionFiles,
+  scanOpenCodeReviewSession,
+  resolveAmpThreadFiles,
+  scanAmpSession,
+} = require("./agent-jsonl-sessions");
 const { resolveCoworkChatFiles, scanCoworkChat } = require("./cowork-sessions");
 const { readRaccoonAggregate, raccoonRecordFromAggregate, resolveRaccoonSessionFiles } = require("./raccoon-sessions");
 const { qoderIntlRouterNames, qoderCnRouterNames } = require("./qoder-intl-credits");
@@ -919,7 +930,14 @@ async function scanClaudeSession(filePath, options = {}) {
   for (const currentFilePath of filePaths) {
     const currentRecordHashes = new Set();
     try {
-      const input = fs.createReadStream(currentFilePath, { encoding: "utf8" });
+      // `rawLines` lets a source whose file is not line-delimited (Amp threads
+      // are whole-file JSON) feed the same line loop synthetically: the caller
+      // serializes its reconciled records to one JSON string per row and the
+      // adapter below folds them back. The file itself is still stat'd for
+      // session metadata; its bytes are simply not re-parsed.
+      const input = Array.isArray(options.rawLines)
+        ? require("node:stream").Readable.from(options.rawLines.map((line) => line + "\n"), { encoding: "utf8" })
+        : fs.createReadStream(currentFilePath, { encoding: "utf8" });
       const lines = readline.createInterface({ input, crlfDelay: Infinity });
       for await (const line of lines) {
         if (filePaths.length > 1 || options.seenRecordHashes) {
@@ -931,8 +949,12 @@ async function scanClaudeSession(filePath, options = {}) {
         try { parsed = JSON.parse(line); } catch { continue; }
         // An adapter may fold a vendor record into one Claude-shaped record, or
         // return null to drop records that carry no signal this loop understands.
-        const obj = adaptRecord ? adaptRecord(parsed, currentFilePath) : parsed;
-        if (!obj) continue;
+        // Junie's LlmResponseMetadataEvent carries a modelUsage ARRAY (one row
+        // per model inside one response), so an adapter may also return an
+        // array — each element then runs the same per-record handling below.
+        const adapted = adaptRecord ? adaptRecord(parsed, currentFilePath) : parsed;
+        const recordBatch = Array.isArray(adapted) ? adapted : (adapted ? [adapted] : []);
+        for (const obj of recordBatch) {
         const rawTimingKey = claudeMessageDedupKey(obj);
         const timingKey = rawTimingKey ? crypto.createHash("sha256").update(rawTimingKey).digest("hex") : null;
         const countedUsage = obj.type === "assistant" && obj.message && (!timingKey || !seenMessages.has(timingKey))
@@ -1002,6 +1024,7 @@ async function scanClaudeSession(filePath, options = {}) {
               : "unspecified";
             subagentTypes.set(subtype || "unspecified", (subagentTypes.get(subtype || "unspecified") || 0) + 1);
           }
+        }
         }
       }
       scannedFiles += 1;
@@ -3861,6 +3884,9 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
   const autoclawFiles = (() => { try { return resolveAutoClawSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const colaFiles = (() => { try { return resolveColaSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   const coworkFiles = (() => { try { return resolveCoworkChatFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  const junieFiles = (() => { try { return resolveJunieSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  const opencodeReviewFiles = (() => { try { return resolveOpenCodeReviewSessionFiles({ env: jsonlEnv, home }); } catch { return []; } })();
+  const ampFiles = (() => { try { return resolveAmpThreadFiles({ env: jsonlEnv, home }); } catch { return []; } })();
   // SenseTime Raccoon: one trace file per session under
   // ~/.office-raccoon/agent/log/sessions. Only that level is listed - the
   // sibling runtime tree is 2.6 GB of binaries with no usage in it.
@@ -3883,6 +3909,27 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
         .map((f) => path.join(dir, f));
     } catch (_e) { return []; }
   });
+  // T3 Code profiles (~/.t3/userdata/providers/antigravity/<profile>/
+  // antigravity-acp, upstream TT #1124/#1126) use the same conversation-db +
+  // sibling brain/ layout, so the shared scanner reads them unchanged; the
+  // usage stays under the `antigravity` source like the transcripts do.
+  {
+    const { resolveT3AntigravityParent } = require("./antigravity-discovery");
+    const t3Parent = resolveT3AntigravityParent({ home, env });
+    try {
+      const t3Dbs = fs.readdirSync(t3Parent, { withFileTypes: true }).flatMap((entry) => {
+        if (!entry.isDirectory()) return [];
+        const dir = path.join(t3Parent, entry.name, "antigravity-acp", "conversations");
+        try {
+          return fs.readdirSync(dir)
+            .filter((f) => f.endsWith(".db"))
+            .sort()
+            .map((f) => path.join(dir, f));
+        } catch (_e) { return []; }
+      });
+      antigravityDbs.push(...t3Dbs);
+    } catch (_e) { /* no T3 state dir — nothing to add */ }
+  }
   const workbuddyFiles = (deps.workbuddyProjectFiles
     || resolveWorkbuddyProjectFilesAll(workbuddyEnv)).filter((entry) => typeof entry === "string");
   const codexRoots = providerRoots(home, ".codex", env, { ...deps, extraRoots: extraRootsFor("codex") });
@@ -4030,6 +4077,9 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     autoclaw: autoclawFiles,
     cola: colaFiles,
     cowork: coworkFiles,
+    junie: junieFiles,
+    opencodereview: opencodeReviewFiles,
+    amp: ampFiles,
     raccoon: raccoonFiles,
     antigravity: antigravityDbs,
     qoder,
@@ -4888,6 +4938,9 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...((discovered.autoclaw || []).length ? [{ source: "autoclaw", filePath: discovered.autoclaw, scan: scanAutoClawSession }] : []),
     ...((discovered.cola || []).length ? [{ source: "cola", filePath: discovered.cola, scan: scanColaSession }] : []),
     ...((discovered.cowork || []).length ? [{ source: "tuanjie-cowork", filePath: discovered.cowork, scan: scanCoworkChat }] : []),
+    ...((discovered.junie || []).length ? [{ source: "junie", filePath: discovered.junie, scan: scanJunieSession }] : []),
+    ...((discovered.opencodereview || []).length ? [{ source: "opencodereview", filePath: discovered.opencodereview, scan: scanOpenCodeReviewSession }] : []),
+    ...((discovered.amp || []).length ? [{ source: "amp", filePath: discovered.amp, scan: scanAmpSession }] : []),
     ...((discovered.raccoon || []).map((filePath) => ({ source: "raccoon", filePath, scan: scanRaccoonSession }))),
     ...(discovered.antigravity || []).map((filePath) => ({ source: "antigravity", filePath, scan: scanAntigravitySession })),
     ...(discovered.workbuddy || []).map((filePaths) => ({

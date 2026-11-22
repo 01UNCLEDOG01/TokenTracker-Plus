@@ -14,6 +14,12 @@ const {
   resolveAutoClawSessionFiles,
   resolveColaSessionFiles,
   toAgentSessionRecord,
+  resolveJunieSessionFiles,
+  toJunieRecords,
+  resolveOpenCodeReviewSessionFiles,
+  toOpenCodeReviewRecord,
+  resolveAmpThreadFiles,
+  parseAmpThreadUsage,
 } = require("./agent-jsonl-sessions");
 const {
   resolveCoworkChatFiles,
@@ -12813,6 +12819,8 @@ const AGENT_JSONL_VARIANTS = {
   autoclaw: { resolve: resolveAutoClawSessionFiles, adapt: toAgentSessionRecord },
   cola: { resolve: resolveColaSessionFiles, adapt: toAgentSessionRecord },
   "tuanjie-cowork": { resolve: resolveCoworkChatFiles, adapt: toCoworkSessionRecord },
+  junie: { resolve: resolveJunieSessionFiles, adapt: toJunieRecords },
+  "opencodereview": { resolve: resolveOpenCodeReviewSessionFiles, adapt: toOpenCodeReviewRecord },
 };
 
 async function parseAgentJsonlIncremental({
@@ -12863,9 +12871,14 @@ async function parseAgentJsonlIncremental({
       startOffset,
       OMP_LIKE_MAX_RECORD_BYTES,
       (entry) => {
-      const record = adapt(entry);
+      // Adapters receive the file path (Junie's session id lives in the path,
+      // not the record) and may return an array when one vendor record holds
+      // several usage rows (Junie's per-event modelUsage array).
+      const adaptedRecord = adapt(entry, filePath);
+      const recordBatch = Array.isArray(adaptedRecord) ? adaptedRecord : (adaptedRecord ? [adaptedRecord] : []);
+      for (const record of recordBatch) {
       // A user record carries no usage; only assistant replies open a bucket.
-      if (!record || record.type !== "assistant" || !record.message?.usage) return;
+      if (record.type !== "assistant" || !record.message?.usage) continue;
 
       const usage = record.message.usage;
       const messageId = record.message.id;
@@ -12897,6 +12910,7 @@ async function parseAgentJsonlIncremental({
       seenIds.add(messageId);
       eventsAggregated += 1;
       sawRecord = true;
+      }
       },
     );
 
@@ -12916,6 +12930,110 @@ async function parseAgentJsonlIncremental({
     ...state,
     seenIds: seenArr.length > 20_000 ? seenArr.slice(seenArr.length - 20_000) : seenArr,
     fileOffsets,
+    updatedAt,
+  };
+
+  return { recordsProcessed: eventsAggregated, eventsAggregated, bucketsQueued, filesProcessed };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Amp (Sourcegraph) — passive whole-file JSON thread reader
+// (~/.local/share/amp/threads/*.json; upstream TT has no equivalent — the spec
+// follows junhoyeo/tokscale sessions/amp.rs, TM's parsing engine.)
+//
+// Unlike the JSONL family, a thread file is ONE JSON object rewritten in place
+// as the conversation grows, so byte offsets cannot resume mid-file. Each sync
+// re-reads changed files whole (stat-key gate skips unchanged ones) and dedups
+// rows on their reconciled content keys — ledger events are the authoritative
+// billed rows, message usage fills ledger gaps (see parseAmpThreadUsage), and
+// the composite id `amp:<threadId>:ledger|message:<index>` is stable across
+// re-reads. Trade-off against the offset-based engines: the seenIds set is the
+// PRIMARY dedup here, so a thread history beyond the 100k-row cap could
+// re-count evicted rows — pathological for this source and documented rather
+// than silently accepted.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AMP_MAX_SEEN_IDS = 100_000;
+
+async function parseAmpIncremental({
+  projectFiles,
+  cursors,
+  queuePath,
+  env,
+  onProgress,
+} = {}) {
+  await ensureDir(path.dirname(queuePath));
+  const variant = "amp";
+  const state = cursors[variant] && typeof cursors[variant] === "object" ? cursors[variant] : {};
+  const seenIds = new Set(Array.isArray(state.seenIds) ? state.seenIds : []);
+  const fileStatKeys = state.fileStatKeys && typeof state.fileStatKeys === "object" ? { ...state.fileStatKeys } : {};
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const cb = typeof onProgress === "function" ? onProgress : null;
+
+  const files = Array.isArray(projectFiles)
+    ? projectFiles
+    : resolveAmpThreadFiles({ env: env || process.env, home: os.homedir() });
+
+  let filesProcessed = 0;
+  let eventsAggregated = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const filePath = files[i];
+    if (cb) cb({ index: i + 1, total: files.length, bucketsQueued: touchedBuckets.size });
+    let stat;
+    try { stat = fssync.statSync(filePath); } catch { continue; }
+    const statKey = `${stat.size}:${stat.ino}:${Math.round(stat.mtimeMs)}`;
+    if (fileStatKeys[filePath] === statKey) continue;
+
+    let thread;
+    try { thread = JSON.parse(fssync.readFileSync(filePath, "utf8")); } catch { continue; }
+    if (!thread || typeof thread !== "object") continue;
+    const rows = parseAmpThreadUsage(thread, { fileMtimeMs: Math.round(stat.mtimeMs) });
+
+    let sawRecord = false;
+    for (const record of rows) {
+      const messageId = record.message?.id;
+      if (typeof messageId !== "string" || !messageId || seenIds.has(messageId)) continue;
+
+      const usage = record.message.usage;
+      const ts = record.timestamp;
+      const tsIso = typeof ts === "number" ? new Date(ts).toISOString() : String(ts || "");
+      const bucketStart = toUtcHalfHourStart(tsIso);
+      if (!bucketStart) continue;
+
+      const model = normalizeModelInput(record.message.model) || "unknown";
+      const delta = {
+        input_tokens: usage.input_tokens,
+        cached_input_tokens: usage.cache_read_input_tokens,
+        cache_creation_input_tokens: usage.cache_creation_input_tokens,
+        output_tokens: usage.output_tokens,
+        reasoning_output_tokens: usage.output_tokens_details?.reasoning_tokens,
+        total_tokens: usage.input_tokens + usage.cache_read_input_tokens +
+          usage.cache_creation_input_tokens + usage.output_tokens,
+        conversation_count: 1,
+      };
+
+      const bucket = getHourlyBucket(hourlyState, variant, model, bucketStart);
+      addTotals(bucket.totals, delta);
+      touchedBuckets.add(bucketKey(variant, model, bucketStart));
+      seenIds.add(messageId);
+      eventsAggregated += 1;
+      sawRecord = true;
+    }
+    if (sawRecord) filesProcessed += 1;
+    fileStatKeys[filePath] = statKey;
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const updatedAt = new Date().toISOString();
+  hourlyState.updatedAt = updatedAt;
+  cursors.hourly = hourlyState;
+  const seenArr = [...seenIds];
+  cursors[variant] = {
+    ...state,
+    seenIds: seenArr.length > AMP_MAX_SEEN_IDS ? seenArr.slice(seenArr.length - AMP_MAX_SEEN_IDS) : seenArr,
+    fileStatKeys,
     updatedAt,
   };
 
@@ -20062,6 +20180,94 @@ async function parsePrimeAgentIncremental(options = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DeepAI Code (DeepAI's Electron coding agent, ~/.deepai-code) — passive reader
+// (upstream TT #1133, v1.5.25)
+//
+// DeepAI Code embeds pi and launches it with its own agent directory, so the
+// sessions are plain pi JSONL and reuse the pi-family parser verbatim:
+//   ~/.deepai-code/userdata/deepai/pi/<scope>/sessions/--<cwd>--/<ts>_<id>.jsonl
+//
+// Records carry pi-shaped usage (input excludes cacheRead) and every message is
+// stamped provider:"deepai" with a DeepAI gateway model id (deepseek-v4.1-flash,
+// glm-5.3-flash, deepai-cyber, ...). DeepAI bills these through its own plan and
+// the app always reports usage.cost.total = 0, so the cost block is ignored and
+// normal pricing applies. The app ships signed-release only, so it lands in a
+// userdata dir (`~/.deepai-code/userdata`) rather than a roamed profile.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEEPAI_CODE_SOURCE = "deepai";
+
+function resolveDeepaiCodeUserdataDir(env = process.env) {
+  if (env.TOKENTRACKER_DEEPAI_CODE_USERDATA) {
+    return expandHomePath(env.TOKENTRACKER_DEEPAI_CODE_USERDATA.trim(), env);
+  }
+  const home = env.HOME || require("node:os").homedir();
+  if (process.platform === "win32") {
+    return pickWin32ProviderPath({
+      env,
+      nativeValue: path.join(home, ".deepai-code", "userdata"),
+      wslProviderDir: ".deepai-code/userdata",
+    });
+  }
+  return path.join(home, ".deepai-code", "userdata");
+}
+
+// Each embedded pi runtime keeps its own agent dir at
+// <userdata>/deepai/pi/<scope>/ — today only "deepai", but the scope segment
+// is app-owned, so discover them instead of hardcoding one.
+function resolveDeepaiCodeAgentDirs(env = process.env) {
+  if (env.TOKENTRACKER_DEEPAI_CODE_AGENT_DIR) {
+    return [expandHomePath(env.TOKENTRACKER_DEEPAI_CODE_AGENT_DIR.trim(), env)];
+  }
+  const userdataDir = resolveDeepaiCodeUserdataDir(env);
+  if (!userdataDir) return [];
+  const piRoot = path.join(userdataDir, "deepai", "pi");
+  const discovered = [];
+  let entries = [];
+  try { entries = fssync.readdirSync(piRoot, { withFileTypes: true }); } catch { entries = []; }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const agentDir = path.join(piRoot, entry.name);
+    if (fssync.existsSync(path.join(agentDir, "sessions"))) discovered.push(agentDir);
+  }
+  if (discovered.length > 0) {
+    discovered.sort((a, b) => a.localeCompare(b));
+    return discovered;
+  }
+  // No sessions on disk yet — return the canonical path so status can report
+  // it consistently with the other passive providers.
+  return [path.join(piRoot, "deepai")];
+}
+
+function resolveDeepaiCodeSessionsDir(env = process.env) {
+  const agentDirs = resolveDeepaiCodeAgentDirs(env);
+  return agentDirs.length > 0 ? path.join(agentDirs[0], "sessions") : null;
+}
+
+// Same discovery walk as pi/OmO; the agent dirs are DeepAI-owned paths, so the
+// shared helper is reused instead of duplicated.
+function resolveDeepaiCodeSessionFiles(env = process.env) {
+  const files = [];
+  for (const agentDir of resolveDeepaiCodeAgentDirs(env)) {
+    files.push(...collectPiStyleSessionFiles(agentDir));
+  }
+  files.sort((a, b) => a.localeCompare(b));
+  return files;
+}
+
+async function parseDeepaiCodeIncremental(options = {}) {
+  return parsePiLikeIncremental({
+    ...options,
+    // Own state key: DeepAI Code must never share pi's seenIds/offsets, or
+    // alternating syncs between the two roots would drop or replay messages.
+    stateKey: "deepai",
+    resolveSessionFiles: resolveDeepaiCodeSessionFiles,
+    resolveDefaultModel: () => `${DEEPAI_CODE_SOURCE}-unknown`,
+    sourceForProvider: () => DEEPAI_CODE_SOURCE,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MiniMax Code (MiniMax's desktop coding agent) — passive JSONL reader
 // (~/.minimax/v2/sessions/YYYY/MM/DD/<HH-MM-SS-mmm>-session_<id>/messages.jsonl)
 //
@@ -24378,8 +24584,34 @@ async function listAntigravitySessionFiles(brainDir) {
   return (await listAntigravitySessionFilesWithStatus(brainDir)).files;
 }
 
-async function listAntigravityTranscriptsWithStatus(geminiHome, knownFiles = null) {
-  const dirs = resolveAntigravityBrainDirs(geminiHome);
+// Antigravity brain directories may come from more than one root once the T3
+// Code profiles (~/.t3/userdata/providers/antigravity, upstream #1124) join the
+// default ~/.gemini walk. Two roots can alias the same physical directory
+// through a symlink, and a transcript reached through two spellings would be
+// parsed twice, so the merged list is deduped by physical path before listing.
+function dedupeAntigravityBrainDirs(dirs) {
+  const seen = new Set();
+  const out = [];
+  for (const dir of dirs || []) {
+    if (!dir || typeof dir !== "string") continue;
+    let key;
+    try {
+      key = fssync.realpathSync(dir);
+    } catch (_err) {
+      key = path.resolve(dir);
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(dir);
+  }
+  return out;
+}
+
+async function listAntigravityTranscriptsWithStatus(geminiHome, knownFiles = null, extraBrainDirs = []) {
+  const dirs = dedupeAntigravityBrainDirs([
+    ...resolveAntigravityBrainDirs(geminiHome),
+    ...(Array.isArray(extraBrainDirs) ? extraBrainDirs : []),
+  ]);
   const results = await Promise.all(
     dirs.map((dir) => listAntigravitySessionFilesWithStatus(dir, knownFiles)),
   );
@@ -29481,6 +29713,13 @@ module.exports = {
   resolvePrimeAgentSessionFiles,
   resolvePrimeAgentDefaultModel,
   parsePrimeAgentIncremental,
+  DEEPAI_CODE_SOURCE,
+  resolveDeepaiCodeUserdataDir,
+  resolveDeepaiCodeAgentDirs,
+  resolveDeepaiCodeSessionsDir,
+  resolveDeepaiCodeSessionFiles,
+  parseDeepaiCodeIncremental,
+  parseAmpIncremental,
   resolveMinimaxCodeHome,
   resolveMinimaxCodeSessionsDir,
   resolveMinimaxCodeSessionFiles,

@@ -15,6 +15,12 @@ const { resolveDumateDbPaths, parseDumateIncremental } = require("../lib/dumate"
 const { resolveLoomyDbPaths } = require("../lib/loomy-paths");
 const wsl = require("../lib/wsl-probe");
 const {
+  T3_ANTIGRAVITY_REL,
+  discoverT3AntigravityBrainDirs,
+  hostDiscoveryIncomplete,
+  mergeAntigravityInventories,
+} = require("../lib/antigravity-discovery");
+const {
   ensureDir,
   readJson,
   writeJson,
@@ -100,6 +106,8 @@ const {
   piAgentDirCollidesWithOmp,
   resolvePrimeAgentSessionFiles,
   parsePrimeAgentIncremental,
+  resolveDeepaiCodeSessionFiles,
+  parseDeepaiCodeIncremental,
   resolveMinimaxCodeSessionFiles,
   parseMinimaxCodeIncremental,
   resolveCraftSessionFiles,
@@ -119,6 +127,7 @@ const {
   resolveWorkbuddyProjectFiles,
   parseWorkbuddyIncremental,
   parseAgentJsonlIncremental,
+  parseAmpIncremental,
   parseVibeIncremental,
   parseJcodeIncremental,
   parseCopilotSessionStateIncremental,
@@ -374,9 +383,11 @@ const AUTO_SYNC_SOURCE_ALIASES = new Map([
 const AUTO_SYNC_SOURCES = new Set([
   "acode",
   "antigravity",
+  "amp",
   "autoclaw",
   "anythingllm",
   "claude",
+  "deepai",
   "claude-science",
   "cline",
   "codearts",
@@ -413,6 +424,8 @@ const AUTO_SYNC_SOURCES = new Set([
   "opencode",
   "opensquilla",
   "openclaw",
+  "junie",
+  "opencodereview",
   "pi",
   "prime-agent",
   "qoder",
@@ -1436,31 +1449,47 @@ async function cmdSync(argv, context = {}) {
 
     let antigravityFiles = [];
     let antigravityInventoryComplete = true;
-    if (sourceAllowed("antigravity") && geminiPaths) {
+    if (sourceAllowed("antigravity")) {
       const knownAntigravityFiles = new Set(
         Object.keys(cursors.files || {}).filter((filePath) => resolveAntigravityDbPath(filePath)),
       );
+      // T3 Code keeps Antigravity sessions in its own profile tree
+      // (~/.t3/userdata/providers/antigravity, upstream TT #1124/#1126); the
+      // transcripts are genuine Antigravity conversations, so they stay under
+      // the `antigravity` source instead of a new one.
+      const extraT3Parents = [];
+      if (process.platform === "win32" && wsl.shouldProbeWsl(process.env)) {
+        const wslT3Home = wsl.discoverWslHome(".t3");
+        if (wslT3Home) {
+          // discoverWslHome(".t3") already returns the T3 state root.
+          extraT3Parents.push(path.join(wslT3Home, T3_ANTIGRAVITY_REL));
+        }
+      }
+      const hostDiscovery = await discoverT3AntigravityBrainDirs({
+        home,
+        env: process.env,
+        parents: extraT3Parents,
+      });
       const fileSets = [];
-      if (geminiPaths.native) {
+      if (geminiPaths?.native) {
         fileSets.push(
           await listAntigravityTranscriptsWithStatus(geminiPaths.native, knownAntigravityFiles),
         );
       }
-      if (geminiPaths.wsl) {
+      if (geminiPaths?.wsl) {
         fileSets.push(
           await listAntigravityTranscriptsWithStatus(geminiPaths.wsl, knownAntigravityFiles),
         );
       }
-      antigravityInventoryComplete = fileSets.every((set) => set.complete);
-      const seen = new Set();
-      for (const set of fileSets) {
-        for (const f of set.files) {
-          if (!seen.has(f)) {
-            seen.add(f);
-            antigravityFiles.push(f);
-          }
-        }
+      if (hostDiscovery.brainDirs.length > 0 || hostDiscoveryIncomplete(hostDiscovery.reports, knownAntigravityFiles)) {
+        fileSets.push(
+          await listAntigravityTranscriptsWithStatus(null, knownAntigravityFiles, hostDiscovery.brainDirs),
+        );
       }
+      antigravityInventoryComplete =
+        fileSets.every((set) => set.complete) &&
+        !hostDiscoveryIncomplete(hostDiscovery.reports, knownAntigravityFiles);
+      antigravityFiles = mergeAntigravityInventories(fileSets, knownAntigravityFiles);
     }
     let antigravityResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     if (antigravityFiles.length > 0) {
@@ -3061,6 +3090,8 @@ async function cmdSync(argv, context = {}) {
         { key: "autoclaw", label: "AutoClaw" },
         { key: "cola", label: "Cola" },
         { key: "tuanjie-cowork", label: "Tuanjie Cowork" },
+        { key: "junie", label: "Junie" },
+        { key: "opencodereview", label: "OpenCodeReview" },
       ];
       const agentJsonlResult = {};
       for (const { key, label } of agentJsonlSources) {
@@ -3083,6 +3114,30 @@ async function cmdSync(argv, context = {}) {
           });
         } catch (err) {
           warnProviderParseFailure(label, err, opts);
+        }
+      }
+
+      // ── Amp (Sourcegraph) — passive whole-file JSON thread reader ──
+      // (~/.local/share/amp/threads/*.json; the usage ledger rides the thread
+      // object, so this is a dedicated engine, not the agent-jsonl line loop.)
+      let ampResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+      if (sourceAllowed("amp")) {
+        if (progress?.enabled) progress.start(`Parsing Amp ${renderBar(0)} | buckets 0`);
+        try {
+          ampResult = await parseAmpIncremental({
+            cursors,
+            queuePath,
+            env: process.env,
+            onProgress: (p) => {
+              if (!progress?.enabled) return;
+              const pct = p.total > 0 ? p.index / p.total : 1;
+              progress.update(
+                `Parsing Amp ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(p.bucketsQueued)}`,
+              );
+            },
+          });
+        } catch (err) {
+          warnProviderParseFailure("Amp", err, opts);
         }
       }
 
@@ -3285,6 +3340,38 @@ async function cmdSync(argv, context = {}) {
         });
       } catch (err) {
         warnProviderParseFailure("Prime Agent", err, opts);
+      }
+    }
+
+    // ── DeepAI Code — passive ~/.deepai-code/userdata/deepai/pi reader
+    // (upstream TT #1133). The embedded-pi sessions reuse the pi family parser
+    // under an isolated "deepai" state key; a separate root, so unlike
+    // omp/omo there is no layout collision to guard.
+    let deepaiResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    const deepaiFiles = sourceAllowed("deepai")
+      ? mergeBothFileSources({ resolveFiles: resolveDeepaiCodeSessionFiles, env: process.env })
+      : [];
+    if (deepaiFiles.length > 0) {
+      if (progress?.enabled) {
+        progress.start(`Parsing DeepAI Code ${renderBar(0)} | buckets 0`);
+      }
+      try {
+        deepaiResult = await parseDeepaiCodeIncremental({
+          sessionFiles: deepaiFiles,
+          cursors,
+          queuePath,
+          projectQueuePath,
+          env: process.env,
+          onProgress: (p) => {
+            if (!progress?.enabled) return;
+            const pct = p.total > 0 ? p.index / p.total : 1;
+            progress.update(
+              `Parsing DeepAI Code ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(p.bucketsQueued)}`,
+            );
+          },
+        });
+      } catch (err) {
+        warnProviderParseFailure("DeepAI Code", err, opts);
       }
     }
 
@@ -3935,6 +4022,10 @@ async function cmdSync(argv, context = {}) {
       omoResult.bucketsQueued +
       piResult.bucketsQueued +
       primeAgentResult.bucketsQueued +
+      deepaiResult.bucketsQueued +
+      ampResult.bucketsQueued +
+      agentJsonlResult.junie?.bucketsQueued +
+      agentJsonlResult.opencodereview?.bucketsQueued +
       vibeResult.bucketsQueued +
       jcodeResult.bucketsQueued +
       copilotSessionStateResult.bucketsQueued +
@@ -3976,6 +4067,10 @@ async function cmdSync(argv, context = {}) {
       !(workbuddyAiResult.projectBucketsQueued > 0) &&
       !workbuddyResult.projectCursorUpdated &&
       !workbuddyAiResult.projectCursorUpdated &&
+      // DeepAI Code (upstream TT #1133) project backfill rewrites
+      // projectSeenIds/projectFileOffsets even on a main-queue no-op, so a
+      // backfill-only auto sync must still commit its cursor.
+      !(deepaiResult.projectBucketsQueued > 0) &&
       !(grokResult.projectBucketsQueued > 0) &&
       !(commandCodeResult.projectBucketsQueued > 0) &&
       !commandCodeResult.schemaMigrated &&

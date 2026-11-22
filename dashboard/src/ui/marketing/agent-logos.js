@@ -59,7 +59,11 @@ export const AGENT_LOGOS = [
   { id: 35, name: "AStudio", provider: "acode" },
   { id: 36, name: "LM Studio", provider: "lmstudio" },
   { id: 37, name: "Unsloth Studio", provider: "unsloth" },
-  { id: 38, name: "Devin CLI", provider: "devin" },
+    { id: 38, name: "Devin CLI", provider: "devin" },
+  { id: 60, name: "DeepAI Code", provider: "deepai" },
+  { id: 61, name: "Junie", provider: "junie" },
+  { id: 62, name: "OpenCodeReview", provider: "opencodereview" },
+  { id: 63, name: "Amp", provider: "amp" },
   {
     id: 39,
     nameKey: "provider.display.omo",

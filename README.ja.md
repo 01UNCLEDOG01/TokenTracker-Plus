@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>55 の AI コーディングツール・IDE を横断して、トークン消費・コスト・リアルタイム生成速度を可視化</strong></p>
+  <p><strong>59 の AI コーディングツール・IDE を横断して、トークン消費・コスト・リアルタイム生成速度を可視化</strong></p>
   <p>
     <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a> · <b>日本語</b> · <a href="./README.ko.md">한국어</a> · <a href="./README.pt-BR.md">Português (BR)</a>
   </p>
@@ -13,7 +13,7 @@
 
 ## ✨ 主な特徴
 
-- 🔌 **ゼロ設定で 55 ツールに自動接続** —— Claude Code / Codex / Cursor / Qoder / Kimi など主要 55 ツールのローカルログを自動検出。ログイン不要、API キー不要、クラウド不要。
+- 🔌 **ゼロ設定で 59 ツールに自動接続** —— Claude Code / Codex / Cursor / Qoder / Kimi など主要 59 ツールのローカルログを自動検出。ログイン不要、API キー不要、クラウド不要。
 - 💰 **無料モデルも定価で計上** —— 上流の `-free` → 0 円ルールを拒否し、無料ルートも公式定価で評価。タダ乗りした価値がひと目でわかる。
 - ⚡ **ミリ秒の tok/s ストリーム** —— チャンク単位の継続時間と推論トークンを分離し、セッション単位の生成速度を正確に計測。
 - 🌲 **セッション階層を掘り下げ** —— メイン会話 / サブエージェント / ツール呼び出し単位で高コスト操作を特定。
@@ -38,7 +38,7 @@
 | 機能 | ⚡ **TokenTracker Plus (本フォーク)** | 📦 **原版 TokenTracker (上流)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **位置づけとアーキテクチャ** | **マクロ全体帳簿 + 深掘りトポロジ + リアルタイム速度** | 汎用ダッシュボード（公式クラウドホスティング付き） | ミニマルなデスクトップ常時表示 |
-| **対応 AI ツール数** | **55 種**（国内外の主要ツールとローカル版を網羅） | 47 種 | ~15 種（主要モデル API と一般的 CLI 中心） |
+| **対応 AI ツール数** | **59 種**（国内外の主要ツールとローカル版を網羅） | 47 種 | ~15 種（主要モデル API と一般的 CLI 中心） |
 | **クォータ追跡** | **✅ 35 ソース**（リアルタイム残高ウィンドウとリセットカウントダウン） | 10 プロバイダー | ⚠️ 基本的な残高表示 |
 | **主な操作形態** | **Windows トレイ + macOS メニューバー + Web Dashboard + ウィジェット（Windows）+ CLI** | macOS メニューバー + Web Dashboard + ウィジェット + CLI | デスクトップ常時表示 |
 | **データとプライバシー** | **100% ローカル優先**（強制アップロードなし、多ソース WAL 対応） | ローカル SQLite + 公式クラウド同期（任意） | ローカル SQLite WAL（マクロ履歴レポートなし） |
@@ -109,11 +109,11 @@ git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
 cd TokenTracker-Plus
 npm install
 node bin/tracker.js   # 初回起動：Hook 自動設置 + 同期 + Dashboard オープン
-node bin/tracker.js status   # 55 ツールの接続状態
+node bin/tracker.js status   # 59 ツールの接続状態
 node bin/tracker.js doctor   # 診断
 ```
 
-ローカル Dashboard は Windows / macOS デスクトップ版が既定で `http://localhost:17680`、CLI の `serve` は既定で `7680`。対応ツールの全リストは[中国語版 README](./README.md#-支持的-ai-工具列表55-款)を参照（CLI / VS Code 拡張 / IDE の 55 種）。
+ローカル Dashboard は Windows / macOS デスクトップ版が既定で `http://localhost:17680`、CLI の `serve` は既定で `7680`。対応ツールの全リストは[中国語版 README](./README.md#-支持的-ai-工具列表59-款)を参照（CLI / VS Code 拡張 / IDE の 59 種）。
 
 ## 💰 課金とヒートマップ
 

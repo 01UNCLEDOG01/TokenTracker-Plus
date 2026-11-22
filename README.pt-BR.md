@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./dashboard/public/app-icon.png" width="96" height="96" alt="TokenTracker Plus Logo" />
   <h1>TokenTracker Plus (TT-plus)</h1>
-  <p><strong>Acompanhe custos reais de tokens, topologia de sessões e velocidade de geração em 55 ferramentas de IA</strong></p>
+  <p><strong>Acompanhe custos reais de tokens, topologia de sessões e velocidade de geração em 59 ferramentas de IA</strong></p>
   <p>
     <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <b>Português (BR)</b>
   </p>
@@ -13,7 +13,7 @@
 
 ## ✨ Recursos principais
 
-- 🔌 **55 ferramentas conectadas sem configuração** —— detecção automática dos logs locais de Claude Code, Codex, Cursor, Qoder, Kimi e mais. Sem login, sem chave de API, sem nuvem.
+- 🔌 **59 ferramentas conectadas sem configuração** —— detecção automática dos logs locais de Claude Code, Codex, Cursor, Qoder, Kimi e mais. Sem login, sem chave de API, sem nuvem.
 - 💰 **Modelos gratuitos avaliados pelo preço de tabela** —— rejeitamos a regra do upstream que zera rotas `-free`; o valor que você "pegou de graça" fica visível.
 - ⚡ **Fluxo tok/s em milissegundos** —— duração por chunk e tokens de raciocínio separados, velocidade precisa por sessão.
 - 🌲 **Topologia de sessões** —— sessão principal / subagentes / chamadas de ferramenta, para achar as operações caras.
@@ -38,7 +38,7 @@
 | Dimensão | ⚡ **TokenTracker Plus (este fork)** | 📦 **TokenTracker original (upstream)** | 🪟 **Token Monitor (TM)** |
 |:---|:---:|:---:|:---:|
 | **Posicionamento e arquitetura** | **Macro-contabilidade completa + topologia profunda + velocidade em tempo real** | Dashboard genérico (com cloud hosting oficial) | Exibição de desktop minimalista |
-| **Ferramentas de IA suportadas** | **55** (cobre o espectro nacional/internacional e clientes locais) | 47 | ~15 (principalmente APIs de modelos populares e CLIs comuns) |
+| **Ferramentas de IA suportadas** | **59** (cobre o espectro nacional/internacional e clientes locais) | 47 | ~15 (principalmente APIs de modelos populares e CLIs comuns) |
 | **Rastreamento de cotas** | **✅ 35 fontes** (janela de cotas em tempo real e contagem regressiva de renovação) | 10 provedores | ⚠️ exibição básica de cotas |
 | **Interação principal** | **Bandeja do Windows + barra de menu do macOS + Web Dashboard + widgets (Windows) + CLI** | Barra de menu do macOS + Web Dashboard + widgets + CLI | janela flutuante minimalista |
 | **Dados e privacidade** | **100% local primeiro** (sem upload forçado, WAL multi-fonte) | SQLite local + sincronização opcional na nuvem oficial | SQLite WAL local (sem relatórios históricos) |
@@ -109,11 +109,11 @@ git clone https://github.com/01UNCLEDOG01/TokenTracker-Plus.git
 cd TokenTracker-Plus
 npm install
 node bin/tracker.js   # 1ª execução: instala hooks, sincroniza e abre o Dashboard
-node bin/tracker.js status   # estado das 55 ferramentas
+node bin/tracker.js status   # estado das 59 ferramentas
 node bin/tracker.js doctor   # diagnóstico
 ```
 
-O dashboard local fica em `http://localhost:17680` nos apps do Windows e macOS (a CLI `serve` usa `7680` por padrão). A lista completa das 55 ferramentas está no [README em chinês](./README.md#-支持的-ai-工具列表55-款).
+O dashboard local fica em `http://localhost:17680` nos apps do Windows e macOS (a CLI `serve` usa `7680` por padrão). A lista completa das 59 ferramentas está no [README em chinês](./README.md#-支持的-ai-工具列表59-款).
 
 ## 💰 Cobrança e heatmap
 
