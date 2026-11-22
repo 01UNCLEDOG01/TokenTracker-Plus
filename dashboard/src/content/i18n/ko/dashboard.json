@@ -59,6 +59,8 @@
   "dashboard.cost_breakdown.close": "닫기",
   "trend.monitor.label": "사용 추세",
   "trend.monitor.predicted": "예측값",
+  "trend.monitor.in_progress": "진행 중",
+  "trend.monitor.daily_avg": "일평균: {{cost}} / 일",
   "trend.zoom.open_aria": "전체 화면으로 확대",
   "trend.zoom.close_aria": "닫기",
   "trend.zoom.badge": "트렌드 인사이트",

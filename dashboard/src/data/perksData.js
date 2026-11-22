@@ -689,7 +689,7 @@ export const PERK_PROVIDERS = [
       "big_quota",
       "gateway"
     ],
-    "badge": "推荐官计划：每邀 1 人实名得 ¥16 代金券",
+    "badge": "实名送 ¥16 券（至 2026-12-31）· 每邀 1 人再得 ¥16",
     "badgeType": "blue",
     "tags": [
       "主流聚合",
@@ -697,14 +697,14 @@ export const PERK_PROVIDERS = [
       "极速推理",
       "小模型免费"
     ],
-    "description": "聚合 DeepSeek、Qwen 等主流开源大模型，部分小参数模型长期免费开放并发调用。**完成实名认证后可手动领一张 ¥16 全平台通用代金券（老用户也能领，领取后 180 天有效；2026-11-10 官方页核实）**；定价页标免费的模型（PaddleOCR-VL-1.5、BGE 向量/重排系列、Kolors 生图、SenseVoiceSmall 语音、XingChen ASR/GSR 系列、Hunyuan-MT-7B、Xing4.0-29B）**实名后 0 元调用；不含 Pro 版本及其他收费模型，按模型限速**。推荐官计划（2026-11-01 实测）：被邀请人完成注册及实名认证后，邀请人每邀 1 名再得 ¥16 代金券，人数与次数不设上限；注册端新户赠额以站内余额为准。",
+    "description": "聚合 DeepSeek、Qwen 等主流开源大模型，部分小参数模型长期免费开放并发调用。**实名认证专享礼（即日起至 2026-12-31 截止，2026-11-23 官方活动页核对）：新老用户首次完成实名认证，或活动前已通过实名认证者，均可在活动期间手动领取 1 张面值 ¥16 的全平台通用「认证奖励券」（自领取之日起 180 天内有效，逾期失效，每人限领 1 次）**；定价页标免费的模型（PaddleOCR-VL-1.5、BGE 向量/重排系列、Kolors 生图、SenseVoiceSmall 语音、XingChen ASR/GSR 系列、Hunyuan-MT-7B、Xing4.0-29B）**实名后 0 元调用；不含 Pro 版本及其他收费模型，按模型限速**。推荐官计划（2026-11-01 实测）：被邀请人完成注册及实名认证后，邀请人每邀 1 名再得 ¥16 代金券，人数与次数不设上限；注册端新户赠额以站内余额为准。",
     "tips": "代金券全平台模型与服务均可使用；注意使用期限，领取后尽快在有效期内消耗（剩余/有效期以站内「费用明细」为准）；额度支持各类第三方客户端接入，充值亦常设阶梯返赠（活动档位以站内公告为准）。",
     "inviteUrl": "https://cloud.siliconflow.cn/i/667oBtc0",
     "officialUrl": "https://cloud.siliconflow.cn",
     "inviteCode": "667oBtc0",
     "hasInvite": true,
-    "checkedAt": "2026-11-12",
-    "sourceUrl": "https://www.siliconflow.cn/"
+    "checkedAt": "2026-11-23",
+    "sourceUrl": "https://cloud.siliconflow.cn/me/campaigns/real-name"
   },
   {
     "id": "scnet",

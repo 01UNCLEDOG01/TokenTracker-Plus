@@ -613,6 +613,16 @@ export function TrendMonitor({
     setHoveredBar(null);
   }, [series, granularity, locale]);
 
+  const currentMonthInfo = React.useMemo(() => {
+    if (granularity !== "monthly" && granularity !== "month") return null;
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const rowMonth = String(hoveredBar?.row?.month || hoveredBar?.row?.day || "");
+    if (!rowMonth.startsWith(currentMonthKey)) return null;
+    const daysElapsed = Math.max(1, now.getDate());
+    return { daysElapsed };
+  }, [granularity, hoveredBar]);
+
   return (
     <div
       ref={containerRef}
@@ -771,16 +781,23 @@ export function TrendMonitor({
               <span className="text-[11px] font-semibold text-oai-gray-500 dark:text-oai-gray-400">
                 {hoveredBar.timeLabel}
               </span>
-              {hoveredBar.kind === "predicted" && (
-                <span className="text-[9px] font-semibold uppercase tracking-wider text-oai-gray-400 dark:text-oai-gray-500">
-                  {copy("trend.monitor.predicted")}
-                </span>
-              )}
-              {hoveredBar.kind === "unsynced" && (
-                <span className="text-[9px] font-semibold uppercase tracking-wider text-oai-gray-400 dark:text-oai-gray-500">
-                  {copy("trend.monitor.unsynced")}
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {currentMonthInfo && (
+                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    {copy("trend.monitor.in_progress")}
+                  </span>
+                )}
+                {hoveredBar.kind === "predicted" && (
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-oai-gray-400 dark:text-oai-gray-500">
+                    {copy("trend.monitor.predicted")}
+                  </span>
+                )}
+                {hoveredBar.kind === "unsynced" && (
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-oai-gray-400 dark:text-oai-gray-500">
+                    {copy("trend.monitor.unsynced")}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* 内容 */}
@@ -804,22 +821,31 @@ export function TrendMonitor({
                   Total-view monthly hover showed no spending at all). */}
               {(hoveredBar.row?.total_cost_usd != null ||
                 Number(hoveredBar.row?.conversation_count) > 0) && (
-                  <div className="flex items-center gap-3 text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
-                    {hoveredBar.row?.total_cost_usd != null && (
-                      <span>
-                        <span className="font-semibold text-oai-gray-700 dark:text-oai-gray-200">
-                          {formatUsdCurrency(hoveredBar.row.total_cost_usd, { currency, rate })}
-                        </span>{" "}
-                        {copy("trend.zoom.tooltip.cost")}
-                      </span>
-                    )}
-                    {Number(hoveredBar.row?.conversation_count) > 0 && (
-                      <span>
-                        <span className="font-semibold text-oai-gray-700 dark:text-oai-gray-200">
-                          {Number(hoveredBar.row.conversation_count).toLocaleString()}
-                        </span>{" "}
-                        {copy("trend.zoom.tooltip.conversations")}
-                      </span>
+                  <div className="flex flex-col gap-1 text-[11px] text-oai-gray-500 dark:text-oai-gray-400">
+                    <div className="flex items-center gap-3">
+                      {hoveredBar.row?.total_cost_usd != null && (
+                        <span>
+                          <span className="font-semibold text-oai-gray-700 dark:text-oai-gray-200">
+                            {formatUsdCurrency(hoveredBar.row.total_cost_usd, { currency, rate })}
+                          </span>{" "}
+                          {copy("trend.zoom.tooltip.cost")}
+                        </span>
+                      )}
+                      {Number(hoveredBar.row?.conversation_count) > 0 && (
+                        <span>
+                          <span className="font-semibold text-oai-gray-700 dark:text-oai-gray-200">
+                            {Number(hoveredBar.row.conversation_count).toLocaleString()}
+                          </span>{" "}
+                          {copy("trend.zoom.tooltip.conversations")}
+                        </span>
+                      )}
+                    </div>
+                    {currentMonthInfo && hoveredBar.row?.total_cost_usd != null && (
+                      <div className="text-[10px] text-oai-gray-400 dark:text-oai-gray-450">
+                        {copy("trend.monitor.daily_avg", {
+                          cost: formatUsdCurrency(hoveredBar.row.total_cost_usd / currentMonthInfo.daysElapsed, { currency, rate }),
+                        })}
+                      </div>
                     )}
                   </div>
                 )}

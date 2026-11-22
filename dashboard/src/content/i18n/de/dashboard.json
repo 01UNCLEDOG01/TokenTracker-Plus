@@ -54,6 +54,8 @@
   "dashboard.cost_breakdown.close": "Schließen",
   "trend.monitor.label": "Nutzungstrend",
   "trend.monitor.predicted": "Prognose",
+  "trend.monitor.in_progress": "Laufend",
+  "trend.monitor.daily_avg": "Tagesdurchschnitt: {{cost}} / Tag",
   "trend.zoom.open_aria": "Vollbild öffnen",
   "trend.zoom.close_aria": "Schließen",
   "trend.zoom.badge": "Trendanalyse",

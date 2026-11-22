@@ -249,6 +249,27 @@ describe("TrendMonitor", () => {
       { type: "model", name: "Claude-Sonnet", value: 50 },
     ]);
   });
+
+  it("renders in-progress badge and daily average for current month in monthly view", () => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const rows = [
+      { month: "2026-10", total_tokens: 1000, total_cost_usd: 10 },
+      { month: currentMonth, total_tokens: 2000, total_cost_usd: 23 },
+    ];
+    const { container } = render(<TrendMonitor rows={rows} period="total" />);
+    const bars = container.querySelectorAll('[role="button"]');
+    expect(bars.length).toBeGreaterThanOrEqual(2);
+    bars.forEach((bar, i) => {
+      bar.getBoundingClientRect = () => ({ left: i * 30, bottom: 160, width: 30 });
+    });
+
+    fireEvent.mouseEnter(bars.item(bars.length - 1));
+    const tooltip = container.querySelector("[data-trend-tooltip]");
+    expect(tooltip).not.toBeNull();
+    expect(tooltip.textContent).toMatch(/In progress|在途/i);
+    expect(tooltip.textContent).toMatch(/Daily avg|日均/i);
+  });
 });
 
 describe("chooseTrendTooltipPlacement", () => {

@@ -187,4 +187,13 @@ describe("ActivityHeatmap", () => {
     const expectedAmberBg = ["rgb", "(254, 243, 199)"].join("");
     expect(level1Cell.style.background).toBe(expectedAmberBg);
   });
+
+  it("keeps level 0 cells neutral gray regardless of active palette", () => {
+    window.localStorage.setItem("tt:heatmap-palette", "neon");
+    const { container } = renderHeatmap({ onSelectDay: vi.fn() });
+    const level0Cell = container.querySelector('[aria-label="2026-04-26"]');
+    expect(level0Cell).toBeTruthy();
+    const expectedNeutralGrayBg = ["rgb", "(235, 237, 240)"].join("");
+    expect(level0Cell.style.background).toBe(expectedNeutralGrayBg);
+  });
 });
