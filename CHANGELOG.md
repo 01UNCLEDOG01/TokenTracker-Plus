@@ -10,7 +10,7 @@
 
 - **新增：五款 AI 编码工具的会话采集**。T3 Code（通过 antigravity-acp 配置使用 Google Antigravity 的会话自动发现）、DeepAI Code（内嵌 pi 的会话日志）、Junie（JetBrains 官方编码 agent）、OpenCodeReview、Amp（Sourcegraph）——本地工具数 55 → 59。判定与接入方式均来自公开参考实现（上游 TT #1124/#1133 与 MIT 开源的 tokscale/TM 解析器），模型单价照常走价表，未公开价格只记 token 不编金额。
 - **变更：面板与 mac 菜单栏打开时默认显示「今日」消耗**（此前默认「本月」，切换器照常可手动改周期）。
-- 发布物：Windows 包 `TokenTracker-plus-Setup-v1.42.0.exe` / `TokenTracker-plus-1.42.0-win-x64.zip`（Windows 机发版链随附）；macOS 包 `TokenTracker-plus-1.42.0.dmg` / `TokenTracker-plus-macos-universal-1.42.0.zip` 由 mac 会话按同一 tag 打制（SHA-256 见 Release 校验段）。
+- 发布物：`TokenTracker-plus-Setup-v1.42.0.exe` / `TokenTracker-plus-1.42.0-win-x64.zip`（Windows，构建树 105148f）；`TokenTracker-plus-1.42.0.dmg` / `TokenTracker-plus-macos-universal-1.42.0.zip`（macOS，mac 会话按同一 tag 打制；SHA-256 见 Release 校验段）。
 ## [1.41.0] - 2026-11-22
 
 - **新增：限额卡「用量缺口」提示（三态用量门禁）**。上游官方会话文件停止上报用量时（首发案例：Qoder CN 自 2026-11-02 之后不再写入任何用量），面板此前只会静默显示 0、「用量不完整」；现在「会话仍在进行、但最近 3 天（含今天）没有任何新用量记录」的来源，会在限额页对应限额卡的展开区亮黄字提示「自 <日期> 之后不再上报用量」。判定只读本机会话索引与用量队列（证据同通道，零上游请求），cookie 过期等认证问题仍由各额度卡自身状态呈现、不会被混报成断供；最近 3 天没用过的来源不提示，历史不足 14 天的低频来源不参评。`tracker status` 同步输出 `Usage gap` 行。

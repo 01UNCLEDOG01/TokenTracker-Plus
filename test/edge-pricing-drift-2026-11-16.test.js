@@ -38,6 +38,7 @@ const CURATED_RATES = {
   "google/gemma-4-26b-a4b-it:free": { input: 0.09, output: 0.34, cache_read: 0.009, cache_write: 0.09 },
   "minimax-m3.1-flash": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
   "minimax-m3.1-flash-preview": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
+  "agnes-3.0-flash": { input: 0.05, output: 0.15, cache_read: 0.005, cache_write: 0 },
 };
 // LiteLLM-resolved: only verifiable when the fetcher actually loaded live/disk
 // data (the seed snapshot predates these SKUs).

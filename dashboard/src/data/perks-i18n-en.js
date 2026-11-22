@@ -13,7 +13,7 @@ export const PERKS_EN = {
   agnes: {
     badge: "In-house text/image/video free tier",
     description:
-      "In-house free-tier model refresh: text agnes-2.5-flash and agnes-3-flash; image agnes-image-2.0 / 2.1 / 2.5-flash; video Agnes Video 2.5 Flash (720p). Per the official 2026-09-23 notice, free- and enterprise-tier rate limits were each cut by 50% — now 10 RPM for free and 20 RPM for enterprise. Both the China site (agnes-ai.cn) and the international site (www.agnes-ai.com) work, neither with an invite program; for the daily-login credit web app see the separate \u201cAgnes AI Web\u201d card.",
+      "In-house free-tier model refresh: primary text agnes-3.0-flash (legacy agnes-2.5-flash retiring on 2026-11-30); image agnes-image-2.0 / 2.1 / 2.5-flash; video Agnes Video 2.5 Flash (720p). Per the official 2026-09-23 notice, free- and enterprise-tier rate limits were each cut by 50% — now 10 RPM for free and 20 RPM for enterprise. Both the China site (agnes-ai.cn) and the international site (www.agnes-ai.com) work, neither with an invite program; for the daily-login credit web app see the separate \u201cAgnes AI Web\u201d card.",
     tips:
       "Early sign-ups got a $0.10 credit; whether that still applies is unverified — your in-site balance prevails. To connect, pick a custom provider and fill in the endpoint.",
     tags: ["Free-tier models", "Free 10 RPM", "Long context", "Multimodal"],

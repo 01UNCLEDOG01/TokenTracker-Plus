@@ -319,6 +319,8 @@ const MODEL_PRICING: Record<string, { input: number; output: number; cache_read:
   "minimax-m3.1-flash-preview": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
   // MiniMax Code's agent model (litellm:prefix-strip, 2026-11-16).
   "agnes-2.5-flash": { input: 0.03, output: 0.15, cache_read: 0, cache_write: 0 },
+  "agnes-3.0-flash": { input: 0.05, output: 0.15, cache_read: 0.005, cache_write: 0 },
+  "agnes-3-flash": { input: 0.05, output: 0.15, cache_read: 0.005, cache_write: 0 },
   "deepseek-v4-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
   "deepseek-v4-pro": { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 },
   "deepseek-v4-flash-vision-exp": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
