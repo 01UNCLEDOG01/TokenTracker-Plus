@@ -20,6 +20,8 @@ const EXPECTED = [
   "validate:art",
   "validate:docs",
   "validate:perks",
+  // 2026-11-23: GitHub About 对外计数门禁（含网络面，断网降级为 WARN 不假红）。
+  "validate:about",
 ];
 
 test("validate:fast 的步骤顺序与清单被锁住", () => {
