@@ -322,15 +322,15 @@ leaderboard.pagination.prev,dashboard,LeaderboardPage,LeaderboardPage,pagination
 leaderboard.pagination.next,dashboard,LeaderboardPage,LeaderboardPage,pagination_next,Next,,active
 leaderboard.pagination.ellipsis,dashboard,LeaderboardPage,LeaderboardPage,pagination_ellipsis,…,,active
 leaderboard.pagination.page_unknown,dashboard,LeaderboardPage,LeaderboardPage,pagination_unknown,Page {{page}},,active
-dashboard.session_expired.copy_label,dashboard,DashboardPage,AsciiBox,body,run npx --yes tokentracker-cli init,,active
+dashboard.session_expired.copy_label,dashboard,DashboardPage,AsciiBox,body,run npx --yes github:01UNCLEDOG01/TokenTracker-Plus init,,active
 dashboard.session_expired.copied,dashboard,DashboardPage,AsciiBox,body,copied,,active
 dashboard.install.prompt,dashboard,DashboardPage,AsciiBox,install_prompt,Install Node.js 18+ then run:,,active
-dashboard.install.cmd.init,dashboard,DashboardPage,AsciiBox,install_cmd,npx --yes tokentracker-cli init,,active
-dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cmd,npx --yes tokentracker-cli init --link-code {{link_code}},,active
+dashboard.install.cmd.init,dashboard,DashboardPage,AsciiBox,install_cmd,npx --yes github:01UNCLEDOG01/TokenTracker-Plus init,,active
+dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cmd,npx --yes github:01UNCLEDOG01/TokenTracker-Plus init --link-code {{link_code}},,active
 dashboard.install.copy,dashboard,DashboardPage,AsciiBox,install_copy,Copy install command,,active
 dashboard.install.copy_base,dashboard,DashboardPage,AsciiBox,install_copy,Copy init command,,active
 dashboard.install.copied,dashboard,DashboardPage,AsciiBox,install_copy,Copied to clipboard,,active
-dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,npx --yes tokentracker-cli sync,,active
+dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,npx --yes github:01UNCLEDOG01/TokenTracker-Plus sync,,active
 dashboard.daily.title,dashboard,DashboardPage,AsciiBox,title,Daily Breakdown,,active
 dashboard.daily.empty,dashboard,DashboardPage,AsciiBox,empty_state,No data yet. Use your AI CLI then run {{cmd}}.,,active
 dashboard.identity.title,dashboard,DashboardPage,IdentityCard,title,Your Profile,,active
