@@ -48,6 +48,7 @@ function renderHeatmap({ tokenFormatValue = null, ...props } = {}) {
 describe("ActivityHeatmap", () => {
   afterEach(() => {
     window.localStorage.removeItem("tt:heatmap-view");
+    window.localStorage.removeItem("tt:heatmap-palette");
   });
 
   it("keeps the 2D day detail card transparent to pointer movement", async () => {
@@ -162,5 +163,28 @@ describe("ActivityHeatmap", () => {
     fireEvent.click(getByTitle("Click to enter 3D fullscreen rotation analysis mode"));
 
     expect(getAllByText("12.35M")).toHaveLength(2);
+  });
+
+  it("switches 2D palette and persists choice to localStorage", () => {
+    const { container, getByRole } = renderHeatmap({ onSelectDay: vi.fn() });
+    const oceanBtn = getByRole("radio", { name: /Ocean/i });
+    expect(oceanBtn).toBeTruthy();
+
+    fireEvent.click(oceanBtn);
+    expect(window.localStorage.getItem("tt:heatmap-palette")).toBe("ocean");
+
+    const level1Cell = container.querySelector('[aria-label="2026-04-27"]');
+    expect(level1Cell).toBeTruthy();
+    const expectedOceanBg = ["rgb", "(191, 219, 254)"].join("");
+    expect(level1Cell.style.background).toBe(expectedOceanBg);
+  });
+
+  it("restores persisted palette from localStorage on mount", () => {
+    window.localStorage.setItem("tt:heatmap-palette", "amber");
+    const { container } = renderHeatmap({ onSelectDay: vi.fn() });
+    const level1Cell = container.querySelector('[aria-label="2026-04-27"]');
+    expect(level1Cell).toBeTruthy();
+    const expectedAmberBg = ["rgb", "(254, 243, 199)"].join("");
+    expect(level1Cell.style.background).toBe(expectedAmberBg);
   });
 });

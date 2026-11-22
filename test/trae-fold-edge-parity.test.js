@@ -45,6 +45,7 @@ const EDGE_COPIES = [
   "tokentracker-account-daily.ts",
   "tokentracker-account-model-breakdown.ts",
   "tokentracker-leaderboard-profile.ts",
+  "tokentracker-account-monthly.ts",
 ];
 
 function loadFold(name) {

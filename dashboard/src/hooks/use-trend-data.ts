@@ -788,6 +788,7 @@ function fillMonthlyGaps(rows: any[], from: any, to: any, context: any = {}) {
         output_tokens: value,
         reasoning_output_tokens: value,
         conversation_count: value,
+        total_cost_usd: value,
         missing: false,
         future,
       });

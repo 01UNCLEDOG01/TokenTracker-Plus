@@ -133,7 +133,32 @@ export function ActivityHeatmap({
   const { currency, rate } = useCurrency();
   const { formatTokens, formatTokensTooltip } = useTokenFormat();
   const isDark = resolvedTheme === "dark";
-  const heatmapColors = isDark ? HEATMAP_COLORS_DARK : HEATMAP_COLORS_LIGHT;
+  const scrollRef = useRef(null);
+  const mainContainerRef = useRef(null);
+
+  // 3D 弹窗与控制状态及调色板（支持持久化记忆）
+  const [activePalette, setActivePalette] = useState(() => {
+    try {
+      const stored = window.localStorage?.getItem("tt:heatmap-palette");
+      return stored && PALETTES[stored] ? stored : "emerald";
+    } catch {
+      return "emerald";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage?.setItem("tt:heatmap-palette", activePalette);
+    } catch {
+      /* ignore */
+    }
+  }, [activePalette]);
+
+  const currentPaletteConfig = PALETTES[activePalette] || PALETTES.emerald;
+  const heatmapColors = isDark
+    ? (currentPaletteConfig.dark || HEATMAP_COLORS_DARK)
+    : (currentPaletteConfig.light || HEATMAP_COLORS_LIGHT);
+
   const snapshotTimeLabel = useMemo(() => {
     if (!snapshotAt) return "";
     const ts = Date.parse(snapshotAt);
@@ -144,8 +169,6 @@ export function ActivityHeatmap({
       return "";
     }
   }, [snapshotAt]);
-  const scrollRef = useRef(null);
-  const mainContainerRef = useRef(null);
   
   // 2D 精致 Hover 状态
   const [hoveredCell, setHoveredCell] = useState(null);
@@ -164,7 +187,6 @@ export function ActivityHeatmap({
   const [isClosing, setIsClosing] = useState(false);
   const [modalAutoRotate, setModalAutoRotate] = useState(false);
   const resetViewRef = useRef(null);
-  const [activePalette, setActivePalette] = useState("emerald");
 
   // 动态感知多语言月份 labels
   const monthLabels = [
@@ -526,7 +548,40 @@ export function ActivityHeatmap({
             </button>
           </div>
 
-
+          {/* Palette Picker */}
+          <div
+            role="radiogroup"
+            aria-label="Heatmap palette"
+            className="flex items-center gap-1.5 px-1.5 py-1 rounded-md border border-oai-gray-200 dark:border-oai-gray-800"
+          >
+            {Object.keys(paletteAccents).map((key) => {
+              const isSelected = activePalette === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => setActivePalette(key)}
+                  title={copy(`heatmap.3d.modal.palette.${key}`)}
+                  aria-label={copy(`heatmap.3d.modal.palette.${key}`)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-150 relative hover:scale-125 focus:outline-none ${
+                    key === "emerald"
+                      ? "bg-emerald-500"
+                      : key === "ocean"
+                      ? "bg-blue-500"
+                      : key === "neon"
+                      ? "bg-purple-500"
+                      : "bg-amber-500"
+                  }`}
+                >
+                  {isSelected && (
+                    <span className="absolute inset-0 rounded-full ring-2 ring-offset-1 ring-offset-white dark:ring-offset-oai-gray-900 ring-oai-gray-700 dark:ring-white scale-125" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
           <span className="text-xs text-oai-gray-400 dark:text-oai-gray-450">{timeZoneShortLabel || copy("heatmap.legend.utc")}</span>
         </div>

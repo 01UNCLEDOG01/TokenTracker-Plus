@@ -5,6 +5,8 @@
 import { createClient } from "npm:@insforge/sdk";
 import { cloudReadAccess, cloudFailure, cloudHistoryFailure } from "./cloud/access.ts";
 
+const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline", "qoder"]);
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -79,6 +81,8 @@ interface GroupedRow {
   cache_creation_input_tokens: number | null;
   reasoning_output_tokens: number | null;
   conversations: number | null;
+  pricing_tier?: string;
+  total_cost_usd?: number | null;
 }
 
 const GROUPED_ROWS_TTL_MS = 30_000;
@@ -135,6 +139,891 @@ async function fetchGroupedRows(
   })().finally(() => groupedRowsInFlight.delete(cacheKey));
   groupedRowsInFlight.set(cacheKey, pending);
   return pending;
+}
+
+const MODEL_PRICING: Record<string, { input: number; output: number; cache_read: number; cache_write?: number }> = {
+  // ── Anthropic Claude ──
+  "claude-fable-5": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+  "claude-fable-5-2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-fable-5.2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-fable-5-2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-fable-5.2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-mythos-5-2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-mythos-5.2": { input: 8, output: 40, cache_read: 0.2, cache_write: 10 },
+  "claude-mythos-5-2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-mythos-5.2-fast": { input: 16, output: 80, cache_read: 0.4, cache_write: 20 },
+  "claude-mythos-5-1": { input: 10, output: 50, cache_read: 0.25, cache_write: 12.5 },
+  "claude-mythos-5": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+  "claude-opus-5": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
+  "claude-opus-5-fast": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+  "claude-opus-4-6": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
+  "claude-opus-4-5-20250414": { input: 5, output: 25, cache_read: 0.5, cache_write: 6.25 },
+  "claude-sonnet-5": { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
+  "claude-opus-5-5": { input: 4, output: 20, cache_read: 0.2, cache_write: 5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
+  "k3-256k": { input: 3, output: 15, cache_read: 0.3 },
+  "claude-sonnet-4-6": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "claude-sonnet-4-5-20250514": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "claude-sonnet-4-20250514": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
+  "claude-haiku-5.5": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
+  "claude-haiku-4-5-20251001": { input: 1, output: 5, cache_read: 0.1, cache_write: 1.25 },
+  "claude-3-5-sonnet-20241022": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "claude-3-5-haiku-20241022": { input: 1, output: 5, cache_read: 0.1, cache_write: 1.25 },
+  // ── OpenAI GPT / Codex ──
+  "gpt-5": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5-fast": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5-high": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5-high-fast": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5-codex": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5-codex-high-fast": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.1-codex": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.1-codex-mini": { input: 0.25, output: 2, cache_read: 0.025 },
+  "gpt-5.1-codex-max": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.1-codex-max-high-fast": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.1-codex-max-xhigh-fast": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.1-codex-high": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.1-codex-max-high": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gpt-5.2": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.2-high": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.2-high-fast": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.2-codex": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.2-codex-high": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.3-codex": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.3-codex-high": { input: 1.75, output: 14, cache_read: 0.175 },
+  "gpt-5.4": { input: 2.5, output: 15, cache_read: 0.25 },
+  "gpt-5.4-mini": { input: 0.75, output: 4.5, cache_read: 0.075 },
+  // gpt-5.4-pro per developers.openai.com/api/docs/pricing; cache_read 3
+  // mirrors the local LiteLLM entry. There is NO "-medium" SKU —
+  // medium/high/xhigh are reasoning-effort levels billed at the base rate;
+  // a stale "gpt-5.4-medium" 1.5/10 entry here undercut the local engine
+  // (suffix-strip → gpt-5.4 at 2.5/15) by 40% until 2026-06.
+  "gpt-5.4-pro": { input: 30, output: 180, cache_read: 3 },
+  "gpt-5.5": { input: 5, output: 30, cache_read: 0.5 },
+  // GPT-5.6 family (public 2026-07-09), developers.openai.com/api/docs/pricing.
+  // Three durable capability tiers: sol (flagship and public alias) / terra (balanced) /
+  // luna (lightweight). Codex reports the tier in the model id (gpt-5.6-sol,
+  // + reasoning-effort variants like gpt-5.6-solhigh). Not yet in LiteLLM.
+  "gpt-5.6-sol": { input: 4, output: 20, cache_read: 0.4, cache_write: 5 },
+  "gpt-5.6-terra": { input: 2, output: 12, cache_read: 0.2, cache_write: 2.5 },
+  "gpt-5.6-luna": { input: 0.2, output: 1.2, cache_read: 0.02, cache_write: 0.25 },
+  // GPT-6 Astra Standard USD/MTok, verified 2026-09-07:
+  // https://developers.openai.com/api/docs/models/gpt-6-astra
+  // Cloud buckets do not retain per-request context/service tier. Use the
+  // standard short-context estimate; never infer long context from totals.
+  "gpt-6.2-astra": { input: 8, output: 40, cache_read: 0.4, cache_write: 10 },
+  "gpt-6.2-astra-law": { input: 8, output: 40, cache_read: 0.4, cache_write: 10 },
+  "gpt-6-astra": { input: 10, output: 50, cache_read: 1, cache_write: 12.5 },
+  "gpt-6.2-sol": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
+  // GPT-6 Sol Standard USD/MTok, verified 2026-09-24:
+  // https://developers.openai.com/api/docs/models/gpt-6-sol
+  "gpt-6-sol": { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
+  // GPT-6.1 Sol Standard pricing (issue #737), verified 2026-10-02.
+  // https://developers.openai.com/api/docs/models/gpt-6.1-sol
+  "gpt-6.1-sol": { input: 2, output: 10, cache_read: 0.1, cache_write: 2.5 },
+  // GPT-6.1 Terra (litellm:exact, synced 2026-11-16) — before this entry the
+  // account view billed the owner's 192M terra rows at $0.
+  "gpt-6.1-terra": { input: 1, output: 5, cache_read: 0.05, cache_write: 1.25 },
+  "gpt-6-cyber": { input: 20, output: 100, cache_read: 2, cache_write: 25 },
+  "gpt-5-mini": { input: 0.25, output: 2, cache_read: 0.025 },
+  "o3": { input: 2, output: 8, cache_read: 0.5 },
+  // ── Google Gemini ──
+  "gemini-2.5-pro": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gemini-2.5-pro-preview-06-05": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gemini-2.5-pro-preview-05-06": { input: 1.25, output: 10, cache_read: 0.125 },
+  "gemini-2.5-flash": { input: 0.3, output: 2.5, cache_read: 0.03 },
+  "gemini-3-flash-preview": { input: 0.5, output: 3, cache_read: 0.05 },
+  // Antigravity reports Gemini 3.8 Flash as the bare id and as -n / -tiered.
+  // LiteLLM repriced the whole family onto the 3.8-flash card ($0.75 / $3.75 /
+  // $0.075 cache-read, cache writes free — litellm:exact, re-synced 2026-11-16;
+  // the 2026-10-13 snapshot still carried the 2.5-flash card at 0.3/2.5, which
+  // under-priced the owner's 4.4B-token antigravity history by $174 in the
+  // account view). Pre-batch the bare id fell through the includes chain to
+  // the gemini-3-flash-preview card, and the -n/-tiered ids hit the stale
+  // 0.3/2.5 card via exact lookup.
+  "gemini-3.8-flash": { input: 0.75, output: 3.75, cache_read: 0.075, cache_write: 0 },
+  "gemini-3.8-flash-n": { input: 0.75, output: 3.75, cache_read: 0.075, cache_write: 0 },
+  "gemini-3.8-flash-tiered": { input: 0.75, output: 3.75, cache_read: 0.075, cache_write: 0 },
+  "gemini-3-pro-preview": { input: 2, output: 12, cache_read: 0.2 },
+  "gemini-3.1-pro-preview": { input: 2, output: 12, cache_read: 0.2 },
+  // Codex reports the OpenRouter :free id; the local matcher routes it to the
+  // google/gemma-4-26b-a4b-it card (curated-overrides.json: OpenRouter input
+  // 0.09 with DeepInfra output 0.34, cache read at the 0.1x convention). Pinned
+  // directly so the cloud prices the same (2026-11-16).
+  "google/gemma-4-26b-a4b-it:free": { input: 0.09, output: 0.34, cache_read: 0.009, cache_write: 0.09 },
+  // ── Cursor Composer ──
+  "composer-1": { input: 1.25, output: 10, cache_read: 0.125 },
+  "composer-1.5": { input: 3.5, output: 17.5, cache_read: 0.35 },
+  "composer-2": { input: 0.5, output: 2.5, cache_read: 0.2 },
+  "composer-2-fast": { input: 1.5, output: 7.5, cache_read: 0.15 },
+  "composer-2.5": { input: 0.5, output: 2.5, cache_read: 0.2 },
+  "composer-2.5-fast": { input: 3, output: 15, cache_read: 0.5 },
+  // Google Gemini 4 Argon (Cursor Other Models / Google introductory list rate)
+  "gemini-4-argon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
+  "antigravity-orchestrator": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
+  "antigravity-orchestrator-argon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
+  "gemini-4-carbon": { input: 2, output: 10, cache_read: 0.1, cache_write: 0 },
+  "gemini-4-hydrogen": { input: 1.5, output: 7.5, cache_read: 0.075, cache_write: 0 },
+  "gemini-4-neon": { input: 3, output: 15, cache_read: 0.15, cache_write: 0 },
+  "muse-wonder-1.0": { input: 4, output: 20, cache_read: 0.2, cache_write: 0 },
+  // ── Moonshot Kimi ──
+  "kimi-for-coding": { input: 0.6, output: 2, cache_read: 0.15 },
+  "kimi-k2.5": { input: 0.6, output: 2, cache_read: 0.15 },
+  "kimi-k2.5-free": { input: 0, output: 0, cache_read: 0 },
+  "kimi-k2.6": { input: 0.95, output: 4, cache_read: 0.16 },
+  "kimi-k2.7-code": { input: 0.95, output: 4, cache_read: 0.19 },
+  // Kimi K3 (released 2026-07-16; reported rates $3/M in, $15/M out, $0.30/M
+  // cached). Kimi Code records the alias as bare "k3" (kimi-code/k3), hence
+  // the separate "k3" exact key below. Not yet in LiteLLM.
+  "kimi-k3": { input: 3, output: 15, cache_read: 0.3 },
+  "k3": { input: 3, output: 15, cache_read: 0.3 },
+  // Kimi desktop (Electron) reports internal runtime ids, not official API ids
+  // (mirrored from src/lib/pricing/curated-overrides.json, 2026-10-16):
+  // k3-agent = Kimi K3 in agent mode at the official kimi-k3 rates;
+  // k2d8-preview = Kimi K2.8 Preview, which has no published API price and is
+  // approximated with the official K2 coding tier kimi-k2.7-code.
+  "k3-agent": { input: 3, output: 15, cache_read: 0.3, cache_write: 3 },
+  "k2d6-agent": { input: 0.95, output: 4, cache_read: 0.16 },
+  "k2d8-preview": { input: 0.95, output: 4, cache_read: 0.19 },
+  // ── Z.ai GLM (mirrored from src/lib/pricing/curated-overrides.json).
+  //    LiteLLM only keys these under provider prefixes like `zai/glm-5`,
+  //    `openrouter/z-ai/glm-4.6`, etc. The reverse-substring fallback in the
+  //    matcher requires the user-supplied model name to CONTAIN the LiteLLM
+  //    key, so the bare `glm-5.1` / `glm-4.6` strings reported by Claude
+  //    Code-compatible GLM endpoints never match. Curate them here. ──
+  // GLM-5.3: flagship keeps the 5.2 list rate; Flash is a distinct cheap SKU
+  // (LiteLLM `zai/glm-5.3-flash`: $0.15/$0.50/$0.03 per MTok in/out/cache-read).
+  "glm-5.3": { input: 1.4, output: 4.4, cache_read: 0.26 },
+  "glm-5.3-flash": { input: 0.15, output: 0.5, cache_read: 0.03 },
+  "glm-5.2": { input: 1.4, output: 4.4, cache_read: 0.26 },
+  "glm-5.1": { input: 1.4, output: 4.4, cache_read: 0.26 },
+  "glm-5": { input: 1.0, output: 3.2, cache_read: 0.2 },
+  "glm-5-turbo": { input: 1.2, output: 4.0, cache_read: 0.24 },
+  "glm-4.7": { input: 0.6, output: 2.2, cache_read: 0.11 },
+  "glm-4.7-flashx": { input: 0.07, output: 0.4, cache_read: 0.01 },
+  "glm-4.7-flash": { input: 0, output: 0, cache_read: 0 },
+  "glm-4.6": { input: 0.6, output: 2.2, cache_read: 0.11 },
+  "glm-4.5": { input: 0.6, output: 2.2, cache_read: 0.11 },
+  "glm-4.5-x": { input: 2.2, output: 8.9, cache_read: 0.45 },
+  "glm-4.5-air": { input: 0.2, output: 1.1, cache_read: 0.03 },
+  "glm-4.5-airx": { input: 1.1, output: 4.5, cache_read: 0.22 },
+  "glm-4.5-flash": { input: 0, output: 0, cache_read: 0 },
+  // ── MiniMax / DeepSeek ──
+  "MiniMax-M2.7": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0.375 },
+  "MiniMax-M2.7-highspeed": { input: 0.6, output: 2.4, cache_read: 0.06, cache_write: 0.375 },
+  "minimax-m3": { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0 },
+  // The M3.1 SKU must not be captured by the generic minimax-m3 entry above:
+  // its cache read is 0.03, not 0.06 (curated-overrides.json, official launch
+  // pricing). Without this key the fuzzy chain matched minimax-m3 and
+  // over-priced the owner's cache-heavy M3.1 rows by $24 (2026-11-16).
+  "minimax-m3.1-flash": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
+  // Same card for the -preview SKU (curated exact key): without it the fuzzy
+  // chain captures minimax-m3 and doubles the cache-read rate (2026-11-16).
+  "minimax-m3.1-flash-preview": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
+  // MiniMax Code's agent model (litellm:prefix-strip, 2026-11-16).
+  "agnes-2.5-flash": { input: 0.03, output: 0.15, cache_read: 0, cache_write: 0 },
+  "agnes-3.0-flash": { input: 0.05, output: 0.15, cache_read: 0.005, cache_write: 0 },
+  "agnes-3-flash": { input: 0.05, output: 0.15, cache_read: 0.005, cache_write: 0 },
+  "deepseek-v4-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  "deepseek-v4-pro": { input: 1.32, output: 3.96, cache_read: 0.044, cache_write: 1.32 },
+  "deepseek-v4-flash-vision-exp": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  // DeepSeek V4.1 Flash (official id deepseek-flash, released 2026-09-10):
+  // $0.30 / $1.20 / $0.006 cache read per MTok peak; getRowPricing halves it
+  // off-peak. deepseek-v4.1-flash is the OpenRouter / Command Code / WorkBuddy id.
+  "deepseek-v4.1-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  // Dot-form id the Agent2API/Claude sources report for DeepSeek V4.1 Flash —
+  // same card as deepseek-v4.1-flash (2026-10-16).
+  "deepseek-v4-1-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  "deepseek-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  "deepseek-chat": { input: 0.14, output: 0.28, cache_read: 0.0028, cache_write: 0.14 },
+  "deepseek-reasoner": { input: 0.14, output: 0.28, cache_read: 0.0028, cache_write: 0.14 },
+  // ── 2026-10 unpriced sweep (mirrored from src/lib/pricing/curated-overrides.json;
+  //    rates and sources are documented there). China vendors convert at ~7.2 CNY/USD. ──
+  "qwen3.7-plus": { input: 0.3333, output: 1.3333, cache_read: 0.0667, cache_write: 0.4167 },
+  "qwen3.7-max-2026-05-20": { input: 2.5, output: 7.5, cache_read: 0.5, cache_write: 3.13 },
+  "qwen3.7-flash": { input: 0.0333, output: 0.1333, cache_read: 0.0067, cache_write: 0.0417 },
+  "doubao-seed-2.1-turbo": { input: 0.4167, output: 2.0833, cache_read: 0.0833, cache_write: 0.4167 },
+  // Known zeros, not unknowns: free-by-design routes (SenseNova Token Plan public
+  // beta quota-based; OpenRouter's own free route; Cohere North Mini Code :free).
+  "sensenova-6.8-flash-lite": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+  "openrouter/free": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+  "north-mini-code-free": { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+  // ── xAI Grok (mirrored from src/lib/pricing/curated-overrides.json;
+  //    Grok parser emits cache_creation_input_tokens = 0, so cache_write is
+  //    omitted — same as the canonical table). ──
+  "grok-build": { input: 1.25, output: 2.50, cache_read: 0.20 },
+  "cursor-grok-4.5": { input: 2, output: 6, cache_read: 0.5, cache_write: 0 },
+  "cursor-grok-4.5-fast": { input: 4, output: 18, cache_read: 1, cache_write: 0 },
+  "cursor-grok-4.6": { input: 2, output: 6, cache_read: 0.5, cache_write: 0 },
+  "cursor-grok-4.6-fast": { input: 4, output: 12, cache_read: 1, cache_write: 0 },
+  "cursor-grok-4.7": { input: 2, output: 6, cache_read: 0.5, cache_write: 0 },
+  "cursor-grok-4.7-fast": { input: 4, output: 12, cache_read: 1, cache_write: 0 },
+  "grok-4-0709": { input: 3.00, output: 15.00, cache_read: 0.75 },
+  "grok-4": { input: 3.00, output: 15.00, cache_read: 0.75 },
+  "grok-4-latest": { input: 3.00, output: 15.00, cache_read: 0.75 },
+  "grok-4-fast": { input: 0.20, output: 0.50, cache_read: 0.05 },
+  "grok-4-fast-reasoning": { input: 0.20, output: 0.50, cache_read: 0.05 },
+  "grok-4-fast-non-reasoning": { input: 0.20, output: 0.50, cache_read: 0.05 },
+  "grok-4-1-fast-non-reasoning": { input: 0.20, output: 0.50, cache_read: 0.05 },
+  // ── AWS Kiro (mirrored byte-for-byte from src/lib/local-api.js to
+  //    prevent cloud/local cost drift — Kiro routes through Bedrock,
+  //    most commonly claude-sonnet-4). ──
+  "kiro-agent": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  "kiro-cli-agent": { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  // ── Tencent CodeBuddy / WorkBuddy (hy3-preview family). Tencent TokenHub
+  //    official rate: 1.2 / 0.4 (cache hit) / 4.0 RMB per MTok in/read/out,
+  //    converted at ~7.2 RMB/USD. DeepSeek-style cache: cache_write = input. ──
+  "hy3-preview-agent": { input: 0.167, output: 0.556, cache_read: 0.056, cache_write: 0.167 },
+  "hy3-preview": { input: 0.167, output: 0.556, cache_read: 0.056, cache_write: 0.167 },
+  // Hy4 preview: 6 / 0.3 (cache hit) / 18 RMB per MTok at ~7.2 RMB/USD (#633).
+  // Alibaba Model Studio Singapore reference rates; see curated-overrides.json (#715).
+  "qwen3.8-flash": { input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 },
+  "qwen3.8-max": { input: 1.65, output: 4.951, cache_read: 0.206, cache_write: 2.063 },
+  "qwen4-max": { input: 1.5, output: 4.5, cache_read: 0.075, cache_write: 1.875 },
+  "qwen3.7-plus": { input: 0.3333, output: 1.3333, cache_read: 0.0667, cache_write: 0.4167 },
+  "hy4-preview": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
+  "hy4-preview-agent": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
+  "hy4-flash-free": { input: 0.833, output: 2.5, cache_read: 0.042, cache_write: 0.833 },
+  // ── Misc / Free ──
+  "glm-4.7-free": { input: 0, output: 0, cache_read: 0 },
+  "nemotron-3-super-free": { input: 0, output: 0, cache_read: 0 },
+  "mimo-v2-pro-free": { input: 0, output: 0, cache_read: 0 },
+  "minimax-m2.1-free": { input: 0, output: 0, cache_read: 0 },
+  "MiniMax-M2.1": { input: 0.5, output: 3, cache_read: 0.05 },
+  // ── Xiaomi MiMo (mirrored from src/lib/pricing/seed-snapshot.json LiteLLM
+  //    entries openrouter/xiaomi/mimo-*; queue rows report the bare names.
+  //    Kept in lockstep with the matcher's litellm:prefix-strip resolution —
+  //    cache_read for mimo-v2-flash uses novita's 0.02 (the lexicographically
+  //    smallest provider key the matcher deterministically picks). ──
+  "mimo-v2.5-pro": { input: 1, output: 3, cache_read: 0.2 },
+  "mimo-v2.5": { input: 0.4, output: 2, cache_read: 0.08 },
+  "mimo-v2-flash": { input: 0.1, output: 0.3, cache_read: 0.02 },
+  // WorkBuddy reports the V2.6 Pro id (litellm:prefix-strip, 2026-11-16).
+  "mimo-v2.6-pro": { input: 0.348, output: 0.696, cache_read: 0.00288, cache_write: 0 },
+  // OpenRouter free route: the local matcher's contained matching bills it at
+  // the deepseek-chat card; pinned here so the cloud prices the same (2026-10-16).
+  "mimo-v2.6-flash-free": { input: 0.14, output: 0.28, cache_read: 0.0028 },
+  // ── Sakana Fugu (OpenAI-compatible API via sakana.ai PAYG / OpenRouter,
+  //    used through Codex/Cursor/Cline/ZCode etc.; mirrored from
+  //    src/lib/pricing/curated-overrides.json). OpenRouter rate: $5/$30 per
+  //    MTok in/out, cache_read $0.5/M; no cache-write surcharge so
+  //    cache_write = input. ──
+  "sakana/fugu-ultra": { input: 5, output: 30, cache_read: 0.5, cache_write: 5 },
+  // ── Meituan LongCat-2.0, seen via ZCode custom-provider routing (#276;
+  //    mirrored from src/lib/pricing/curated-overrides.json). Official
+  //    longcat.chat launch-promo rate: RMB 2/0.04(cache hit)/8 per MTok
+  //    in/read/out, converted at ~7.2 RMB/USD; standard list price is
+  //    RMB 5/0.10/20 once the promo ends — re-verify before changing. No
+  //    cache-write surcharge published, so cache_write = input. ──
+  "longcat-2.0": { input: 0.278, output: 1.111, cache_read: 0.00556, cache_write: 0.278 },
+  // ── StepFun Step 3.5/3.7 Flash (#283; mirrored from
+  //    src/lib/pricing/curated-overrides.json). Official platform.stepfun.ai
+  //    rates: 3.7-flash $0.20/$0.04(cache hit)/$1.15 per MTok in/read/out,
+  //    3.5-flash $0.10/$0.02/$0.30. No cache-write surcharge published, so
+  //    cache_write = input. ──
+  "step-3.7-flash": { input: 0.2, output: 1.15, cache_read: 0.04, cache_write: 0.2 },
+  "step-3.5-flash": { input: 0.1, output: 0.3, cache_read: 0.02, cache_write: 0.1 },
+  // ── 2026-10 curated additions (mirrored from
+  //    src/lib/pricing/curated-overrides.json): gpt-6-luna (OpenAI official
+  //    short-context rates, cache_write = 1.25x input), space-bunny (models.dev
+  //    opencode-go card; cache writes free; the matcher below covers the alias
+  //    ids space-bunny-free and stealth/space-bunny-alpha), step-5-preview
+  //    (platform.stepfun.com USD list, issue #283 family). ──
+  "gpt-6-luna": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
+  "space-bunny": { input: 0.3, output: 1.2, cache_read: 0.03, cache_write: 0.3 },
+  "step-5-preview": { input: 1, output: 2.7, cache_read: 0.05, cache_write: 1 },
+  // ── iFlytek Spark-X2.6 (mirrored from src/lib/pricing/curated-overrides.json
+  //    exact). Official 星火 launch rate read 2026-10-27, re-checked still
+  //    current 2026-11-13: limited-time 60% of RMB 0.9 / 3.6 / 0.08(cache hit)
+  //    per MTok in/out/read, converted at ~7.2 RMB/USD; cache_write = input.
+  //    First recorded source-scoped to loomy, promoted to this global card
+  //    2026-11-13 once ZCode began emitting the id too (~99.4M tokens had
+  //    priced at zero) — reprice when the launch promotion ends. ──
+  "spark-x2.6": { input: 0.13, output: 0.5, cache_read: 0.01, cache_write: 0.13 },
+};
+const ZERO_PRICING = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+// iFlytek MaaS prices used by the AStudio source: RMB per million tokens,
+// converted at 7.2 RMB/USD and rounded to two decimal places. Models without a cache-hit
+// price use the regular input price; cache writes use the regular input price as well.
+// AStudio homepage: https://agent.xfyun.cn/
+// Official pricing source: https://maas.xfyun.cn/modelSquare
+const IFLYTEK_MAAS_MODEL_PRICING: Record<string, { input: number; output: number; cache_read: number; cache_write?: number }> = {
+  "spark-x2.5": { input: 0.13, output: 0.50, cache_read: 0.02, cache_write: 0.13 },
+  "spark-x2.5-4b": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "spark-x2.5-1.7b": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "xopglm53": { input: 1.11, output: 3.89, cache_read: 0.28, cache_write: 1.11 },
+  "xopdeepseekv4pro0813": { input: 1.25, output: 3.75, cache_read: 0.04, cache_write: 1.25 },
+  "xopdeepseekv4flash0731": { input: 0.14, output: 0.28, cache_read: 0.03, cache_write: 0.14 },
+  "xopkimik27code": { input: 0.90, output: 3.75, cache_read: 0.90, cache_write: 0.90 },
+  "xopglm52": { input: 1.11, output: 3.89, cache_read: 0.28, cache_write: 1.11 },
+  "xopdeepseekv4flash": { input: 0.14, output: 0.28, cache_read: 0.03, cache_write: 0.14 },
+  "xopkimik26": { input: 0.90, output: 3.75, cache_read: 0.18, cache_write: 0.90 },
+  "xopdeepseekv4pro": { input: 1.67, output: 3.33, cache_read: 0.14, cache_write: 1.67 },
+  "xopqwen36v35b": { input: 0.15, output: 0.90, cache_read: 0.15, cache_write: 0.15 },
+  "xophunyuan7bmt": { input: 0.07, output: 0.28, cache_read: 0.07, cache_write: 0.07 },
+  "xoppaddleocrv16": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "xsparkx2flash": { input: 0.14, output: 0.28, cache_read: 0.14, cache_write: 0.14 },
+  "xopglm51": { input: 1.11, output: 3.89, cache_read: 0.22, cache_write: 1.11 },
+  "xsparkx2": { input: 0.42, output: 0.42, cache_read: 0.42, cache_write: 0.42 },
+  "xop35qwen2b": { input: 0.03, output: 0.06, cache_read: 0.03, cache_write: 0.03 },
+  "xopqwen35397b": { input: 0.17, output: 1.00, cache_read: 0.17, cache_write: 0.17 },
+  "xminimaxm25": { input: 0.29, output: 1.17, cache_read: 0.29, cache_write: 0.29 },
+  "xopglm5": { input: 0.83, output: 3.06, cache_read: 0.17, cache_write: 0.83 },
+  "xopkimik25": { input: 0.56, output: 2.92, cache_read: 0.56, cache_write: 0.56 },
+  "xopdeepseekv32": { input: 0.14, output: 0.21, cache_read: 0.14, cache_write: 0.14 },
+  "xop3qwencodernext": { input: 0.35, output: 1.39, cache_read: 0.35, cache_write: 0.35 },
+  "xopglmv47flash": { input: 0.14, output: 0.21, cache_read: 0.14, cache_write: 0.14 },
+  "xopglm47blth2": { input: 0.56, output: 2.22, cache_read: 0.56, cache_write: 0.56 },
+  "xop3qwen32bvl": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "xopdeepseekocr": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "xophunyuanocr": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "xop3qwen80bnext": { input: 0.08, output: 0.33, cache_read: 0.08, cache_write: 0.08 },
+  "xop3qwen235b2507": { input: 0.17, output: 1.67, cache_read: 0.17, cache_write: 0.17 },
+  "xop3qwen30b2507": { input: 0.06, output: 0.63, cache_read: 0.06, cache_write: 0.06 },
+  "xop3qwen235b": { input: 0.17, output: 1.67, cache_read: 0.17, cache_write: 0.17 },
+  "xop3qwen30b": { input: 0.06, output: 0.63, cache_read: 0.06, cache_write: 0.06 },
+  "xop3qwen32b": { input: 0.17, output: 1.67, cache_read: 0.17, cache_write: 0.17 },
+  "xdeepseekv3": { input: 0.22, output: 0.89, cache_read: 0.22, cache_write: 0.22 },
+  "xdeepseekr1": { input: 0.44, output: 1.78, cache_read: 0.44, cache_write: 0.44 },
+  "xdeepseekr1qwen32b": { input: 0.22, output: 0.67, cache_read: 0.22, cache_write: 0.22 },
+  "xopkimik2blth": { input: 0.56, output: 2.22, cache_read: 0.56, cache_write: 0.56 },
+  "xopkimik2blins": { input: 0.56, output: 2.22, cache_read: 0.56, cache_write: 0.56 },
+  "xop3qwen8breranker": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "xop3qwen8bembedding": { input: 0.00, output: 0.00, cache_read: 0.00, cache_write: 0.00 },
+  "xop3qwen0b6": { input: 0.04, output: 0.42, cache_read: 0.04, cache_write: 0.04 },
+  "xop3qwen4b": { input: 0.04, output: 0.42, cache_read: 0.04, cache_write: 0.04 },
+  "xqwen257bchat": { input: 0.07, output: 0.14, cache_read: 0.07, cache_write: 0.07 },
+  "xop3qwen14b": { input: 0.14, output: 1.39, cache_read: 0.14, cache_write: 0.14 },
+  "xop3qwen8b": { input: 0.07, output: 0.69, cache_read: 0.07, cache_write: 0.07 },
+  "xsparkprox": { input: 1.11, output: 5.56, cache_read: 1.11, cache_write: 1.11 },
+  "xspark13b6k": { input: 0.28, output: 0.83, cache_read: 0.28, cache_write: 0.28 },
+  "spark mini": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "spark mini instruct": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "spark tiny": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "internlm2.5_7b_chat": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "internlm2.5_1.8b_chat": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "qwen_v2.5_7b_base": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "xsqwen2d53b": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "qwen_v2.5_3b_base": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "qwen_v2.5_1.5b_instruct": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "qwen_v2.5_1.5b_base": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "qwen_v2.5_0.5b_instruct": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "qwen_v2.5_0.5b_base": { input: 0.28, output: 1.11, cache_read: 0.28, cache_write: 0.28 },
+  "xsqwenv2s1b5c": { input: 0.14, output: 0.28, cache_read: 0.14, cache_write: 0.14 },
+  "xsqwenv2s0b5c": { input: 0.28, output: 0.56, cache_read: 0.28, cache_write: 0.28 },
+  "xqwen14bchat": { input: 0.28, output: 0.83, cache_read: 0.28, cache_write: 0.28 },
+};
+function normalizeIFlytekMaasModel(model: string) {
+  const lower = model.trim().toLowerCase();
+  if (lower === "xsparkx2agent") return "xsparkx2";
+  return lower;
+}
+
+// Source-scoped exact pricing, mirrored from curated-overrides.json's
+// source_exact (2026-10-16). These are self-defined alias names LiteLLM will
+// never carry, and a bare-model lookup must not leak a public rate onto them
+// (autoclaw's zai_auto is a router name, codely-* are Tuanjie's own ids,
+// luna-02 is Cola's id for GPT 6 Luna). loomy's spark-x keeps its dedicated
+// branch inside getModelPricing; acode has the full iFlytek MaaS table.
+const SOURCE_EXACT_PRICING = {
+  "autoclaw": {
+    "zai_auto": { input: 1.4, output: 4.4, cache_read: 0.26, cache_write: 1.4 },
+  },
+  "tuanjie-cowork": {
+    "codely-core": { input: 1.4, output: 4.4, cache_read: 0.26, cache_write: 1.4 },
+    "codely-air": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+    "codely-basic": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+    "codely-flash": { input: 0.3, output: 1.2, cache_read: 0.006, cache_write: 0.3 },
+  },
+  "cola": {
+    "luna-02": { input: 0.2, output: 1.2, cache_read: 0.02, cache_write: 0.25 },
+  },
+  // Qoder CN's server-side GLM group spells the flash SKU dash-less
+  // ("GLM5.3-Flash", group added 2026-10-20), which misses both the
+  // glm-5.3-flash MODEL_PRICING key and its includes() branch. Mirror of
+  // curated-overrides.json source_exact.qoder-cn (2026-10-20).
+  "qoder-cn": {
+    "glm5.3-flash": { input: 0.15, output: 0.5, cache_read: 0.03 },
+  },
+  // Qoder international's credit wire exposes no per-model split, so its
+  // estimate rows all carry the pseudo-model 官方云端（积分）; the ingest wire
+  // also carries no cost dimension, so without a card they price at $0 here
+  // while the local view bills the authoritative stored spend. The owner
+  // confirmed the underlying model is Qwen3.8-Flash, whose card reproduces
+  // the stored spend to four decimals. Mirror of curated-overrides.json
+  // source_exact.qoder (2026-10-20).
+  "qoder": {
+    "官方云端（积分）": { input: 0.15, output: 0.47, cache_read: 0.016, cache_write: 0.2 },
+  },
+};
+
+function getModelPricing(model: string, source = "") {
+  if (!model) return ZERO_PRICING;
+  if (source.toLowerCase() === "workbuddy-ai" && model.trim().toLowerCase() === "auto") return ZERO_PRICING;
+  if (source.toLowerCase() === "acode") {
+    const normalized = normalizeIFlytekMaasModel(model);
+    // Undisclosed routing must not inherit generic aliases or fuzzy prices.
+    if (normalized === "auto" || normalized.endsWith("-auto")) return ZERO_PRICING;
+    const iFlytekMaasPricing = IFLYTEK_MAAS_MODEL_PRICING[normalized];
+    if (iFlytekMaasPricing) return iFlytekMaasPricing;
+  }
+  // loomy reports iFlytek Spark-X2.5 under the short id `spark-x`; the owner
+  // chose the official list price rather than AStudio's 30%-off rate, so this
+  // entry is source-scoped to `loomy` and must not touch the acode numbers
+  // (curated source_exact, 2026-10-13).
+  if (source.toLowerCase() === "loomy" && model.trim().toLowerCase() === "spark-x")
+    return { input: 0.22, output: 0.83, cache_read: 0.03, cache_write: 0.22 };
+  const sourceExact = SOURCE_EXACT_PRICING[source.toLowerCase()];
+  if (sourceExact) {
+    const sourceCard = sourceExact[model] || sourceExact[model.toLowerCase()];
+    if (sourceCard) return sourceCard;
+  }
+  if (source.toLowerCase() === "trae-cn") {
+    // Trae CN underscore-spells some ids (deepseek_v4_pro) while every pricing
+    // key in the family is dash-spelled. Lookup-only, mirroring
+    // normalizeTraeCnModel in src/lib/pricing/matcher.js — the raw name is
+    // still what gets stored/displayed.
+    model = model.replace(/_/g, "-");
+  }
+  // Cline zero-billing guards run BEFORE the exact table: the local matcher
+  // applies them at step 0, so a Cline row reporting an id that also exists in
+  // MODEL_PRICING (e.g. a :free-suffixed OpenRouter id pinned below) must bill
+  // $0 on the edge too — ordering gap exposed by the 2026-11-16 gemma pin.
+  const lower = model.toLowerCase();
+  if (source === "cline" && lower.endsWith(":free")) return ZERO_PRICING;
+  // Cline's own gateway namespaces (`cline-free/*` free tier, `cline-pass/*`
+  // flat-rate Cline Pass) bill nothing per token, and the model id after the
+  // slash must not inherit a public rate — cline-pass/glm-5.3 is not GLM-5.3
+  // list price. Matched before every model-name matcher, mirroring the
+  // curated-overrides.json `cline-gateway-models` fuzzy entries; a turn that
+  // reports its own positive cost still wins earlier via
+  // SOURCES_WITH_AUTHORITATIVE_COST.
+  if (lower.includes("cline-free/") || lower.includes("cline-pass/")) return ZERO_PRICING;
+  const exact = MODEL_PRICING[model] || MODEL_PRICING[model.toLowerCase()];
+  if (exact) return exact;
+  // SenseNova-hosted models report with an `sn-` namespace prefix through the
+  // agent2api gateway and zcode (sn-deepseek-v4-1-flash = DeepSeek V4.1 Flash
+  // served from SenseNova's Token Plan). The upstream SKU sits after the
+  // prefix; strip it and re-resolve so the cloud prices what the local table
+  // prices (mirrors src/lib/pricing/matcher.js dot-form contained matching,
+  // 2026-10-15). An sn- id with no known SKU falls through to the unpriced
+  // tail like any other unknown id.
+  if (lower.startsWith("sn-")) {
+    // SenseNova gateway namespace: agent2api and zcode report SenseNova-hosted
+    // SKUs with this prefix (sn-deepseek-v4-1-flash = DeepSeek V4.1 Flash from
+    // SenseNova's Token Plan), and the cloud table had no entry for the prefixed
+    // id, so the account view priced those rows $0 while the local view billed
+    // them (2026-10-15). Mirror the local matcher: strip the prefix, restore
+    // version dots, then price by the longest known SKU contained in the id —
+    // the same generation guard rules out a shorter key bleeding into a newer
+    // version. Unknown sn- ids fall through unpriced.
+    const stripped = lower.slice(3);
+    const dotRestored = stripped.replace(/(\d+)-(\d+)/g, "$1.$2");
+    for (const candidate of [dotRestored, stripped]) {
+      const exact = MODEL_PRICING[candidate];
+      if (exact) return exact;
+    }
+    let contained = null;
+    for (const key of Object.keys(MODEL_PRICING).sort((a, b) => b.length - a.length)) {
+      const start = dotRestored.indexOf(key);
+      if (start < 0) continue;
+      if (/^[.\d]/.test(dotRestored.slice(start + key.length))) continue;
+      contained = key;
+      break;
+    }
+    if (contained) return MODEL_PRICING[contained];
+    return getModelPricing(stripped, source);
+  }
+  // Qoder CN: mirror the src/lib/pricing matcher's source normalizer
+  // (normalizeQoderCnModel). Estimate rows decorate the id with a "（估算）"
+  // suffix, Qoder's auto-router is the literal "Auto" (which must map onto
+  // Qoder's representative Qwen3.8-Flash, NOT the Cursor "auto" alias), and
+  // the API reports mixed-case ids over lowercase curated keys (2026-10-16).
+  if (source.toLowerCase() === "qoder-cn") {
+    const bare = model.endsWith("（估算）")
+      ? model.slice(0, model.length - "（估算）".length)
+      : model;
+    const normalized = bare.trim().toLowerCase() === "auto" ? "qwen3.8-flash" : bare.trim().toLowerCase();
+    if (normalized !== model) {
+      const normalizedExact = MODEL_PRICING[normalized];
+      if (normalizedExact) return normalizedExact;
+      return getModelPricing(normalized, source);
+    }
+  }
+  // space-bunny family: the curated card is keyed `space-bunny`; the alias
+  // entries (space-bunny-free, stealth/space-bunny-alpha) resolve to it
+  // (curated alias, 2026-10-13).
+  if (lower.includes("space-bunny")) return MODEL_PRICING["space-bunny"];
+  if (lower.includes("fable-5-2-fast") || lower.includes("fable-5.2-fast")) return MODEL_PRICING["claude-fable-5-2-fast"];
+  if (lower.includes("fable-5-2") || lower.includes("fable-5.2")) return MODEL_PRICING["claude-fable-5-2"];
+  if (lower.includes("fable")) return MODEL_PRICING["claude-fable-5"];
+  // Mythos needles are version-bounded (upstream #1145): a trailing `.` is a
+  // version continuation (5.2.1), not a decoration — it must not inherit 5.2;
+  // Mythos 5 also rejects `-` so 5-1/5.2/5-20 never inherit its rate.
+  if (/mythos-5[.-]2-fast(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-mythos-5-2-fast"];
+  if (/mythos-5[.-]2(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-mythos-5-2"];
+  if (/mythos-5[.-]1(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-mythos-5-1"];
+  if (/mythos-5(?:$|[^0-9.-])/.test(lower)) return MODEL_PRICING["claude-mythos-5"];
+  // Opus 5 fast mode bills at 2x the standard Opus tier ($10/$50), so the
+  // -fast matcher must precede both the opus-5 and the generic opus fallback.
+  if (/opus-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-opus-5-5"];
+  if (/sonnet-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-sonnet-5-5"];
+  if (/sonnet-5(?:$|[^0-9.-])/.test(lower)) return MODEL_PRICING["claude-sonnet-5"];
+  if (lower.includes("opus-5-fast")) return MODEL_PRICING["claude-opus-5-fast"];
+  if (lower.includes("opus-5")) return MODEL_PRICING["claude-opus-5"];
+  if (lower.includes("opus")) return MODEL_PRICING["claude-opus-4-6"];
+  if (/haiku-5[.-]5(?:$|[^0-9.])/.test(lower)) return MODEL_PRICING["claude-haiku-5-5"];
+  if (lower.includes("haiku")) return MODEL_PRICING["claude-haiku-4-5-20251001"];
+  if (lower.includes("sonnet")) return MODEL_PRICING["claude-sonnet-4-6"];
+  // GPT-6.2 variants are exact-family only (upstream #1139): Astra, Sol and
+  // Astra Law plus documented effort/Fast decorations. Unknown suffixes stay
+  // unpriced instead of inheriting a family rate.
+  if (/(?:^|\/)gpt-6\.2-/.test(lower)) {
+    if (/(?:^|\/)gpt-6\.2-astra-law$/.test(lower)) return MODEL_PRICING["gpt-6.2-astra-law"];
+    if (/(?:^|\/)gpt-6\.2-(?:astra|sol)(?:-(?:xhigh|high|medium|low|minimal|priority|ultrafast))?(?:-fast)?$/.test(lower)) {
+      return MODEL_PRICING[lower.includes("gpt-6.2-sol") ? "gpt-6.2-sol" : "gpt-6.2-astra"];
+    }
+    return ZERO_PRICING;
+  }
+  if (lower.includes("gpt-6-astra")) return MODEL_PRICING["gpt-6-astra"];
+  if (lower.includes("gpt-6.1-sol")) return MODEL_PRICING["gpt-6.1-sol"];
+  if (lower.includes("gpt-6-sol")) return MODEL_PRICING["gpt-6-sol"];
+  if (lower.includes("gpt-6-cyber")) return MODEL_PRICING["gpt-6-cyber"];
+  // The terra family carries reasoning-effort suffixes like sol/luna do; the
+  // bare key alone would bill gpt-6.1-terra-high at $0 (2026-11-16).
+  if (lower.includes("gpt-6.1-terra")) return MODEL_PRICING["gpt-6.1-terra"];
+  // Prefixed/free-suffixed gemma spellings route to the same card the local
+  // curated fuzzy entry uses (2026-11-16).
+  if (lower.includes("gemma-4-26b-a4b-it")) return MODEL_PRICING["google/gemma-4-26b-a4b-it:free"];
+  // gpt-5.6 tiers: sol/terra/luna carry reasoning-effort suffixes (solhigh,
+  // etc.), so match by substring. Specific tiers precede the generic gpt-5.6
+  // fallback (the public gpt-5.6 alias points to the flagship sol tier).
+  if (lower.includes("gpt-5.6-sol")) return MODEL_PRICING["gpt-5.6-sol"];
+  if (lower.includes("gpt-5.6-terra")) return MODEL_PRICING["gpt-5.6-terra"];
+  if (lower.includes("gpt-5.6-luna")) return MODEL_PRICING["gpt-5.6-luna"];
+  if (lower.includes("gpt-5.6")) return MODEL_PRICING["gpt-5.6-sol"];
+  if (lower.includes("gpt-5.4-pro")) return MODEL_PRICING["gpt-5.4-pro"];
+  if (lower.includes("gpt-5.4")) return MODEL_PRICING["gpt-5.4"];
+  if (lower.includes("gpt-5.5")) return MODEL_PRICING["gpt-5.5"];
+  if (lower.includes("gpt-5-mini")) return MODEL_PRICING["gpt-5-mini"];
+  if (lower.includes("gpt-5.3")) return MODEL_PRICING["gpt-5.3-codex"];
+  if (lower.includes("gpt-5.2")) return MODEL_PRICING["gpt-5.2"];
+  // -codex-mini variants (e.g. gpt-5.1-codex-mini-high) must resolve before
+  // the broader gpt-5.1 matcher — the base codex rate is 5x the mini rate.
+  if (lower.includes("gpt-5.1-codex-mini")) return MODEL_PRICING["gpt-5.1-codex-mini"];
+  if (lower.includes("gpt-5.1")) return MODEL_PRICING["gpt-5.1-codex"];
+  if (lower.includes("gpt-5")) return MODEL_PRICING["gpt-5"];
+  // Standard Gemini 4 SKUs and their effort levels; other variants have
+  // independent prices, including Carbon Cyber Permissive.
+  if (lower.includes("gemini-4-argon") || lower.includes("gemini-4.argon") || lower.includes("orchestrator")) return MODEL_PRICING["gemini-4-argon"];
+  const gemini4 = lower.trim().match(/(?:^|\/)gemini-4[.-](carbon|hydrogen|neon)(?:-(?:minimal|low|medium|high|xhigh))?$/);
+  if (gemini4) return MODEL_PRICING[`gemini-4-${gemini4[1]}`];
+  if (/(?:^|\/)muse-wonder-1[.-]0(?:-(?:minimal|low|medium|high|xhigh|extra-high|max))?$/.test(lower)) return MODEL_PRICING["muse-wonder-1.0"];
+  // gemini-3 pro tiers (gemini-3-pro, gemini-3.1-pro, -high, -customtools…)
+  // must not fall through to the flash rate (4x undercount).
+  if (lower.includes("gemini-3") && lower.includes("pro")) return MODEL_PRICING["gemini-3-pro-preview"];
+  if (lower.includes("gemini-3")) return MODEL_PRICING["gemini-3-flash-preview"];
+  if (lower.includes("gemini-2.5")) return MODEL_PRICING["gemini-2.5-pro"];
+  if (lower.includes("minimax-m3")) return MODEL_PRICING["minimax-m3"];
+  if (lower.includes("minimax-m2.7-highspeed")) return MODEL_PRICING["MiniMax-M2.7-highspeed"];
+  if (lower.includes("minimax-m2.7")) return MODEL_PRICING["MiniMax-M2.7"];
+  if (lower.includes("deepseek-v4.1-flash")) return MODEL_PRICING["deepseek-v4.1-flash"];
+  if (lower.includes("deepseek-flash")) return MODEL_PRICING["deepseek-flash"];
+  if (lower.includes("deepseek-v4-flash")) return MODEL_PRICING["deepseek-v4-flash"];
+  if (lower.includes("deepseek-v4-pro")) return MODEL_PRICING["deepseek-v4-pro"];
+  if (lower.includes("deepseek-reasoner")) return MODEL_PRICING["deepseek-reasoner"];
+  if (lower.includes("deepseek-chat")) return MODEL_PRICING["deepseek-chat"];
+  // Cursor Grok 4.7/4.6/4.5 Fast SKUs must precede the generic grok-4 matcher
+  // (substring "grok-4" would otherwise bill Cursor Fast rows at xAI grok-4 rates).
+  if (lower.includes("grok-4.7") && lower.includes("fast")) return MODEL_PRICING["cursor-grok-4.7-fast"];
+  if (lower.includes("grok-4.7")) return MODEL_PRICING["cursor-grok-4.7"];
+  if (lower.includes("grok-4.6") && lower.includes("fast")) return MODEL_PRICING["cursor-grok-4.6-fast"];
+  if (lower.includes("grok-4.6")) return MODEL_PRICING["cursor-grok-4.6"];
+  // 2026-10 unpriced sweep: China vendors and known-zero free routes
+  // (curated-overrides.json documents rates and sources).
+  if (lower.includes("sensenova-6.8-flash-lite")) return MODEL_PRICING["sensenova-6.8-flash-lite"];
+  if (lower.includes("doubao-seed-2.1-turbo")) return MODEL_PRICING["doubao-seed-2.1-turbo"];
+  if (lower.includes("north-mini-code")) return MODEL_PRICING["north-mini-code-free"];
+  if (lower === "openrouter/free") return MODEL_PRICING["openrouter/free"];
+  if (lower.includes("grok-4.5") && lower.includes("fast")) return MODEL_PRICING["cursor-grok-4.5-fast"];
+  if (lower.includes("grok-4.5")) return MODEL_PRICING["cursor-grok-4.5"];
+  if (lower.includes("grok-build")) return MODEL_PRICING["grok-build"];
+  if (lower.includes("grok-4-fast")) return MODEL_PRICING["grok-4-fast"];
+  // grok-4-1-fast-* must precede the generic grok-4 matcher. Cloud rows may
+  // carry a provider prefix or `-latest` suffix (e.g. xai/grok-4-1-fast-
+  // non-reasoning-latest), and the substring "grok-4-fast" does NOT match
+  // "grok-4-1-fast" (the "-1-" separates them). Without this specific match
+  // these rows fall through to grok-4 and get billed at $3/$15 MTok instead
+  // of the $0.20/$0.50 MTok fast-tier rate (15x / 30x overestimate).
+  if (lower.includes("grok-4-1-fast")) return MODEL_PRICING["grok-4-1-fast-non-reasoning"];
+  if (lower.includes("grok-4")) return MODEL_PRICING["grok-4"];
+  if (lower.includes("kimi-k3")) return MODEL_PRICING["kimi-k3"];
+  // Bare "k3" alias from Kimi Code (or provider-prefixed "*/k3"); the exact
+  // key above only catches the unprefixed form.
+  if (lower === "k3" || lower.endsWith("/k3")) return MODEL_PRICING["kimi-k3"];
+  if (lower.includes("kimi-k2.7-code")) return MODEL_PRICING["kimi-k2.7-code"];
+  if (lower.includes("kimi-k2.6")) return MODEL_PRICING["kimi-k2.6"];
+  if (lower.includes("kimi")) return MODEL_PRICING["kimi-k2.5"];
+  // MiMo ordering: more specific suffixes first (mimo-v2.5-pro before
+  // mimo-v2.5 which is a substring; the free tier is a distinct name).
+  if (lower.includes("mimo-v2-pro-free")) return MODEL_PRICING["mimo-v2-pro-free"];
+  if (lower.includes("mimo-v2.5-pro")) return MODEL_PRICING["mimo-v2.5-pro"];
+  if (lower.includes("mimo-v2.5")) return MODEL_PRICING["mimo-v2.5"];
+  if (lower.includes("mimo-v2-flash")) return MODEL_PRICING["mimo-v2-flash"];
+  // GLM ordering: more specific suffixes (-airx/-air/-x/-flash/-flashx/-turbo)
+  // must precede the base matchers. glm-5.1 must precede glm-5 (substring).
+  if (lower.includes("glm-4.5-airx")) return MODEL_PRICING["glm-4.5-airx"];
+  if (lower.includes("glm-4.5-air")) return MODEL_PRICING["glm-4.5-air"];
+  if (lower.includes("glm-4.5-x")) return MODEL_PRICING["glm-4.5-x"];
+  if (lower.includes("glm-4.5-flash")) return MODEL_PRICING["glm-4.5-flash"];
+  if (lower.includes("glm-4.5")) return MODEL_PRICING["glm-4.5"];
+  if (lower.includes("glm-4.7-flashx")) return MODEL_PRICING["glm-4.7-flashx"];
+  if (lower.includes("glm-4.7-flash")) return MODEL_PRICING["glm-4.7-flash"];
+  if (lower.includes("glm-4.7")) return MODEL_PRICING["glm-4.7"];
+  if (lower.includes("glm-4.6")) return MODEL_PRICING["glm-4.6"];
+  // Z.ai's anonymous preview aliases (x-preview-f-free, Ox Alpha) are all
+  // GLM-5.3-Flash behind the mask — Z.ai confirmed this on 2026-08-26. They
+  // must precede the glm-5.3 matchers so the flash rate (not the flagship's)
+  // applies.
+  if (lower.includes("x-preview-f-free")) return MODEL_PRICING["glm-5.3-flash"];
+  if (lower.includes("ox-alpha")) return MODEL_PRICING["glm-5.3-flash"];
+  if (lower.includes("glm-5.3-flash")) return MODEL_PRICING["glm-5.3-flash"];
+  if (lower.includes("glm-5.3")) return MODEL_PRICING["glm-5.3"];
+  if (lower.includes("glm-5-turbo")) return MODEL_PRICING["glm-5-turbo"];
+  if (lower.includes("glm-5.2")) return MODEL_PRICING["glm-5.2"];
+  if (lower.includes("glm-5.1")) return MODEL_PRICING["glm-5.1"];
+  if (lower.includes("glm-5")) return MODEL_PRICING["glm-5"];
+  if (lower.includes("kiro")) return MODEL_PRICING["kiro-cli-agent"];
+  if (lower.includes("hy3")) return MODEL_PRICING["hy3-preview-agent"];
+  // qwen4-max is exact-SKU only (upstream #1145): the bare id and dated
+  // snapshots share the card; -preview (Token Plan only) and other
+  // suffixes stay $0.
+  if (/(?:^|\/)qwen4-max(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim())) return MODEL_PRICING["qwen4-max"];
+  if (/(?:^|\/)qwen4-max/.test(lower)) return ZERO_PRICING;
+  if (/(?:^|\/)qwen3[.-]8-flash(?:-\d{4}-\d{2}-\d{2})?$/.test(lower.trim())) return MODEL_PRICING["qwen3.8-flash"];
+  // Qwen3.7 family: Trae CN dash-spells the plus id (qwen-3.7-plus) and tags
+  // the max snapshot as a preview; the flash SKU is its own rate (must not
+  // inherit qwen3.8-flash — pinned as a distinct SKU by edge-pricing-parity).
+  // The undated max spelling (2026-08-17 rows) is the same 05-20 snapshot SKU.
+  if (lower.includes("qwen3.7-max")) return MODEL_PRICING["qwen3.7-max-2026-05-20"];
+  if (lower.includes("qwen-3.7-plus") || lower.includes("qwen3.7-plus")) return MODEL_PRICING["qwen3.7-plus"];
+  if (lower.includes("qwen3.7-flash")) return MODEL_PRICING["qwen3.7-flash"];
+  if (lower.includes("hy4")) return MODEL_PRICING["hy4-preview"];
+  if (lower.includes("composer-2.5") && lower.includes("fast")) return MODEL_PRICING["composer-2.5-fast"];
+  if (lower.includes("composer-2.5")) return MODEL_PRICING["composer-2.5"];
+  if (lower.includes("composer-2-fast")) return MODEL_PRICING["composer-2-fast"];
+  if (lower.includes("composer-2")) return MODEL_PRICING["composer-2"];
+  if (lower.includes("composer-1.5")) return MODEL_PRICING["composer-1.5"];
+  if (lower.includes("composer")) return MODEL_PRICING["composer-1"];
+  if (lower.includes("fugu")) return MODEL_PRICING["sakana/fugu-ultra"];
+  if (lower.includes("longcat")) return MODEL_PRICING["longcat-2.0"];
+  // StepFun ordering: dated snapshots (step-3.5-flash-2603) hit the specific
+  // matchers; bare "stepfun" (e.g. openrouter stepfun/…) falls back to 3.7.
+  if (lower.includes("step-3.7-flash")) return MODEL_PRICING["step-3.7-flash"];
+  if (lower.includes("step-3.5-flash")) return MODEL_PRICING["step-3.5-flash"];
+  if (lower.includes("stepfun")) return MODEL_PRICING["step-3.7-flash"];
+  if (lower === "auto") return MODEL_PRICING["composer-1"];
+  return ZERO_PRICING;
+}
+function getRowPricing(row: { model?: string; source?: string; hour_start?: string; pricing_tier?: string }) {
+  const pricing = getModelPricing(row.model || "", row.source);
+  // Every Qoder international row is credits-derived: the edition records no
+  // token counts, so the figures on its rows are money divided by the reference
+  // model's blended rate. Price them at that rate whatever router name the row
+  // carries, or a label no price table knows shows no cost. Mirrors
+  // getRowPricing in src/lib/pricing/index.js, and must precede the DeepSeek
+  // time-of-use branch below — a "DeepSeek-Flash（积分）" label is not a DeepSeek
+  // API row, so halving it at off-peak bills the same credits differently per
+  // hour (the account view ran $0.348 where this machine bills $0.485).
+  if ((row.source || "").toLowerCase() === "qoder") {
+    const reference = getModelPricing("qwen3.8-flash");
+    if (reference && (reference.input || reference.output)) return reference;
+  }
+  if ((row.source || "").toLowerCase() === "acode") return pricing;
+  // Trae CN underscore-spells the deepseek ids (deepseek_v4_pro); fold the
+  // separator before the family check so those rows reach the time-of-use
+  // discount, mirroring isDeepSeekTimePricedModel in src/lib/pricing/index.js.
+  const lower = String(row.model || "").toLowerCase().replace(/_/g, "-");
+  if (
+    !lower.includes("deepseek-v4-flash") &&
+    !lower.includes("deepseek-v4.1-flash") &&
+    !lower.includes("deepseek-flash") &&
+    !lower.includes("deepseek-v4-pro")
+  ) return pricing;
+  let offPeak = row.pricing_tier === "off_peak";
+  if (!row.pricing_tier && row.hour_start) {
+    const timestamp = Date.parse(row.hour_start);
+    if (Number.isFinite(timestamp)) {
+      const hour = new Date(timestamp).getUTCHours();
+      offPeak = !((hour >= 1 && hour < 4) || (hour >= 6 && hour < 10));
+      // From 00:00 Beijing time on 2026-08-23 (2026-08-22T16:00Z) DeepSeek bills
+      // whole Beijing weekends off-peak, peak hours included. That weekend runs
+      // 16:00Z Friday to 16:00Z Sunday, so the +08:00 shift before getUTCDay()
+      // is what puts both edges in the right place; reading the weekday off the
+      // raw instant marks a different 48 hours. China has had no daylight saving
+      // since 1991. https://api-docs.deepseek.com/quick_start/pricing/
+      if (timestamp >= Date.UTC(2026, 7, 22, 16, 0, 0)) {
+        const beijingDay = new Date(timestamp + 8 * 60 * 60 * 1000).getUTCDay();
+        if (beijingDay === 0 || beijingDay === 6) offPeak = true;
+      }
+    }
+  }
+  if (!offPeak) return pricing;
+  return { input: pricing.input * 0.5, output: pricing.output * 0.5, cache_read: pricing.cache_read * 0.5, cache_write: (pricing.cache_write || 0) * 0.5 };
+}
+
+interface TraeEvidencePool { hits: number; volume: number; }
+interface TraeEditionEvidence { byModel: Record<string, TraeEvidencePool>; recognizedRate: number; }
+type TraeEvidenceState = Record<string, TraeEditionEvidence>;
+
+const EVIDENCE_TTL_MS = 5 * 60_000; // matches TRAE_FOLD_REFRESH_MS locally
+const evidenceCache = new Map<string, { fetchedAt: number; value: TraeEvidenceState }>();
+const evidenceInFlight = new Map<string, Promise<TraeEvidenceState>>();
+
+async function fetchTraeEvidence(
+  client: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<TraeEvidenceState> {
+  const cached = evidenceCache.get(userId);
+  if (cached && Date.now() - cached.fetchedAt < EVIDENCE_TTL_MS) return cached.value;
+  const existing = evidenceInFlight.get(userId);
+  if (existing) return existing;
+  const pending = (async () => {
+    try {
+      const { data, error } = await client.database
+        .from("tokentracker_account_trae_evidence")
+        .select("edition, model, hits, volume")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      const state: TraeEvidenceState = {};
+      for (const row of (data ?? []) as Array<{ edition: string; model: string; hits: number | string; volume: number | string }>) {
+        const edition = String(row.edition || "");
+        if (edition !== "trae-cn" && edition !== "trae") continue;
+        const volume = Number(row.volume) || 0;
+        if (!(volume > 0)) continue;
+        const model = String(row.model || "");
+        const slot = state[edition] || (state[edition] = { byModel: {}, recognizedRate: 0 });
+        const acc = slot.byModel[model] || { hits: 0, volume: 0 };
+        acc.hits += Number(row.hits) || 0;
+        acc.volume += volume;
+        slot.byModel[model] = acc;
+      }
+      // Recognized hit rate (owner ruling 2026-11-07): the median across the
+      // edition's own fielded models — applied to models with no fielded
+      // history. Never borrowed across editions, never fabricated.
+      for (const edition of Object.keys(state)) {
+        const rates = Object.values(state[edition].byModel)
+          .filter((acc) => acc.volume > 0)
+          .map((acc) => Math.min(Math.max(acc.hits / acc.volume, 0), 1))
+          .sort((a, b) => a - b);
+        if (rates.length) {
+          const mid = Math.floor(rates.length / 2);
+          state[edition].recognizedRate = rates.length % 2
+            ? rates[mid]
+            : (rates[mid - 1] + rates[mid]) / 2;
+        }
+      }
+      evidenceCache.set(userId, { fetchedAt: Date.now(), value: state });
+      if (evidenceCache.size > 64) {
+        const oldest = evidenceCache.keys().next().value;
+        if (oldest) evidenceCache.delete(oldest);
+      }
+      return state;
+    } catch (error) {
+      const stale = evidenceCache.get(userId);
+      if (stale && Date.now() - stale.fetchedAt < COMPACT_STALE_IF_ERROR_MS) return stale.value;
+      // Missing evidence must never fail the request: rows stay at the ceiling.
+      console.error("trae evidence fetch failed", (error as Error).message);
+      return {};
+    }
+  })().finally(() => evidenceInFlight.delete(userId));
+  evidenceInFlight.set(userId, pending);
+  return pending;
+}
+
+function foldTraeRowCost(
+  row: GroupedRow & { cache_observed_input_tokens: number | null },
+  cost: number,
+  evidence: TraeEvidenceState,
+): number {
+  const source = String(row?.source || "").toLowerCase();
+  if (source !== "trae" && source !== "trae-cn") return cost;
+  if (row?.cache_observed_input_tokens == null) return cost;
+  const model = String(row?.model || "");
+  const inputSide = (Number(row?.input_tokens) || 0) +
+    (Number(row?.cached_input_tokens) || 0) +
+    (Number(row?.cache_creation_input_tokens) || 0);
+  if (!(inputSide > 0)) return cost;
+  const observed = Math.max(0, Number(row.cache_observed_input_tokens) || 0);
+  const coverage = Math.min(observed / inputSide, 1);
+  if (coverage >= 0.5) return cost;
+  const unmeasured = Math.min(inputSide - observed, Number(row?.input_tokens) || 0);
+  if (!(unmeasured > 0)) return cost;
+  const editionState = evidence?.[source];
+  const acc = editionState?.byModel?.[model];
+  const h = acc && acc.volume > 0
+    ? Math.min(Math.max(acc.hits / acc.volume, 0), 1)
+    : (editionState && editionState.recognizedRate > 0
+        ? Math.min(Math.max(editionState.recognizedRate, 0), 1)
+        : 0);
+  if (!(h > 0)) return cost;
+  const pricing = getRowPricing({ model, source: row.source, pricing_tier: row.pricing_tier });
+  const inputRate = Number(pricing?.input);
+  const cacheRate = Number(pricing?.cache_read);
+  if (!(inputRate > 0) || !(cacheRate > 0)) return cost;
+  const discount = Math.min(cacheRate / inputRate, 1);
+  const fresh = Number(row?.input_tokens) || 0;
+  if (!(fresh > 0)) return cost;
+  const costWithoutInput = computeRowCost({ ...row, input_tokens: 0 });
+  const inputLegCost = cost - costWithoutInput;
+  if (!(inputLegCost > 0)) return cost;
+  const unmeasuredCost = inputLegCost * (unmeasured / fresh);
+  const foldFactor = (1 - h) + h * discount;
+  return cost - unmeasuredCost + unmeasuredCost * foldFactor;
+}
+
+function computeRowCost(row: GroupedRow & { cache_observed_input_tokens?: number | null }): number {
+  // LM Studio developer-server and LM Link traffic is local inference. Its
+  // logs do not represent Bionic Secure Cloud billing.
+  if (row.source === "lmstudio") return 0;
+  // Pi's GitHub Copilot provider is subscription-backed. Keep its token
+  // counts, but do not reprice the recorded Claude model as Anthropic API use.
+  if (row.source === "pi-github-copilot" || row.source === "pi-copilot") return 0;
+  const reportedCost = Number(row.total_cost_usd);
+  if (
+    SOURCES_WITH_AUTHORITATIVE_COST.has(row.source) &&
+    Number.isFinite(reportedCost) &&
+    reportedCost > 0
+  ) return reportedCost;
+  // WorkBuddy's auto-router logs model="auto"; price it as its default Hunyuan
+  // model (hy3-preview-agent) so it isn't billed as Cursor's composer-1. Mirrors
+  // normalizeWorkbuddyModel in src/lib/pricing/matcher.js.
+  const rawModel = String(row.model || "").trim();
+  const unslothUnpriced =
+    row.source === "unsloth" && /^(local|unpriced)\//i.test(rawModel);
+  const modelForPricing = unslothUnpriced
+    ? "__tokentracker_unpriced_unsloth_model__"
+    : row.source === "workbuddy" && rawModel.toLowerCase() === "auto"
+      ? "hy3-preview-agent"
+      : rawModel;
+  const p = getRowPricing({ ...row, model: modelForPricing });
+  // Codex / every-code fold reasoning into output_tokens (OpenAI convention),
+  // so charging reasoning_output_tokens again at the output rate double-counts.
+  // Must stay in lockstep with src/lib/pricing/index.js:computeRowCost and
+  // tokentracker-leaderboard-refresh.ts (both guard on source).
+  const reasoningCost =
+    row.source === "codex" || row.source === "acode" || row.source === "every-code" ||
+      row.source === "cline" || row.source === "omo" || row.source === "muse"
+      ? 0
+      : (Number(row.reasoning_output_tokens) || 0) * (p.output || 0);
+  return (
+    ((Number(row.input_tokens) || 0) * (p.input || 0) +
+      (Number(row.output_tokens) || 0) * (p.output || 0) +
+      (Number(row.cached_input_tokens) || 0) * (p.cache_read || 0) +
+      (Number(row.cache_creation_input_tokens) || 0) * ((p.cache_write ?? 0)) +
+      reasoningCost) /
+    1_000_000
+  );
 }
 
 export default async function (req: Request): Promise<Response> {
@@ -210,6 +1099,8 @@ export default async function (req: Request): Promise<Response> {
     return json({ error: (e as Error).message }, 500);
   }
 
+  const evidence = await fetchTraeEvidence(client, userId);
+
   const byMonth = new Map<string, {
     month: string;
     total_tokens: number;
@@ -220,6 +1111,7 @@ export default async function (req: Request): Promise<Response> {
     cache_creation_input_tokens: number;
     reasoning_output_tokens: number;
     conversation_count: number;
+    total_cost_usd: number;
     // Per-model totals so the Usage Trend (total/monthly mode) can stack by
     // MODEL in cloud mode — mirrors src/lib/local-api.js monthly output.
     models: Record<string, number>;
@@ -239,6 +1131,7 @@ export default async function (req: Request): Promise<Response> {
         cache_creation_input_tokens: 0,
         reasoning_output_tokens: 0,
         conversation_count: 0,
+        total_cost_usd: 0,
         models: {},
       };
       byMonth.set(month, a);
@@ -252,6 +1145,7 @@ export default async function (req: Request): Promise<Response> {
     a.cache_creation_input_tokens += Number(row.cache_creation_input_tokens) || 0;
     a.reasoning_output_tokens += Number(row.reasoning_output_tokens) || 0;
     a.conversation_count += Number(row.conversations) || 0;
+    a.total_cost_usd += foldTraeRowCost(row as any, computeRowCost(row), evidence);
     const mdl = String(row.model || "unknown");
     a.models[mdl] = (a.models[mdl] || 0) + tt;
   }
