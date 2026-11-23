@@ -6,7 +6,7 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
-## [未发布] - 2026-11-23（热更批次）
+## [1.43.0] - 2026-11-24
 
 - **修复：Antigravity 限额卡长期显示「缓存」不再刷新**。Antigravity 2.33 起把语言服务器改成 hub 独立进程：CSRF 令牌不再写在命令行（改为应用通过 stdin 传入），令牌与监听端口改由 `~/.gemini/antigravity/daemon/hub_<端口>.json`（`pid` / `httpsPort` / `httpPort` / `csrfToken`）公布。旧检测只认命令行里的 `--csrf_token`，取不到令牌时本地额度请求全部被 401「missing CSRF token」拒绝，于是一直回落到旧磁盘快照（实测停在 3 天前）。现在按进程 pid 读取该守护文件取得令牌，并优先探测它公布的端口；文件 pid 不匹配时照旧回退，不会误用过期凭据。实测限额接口 `provenance.stale=false`，窗口数值随实时用量变化。
 - **修复：账户汇总的「使用趋势」悬停没有花费（当日与总计两个口径）**。本机数据的趋势行一直带成本，但云端链路缺两块：①总计（月度）端点在 v1.42.2 已写好成本计算却只在仓库里、自托管后端没换包；②当日（小时）端点从未实现成本。本次给 `tokentracker-account-hourly` 移植了与月度端点字节一致的定价块 + TRAE 缓存折叠（`test/edge-pricing-parity.test.js` 一致性门禁同步扩到 7 个文件），补上月度补丁里漏定义的 `COMPACT_STALE_IF_ERROR_MS`（esbuild 不做类型检查，走到证据回退分支会直接 ReferenceError），并把全部 21 个边缘函数新包部署到自托管后端（顺带带上 11-22 未部署的 Antigravity Orchestrator Argon 与 Agnes 3.0 Flash 刊例价）。实测小时端点当日 2 桶全带成本（$5.22）、月度端点 3 行全带成本（$4,625.34）。空档小时与月份缺口行补 `total_cost_usd: 0`，悬停显示 ¥0 而不是整行消失。
