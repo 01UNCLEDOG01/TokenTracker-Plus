@@ -599,6 +599,17 @@ const PROVIDER_LOGO_MAP = {
   "APIGOTO": "/brand-logos/apigoto.svg",
   // Vyce AI — 官网 vyce-mark.svg（48×48 vector mark）。
   VYCEAI: "/brand-logos/vyceai.svg",
+  // Deepgram — official site schema.org logo (500×500 mark on transparent,
+  // white knockout rect) pulled from deepgram.com's own metadata.
+  DEEPGRAM: "/brand-logos/deepgram.svg",
+  // Reducto — official site favicon (doc-parsing mark).
+  REDUCTO: "/brand-logos/reducto.ico",
+  // Telnyx — official site's own 750×750 logo PNG.
+  TELNYX: "/brand-logos/telnyx.png?v=1",
+  // China Mobile Cloud (移动云) — ecloud portal logo.
+  MOBILECLAW: "/brand-logos/mobileclaw.png?v=1",
+  // AssemblyAI — official site favicon.
+  ASSEMBLYAI: "/brand-logos/assemblyai.ico",
   // SenseNova (商汤日日新) — mark taken from the console's own page asset.
   "SENSENOVA": "/brand-logos/sensenova.svg",
   // Volcano Ark (火山方舟) Coding Plan — the Volcengine 3-mountain mark.
@@ -703,6 +714,9 @@ const PROVIDER_LOGO_CLASS_MAP = {
   // The Devin nodes mark ships as a black currentColor trace — same
   // dark-mode inversion treatment as the Qoder mark.
   DEVIN: "dark:invert",
+  // Deepgram's official mark is a near-black trace on transparent — same
+  // dark-mode inversion treatment as Qoder/Devin so it stays visible on dark cards.
+  DEEPGRAM: "dark:invert",
   // The sail PNG is solid black on transparent — invert to white in dark
   // mode so it doesn't disappear against the dark dashboard background.
   DOTS: "dark:invert",

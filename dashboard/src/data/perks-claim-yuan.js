@@ -14,6 +14,7 @@ export const PERKS_CLAIM_YUAN = {
   zcode: { once: 24.53 },           // 17 亿/周 ÷7 × ¥0.101/M ≈ ¥24.53/晚（审计 §6）
   zcode_intl: { once: 24.53 },
   loomy: { daily: 19.9 },           // 每日 5,000 积分（¥19.9/5000 分，审计 §7）
+  mobileclaw: { daily: 150, monthly: 1500, once: 3750 }, // 活动三档 Token × 输入牌价保守下限 ¥1.5/M（DeepSeek V4.1 Flash $0.30 + GLM-5.3-Flash $0.15 混合，只按输入计）
   spark: { once: 596 },             // Spark-X2.6 送 10 亿 Token ≥¥596（一次性）
   // 🔴 rose
   teleagent: { daily: 14.95 },      // 月最高 39,000 分 = ¥448.50 ÷30（月礼与日签同池，月领不重复计价）
@@ -34,6 +35,10 @@ export const PERKS_CLAIM_YUAN = {
   tuanjie_cowork: { daily: 2.57 },  // ¥77.18/月 ÷30
   scnet: { once: 60 },              // 新户 1 亿 Token = ¥60（一次性）
   sensenova: { once: 60 },          // ≈¥60/月（永久免费）
+  deepgram: { once: 1334 },         // 注册送 $200 永久额度 × 6.6683（审计表美元券口径）≈¥1,334（一次性，2026-11-23 官网核实）；档位按保守月化（12 个月摊 ≈¥111/月）归 purple，站主可改
+  reducto: { once: 1000 },          // 新户 $150 × 6.6683（美元券口径）≈¥1,000（一次性，2026-11-23 官网核实）；档位同 deepgram 先例归 purple
+  telnyx: { once: 167 },            // 预试用 $25 × 6.6683 ≈¥167（一次性，2026-11-23 官方支持页核实）
+  assemblyai: { once: 333 },        // 新户 $50 × 6.6683 ≈¥333（一次性，2026-11-23 官网核实；官页未写过期条款）
   // opencode：日签卡（站主 2026-11-13 定谳：5 个限免模型各自独立日额度、可叠加，
   // 「一天肯定不止 ¥1」——按 LongCat 100 次/日 + 其余 4 模型保守各 30-50 次 ≈ 250 次/日，
   // 编程单次约 10-15k tokens ≈ 2.5-4M tokens/日，Flash 类混合价 ≈¥2/M ≈ ¥5-8/日，取 ¥6。

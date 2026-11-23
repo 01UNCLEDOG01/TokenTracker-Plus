@@ -13,13 +13,13 @@ import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_BACKFILL_KEY, getPerkC
 
 const ORDERED_IDS = [
   "ace_music", "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling",
-  "apigoto", "autoclaw", "autoclaw_intl", "wenxin", "qianfan", "bigmodel", "catpaw", "cerebras",
-  "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepseek", "devin", "doubaowork",
+  "apigoto", "assemblyai", "autoclaw", "autoclaw_intl", "wenxin", "qianfan", "bigmodel", "catpaw", "cerebras",
+  "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepgram", "deepseek", "devin", "doubaowork",
   "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "hark", "officeace", "volcengine",
   "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
-  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "modelscope", "muse_ai", "nvidia_nim", "opencode",
-  "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "rime",
-  "sensenova", "somark", "stepaudio", "teleagent", "tencent_adp", "edgeone", "tencent_ima", "tencent_ima_once", "tokenhub", "today_cn",
+  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "mobileclaw", "modelscope", "muse_ai", "nvidia_nim", "opencode",
+  "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "reducto", "rime",
+  "sensenova", "somark", "stepaudio", "teleagent", "telnyx", "tencent_adp", "edgeone", "tencent_ima", "tencent_ima_once", "tokenhub", "today_cn",
   "trae_cn", "trae", "unisound_maas", "vyceai", "wechat_miniprogram", "workbuddy_intl", "workbuddy", "wps_lingxi",
   "zcode", "zcode_intl", "zed",
 ];
@@ -264,8 +264,9 @@ describe("PerksPage", () => {
     // 2026-11-13：端砚免费直用下线（改墨点折扣计费），移出 permanent_free（17→16）。
     // 2026-11-13：opencode 限免模型是每日额度，补 daily_claim 周期（站主定谳，日签 17→18）。
     // 2026-11-14：Hark 卡入册 permanent_free（30→31）；新增 personal 分组（today/muse/hark 三张）。
+    // 2026-11-23：移动云 MobileClaw 入册（双11 活动，daily_claim 25→26）。
     expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("31");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("25");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("26");
     expect(screen.getByText("个人 AI 助手").closest("button")).toHaveTextContent("3");
   });
 

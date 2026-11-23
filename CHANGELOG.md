@@ -6,6 +6,15 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [未发布] - 2026-11-23（热更批次）
+
+- **修复：Antigravity 限额卡长期显示「缓存」不再刷新**。Antigravity 2.33 起把语言服务器改成 hub 独立进程：CSRF 令牌不再写在命令行（改为应用通过 stdin 传入），令牌与监听端口改由 `~/.gemini/antigravity/daemon/hub_<端口>.json`（`pid` / `httpsPort` / `httpPort` / `csrfToken`）公布。旧检测只认命令行里的 `--csrf_token`，取不到令牌时本地额度请求全部被 401「missing CSRF token」拒绝，于是一直回落到旧磁盘快照（实测停在 3 天前）。现在按进程 pid 读取该守护文件取得令牌，并优先探测它公布的端口；文件 pid 不匹配时照旧回退，不会误用过期凭据。实测限额接口 `provenance.stale=false`，窗口数值随实时用量变化。
+- **修复：账户汇总的「使用趋势」悬停没有花费（当日与总计两个口径）**。本机数据的趋势行一直带成本，但云端链路缺两块：①总计（月度）端点在 v1.42.2 已写好成本计算却只在仓库里、自托管后端没换包；②当日（小时）端点从未实现成本。本次给 `tokentracker-account-hourly` 移植了与月度端点字节一致的定价块 + TRAE 缓存折叠（`test/edge-pricing-parity.test.js` 一致性门禁同步扩到 7 个文件），补上月度补丁里漏定义的 `COMPACT_STALE_IF_ERROR_MS`（esbuild 不做类型检查，走到证据回退分支会直接 ReferenceError），并把全部 21 个边缘函数新包部署到自托管后端（顺带带上 11-22 未部署的 Antigravity Orchestrator Argon 与 Agnes 3.0 Flash 刊例价）。实测小时端点当日 2 桶全带成本（$5.22）、月度端点 3 行全带成本（$4,625.34）。空档小时与月份缺口行补 `total_cost_usd: 0`，悬停显示 ¥0 而不是整行消失。
+
+- **福利指南新增 Deepgram 卡（第 80 家）**。语音 AI 平台（语音转文字/文字转语音）**注册 Console 即送 $200 按量额度**，官方 pricing 页原文核实（2026-11-23）：**「No minimums, no expiration, and no credit card required」——无最低消费、不过期（永久）、无需信用卡**，约合 Nova-3 转录 43,000 分钟（700+ 小时）；额度覆盖 STT/TTS 全模型，用完才转按量付费（不绑卡不会扣费）。档位 purple（保守月化摊销口径，站主可改），审计价 once ¥1,334（$200 × 审计表美元券汇率 6.6683）；README 六语福利计数 79→80，GitHub About 同步 PATCH。
+
+- **福利指南扩至 84 家 + loomy 口径更新**。新增四张白嫖卡：**Reducto**（新户送 $150 文档解析额度，一次性、仅新用户，官网一手核实；AIHOT 口径每邮箱域名限领一次）、**Telnyx**（预试用账户 $25 AI 额度、无需绑卡，⚠️ 升级后被替换为 $5，官方支持页一手核实）、**移动云 MobileClaw**（双 11 活动：每日领 100 万 Token、月领 1000 万、新人实名 2500 万，需实名/仅电脑端/至 12-31）、**AssemblyAI**（新户 $50 语音 API 额度、无需信用卡，官页未写过期条款）。**讯飞 Loomy 卡更新**：邀请码改**每码限 1 人使用、单账号邀请奖励上限 6 次**（站主端内实测）；**端内第三方模型全部下架，仅剩讯飞星火自有 2 款**（官网营销文案未同步，卡上以端内为准）。智谱 bigmodel 卡补 GLM Coding Plan **7 天体验卡（2000 积分）**。六语 README 计数 80→84，GitHub About 同步。
+
 ## [1.42.2] - 2026-11-23
 
 - **修复：热力图调色盘 2D 自由切换与 0 Token 中性灰**。2D 顶栏新增 4 色调色盘切换器（翡翠绿/海洋蓝/霓虹紫/琥珀金），持久化至本地存储（`tt:heatmap-palette`）；重构 `PALETTES` 等级 0 颜色，确保无论选择何种色系，0 Token 休息日与图例均保持纯净中性灰（暗黑模式 `#121212`，浅色模式 `#ebedf0`），不再被主题色污染。

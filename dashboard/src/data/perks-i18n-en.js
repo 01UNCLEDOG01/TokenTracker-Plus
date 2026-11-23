@@ -29,12 +29,12 @@ export const PERKS_EN = {
   },
   bigmodel: {
     name: "Zhipu Open Platform (BigModel / Z.AI)",
-    badge: "All Flash models free (until deprecation) + new-user credits",
+    badge: "All Flash models free (until deprecation) + new-user credits + GLM Coding Plan 7-day trial card",
     description:
-      "Sign up with just a phone number, no heavy verification. The GLM Flash series (GLM-4.7-Flash, GLM-4.5-Flash, GLM-4-Flash-250414, etc.) is free — officially free until the models are deprecated, not a forever promise; new-user starter packs follow the in-site credit center (the officially published figure is 20M GLM-4.5-Air tokens for each side of an invite).",
+      "Sign up with just a phone number, no heavy verification. The GLM Flash series (GLM-4.7-Flash, GLM-4.5-Flash, GLM-4-Flash-250414, etc.) is free — officially free until the models are deprecated, not a forever promise; new-user starter packs follow the in-site credit center (the officially published figure is 20M GLM-4.5-Air tokens for each side of an invite); **the GLM Coding Plan (coding subscription) can be claimed as a free 7-day trial card worth 2,000 credits** (verified by both AIHOT and GoodCase, 2026-11-23).",
     tips:
-      "China site bigmodel.cn and international site z.ai both serve the free GLM Flash series; granted credits also work on GLM flagship paid models.",
-    tags: ["Major CN lab", "All Flash free", "Direct access", "OpenAI-compatible"],
+      "China site bigmodel.cn and international site z.ai both serve the free GLM Flash series; granted credits also work on GLM flagship paid models; the Coding Plan trial card follows the official campaign page.",
+    tags: ["Major CN lab", "All Flash free", "Direct access", "OpenAI-compatible", "Coding plan trial"],
   },
   cursor: {
     name: "Cursor (AI Code Editor)",
@@ -196,6 +196,56 @@ export const PERKS_EN = {
     tips:
       "Owner’s invite code: 14TGK4 (27 uses left as of 2026-11-14); the 48-hour window cannot be extended. Site: https://muse.ai.",
     tags: ["Personal AI agent", "In-app use only", "Invite rewards"],
+  },
+  deepgram: {
+    badge: "$200 permanent credit on signup (never expires · no credit card)",
+    description:
+      "Deepgram speech-AI platform (speech-to-text / text-to-speech): **new Console accounts get $200 of pay-as-you-go credit** (verified on the official pricing page, 2026-11-23). The official terms read “No minimums, no expiration, and no credit card required” — roughly 43,000 minutes (700+ hours) of Nova-3 transcription. The credit covers all STT/TTS models at list rates; once it runs dry you may move to Pay-as-you-go, and with no card on file nothing can be charged. Don’t confuse it with the Growth plan, which requires a $4,000+/year prepaid commitment plus a stored card.",
+    tips:
+      "The credit lands automatically at signup (no redemption code): register at console.deepgram.com, create a key under Console → API Keys, and watch the balance under Billing & Usage. Site: https://deepgram.com.",
+    tags: ["USD credit", "Speech API", "Signup bonus", "Never expires"],
+  },
+  loomy: {
+    name: "iFlytek Loomy (Desktop AI Companion)",
+    badge: "Daily 5,000 refresh + 10,000 tasks + 5,000 per invite (1 user per code · max 6 reward claims)",
+    description:
+      "iFlytek's desktop AI companion. New users who sign up and complete tasks earn 10,000 credits, and a daily 5,000-credit pool refreshes each login (spent first). **Invitation rules (owner's in-app check, 2026-11-23): each invitation code works for 1 person only, and a single account can claim invitation rewards at most 6 times** — 5,000 credits each for you and your friend (owner's code: E5UZR8, one user per code). **Model scope change (owner's in-app check, 2026-11-23): third-party models were all removed in-app; only the two iFlytek Spark models remain**. The homepage marketing copy still claims DeepSeek/Qwen support — in-app reality wins; the public changelog does not document the removal date.",
+    tips:
+      "Codes are redeemed under Settings → Invite code (1 user per code, at most 6 reward claims per account); daily credits refresh next day and do not roll over.",
+    tags: ["By iFlytek", "Desktop agent", "Daily 5,000 credits", "Only own models"],
+  },
+  reducto: {
+    badge: "$150 free document-parsing credit for new accounts (one-time · API ready)",
+    description:
+      "Reducto document-parsing API: **new accounts get $150 of free usage** (verified on the official pricing page, 2026-11-23, literally “Standard $150 in free usage”). One-time grant, new users only, API available; per AIHOT, covered models are the doc-parsing r-1 and r-1 mini (**all models**), **each email domain can claim once and documents may be used for training**; the site states no expiration terms.",
+    tips:
+      "Official site https://reducto.ai (note: reducto.com is a parked domain — don't click the wrong one). The grant lands automatically after console signup; create an API key in the console.",
+    tags: ["USD credit", "Document parsing", "New users only", "Domain-limited claim"],
+  },
+  telnyx: {
+    badge: "$25 AI credits for pre-trial accounts (no card · becomes $5 after upgrade)",
+    description:
+      "Telnyx AI inference platform: **signing up for a pre-trial account auto-grants $25 in AI credits — no credit card, usage stops when the credit is exhausted** (verified on the official support page, 2026-11-23, literally “Sign up, get $25 in AI credits”). The credit covers all Telnyx AI products and models (incl. DeepSeek V4.1 Flash, GLM-5.3, Kimi K3 on their own Inference). ⚠️ **After upgrading to a full account the $25 is replaced by a $5 general credit**; validity follows the remaining-days shown in-account — no uniform expiration stated.",
+    tips:
+      "The grant arrives automatically at pre-trial signup; use the $25 up before upgrading; site: https://telnyx.com.",
+    tags: ["USD credit", "AI inference", "No card", "One-time"],
+  },
+  mobileclaw: {
+    name: "China Mobile Cloud MobileClaw",
+    badge: "Double-11 campaign: 1M tokens daily · 10M monthly · 25M for new users",
+    description:
+      "China Mobile Cloud (ecloud.10086.cn) MobileClaw Double-11 campaign (until 2026-12-31, verified by AIHOT 11-16/19): **daily login grants 1M tokens (up to 55 claims during the campaign) + monthly login grants 10M tokens (twice, in Nov and Dec) + new users with ID verification get 25M tokens**. Free-tier models: DeepSeek V4.1 Flash and GLM-5.3-Flash (valued conservatively at input list rates in the audit table). **ID verification required, desktop client only, Hohhot resource pool**; each grant expires 30 days after claiming; in-product use only.",
+    tips:
+      "Campaign page: https://ecloud.10086.cn/mobilecloud/act/2026-double11; claim via the desktop client after ID verification; the offer ends with the campaign.",
+    tags: ["China Mobile Cloud", "Daily token grant", "ID verification", "Desktop only", "Until 12-31"],
+  },
+  assemblyai: {
+    badge: "$50 free speech-API credit on signup (no credit card)",
+    description:
+      "AssemblyAI speech-to-text (ASR) / audio-intelligence API: **new dashboard accounts get $50 in free credits, no credit card** (verified on the official pricing page, 2026-11-23, literally “$50 in free credits, no credit card required”). The free tier caps streaming concurrency at 5 new streams/minute (100 after upgrade); the credit covers the API until exhausted, then pay-as-you-go applies. The site **states no expiration terms** — official Terms of Service prevail.",
+    tips:
+      "Site: https://www.assemblyai.com. The grant applies automatically at dashboard signup (no code); create API keys in the dashboard.",
+    tags: ["USD credit", "Speech API", "No credit card", "One-time"],
   },
 };
 

@@ -361,16 +361,17 @@ export const PERK_PROVIDERS = [
       "permanent_free",
       "big_quota"
     ],
-    "badge": "老 Flash 系列免费（至下架）+ 新户赠额",
+    "badge": "老 Flash 系列免费（至下架）+ 新户赠额 + GLM Coding Plan 7 天体验卡",
     "badgeType": "purple",
     "tags": [
       "国内大厂",
       "老Flash免费",
       "免翻直连",
-      "兼容OpenAI"
+      "兼容OpenAI",
+      "编程订阅体验卡"
     ],
-    "description": "手机号注册即可使用，无需复杂认证。**老 Flash 系列（GLM-4.7-Flash、GLM-4.5-Flash、GLM-4-Flash-250414 等）全系免费开放至下架**，官方承诺长期免费免 Token 费；新用户完成个人或企业认证另赠 **2,000 万 Tokens 初始额度**。",
-    "tips": "国内站 bigmodel.cn、国际站 z.ai，两端均可调用 GLM Flash 免费系列；赠额可用于体验 GLM 主力付费模型。",
+    "description": "手机号注册即可使用，无需复杂认证。**老 Flash 系列（GLM-4.7-Flash、GLM-4.5-Flash、GLM-4-Flash-250414 等）全系免费开放至下架**，官方承诺长期免费免 Token 费；新用户完成个人或企业认证另赠 **2,000 万 Tokens 初始额度**；**智谱 GLM Coding Plan（编程订阅）可免费领取 7 天体验卡，含 2,000 积分**（AIHOT 与 goodcase 双源 2026-11-23 核实）。",
+    "tips": "国内站 bigmodel.cn、国际站 z.ai，两端均可调用 GLM Flash 免费系列；赠额可用于体验 GLM 主力付费模型；GLM Coding Plan 体验卡以官方活动页为准。",
     "inviteUrl": "https://www.bigmodel.cn/invite?icode=ZaL1bTUfl7pSnDADpfvDjHHEaazDlIZGj9HxftzTbt4%3D",
     "officialUrl": "https://bigmodel.cn",
     "officialUrlLabel": "中国站直达",
@@ -940,22 +941,23 @@ export const PERK_PROVIDERS = [
       "client",
       "daily_claim"
     ],
-    "badge": "每日刷新5000 + 任务送1万 + 邀请送5000",
+    "badge": "每日刷新5000 + 任务送1万 + 邀请送5000（每码限1人·每账号奖励上限6次）",
     "badgeType": "amber",
     "tags": [
       "科大讯飞",
       "桌面Agent",
       "任务1万积分",
       "邀请送5000",
-      "每日5000积分"
+      "每日5000积分",
+      "仅自有模型"
     ],
-    "description": "科大讯飞打造的桌面级 AI 工作搭子。实测新用户注册并完成任务可获得 10,000 积分，每日登录客户端自动刷新为 5,000 算力池（优先消耗）；官方支持邀请机制，官方规则原文：「每个邀请码限 1 人使用，邀请好友您与好友同时获得 5000 积分」，站主专属邀请码为 E5UZR8（限 20 人使用）。",
-    "tips": "客户端支持目录级隔离与本地数据隐私保障；复制邀请码后在客户端「设置 → 邀请码」处兑换生效；每日登录赠送积分次日刷新，不跨日累积。",
+    "description": "科大讯飞打造的桌面级 AI 工作搭子。实测新用户注册并完成任务可获得 10,000 积分，每日登录客户端自动刷新为 5,000 算力池（优先消耗）。**邀请规则（站主端内实测 2026-11-23）**：邀请码**每码限 1 人使用**，单个账号的邀请奖励**上限 6 次**，每次邀请双方各得 5,000 积分；站主专属邀请码为 E5UZR8（现每码限 1 人）。**模型范围变化（站主端内实测 2026-11-23）**：端内第三方模型已全部下架，**仅剩讯飞星火自有 2 款模型可用**；官网首页营销文案仍写「支持讯飞星火、DeepSeek、通义千问等模型」，与端内现状不符，以端内为准；公开更新日志未记载下架日期。",
+    "tips": "客户端支持目录级隔离与本地数据隐私保障；复制邀请码后在客户端「设置 → 邀请码」处兑换生效（每码限 1 人、每账号奖励上限 6 次）；每日登录赠送积分次日刷新，不跨日累积。",
     "inviteUrl": "https://loomy.xunfei.cn",
     "officialUrl": "https://loomy.xunfei.cn",
     "inviteCode": "E5UZR8",
     "hasInvite": true,
-    "checkedAt": "2026-11-12",
+    "checkedAt": "2026-11-23",
     "sourceUrl": "https://loomy.xunfei.cn/docs/user-guide/credits"
   },
   {
@@ -1996,6 +1998,86 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-11-13",
     "sourceUrl": "https://aihot.news/free-tokens"
+  },
+  {
+    "id": "deepgram",
+    "name": "Deepgram",
+    "sortNames": ["DEEPGRAM"],
+    "provider": "deepgram",
+    "category": ["big_quota"],
+    "badge": "注册送 $200 永久额度（官方明示不过期 · 无需信用卡）",
+    "badgeType": "purple",
+    "tags": ["美元赠额","语音 API","注册礼","不过期"],
+    "description": "Deepgram 语音 AI 平台（语音转文字 STT / 文字转语音 TTS）：**注册 Console 即送 $200 按量额度**（2026-11-23 官网 pricing 页核实）。官方明示 **无最低消费、不过期、无需信用卡**（原文 \"No minimums, no expiration, and no credit card required\"），约合 Nova-3 转录 43,000 分钟（700+ 小时）。额度覆盖 STT/TTS 全模型按量计费，用完才需转 Pay as you go 付费（不绑卡不会产生扣费）。注意区分 Growth 年度计划（需预付 $4,000+/年且必须绑卡），与本赠额无关。",
+    "tips": "领用=注册 Console（console.deepgram.com）自动到账，无需兑换码；API Key 在 Console → API Keys 创建，余额见 Billing & Usage。官网 https://deepgram.com。",
+    "officialUrl": "https://deepgram.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-23",
+    "sourceUrl": "https://deepgram.com/pricing"
+  },
+  {
+    "id": "reducto",
+    "name": "Reducto",
+    "sortNames": ["REDUCTO"],
+    "provider": "reducto",
+    "category": ["big_quota"],
+    "badge": "新户送 $150 文档解析额度（一次性 · API 可用）",
+    "badgeType": "purple",
+    "tags": ["美元赠额", "文档解析", "仅新用户", "邮箱域名限领"],
+    "description": "Reducto 文档解析 API：**新用户注册即送 $150 免费额度**（2026-11-23 官网 pricing 页核实，原文 \"Standard $150 in free usage\"）。**一次性**领取、仅新用户、API 可用；AIHOT 口径：适用模型为文档解析 r-1、r-1 mini（**所有模型均可用**），**每个邮箱域名限领一次、文档可用于训练**；官网未写过期条款。",
+    "tips": "官网 https://reducto.ai（注意 reducto.com 是停放域名，别点错）；新户额度在控制台注册后自动到账，API Key 在控制台内创建。",
+    "officialUrl": "https://reducto.ai",
+    "hasInvite": false,
+    "checkedAt": "2026-11-23",
+    "sourceUrl": "https://reducto.ai/pricing"
+  },
+  {
+    "id": "telnyx",
+    "name": "Telnyx",
+    "sortNames": ["TELNYX"],
+    "provider": "telnyx",
+    "category": ["big_quota"],
+    "badge": "预试用送 $25 AI 额度（无需绑卡 · 升级后变 $5）",
+    "badgeType": "purple",
+    "tags": ["美元赠额", "AI 推理平台", "无需绑卡", "一次性"],
+    "description": "Telnyx AI 推理平台：**新用户注册预试用账户自动到账 $25 AI 额度，无需绑卡、用完即停**（2026-11-23 官方支持页核实，原文 \"Sign up, get $25 in AI credits\"）。额度覆盖 Telnyx AI 产品全部模型（含自营 Inference 的 DeepSeek V4.1 Flash、GLM-5.3、GLM-5.3 Flash、Kimi K3 等，约合 DeepSeek V4.1 Flash 2.7 亿 Token）。⚠️ **升级为完整账户后，$25 会被替换为 $5 通用额度**；有效期以账户内显示的剩余天数为准，官页未写统一过期条款。",
+    "tips": "邮箱注册预试用账户自动到账；升级前先用掉 $25 额度；官网 https://telnyx.com。",
+    "officialUrl": "https://telnyx.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-23",
+    "sourceUrl": "https://support.telnyx.com/en/articles/14327893-telnyx-pretrial-accounts"
+  },
+  {
+    "id": "mobileclaw",
+    "name": "移动云 MobileClaw",
+    "sortNames": ["YIDONGYUN MOBILECLAW", "MOBILECLAW"],
+    "provider": "mobileclaw",
+    "category": ["big_quota", "daily_claim", "monthly_claim"],
+    "badge": "双11活动：每日领100万Token·月领1000万·新人2500万",
+    "badgeType": "amber",
+    "tags": ["移动云", "每日领Token", "实名认证", "仅电脑端", "活动至12-31"],
+    "description": "中国移动云（ecloud.10086.cn）MobileClaw 双 11 活动（至 2026-12-31，11-19/16 AIHOT 核实）：**每日登录领 100 万 Token（活动期内最多领 55 天）+ 每月登录领 1000 万 Token（11、12 月共两次）+ 新人实名领 2500 万 Token**。免费体验模型为 DeepSeek V4.1 Flash、GLM-5.3-Flash（按输入牌价保守折算，见审计表）。**需实名认证、仅电脑客户端、呼和浩特资源池**；每次领取后 30 天有效、过期清零；限产品内使用。",
+    "tips": "活动页 https://ecloud.10086.cn/mobilecloud/act/2026-double11；领取路径=实名后电脑客户端登录；活动结束即无。",
+    "officialUrl": "https://ecloud.10086.cn/mobilecloud/act/2026-double11",
+    "hasInvite": false,
+    "checkedAt": "2026-11-23",
+    "sourceUrl": "https://ecloud.10086.cn/mobilecloud/act/2026-double11"
+  },
+  {
+    "id": "assemblyai",
+    "name": "AssemblyAI",
+    "sortNames": ["ASSEMBLYAI"],
+    "provider": "assemblyai",
+    "category": ["big_quota"],
+    "badge": "新户送 $50 语音 API 额度（无需信用卡）",
+    "badgeType": "purple",
+    "tags": ["美元赠额", "语音转文字", "无需信用卡", "一次性"],
+    "description": "AssemblyAI 语音转文字（ASR）/语音理解 API：**新用户注册即送 $50 免费额度，无需信用卡**（2026-11-23 官网 pricing 页核实，原文 \"$50 in free credits, no credit card required\"）。免费档流式并发限 5 新流/分钟，升级后 100/分钟；额度用完后转按量付费。官页**未写过期条款**，以官方 Terms 为准。",
+    "tips": "官网 https://www.assemblyai.com；注册 dashboard 即得额度，无需兑换码；API Key 在 dashboard 内创建。",
+    "officialUrl": "https://www.assemblyai.com",
+    "hasInvite": false,
+    "checkedAt": "2026-11-23",
+    "sourceUrl": "https://www.assemblyai.com/pricing"
   }
 ];
 
