@@ -205,6 +205,15 @@ export const PERKS_EN = {
       "The credit lands automatically at signup (no redemption code): register at console.deepgram.com, create a key under Console → API Keys, and watch the balance under Billing & Usage. Site: https://deepgram.com.",
     tags: ["USD credit", "Speech API", "Signup bonus", "Never expires"],
   },
+  qoder_cn: {
+    name: "Qoder CN (China edition)",
+    badge: "⚠️ Daily 100 credits for paid tiers only · new-user campaign: ¥28 gift cards (until 12-21)",
+    description:
+      "Alibaba-family Qoder China edition (qoder.cn). **Since 2026-11-19 10:00, the daily 100-credit check-in (valid 30 days from receipt) no longer applies to free/trial-tier users — it is available only to Pro/Ultra/Pro+ individual subscribers, membership-card holders and trial users** (verified on the official activity page, 2026-11-21); credits already claimed keep working for 30 days. New users get **300 credits + a two-week Pro trial** on first login; ⚠️ **free models are gone (the old Qoduck daily free-tier ended 2026-11-13)** — the free tier currently has neither free models nor daily credits, and responses are slow and frequently queued, so treat it as backup only. The referral campaign resumed 2026-11-11 (three tiers: 50 / 100 / 1,000 credits). **New-user gift-card campaign (verified on the official event page 2026-11-24, runs 2026-11-20 12:00 → 2026-12-21 23:59)**: individual new users who register within the campaign window can, after completing on-product feature tasks and meeting activity-day requirements in the desktop client, claim **a ¥10 Tmall supermarket card and a ¥18 coffee voucher**; the two are independent and can be stacked, each capped at one per user. Claim path: desktop client → Settings → Benefits Center; **gift cards are daily-limited — if the day's quota runs out, the claim window reopens next day at 10:00 (Beijing time) with the qualification kept**; redemption closes 2026-12-25 23:59 — the coffee voucher must be used the same day it is redeemed, the Tmall card is valid until 2030-05.",
+    tips:
+      "Current state: no free models; daily 100 credits since 2026-11-19 10:00 are paid-tier only (verified on the official activity page); free-tier credits stopped. New-user gift cards: claim under desktop Settings → Benefits Center, daily-limited with next-day 10:00 rollover; the coffee voucher must be used on the redemption day, the Tmall card is valid until 2030-05.",
+    tags: ["Alibaba family", "Direct CN access", "Daily claim", "CLI quota", "New-user gift cards"],
+  },
   loomy: {
     name: "iFlytek Loomy (Desktop AI Companion)",
     badge: "Daily 5,000 refresh + 10,000 tasks + 5,000 per invite (1 user per code · max 6 reward claims)",
