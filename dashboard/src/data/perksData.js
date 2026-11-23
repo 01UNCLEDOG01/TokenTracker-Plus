@@ -2079,6 +2079,24 @@ export const PERK_PROVIDERS = [
     "hasInvite": false,
     "checkedAt": "2026-11-23",
     "sourceUrl": "https://www.assemblyai.com/pricing"
+  },
+  {
+    "id": "monkeycode",
+    "name": "MonkeyCode 智能开发平台",
+    "sortNames": ["MONKEYCODE"],
+    "provider": "monkeycode",
+    "category": ["client", "daily_claim"],
+    "badge": "新户送5000积分 + 每日签到100点 + 邀请5000点/人×最多10人",
+    "badgeType": "blue",
+    "tags": ["长亭科技", "AI办公开发平台", "每日签到", "邀请上限5万分"],
+    "description": "长亭科技（Chaitin）打造的一站式 AI 办公开发平台（在线网页 + 桌面/移动客户端，AGPL 开源版可私有化）。**福利（2026-11-24 官方积分说明文档核实）**：**新用户注册赠送 5,000 初始积分**（2026-11-11 起官方新政）；**每日签到 100 点**（积分长期有效）；**邀请好友注册并激活，5,000 点/人、至多邀请 10 人，奖励上限 5 万积分**，实时到账。积分用于**产品内**兑换顶级模型 API（GLM-5.1、DeepSeek-v4-pro 等）。⚠️ **2026-11-11 起基础用户不再享有每日赠送额度**（专业版/旗舰版不受影响）；基础云服务器与 AI 模型本身永久免费，积分不是必需，仅兑换额外非免费资源。其他途径：问题反馈 2,000–3,000 点、社区活动与作品发布最高 10 万点（见官方文档）。**无开放 API 通路，积分不能反代给第三方客户端。**",
+    "tips": "官网 https://monkeycode-ai.com；签到入口：客户端「今日额度 → 获得积分」；邀请链接已挂本卡（每邀请 1 人双方各得 5,000 积分，单账号上限 10 人）；积分长期有效、不过期；新户 5,000 分为 11-11 起新政，此前注册的老户不受影响。",
+    "officialUrl": "https://monkeycode-ai.com",
+    "inviteUrl": "https://monkeycode-ai.com/?ic=01a20976-1b87-78ac-b8f7-9114b8cbdf62",
+    "inviteCode": "01a20976-1b87-78ac-b8f7-9114b8cbdf62",
+    "hasInvite": true,
+    "checkedAt": "2026-11-24",
+    "sourceUrl": "https://monkeycode.docs.baizhi.cloud/node/019d963c-425a-7c49-8126-d5308fd61cdc"
   }
 ];
 

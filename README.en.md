@@ -74,7 +74,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 - 🔄 **Continuous High-Frequency Maintenance** — The maintainer and community actively track new AI coding tools, promptly shipping parsers and quota monitor cards as new tools emerge.
 - 🐱 **Desktop Pet & Widgets** — Floating pixel pets (multiple action cycles, cursor tracking and a 0.70–2.20× free-size slider), 4 desktop widgets, and always-on-top quota cards.
 - 🌍 **Two global model leaderboards** — Switch between Artificial Analysis intelligence rankings and AIHOT overall rankings to compare scores, input/output/cache prices, context and output speed. Each has its own cache and labeled snapshot fallback. Missing metrics show “—”; measured zero values remain zero. The AIHOT board is based on AIHOT (aihot.news), the open-source leaderboard by Kazik (数字生命卡兹克); thanks to its author.
-- 🎁 **Provider Perks Guide** — 84 providers and clients, presented as an AIHOT-style card album (stat header, paged card strip, five rarity tiers and a sealed vitrine), with starter credits, daily/monthly benefits, standing free tiers and check-in credits. Active invite programs get invite links; every card has an official link, verification date and source. All cards use one A–Z order, choosing the earlier full Chinese pinyin or English brand name, with categories, search and claim markers. Claim reminders reset at Beijing midnight daily or on the first of each month. Cards with both cycles have separate marks; one-time marks remain. Open pages update across midnight or after sleep, and legacy dates migrate automatically.
+- 🎁 **Provider Perks Guide** — 85 providers and clients, presented as an AIHOT-style card album (stat header, paged card strip, five rarity tiers and a sealed vitrine), with starter credits, daily/monthly benefits, standing free tiers and check-in credits. Active invite programs get invite links; every card has an official link, verification date and source. All cards use one A–Z order, choosing the earlier full Chinese pinyin or English brand name, with categories, search and claim markers. Claim reminders reset at Beijing midnight daily or on the first of each month. Cards with both cycles have separate marks; one-time marks remain. Open pages update across midnight or after sleep, and legacy dates migrate automatically.
 - **Quota resilience and service status** — Cursor falls back to valid same-account quota caches during transient failures, while expired credentials still prompt sign-in. OpenCode shows official service status. WorkBuddy China and international editions keep separate plan and reward balances; the existing hover details show the earliest Beijing expiry day and the credits expiring that day, preserving fractions.
 - **Codex speed-tier breakdown** — Expand models to see observed Standard / Fast / Ultrafast tokens and full tier costs, including cached and long-context usage. Provider cards and the all-models view share the same breakdown; total-cost calculation stays consistent.
 - **Usage scope and read-only comparison** — A badge identifies local or account data; local data is the default. A temporary comparison is available only with an explicitly configured cloud instance, sign-in, enabled sync and working cloud reads. It does not change upload preferences and resets on account changes or when sync is disabled.
@@ -132,7 +132,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 <tr>
 <td colspan="2">
 
-**Provider Perks Guide** — free credits and starter grants across 84 providers, browsed as a paged card album (five rarity tiers and a sealed vitrine), invite links on cards with active invite programs, official links on every card
+**Provider Perks Guide** — free credits and starter grants across 85 providers, browsed as a paged card album (five rarity tiers and a sealed vitrine), invite links on cards with active invite programs, official links on every card
 
 <img src="./docs/screenshots/perks.png" alt="Provider Perks Guide" />
 
@@ -159,7 +159,7 @@ node bin/tracker.js doctor     # System diagnostics and health check
 | **Cost Valuation Truth** | **✅ Strict List Pricing** (Rejects `-free` zeroing; WorkBuddy points) | ⚠️ Forces `-free` routes to $0; points unrefined | ⚠️ Basic pricing config with limited scope |
 | **Achievements** | **✅ 65 Offline Achievements** (Local queue & debut catalog, 17 synergy titles) | ⚠️ Depends on official cloud server & leaderboard | ❌ No achievement system |
 | **Desktop Companion** | **✅ Desktop Pet + Quota Pill + Floating Cards** | ✅ macOS menu bar mascot / Basic widgets | ⚠️ Basic floating window |
-| **Provider Perks Guide** | **✅ 84 providers + AIHOT-style claim album** (five rarity tiers, streaks, sealed vitrine) | ❌ none | ❌ none |
+| **Provider Perks Guide** | **✅ 85 providers + AIHOT-style claim album** (five rarity tiers, streaks, sealed vitrine) | ❌ none | ❌ none |
 | **Dual global model boards** | **✅ Artificial Analysis + AIHOT boards on one page** (CNY pricing, zero config) | ❌ none | ❌ none |
 | **Backend & multi-device** | **✅ Local-first single machine by default; optional self-hosted backend (multi-device sync, no vendor lock-in)** | ⚠️ official cloud hosting only | ❌ local only |
 | **Open Source & Transparency** | **✅ 100% Open Source** (Fully auditable, MIT) | ✅ Open Source (MIT) | ⚠️ Packaged Electron asar binary |

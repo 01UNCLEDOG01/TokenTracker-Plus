@@ -214,6 +214,15 @@ export const PERKS_EN = {
       "Current state: no free models; daily 100 credits since 2026-11-19 10:00 are paid-tier only (verified on the official activity page); free-tier credits stopped. New-user gift cards: claim under desktop Settings → Benefits Center, daily-limited with next-day 10:00 rollover; the coffee voucher must be used on the redemption day, the Tmall card is valid until 2030-05.",
     tags: ["Alibaba family", "Direct CN access", "Daily claim", "CLI quota", "New-user gift cards"],
   },
+  monkeycode: {
+    name: "MonkeyCode AI Development Platform",
+    badge: "5,000 signup credits + 100 daily check-in + 5,000 per invite (max 10 invites)",
+    description:
+      "Chaitin's all-in-one AI office & development platform (web, desktop and mobile clients; AGPL open-source edition available for self-hosting). **Benefits (verified on the official credits guide, 2026-11-24)**: **new users get 5,000 initial credits** (policy change effective 2026-11-11); **daily check-in grants 100 credits** (credits never expire); **inviting a friend who registers and activates grants 5,000 credits per person, up to 10 invites — a 50,000-credit cap**, credited in real time. Credits are spent **in-product** to unlock top-tier model APIs (GLM-5.1, DeepSeek v4 Pro, etc.). ⚠️ **since 2026-11-11, basic users no longer get a passive daily allowance** (Pro/Ultimate subscribers are unaffected); the base cloud servers and AI models are free forever — credits are optional and only unlock extra non-free resources. Other paths: bug feedback 2,000–3,000 credits, community events and project showcases up to 100,000 (see the official guide). **No open API endpoint — credits cannot be reverse-proxied into third-party clients.**",
+    tips:
+      "Site: https://monkeycode-ai.com. Check-in entry: client “Today's quota → Earn credits”. The invite link is attached to this card (5,000 credits each side per successful invite, 10-invite cap per account). Credits never expire; the 5,000 signup credit applies to registrations from 2026-11-11 on.",
+    tags: ["By Chaitin", "AI office platform", "Daily check-in", "Invite cap 50k"],
+  },
   loomy: {
     name: "iFlytek Loomy (Desktop AI Companion)",
     badge: "Daily 5,000 refresh + 10,000 tasks + 5,000 per invite (1 user per code · max 6 reward claims)",

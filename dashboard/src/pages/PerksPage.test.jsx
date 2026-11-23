@@ -17,7 +17,7 @@ const ORDERED_IDS = [
   "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepgram", "deepseek", "devin", "doubaowork",
   "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "hark", "officeace", "volcengine",
   "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
-  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "mobileclaw", "modelscope", "muse_ai", "nvidia_nim", "opencode",
+  "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "mobileclaw", "modelscope", "monkeycode", "muse_ai", "nvidia_nim", "opencode",
   "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "reducto", "rime",
   "sensenova", "somark", "stepaudio", "teleagent", "telnyx", "tencent_adp", "edgeone", "tencent_ima", "tencent_ima_once", "tokenhub", "today_cn",
   "trae_cn", "trae", "unisound_maas", "vyceai", "wechat_miniprogram", "workbuddy_intl", "workbuddy", "wps_lingxi",
@@ -265,8 +265,9 @@ describe("PerksPage", () => {
     // 2026-11-13：opencode 限免模型是每日额度，补 daily_claim 周期（站主定谳，日签 17→18）。
     // 2026-11-14：Hark 卡入册 permanent_free（30→31）；新增 personal 分组（today/muse/hark 三张）。
     // 2026-11-23：移动云 MobileClaw 入册（双11 活动，daily_claim 25→26）。
+    // 2026-11-24：MonkeyCode 入册（每日签到，daily_claim 26→27）。
     expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("31");
-    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("26");
+    expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("27");
     expect(screen.getByText("个人 AI 助手").closest("button")).toHaveTextContent("3");
   });
 

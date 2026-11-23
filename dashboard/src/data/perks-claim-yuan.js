@@ -84,6 +84,7 @@ export const PERKS_CLAIM_YUAN = {
   wps_lingxi: { daily: 0.5 },      // 100 智点/日（第 7 天起 200）
   wenxin: { daily: 0.5 },          // ERNIE 5.5 Flash 共享 50 次/日
   qianfan: { once: 20 },           // 新户 20 元代金券
+  monkeycode: { daily: 0.4, once: 20 }, // 每日签到 100 点（¥19.9/5000 分口径 ≈¥0.4/日）+ 新户 5,000 积分 ≈¥20（2026-11-24 官方积分说明核实；邀请奖励 5,000 点/人×10 人为第三方动作，不入领取账）
   rime: { monthly: 333 },          // $50/月 × 官方汇率 6.6683 ≈ ¥333
   drex: { monthly: 33 },           // $5/月 ≈ ¥33
   livekit: { monthly: 17 },        // $2.5/月 ≈ ¥17
