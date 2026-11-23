@@ -2631,8 +2631,50 @@ function parseWindowsProcesses(output) {
     .filter((entry) => Number.isFinite(entry.pid) && entry.command);
 }
 
+// Antigravity 2.33+ runs the language server in "hub" standalone mode: the CSRF
+// token and listening ports are no longer on the command line (the app passes the
+// token on stdin via --read_host_bridge_token_from_stdin) but are published to
+// ~/.gemini/antigravity/daemon/hub_<httpPort>.json for sidecars. Without this file
+// every local RPC is answered with 401 "missing CSRF token".
+const ANTIGRAVITY_HUB_DAEMON_DIR = path.join(".gemini", "antigravity", "daemon");
+const ANTIGRAVITY_HUB_FILE_RE = /^hub_\d+\.json$/;
+
+function readAntigravityHubDaemonInfo({ home, pid } = {}) {
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+  const dir = path.join(home || os.homedir(), ANTIGRAVITY_HUB_DAEMON_DIR);
+  let entries;
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return null;
+  }
+  for (const name of entries) {
+    if (!ANTIGRAVITY_HUB_FILE_RE.test(name)) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
+    } catch {
+      continue;
+    }
+    // Only trust the entry written by the server process we just matched; a hub
+    // file left over from an earlier run would carry a dead token and dead ports.
+    if (Number(parsed?.pid) !== pid) continue;
+    const csrfToken = typeof parsed?.csrfToken === "string" && parsed.csrfToken.trim()
+      ? parsed.csrfToken.trim()
+      : null;
+    const httpsPort = Number(parsed?.httpsPort);
+    const httpPort = Number(parsed?.httpPort);
+    const usableHttpsPort = Number.isFinite(httpsPort) && httpsPort > 0 ? httpsPort : null;
+    const usableHttpPort = Number.isFinite(httpPort) && httpPort > 0 ? httpPort : null;
+    if (!csrfToken && !usableHttpsPort && !usableHttpPort) continue;
+    return { csrfToken, httpsPort: usableHttpsPort, httpPort: usableHttpPort };
+  }
+  return null;
+}
+
 async function detectAntigravityProcess({
   commandRunner,
+  home,
   platform = process.platform,
   timeoutMs = ANTIGRAVITY_PROCESS_SCAN_TIMEOUT_MS,
   signal,
@@ -2677,11 +2719,14 @@ async function detectAntigravityProcess({
     sawProcess = true;
     const csrfToken = extractCommandFlag(parsed.command, "--csrf_token") || null;
     const extensionPort = extractFirstNumber(extractCommandFlag(parsed.command, "--extension_server_port"));
+    const hubInfo = csrfToken ? null : readAntigravityHubDaemonInfo({ home, pid: parsed.pid });
     return {
       configured: true,
       pid: parsed.pid,
-      csrfToken,
+      csrfToken: csrfToken || hubInfo?.csrfToken || null,
       extensionPort: Number.isFinite(extensionPort) ? extensionPort : null,
+      httpsPort: hubInfo?.httpsPort ?? null,
+      httpPort: hubInfo?.httpPort ?? null,
     };
   }
 
@@ -4560,6 +4605,7 @@ async function fetchAntigravityLimits({
     }
     const processInfo = await detectAntigravityProcess({
       commandRunner,
+      home,
       platform,
       timeoutMs: processScanTimeoutMs,
       signal,
@@ -4582,12 +4628,17 @@ async function fetchAntigravityLimits({
     if (portScanTimeoutMs <= 0) {
       throw new Error(ANTIGRAVITY_BUDGET_EXHAUSTED_MESSAGE);
     }
-    const ports = await listAntigravityPorts(processInfo.pid, {
+    const scannedPorts = await listAntigravityPorts(processInfo.pid, {
       commandRunner,
       platform,
       timeoutMs: portScanTimeoutMs,
       signal,
     });
+    // The hub daemon file names the exact ports it listens on; probe them first so
+    // a busy pid with extra listeners cannot spend the budget before the real one.
+    const hubPorts = [processInfo.httpsPort, processInfo.httpPort]
+      .filter((port) => Number.isFinite(port) && port > 0);
+    const ports = [...new Set([...hubPorts, ...scannedPorts])];
     let workingPort = null;
     let workingScheme = "https";
     // Each probe draws from the same budget, so a long port list cannot multiply it:

@@ -4002,6 +4002,86 @@ lang      123 me    23u  IPv4 0x124                0t0  TCP 127.0.0.1:51235 (LIS
     assert.equal(result.extensionPort, 42427);
   });
 
+  it("reads the hub daemon file when the CSRF token is no longer on the command line", async () => {
+    // Antigravity 2.33+ spawns `language_server --read_host_bridge_token_from_stdin`
+    // and publishes the CSRF token plus ports to ~/.gemini/antigravity/daemon/hub_*.json.
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-hub-daemon-"));
+    try {
+      fs.mkdirSync(path.join(home, ".gemini", "antigravity", "daemon"), { recursive: true });
+      fs.writeFileSync(
+        path.join(home, ".gemini", "antigravity", "daemon", "hub_29685.json"),
+        JSON.stringify({ pid: 38920, httpsPort: 29684, httpPort: 29685, lsVersion: "2.34.0", csrfToken: "hub-token" }),
+      );
+      const commandRunner = () => ({
+        stdout: JSON.stringify([{
+          ProcessId: 38920,
+          CommandLine: '"D:\\\\Antigravity\\\\resources\\\\bin\\\\language_server.exe" --standalone --app_data_dir antigravity --https_server_port 0 --read_host_bridge_token_from_stdin',
+        }]),
+        status: 0,
+      });
+
+      const result = await detectAntigravityProcess({ commandRunner, home, platform: "win32" });
+
+      assert.equal(result.configured, true);
+      assert.equal(result.pid, 38920);
+      assert.equal(result.csrfToken, "hub-token");
+      assert.equal(result.httpsPort, 29684);
+      assert.equal(result.httpPort, 29685);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores a hub daemon file written for a different pid", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-hub-daemon-"));
+    try {
+      fs.mkdirSync(path.join(home, ".gemini", "antigravity", "daemon"), { recursive: true });
+      fs.writeFileSync(
+        path.join(home, ".gemini", "antigravity", "daemon", "hub_29685.json"),
+        JSON.stringify({ pid: 1, httpsPort: 29684, httpPort: 29685, csrfToken: "stale-token" }),
+      );
+      const commandRunner = () => ({
+        stdout: JSON.stringify([{
+          ProcessId: 38920,
+          CommandLine: '"D:\\\\Antigravity\\\\resources\\\\bin\\\\language_server.exe" --standalone --app_data_dir antigravity --read_host_bridge_token_from_stdin',
+        }]),
+        status: 0,
+      });
+
+      const result = await detectAntigravityProcess({ commandRunner, home, platform: "win32" });
+
+      assert.equal(result.configured, true);
+      assert.equal(result.csrfToken, null);
+      assert.equal(result.httpsPort, null);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("prefers the command-line CSRF token over the hub daemon file", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-hub-daemon-"));
+    try {
+      fs.mkdirSync(path.join(home, ".gemini", "antigravity", "daemon"), { recursive: true });
+      fs.writeFileSync(
+        path.join(home, ".gemini", "antigravity", "daemon", "hub_29685.json"),
+        JSON.stringify({ pid: 654, httpsPort: 29684, httpPort: 29685, csrfToken: "hub-token" }),
+      );
+      const commandRunner = () => ({
+        stdout: JSON.stringify([{
+          ProcessId: 654,
+          CommandLine: '"C:\\\\Program Files\\\\Antigravity\\\\language_server_windows_x64.exe" --app_data_dir antigravity --csrf_token argv-token',
+        }]),
+        status: 0,
+      });
+
+      const result = await detectAntigravityProcess({ commandRunner, home, platform: "win32" });
+
+      assert.equal(result.csrfToken, "argv-token");
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("detects agy CLI process from ps output (no csrf, no path)", async () => {
     const commandRunner = () => ({
       stdout: `

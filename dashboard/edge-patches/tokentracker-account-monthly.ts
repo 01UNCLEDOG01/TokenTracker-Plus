@@ -877,6 +877,7 @@ interface TraeEditionEvidence { byModel: Record<string, TraeEvidencePool>; recog
 type TraeEvidenceState = Record<string, TraeEditionEvidence>;
 
 const EVIDENCE_TTL_MS = 5 * 60_000; // matches TRAE_FOLD_REFRESH_MS locally
+const COMPACT_STALE_IF_ERROR_MS = 5 * 60_000;
 const evidenceCache = new Map<string, { fetchedAt: number; value: TraeEvidenceState }>();
 const evidenceInFlight = new Map<string, Promise<TraeEvidenceState>>();
 

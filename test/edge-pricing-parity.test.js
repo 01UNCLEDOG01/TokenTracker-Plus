@@ -30,6 +30,7 @@ const MIRRORS = [
   "tokentracker-account-heatmap.ts",
   "tokentracker-leaderboard-profile.ts",
   "tokentracker-account-monthly.ts",
+  "tokentracker-account-hourly.ts",
 ];
 
 const MODEL_API_CALL_SITES = [

@@ -542,6 +542,7 @@ const HOURLY_ZERO_FIELDS = [
   "output_tokens",
   "reasoning_output_tokens",
   "conversation_count",
+  "total_cost_usd",
 ];
 
 function fillDailyGaps(
@@ -601,6 +602,9 @@ function buildHourlyGapRow(hour: string, isFuture: boolean) {
     output_tokens: value,
     reasoning_output_tokens: value,
     conversation_count: value,
+    // Mirrors fillMonthlyGaps: gap hours are real ¥0 observations, not "cost
+    // unknown" — without the field the tooltip hides its cost line entirely.
+    total_cost_usd: value,
     missing: false,
     future: isFuture,
   };
