@@ -1606,7 +1606,7 @@ export const PERK_PROVIDERS = [
     "tips": "积分限产品内消耗；活动档期以端内公告为准，官网/产品页待补。",
     "officialUrl": "https://activity.huaweicloud.com/officeace.html",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1622,7 +1622,7 @@ export const PERK_PROVIDERS = [
     "tips": "积分单价未公开，折算按保守下限估算；官网待补。",
     "officialUrl": "https://docs.meoo.com/pricing",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1723,7 +1723,7 @@ export const PERK_PROVIDERS = [
     "tips": "仅限产品内使用；官网待补。",
     "officialUrl": "https://acemusic.ai/pricing/",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1739,7 +1739,7 @@ export const PERK_PROVIDERS = [
     "tips": "仅电脑端（Mac 需苹果芯片）；官网待补。",
     "officialUrl": "https://www.xfyun.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1752,7 +1752,7 @@ export const PERK_PROVIDERS = [
     "badgeType": "success",
     "tags": ["限产品内使用","专家 Pro/Max 模式"],
     "description": "WPS 灵犀签到：**每天 100 智点，第 7 天起每天 200 智点**（2026-11-13 AIHOT 核实）。用于灵犀专业版体验版的专家 Pro、Max 模式，模型由灵犀按任务选择。",
-    "tips": "部分模型可用；官网 https://lingxi.wps.cn。",
+    "tips": "部分模型可用；官网 https://lingxi.wps.cn。**2026-11-24 AIHOT 核对：今日清单未再列该卡，福利是否仍存待官方核实，核对时间暂不更新**",
     "officialUrl": "https://lingxi.wps.cn",
     "hasInvite": false,
     "checkedAt": "2026-11-13",
@@ -1771,7 +1771,7 @@ export const PERK_PROVIDERS = [
     "tips": "预览期模型，正式收费政策以百度千帆公告为准。",
     "officialUrl": "https://qianfan.cloud.baidu.com",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1788,7 +1788,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://ernie.baidu.com",
     "hasInvite": false,
     "endsAt": "2026-11-30",
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1804,7 +1804,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网待补；额度为美元计价、按官方汇率折算。",
     "officialUrl": "https://rime.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1820,7 +1820,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网待补；按券面 $5 × 官方汇率折算 ≈¥33/月。",
     "officialUrl": "https://console.nace.ai",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1836,7 +1836,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://livekit.io；按券面 $2.5 × 官方汇率折算 ≈¥17/月。",
     "officialUrl": "https://livekit.io",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1852,7 +1852,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://cloud.tencent.com/product/edgeone；≈¥0.3/月，按保守下限计。",
     "officialUrl": "https://pages.edgeone.ai/zh/document/limits-and-quotas",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1868,7 +1868,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://cloud.tencent.com/product/adp；PU 价值未公开，按保守下限计。",
     "officialUrl": "https://cloud.tencent.com/product/adp",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1884,7 +1884,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://elevenlabs.io；积分价值按保守下限计。",
     "officialUrl": "https://elevenlabs.io",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1900,7 +1900,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网 https://zed.dev；学生档 $10×汇率 ≈¥67/月，试用 $5≈¥33 一次性。",
     "officialUrl": "https://zed.dev",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1913,7 +1913,7 @@ export const PERK_PROVIDERS = [
     "badgeType": "success",
     "tags": ["要实名","到 2026-12-31"],
     "description": "腾讯云 TokenHub：**新用户语言模型与多模态理解模型共送 100 万 Token**（2026-11-13 AIHOT 核实，活动至 2026-12-31；官方对是否共享的表述不一致，以控制台为准；视觉生成另有额度）。需实名。",
-    "tips": "官网 https://cloud.tencent.com/product/tokenhub；≈¥2.4 按保守下限计。",
+    "tips": "官网 https://cloud.tencent.com/product/tokenhub；≈¥2.4 按保守下限计。**2026-11-24 AIHOT 核对：今日清单未再列该卡，福利是否仍存待官方核实，核对时间暂不更新**",
     "officialUrl": "https://www.tencent.com/zh-cn/tencent-launches-hy4-joining-the-ranks-of-the-worlds-leading-open-source-ai-models/",
     "hasInvite": false,
     "endsAt": "2026-12-31",
@@ -1934,7 +1934,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://developers.weixin.qq.com",
     "hasInvite": false,
     "endsAt": "2026-12-31",
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1951,7 +1951,7 @@ export const PERK_PROVIDERS = [
     "officialUrl": "https://devin.ai",
     "hasInvite": false,
     "endsAt": "2026-12-05",
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1967,7 +1967,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网待补。",
     "officialUrl": "https://platform.modelbest.cn",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
@@ -1980,7 +1980,7 @@ export const PERK_PROVIDERS = [
     "badgeType": "success",
     "tags": ["要实名","语音预览"],
     "description": "阶跃星辰 **StepAudio 3 四款预览模型限时免费调用**：stepaudio-3-realtime-preview、stepaudio-3-chat-preview、stepaudio-3-gen-preview、stepaudio-3-music-preview（2026-11-13 AIHOT 核实）。不含 TTS、独立 ASR、音色复刻与音色设计（TTS/ASR 收费、音色服务另收费）。需实名。",
-    "tips": "官网 https://platform.stepfun.com；限时活动，档期以官方为准。",
+    "tips": "官网 https://platform.stepfun.com；限时活动，档期以官方为准。**2026-11-24 AIHOT 核对：今日清单未再列该卡，福利是否仍存待官方核实，核对时间暂不更新**",
     "officialUrl": "https://platform.stepfun.com",
     "hasInvite": false,
     "checkedAt": "2026-11-13",
@@ -1999,7 +1999,7 @@ export const PERK_PROVIDERS = [
     "tips": "官网待补；免费档有限流，勿用于生产。",
     "officialUrl": "https://somark.cn/oxr",
     "hasInvite": false,
-    "checkedAt": "2026-11-13",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://aihot.news/free-tokens"
   },
   {
