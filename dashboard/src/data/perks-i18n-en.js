@@ -223,6 +223,24 @@ export const PERKS_EN = {
       "Site: https://monkeycode-ai.com. Check-in entry: client “Today's quota → Earn credits”. The invite link is attached to this card (5,000 credits each side per successful invite, 10-invite cap per account). Credits never expire; the 5,000 signup credit applies to registrations from 2026-11-11 on.",
     tags: ["By Chaitin", "AI office platform", "Daily check-in", "Invite cap 50k"],
   },
+  ekhos: {
+    name: "EKHOS AI",
+    badge: "1 local transcription per day (up to 30 minutes) · data never leaves your machine",
+    description:
+      "EKHOS AI local speech-transcription desktop app: **the free plan includes 1 transcription per day, up to 30 minutes each** (verified on the official pricing page, 2026-11-24, literally “Free 1 transcription for 30 minutes daily”). **Runs locally — data never leaves your machine** (the vendor emphasizes “operates locally”), supports 98+ languages and common audio/video formats (MP3/MP4/WAV/MKV/AVI etc.), microphone/speaker recording, built-in text editing and export; one user per computer, optional NVIDIA GPU (RTX) acceleration. AIHOT scopes it to Windows 10+ (the pricing page itself does not list operating systems — see the download page). The free-tier “Try Now” button jumps to the membership checkout; whether a card is required is unstated — the actual signup flow prevails.",
+    tips:
+      "Site: https://ekhos.ai; pricing page https://ekhos.ai/membership-account/pricing/. Transcription happens locally with no cloud API consumption; one use per day, resets the next day.",
+    tags: ["Local transcription", "Speech-to-text", "98+ languages", "Windows"],
+  },
+  dots: {
+    name: "Xiaohongshu Dots (dots3-note Preview)",
+    badge: "dots3-note Preview free to call (advance notice before billing resumes)",
+    description:
+      "Xiaohongshu's Dots open platform: **the dots3-note-prev model is currently free to call** (verified on the official docs, 2026-11-24, literally “当前免费体验，暂不收费。恢复收费前将通过官网及 API 页面提前告知” — free trial now, advance notice before billing resumes). **OpenAI Chat Completions and Anthropic Messages dual-protocol compatible**, base URL https://note3-prev-api.askdiandian.com; per-key rate limits of 60 RPM and 1.5M tokens/minute; **512K-token context window**, supporting text/image/video/audio input plus tool calling, deep reasoning and streaming. Sign up with a phone number and create a key on the API Keys page (api-key header auth). List price $0.14 input / $0.28 output per million tokens (not billed during the free trial). ⚠️ The free trial can switch to paid at any time (the vendor promises advance notice) — the official site and API page prevail.",
+    tips:
+      "Docs: https://dots.ai/platform/docs; register with a phone number, then create the key under API Keys; pricing and rate limits are in the docs' Model Pricing section. The platform is operated by Xiaohongshu (terms hosted on agree.xiaohongshu.com).",
+    tags: ["By Xiaohongshu", "Free trial", "Dual-protocol", "512K context"],
+  },
   loomy: {
     name: "iFlytek Loomy (Desktop AI Companion)",
     badge: "Daily 5,000 refresh + 10,000 tasks + 5,000 per invite (1 user per code · max 6 reward claims)",

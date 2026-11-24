@@ -612,6 +612,8 @@ const PROVIDER_LOGO_MAP = {
   ASSEMBLYAI: "/brand-logos/assemblyai.ico",
   // MonkeyCode — official site logo-light.png (600×600).
   MONKEYCODE: "/brand-logos/monkeycode.png?v=1",
+  // EKHOS AI — official site og:image logo (225×61 wordmark).
+  EKHOS: "/brand-logos/ekhos.png?v=1",
   // SenseNova (商汤日日新) — mark taken from the console's own page asset.
   "SENSENOVA": "/brand-logos/sensenova.svg",
   // Volcano Ark (火山方舟) Coding Plan — the Volcengine 3-mountain mark.

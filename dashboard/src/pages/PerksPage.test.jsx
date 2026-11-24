@@ -14,8 +14,8 @@ import { PERKS_CLAIMS_KEY, PERKS_LEGACY_CLAIMS_KEY, PERKS_BACKFILL_KEY, getPerkC
 const ORDERED_IDS = [
   "ace_music", "agent2api", "agentrouter", "agnes", "agnes_web", "qwen", "amd_token_factory", "ant_ling",
   "apigoto", "assemblyai", "autoclaw", "autoclaw_intl", "wenxin", "qianfan", "bigmodel", "catpaw", "cerebras",
-  "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepgram", "deepseek", "devin", "doubaowork",
-  "drex", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "hark", "officeace", "volcengine",
+  "cloudflare_workers_ai", "huawei_codearts", "cola", "tuanjie_cowork", "cursor", "deepgram", "deepseek", "devin", "dots", "doubaowork",
+  "drex", "ekhos", "elevenlabs", "google_ai_studio", "groq", "siliconflow", "scnet", "hark", "officeace", "volcengine",
   "astudio", "spark", "intern_inkstone", "joycode", "tokenrhythm", "juflowai", "livekit", "longcat",
   "loomy", "meoo", "minicpm_ocr", "minimax_code", "minimax", "mobileclaw", "modelscope", "monkeycode", "muse_ai", "nvidia_nim", "opencode",
   "opencode_go", "openrouter", "qwen_work", "qiniu", "qoder_cn", "qoder", "raccoon", "reducto", "rime",
@@ -263,10 +263,10 @@ describe("PerksPage", () => {
     // 2026-11-11：NVIDIA Build 改用「按速率免费的长期免费档」迁入 permanent_free（16→17）。
     // 2026-11-13：端砚免费直用下线（改墨点折扣计费），移出 permanent_free（17→16）。
     // 2026-11-13：opencode 限免模型是每日额度，补 daily_claim 周期（站主定谳，日签 17→18）。
-    // 2026-11-14：Hark 卡入册 permanent_free（30→31）；新增 personal 分组（today/muse/hark 三张）。
     // 2026-11-23：移动云 MobileClaw 入册（双11 活动，daily_claim 25→26）。
-    // 2026-11-24：MonkeyCode 入册（每日签到，daily_claim 26→27）。
-    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("31");
+    // 2026-11-24：MonkeyCode 入册（每日签到，daily_claim 26→27）；EKHOS AI + 小红书 Dots 入册
+    //   permanent_free（31→33）；Vyce AI 下架进玻璃柜（计数口径不含 retired 过滤，不变）。
+    expect(screen.getByText("长期免费").closest("button")).toHaveTextContent("33");
     expect(screen.getByText("每日可领取积分").closest("button")).toHaveTextContent("27");
     expect(screen.getByText("个人 AI 助手").closest("button")).toHaveTextContent("3");
   });
