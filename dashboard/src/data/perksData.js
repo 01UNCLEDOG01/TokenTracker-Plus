@@ -1459,12 +1459,12 @@ export const PERK_PROVIDERS = [
       "邀请返利"
     ],
     "description": "海外聚合网关（注册有一定网络门槛），OpenAI 与 Anthropic 双协议兼容，任意客户端/IDE 把 base URL 指向 https://vyceai.com/v1 即用，内置 OpenCode/光标/Cline 一键接入教程。实测模型可用：注册即送 $50 体验金，每日签到再得 $10。免费用户可用 4 款（按牌价计费、消耗注册金/签到金）：Claude Sonnet 4.6、DeepSeek V4.1 Flash、Agnes 3.0 Flash 均无日限额；GPT 6 Luna 单独带日限额 50M。另 Promotional Allowance 每日 10M 统一配额（GLM 5.3 Flash、Beam 1.0、Nemotron，$0，UTC 00:00 重置）。邀请计划：好友经链接注册，双方各得 $10 瞬时到账。稳定性提示（2026-11-11 端内核对）：该站近期服务不稳，多次出现模型不可用/网关报错，且必须海外网络环境，体验波动概率明显高于同价位聚合站；按稳定性折算后档位下调为蓝，建议只作备用线路。",
-    "tips": "免费档按牌价计费、消耗注册金与签到金；付费 Lite/Pro 解锁 DeepSeek 4.1 Flash 1017、GPT 5.6 Sol/Terra、GPT 6 Astra（维护中）、Claude Sonnet 4.6 Pro。价格须知：站内牌价为转售价、显著高于官方刊例（如 gpt-6-luna 站内 $2/M、官方刊例 $0.10/M，溢价约 20 倍），注册金与签到金消耗更快；TokenTracker 面板金额按官方刊例折算，与站内账单口径不同属正常。模型列表实时变动，接入前先看「模型列表」页。⚠️ 第三方中转聚合网关：请求经其服务器转发，勿发送密钥/隐私/敏感代码，Key 用独立账号注册并可随时吊销。2026-11-13 站主实测：服务器故障暂不可用；2026-11-14 站主反馈已恢复可用，可再试（如再遇网关报错/模型不可用，以端内为准）。",
+    "tips": "免费档按牌价计费、消耗注册金与签到金；付费 Lite/Pro 解锁 DeepSeek 4.1 Flash 1017、GPT 5.6 Sol/Terra、GPT 6 Astra（维护中）、Claude Sonnet 4.6 Pro。价格须知：站内牌价为转售价、显著高于官方刊例（如 gpt-6-luna 站内 $2/M、官方刊例 $0.10/M，溢价约 20 倍），注册金与签到金消耗更快；TokenTracker 面板金额按官方刊例折算，与站内账单口径不同属正常。模型列表实时变动，接入前先看「模型列表」页。⚠️ 第三方中转聚合网关：请求经其服务器转发，勿发送密钥/隐私/敏感代码，Key 用独立账号注册并可随时吊销。稳定性时间线（均站主端内实测）：2026-11-13 服务器故障暂不可用；2026-11-14 反馈已恢复可用；**2026-11-24 站主实测：仍不可用（网关/模型依旧报错），且官方状态接口 /api/status 已下线（404），恢复时间未知**——按中转站「实测好用才推荐」的口径，该卡仅作信息位保留，不建议当主力线路，如再遇网关报错/模型不可用以端内为准。",
     "inviteUrl": "https://vyceai.com/signup?ref=VYCE_868RV5",
     "officialUrl": "https://vyceai.com",
     "inviteCode": "VYCE_868RV5",
     "hasInvite": true,
-    "checkedAt": "2026-11-12",
+    "checkedAt": "2026-11-24",
     "sourceUrl": "https://vyceai.com"
   },
   {
