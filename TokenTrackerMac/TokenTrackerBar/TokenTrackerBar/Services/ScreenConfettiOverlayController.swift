@@ -2,6 +2,40 @@ import AppKit
 import SwiftUI
 import Vortex
 
+/// Brand artwork lookup shared by the reset event and its macOS celebration UI.
+/// Asset-catalog providers and bundled-dashboard SVG providers are kept separate
+/// because SwiftUI loads them through different APIs.
+/// (Moved here from WeeklyLimitResetDetector.swift on 2026-11-24 so the detector
+/// file stays dependency-free and compilable by the standalone behavior harness.)
+enum LimitResetProviderIconCatalog {
+    static func assetName(for provider: String) -> String? {
+        // These providers are monochrome in the existing asset catalog. Route
+        // them through their SVG so the toast can request the dark-mode color.
+        guard svgFilename(for: provider) == nil else { return nil }
+        return LimitsSettingsStore.iconNames[provider]
+    }
+
+    static func svgFilename(for provider: String) -> String? {
+        switch provider {
+        case "cursor": return "cursor.svg"
+        case "kimi": return "kimi.svg"
+        case "kiro": return "kiro.svg"
+        case "grok": return "grok.svg"
+        case "copilot": return "copilot.svg"
+        case "zcode": return "zcode.svg"
+        case "opencodeGo": return "opencode.svg"
+        case "commandCode": return "commandcode.svg"
+        case "qoder": return "qoder.svg"
+        case "codingPlan": return "volcano-ark.svg"
+        case "agentPlan": return "volcano-ark.svg"
+        case "devin": return "devin.svg"
+        case "workbuddy": return "codebuddy.svg"
+        case "workbuddyAi": return "codebuddy.svg"
+        default: return nil
+        }
+    }
+}
+
 /// Full-screen celebration: a two-stage firework (rocket rises → bursts on death,
 /// with sparkle trails) built on the Vortex particle library — the same engine
 /// CodexBar builds its celebration on. An optional text toast names what reset.

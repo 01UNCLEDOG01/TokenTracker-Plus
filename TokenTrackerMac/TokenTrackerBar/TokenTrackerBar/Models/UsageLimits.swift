@@ -1597,3 +1597,146 @@ struct UsageLimitsPublicationAuthority {
         )
     }
 }
+// MARK: - Reading extraction
+
+/// Parse an ISO-8601 reset timestamp into unix seconds, tolerating the
+/// fractional-seconds variant. Mirrors the display-side parser in `UsageLimitsView`.
+private func parseResetSeconds(iso: String?) -> Double? {
+    guard let iso else { return nil }
+    let fmt = ISO8601DateFormatter()
+    fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = fmt.date(from: iso) { return date.timeIntervalSince1970 }
+    fmt.formatOptions = [.withInternetDateTime]
+    return fmt.date(from: iso)?.timeIntervalSince1970
+}
+
+extension UsageLimitsResponse {
+    /// Soonest active rate-limit cool-down expiry (unix seconds) across providers that
+    /// expose one, or nil if none is pending. The app wakes at this instant to refresh
+    /// the moment the cool-down lifts, instead of waiting out the regular poll interval.
+    func soonestCooldownExpiry() -> Double? {
+        [parseResetSeconds(iso: claude.retryAt)].compactMap { $0 }.min()
+    }
+}
+
+extension UsageLimitsResponse {
+    /// Flatten every provider's windows into `(provider, windowKey, windowLabel, usedPercent, resetAt)`
+    /// tuples (percent on a 0–100 scale, resetAt in unix seconds), skipping providers
+    /// that errored or are unconfigured.
+    ///
+    /// `windowKey` is the persistence identity (snapshot baselines + cooldowns) and must
+    /// never change; `windowLabel` is the human name shown in the celebration toast and
+    /// mirrors the popover row labels in `UsageLimitsView` (spelled out where the popover
+    /// abbreviates for space, e.g. "Gemini 5h" instead of "Gm 5h").
+    func limitWindowReadings() -> [(provider: String, windowKey: String, windowLabel: String, usedPercent: Double, resetAt: Double?)] {
+        var out: [(provider: String, windowKey: String, windowLabel: String, usedPercent: Double, resetAt: Double?)] = []
+
+        func addGeneric(_ provider: String, _ configured: Bool, _ error: String?, _ windows: [(String, String, GenericLimitWindow?)]) {
+            guard configured, error == nil else { return }
+            for (name, label, window) in windows {
+                guard let window else { continue }
+                out.append((provider, "\(provider).\(name)", label, window.usedPercent, parseResetSeconds(iso: window.resetAt)))
+            }
+        }
+
+        if claude.configured, claude.error == nil {
+            for (name, label, window) in [("5h", "5h", claude.fiveHour), ("7d", "7d", claude.sevenDay), ("opus", "Opus", claude.sevenDayOpus)] {
+                guard let window else { continue }
+                out.append(("claude", "claude.\(name)", label, window.utilization, parseResetSeconds(iso: window.resetsAt)))
+            }
+            for window in claude.weeklyScoped ?? [] {
+                out.append(("claude", "claude.scoped.\(window.label.lowercased())", window.label, window.utilization, parseResetSeconds(iso: window.resetsAt)))
+            }
+        }
+
+        if codex.configured, codex.error == nil {
+            let windows: [(String, String, CodexWindow?)] = [
+                ("primary", "5h", codex.primaryWindow), ("secondary", "7d", codex.secondaryWindow),
+                ("sparkPrimary", "Spark 5h", codex.sparkPrimaryWindow), ("sparkSecondary", "Spark 7d", codex.sparkSecondaryWindow),
+            ]
+            for (name, label, window) in windows {
+                guard let window else { continue }
+                out.append(("codex", "codex.\(name)", label, Double(window.usedPercent), window.resetAt.map(Double.init)))
+            }
+        }
+
+        addGeneric("cursor", cursor.configured, cursor.error, [("primary", Strings.cursorPlanLabel, cursor.primaryWindow), ("secondary", Strings.cursorAutoLabel, cursor.secondaryWindow), ("tertiary", "API", cursor.tertiaryWindow), ("quaternary", Strings.cursorGrokBotLabel, cursor.quaternaryWindow)])
+        addGeneric("gemini", gemini.configured, gemini.error, [("primary", "Pro", gemini.primaryWindow), ("secondary", "Flash", gemini.secondaryWindow), ("tertiary", "Lite", gemini.tertiaryWindow)])
+        addGeneric("kiro", kiro.configured, kiro.error, [("primary", Strings.kiroMonthLabel, kiro.primaryWindow), ("secondary", Strings.kiroBonusLabel, kiro.secondaryWindow)])
+        addGeneric("antigravity", antigravity.configured, antigravity.error, [("primary", "Claude 7d", antigravity.primaryWindow), ("secondary", "Claude 5h", antigravity.secondaryWindow), ("tertiary", "Gemini 7d", antigravity.tertiaryWindow), ("quaternary", "Gemini 5h", antigravity.quaternaryWindow)])
+        if let kimi { addGeneric("kimi", kimi.configured, kimi.error, [("primary", Strings.kimiWeeklyLabel, kimi.primaryWindow), ("secondary", Strings.kimiFiveHourLabel, kimi.secondaryWindow), ("tertiary", Strings.kimiTotalLabel, kimi.tertiaryWindow)]) }
+        if let grok { addGeneric("grok", grok.configured, grok.error, [("primary", Strings.grokPrimaryLabel(periodType: grok.periodType), grok.primaryWindow), ("secondary", Strings.grokOndemandLabel, grok.secondaryWindow)]) }
+        if let copilot { addGeneric("copilot", copilot.configured, copilot.error, [("primary", "Premium", copilot.primaryWindow), ("secondary", "Chat", copilot.secondaryWindow)]) }
+        if let zcode, zcode.planKind != "coding-plan", let buckets = zcode.labeledBuckets {
+            // Start plans: one reading per server-labelled bucket, keyed by entitlement so
+            // promotional grants and daily allowances stay distinct across polls.
+            addGeneric("zcode", zcode.configured, zcode.error, buckets.map { ("bucket.\($0.key)", $0.label, $0.window) })
+        } else if let zcode {
+            let labels = zcode.planKind == "coding-plan"
+                ? [("primary", "5h", zcode.primaryWindow), ("secondary", "Weekly", zcode.secondaryWindow), ("tertiary", "Tools", zcode.tertiaryWindow)]
+                : [("primary", "GLM-5.2", zcode.primaryWindow), ("secondary", "GLM-5-Turbo", zcode.secondaryWindow), ("tertiary", "Tools", zcode.tertiaryWindow)]
+            addGeneric("zcode", zcode.configured, zcode.error, labels)
+        }
+        if let opencodeGo {
+            addGeneric("opencodeGo", opencodeGo.configured, opencodeGo.error, [
+                ("primary", "5h", opencodeGo.primaryWindow),
+                ("secondary", "Weekly", opencodeGo.secondaryWindow),
+                ("tertiary", "Monthly", opencodeGo.tertiaryWindow),
+            ])
+        }
+        if let commandCode {
+            addGeneric("commandCode", commandCode.configured, commandCode.error, [
+                ("primary", "5h", commandCode.primaryWindow),
+                ("secondary", "Weekly", commandCode.secondaryWindow),
+            ])
+        }
+        if let qoder {
+            addGeneric("qoder", qoder.configured, qoder.error, [
+                ("primary", Strings.qoderPlanLabel, qoder.primaryWindow),
+                ("tertiary", Strings.qoderAddonLabel, qoder.tertiaryWindow),
+                ("secondary", Strings.qoderBonusLabel, qoder.secondaryWindow),
+            ])
+        }
+        if let qoderCn {
+            addGeneric("qoderCn", qoderCn.configured, qoderCn.error, [
+                ("primary", Strings.qoderPlanLabel, qoderCn.primaryWindow),
+                ("tertiary", Strings.qoderAddonLabel, qoderCn.tertiaryWindow),
+                ("secondary", Strings.qoderBonusLabel, qoderCn.secondaryWindow),
+            ])
+        }
+        if let codingPlan {
+            addGeneric("codingPlan", codingPlan.configured, codingPlan.error, [
+                ("primary", "5h", codingPlan.primaryWindow),
+                ("secondary", "Weekly", codingPlan.secondaryWindow),
+                ("tertiary", "Monthly", codingPlan.tertiaryWindow),
+            ])
+        }
+        if let agentPlan {
+            addGeneric("agentPlan", agentPlan.configured, agentPlan.error, [
+                ("primary", "5h", agentPlan.primaryWindow),
+                ("secondary", "Weekly", agentPlan.secondaryWindow),
+                ("tertiary", "Monthly", agentPlan.tertiaryWindow),
+            ])
+        }
+        if let devin {
+            addGeneric("devin", devin.configured, devin.error, [
+                ("primary", "Daily", devin.primaryWindow),
+                ("secondary", "Weekly", devin.secondaryWindow),
+            ])
+        }
+        if let workbuddy {
+            addGeneric("workbuddy", workbuddy.configured, workbuddy.error, [
+                ("primary", Strings.workbuddyPlanLabel, workbuddy.primaryWindow),
+                ("secondary", Strings.workbuddyAddonLabel, workbuddy.secondaryWindow),
+            ])
+        }
+        if let workbuddyAi {
+            addGeneric("workbuddyAi", workbuddyAi.configured, workbuddyAi.error, [
+                ("primary", Strings.workbuddyPlanLabel, workbuddyAi.primaryWindow),
+                ("secondary", Strings.workbuddyAddonLabel, workbuddyAi.secondaryWindow),
+            ])
+        }
+
+        return out
+    }
+}
