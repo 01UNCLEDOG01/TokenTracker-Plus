@@ -98,7 +98,7 @@ export const PERKS_EN = {
     tags: ["By ByteDance", "International", "Monthly free quota", "Autocomplete"],
   },
   vyceai: {
-    badge: "$50 on signup · $10 daily check-in · $10 for both via invite",
+    badge: "⚠️ Retired · $50 on signup · $10 daily check-in · $10 for both via invite",
     description:
       "An overseas aggregation gateway (signup needs some network access), OpenAI- and Anthropic-protocol compatible — point any client/IDE's base URL at https://vyceai.com/v1 and go, with one-click setup guides for OpenCode/Cursor/Cline. Verified by testing: signup grants $50 in trial credit, and the daily check-in adds $10. Free users get 4 models (billed at list price, drawing down signup/check-in credit): Claude Sonnet 4.6, DeepSeek V4.1 Flash and Agnes 3.0 Flash with no daily cap; GPT 6 Luna alone carries a 50M daily cap. A Promotional Allowance adds a shared 10M daily quota (GLM 5.3 Flash, Beam 1.0, Nemotron; $0; resets 00:00 UTC). Referrals: a friend registering via your link credits $10 to both sides instantly. Stability note (checked 2026-11-11, re-checked 2026-11-24): the service has been unstable — models repeatedly unavailable or returning gateway errors; the official status endpoint /api/status has since gone offline (404), and the owner's in-product check on 2026-11-24 found it still unusable with no confirmed fix date. It requires an overseas network, so expect more variance than similarly priced gateways; the tier is lowered accordingly, best kept as an informational backup route only.",
     tips:
