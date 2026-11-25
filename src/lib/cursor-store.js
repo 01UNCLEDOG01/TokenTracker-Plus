@@ -9,6 +9,7 @@ const {
   readJsonStrict,
   writeJson,
 } = require("./fs");
+const { isTccProtectedPath } = require("./git-outcomes");
 
 const STORE_VERSION = 2;
 const STORE_DIRNAME = "cursor-store-v2";
@@ -1703,6 +1704,14 @@ async function validateProjectSummary(summary, nowMs) {
   for (const config of Array.isArray(summary.configs) ? summary.configs : []) {
     const configPath = typeof config?.configPath === "string" ? config.configPath : null;
     if (!configPath) return false;
+    // macOS TCC guard (same rationale as rollout.js): projectSummary.configs
+    // carries .git/config paths persisted before the guard existed — this
+    // freshness stat fired the "想访问「文稿」文件夹" dialog after every
+    // reinstall on machines whose sessions ran in ~/Documents (owner report
+    // 2026-11-25, reproducible with git attribution disabled). Report the
+    // shard stale without touching the protected path; discovery then
+    // re-derives the context and refuses protected directories outright.
+    if (isTccProtectedPath(configPath)) return false;
     const stat = await fs.stat(configPath).catch(() => null);
     if (
       !stat?.isFile() ||
@@ -2082,4 +2091,5 @@ module.exports = {
   drainTrashEntry,
   purgeStaleTrashEntries,
   shouldDeferTrashDrain,
+  validateProjectSummary,
 };

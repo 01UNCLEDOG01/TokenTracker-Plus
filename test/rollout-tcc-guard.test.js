@@ -21,9 +21,13 @@ const { resolveProjectMetaForPath, isProjectFileContextFresh } = require('../src
 async function withStubbedHome(home, run) {
   const originalHome = os.homedir;
   const originalStat = fsPromises.stat;
+  const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
   const statCalls = [];
   try {
     os.homedir = () => home;
+    // The guard is macOS-only by design (TCC does not exist elsewhere); force
+    // the darwin platform so the assertions exercise the guard on every OS.
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
     fsPromises.stat = async (target, ...rest) => {
       statCalls.push(String(target));
       return originalStat.call(fsPromises, target, ...rest);
@@ -31,6 +35,7 @@ async function withStubbedHome(home, run) {
     return await run(statCalls);
   } finally {
     os.homedir = originalHome;
+    Object.defineProperty(process, 'platform', originalPlatform);
     fsPromises.stat = originalStat;
   }
 }
@@ -132,6 +137,60 @@ test('unprotected persisted configPath keeps its normal freshness behavior', asy
     };
     await withStubbedHome(home, async () => {
       assert.equal(await isProjectFileContextFresh({ configs: [context] }), true);
+    });
+  } finally {
+    await fsPromises.rm(home, { recursive: true, maxRetries: 3 });
+  }
+});
+
+
+test('cursor-store shard validation refuses protected configPath without a stat', async () => {
+  const home = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'tt-tcc-home-'));
+  try {
+    const { validateProjectSummary } = require('../src/lib/cursor-store');
+    const repo = path.join(home, 'Documents', 'ChatGPT', 'cursor-repo');
+    await makeGitRepo(repo);
+    const st = await fsPromises.stat(path.join(repo, '.git', 'config'));
+    const summary = {
+      configs: [
+        {
+          configPath: path.join(repo, '.git', 'config'),
+          configMtimeMs: st.mtimeMs,
+          configSize: st.size,
+        },
+      ],
+    };
+    await withStubbedHome(home, async (statCalls) => {
+      assert.equal(await validateProjectSummary(summary, Date.now()), false);
+      assert.equal(
+        statCalls.filter((p) => p.startsWith(home + path.sep + 'Documents')).length,
+        0,
+        'shard validation must never stat the protected configPath',
+      );
+    });
+  } finally {
+    await fsPromises.rm(home, { recursive: true, maxRetries: 3 });
+  }
+});
+
+test('cursor-store shard validation keeps normal freshness for unprotected configPath', async () => {
+  const home = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'tt-tcc-home-'));
+  try {
+    const { validateProjectSummary } = require('../src/lib/cursor-store');
+    const repo = path.join(home, 'Projects', 'cursor-fresh-repo');
+    await makeGitRepo(repo);
+    const st = await fsPromises.stat(path.join(repo, '.git', 'config'));
+    const summary = {
+      configs: [
+        {
+          configPath: path.join(repo, '.git', 'config'),
+          configMtimeMs: st.mtimeMs,
+          configSize: st.size,
+        },
+      ],
+    };
+    await withStubbedHome(home, async () => {
+      assert.equal(await validateProjectSummary(summary, Date.now()), true);
     });
   } finally {
     await fsPromises.rm(home, { recursive: true, maxRetries: 3 });
