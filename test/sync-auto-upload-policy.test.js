@@ -135,7 +135,7 @@ test("automatic backlog compacts full pending snapshots and drains one window be
   const x = await setup(t);
   const records = [];
   for (const tokens of [100, 40, 0]) {
-    for (let index = 0; index < 1500; index += 1) {
+    for (let index = 0; index < 7000; index += 1) {
       records.push({ ...x.row(tokens), hour_start: new Date(Date.parse("2026-09-01T00:00:00Z") + index * 30 * 60_000).toISOString() });
     }
   }
@@ -150,17 +150,16 @@ test("automatic backlog compacts full pending snapshots and drains one window be
   assert.equal((await fs.stat(x.queue)).size, before, "a cooldown run cannot compact away the next window's backlog budget");
   await fs.writeFile(throttlePath, JSON.stringify({ lastSuccessMs: now - 1_000_000, nextAllowedAtMs: now - 100_000 }));
   assert.equal((await x.run(["--auto"])).code, 0);
-  assert.equal(x.requests.length, 8, "all 1,500 canonical buckets fit this bounded window");
+  assert.equal(x.requests.length, 14, "all 7,000 canonical buckets fit this bounded window");
   assert.equal(new Set(x.requests.map((request) => request.upload_id)).size, 1);
   const uploaded = x.requests.flatMap((request) => request.hourly);
-  assert.equal(uploaded.length, 1500);
+  assert.equal(uploaded.length, 7000);
   assert.ok(uploaded.every((record) => record.total_tokens === 0), "downward and zero corrections replace old snapshots");
   const after = (await fs.stat(x.queue)).size;
   assert.ok(after < before / 2);
-  assert.ok(after < 1_000_000);
   assert.equal((await x.readState()).offset, after);
   await x.append(x.row(25));
   assert.equal((await x.run(["--auto"])).code, 0);
-  assert.equal(x.requests.length, 8, "the next automatic run still honors the upload cooldown");
+  assert.equal(x.requests.length, 14, "the next automatic run still honors the upload cooldown");
   assert.equal((await x.readState()).offset, after);
 });

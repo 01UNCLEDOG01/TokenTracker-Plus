@@ -198,7 +198,7 @@ const { persistQoderEstimateRows } = require("../lib/qoder-estimate-upload");
 const { persistVyceaiUsageRows } = require("../lib/vyceai-usage");
 const AUTO_UPLOAD_CONFIG = {
   intervalMs: 15 * 60_000,
-  batchSize: 200,
+  batchSize: 500,
   maxBatchesSmall: 5,
   maxBatchesLarge: 100,
 };
@@ -5121,9 +5121,8 @@ async function readQueueBatch(queuePath, startOffset, maxBuckets) {
   // queue (a fresh device's first 30-day TRAE sync appends one record per
   // observed session) was read in ONE uncapped batch - the 400 left the
   // queue offset untouched and every retry re-read the identical oversized
-  // request, a permanent upload failure. With the default batchSize of 200
-  // (and the MAX_INGEST_BUCKETS=500 clamp above), every request stays under
-  // the edge cap while batching follows the existing design.
+  // request, a permanent upload failure. The configured batch is capped at
+  // MAX_INGEST_BUCKETS=500, so every request stays within the edge limit.
   const sessionStateMap = new Map();
   const sessionStateStamps = new Map();
   let offset = startOffset;

@@ -289,7 +289,7 @@ test("turning off during an automatic drain stops later batches and manual sync 
     await fs.mkdir(trackerDir, { recursive: true });
     const prefPath = path.join(trackerDir, "cloud-sync-pref.json");
     await fs.writeFile(prefPath, JSON.stringify({ enabled: true }));
-    const rows = Array.from({ length: 201 }, (_, index) => ({
+    const rows = Array.from({ length: 501 }, (_, index) => ({
       source: "fixture", model: `model-${index}`, hour_start: "2026-06-30T00:00:00.000Z",
       input_tokens: 1, cached_input_tokens: 0, cache_creation_input_tokens: 0,
       output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 1,
@@ -303,7 +303,7 @@ test("turning off during an automatic drain stops later batches and manual sync 
     global.fetch = async () => {
       calls += 1;
       await fs.writeFile(prefPath, JSON.stringify({ enabled: false }));
-      return { ok: true, status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ inserted: 200, skipped: 0 }) };
+      return { ok: true, status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ inserted: 500, skipped: 0 }) };
     };
     try {
       await cmdSync(["--auto", "--source", "codex"]);
@@ -975,7 +975,7 @@ test("bounded native publication leaves backlog for the next native tick without
       JSON.stringify({ version: 1, retryAtMs: Date.now() + 60_000 }),
       "utf8",
     );
-    const rows = Array.from({ length: 1_001 }, (_, index) => ({
+    const rows = Array.from({ length: 2_501 }, (_, index) => ({
       source: "codex",
       model: `benchmark-model-${index}`,
       hour_start: "2026-06-30T00:00:00.000Z",
@@ -1002,7 +1002,7 @@ test("bounded native publication leaves backlog for the next native tick without
           ok: true,
           status: 200,
           headers: { get() { return null; } },
-          text: async () => JSON.stringify({ inserted: 200, skipped: 0 }),
+          text: async () => JSON.stringify({ inserted: 500, skipped: 0 }),
         };
       }
       throw new Error(`unexpected fetch ${url}`);

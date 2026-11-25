@@ -35,7 +35,7 @@ const test = require("node:test");
 const { readQueueBatch, drainQueueToCloud } = require("../src/commands/sync");
 
 const INGEST_STATE_LIMIT = 500; // edge contract: account_session_states.length <= 500
-const BATCH_SIZE = 200; // production default (cmdSync autoUploadDecision.batchSize)
+const BATCH_SIZE = 200; // fixture size below the production 500-record cap (cmdSync autoUploadDecision.batchSize)
 
 function tempQueue(prefix) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -123,7 +123,7 @@ test("1200 states-only queue: bounded batches, every request <= 500, nothing los
   const ingest = installIngestMock();
   t.after(() => ingest.restore());
 
-  // Production drain defaults: maxBatches=5 per invocation, batchSize=200.
+  // Fixture drain: maxBatches=5 per invocation, batchSize=200.
   let drained = 0;
   let guard = 0;
   while (drained < total && guard < 20) {
