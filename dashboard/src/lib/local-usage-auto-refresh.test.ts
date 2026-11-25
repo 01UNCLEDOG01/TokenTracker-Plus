@@ -68,6 +68,38 @@ describe("startLocalUsageAutoRefresh", () => {
     );
   });
 
+  it("honors a canRun gate without losing later refreshes", async () => {
+    const intervalCallbacks: Array<() => void> = [];
+    const windowEvents = createEventTarget();
+    const documentEvents = createEventTarget();
+    const documentRef = { ...documentEvents, visibilityState: "visible" as DocumentVisibilityState };
+    const windowRef = {
+      ...windowEvents,
+      setInterval: vi.fn((callback: () => void) => {
+        intervalCallbacks.push(callback);
+        return intervalCallbacks.length;
+      }),
+      clearInterval: vi.fn(),
+    };
+    const refresh = vi.fn(async () => {});
+    let allowed = false;
+    const controller = startLocalUsageAutoRefresh({
+      refresh,
+      canRun: () => allowed,
+      windowRef: windowRef as never,
+      documentRef: documentRef as never,
+    });
+
+    intervalCallbacks[0]();
+    await Promise.resolve();
+    expect(refresh).not.toHaveBeenCalled();
+
+    allowed = true;
+    await controller.run();
+    expect(refresh).toHaveBeenCalledOnce();
+    controller.stop();
+  });
+
   it("coalesces overlapping refresh attempts", async () => {
     let resolveRefresh: () => void = () => {
       throw new Error("refresh was not started");

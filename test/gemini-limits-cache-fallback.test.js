@@ -109,6 +109,9 @@ function geminiFetchImpl({ quota, token }) {
 function baseOptions(home, overrides = {}) {
   return {
     home,
+    // These fixtures exercise the CLI/OAuth cache lane. On Windows the real
+    // Gemini desktop reader intentionally wins, so pin the platform to Linux.
+    platform: "linux",
     // env.GEMINI_HOME pinned inside the temp home (see buildGeminiHome).
     env: geminiEnv(home),
     providerTimeoutMs: 2000,

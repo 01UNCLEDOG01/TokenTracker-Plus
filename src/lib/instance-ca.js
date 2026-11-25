@@ -169,6 +169,7 @@ async function requestWithCa(url, init, caPem) {
       body: hasBody ? init.body : undefined,
       dispatcher: agent,
       maxRedirections: 0,
+      signal: init?.signal,
     });
     const chunks = [];
     for await (const chunk of res.body) chunks.push(chunk);
@@ -189,12 +190,20 @@ async function requestWithCa(url, init, caPem) {
 }
 
 async function instanceFetch(url, init, { baseUrl } = {}) {
+  const target = baseUrl || (typeof url === "string" ? url : url && url.url) || "";
+  const parsed = parseHost(target);
+  // Private self-hosted instances must not be sent through an inherited
+  // HTTP(S)_PROXY. Script-launched desktop apps often inherit the agent's
+  // proxy environment, and Node does not read the Windows certificate store.
+  // Use the cached CA directly; on first contact bootstrap /ca.crt directly.
+  if (parsed && parsed.origin.startsWith("https:") && isPrivateHost(parsed.hostname)) {
+    const cached = readCachedInstanceCa(parsed.hostname) || (await discoverInstanceCa(parsed.origin));
+    if (cached) return await requestWithCa(url, init, cached);
+  }
   try {
     return await fetch(url, init);
   } catch (error) {
     if (!isTlsTrustError(error)) throw error;
-    const target = baseUrl || (typeof url === "string" ? url : url && url.url) || "";
-    const parsed = parseHost(target);
     if (!parsed) throw error;
     const cached = readCachedInstanceCa(parsed.hostname) || (await discoverInstanceCa(parsed.origin));
     if (!cached) throw error;

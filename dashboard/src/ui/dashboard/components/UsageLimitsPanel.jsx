@@ -2794,7 +2794,16 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
   useEffect(() => {
     const known = new Set(WALLET_ROW_KEYS);
     const healthyRows = new Set();
+    const unavailableProviders = new Set();
     for (const [id, provider] of Object.entries(dataById)) {
+      // Explicitly not connected is positive evidence that none of this
+      // provider's rows can be picked. A configured provider with an error or
+      // momentarily missing windows is different: keep those picks until a
+      // later healthy refresh proves the row is gone.
+      if (provider?.configured === false) {
+        unavailableProviders.add(id);
+        continue;
+      }
       if (provider?.configured !== true || provider?.error != null) continue;
       const spec = PROVIDER_LIMIT_SPECS[id];
       if (!spec?.windows) continue;
@@ -2811,6 +2820,7 @@ export function UsageLimitsPanel({ claude, codex, cursor, gemini, kimi, kiro, gr
     setPetLimitRows((prev) => {
       const pruned = prev.filter((key) => {
         const providerId = key.slice(0, key.indexOf("::"));
+        if (providerId && unavailableProviders.has(providerId)) return false;
         if (providerId && !healthyRows.has(providerId)) return true;
         return known.has(key);
       });

@@ -17,6 +17,8 @@ const {
   normalizeCursorUsageSummary,
   normalizeCursorSandUsageStatus,
   normalizeGeminiQuotaResponse,
+  normalizeGeminiDesktopQuota,
+  fetchGeminiLimits,
   normalizeKimiUsageResponse,
   parseKiroUsageOutput,
   fetchKiroLimits,
@@ -3548,6 +3550,101 @@ describe("normalizeGeminiQuotaResponse", () => {
   });
 });
 
+describe("normalizeGeminiDesktopQuota", () => {
+  it("reads Vietnamese Gemini desktop current and weekly limits", () => {
+    const nowMs = new Date(2026, 10, 25, 8, 0).getTime();
+    const result = normalizeGeminiDesktopQuota({
+      configured: true,
+      items: [
+        "Mức sử dụng hiện tạiĐã sử dụng 67%Đặt lại lúc 9:55",
+        "Hạn mức hằng tuầnĐặt lại vào 28 thg 11 lúc 21:55Đã sử dụng 12%",
+      ],
+      plans: ["PRO"],
+    }, { nowMs });
+
+    assert.equal(result.configured, true);
+    assert.equal(result.error, null);
+    assert.equal(result.account_plan, "Pro");
+    assert.equal(result.primary_window.used_percent, 67);
+    assert.equal(result.primary_window.reset_at, new Date(2026, 10, 25, 9, 55).toISOString());
+    assert.equal(result.secondary_window.used_percent, 12);
+    assert.equal(result.secondary_window.reset_at, new Date(2026, 10, 28, 21, 55).toISOString());
+    assert.equal(result.stale, false);
+  });
+
+  it("reads English Gemini desktop limits with AM/PM reset times", () => {
+    const nowMs = new Date(2026, 10, 25, 8, 0).getTime();
+    const result = normalizeGeminiDesktopQuota({
+      configured: true,
+      items: [
+        "Current usageUsed 43%Resets at 9:55 AM",
+        "Weekly limitResets Nov 28 at 9:55 PMUsed 12%",
+      ],
+      plans: ["AI Ultra"],
+    }, { nowMs });
+
+    assert.equal(result.account_plan, "AI Ultra");
+    assert.equal(result.primary_window.used_percent, 43);
+    assert.equal(result.primary_window.reset_at, new Date(2026, 10, 25, 9, 55).toISOString());
+    assert.equal(result.secondary_window.used_percent, 12);
+    assert.equal(result.secondary_window.reset_at, new Date(2026, 10, 28, 21, 55).toISOString());
+  });
+
+  it("reads Chinese Gemini desktop month-day reset labels", () => {
+    const nowMs = new Date(2026, 10, 25, 8, 0).getTime();
+    const result = normalizeGeminiDesktopQuota({
+      configured: true,
+      items: [
+        "当前用量已使用 31%重置时间 9:55",
+        "每周限额11月28日 21:55 重置已使用 12%",
+      ],
+      plans: ["Pro"],
+    }, { nowMs });
+
+    assert.equal(result.primary_window.used_percent, 31);
+    assert.equal(result.primary_window.reset_at, new Date(2026, 10, 25, 9, 55).toISOString());
+    assert.equal(result.secondary_window.used_percent, 12);
+    assert.equal(result.secondary_window.reset_at, new Date(2026, 10, 28, 21, 55).toISOString());
+  });
+
+  it("surfaces a desktop reader error instead of pretending Gemini is not installed", () => {
+    const result = normalizeGeminiDesktopQuota({ configured: true, error: "usage page unavailable", items: [] });
+    assert.equal(result.configured, true);
+    assert.equal(result.error, "usage page unavailable");
+  });
+
+  it("serves the last desktop quota without navigating when the usage page is closed", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-gemini-desktop-cache-"));
+    try {
+      const trackerDir = path.join(home, ".tokentracker", "tracker");
+      fs.mkdirSync(trackerDir, { recursive: true });
+      const resetAt = new Date(Date.now() + 3_600_000).toISOString();
+      fs.writeFileSync(path.join(trackerDir, "gemini-usage-limits-cache.json"), JSON.stringify({
+        gemini: {
+          identity: "gemini-desktop",
+          account_plan: "Pro",
+          primary_window: { used_percent: 67, reset_at: resetAt },
+          secondary_window: { used_percent: 12, reset_at: resetAt },
+          tertiary_window: null,
+          cached_at: new Date().toISOString(),
+        },
+      }));
+      const result = await fetchGeminiLimits({
+        home,
+        platform: "win32",
+        desktopReader: async () => ({ configured: true, items: [], plans: [] }),
+      });
+      assert.equal(result.configured, true);
+      assert.equal(result.error, null);
+      assert.equal(result.stale, true);
+      assert.equal(result.primary_window.used_percent, 67);
+      assert.equal(result.secondary_window.used_percent, 12);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("normalizeAntigravityResponse", () => {
   it("groups chat models into Claude & GPT and Gemini families, picking weekly (most-used) and 5h (least-used) per group", () => {
     const result = normalizeAntigravityResponse({
@@ -4324,7 +4421,6 @@ lang 123 me 22u IPv4 0x123 0t0 TCP 127.0.0.1:51234 (LISTEN)
         return { stdout: "", stderr: "", status: 1 };
       };
       const requestFn = async ({ path: requestPath }) => {
-        if (requestPath.includes("GetUnleashData")) return { code: 0 };
         assert.ok(requestPath.includes("GetUserStatus"));
         return {
           code: 0,
@@ -4720,7 +4816,8 @@ describe("fetchAntigravityLimits remote OAuth", () => {
         return { stdout: "", stderr: "", status: 1 };
       };
       const requestFn = async ({ path: requestPath }) => {
-        if (requestPath.includes("GetUnleashData")) return { code: 0 };
+        assert.ok(!requestPath.includes("GetUnleashData"), "hub 2.35 removed the legacy probe endpoint");
+        if (requestPath.includes("GetUserStatus")) return { code: 0 };
         if (requestPath.includes("RetrieveUserQuotaSummary")) {
           return {
             code: 0,
@@ -5119,7 +5216,7 @@ describe("fetchAntigravityLimits provider budget", () => {
     try {
       writeAntigravityOauthToken(tmp);
       const requestFn = ({ path: requestPath, timeoutMs }) => {
-        if (requestPath.includes("GetUnleashData")) return Promise.resolve({ code: 0 });
+        if (requestPath.includes("GetUserStatus")) return Promise.resolve({ code: 0 });
         return new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs));
       };
       const { result, elapsedMs } = await measure(() => fetchAntigravityLimits({

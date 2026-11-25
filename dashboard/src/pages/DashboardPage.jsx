@@ -69,6 +69,7 @@ import { runSingleFlight } from "../lib/single-flight";
 import {
   LOCAL_DASHBOARD_REFRESH_OPTIONS,
   refreshDashboardAggregates,
+  runDashboardPrewarm,
 } from "../lib/dashboard-refresh";
 
 const PERIODS = ["day", "week", "month", "total", "custom"];
@@ -911,6 +912,7 @@ export function DashboardPage({
   // aggregate per dashboard context so those triggers do not fan out into
   // six duplicate endpoint requests (and invalidate each other's responses).
   const usageStatsFlightRef = useRef(null);
+  const prewarmTokenRef = useRef(null);
   const refreshContextKey = useMemo(
     () => [
       baseUrl || "",
@@ -1034,17 +1036,25 @@ export function DashboardPage({
 
   // Pre-warm other common periods (day/week/month/total) in the background so when the user
   // flips tabs, the payloads are already in localStorage / in-memory cache and render instantly.
+  // Account reads are much heavier than local reads: delay them until the initial
+  // fan-out has had time to settle, and never launch the whole pre-warm at once.
   useEffect(() => {
     if (mockEnabled) return;
+    let active = true;
     const timer = setTimeout(async () => {
+      const token = {};
+      prewarmTokenRef.current = token;
       try {
         const resolvedToken = await resolveAuthAccessToken(accessToken);
-        if (!resolvedToken && !isLocalMode && !accountView) return;
+        if (!active || (!resolvedToken && !isLocalMode && !accountView)) return;
         const summaryFetcher = accountView ? fetchCloudUsageSummary : getUsageSummary;
         const dailyFetcher = accountView ? fetchCloudUsageDaily : getUsageDaily;
         const breakdownFetcher = accountView ? fetchCloudUsageModelBreakdown : getUsageModelBreakdown;
         const tokenForFetch = accountView ? await resolveAuthAccessToken(accountAccessToken) : resolvedToken;
+        if (!active) return;
 
+        const prewarmTasks = [];
+        const schedule = (task) => prewarmTasks.push(() => active ? task() : Promise.resolve());
         const candidatePeriods = ["day", "week", "month", "total"].filter((p) => p !== period);
         for (const p of candidatePeriods) {
           const range = getRangeForPeriod(p, {
@@ -1052,7 +1062,7 @@ export function DashboardPage({
             offsetMinutes: tzOffsetMinutes,
             now: mockNow,
           });
-          summaryFetcher({
+          schedule(() => summaryFetcher({
             baseUrl,
             accessToken: tokenForFetch,
             from: range.from,
@@ -1061,9 +1071,9 @@ export function DashboardPage({
             timeZone,
             tzOffsetMinutes,
             rolling: true,
-          }).catch(() => {});
+          }));
           if (p !== "total") {
-            dailyFetcher({
+            schedule(() => dailyFetcher({
               baseUrl,
               accessToken: tokenForFetch,
               from: range.from,
@@ -1071,8 +1081,8 @@ export function DashboardPage({
               device: selectedDevice,
               timeZone,
               tzOffsetMinutes,
-            }).catch(() => {});
-            breakdownFetcher({
+            }));
+            schedule(() => breakdownFetcher({
               baseUrl,
               accessToken: tokenForFetch,
               from: range.from,
@@ -1080,14 +1090,24 @@ export function DashboardPage({
               device: selectedDevice,
               timeZone,
               tzOffsetMinutes,
-            }).catch(() => {});
+            }));
           }
+        }
+        if (accountView) {
+          await runDashboardPrewarm({ tasks: prewarmTasks, concurrency: 2 });
+        } else {
+          for (const task of prewarmTasks) void task().catch(() => {});
         }
       } catch {
         // silent pre-warm
+      } finally {
+        if (prewarmTokenRef.current === token) prewarmTokenRef.current = null;
       }
-    }, 1200);
-    return () => clearTimeout(timer);
+    }, accountView ? 8000 : 1200);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [accountAccessToken, accountView, baseUrl, isLocalMode, mockEnabled, mockNow, period, selectedDevice, timeZone, tzOffsetMinutes, accessToken]);
 
   // Provider hooks update the queue quickly, while the native server also
@@ -1106,6 +1126,7 @@ export function DashboardPage({
     if (mockEnabled) return undefined;
     const autoRefresh = startLocalUsageAutoRefresh({
       refresh: () => refreshUsageStatsRef.current(),
+      canRun: () => prewarmTokenRef.current === null,
       onError: (error) =>
         console.warn("[DashboardPage] Automatic usage refresh failed:", error),
     });

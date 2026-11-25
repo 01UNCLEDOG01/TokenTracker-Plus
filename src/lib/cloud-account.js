@@ -29,13 +29,14 @@ function accountSlugFor(usageSlug) {
   return USAGE_TO_ACCOUNT_SLUG[usageSlug] || null;
 }
 
-// Upstream read budget for the account-view proxy. The cross-device model
-// breakdown is the heaviest aggregate (it re-prices every uploaded row across
-// all devices); its cold first computation can exceed the 4s default, and one
-// timeout trips the 2-minute account-view backoff in local-api, silently
-// pinning the dashboard's account cards to this machine's data. Heavy slugs
-// get room; an explicit TOKENTRACKER_HTTP_TIMEOUT_MS override still wins.
-const ACCOUNT_VIEW_DEFAULT_TIMEOUT_MS = 4000;
+// Upstream read budget for the account-view proxy. A dashboard refresh fans out
+// across several aggregates, and a cold/busy private instance can take longer
+// than four seconds even when sequential reads are fast. Cutting that fan-out
+// off at 4s used to turn one slow slug into a whole-panel local-data fallback.
+// Keep a little headroom for normal slugs; the cross-device model breakdown is
+// still the heaviest aggregate (it re-prices every uploaded row across all
+// devices). An explicit TOKENTRACKER_HTTP_TIMEOUT_MS override still wins.
+const ACCOUNT_VIEW_DEFAULT_TIMEOUT_MS = 8000;
 const ACCOUNT_VIEW_HEAVY_TIMEOUT_MS = 15000;
 const ACCOUNT_VIEW_HEAVY_SLUGS = new Set(["tokentracker-usage-model-breakdown"]);
 function accountViewUpstreamTimeoutMs(usageSlug, envTimeoutMs) {

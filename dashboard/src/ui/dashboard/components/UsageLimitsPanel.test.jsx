@@ -1817,6 +1817,57 @@ describe("QoderCookieInput", () => {
     window.localStorage.removeItem("tt.pet.limitRows");
   });
 
+  it("prunes explicitly unconnected providers and frees their six-row slots", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.localStorage.setItem("tt.pet.limitRows", JSON.stringify([
+      "codex::5h",
+      "codex::7d",
+      "opencodeGo::5h",
+      "opencodeGo::weekly",
+      "opencodeGo::monthly",
+      "antigravity::gemini-weekly",
+    ]));
+
+    render(
+      <UsageLimitsPanel
+        order={["codex", "opencodeGo", "antigravity"]}
+        codex={{ configured: false }}
+        opencodeGo={{
+          configured: true,
+          error: null,
+          primary_window: { used_percent: 12, reset_at: "2026-06-24T20:00:00.000Z" },
+          secondary_window: { used_percent: 30, reset_at: "2026-06-28T00:00:00.000Z" },
+          tertiary_window: { used_percent: 60, reset_at: "2026-07-01T00:00:00.000Z" },
+        }}
+        antigravity={{
+          configured: true,
+          error: null,
+          primary_window: { used_percent: 25, reset_at: "2026-12-02T00:00:00.000Z" },
+          secondary_window: { used_percent: 0, reset_at: "2026-11-25T06:00:00.000Z" },
+          tertiary_window: { used_percent: 0, reset_at: "2026-12-02T00:00:00.000Z" },
+          quaternary_window: { used_percent: 0, reset_at: "2026-11-25T05:00:00.000Z" },
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      const prunePosts = fetchMock.mock.calls.filter(
+        ([url, options]) => url === "/functions/tokentracker-pet-prefs" && options?.method === "POST",
+      );
+      expect(prunePosts.length).toBeGreaterThanOrEqual(1);
+      const rows = JSON.parse(prunePosts[prunePosts.length - 1][1].body).limitRows;
+      expect(rows).not.toContain("codex::5h");
+      expect(rows).not.toContain("codex::7d");
+      expect(rows).toHaveLength(4);
+    });
+
+    const unchecked = screen.getAllByRole("checkbox").filter((box) => !box.checked);
+    expect(unchecked.length).toBeGreaterThan(0);
+    for (const box of unchecked) expect(box).not.toBeDisabled();
+    window.localStorage.removeItem("tt.pet.limitRows");
+  });
+
   it("still prunes a picked key that a healthy provider no longer renders", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
     vi.stubGlobal("fetch", fetchMock);

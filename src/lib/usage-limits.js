@@ -1480,7 +1480,119 @@ function normalizeGeminiQuotaResponse({ buckets, email, tier }) {
   };
 }
 
-async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner } = {}) {
+const GEMINI_DESKTOP_QUOTA_SCRIPT = path.join(__dirname, "gemini-desktop-quota.ps1");
+
+async function readGeminiDesktopQuota({ commandRunner, timeoutMs = 8000, signal } = {}) {
+  const result = await runCommand(
+    commandRunner,
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", GEMINI_DESKTOP_QUOTA_SCRIPT],
+    { timeout: timeoutMs, signal },
+  );
+  if (result?.error || result?.status !== 0) {
+    return {
+      configured: true,
+      error: result?.error?.message || `Gemini desktop quota reader exited with ${result?.status ?? "unknown"}`,
+      items: [],
+      plans: [],
+    };
+  }
+  try {
+    const parsed = JSON.parse(String(result?.stdout || ""));
+    return {
+      configured: parsed?.configured === true,
+      error: typeof parsed?.error === "string" ? parsed.error : null,
+      items: Array.isArray(parsed?.items) ? parsed.items.filter((item) => typeof item === "string") : [],
+      plans: Array.isArray(parsed?.plans) ? parsed.plans.filter((item) => typeof item === "string") : [],
+    };
+  } catch (error) {
+    return { configured: true, error: `Gemini desktop quota reader returned invalid JSON: ${error.message}`, items: [], plans: [] };
+  }
+}
+
+function geminiDesktopResetAt(text, nowMs = Date.now()) {
+  const source = String(text || "");
+  const clock = source.match(/(\d{1,2}):(\d{2})(?:\s*([ap]m))?/i);
+  if (!clock) return null;
+  let hour = Number(clock[1]);
+  const minute = Number(clock[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour > 23 || minute > 59) return null;
+  if (clock[3]) {
+    if (hour < 1 || hour > 12) return null;
+    if (clock[3].toLowerCase() === "pm" && hour !== 12) hour += 12;
+    if (clock[3].toLowerCase() === "am" && hour === 12) hour = 0;
+  }
+
+  const now = new Date(nowMs);
+  const target = new Date(now.getTime());
+  let hasDate = false;
+  const vietnamese = source.match(/(\d{1,2})\s*thg\s*(\d{1,2})/i);
+  const chinese = source.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/);
+  if (vietnamese) {
+    target.setMonth(Number(vietnamese[2]) - 1, Number(vietnamese[1]));
+    hasDate = true;
+  } else if (chinese) {
+    target.setMonth(Number(chinese[1]) - 1, Number(chinese[2]));
+    hasDate = true;
+  } else {
+    const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+    const english = source.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})\b/i);
+    if (english) {
+      target.setMonth(months[english[1].slice(0, 3).toLowerCase()], Number(english[2]));
+      hasDate = true;
+    }
+  }
+  target.setHours(hour, minute, 0, 0);
+  if (hasDate && target.getTime() < now.getTime() - 180 * 86_400_000) target.setFullYear(target.getFullYear() + 1);
+  if (!hasDate && target.getTime() <= now.getTime() + 60_000) target.setDate(target.getDate() + 1);
+  return Number.isFinite(target.getTime()) ? target.toISOString() : null;
+}
+
+function normalizeGeminiDesktopQuota(raw, { nowMs = Date.now() } = {}) {
+  if (!raw?.configured) return { configured: false };
+  if (raw?.error) return { configured: true, error: raw.error };
+  const rows = (Array.isArray(raw?.items) ? raw.items : [])
+    .map((text) => ({ text: String(text), used: Number(String(text).match(/(\d+(?:\.\d+)?)\s*%/)?.[1]) }))
+    .filter((row) => Number.isFinite(row.used));
+  if (!rows.length) {
+    return { configured: true, error: "Gemini desktop usage page is not open. Open it to refresh; TT+ will not navigate your window." };
+  }
+  const plans = Array.isArray(raw?.plans) ? raw.plans : [];
+  const plan = plans.find((name) => /^(PRO|Pro)$/.test(name)) ? "Pro"
+    : plans.find((name) => /^(ULTRA|Ultra|AI Ultra)$/.test(name)) ? "AI Ultra"
+      : plans.find((name) => /^(FREE|Free)$/.test(name)) ? "Free"
+        : null;
+  const toWindow = (row) => row
+    ? buildWindow({ usedPercent: row.used, resetAt: geminiDesktopResetAt(row.text, nowMs) })
+    : null;
+  return {
+    configured: true,
+    error: null,
+    account_email: null,
+    account_plan: plan,
+    primary_window: toWindow(rows[0]),
+    secondary_window: toWindow(rows[1]),
+    stale: false,
+    cached_at: new Date(nowMs).toISOString(),
+  };
+}
+
+async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner, platform = process.platform, desktopReader } = {}) {
+  if (platform === "win32") {
+    const desktopRaw = desktopReader
+      ? await desktopReader()
+      : await readGeminiDesktopQuota({ commandRunner });
+    const desktop = normalizeGeminiDesktopQuota(desktopRaw);
+    if (desktop.configured) {
+      if (!desktop.error && hasGeminiWindow(desktop)) {
+        writeGeminiLimitsCache(desktop, { home, identity: "gemini-desktop" });
+        return desktop;
+      }
+      const cached = readGeminiLimitsCache({ home, identity: "gemini-desktop" });
+      if (cached) return cached;
+      return desktop;
+    }
+  }
   const settings = loadGeminiSettings({ home, env });
   const credentials = loadGeminiCredentials({ home, env });
   // Gemini is "configured" only if there are real OAuth credentials OR the
@@ -3676,24 +3788,6 @@ function antigravityDefaultBody() {
   };
 }
 
-function antigravityUnleashBody() {
-  return {
-    context: {
-      properties: {
-        devMode: "false",
-        extensionVersion: "unknown",
-        hasAnthropicModelAccess: "true",
-        ide: "antigravity",
-        ideVersion: "unknown",
-        installationId: "tokentracker",
-        language: "UNSPECIFIED",
-        os: "macos",
-        requestedModelId: "MODEL_UNSPECIFIED",
-      },
-    },
-  };
-}
-
 function requestLocalJson({
   scheme,
   port,
@@ -3942,8 +4036,11 @@ async function probeAntigravityPort(port, csrfToken, { timeoutMs, requestFn, sch
     await requestLocalJson({
       scheme,
       port,
-      path: "/exa.language_server_pb.LanguageServerService/GetUnleashData",
-      body: antigravityUnleashBody(),
+      // Antigravity 2.35 hub removed GetUnleashData (404). GetUserStatus is
+      // present on both legacy and hub servers and is also the quota fallback,
+      // so it is the stable liveness probe.
+      path: "/exa.language_server_pb.LanguageServerService/GetUserStatus",
+      body: antigravityDefaultBody(),
       csrfToken,
       timeoutMs,
       requestFn,
@@ -4993,7 +5090,7 @@ async function fetchUsageLimitsUncached({
       .catch((reason) => ({ configured: true, error: reason?.message || "Unknown error" })),
     hiddenSet.has("kimi") ? hiddenSentinel : withProviderTimeout(fetchKimiLimits({ home, env, fetchImpl: providerFetch }), "Kimi", providerTimeoutMs)
       .catch((reason) => ({ configured: true, error: reason?.message || "Unknown error" })),
-    hiddenSet.has("gemini") ? hiddenSentinel : withProviderTimeout(fetchGeminiLimits({ home, env, fetchImpl: providerFetch, commandRunner }), "Gemini", providerTimeoutMs)
+    hiddenSet.has("gemini") ? hiddenSentinel : withProviderTimeout(fetchGeminiLimits({ home, env, fetchImpl: providerFetch, commandRunner, platform }), "Gemini", providerTimeoutMs)
       .catch((reason) => ({ configured: true, error: reason?.message || "Unknown error" })),
     hiddenSet.has("kiro") ? hiddenSentinel : fetchKiroLimits({ commandRunner, now, platform, home }),
     // Antigravity's own budget keeps the serial chain inside providerTimeoutMs; this
@@ -5796,6 +5893,9 @@ module.exports = {
   resolveCursorLimitsCachePath,
   CURSOR_LIMITS_CACHE_FILE,
   normalizeGeminiQuotaResponse,
+  normalizeGeminiDesktopQuota,
+  readGeminiDesktopQuota,
+  fetchGeminiLimits,
   normalizeKimiUsageResponse,
   parseKiroUsageOutput,
   readKiroCreditsSummary,

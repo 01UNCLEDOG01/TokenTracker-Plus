@@ -2950,12 +2950,18 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       : 1;
     const until = now + (consecutive >= 2 ? ACCOUNT_VIEW_FAILURE_BACKOFF_MS : ACCOUNT_VIEW_FIRST_FAILURE_BACKOFF_MS);
     accountViewFailures.set(failureKey, { until, count: consecutive, lastAt: now });
-    // Refresh-token rotation or account switching can produce many keys over a
-    // long-lived tray session. Bound the map without affecting the active key.
-    while (accountViewFailures.size > 16) {
-      const oldest = accountViewFailures.keys().next().value;
-      if (!oldest || oldest === failureKey) break;
-      accountViewFailures.delete(oldest);
+    // Refresh-token rotation, endpoint fan-out, and account switching produce
+    // many keys over a long-lived tray session. Bound the map without affecting
+    // the active key; if the oldest entry is active, prune the next-oldest.
+    while (accountViewFailures.size > 64) {
+      let pruned = false;
+      for (const key of accountViewFailures.keys()) {
+        if (key === failureKey) continue;
+        accountViewFailures.delete(key);
+        pruned = true;
+        break;
+      }
+      if (!pruned) break;
     }
   }
 
@@ -3321,7 +3327,10 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     invalidateAfterAccountUpload();
     const runtime = getRuntime();
     if (runtime.configurationError) return ACCOUNT_FALLBACK_SIGNED_OUT;
-    const failureKey = `${runtime.baseUrl}\0${refreshToken}`;
+    // Cooldowns are per endpoint: a slow model breakdown must not suppress a
+    // healthy summary/daily read for the same signed-in session. Session-wide
+    // suppression made one 4s timeout look like a whole-cloud outage.
+    const failureKey = `${runtime.baseUrl}\0${refreshToken}\0${usageSlug}`;
     const sessionAtStart = getCloudAccountSessionGeneration();
     const cloudPrefAtStart = cloudSyncPrefGeneration;
     const params = new URLSearchParams(url.searchParams);
@@ -3331,11 +3340,8 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       return "transient-backoff";
     }
     // Heavy slugs (the cross-device model breakdown re-prices every uploaded
-    // row across all devices) need more than the 4s default: one timeout trips
-    // the 2-minute backoff below and silently pins the dashboard's account
-    // cards to this machine's data while summary/daily keep serving the cloud
-    // (owner report 2026-11-20: four-source account cards). See
-    // accountViewUpstreamTimeoutMs in cloud-account.js; an explicit
+    // row across all devices) get a larger budget than ordinary summaries.
+    // See accountViewUpstreamTimeoutMs in cloud-account.js; an explicit
     // TOKENTRACKER_HTTP_TIMEOUT_MS override still wins.
     const envTimeout = process.env.TOKENTRACKER_HTTP_TIMEOUT_MS
       ? parseInt(process.env.TOKENTRACKER_HTTP_TIMEOUT_MS, 10)
@@ -3353,6 +3359,11 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
           baseUrl: runtime.baseUrl,
           anonKey: runtime.anonKey,
           refreshToken,
+          // Account reads must boot the private-instance CA just like the auth
+          // proxy. Desktop shortcuts normally inherit NODE_EXTRA_CA_CERTS, but
+          // script-launched/hot-updated apps do not; global fetch then fails
+          // every cloud read with UNABLE_TO_VERIFY_LEAF_SIGNATURE.
+          fetchImpl: (url, init) => instanceFetch(url, init, { baseUrl: runtime.baseUrl }),
           timeoutMs,
           onSessionRefreshed: (session) => {
             getRuntime();
@@ -3437,10 +3448,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       // erroring, but say so: this is a *temporary* downgrade and the client
       // must not treat it as the user's real data scope.
       const reason = classifyAccountFallback(e);
-      // Only the first slug of a fan-out reaches this catch — the rest are
-      // short-circuited by the cooldown — so one line per outage is enough.
-      // Keeping it unconditional makes the next "cloud summary unreachable"
-      // report diagnosable without asking the owner to flip a debug flag.
+      // Keep this unconditional so the next "cloud summary unreachable"
+      // report is diagnosable without asking the owner to flip a debug flag.
+      // The cooldown is per slug, so sibling endpoints can still serve cloud
+      // data while this one retries later.
       console.warn(`[LocalAPI] account view fallback (${reason}) for ${usageSlug}:`, e?.message || e);
       rememberAccountViewFailure(failureKey);
       return reason;
@@ -3712,7 +3723,8 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     // self-hosted instance's private CA, so browser -> instance function
     // calls fail outright ("Load failed": leaderboard, account views, avatar).
     // function-url.ts routes cloud functions here when an instance is
-    // configured; this server already holds the CA trust (NODE_EXTRA_CA_CERTS).
+    // configured; instanceFetch bootstraps the private CA even when the
+    // process was launched without NODE_EXTRA_CA_CERTS.
     if (p.startsWith("/api/cloud/functions/")) {
       const runtime = getRuntime();
       try { assertInsforgeRuntime(runtime); } catch (error) { json(res, { code: error.code, error: error.message }, 503); return true; }
@@ -3734,12 +3746,12 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const bodyChunks = [];
         for await (const chunk of req) bodyChunks.push(chunk);
         const proxyBody = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : undefined;
-        const upstream = await fetch(targetUrl, {
+        const upstream = await instanceFetch(targetUrl, {
           method: req.method || "GET",
           headers,
           body: proxyBody,
           redirect: "manual",
-        });
+        }, { baseUrl: runtime.baseUrl });
         const resBody = Buffer.from(await upstream.arrayBuffer());
         res.writeHead(upstream.status, {
           "Content-Type": upstream.headers.get("content-type") || "application/json",

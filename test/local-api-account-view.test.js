@@ -304,9 +304,9 @@ test("usage-summary?account=1 falls back to local data when not signed in", asyn
 test("model-breakdown slug gets the extended upstream timeout", () => {
   const { accountViewUpstreamTimeoutMs } = require("../src/lib/cloud-account");
   assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-model-breakdown", 0), 15000);
-  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", 0), 4000);
-  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", 8000), 8000);
-  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", -1), 4000);
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", 0), 8000);
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", 12000), 12000);
+  assert.equal(accountViewUpstreamTimeoutMs("tokentracker-usage-summary", -1), 8000);
 });
 
 test("account-view failures are briefly backed off so refresh fan-out stays responsive", async () => {
@@ -392,6 +392,108 @@ test("a first transient failure gets a short cooldown; repeated failures escalat
   } finally {
     global.fetch = realFetch;
     Date.now = realNow;
+  }
+});
+
+test("an ordinary account read tolerates a 4.5s cold response inside the 8s budget", async (t) => {
+  const queuePath = path.join(tmpHome, "queue.jsonl");
+  writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
+
+  const accessJwt = freshAccessJwt();
+  const realFetch = global.fetch;
+  t.mock.timers.enable({ apis: ["setTimeout"], now: Date.now() });
+  global.fetch = async (urlStr, opts) => {
+    const target = String(urlStr);
+    if (target.includes("/api/auth/refresh")) {
+      return { ok: true, status: 200, json: async () => ({ accessToken: accessJwt }) };
+    }
+    if (target.includes("/tokentracker-account-summary")) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ totals: { total_tokens: 456 } }),
+        }), 4500);
+        opts?.signal?.addEventListener("abort", () => {
+          clearTimeout(timer);
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        });
+      });
+    }
+    throw new Error(`unexpected fetch ${target}`);
+  };
+
+  try {
+    const handler = freshHandler(queuePath);
+    const pending = call(handler, {
+      endpoint: "/functions/tokentracker-usage-summary?from=2026-04-20&to=2026-04-20&account=1",
+    });
+    await new Promise(setImmediate);
+    t.mock.timers.tick(4500);
+    const response = await pending;
+    assert.equal(response._headers["x-tokentracker-account-view"], "1");
+    assert.equal(response._headers["x-tokentracker-account-fallback"], undefined);
+    assert.equal(response.json().totals.total_tokens, 456);
+  } finally {
+    global.fetch = realFetch;
+    t.mock.timers.reset();
+  }
+});
+
+test("a timeout on one account slug does not back off a healthy sibling slug", async () => {
+  const queuePath = path.join(tmpHome, "queue.jsonl");
+  writeQueue(queuePath, [SAMPLE_ROW]);
+  seedSignedInTracker();
+
+  const accessJwt = freshAccessJwt();
+  const prevTimeout = process.env.TOKENTRACKER_HTTP_TIMEOUT_MS;
+  process.env.TOKENTRACKER_HTTP_TIMEOUT_MS = "10";
+  const realFetch = global.fetch;
+  const edgeCalls = [];
+  global.fetch = async (urlStr, opts) => {
+    const target = String(urlStr);
+    if (target.includes("/api/auth/refresh")) {
+      return { ok: true, status: 200, json: async () => ({ accessToken: accessJwt }) };
+    }
+    if (target.includes("/tokentracker-account-summary")) {
+      edgeCalls.push("summary");
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve({ ok: true, json: async () => ({ totals: {} }) }), 1000);
+        opts?.signal?.addEventListener("abort", () => {
+          clearTimeout(timer);
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        });
+      });
+    }
+    if (target.includes("/tokentracker-account-daily")) {
+      edgeCalls.push("daily");
+      return { ok: true, status: 200, json: async () => ({ data: [] }) };
+    }
+    throw new Error(`unexpected fetch ${target}`);
+  };
+
+  try {
+    const handler = freshHandler(queuePath);
+    const summary = await call(handler, {
+      endpoint: "/functions/tokentracker-usage-summary?from=2026-04-20&to=2026-04-20&account=1",
+    });
+    assert.equal(summary._headers["x-tokentracker-account-fallback"], "transient-timeout");
+
+    const daily = await call(handler, {
+      endpoint: "/functions/tokentracker-usage-daily?from=2026-04-20&to=2026-04-20&account=1",
+    });
+    assert.equal(daily._headers["x-tokentracker-account-view"], "1");
+    assert.equal(daily._headers["x-tokentracker-account-fallback"], undefined);
+    assert.deepEqual(edgeCalls, ["summary", "daily"]);
+  } finally {
+    global.fetch = realFetch;
+    if (prevTimeout === undefined) delete process.env.TOKENTRACKER_HTTP_TIMEOUT_MS;
+    else process.env.TOKENTRACKER_HTTP_TIMEOUT_MS = prevTimeout;
   }
 });
 

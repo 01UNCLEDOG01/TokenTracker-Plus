@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LOCAL_DASHBOARD_REFRESH_OPTIONS,
   refreshDashboardAggregates,
+  runDashboardPrewarm,
 } from "./dashboard-refresh";
 
 function deferred() {
@@ -41,5 +42,25 @@ describe("dashboard refresh", () => {
 
     // The quota request is deliberately still pending at this point.
     limits.resolve();
+  });
+
+  it("bounds startup pre-warm concurrency and continues after a failed task", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const completed: number[] = [];
+    const tasks = [0, 1, 2, 3, 4].map((index) => async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      completed.push(index);
+      if (index === 1) throw new Error("optional pre-warm failed");
+    });
+
+    await runDashboardPrewarm({ tasks, concurrency: 2 });
+
+    expect(maxActive).toBe(2);
+    expect(completed).toHaveLength(5);
+    expect(new Set(completed)).toEqual(new Set([0, 1, 2, 3, 4]));
   });
 });

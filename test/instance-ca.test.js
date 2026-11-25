@@ -88,6 +88,25 @@ test("证书不受信任时自动从实例 /ca.crt 引导并缓存，重试成�
   assert.match(readCachedInstanceCa("127.0.0.1") || "", /BEGIN CERTIFICATE/);
 });
 
+test("私有实例有缓存 CA 时直连，不经过继承的全局 fetch/代理", { skip: !hasOpenssl() }, async (t) => {
+  const { port } = await startServer(t);
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-home-direct-"));
+  const previousHome = process.env.TOKENTRACKER_HOME;
+  const previousFetch = global.fetch;
+  process.env.TOKENTRACKER_HOME = home;
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.TOKENTRACKER_HOME;
+    else process.env.TOKENTRACKER_HOME = previousHome;
+    global.fetch = previousFetch;
+  });
+  const baseUrl = `https://127.0.0.1:${port}`;
+  assert.match(await discoverInstanceCa(baseUrl), /BEGIN CERTIFICATE/);
+  global.fetch = async () => { throw new Error("inherited proxy must not be used for private instance"); };
+  const res = await instanceFetch(`${baseUrl}/api/auth/probe`, {}, { baseUrl });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true, path: "/api/auth/probe" });
+});
+
 test("公网口不做 TOFU 引导", { skip: !hasOpenssl() }, async () => {
   assert.equal(await discoverInstanceCa("https://example.com"), null);
 });

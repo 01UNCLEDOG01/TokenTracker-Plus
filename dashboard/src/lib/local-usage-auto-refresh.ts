@@ -7,6 +7,7 @@ type AutoRefreshOptions = {
   intervalMs?: number;
   windowRef?: Pick<Window, "setInterval" | "clearInterval" | "addEventListener" | "removeEventListener">;
   documentRef?: Pick<Document, "visibilityState" | "addEventListener" | "removeEventListener">;
+  canRun?: () => boolean;
   onError?: (error: unknown) => void;
 };
 
@@ -22,6 +23,7 @@ export function startLocalUsageAutoRefresh({
   intervalMs = LOCAL_USAGE_REFRESH_INTERVAL_MS,
   windowRef = window,
   documentRef = document,
+  canRun,
   onError = () => {},
 }: AutoRefreshOptions) {
   let stopped = false;
@@ -31,6 +33,7 @@ export function startLocalUsageAutoRefresh({
 
   const run = () => {
     if (stopped || documentRef.visibilityState !== "visible") return inFlight;
+    if (canRun && !canRun()) return inFlight;
     if (inFlight) return inFlight;
     const pending = Promise.resolve()
       .then(() => refresh())

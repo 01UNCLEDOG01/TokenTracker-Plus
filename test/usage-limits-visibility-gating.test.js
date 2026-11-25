@@ -158,15 +158,18 @@ describe("usage-limits visibility gating (#956)", () => {
     try {
       const { counts, options } = makeCountingDeps();
       const base = { home: tmp, ...options };
-      // Selection A: CommandCode hidden -> no fetch at all.
-      await getUsageLimits({ ...base, hiddenProviders: ["commandCode"] });
+      const hideOthers = USAGE_LIMITS_PROVIDER_IDS.filter((id) => id !== "commandCode");
+      // Selection A: CommandCode hidden and every other provider hidden too,
+      // so a developer machine's live Qoder/Antigravity session cannot smuggle
+      // an unrelated fetch into this cache-partition assertion.
+      await getUsageLimits({ ...base, hiddenProviders: [...hideOthers, "commandCode"] });
       const afterA = counts.fetch;
       assert.equal(afterA, 0, "hidden CommandCode must not reach the network");
       // Same selection again -> served from its partition, still no fetch.
-      await getUsageLimits({ ...base, hiddenProviders: ["commandCode"] });
+      await getUsageLimits({ ...base, hiddenProviders: [...hideOthers, "commandCode"] });
       assert.equal(counts.fetch, afterA, "the same hidden selection must be served from its cache partition");
       // Selection B: CommandCode visible -> its own partition, fetched fresh.
-      await getUsageLimits({ ...base, hiddenProviders: [] });
+      await getUsageLimits({ ...base, hiddenProviders: hideOthers });
       assert.ok(
         counts.fetch > afterA,
         "a different hidden set must not reuse the previous selection's cache",
