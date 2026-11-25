@@ -93,6 +93,19 @@ function recordUploadSuccess({ nowMs, state, config, randInt, cloudAccess, attem
   };
 }
 
+function formatUploadError(error) {
+  const parts = [String(error?.message || "upload failed")];
+  const seen = new Set();
+  let cause = error?.cause;
+  while (cause && !seen.has(cause) && parts.length < 4) {
+    seen.add(cause);
+    const detail = cause?.message ? String(cause.message) : String(cause);
+    parts.push(`cause: ${detail}${cause?.code ? ` [${cause.code}]` : ""}`);
+    cause = cause.cause;
+  }
+  return parts.join("; ");
+}
+
 function recordUploadFailure({ nowMs, state, error, config, attemptId }) {
   const cfg = { ...DEFAULTS, ...(config || {}) };
   const s = normalizeState(state);
@@ -122,7 +135,7 @@ function recordUploadFailure({ nowMs, state, error, config, attemptId }) {
     backoffUntilMs,
     backoffStep: Math.min(20, (s.backoffStep || 0) + 1),
     lastErrorAt: new Date(nowMs).toISOString(),
-    lastError: truncate(String(error?.message || "upload failed"), 200),
+    lastError: truncate(formatUploadError(error), 200),
     lastErrorStatus: status,
     lastErrorCode: typeof error?.code === "string" ? error.code : null,
     lastErrorAttemptId: typeof attemptId === "string" && attemptId ? attemptId : null,

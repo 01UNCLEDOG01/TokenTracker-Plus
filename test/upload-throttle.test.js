@@ -83,6 +83,18 @@ test("recordUploadFailure uses Retry-After for 429", () => {
   assert.ok(typeof s.lastError === "string" && s.lastError.includes("too many requests"));
 });
 
+test("recordUploadFailure keeps the transport cause chain for diagnosis", () => {
+  const nowMs = 10_000;
+  const error = new Error("fetch failed");
+  error.cause = Object.assign(new Error("unable to verify the first certificate"), {
+    code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  });
+  const s = recordUploadFailure({ nowMs, state: {}, error });
+  assert.match(s.lastError, /fetch failed/);
+  assert.match(s.lastError, /unable to verify the first certificate/);
+  assert.match(s.lastError, /UNABLE_TO_VERIFY_LEAF_SIGNATURE/);
+});
+
 test("recordUploadFailure exponential backoff on non-429", () => {
   const nowMs = 10_000;
   const s1 = recordUploadFailure({

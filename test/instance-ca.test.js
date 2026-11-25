@@ -11,6 +11,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const { instanceFetch, discoverInstanceCa, readCachedInstanceCa, isPrivateHost } = require("../src/lib/instance-ca");
+const { drainQueueToCloud } = require("../src/commands/sync");
 
 function hasOpenssl() {
   try {
@@ -39,10 +40,28 @@ function startServer(t) {
   return new Promise((resolve) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tt-ca-"));
     const { key, cert } = makeSelfSigned(dir);
+    const requests = [];
     const server = https.createServer({ key, cert }, (req, res) => {
       if (req.url === "/ca.crt") {
         res.writeHead(200, { "content-type": "application/x-pem-file" });
         res.end(cert);
+        return;
+      }
+      if (req.url === "/functions/tokentracker-ingest" && req.method === "POST") {
+        let raw = "";
+        req.on("data", (chunk) => { raw += chunk; });
+        req.on("end", () => {
+          try {
+            const payload = JSON.parse(raw || "{}");
+            requests.push(payload);
+            const inserted = Array.isArray(payload.hourly) ? payload.hourly.length : 0;
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ inserted, skipped: 0 }));
+          } catch {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: "invalid json" }));
+          }
+        });
         return;
       }
       res.writeHead(200, { "content-type": "application/json" });
@@ -50,7 +69,7 @@ function startServer(t) {
     });
     server.listen(0, "127.0.0.1", () => {
       t.after(() => server.close());
-      resolve({ port: server.address().port });
+      resolve({ port: server.address().port, requests });
     });
   });
 }
@@ -86,6 +105,48 @@ test("证书不受信任时自动从实例 /ca.crt 引导并缓存，重试成�
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { ok: true, path: "/api/auth/probe" });
   assert.match(readCachedInstanceCa("127.0.0.1") || "", /BEGIN CERTIFICATE/);
+});
+
+test("私有 HTTPS 上传链路默认走 CA 感知 transport，Codex 队列不再卡在 fetch failed", { skip: !hasOpenssl() }, async (t) => {
+  const { port, requests } = await startServer(t);
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-home-upload-"));
+  const previousHome = process.env.TOKENTRACKER_HOME;
+  const previousCa = process.env.NODE_EXTRA_CA_CERTS;
+  process.env.TOKENTRACKER_HOME = home;
+  delete process.env.NODE_EXTRA_CA_CERTS;
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.TOKENTRACKER_HOME;
+    else process.env.TOKENTRACKER_HOME = previousHome;
+    if (previousCa === undefined) delete process.env.NODE_EXTRA_CA_CERTS;
+    else process.env.NODE_EXTRA_CA_CERTS = previousCa;
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  const queuePath = path.join(home, "queue.jsonl");
+  const queueStatePath = path.join(home, "queue.state.json");
+  const row = {
+    source: "codex",
+    model: "gpt-5.3-codex",
+    hour_start: "2026-11-25T14:00:00.000Z",
+    input_tokens: 100,
+    cached_input_tokens: 20,
+    output_tokens: 10,
+    total_tokens: 130,
+  };
+  fs.writeFileSync(queuePath, `${JSON.stringify(row)}\n`);
+
+  const result = await drainQueueToCloud({
+    baseUrl: `https://127.0.0.1:${port}`,
+    deviceToken: "test-device-token",
+    queuePath,
+    queueStatePath,
+    maxBatches: 1,
+    batchSize: 10,
+  });
+  assert.equal(result.batches, 1);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].hourly[0].source, "codex");
+  assert.equal(JSON.parse(fs.readFileSync(queueStatePath, "utf8")).offset, fs.statSync(queuePath).size);
 });
 
 test("私有实例有缓存 CA 时直连，不经过继承的全局 fetch/代理", { skip: !hasOpenssl() }, async (t) => {
