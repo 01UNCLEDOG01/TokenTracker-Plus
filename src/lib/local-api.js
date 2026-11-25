@@ -3510,6 +3510,24 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
     // fetchProviderServiceStatus("deepseek") fetches + parses the server-rendered
     // page (with a 5-minute cache and 6s timeout in provider-status.js) and we
     // return a Statuspage.io-shaped payload the existing dashboard parser reads.
+    if (p === "/api/github-stars") {
+      // Star count for the dashboard pill, proxied through the local server:
+      // optional local token (github-stars.js) + one shared cache, so the
+      // webviews never burn the anonymous api.github.com budget themselves.
+      const method = String(req.method || "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      try {
+        const { fetchGithubStarsServer } = require("./github-stars");
+        const info = await fetchGithubStarsServer();
+        json(res, info || { stars: null, fetchedAt: null, source: "unavailable" });
+      } catch (error) {
+        json(res, { error: `GitHub star fetch error: ${error?.message || error}` }, 502);
+      }
+      return true;
+    }
     if (p === "/api/deepseek-status") {
       const method = String(req.method || "GET").toUpperCase();
       if (method !== "GET" && method !== "HEAD") {

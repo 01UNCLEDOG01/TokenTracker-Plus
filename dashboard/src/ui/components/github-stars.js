@@ -1,11 +1,15 @@
-// GitHub star count with a local cache. The unauthenticated api.github.com
-// budget is 60 requests/hour per IP, and a 403 (rate limit) or a network
-// hiccup used to blank the Star pill count until the next successful fetch
-// (owner report 2026-11-25: the count vanished right after the day's heavy
-// API usage). Cache the last known count in localStorage and fall back to it
-// whenever the fetch fails or the budget is exhausted; refetch at most once
-// per TTL window. Both consumers (Sidebar StarPill, HeaderGithubStar) share
-// this helper so the two surfaces stay in sync.
+// GitHub star count for the Star pill, with layered fallbacks. Order:
+//   1. local server route (/api/github-stars) — one shared cache + optional
+//      local token (github-stars.js on the server), so the webviews never
+//      burn the anonymous api.github.com budget themselves;
+//   2. direct anonymous api.github.com fetch — covers servers older than the
+//      route (self-hosted backends, stale bundles);
+//   3. localStorage cache — survives rate limits and offline stretches; the
+//      unauthenticated budget is 60 requests/hour per IP and a 403 used to
+//      blank the count until the next successful fetch (owner report
+//      2026-11-25).
+// Both consumers (Sidebar StarPill, HeaderGithubStar) share this helper so
+// the two surfaces stay in sync.
 
 const STORAGE_KEY = "tt:github-stars";
 const FRESH_TTL_MS = 6 * 60 * 60 * 1000;
@@ -38,26 +42,53 @@ function writeCachedGithubStars(stars, now, storage = window.localStorage) {
   }
 }
 
-/**
- * Fetch the repo's star count through the cache. Returns the count to display
- * (never negative) or null when nothing is known yet. `fetchImpl` / `storage`
- * / `now` / `ttlMs` are injectable for tests.
- */
-export async function fetchGithubStarsCached(
-  repo,
-  { fetchImpl = fetch, storage = window.localStorage, now = Date.now(), ttlMs = FRESH_TTL_MS } = {},
-) {
-  const cached = readCachedGithubStars(storage);
-  if (cached && now - cached.fetchedAt < ttlMs) return cached.stars;
+async function fetchServerStars(fetchImpl) {
+  try {
+    const res = await fetchImpl("/api/github-stars");
+    const data = await res.json();
+    if (data && typeof data.stars === "number" && data.stars >= 0) {
+      return data.stars;
+    }
+  } catch {
+    /* server route missing or unreachable — try the direct fetch */
+  }
+  return null;
+}
+
+async function fetchDirectStars(repo, fetchImpl) {
   try {
     const res = await fetchImpl(`https://api.github.com/repos/${repo}`);
     const data = await res.json();
     if (data && typeof data.stargazers_count === "number" && data.stargazers_count >= 0) {
-      writeCachedGithubStars(data.stargazers_count, now, storage);
       return data.stargazers_count;
     }
   } catch {
     /* rate limit / network — fall back to the cached count below */
   }
-  return cached ? cached.stars : null;
+  return null;
+}
+
+/**
+ * Returns the star count to display (never negative) or null when nothing is
+ * known yet. `fetchImpl` / `storage` / `now` / `ttlMs` are injectable for
+ * tests. `serverUrl` lets tests point the server route elsewhere; pass `""`
+ * to skip the server layer entirely.
+ */
+export async function fetchGithubStarsCached(
+  repo,
+  {
+    fetchImpl = fetch,
+    storage = window.localStorage,
+    now = Date.now(),
+    ttlMs = FRESH_TTL_MS,
+    serverUrl = "/api/github-stars",
+  } = {},
+) {
+  const cached = readCachedGithubStars(storage);
+  if (cached && now - cached.fetchedAt < ttlMs) return cached.stars;
+  let stars = serverUrl ? await fetchServerStars(fetchImpl) : null;
+  if (stars === null) stars = await fetchDirectStars(repo, fetchImpl);
+  if (stars === null) return cached ? cached.stars : null;
+  writeCachedGithubStars(stars, now, storage);
+  return stars;
 }

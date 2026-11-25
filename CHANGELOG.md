@@ -6,6 +6,10 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.45.0] - 2026-11-25
+
+- **新增（进阶可选）：本机 GitHub token 加速 Star 拉取**。把一枚细粒度只读 token（选 Public repositories 即可，无需任何额外权限）放到 `~/.tokentracker/github-token`（或设 `TOKENTRACKER_GITHUB_TOKEN` 环境变量），Star 计数即改经本机服务端拉取并缓存：限额从「60 次/小时/IP」升至「5,000 次/小时/账号」，且所有面板面共用一次请求。token 只读本机文件、不进安装包、不出本进程，API 响应永不包含它；拉取失败回退上次已知计数，无 token 行为与 1.44.3 完全一致。
+
 ## [1.44.3] - 2026-11-25
 
 - **修复（macOS）：每次重装/热更后都弹「想访问文稿文件夹」授权窗**。会话归档的项目发现会把会话所在目录向上逐级探测 `.git/config`，这条路径没有 macOS TCC（隐私授权）跳过——历史会话若跑在 `~/Documents` 里（本机实录：`~/Documents/ChatGPT/gengxutang-dongming` 被记入游标库），重装后的首次扫描就触碰文稿触发弹窗；而 ad-hoc 签名每次重打包指纹都变，系统把已授权的应用当新应用，于是每次重装都弹。现在两处消费端都复用归因扫描器的 TCC 保护目录跳过清单（纯字符串判断、零文件系统访问）：①会话归档的项目发现（向上逐级探测）与已记录路径的新鲜度复查；②游标库 v2 的分片校验（每条已记录 `.git/config` 的 stat 复查——本机游标库里至今存着 4 条文稿路径，这就是关掉归因后仍然弹的原因）。受保护目录里的会话不再被触碰；`TOKENTRACKER_GIT_ATTRIBUTION_PROTECTED_DIRS=1` 仍可显式放行。

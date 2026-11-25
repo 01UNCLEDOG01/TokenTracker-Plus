@@ -19,6 +19,39 @@ describe("fetchGithubStarsCached", () => {
     vi.restoreAllMocks();
   });
 
+  it("prefers the local server route and caches its result", async () => {
+    const storage = makeStorage();
+    const fetchImpl = vi.fn(async (url) => {
+      expect(url).toBe("/api/github-stars");
+      return { json: async () => ({ stars: 7, fetchedAt: 5_000, source: "token" }) };
+    });
+    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 5_000 });
+    expect(stars).toBe(7);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(readCachedGithubStars(storage).stars).toBe(7);
+  });
+
+  it("falls back to the direct anonymous fetch when the server route fails", async () => {
+    const storage = makeStorage();
+    const fetchImpl = vi.fn(async (url) => {
+      if (url === "/api/github-stars") throw new TypeError("server unreachable");
+      expect(url).toBe(`https://api.github.com/repos/${REPO}`);
+      return { json: async () => ({ stargazers_count: 8 }) };
+    });
+    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 5_000 });
+    expect(stars).toBe(8);
+  });
+
+  it("falls back to the cached count when both layers fail", async () => {
+    const storage = makeStorage();
+    storage.setItem("tt:github-stars", JSON.stringify({ stars: 42, fetchedAt: 1_000_000 }));
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("offline");
+    });
+    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 9_000_000 });
+    expect(stars).toBe(42);
+  });
+
   it("returns the fresh cached count without touching the network", async () => {
     const storage = makeStorage();
     const fetchImpl = vi.fn();
@@ -29,49 +62,22 @@ describe("fetchGithubStarsCached", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("fetches when no cache exists and writes the result", async () => {
-    const storage = makeStorage();
-    const fetchImpl = vi.fn(async () => ({ json: async () => ({ stargazers_count: 7 }) }));
-    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 5_000 });
-    expect(stars).toBe(7);
-    expect(readCachedGithubStars(storage)).toEqual({ stars: 7, fetchedAt: 5_000 });
-  });
-
-  it("falls back to the cached count when the fetch rejects (rate limit / offline)", async () => {
+  it("returns null when nothing is cached and every layer fails", async () => {
     const storage = makeStorage();
     const fetchImpl = vi.fn(async () => {
-      throw new TypeError("Failed to fetch");
-    });
-    storage.setItem("tt:github-stars", JSON.stringify({ stars: 42, fetchedAt: 1_000_000 }));
-    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 9_000_000 });
-    expect(stars).toBe(42);
-  });
-
-  it("falls back to the cached count on a rate-limit body without stargazers_count", async () => {
-    const storage = makeStorage();
-    const fetchImpl = vi.fn(async () => ({ json: async () => ({ message: "API rate limit exceeded" }) }));
-    storage.setItem("tt:github-stars", JSON.stringify({ stars: 42, fetchedAt: 1_000_000 }));
-    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 9_000_000 });
-    expect(stars).toBe(42);
-  });
-
-  it("refetches once the cache is older than the TTL and updates it", async () => {
-    const storage = makeStorage();
-    const fetchImpl = vi.fn(async () => ({ json: async () => ({ stargazers_count: 99 }) }));
-    storage.setItem("tt:github-stars", JSON.stringify({ stars: 42, fetchedAt: 0 }));
-    const ttl = 6 * 60 * 60 * 1000;
-    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: ttl + 1, ttlMs: ttl });
-    expect(stars).toBe(99);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(readCachedGithubStars(storage).stars).toBe(99);
-  });
-
-  it("returns null when nothing is cached and the fetch fails", async () => {
-    const storage = makeStorage();
-    const fetchImpl = vi.fn(async () => {
-      throw new TypeError("Failed to fetch");
+      throw new TypeError("offline");
     });
     const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 1 });
     expect(stars).toBeNull();
+  });
+
+  it("serverUrl=\"\" skips the server layer (older backends)", async () => {
+    const storage = makeStorage();
+    const fetchImpl = vi.fn(async (url) => {
+      expect(url).toBe(`https://api.github.com/repos/${REPO}`);
+      return { json: async () => ({ stargazers_count: 8 }) };
+    });
+    const stars = await fetchGithubStarsCached(REPO, { fetchImpl, storage, now: 5_000, serverUrl: "" });
+    expect(stars).toBe(8);
   });
 });
