@@ -73,3 +73,12 @@ test("enrichQoderCnSpend attaches a deduped daily list and is idempotent", () =>
   assert.equal(twice, enriched);
   assert.equal(enrichQoderCnSpend({ configured: true, spend: null }).spend, null);
 });
+
+test("enrichQoderCnSpend reports the last closed day without counting realtime today as settled", () => {
+  const spend = liveSpendFixture();
+  spend.daily.push({ date: "2026-10-23", credits: 1, cost: 0.01, messages: 2, realtime: true });
+  const enriched = enrichQoderCnSpend({ configured: true, spend });
+  assert.equal(enriched.spend.daily_through, "2026-10-21");
+  assert.equal(enriched.spend.daily.at(-1).realtime, true);
+  assert.equal(enrichQoderCnSpend(enriched), enriched);
+});

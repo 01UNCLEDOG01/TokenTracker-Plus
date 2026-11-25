@@ -191,6 +191,11 @@ export function QoderCnOfficialSpend({ from, to }) {
           })}
         </p>
       )}
+      {spend.daily_through && (
+        <p className={MUTED_LINE_CLASS}>
+          {copy("usage.overview.qoder_cn_daily_through", { date: String(spend.daily_through) })}
+        </p>
+      )}
       {nothingInPeriod && (
         <p className={MUTED_LINE_CLASS}>{copy("usage.overview.qoder_cn_none")}</p>
       )}
@@ -253,7 +258,7 @@ export function QoderCnOfficialSpend({ from, to }) {
           {cn.spend_stale && (
             <p className={NOTE_CLASS}>
               {copy("usage.overview.qoder_cn_spend_snapshot", {
-                date: spend.today ? String(spend.today) : "--"
+                date: spend.daily_through ? String(spend.daily_through) : (spend.today ? String(spend.today) : "--")
               })}
             </p>
           )}

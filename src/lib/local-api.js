@@ -24,7 +24,7 @@ const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
 const { captureBadgeEarnedValues } = require("./badge-earned-values");
 const { fetchProviderServiceStatus } = require("./provider-status");
-const { getTrackerRootDir } = require("./tracker-paths");
+const { getTrackerRootDir, resolveTrackerPathsSync } = require("./tracker-paths");
 const { readTraeEvidencePools } = require("./trae-fold-evidence");
 
 const SYNC_TIMEOUT_MS = 120_000;
@@ -112,8 +112,7 @@ const { readSqliteJsonRowsAsync } = require("./sqlite-reader");
 // ---------------------------------------------------------------------------
 
 function resolveQueuePath() {
-  const home = os.homedir();
-  return path.join(home, ".tokentracker", "tracker", "queue.jsonl");
+  return path.join(resolveTrackerPathsSync().trackerDir, "queue.jsonl");
 }
 
 // Pseudo-project written by the pre-fix claude-mem observer attribution;

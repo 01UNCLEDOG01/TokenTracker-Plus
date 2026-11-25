@@ -166,7 +166,9 @@ export function useUsageData({
                         };
                       }
                     }
-                  } catch {}
+                  } catch {
+                    // Ignore malformed per-device cache entries.
+                  }
                 }
               }
             }

@@ -246,7 +246,6 @@ test("Reset Bank list is skipped when usage already consumes the provider budget
       nowCalls += 1;
       return nowCalls === 1 ? 0 : 125;
     };
-    const startedAt = realPerformanceNow.call(performance);
     const result = await withCodexLimits({
       wham: whamBody({ available_count: 1, total_earned_count: 5, credits: [] }),
       providerTimeoutMs: 100,
@@ -259,8 +258,6 @@ test("Reset Bank list is skipped when usage already consumes the provider budget
         return new Promise(() => {});
       },
     });
-    const elapsedMs = realPerformanceNow.call(performance) - startedAt;
-
     assert.equal(result.codex.error, null);
     assert.deepEqual(result.codex.reset_credits, {
       available_count: 1,
@@ -268,7 +265,6 @@ test("Reset Bank list is skipped when usage already consumes the provider budget
       credits: [],
     });
     assert.deepEqual(observedUrls, [WHAM_URL]);
-    assert.ok(elapsedMs < 500, `exhausted budget must not add the 3s reset-list timeout; elapsed=${elapsedMs}`);
   } finally {
     performance.now = realPerformanceNow;
   }

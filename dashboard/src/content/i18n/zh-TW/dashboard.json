@@ -800,6 +800,7 @@
   "sessions.storage.logical": "邏輯檔案大小",
   "sessions.storage.size": "{{value}} MiB",
   "usage.overview.qoder_cn_spend_snapshot": "官方雲端總額是 {{date}} 的快照 —— 即時刷新失敗，今天的用量不在其中。",
+  "usage.overview.qoder_cn_daily_through": "官方已結算日資料截至 {{date}}；即時紀錄另列。",
   "usage.overview.qoder_cn_spend_unavailable": "官方雲端總額取不到。這是取數失敗，不是用量為零。",
   "usage.overview.qoder_cn_session_expired_title": "Qoder 官網憑證已過期。",
   "usage.overview.qoder_cn_session_expired_body": "花費數字停在 {{date}}，即時刷新失敗 —— 更新憑證後才能看到今天的用量。",

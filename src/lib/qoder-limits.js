@@ -668,6 +668,16 @@ function readCachedQoderSpendCapturedAt({ home = os.homedir(), namespace } = {})
   }
 }
 
+function attachQoderCnSpend(limits, liveSpend, { home = os.homedir(), namespace, cachedAt } = {}) {
+  const carried = liveSpend || readCachedQoderSpend({ home, namespace });
+  limits.spend = carried || null;
+  if (!liveSpend && carried) {
+    limits.spend_stale = true;
+    limits.spend_cached_at = cachedAt || readCachedQoderSpendCapturedAt({ home, namespace });
+  }
+  return limits;
+}
+
 function writeQoderLimitsCache(limits, {
   home = os.homedir(),
   nowMs = Date.now(),
@@ -1316,7 +1326,11 @@ async function fetchQoderLimits({
           spend = await fetchQoderCnSpend(cnCookie, site, fetchImpl, { userId: cnUserId, nowMs });
         } catch (_error) {}
       }
-      rpcUsage.spend = spend || readCachedQoderSpend({ home, namespace: cacheNamespace });
+      attachQoderCnSpend(rpcUsage, spend, {
+        home,
+        namespace: cacheNamespace,
+        cachedAt: lastGoodLimits?.cached_at,
+      });
     }
     writeQoderLimitsCache(rpcUsage, { home, nowMs, namespace: cacheNamespace });
     return rpcUsage;
@@ -1419,15 +1433,18 @@ async function fetchQoderLimits({
         site: session.site.id,
       };
       if (session.site.id === "china") {
+        let spend = null;
         try {
-          const spend = await fetchQoderCnSpend(session.cookieHeader, session.site, fetchImpl, {
+          spend = await fetchQoderCnSpend(session.cookieHeader, session.site, fetchImpl, {
             userId: result.user_id,
             nowMs,
           });
-          liveResult.spend = spend || readCachedQoderSpend({ home, namespace: cacheNamespace });
-        } catch (_error) {
-          liveResult.spend = readCachedQoderSpend({ home, namespace: cacheNamespace });
-        }
+        } catch (_error) {}
+        attachQoderCnSpend(liveResult, spend, {
+          home,
+          namespace: cacheNamespace,
+          cachedAt: lastGoodLimits?.cached_at,
+        });
       }
       writeQoderLimitsCache(liveResult, { home, nowMs, namespace: cacheNamespace });
       return liveResult;
@@ -1464,6 +1481,13 @@ async function fetchQoderLimits({
   const cachedLimits = lastGoodLimits;
   if (cachedLimits) {
     if (activityWindow) cachedLimits.secondary_window = activityWindow;
+    if (site.id === "china" && lastError) {
+      attachQoderCnSpend(cachedLimits, null, {
+        home,
+        namespace: cacheNamespace,
+        cachedAt: cachedLimits.cached_at,
+      });
+    }
     return cachedLimits;
   }
 
@@ -1474,7 +1498,11 @@ async function fetchQoderLimits({
       local.source += activitySource === "disk-cache" ? "+cached-activity" : "+activity";
     }
     if (site.id === "china") {
-      local.spend = readCachedQoderSpend({ home, namespace: cacheNamespace });
+      attachQoderCnSpend(local, null, {
+        home,
+        namespace: cacheNamespace,
+        cachedAt: lastGoodLimits?.cached_at,
+      });
     }
     writeQoderLimitsCache(local, { home, nowMs, namespace: cacheNamespace });
     return local;

@@ -120,6 +120,21 @@ describe("QoderCnOfficialSpend freshness", () => {
     expect(screen.queryByText(/2030-07-28/i)).toBeNull();
   });
 
+  it("shows the official closed-day cutoff even when the response is not marked stale", async () => {
+    await renderNotices({
+      configured: true,
+      source: "provider-api",
+      primary_window: { used_credits: 10, limit_credits: 100, remaining_credits: 90, unit: "credits" },
+      spend: liveSpend({ today: "2030-07-20", daily_through: "2030-07-18" }),
+      spend_stale: false,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/closed-day totals run through 2030-07-18/i)).toBeTruthy();
+    });
+    expect(screen.queryByText(/snapshot from/i)).toBeNull();
+  });
+
   it("does not claim a snapshot or a local measurement without a local anchor", async () => {
     await renderNotices({
       configured: true,

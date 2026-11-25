@@ -14,6 +14,7 @@ const {
 const { fetchGeminiLimits } = require("../src/lib/usage-limits");
 
 function usageBody({ fiveHour = 0.2, weekly = 0.21 } = {}) {
+  const nowMs = Date.now();
   return {
     data: {
       viewer: {
@@ -24,12 +25,12 @@ function usageBody({ fiveHour = 0.2, weekly = 0.21 } = {}) {
               {
                 poolType: "GXU_FIVE_HOURLY",
                 percentageUsed: fiveHour,
-                gxu: { windowRefreshesAt: "2026-11-25T21:55:00.000Z" },
+                gxu: { windowRefreshesAt: new Date(nowMs + 5 * 60 * 60 * 1000).toISOString() },
               },
               {
                 poolType: "GXU_WEEKLY",
                 percentageUsed: weekly,
-                gxu: { windowRefreshesAt: "2026-11-28T13:55:00.000Z" },
+                gxu: { windowRefreshesAt: new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString() },
               },
             ],
           },

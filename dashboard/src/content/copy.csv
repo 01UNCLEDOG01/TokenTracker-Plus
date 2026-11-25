@@ -1983,6 +1983,7 @@ usage.overview.workbuddy_credits,ui,DashboardPage,LedgerNotices,workbuddy_credit
 usage.overview.workbuddy_none,ui,DashboardPage,LedgerNotices,workbuddy_none,No WorkBuddy credit entries in this period,,active
 usage.overview.workbuddy_note,ui,DashboardPage,LedgerNotices,workbuddy_note,"WorkBuddy bills in credits, not tokens; priced per 1,000 credits at the plan rate that grants them (domestic ¥50, international $10). Read from local ledger files only - nothing is uploaded.",,active
 usage.overview.qoder_cn_spend_snapshot,ui,DashboardPage,LedgerNotices,qoder_cn_spend_snapshot,"Official cloud totals are a snapshot from {{date}} - the live refresh failed, so today is not included.",,active
+usage.overview.qoder_cn_daily_through,ui,DashboardPage,LedgerNotices,qoder_cn_daily_through,"Official closed-day totals run through {{date}}; realtime records are shown separately.",,active
 usage.overview.qoder_cn_spend_unavailable,ui,DashboardPage,LedgerNotices,qoder_cn_spend_unavailable,"Official cloud totals could not be fetched. This is a fetch failure, not zero usage.",,active
 usage.overview.qoder_cn_session_expired_title,ui,DashboardPage,LedgerNotices,qoder_cn_session_expired_title,The Qoder website credential has expired.,,active
 usage.overview.qoder_cn_session_expired_body,ui,DashboardPage,LedgerNotices,qoder_cn_session_expired_body,Spend figures stop at {{date}} and the live refresh failed - update the credential to see today's usage again.,,active

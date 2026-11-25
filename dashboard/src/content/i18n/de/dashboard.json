@@ -599,6 +599,7 @@
   "usage.overview.workbuddy_note": "WorkBuddy rechnet in Credits ab, nicht in Tokens; umgerechnet pro 1000 Credits zum Tarifpreis, der diese Credits gewährt (Inland ¥50, international $10). Es wird nur die lokale Kontodatei gelesen, nichts hochgeladen.",
   "cloud.prompt.devices": "Kostenlose Community-Uploads nutzen ein ausgewähltes Gerät. Cloud bietet Synchronisierung mehrerer Geräte; du kannst auch Geräte pausieren und kostenlose Uploads weiter nutzen.",
   "usage.overview.qoder_cn_spend_snapshot": "Die offiziellen Cloud-Gesamtzahlen sind ein Snapshot vom {{date}} - die Live-Aktualisierung ist fehlgeschlagen, heute ist nicht enthalten.",
+  "usage.overview.qoder_cn_daily_through": "Die offiziellen Tagesabschlüsse reichen bis {{date}}; Echtzeitdatensätze werden separat ausgewiesen.",
   "usage.overview.qoder_cn_spend_unavailable": "Die offiziellen Cloud-Gesamtzahlen konnten nicht abgerufen werden. Das ist ein Abruffehler, kein Nullverbrauch.",
   "usage.overview.qoder_cn_session_expired_title": "Die Qoder-Website-Anmeldung ist abgelaufen.",
   "usage.overview.qoder_cn_session_expired_body": "Die Kosten stehen bei {{date}} und die Live-Aktualisierung ist fehlgeschlagen - nach einer Aktualisierung der Anmeldung siehst du wieder den heutigen Verbrauch.",

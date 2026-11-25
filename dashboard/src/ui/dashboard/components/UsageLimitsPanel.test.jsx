@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { copy, setCopyLocale } from "../../../lib/copy";
@@ -31,7 +31,6 @@ function formatAmount(value) {
 }
 
 function unmountPanel() {
-  const { cleanup } = require("@testing-library/react");
   cleanup();
 }
 

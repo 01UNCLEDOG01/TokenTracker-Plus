@@ -195,7 +195,14 @@ function computeQoderCnValueSummary(spend) {
 // period sums automatically stop double counting the duplicated days.
 function enrichQoderCnSpend(limits, { home = os.homedir() } = {}) {
   const spend = limits?.spend;
-  if (!spend || typeof spend !== "object" || spend.value_summary) return limits;
+  if (!spend || typeof spend !== "object") return limits;
+  const daily = dedupeQoderCnDaily(spend.daily);
+  const dailyThrough = daily.reduce((latest, row) => {
+    const date = String(row?.date || "");
+    if (row?.realtime === true || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return latest;
+    return !latest || date > latest ? date : latest;
+  }, null);
+  if (spend.value_summary && spend.daily_through) return limits;
   // The cached est_anchor may be the fork-default constant; the anchor sidecar
   // written by qoderCnEstimatedRows() is machine-local ground truth and wins.
   // `source` is what lets the UI avoid claiming "locally measured" on machines
@@ -209,8 +216,9 @@ function enrichQoderCnSpend(limits, { home = os.homedir() } = {}) {
     spend: {
       ...spend,
       est_anchor: estAnchor,
-      daily: dedupeQoderCnDaily(spend.daily),
-      value_summary: computeQoderCnValueSummary(spend),
+      daily,
+      ...(dailyThrough ? { daily_through: dailyThrough } : {}),
+      value_summary: spend.value_summary || computeQoderCnValueSummary(spend),
     },
   };
 }

@@ -939,6 +939,119 @@ test("the CN CLI fallback carries the spend ledger forward instead of blanking i
   assert.equal(readQoderLimitsCache({ home, nowMs: seededAt }), null);
 });
 
+test("the CN RPC path marks carried spend stale when the daily trend is empty", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cn-rpc-spend-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const seededAt = Date.parse("2030-07-28T00:00:00.000Z");
+  writeQoderLimitsCache({
+    configured: true,
+    error: null,
+    plan_label: "personal_standard",
+    primary_window: {
+      used_percent: 25,
+      reset_at: null,
+      used_credits: 25,
+      limit_credits: 100,
+      remaining_credits: 75,
+      unit: "credits",
+    },
+    spend: { credits_total: 85.31, messages_total: 106, daily: [{ date: "2030-07-20", credits: 85.31, cost: 1.2, messages: 106 }] },
+  }, { home, nowMs: seededAt, namespace: "cn" });
+
+  const result = await fetchQoderLimits({
+    home,
+    platform: "darwin",
+    envPrefix: "QODER_CN",
+    site: QODER_SITES.china,
+    sitePinned: true,
+    cacheNamespace: "cn",
+    nowMs: seededAt + 60_000,
+    env: { QODER_CN_COOKIE: "session=valid" },
+    rpcRequest: async (method) => method === "credit/usage" ? {
+      userType: "personal_standard",
+      totalUsagePercentage: 25,
+      isQuotaExceeded: false,
+      userQuota: { used: 25, total: 100, remaining: 75, percentage: 25, unit: "credits" },
+      expiresAt: 253_402_214_400_000,
+    } : { id: "user-1", name: "Test", userType: "personal_standard", token: "oauth-secret" },
+    fetchImpl: async (url) => {
+      if (String(url).includes("/algo/api/v2/activity")) {
+        return { ok: true, status: 200, async json() { return { code: 0, data: { activities: [] } }; } };
+      }
+      if (String(url).includes("/cost-center/credits/daily-trend")) {
+        return { ok: true, status: 200, async json() { return { trend: [] }; } };
+      }
+      throw new Error(`unexpected Qoder request: ${url}`);
+    },
+  });
+
+  assert.equal(result.spend?.credits_total, 85.31);
+  assert.equal(result.spend_stale, true);
+  assert.equal(result.spend_cached_at, new Date(seededAt).toISOString());
+  const reread = readQoderLimitsCache({ home, nowMs: seededAt + 120_000, namespace: "cn" });
+  assert.equal(reread?.spend_stale, true);
+  assert.equal(reread?.spend_cached_at, new Date(seededAt).toISOString());
+});
+
+test("the CN cookie path marks carried spend stale when the daily trend is empty", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cn-cookie-spend-"));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const seededAt = Date.parse("2030-07-28T00:00:00.000Z");
+  writeQoderLimitsCache({
+    configured: true,
+    error: null,
+    plan_label: "personal_standard",
+    primary_window: {
+      used_percent: 25,
+      reset_at: null,
+      used_credits: 25,
+      limit_credits: 100,
+      remaining_credits: 75,
+      unit: "credits",
+    },
+    spend: { credits_total: 85.31, messages_total: 106, daily: [{ date: "2030-07-20", credits: 85.31, cost: 1.2, messages: 106 }] },
+  }, { home, nowMs: seededAt, namespace: "cn" });
+
+  const result = await fetchQoderLimits({
+    home,
+    platform: "darwin",
+    envPrefix: "QODER_CN",
+    site: QODER_SITES.china,
+    sitePinned: true,
+    cacheNamespace: "cn",
+    nowMs: seededAt + 60_000,
+    env: { QODER_CN_COOKIE: "session=valid" },
+    rpcRequest: async () => { throw new Error("Qoder local service is not running."); },
+    fetchImpl: async (url) => {
+      if (String(url).includes("organization-shared-usages")) return { ok: false, status: 404 };
+      if (String(url).includes("/cost-center/credits/daily-trend")) {
+        return { ok: true, status: 200, async json() { return { trend: [] }; } };
+      }
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            user_id: "user-1",
+            totalQuota: {
+              quotaSummary: {
+                usedValue: 25,
+                limitValue: 100,
+                remainingValue: 75,
+                usagePercentage: 25,
+              },
+            },
+          };
+        },
+      };
+    },
+  });
+
+  assert.equal(result.spend?.credits_total, 85.31);
+  assert.equal(result.spend_stale, true);
+  assert.equal(result.spend_cached_at, new Date(seededAt).toISOString());
+});
+
 test("fetchQoderCnLimits targets the china activity host for Ultimate Free Calls", async (t) => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-qoder-cn-activity-"));
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));

@@ -769,6 +769,7 @@
   "sessions.storage.logical": "逻辑文件大小",
   "sessions.storage.size": "{{value}} MiB",
   "usage.overview.qoder_cn_spend_snapshot": "官方云端总额是 {{date}} 的快照 —— 实时刷新失败，今天的用量不在其中。",
+  "usage.overview.qoder_cn_daily_through": "官方已结算日数据截至 {{date}}；实时记录另列。",
   "usage.overview.qoder_cn_spend_unavailable": "官方云端总额取不到。这是取数失败，不是用量为零。",
   "usage.overview.qoder_cn_session_expired_title": "Qoder 官网凭证已过期。",
   "usage.overview.qoder_cn_session_expired_body": "花费数字停在 {{date}}，实时刷新失败 —— 更新凭证后才能看到今天的用量。",

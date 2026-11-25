@@ -588,6 +588,7 @@
   "usage.overview.workbuddy_note": "WorkBuddy는 토큰이 아닌 크레딧으로 과금됩니다. 크레딧을 부여하는 요금제 단가로 환산(국내판 1000 크레딧 = ¥50, 국제판 1000 크레딧 = $10). 로컬 대장만 읽고 업로드하지 않습니다.",
   "cloud.prompt.devices": "무료 커뮤니티 업로드는 선택한 1개 기기를 사용합니다. Cloud는 여러 기기 동기화를 지원하며 기기를 일시 중지해 무료 업로드를 계속할 수도 있습니다.",
   "usage.overview.qoder_cn_spend_snapshot": "공식 클라우드 합계는 {{date}} 스냅샷입니다. 실시간 새로고침이 실패하여 오늘 사용량은 포함되지 않았습니다.",
+  "usage.overview.qoder_cn_daily_through": "공식 일별 확정 데이터는 {{date}}까지입니다. 실시간 기록은 별도로 표시됩니다.",
   "usage.overview.qoder_cn_spend_unavailable": "공식 클라우드 합계를 가져오지 못했습니다. 사용량이 0인 것이 아니라 조회 실패입니다.",
   "usage.overview.qoder_cn_session_expired_title": "Qoder 공식 사이트 자격 증명이 만료되었습니다.",
   "usage.overview.qoder_cn_session_expired_body": "비용 수치가 {{date}}에 멈춰 있고 실시간 새로고침에 실패했습니다. 자격 증명을 갱신해야 오늘 사용량을 볼 수 있습니다.",

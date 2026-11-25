@@ -588,6 +588,7 @@
   "usage.overview.workbuddy_note": "WorkBuddy はトークンではなくクレジットで課金されます。クレジットを付与するプラン単価で換算（国内版 1000 クレジット = ¥50、国際版 1000 クレジット = $10）。ローカル台帳を読むだけでアップロードはありません。",
   "cloud.prompt.devices": "無料のコミュニティアップロードは選択した 1 台を使用します。Cloud は複数デバイスの同期に対応。デバイスを一時停止して無料アップロードを続けることも可能です。",
   "usage.overview.qoder_cn_spend_snapshot": "公式クラウド合計は {{date}} のスナップショットです。ライブ更新に失敗したため、今日の使用量は含まれていません。",
+  "usage.overview.qoder_cn_daily_through": "公式の日別確定データは {{date}} までです。リアルタイム記録は別に表示されます。",
   "usage.overview.qoder_cn_spend_unavailable": "公式クラウド合計を取得できませんでした。使用量がゼロではなく、取得の失敗です。",
   "usage.overview.qoder_cn_session_expired_title": "Qoder 公式サイトの認証情報が期限切れです。",
   "usage.overview.qoder_cn_session_expired_body": "利用額は {{date}} で停止しており、ライブ更新に失敗しました。認証情報を更新すると今日の利用量を確認できます。",

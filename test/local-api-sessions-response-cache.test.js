@@ -6,7 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const analytics = require("../src/lib/session-analytics");
 const disk = require("../src/lib/sessions-disk-cache");
-const { createLocalApiHandler } = require("../src/lib/local-api");
+const { createLocalApiHandler, resolveQueuePath } = require("../src/lib/local-api");
+const { withHome } = require("./helpers/with-home");
 
 test("requests during a session rebuild reuse the matching response and empty snapshots also rebuild", async () => {
   const original = { build: analytics.buildSessionAnalytics, list: analytics.listSessionsForBrowser, disk: disk.createSessionsDiskCache };
@@ -49,4 +50,28 @@ test("requests during a session rebuild reuse the matching response and empty sn
     disk.createSessionsDiskCache = original.disk;
     fs.rmSync(dataRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
+});
+
+test("resolveQueuePath follows the .tokentracker-plus root selected by the CLI", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-queue-path-plus-"));
+  const restoreHome = withHome(home);
+  t.after(() => {
+    restoreHome();
+    fs.rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  });
+  const root = path.join(home, ".tokentracker-plus");
+  fs.mkdirSync(root, { recursive: true });
+  assert.equal(resolveQueuePath(), path.join(root, "tracker", "queue.jsonl"));
+});
+
+test("resolveQueuePath honors TOKENTRACKER_HOME over the default home", async (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-queue-path-override-"));
+  const restoreHome = withHome(home);
+  t.after(() => {
+    restoreHome();
+    fs.rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  });
+  const root = path.join(home, "custom-tracker");
+  process.env.TOKENTRACKER_HOME = root;
+  assert.equal(resolveQueuePath(), path.join(root, "tracker", "queue.jsonl"));
 });

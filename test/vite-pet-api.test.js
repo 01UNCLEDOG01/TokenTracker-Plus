@@ -79,6 +79,8 @@ test("Vite dev server handles the current repo pet API instead of an installed C
 test("Vite dev server handles current repo session analytics instead of an installed CLI", async () => {
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-vite-session-api-"));
   const restoreHome = withHome(sandbox);
+  const previousTrackerHome = process.env.TOKENTRACKER_HOME;
+  process.env.TOKENTRACKER_HOME = path.join(sandbox, "custom-tracker");
   const previousFetch = global.fetch;
   // The contract here is route selection. Collector parsing has separate
   // fixture-based tests and must never scan the developer's real history.
@@ -98,7 +100,7 @@ test("Vite dev server handles current repo session analytics instead of an insta
     analytics = require("../src/lib/session-analytics");
     previousBuild = analytics.buildSessionAnalytics;
     analytics.buildSessionAnalytics = async () => { builds++; return []; };
-    const cachePath = path.join(sandbox, ".tokentracker", "tracker", "sessions-browser-cache.json");
+    const cachePath = path.join(sandbox, "custom-tracker", "tracker", "sessions-browser-cache.json");
     fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     const plugin = config.plugins.find((item) => item?.name === "tokentracker-local-data-api");
     let middleware;
@@ -135,6 +137,8 @@ test("Vite dev server handles current repo session analytics instead of an insta
     if (analytics) analytics.buildSessionAnalytics = previousBuild;
     global.fetch = previousFetch;
     restoreHome();
+    if (previousTrackerHome === undefined) delete process.env.TOKENTRACKER_HOME;
+    else process.env.TOKENTRACKER_HOME = previousTrackerHome;
     fs.rmSync(sandbox, { recursive: true, force: true });
   }
 });
