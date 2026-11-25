@@ -159,7 +159,7 @@ describe("Gemini limits disk-cache fallback", () => {
       const disk = JSON.parse(fs.readFileSync(cachePath(home), "utf8"));
       assert.deepEqual(Object.keys(disk.gemini).sort(), [
         "account_email", "account_plan", "cached_at", "identity",
-        "primary_window", "secondary_window", "tertiary_window",
+        "primary_window", "secondary_window", "source", "tertiary_window",
       ]);
       assert.equal(disk.gemini.identity, EMAIL);
       assert.equal(disk.gemini.account_plan, "Free");

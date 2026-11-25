@@ -98,6 +98,12 @@ export const PROVIDER_LIMIT_SPECS = {
   },
   gemini: {
     windows(data) {
+      if (/^gemini-(desktop|web)/.test(String(data.source || ""))) {
+        return [
+          { key: "pro", labelKey: "limits.label.gemini_5h", window: data.primary_window, windowSeconds: 5 * 3600 },
+          { key: "flash", labelKey: "limits.label.gemini_7d", window: data.secondary_window, windowSeconds: 7 * 86400 },
+        ];
+      }
       return [
         { key: "pro", labelKey: "limits.label.gemini_pro", window: data.primary_window },
         { key: "flash", labelKey: "limits.label.gemini_flash", window: data.secondary_window },
@@ -591,6 +597,8 @@ export function usageLimitsLabelCopyAnchor() {
     copy("limits.label.cursor_auto"),
     copy("limits.label.cursor_api"),
     copy("limits.label.cursor_grok_bot"),
+    copy("limits.label.gemini_5h"),
+    copy("limits.label.gemini_7d"),
     copy("limits.label.gemini_pro"),
     copy("limits.label.gemini_flash"),
     copy("limits.label.gemini_lite"),

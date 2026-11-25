@@ -6140,6 +6140,38 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
       return true;
     }
 
+    // --- gemini-web-cookie (POST) ---
+    // The Gemini app usage page has no public OAuth quota API. Persist the
+    // user-supplied Cookie header locally; it is never echoed or forwarded to
+    // any host except gemini.google.com by the quota reader.
+    if (p === "/functions/tokentracker-gemini-web-cookie") {
+      if (String(req.method || "GET").toUpperCase() !== "POST") {
+        json(res, { error: "Method Not Allowed" }, 405);
+        return true;
+      }
+      if (!isAuthorizedLocalMutation(req)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      try {
+        const raw = (await readBodyLimited(req, 64 * 1024)).toString("utf8");
+        const body = raw.trim() ? JSON.parse(raw) : {};
+        const { writeGeminiWebCookie, clearGeminiWebCookie } = require("./gemini-web-quota");
+        const result = body?.clear === true
+          ? clearGeminiWebCookie({ home: os.homedir(), env: process.env })
+          : writeGeminiWebCookie({ home: os.homedir(), cookie: body?.cookie });
+        if (result.saved === false) {
+          json(res, { error: result.error || "invalid_cookie" }, 400);
+          return true;
+        }
+        try { require("./usage-limits").resetUsageLimitsCache(); } catch {}
+        json(res, result);
+      } catch (e) {
+        json(res, { error: e?.message || "Failed to save cookie" }, 400);
+      }
+      return true;
+    }
+
     // --- opendesign-cookie (POST) ---
     // Persist a hand-copied open-design.ai Cookie header from the limits
     // page paste box. Same contract as qoder-cookie: loopback auth required,

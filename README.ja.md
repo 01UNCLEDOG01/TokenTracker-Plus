@@ -91,6 +91,7 @@
 |---|---|
 | **Hark** | hark.com のアカウント残高を自動読取：1 日のトークン上限、月次プール、機能別の内訳と自動チャージ金額 |
 | **Today（中国版）** | セッション Cookie 接続：Pro プラン有効期限、月次/カテゴリ別用量と残り「重複グラント」（API は割合のみ提供、パネルは実勢のまま表示） |
+| **Gemini** | `gemini.google.com/usage` の Cookie を貼り付けて 5 時間/週の limits を直接取得。Cookie はローカルに 0600 で保存し、アップロードや再表示はしません |
 | **OpenAI API クレジット** | 公式 credits 残高の読取 |
 | **Mistral** | 公式残高接続 |
 | **MiniMax Code（OAuth）** | OAuth レーン接続 |

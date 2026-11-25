@@ -6,6 +6,12 @@
 - 版本号遵循 SemVer：MINOR（x.y.0）为功能版本，PATCH（x.y.z）为修复版本。标注「热更批次」的版本未单独发布安装包，其内容随后续安装包进入安装器。
 - 本项目与上游 [xiufengsun/TokenTracker](https://github.com/xiufengsun/TokenTracker)（MIT）的演进历史自 2026-10-29 起完全独立，上游吸收的功能一律显式移植并单独记账。
 
+## [1.46.0] - 2026-11-25
+
+- **修复：Gemini 限额卡名称与窗口标签误导**。卡片标题不再把个人套餐拼成“Gemini Pro”，统一显示 provider 名称“Gemini”；当前用量/每周限额改为“5 小时/本周”，不再误标为 Pro/Flash。旧 Gemini CLI 的模型档位语义仍保留。
+- **新增：Gemini Cookie + GraphQL 实时读取**。限额页可粘贴一次 `gemini.google.com/usage` 的 Cookie 请求头，TT+ 直接读取官方用量页的 `GXU_FIVE_HOURLY` / `GXU_WEEKLY` 池，不再要求桌面端停留在用量页。Cookie 仅保存在本机 0600 文件，不上传、不回显；也可用 `TOKENTRACKER_GEMINI_WEB_COOKIE` 环境变量配置。
+- **改进：Gemini 读取来源更透明**。GraphQL 实时读取标记为“接口”；无 Cookie 时才回退到 Windows 桌面只读与缓存，并明确标记“只读”或“过期缓存”。所有回退均不点击、不导航。
+
 ## [1.45.0] - 2026-11-25
 
 - **新增（进阶可选）：本机 GitHub token 加速 Star 拉取**。把一枚细粒度只读 token（选 Public repositories 即可，无需任何额外权限）放到 `~/.tokentracker/github-token`（或设 `TOKENTRACKER_GITHUB_TOKEN` 环境变量），Star 计数即改经本机服务端拉取并缓存：限额从「60 次/小时/IP」升至「5,000 次/小时/账号」，且所有面板面共用一次请求。token 只读本机文件、不进安装包、不出本进程，API 响应永不包含它；拉取失败回退上次已知计数，无 token 行为与 1.44.3 完全一致。

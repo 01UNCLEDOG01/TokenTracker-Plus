@@ -1683,6 +1683,49 @@ test("qoder-cookie route saves a cookie only for an authenticated loopback POST"
   assert.equal(badRes.statusCode, 400);
 });
 
+test("gemini-web-cookie route saves a cookie only for an authenticated loopback POST", async () => {
+  const { createLocalApiHandler } = require("../src/lib/local-api");
+  const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });
+  const token = await getLocalAuthToken(handler);
+  const url = new URL("http://127.0.0.1/functions/tokentracker-gemini-web-cookie");
+  const cookieFile = path.join(process.env.HOME, ".tokentracker", "tracker", "gemini-web-cookie.txt");
+
+  const getRes = createResponse();
+  await handler(createRequest({ method: "GET", headers: { "x-tokentracker-local-auth": token } }), getRes, url);
+  assert.equal(getRes.statusCode, 405);
+
+  const anonRes = createResponse();
+  await handler(createRequest({ method: "POST", body: JSON.stringify({ cookie: "SID=abc" }) }), anonRes, url);
+  assert.equal(anonRes.statusCode, 401);
+
+  const okRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ cookie: "SID=abc; NID=def" }),
+  }), okRes, url);
+  assert.equal(okRes.statusCode, 200);
+  assert.equal(fs.readFileSync(cookieFile, "utf8"), "SID=abc; NID=def");
+  assert.equal(okRes.body.toString("utf8").includes("SID=abc"), false, "cookie must never be echoed");
+
+  const badRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ cookie: "SID=abc\r\nInjected=1" }),
+  }), badRes, url);
+  assert.equal(badRes.statusCode, 400);
+
+  const clearRes = createResponse();
+  await handler(createRequest({
+    method: "POST",
+    headers: { "x-tokentracker-local-auth": token },
+    body: JSON.stringify({ clear: true }),
+  }), clearRes, url);
+  assert.equal(clearRes.statusCode, 200);
+  assert.equal(fs.existsSync(cookieFile), false);
+});
+
 test("opendesign-cookie route saves a cookie only for an authenticated loopback POST", async () => {
   const { createLocalApiHandler } = require("../src/lib/local-api");
   const handler = createLocalApiHandler({ queuePath: path.join(process.env.HOME, "queue.jsonl") });

@@ -1231,6 +1231,11 @@ function renderConfiguredProvider(id, data, title, mode, expanded, onToggle, bad
           <QoderCookieInput namespace="intl" onSaved={onKeySaved} />
         </CollapsibleCredentialSection>
       ) : null}
+      {id === "gemini" ? (
+        <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
+          <GeminiCookieInput onSaved={onKeySaved} />
+        </CollapsibleCredentialSection>
+      ) : null}
       {id === "opendesign" ? (
         <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie">
           <OpenDesignCookieInput onSaved={onKeySaved} />
@@ -1309,6 +1314,11 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
             <QoderCookieInput namespace="intl" onSaved={onKeySaved} />
           </CollapsibleCredentialSection>
         ) : null}
+        {id === "gemini" ? (
+          <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
+            <GeminiCookieInput onSaved={onKeySaved} />
+          </CollapsibleCredentialSection>
+        ) : null}
         {id === "opendesign" ? (
           <CollapsibleCredentialSection labelKey="limits.cookieToggle.cookie" defaultExpanded>
             <OpenDesignCookieInput onSaved={onKeySaved} />
@@ -1385,6 +1395,7 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
         {id === "codingPlan" ? <ArkCodingPlanSetupHint /> : null}
         {id === "agentPlan" ? <ArkAgentPlanSetupHint /> : null}
         {id === "devin" ? <DevinSetupHint /> : null}
+        {id === "gemini" ? <GeminiCookieInput onSaved={onKeySaved} /> : null}
         {id === "opendesign" ? <OpenDesignCookieInput onSaved={onKeySaved} /> : null}
       {id === "mistral" ? <MistralCookieInput onSaved={onKeySaved} /> : null}
       {id === "openaiCredits" ? <OpenaiCreditsCredentialsInput onSaved={onKeySaved} /> : null}
@@ -1400,7 +1411,8 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
   }
 
   const baseName = limitProviderName(id);
-  const title = data.plan_label ? `${baseName} ${data.plan_label}` : baseName;
+  // Gemini Pro/Ultra is the user's subscription, not the provider brand.
+  const title = id !== "gemini" && data.plan_label ? `${baseName} ${data.plan_label}` : baseName;
   let badge = null;
   // Reauth is more actionable than a cached/live freshness badge: the bars
   // will not move again until the user signs in, even if a disk snapshot
@@ -1427,6 +1439,24 @@ function renderProviderGroup(id, data, mode, expanded, onToggle, now = Date.now(
       badge = <StatusBadge label={copy("limits.label.antigravity_cached")} age={suffix} tone="cached" tooltip={copy("limits.tooltip.antigravity_cached")} />;
     } else {
       badge = <StatusBadge label={copy("limits.label.antigravity_live")} tone="live" tooltip={copy("limits.tooltip.antigravity_live")} />;
+    }
+  }
+  if (!badge && id === "gemini" && /^gemini-(desktop|web)/.test(String(data.source || ""))) {
+    const geminiProvenance = data.provenance;
+    if (data.stale === true || geminiProvenance?.stale) {
+      badge = <StatusBadge
+        label={copy("limits.provenance.stale")}
+        age={ago(geminiProvenance?.captured_at || data.cached_at)}
+        tone="stale"
+        tooltip={copy("limits.provenance.tooltip", {
+          source: geminiProvenance?.source || data.source,
+          confidence: geminiProvenance?.confidence || "observed",
+        })}
+      />;
+    } else if (String(data.source).startsWith("gemini-web")) {
+      badge = <StatusBadge label={copy("limits.label.gemini_api")} tone="live" tooltip={copy("limits.tooltip.gemini_api")} />;
+    } else {
+      badge = <StatusBadge label={copy("limits.label.gemini_uia")} tone="live" tooltip={copy("limits.tooltip.gemini_uia")} />;
     }
   }
   if (!badge && (id === "qoder" || id === "qoderCn") && data.cached) {
@@ -2086,6 +2116,105 @@ function OpenCodeGoCookieInput({ onSaved }) {
         {status === "failed"
           ? copy("limits.apiKey.save_failed_detail", { detail: detail || "unknown" })
           : copy("limits.opencodeGo.cookie.hint")}
+      </div>
+    </form>
+  );
+}
+
+function GeminiCookieInput({ onSaved }) {
+  const [cookie, setCookie] = useState("");
+  const [status, setStatus] = useState("idle");
+  const [detail, setDetail] = useState("");
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = cookie.trim();
+    if (!value || status === "saving") return;
+    setStatus("saving");
+    setDetail("");
+    try {
+      const res = await fetch("/functions/tokentracker-gemini-web-cookie", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ cookie: value }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error || `HTTP ${res.status}`);
+      }
+      setCookie("");
+      setStatus("saved");
+      onSaved?.();
+    } catch (err) {
+      setDetail(err?.message || "");
+      setStatus("failed");
+    }
+  };
+
+  const onClear = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch("/functions/tokentracker-gemini-web-cookie", {
+        method: "POST",
+        headers: {
+          ...(await getLocalApiAuthHeaders()),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ clear: true }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setStatus("idle");
+      setDetail("");
+      onSaved?.();
+    } catch (_e) {
+      setStatus("failed");
+      setDetail("clear_failed");
+    }
+  };
+
+  return (
+    <form className="mt-1.5 space-y-1.5" onSubmit={onSubmit} onClick={(e) => e.stopPropagation()}>
+      <textarea
+        value={cookie}
+        onChange={(e) => { setCookie(e.target.value); setStatus("idle"); setDetail(""); }}
+        placeholder={copy("limits.gemini.cookie.placeholder")}
+        aria-label={copy("limits.gemini.cookie.placeholder")}
+        rows={2}
+        spellCheck={false}
+        autoComplete="off"
+        className="w-full rounded-md border border-oai-gray-300 bg-white px-2 py-1 font-mono text-[10.5px] text-oai-gray-800 outline-none focus:border-oai-brand dark:border-oai-gray-700 dark:bg-oai-gray-900 dark:text-oai-gray-100"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={!cookie.trim() || status === "saving"}
+          className="rounded-md bg-oai-brand/10 px-2 py-1 font-medium text-oai-brand hover:bg-oai-brand/15 disabled:opacity-50 transition-colors"
+        >
+          {status === "saving"
+            ? copy("limits.apiKey.saving")
+            : status === "saved"
+              ? copy("limits.apiKey.saved")
+              : copy("limits.gemini.cookie.save")}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="rounded-md border border-oai-gray-300 px-2 py-1 text-oai-gray-600 hover:bg-oai-gray-100 dark:border-oai-gray-700 dark:text-oai-gray-300 dark:hover:bg-oai-gray-800 transition-colors"
+        >
+          {copy("limits.gemini.cookie.clear")}
+        </button>
+      </div>
+      <div className="text-[10px] text-oai-gray-400 dark:text-oai-gray-500">
+        {status === "failed"
+          ? copy("limits.apiKey.save_failed_detail", { detail: detail || "unknown" })
+          : copy("limits.gemini.cookie.hint")}
       </div>
     </form>
   );

@@ -91,6 +91,7 @@
 |---|---|
 | **Hark** | Lê automaticamente as cotas da conta hark.com: limite diário de tokens, pool mensal, linhas por função e valor de recarga automática |
 | **Today (China)** | Integração por cookie de sessão: validade do plano Pro, uso mensal/por categoria e subsídios "overlap" restantes (a API só expõe percentuais; o painel os renderiza sem conversão) |
+| **Gemini** | Cole o Cookie de `gemini.google.com/usage` para ler diretamente as cotas de 5 horas/semana; salvo localmente como 0600, nunca enviado ou exibido novamente |
 | **Créditos da API OpenAI** | Leitura do saldo oficial de credits |
 | **Mistral** | Integração oficial de cotas |
 | **MiniMax Code (OAuth)** | Integração pela lane OAuth |

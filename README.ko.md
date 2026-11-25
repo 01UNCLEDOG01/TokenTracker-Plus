@@ -91,6 +91,7 @@
 |---|---|
 | **Hark** | hark.com 계정 한도 자동 판독: 일일 토큰 상한, 월간 풀, 기능별 세분화 한도 행과 자동 충전 금액 |
 | **Today(중국판)** | 세션 쿠키 연동: Pro 플랜 유효기간, 월간/분류별 사용량과 남은「중복 그랜트」(API는 백분율만 제공, 패널은 실측 그대로 표시) |
+| **Gemini** | `gemini.google.com/usage` Cookie를 붙여넣어 5시간/주간 한도를 직접 조회합니다. Cookie는 로컬에 0600으로 저장되며 업로드하거나 다시 표시하지 않습니다 |
 | **OpenAI API 크레딧** | 공식 credits 잔액 판독 |
 | **Mistral** | 공식 한도 연동 |
 | **MiniMax Code(OAuth)** | OAuth 레인 연동 |

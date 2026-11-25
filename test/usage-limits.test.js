@@ -41,6 +41,7 @@ const {
   describeCopilotOtelStatus,
 } = require("./helpers/usage-limits");
 const { writeArkCodingPlanLimitsCache } = require("../src/lib/ark-coding-plan-limits");
+const { USAGE_LIMITS_PROVIDER_IDS } = require("../src/lib/usage-limits");
 
 // Match a fetch URL by host (exact or subdomain) rather than substring, so the
 // filter can't be fooled by lookalike hosts — and so CodeQL's
@@ -3565,6 +3566,7 @@ describe("normalizeGeminiDesktopQuota", () => {
     assert.equal(result.configured, true);
     assert.equal(result.error, null);
     assert.equal(result.account_plan, "Pro");
+    assert.equal(result.source, "gemini-desktop-uia");
     assert.equal(result.primary_window.used_percent, 67);
     assert.equal(result.primary_window.reset_at, new Date(2026, 10, 25, 9, 55).toISOString());
     assert.equal(result.secondary_window.used_percent, 12);
@@ -3613,6 +3615,47 @@ describe("normalizeGeminiDesktopQuota", () => {
     assert.equal(result.error, "usage page unavailable");
   });
 
+  it("keeps the desktop cache fallback stale through the aggregate response", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-gemini-desktop-aggregate-"));
+    try {
+      const trackerDir = path.join(home, ".tokentracker", "tracker");
+      fs.mkdirSync(trackerDir, { recursive: true });
+      const resetAt = new Date(Date.now() + 3_600_000).toISOString();
+      const cachedAt = new Date(Date.now() - 120_000).toISOString();
+      fs.writeFileSync(path.join(trackerDir, "gemini-usage-limits-cache.json"), JSON.stringify({
+        gemini: {
+          identity: "gemini-desktop",
+          account_plan: "Pro",
+          primary_window: { used_percent: 67, reset_at: resetAt },
+          secondary_window: { used_percent: 12, reset_at: resetAt },
+          tertiary_window: null,
+          cached_at: cachedAt,
+        },
+      }));
+      resetUsageLimitsCache();
+      const result = await getUsageLimits({
+        home,
+        platform: "win32",
+        forceRefresh: true,
+        hiddenProviders: USAGE_LIMITS_PROVIDER_IDS.filter((id) => id !== "gemini"),
+        commandRunner: () => ({
+          status: 0,
+          stdout: JSON.stringify({ configured: true, items: [], plans: [] }),
+          stderr: "",
+        }),
+      });
+      assert.equal(result.gemini.source, "gemini-desktop-cache");
+      assert.equal(result.gemini.stale, true);
+      assert.equal(result.gemini.cached_at, cachedAt);
+      assert.equal(result.gemini.provenance.source, "gemini-desktop-cache");
+      assert.equal(result.gemini.provenance.stale, true);
+      assert.equal(result.gemini.primary_window.used_percent, 67);
+    } finally {
+      resetUsageLimitsCache();
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("serves the last desktop quota without navigating when the usage page is closed", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "tokentracker-gemini-desktop-cache-"));
     try {
@@ -3636,6 +3679,7 @@ describe("normalizeGeminiDesktopQuota", () => {
       });
       assert.equal(result.configured, true);
       assert.equal(result.error, null);
+      assert.equal(result.source, "gemini-desktop-cache");
       assert.equal(result.stale, true);
       assert.equal(result.primary_window.used_percent, 67);
       assert.equal(result.secondary_window.used_percent, 12);

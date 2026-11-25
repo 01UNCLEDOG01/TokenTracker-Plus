@@ -252,6 +252,7 @@ The repo supports **59 AI coding tools** (from `SUPPORTED_PROVIDERS` in `src/com
 |---|---|
 | **Hark** | Reads hark.com account quotas automatically: daily token cap, monthly pool, per-function breakdown and auto top-up amount |
 | **Today (China)** | Session-cookie integration: Pro tier validity, monthly/per-category usage and remaining overlap grants (the API only exposes percentages; the panel renders them as-is) |
+| **Gemini** | Paste the `gemini.google.com/usage` Cookie header to read 5-hour/weekly quotas directly; stored locally as 0600, never uploaded or echoed |
 | **OpenAI API credits** | Official credits balance reader |
 | **Mistral** | Official quota integration |
 | **MiniMax Code (OAuth)** | OAuth lane integration |

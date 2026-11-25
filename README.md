@@ -252,6 +252,7 @@ node bin/tracker.js doctor     # 运行系统诊断与健康检查
 |---|---|
 | **Hark** | 自动读取 hark.com 账户额度：每日 Token 上限、月度池、按功能拆分的额度行与自动充值金额 |
 | **Today（中国版）** | 粘贴会话 Cookie 接入：Pro 档有效期、月度/分类用量与剩余「重叠额度」（接口只提供百分比，面板如实渲染不做换算） |
+| **Gemini** | 粘贴 `gemini.google.com/usage` Cookie：直接读取 5 小时/周限额；Cookie 仅本机 0600 保存，不上传、不回显 |
 | **OpenAI API 额度** | 官方 credits 余额读取 |
 | **Mistral** | 官方额度接入 |
 | **MiniMax Code（OAuth）** | OAuth 车道接入 |

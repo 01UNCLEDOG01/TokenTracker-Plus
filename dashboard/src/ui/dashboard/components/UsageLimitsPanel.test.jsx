@@ -59,6 +59,97 @@ describe("UsageLimitsPanel", () => {
     setCopyLocale(EN_LOCALE);
   });
 
+  it("keeps the Gemini brand and labels desktop windows by duration", () => {
+    setCopyLocale(EN_LOCALE);
+    render(<UsageLimitsPanel
+      order={["gemini"]}
+      gemini={{
+        configured: true,
+        plan_label: "Pro",
+        account_plan: "Pro",
+        source: "gemini-desktop-uia",
+        primary_window: { used_percent: 20, reset_at: "2026-11-25T21:55:00.000Z" },
+        secondary_window: { used_percent: 21, reset_at: "2026-11-28T13:55:00.000Z" },
+      }}
+    />);
+    expect(screen.getByRole("button", { name: /^Gemini(?! Pro)/ })).toBeInTheDocument();
+    expect(screen.queryByText("Gemini Pro")).not.toBeInTheDocument();
+    expect(screen.getByText("5h")).toBeInTheDocument();
+    expect(screen.getByText("7d")).toBeInTheDocument();
+    expect(screen.getByText("UIA")).toBeInTheDocument();
+    expect(screen.queryByText("Flash")).not.toBeInTheDocument();
+  });
+
+  it("marks a Gemini desktop cache fallback as stale instead of live", () => {
+    setCopyLocale(EN_LOCALE);
+    render(<UsageLimitsPanel
+      order={["gemini"]}
+      gemini={{
+        configured: true,
+        source: "gemini-desktop-cache",
+        stale: true,
+        cached_at: "2026-11-25T17:00:00.000Z",
+        provenance: { source: "gemini-desktop-cache", confidence: "observed", stale: true, captured_at: "2026-11-25T17:00:00.000Z" },
+        primary_window: { used_percent: 20 },
+        secondary_window: { used_percent: 21 },
+      }}
+    />);
+    expect(screen.getByText(/stale/i)).toBeInTheDocument();
+    expect(screen.queryByText("UIA")).not.toBeInTheDocument();
+  });
+
+  it("labels the Gemini web GraphQL source as an API read", () => {
+    setCopyLocale(EN_LOCALE);
+    render(<UsageLimitsPanel
+      order={["gemini"]}
+      gemini={{
+        configured: true,
+        source: "gemini-web-graphql",
+        primary_window: { used_percent: 20 },
+        secondary_window: { used_percent: 21 },
+      }}
+    />);
+    expect(screen.getByRole("button", { name: /^Gemini(?! Pro)/ })).toBeInTheDocument();
+    expect(screen.getByText("API")).toBeInTheDocument();
+    expect(screen.getByText("5h")).toBeInTheDocument();
+    expect(screen.getByText("7d")).toBeInTheDocument();
+  });
+
+  it("saves a Gemini web cookie through the authenticated local endpoint", async () => {
+    setCopyLocale(EN_LOCALE);
+    const fetchMock = vi.fn(async (url) => (
+      url === "/functions/tokentracker-gemini-web-cookie"
+        ? { ok: true, status: 200, json: async () => ({ saved: true }) }
+        : { ok: true, status: 200, json: async () => ({ limitRows: [] }) }
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<UsageLimitsPanel order={["gemini"]} gemini={{ configured: false }} />);
+    const input = screen.getByLabelText("Paste Cookie header from gemini.google.com/usage");
+    fireEvent.change(input, { target: { value: "SID=abc; NID=def" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/functions/tokentracker-gemini-web-cookie",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ cookie: "SID=abc; NID=def" }) }),
+    ));
+    await waitFor(() => expect(input).toHaveValue(""));
+  });
+
+  it("retains model-scoped labels for the legacy Gemini CLI payload", () => {
+    setCopyLocale(EN_LOCALE);
+    render(<UsageLimitsPanel
+      order={["gemini"]}
+      gemini={{
+        configured: true,
+        primary_window: { used_percent: 20 },
+        secondary_window: { used_percent: 21 },
+        tertiary_window: { used_percent: 10 },
+      }}
+    />);
+    expect(screen.getByText("Pro")).toBeInTheDocument();
+    expect(screen.getByText("Flash")).toBeInTheDocument();
+    expect(screen.getByText("Lite")).toBeInTheDocument();
+  });
+
   it("shows one WorkBuddy row with exact credit amounts on hover and keyboard expansion in Chinese", async () => {
     setCopyLocale(ZH_CN_LOCALE);
     render(<UsageLimitsPanel order={["workbuddy", "workbuddyAi"]}

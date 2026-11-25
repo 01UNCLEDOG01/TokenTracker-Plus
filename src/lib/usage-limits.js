@@ -1568,6 +1568,7 @@ function normalizeGeminiDesktopQuota(raw, { nowMs = Date.now() } = {}) {
   return {
     configured: true,
     error: null,
+    source: "gemini-desktop-uia",
     account_email: null,
     account_plan: plan,
     primary_window: toWindow(rows[0]),
@@ -1578,6 +1579,37 @@ function normalizeGeminiDesktopQuota(raw, { nowMs = Date.now() } = {}) {
 }
 
 async function fetchGeminiLimits({ home, env, fetchImpl = fetch, commandRunner, platform = process.platform, desktopReader } = {}) {
+  const { readGeminiWebCookie, fetchGeminiWebQuota } = require("./gemini-web-quota");
+  const webCredential = readGeminiWebCookie({ home, env });
+  if (webCredential.error) {
+    return {
+      configured: true,
+      source: "gemini-web-graphql",
+      error: "Gemini web cookie is invalid. Update it in Limits settings.",
+      auth_error: true,
+    };
+  }
+  if (webCredential.cookie) {
+    const webIdentity = `gemini-web:${crypto.createHash("sha256").update(webCredential.cookie).digest("hex")}`;
+    try {
+      const web = await fetchGeminiWebQuota({ cookie: webCredential.cookie, fetchImpl });
+      const result = { ...web, credential_source: webCredential.source, cache_identity: webIdentity };
+      writeGeminiLimitsCache(result, { home, identity: webIdentity });
+      return result;
+    } catch (error) {
+      if (error?.code !== "AUTH_EXPIRED") {
+        const cached = readGeminiLimitsCache({ home, identity: webIdentity });
+        if (cached) return cached;
+      }
+      return {
+        configured: true,
+        source: "gemini-web-graphql",
+        error: error?.message || "Gemini usage request failed.",
+        auth_error: error?.code === "AUTH_EXPIRED",
+      };
+    }
+  }
+
   if (platform === "win32") {
     const desktopRaw = desktopReader
       ? await desktopReader()
@@ -3396,6 +3428,11 @@ function normalizeGeminiCachedLimits(
   const cached = {
     configured: true,
     error: null,
+    source: raw?.source === "gemini-web-graphql"
+      ? "gemini-web-cache"
+      : raw?.identity === "gemini-desktop"
+        ? "gemini-desktop-cache"
+        : "disk-cache",
     account_email: typeof raw?.account_email === "string" ? raw.account_email : null,
     account_plan: typeof raw?.account_plan === "string" ? raw.account_plan : null,
     primary_window: isGeminiCacheWindowUsable(raw?.primary_window, { nowMs }) ? raw.primary_window : null,
@@ -3433,6 +3470,7 @@ function writeGeminiLimitsCache(limits, { home, nowMs = Date.now(), identity } =
   const payload = {
     gemini: {
       identity,
+      source: limits.source || null,
       account_email: limits.account_email || null,
       account_plan: limits.account_plan || null,
       primary_window: limits.primary_window || null,
@@ -5574,6 +5612,8 @@ async function fetchUsageLimitsUncached({
     geminiWithCache = gemini;
   } else if (gemini.auth_error === true) {
     geminiWithCache = gemini;
+  } else if (gemini.source === "gemini-desktop-cache" || gemini.source === "gemini-web-cache" || gemini.source === "disk-cache") {
+    geminiWithCache = gemini;
   } else if (!gemini.error && hasGeminiWindow(gemini)) {
     geminiWithCache = {
       ...gemini,
@@ -5812,7 +5852,7 @@ async function fetchUsageLimitsUncached({
     const source = explicitSource || (stale ? "disk-cache" : "provider-api");
     const confidence = /estimate|inferred/i.test(source)
       ? "inferred"
-      : /local|database|sqlite|cache/i.test(source)
+      : /local|database|sqlite|cache|uia/i.test(source)
         ? "observed"
         : "official";
     provider.provenance = {
