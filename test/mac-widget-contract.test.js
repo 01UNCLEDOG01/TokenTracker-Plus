@@ -93,11 +93,16 @@ test('packaging ships, stamps and signs the appex', () => {
     'appex version must be stamped like the app version');
   // The appex MUST be re-signed with its sandbox entitlements explicitly: a bare
   // --force --sign strips them and pkd rejects the plugin ("plug-ins must be
-  // sandboxed") — that was the first packaging failure of this batch.
-  const appexSign = script.indexOf('codesign --force --sign - --entitlements "$WIDGET_ENTITLEMENTS" "$APEX"');
-  const appSign = script.indexOf('codesign --force --sign - "$APP_DIR"');
+  // sandboxed") — that was the first packaging failure of this batch. Since
+  // 2026-11-25 the signing identity comes from $SIGN_IDENTITY (stable local
+  // "TT-Plus Local Signing" when present, ad-hoc `-` fallback) so TCC grants
+  // persist across rebuilds; the ordering appex→app stays contractual.
+  const appexSign = script.indexOf('codesign --force --sign "$SIGN_IDENTITY" --entitlements "$WIDGET_ENTITLEMENTS" "$APEX"');
+  const appSign = script.indexOf('codesign --force --sign "$SIGN_IDENTITY" "$APP_DIR"');
   assert.ok(appexSign > 0, 'the appex must be re-signed with its entitlements file');
   assert.ok(appSign > appexSign, 'the appex must be signed before the app seals it');
+  assert.match(script, /if security find-identity -v -p codesigning 2>\/dev\/null \| grep -q "TT-Plus Local Signing"/,
+    'the signing identity must fall back to ad-hoc when the stable identity is absent');
   assert.match(script, /WIDGET_ENTITLEMENTS="\$MAC_DIR\/TokenTrackerBar\/TokenTrackerWidget\/TokenTrackerWidget\.entitlements"/);
 });
 

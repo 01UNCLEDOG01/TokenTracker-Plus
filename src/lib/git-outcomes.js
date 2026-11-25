@@ -112,7 +112,7 @@ function protectedProbeAllowed() {
   return ["1", "true"].includes(String(process.env.TOKENTRACKER_GIT_ATTRIBUTION_PROTECTED_DIRS || "").toLowerCase());
 }
 
-function isTccProtectedPath(target, home) {
+function isTccProtectedPath(target, home = os.homedir()) {
   if (process.platform !== "darwin" || protectedProbeAllowed()) return false;
   const resolved = path.resolve(String(target || ""));
   if (resolved === "/Volumes" || resolved.startsWith("/Volumes/")) return true;
@@ -240,4 +240,11 @@ function buildGitOutcomes(sessions, options = {}) {
   return promise;
 }
 
-module.exports = { resolveAutoOutcomesPath, buildGitOutcomes, repoRoot, commitsForWindow };
+module.exports = {
+  resolveAutoOutcomesPath,
+  buildGitOutcomes,
+  repoRoot,
+  commitsForWindow,
+  isTccProtectedPath,
+  protectedProbeAllowed,
+};

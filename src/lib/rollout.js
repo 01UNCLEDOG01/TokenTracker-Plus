@@ -9,6 +9,7 @@ const { isDeepStrictEqual } = require("node:util");
 
 const crypto = require("node:crypto");
 const { ensureDir, writeJson, chmod600IfPossible } = require("./fs");
+const { isTccProtectedPath } = require("./git-outcomes");
 const { physicalJsonlRecords } = require("./jsonl-lines");
 const {
   resolveAutoClawSessionFiles,
@@ -5048,6 +5049,16 @@ async function resolveProjectMetaForPath(startDir, cache) {
   let current = startDir;
   const root = path.parse(startDir).root;
   while (current) {
+    // macOS TCC guard — the scanner-side twin lives in git-outcomes.js. The
+    // first filesystem touch inside ~/Documents et al. raises a consent
+    // dialog, and ad-hoc signing resets that consent on every update, so the
+    // project-discovery walk must refuse these directories outright instead
+    // of stat-ing for .git/config on the way up (owner report 2026-11-25:
+    // "TokenTracker-plus.app 想访问「文稿」文件夹中的文件" fired right after
+    // every reinstall, because recorded sessions pointed into ~/Documents).
+    // Pure string check — zero filesystem access. The same
+    // TOKENTRACKER_GIT_ATTRIBUTION_PROTECTED_DIRS flag opts back in.
+    if (isTccProtectedPath(current)) return null;
     if (cache && cache.has(current)) {
       const cached = cache.get(current);
       for (const entry of visited) cache.set(entry, cached);
@@ -5152,6 +5163,12 @@ async function isSingleProjectConfigFresh(projectFileContext, freshnessCache = n
   const configPath =
     typeof projectFileContext.configPath === "string" ? projectFileContext.configPath : null;
   if (!configPath) return false;
+  // Same TCC guard: configPaths persisted before the guard existed (cursors.json
+  // still carries ~/Documents entries on machines whose sessions ran there)
+  // must never be stat'd again — report the context stale so discovery
+  // re-derives it, and the walk in resolveProjectMetaForPath now refuses
+  // protected directories, so the re-derivation touches nothing protected.
+  if (isTccProtectedPath(configPath)) return false;
   let st;
   if (freshnessCache && freshnessCache.has(configPath)) {
     st = freshnessCache.get(configPath);
@@ -29507,6 +29524,8 @@ module.exports = {
   listRolloutFiles,
   listRolloutFilesDeep,
   codexSessionIdFromPath,
+  resolveProjectMetaForPath,
+  isProjectFileContextFresh,
   isRolloutFileName,
   isCompressedRolloutFileName,
   isCompressedRolloutPath,

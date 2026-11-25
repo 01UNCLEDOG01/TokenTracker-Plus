@@ -114,9 +114,34 @@ fi
 # 3. Embedded server payload (same as the Windows shell).
 cp -R "$EMBED_DIR" "$APP_DIR/Contents/Resources/EmbeddedServer"
 
-# 4. Ad-hoc codesign — upstream ordering: sign the appex first, then the app.
+# 4. Codesign — stable local identity when present, ad-hoc fallback.
 #    NO --deep: it re-signs the appex and strips its entitlements, and pkd
 #    rejects the widget at runtime.
+#    A stable signing identity keeps macOS TCC grants (files in ~/Documents et
+#    al.) bound across updates: ad-hoc signatures change on every rebuild, so
+#    the OS re-asks for every protected folder after each hot-update/install
+#    (owner report 2026-11-25). The identity is created once per build machine
+#    (self-signed cert with the codeSigning EKU, imported into the login
+#    keychain with codesign in its ACL):
+#      openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+#        -subj "/CN=TT-Plus Local Signing" \
+#        -addext "keyUsage=digitalSignature" \
+#        -addext "extendedKeyUsage=codeSigning" \
+#        -out /tmp/tt-codesign.crt -keyout /tmp/tt-codesign.key
+#      openssl pkcs12 -export -name "TT-Plus Local Signing" \
+#        -inkey /tmp/tt-codesign.key -in /tmp/tt-codesign.crt \
+#        -passout pass: -out /tmp/tt-codesign.p12
+#      security import /tmp/tt-codesign.p12 -k ~/Library/Keychains/login.keychain-db \
+#        -P "" -T /usr/bin/codesign
+#    Machines without the identity keep plain ad-hoc signing (public build
+#    boxes; behavior unchanged for them).
+SIGN_IDENTITY="-"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "TT-Plus Local Signing"; then
+  SIGN_IDENTITY="TT-Plus Local Signing"
+  echo "[package] signing identity: TT-Plus Local Signing (stable, TCC grants persist across updates)"
+else
+  echo "[package] signing identity: ad-hoc (no stable identity in keychain)"
+fi
 APEX="$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
 # The appex is re-signed because step 2c lipo-merges its binary and stamps its
 # version — both invalidate the xcodebuild signature. codesign MUST receive the
@@ -124,11 +149,11 @@ APEX="$APP_DIR/Contents/PlugIns/TokenTrackerWidget.appex"
 # pkd then rejects the plugin ("plug-ins must be sandboxed").
 WIDGET_ENTITLEMENTS="$MAC_DIR/TokenTrackerBar/TokenTrackerWidget/TokenTrackerWidget.entitlements"
 if [ -d "$APEX" ]; then
-  codesign --force --sign - --entitlements "$WIDGET_ENTITLEMENTS" "$APEX" 2>&1 | grep -v replacing || true
+  codesign --force --sign "$SIGN_IDENTITY" --entitlements "$WIDGET_ENTITLEMENTS" "$APEX" 2>&1 | grep -v replacing || true
   codesign --verify "$APEX" && echo "[package] appex signed"
 fi
-codesign --force --sign - "$APP_DIR" 2>&1 | grep -v replacing || true
-codesign --verify "$APP_DIR" && echo "[package] codesign OK (ad-hoc)"
+codesign --force --sign "$SIGN_IDENTITY" "$APP_DIR" 2>&1 | grep -v replacing || true
+codesign --verify "$APP_DIR" && echo "[package] codesign OK (identity: $SIGN_IDENTITY)"
 
 # 4b. Payload gate: run the release verifier against the assembled bundle BEFORE
 #     any dmg/zip artifact exists, so a stale or mis-assembled payload can never
