@@ -28,6 +28,7 @@ import { useTheme } from "../../hooks/useTheme.js";
 import { useLocale } from "../../hooks/useLocale.js";
 import { useIpCheckNavPref } from "../../hooks/use-ip-check-nav-pref.js";
 import { shouldFetchGithubStars } from "../dashboard/util/should-fetch-github-stars.js";
+import { fetchGithubStarsCached } from "./github-stars.js";
 import { GITHUB_REPO } from "../../lib/brand";
 import { InsforgeUserHeaderControls } from "../../components/InsforgeUserHeaderControls.jsx";
 import { LocalProfileIdentity } from "../../components/LocalProfileIdentity.jsx";
@@ -212,12 +213,13 @@ function StarPill({ repo = GITHUB_REPO, glassChrome = false }) {
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!shouldFetchGithubStars({ prefersReducedMotion, screenshotCapture: false })) return;
-    fetch(`https://api.github.com/repos/${repo}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && typeof data.stargazers_count === "number") setStars(data.stargazers_count);
-      })
-      .catch(() => {});
+    let cancelled = false;
+    fetchGithubStarsCached(repo).then((value) => {
+      if (!cancelled && value !== null) setStars(value);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [repo]);
 
   return (

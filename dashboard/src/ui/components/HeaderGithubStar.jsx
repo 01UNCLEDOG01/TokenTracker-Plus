@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { shouldFetchGithubStars } from "../dashboard/util/should-fetch-github-stars.js";
+import { fetchGithubStarsCached } from "./github-stars.js";
 import { copy } from "../../lib/copy";
 import { GITHUB_REPO } from "../../lib/brand";
 
@@ -19,14 +20,13 @@ export function HeaderGithubStar({ repo = GITHUB_REPO }) {
       (document.documentElement?.classList.contains("screenshot-capture") ||
         document.body?.classList.contains("screenshot-capture"));
     if (!shouldFetchGithubStars({ prefersReducedMotion, screenshotCapture })) return;
-    fetch(`https://api.github.com/repos/${repo}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && typeof data.stargazers_count === "number") {
-          setStars(data.stargazers_count);
-        }
-      })
-      .catch(() => {});
+    let cancelled = false;
+    fetchGithubStarsCached(repo).then((value) => {
+      if (!cancelled && value !== null) setStars(value);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [repo]);
 
   return (

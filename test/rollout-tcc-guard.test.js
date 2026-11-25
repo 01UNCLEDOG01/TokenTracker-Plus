@@ -70,8 +70,13 @@ test('project discovery refuses TCC-protected directories without touching the f
       assert.equal(isTccProtectedPath(path.join(home, 'Documents')), true);
       assert.equal(isTccProtectedPath(path.join(home, 'Desktop', 'x')), true);
       assert.equal(isTccProtectedPath(path.join(home, 'Projects', 'some-repo')), false);
-      assert.equal(isTccProtectedPath('/Volumes/usb/repo'), true);
-      assert.equal(isTccProtectedPath('/etc'), false);
+      // POSIX-absolute fixtures only: path.resolve on Windows rewrites
+      // /Volumes/... onto the current drive, so the guard's /Volumes branch
+      // (and its POSIX framing) has no meaning there.
+      if (path.sep === '/') {
+        assert.equal(isTccProtectedPath('/Volumes/usb/repo'), true);
+        assert.equal(isTccProtectedPath('/etc'), false);
+      }
     });
   } finally {
     await fsPromises.rm(home, { recursive: true, maxRetries: 3 });
