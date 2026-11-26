@@ -839,7 +839,8 @@ class DashboardViewModel: ObservableObject {
 
     /// Wake up just after the soonest upcoming boundary and re-fetch limits, instead
     /// of waiting out the regular poll interval. Boundaries are (a) a window rollover —
-    /// so a reset and its confetti are detected within seconds — and (b) the expiry of
+    /// so the rollover reading (the reset detector's candidate) lands within seconds,
+    /// with the celebration following on the confirming poll — and (b) the expiry of
     /// an active 429 cool-down — so a rate-limited panel refreshes the instant the
     /// cool-down lifts rather than up to a poll later. Every limits refresh reschedules,
     /// so at most one boundary task is pending at a time.

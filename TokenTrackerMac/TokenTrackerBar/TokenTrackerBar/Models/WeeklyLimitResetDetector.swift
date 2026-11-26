@@ -15,12 +15,44 @@ struct LimitResetEvent: Equatable {
     let previousPercent: Double
 }
 
+/// A candidate rollover awaiting confirmation by a later reading. The owner
+/// ruled (2026-11-26) that "额度已重置" may only celebrate two situations: a
+/// scheduled rollover whose time actually passed, or an official out-of-band
+/// reset from the provider — never an inference from a single reading.
+/// Persisted in the snapshot so a candidate survives relaunches.
+struct PendingReset: Codable, Equatable {
+    /// Unix seconds of the first qualifying (drop + near-empty) reading; the
+    /// cooldown anchor for the eventual celebration.
+    var since: Double
+    /// The percent before the drop — the constrained baseline the toast reports.
+    var prevPercent: Double
+    /// The candidate's window deadline. Updated whenever later near-empty
+    /// readings slide it (a draining rolling window, or a bogus response whose
+    /// `reset_at` is "now + window" and never holds still).
+    var resetAt: Double
+    /// Unix seconds of the most recent near-empty reading; confirmation needs
+    /// `confirmationGap` seconds after this, so two readings inside one refresh
+    /// burst cannot confirm each other.
+    var lastLowAt: Double
+}
+
 /// Detects when a usage-limit window "resets" (rolls over) *after* the user had
 /// been meaningfully constrained. Mirrors the idea behind CodexBar's
 /// weekly-limit-reset detector but generalized to any provider window.
 ///
 /// The logic is pure and the memory lives in a persisted `Snapshot`, so it
 /// survives relaunches and never double-fires (a cooldown suppresses repeats).
+///
+/// A candidate never fires on its own reading: the qualifying reading only
+/// records a `PendingReset`, and the celebration waits for a later reading that
+/// shows the renewal *persisting* — window still near-empty and the new deadline
+/// holding still. That is what separates the two real situations from the fakes:
+/// a scheduled rollover (or an official reset) fixes the deadline and keeps the
+/// window empty, a transient bogus response (2026-11-26: Antigravity
+/// intermittently returns all-zero windows with `reset_at = now + window`; one
+/// such response fired three same-second toasts on windows the owner had not
+/// had reset) is contradicted by the very next poll, and a bogus response whose
+/// deadline is "now + window" slides every poll so it never holds still.
 struct WeeklyLimitResetDetector {
 
     /// A real rollover must drop usage by at least this much — a small floor that
@@ -30,7 +62,9 @@ struct WeeklyLimitResetDetector {
     var minDrop: Double = 5
     /// The window's `reset_at` must advance by at least this much to count as a real
     /// rollover — filters sub-second jitter in provider timestamps. A true rollover
-    /// jumps hours-to-days ahead, so this never suppresses a genuine reset.
+    /// jumps hours-to-days ahead, so this never suppresses a genuine reset. Also the
+    /// deadline-stability tolerance: a confirmed renewal's deadline must not move
+    /// more than this between the last two readings.
     var resetAdvanceTolerance: TimeInterval = 60
     /// A rollover is only worth celebrating when the window actually renewed: the
     /// usage left in it afterwards must be at most this percent. Fixed-schedule
@@ -42,6 +76,11 @@ struct WeeklyLimitResetDetector {
     /// windows that never renewed). Kept loose rather than 0 so a first post-reset
     /// poll that already shows a sliver of fresh usage still celebrates.
     var emptiedPercent: Double = 10
+    /// A candidate is confirmed only by a near-empty reading at least this long
+    /// after the previous one — regular polls sit 300s apart, so this only
+    /// rejects confirmations attempted inside one refresh burst (a boundary wake
+    /// followed seconds later by a scheduled tick, or two manual panel opens).
+    var confirmationGap: TimeInterval = 120
     /// After firing for a key, suppress re-fires for this long.
     var cooldown: TimeInterval = 3600
 
@@ -49,17 +88,19 @@ struct WeeklyLimitResetDetector {
         var lastPercent: [String: Double] = [:]
         var lastEventAt: [String: Double] = [:]   // unix seconds
         var lastResetAt: [String: Double] = [:]   // unix seconds — last seen window reset_at
+        var pendingReset: [String: PendingReset] = [:]
 
         init() {}
 
-        /// Tolerate older persisted snapshots that predate `lastResetAt` (or any
-        /// missing field) so an upgrade keeps the existing baseline + cooldown
-        /// memory instead of discarding it.
+        /// Tolerate older persisted snapshots that predate `lastResetAt` or
+        /// `pendingReset` (or any missing field) so an upgrade keeps the existing
+        /// baseline + cooldown memory instead of discarding it.
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             lastPercent = try c.decodeIfPresent([String: Double].self, forKey: .lastPercent) ?? [:]
             lastEventAt = try c.decodeIfPresent([String: Double].self, forKey: .lastEventAt) ?? [:]
             lastResetAt = try c.decodeIfPresent([String: Double].self, forKey: .lastResetAt) ?? [:]
+            pendingReset = try c.decodeIfPresent([String: PendingReset].self, forKey: .pendingReset) ?? [:]
         }
     }
 
@@ -89,6 +130,43 @@ struct WeeklyLimitResetDetector {
             // Need a full prior baseline (percent + reset time). First observation only
             // records a baseline — never celebrates.
             guard let prevPercent, let prevReset else { continue }
+
+            // A candidate never fires on its own reading — see PendingReset.
+            if var pending = snapshot.pendingReset[key] {
+                if reading.usedPercent > emptiedPercent {
+                    // Usage is back: the "reset" did not persist — a bogus reading
+                    // (2026-11-26: one all-zero Antigravity response used to fire
+                    // three same-second toasts here). Discard; the healed baseline
+                    // re-qualifies on the next genuine drop.
+                    updated.pendingReset[key] = nil
+                } else if abs(curReset - pending.resetAt) <= resetAdvanceTolerance,
+                          now - pending.lastLowAt >= confirmationGap {
+                    // The renewal persisted: window still near-empty and the new
+                    // deadline held still across polls — a scheduled rollover or an
+                    // official reset. Celebrate, anchored at the candidate's birth.
+                    updated.pendingReset[key] = nil
+                    updated.lastEventAt[key] = pending.since
+                    events.append(LimitResetEvent(
+                        provider: reading.provider,
+                        windowKey: key,
+                        windowLabel: reading.windowLabel,
+                        previousPercent: pending.prevPercent
+                    ))
+                } else {
+                    // Still near-empty but not confirmable yet: either too soon
+                    // after the previous reading (one refresh burst) or the
+                    // deadline is sliding (a draining rolling window whose entries
+                    // keep exiting, or a bogus response whose `reset_at` is
+                    // "now + window" and therefore never holds still). Track the
+                    // newest deadline and wait for it to hold still across the
+                    // confirmation gap.
+                    pending.resetAt = curReset
+                    pending.lastLowAt = now
+                    updated.pendingReset[key] = pending
+                }
+                continue
+            }
+
             // The window must have actually rolled over: its reset_at advanced to a
             // new period, not merely a percentage that dipped.
             guard curReset > prevReset + resetAdvanceTolerance else { continue }
@@ -102,13 +180,14 @@ struct WeeklyLimitResetDetector {
             guard reading.usedPercent <= emptiedPercent else { continue }
             if let last = snapshot.lastEventAt[key], now - last < cooldown { continue }
 
-            updated.lastEventAt[key] = now
-            events.append(LimitResetEvent(
-                provider: reading.provider,
-                windowKey: key,
-                windowLabel: reading.windowLabel,
-                previousPercent: prevPercent
-            ))
+            // Qualifying reading: record the candidate, celebrate only when a later
+            // reading confirms the renewal persisted.
+            updated.pendingReset[key] = PendingReset(
+                since: now,
+                prevPercent: prevPercent,
+                resetAt: curReset,
+                lastLowAt: now
+            )
         }
 
         return (events, updated)
@@ -148,4 +227,3 @@ extension WeeklyLimitResetDetector {
         defaults.set(data, forKey: snapshotKey)
     }
 }
-
