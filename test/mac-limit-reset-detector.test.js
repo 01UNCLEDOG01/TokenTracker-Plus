@@ -48,6 +48,8 @@ test('detector keeps the guard order and gates candidates behind confirmation', 
     'the emptied-window gate must exist with its documented default');
   assert.match(swift, /var confirmationGap: TimeInterval = 120/,
     'the confirmation gap must exist so one refresh burst cannot self-confirm');
+  assert.match(swift, /var immediateFireWindow: TimeInterval = 300/,
+    'the live-boundary window must exist (one poll interval)');
   assert.match(swift, /struct PendingReset: Codable, Equatable/,
     'candidates persist in the snapshot across relaunches');
   const advance = swift.indexOf('curReset > prevReset + resetAdvanceTolerance');
@@ -59,8 +61,10 @@ test('detector keeps the guard order and gates candidates behind confirmation', 
   }
   assert.ok(advance < drop && drop < emptied && emptied < cooldown,
     'guards must run identity jump → real drop → near-empty window → cooldown');
+  const immediate = swift.indexOf('if now >= prevReset, now - prevReset <= immediateFireWindow {');
+  assert.ok(immediate > cooldown, 'the live-boundary immediate path must come after all guards');
   const candidate = swift.indexOf('updated.pendingReset[key] = PendingReset(');
-  assert.ok(candidate > cooldown, 'a qualifying reading must record a candidate, never fire immediately');
+  assert.ok(candidate > immediate, 'non-live candidates must fall through to the pending record');
   assert.match(swift, /reading\.usedPercent > emptiedPercent \{/,
     'a contradicting reading must discard the pending candidate');
 });
@@ -286,44 +290,98 @@ do {
 
 // 10. A candidate survives a nil-resetAt interlude (Claude's idle 5h window
 //     reports null between real readings) and still confirms afterwards.
+//     Baseline deadline sits in the future so the candidate takes the pending
+//     path, not the live-boundary immediate one.
 do {
     var snap = WeeklyLimitResetDetector.Snapshot()
-    var r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 95, T)],
+    var r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 95, T + 3_600)],
                               snapshot: snap, now: T)
     snap = r.snapshot
-    r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 3, T + 300)],
+    r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 3, T + 3_600 + 3_600)],
                           snapshot: snap, now: T + 300)
-    check("candidate recorded before the interlude", r.snapshot.pendingReset["claude.5h"] != nil)
+    check("candidate recorded before the interlude", r.events.isEmpty && r.snapshot.pendingReset["claude.5h"] != nil)
     snap = r.snapshot
     r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 80, nil)],
                           snapshot: snap, now: T + 450)
     check("nil reading leaves the candidate untouched", r.events.isEmpty && r.snapshot.pendingReset["claude.5h"] != nil)
     snap = r.snapshot
-    r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 3, T + 300)],
+    r = detector.evaluate(readings: [reading("claude", "claude.5h", "5h", 3, T + 3_600 + 3_600)],
                           snapshot: snap, now: T + 900)
     check("confirmation after the interlude fires", r.events.count == 1)
 }
 
 // 11. Two readings inside one refresh burst (a boundary wake followed by a
 //     scheduled tick, or two quick panel opens) cannot confirm each other: a
-//     low reading inside confirmationGap only refreshes the candidate.
+//     low reading inside confirmationGap only refreshes the candidate. Baseline
+//     deadline sits in the future so the candidate takes the pending path.
 do {
     var snap = WeeklyLimitResetDetector.Snapshot()
-    var r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 80, T)],
+    var r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 80, T + 600)],
                               snapshot: snap, now: T)
     snap = r.snapshot
-    r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 0, T + 300)],
+    r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 0, T + 600 + 5 * 3_600)],
                           snapshot: snap, now: T + 300)
     check("candidate recorded", r.snapshot.pendingReset["gemini.primary"] != nil)
     snap = r.snapshot
-    r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 0, T + 300)],
+    r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 0, T + 600 + 5 * 3_600)],
                           snapshot: snap, now: T + 350)
     check("burst reading inside the gap does not confirm",
           r.events.isEmpty && r.snapshot.pendingReset["gemini.primary"] != nil)
     snap = r.snapshot
-    r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 0, T + 300)],
+    r = detector.evaluate(readings: [reading("gemini", "gemini.primary", "Pro", 0, T + 600 + 5 * 3_600)],
                           snapshot: snap, now: T + 650)
     check("confirmation after the gap fires", r.events.count == 1)
+}
+
+// 12. THE LIVE-CAUGHT SCHEDULED ROLLOVER: the recorded deadline passed within
+//     the last poll interval and the reading shows the window renewed — the
+//     deadline itself is evidence no fabricated response can move, so the
+//     celebration fires immediately (owner ruling 2026-11-27).
+do {
+    var snap = WeeklyLimitResetDetector.Snapshot()
+    var r = detector.evaluate(readings: [reading("claude", "claude.7d", "7d", 95, T + 300)],
+                              snapshot: snap, now: T)
+    snap = r.snapshot
+    r = detector.evaluate(readings: [reading("claude", "claude.7d", "7d", 0, T + 305 + 7 * day)],
+                          snapshot: snap, now: T + 305)
+    check("live-caught boundary fires immediately",
+          r.events.count == 1 && r.events[0].previousPercent == 95 && r.snapshot.pendingReset.isEmpty)
+}
+
+// 13. The app slept through the boundary: a qualifying reading that arrives
+//     long after the recorded deadline is no longer live evidence — it takes
+//     the confirming-poll path (still celebrates, one poll later).
+do {
+    var snap = WeeklyLimitResetDetector.Snapshot()
+    var r = detector.evaluate(readings: [reading("claude", "claude.7d", "7d", 95, T + 300)],
+                              snapshot: snap, now: T)
+    snap = r.snapshot
+    r = detector.evaluate(readings: [reading("claude", "claude.7d", "7d", 0, T + 2_400 + 7 * day)],
+                          snapshot: snap, now: T + 2_400)
+    check("late boundary reading only records a candidate",
+          r.events.isEmpty && r.snapshot.pendingReset["claude.7d"] != nil)
+    snap = r.snapshot
+    r = detector.evaluate(readings: [reading("claude", "claude.7d", "7d", 0, T + 2_400 + 7 * day)],
+                          snapshot: snap, now: T + 2_400 + poll)
+    check("late boundary fires on confirmation", r.events.count == 1)
+}
+
+// 14. A stale baseline (the provider errored for days, so the recorded deadline
+//     is long past) cannot trick the immediate path: a bogus all-zero response
+//     at that point still goes through confirmation and gets contradicted.
+do {
+    var snap = WeeklyLimitResetDetector.Snapshot()
+    var r = detector.evaluate(readings: [reading("antigravity", "antigravity.primary", "Claude 7d", 85, T - 3 * day)],
+                              snapshot: snap, now: T)
+    snap = r.snapshot
+    r = detector.evaluate(readings: [reading("antigravity", "antigravity.primary", "Claude 7d", 0, T + 300 + 7 * day)],
+                          snapshot: snap, now: T + 300)
+    check("stale baseline + bogus zero takes the pending path",
+          r.events.isEmpty && r.snapshot.pendingReset["antigravity.primary"] != nil)
+    snap = r.snapshot
+    r = detector.evaluate(readings: [reading("antigravity", "antigravity.primary", "Claude 7d", 85, T - 3 * day + 600)],
+                          snapshot: snap, now: T + 600)
+    check("contradicted candidate never fires", r.events.isEmpty && r.snapshot.pendingReset.isEmpty)
 }
 
 if failures.isEmpty {

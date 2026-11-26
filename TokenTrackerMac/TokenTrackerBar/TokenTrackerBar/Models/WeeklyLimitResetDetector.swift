@@ -43,16 +43,26 @@ struct PendingReset: Codable, Equatable {
 /// The logic is pure and the memory lives in a persisted `Snapshot`, so it
 /// survives relaunches and never double-fires (a cooldown suppresses repeats).
 ///
-/// A candidate never fires on its own reading: the qualifying reading only
-/// records a `PendingReset`, and the celebration waits for a later reading that
-/// shows the renewal *persisting* — window still near-empty and the new deadline
-/// holding still. That is what separates the two real situations from the fakes:
-/// a scheduled rollover (or an official reset) fixes the deadline and keeps the
-/// window empty, a transient bogus response (2026-11-26: Antigravity
-/// intermittently returns all-zero windows with `reset_at = now + window`; one
-/// such response fired three same-second toasts on windows the owner had not
-/// had reset) is contradicted by the very next poll, and a bogus response whose
-/// deadline is "now + window" slides every poll so it never holds still.
+/// The owner ruled (2026-11-26) that "额度已重置" may only celebrate two
+/// situations: a scheduled rollover whose time actually passed, or an official
+/// out-of-band reset from the provider — never an inference from a single
+/// reading. Two celebration paths implement that:
+///
+/// - **到点重置 caught live** — the recorded deadline passed within the last
+///   poll interval and the reading shows the window renewed: celebrate
+///   immediately (2026-11-27). The deadline itself is evidence a bogus response
+///   cannot fabricate.
+/// - **Confirmed candidate** — everything else (an out-of-band drain whose
+///   deadline had not arrived, a boundary missed while the app slept): the
+///   qualifying reading only records a `PendingReset`, and a later reading must
+///   show the renewal *persisting* — window still near-empty and the new
+///   deadline holding still. A scheduled rollover (or an official reset) fixes
+///   the deadline and keeps the window empty; a transient bogus response
+///   (2026-11-26: Antigravity intermittently returns all-zero windows with
+///   `reset_at = now + window`; one such response fired three same-second toasts
+///   on windows the owner had not had reset) is contradicted by the very next
+///   poll, and a bogus response whose deadline is "now + window" slides every
+///   poll so it never holds still.
 struct WeeklyLimitResetDetector {
 
     /// A real rollover must drop usage by at least this much — a small floor that
@@ -81,6 +91,18 @@ struct WeeklyLimitResetDetector {
     /// rejects confirmations attempted inside one refresh burst (a boundary wake
     /// followed seconds later by a scheduled tick, or two manual panel opens).
     var confirmationGap: TimeInterval = 120
+    /// A qualifying reading that lands within this long after the recorded
+    /// deadline counts as having *caught the scheduled rollover live* (the
+    /// boundary passed between the previous poll and this one — one regular
+    /// poll interval bounds it, and the boundary-wake refresh lands seconds
+    /// after). The deadline itself is evidence no bogus response can fabricate
+    /// (owner ruling 2026-11-27: a live-caught 到点重置 celebrates immediately),
+    /// so this path skips the confirming poll. Readings that arrive later than
+    /// this (the app slept through the boundary) or whose deadline had not yet
+    /// arrived (an official out-of-band reset — indistinguishable from the
+    /// 2026-11-26 all-zero Antigravity response in one reading) still go
+    /// through the pending confirmation.
+    var immediateFireWindow: TimeInterval = 300
     /// After firing for a key, suppress re-fires for this long.
     var cooldown: TimeInterval = 3600
 
@@ -179,6 +201,21 @@ struct WeeklyLimitResetDetector {
             // celebration fired every day on windows that never actually renewed.
             guard reading.usedPercent <= emptiedPercent else { continue }
             if let last = snapshot.lastEventAt[key], now - last < cooldown { continue }
+
+            // A qualifying reading that caught the scheduled boundary live (the
+            // recorded deadline passed within the last poll interval) is
+            // time-anchored — no fabricated response can move the clock. Celebrate
+            // immediately; everything else waits for the confirming poll.
+            if now >= prevReset, now - prevReset <= immediateFireWindow {
+                updated.lastEventAt[key] = now
+                events.append(LimitResetEvent(
+                    provider: reading.provider,
+                    windowKey: key,
+                    windowLabel: reading.windowLabel,
+                    previousPercent: prevPercent
+                ))
+                continue
+            }
 
             // Qualifying reading: record the candidate, celebrate only when a later
             // reading confirms the renewal persisted.
