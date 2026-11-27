@@ -318,6 +318,78 @@ test("a failed generation commit leaves the previous manifest authoritative", as
   });
 });
 
+test("concurrent v2 commits serialize instead of pruning an in-flight generation", async () => {
+  await withCursorFixture(async ({ trackerDir, cursorsPath }) => {
+    let active = 0;
+    let maxActive = 0;
+    let stageCount = 0;
+    let releaseSecond;
+    const secondEntered = new Promise((resolve) => {
+      releaseSecond = resolve;
+    });
+    const store = await openCursorStore({
+      trackerDir,
+      cursorsPath,
+      forceV2: true,
+      failureInjector: async (stage) => {
+        if (stage !== "beforeManifestSwap") return;
+        active += 1;
+        stageCount += 1;
+        maxActive = Math.max(maxActive, active);
+        if (stageCount === 1) {
+          await Promise.race([
+            secondEntered,
+            new Promise((resolve) => setTimeout(resolve, 100)),
+          ]);
+        } else {
+          releaseSecond();
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        active -= 1;
+      },
+    });
+
+    await Promise.all([store.commit(), store.commit()]);
+
+    assert.equal(maxActive, 1, "commits must not overlap");
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(trackerDir, STORE_DIRNAME, "manifest.json"), "utf8"),
+    );
+    await fs.access(
+      path.join(trackerDir, STORE_DIRNAME, "generations", manifest.current, "generation.json"),
+    );
+    await fs.access(
+      path.join(trackerDir, STORE_DIRNAME, "generations", manifest.rollback, "generation.json"),
+    );
+  });
+});
+
+test("a failed queued v2 commit does not poison the next commit", async () => {
+  await withCursorFixture(async ({ trackerDir, cursorsPath }) => {
+    let commitCount = 0;
+    const store = await openCursorStore({
+      trackerDir,
+      cursorsPath,
+      forceV2: true,
+      failureInjector(stage) {
+        if (stage === "beforeManifestSwap" && commitCount++ === 0) {
+          throw new Error("simulated queued commit failure");
+        }
+      },
+    });
+
+    await assert.rejects(store.commit(), /simulated queued commit failure/);
+    await store.commit();
+
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(trackerDir, STORE_DIRNAME, "manifest.json"), "utf8"),
+    );
+    await fs.access(
+      path.join(trackerDir, STORE_DIRNAME, "generations", manifest.current, "generation.json"),
+    );
+  });
+});
+
 test("ordinary commits keep unchanged fallback shards physically independent", async () => {
   await withCursorFixture(async ({ trackerDir, cursorsPath, day17File, day16File }) => {
     const migrated = await openCursorStore({ trackerDir, cursorsPath, forceV2: true });

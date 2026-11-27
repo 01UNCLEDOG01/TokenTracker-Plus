@@ -247,6 +247,12 @@ class V2CursorStore {
     this.codexRoots = codexRoots;
     this.cursors = generation.core;
     this.failureInjector = failureInjector;
+    // A long sync can have a periodic checkpoint and the tail commit in
+    // flight at the same time. Publishing either generation prunes directories
+    // that are not referenced by the winner, so overlapping commits can delete
+    // a sibling's in-progress shards. Keep every commit on this store strictly
+    // serial while preserving each caller's individual failure.
+    this.commitTail = Promise.resolve();
     this.deferredCodexAuditPath = path.join(
       storeRoot,
       DEFERRED_CODEX_AUDIT_FILENAME,
@@ -877,6 +883,12 @@ class V2CursorStore {
   }
 
   async commit(cursors = this.cursors) {
+    const pending = this.commitTail.then(() => this.commitGeneration(cursors));
+    this.commitTail = pending.catch(() => {});
+    return pending;
+  }
+
+  async commitGeneration(cursors = this.cursors) {
     const generationId = newGenerationId();
     const generationDir = generationDirectory(this.storeRoot, generationId);
     let published = false;
