@@ -13,10 +13,10 @@
 
 ## ✨ Recursos principais
 
-- 🔌 **59 ferramentas conectadas sem configuração** —— detecção automática dos logs locais de Claude Code, Codex, Cursor, Qoder, Kimi e mais. Sem login, sem chave de API, sem nuvem.
-- 💰 **Modelos gratuitos avaliados pelo preço de tabela** —— rejeitamos a regra do upstream que zera rotas `-free`; o valor que você "pegou de graça" fica visível.
+- 🔌 **59 ferramentas conectadas sem configuração** —— detecção automática dos logs locais de Claude Code, Codex, Cursor, Qoder, Kimi e mais. Sem login, sem chave de API, sem nuvem. No Windows, quando há login local do Codex CLI, o app também captura tarefas Codex Work iniciadas na web e executadas localmente sem log nativo.
+- 💰 **Modelos gratuitos avaliados pelo preço de tabela** —— rejeitamos a regra do upstream que zera rotas `-free`; o valor que você "pegou de graça" fica visível. O Cursor Grok Bot prioriza o valor cobrado informado pelo próprio Cursor; CSV e eventos só se substituem quando os tokens são exatamente iguais, nunca somando as duas fontes.
 - ⚡ **Fluxo tok/s em milissegundos** —— duração por chunk e tokens de raciocínio separados, velocidade precisa por sessão.
-- 🌲 **Topologia de sessões** —— sessão principal / subagentes / chamadas de ferramenta, para achar as operações caras.
+- 🌲 **Topologia de sessões** —— sessão principal / subagentes / chamadas de ferramenta, para achar as operações caras. O Antigravity mostra o estado nativo de turno em execução/concluído, e sessões Kiro CLI usam títulos e vínculos de delegação verificados do T3 Code.
 - 📊 **Heatmap de 8 níveis (Lv0~Lv7)** —— incluindo o nível "Singularidade" para dias acima de 3 bilhões de tokens. 2D e 3D. Com pelo menos 8 dias ativos na amostra, atingir P98.5 e superar P95 também resulta em Lv7.
 - 🏆 **65 conquistas + 17 títulos julgados offline** —— toasts estilo Steam, medalhas 3D, exportação de relatório em Canvas. O mesmo navegador mantém o maior nível observado, inclusive na primeira exibição do cache; o uso e as proporções continuam mostrando os valores atuais medidos.
 - 🪟 **Integração no Windows** —— bandeja do sistema, pet e widgets de cota; o instalador já embute o Node (sem build).
