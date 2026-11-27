@@ -560,9 +560,13 @@ export function UsageOverview({
         </div>
 
         {accountDataFallback && (
-          <p className="mb-3 text-[10px] leading-snug text-oai-gray-400 dark:text-oai-gray-500">
-            {copy("usage.account_fallback_note")}
-          </p>
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-2 rounded-xl border border-amber-400/70 bg-amber-500/15 px-4 py-3 text-[13px] font-medium leading-snug text-amber-700 dark:border-amber-400/50 dark:bg-amber-400/10 dark:text-amber-300"
+          >
+            <span aria-hidden="true">⚠️</span>
+            <span>{copy("usage.account_fallback_note")}</span>
+          </div>
         )}
 
         {/* Main Stats */}

@@ -3350,36 +3350,57 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       // An identical overlapping read shares the entire probe, including its
       // token mint. A healthy pending read must not look like a cloud outage
       // and trigger the native client's account recovery loop.
-      let pending = accountViewInFlight.get(requestKey);
-      if (!pending) {
-        pending = fetchAccountUsage({
-          usageSlug,
-          searchParams: url.searchParams,
-          baseUrl: runtime.baseUrl,
-          anonKey: runtime.anonKey,
-          refreshToken,
-          // Account reads must boot the private-instance CA just like the auth
-          // proxy. Desktop shortcuts normally inherit NODE_EXTRA_CA_CERTS, but
-          // script-launched/hot-updated apps do not; global fetch then fails
-          // every cloud read with UNABLE_TO_VERIFY_LEAF_SIGNATURE.
-          fetchImpl: (url, init) => instanceFetch(url, init, { baseUrl: runtime.baseUrl }),
-          timeoutMs,
-          onSessionRefreshed: (session) => {
-            getRuntime();
-            if (sessionAtStart !== getCloudAccountSessionGeneration()) {
-              throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed" });
-            }
-            if (session.refreshToken) setRelayRefreshToken(session.refreshToken);
-            if (session.csrfToken) setRelayCsrfToken(session.csrfToken);
-          },
-        });
-        accountViewInFlight.set(requestKey, pending);
-        const cleanup = () => {
-          if (accountViewInFlight.get(requestKey) === pending) accountViewInFlight.delete(requestKey);
-        };
-        pending.then(cleanup, cleanup);
+      const startAccountFetch = () => {
+        let p = accountViewInFlight.get(requestKey);
+        if (!p) {
+          p = fetchAccountUsage({
+            usageSlug,
+            searchParams: url.searchParams,
+            baseUrl: runtime.baseUrl,
+            anonKey: runtime.anonKey,
+            refreshToken,
+            // Account reads must boot the private-instance CA just like the auth
+            // proxy. Desktop shortcuts normally inherit NODE_EXTRA_CA_CERTS, but
+            // script-launched/hot-updated apps do not; global fetch then fails
+            // every cloud read with UNABLE_TO_VERIFY_LEAF_SIGNATURE.
+            fetchImpl: (url, init) => instanceFetch(url, init, { baseUrl: runtime.baseUrl }),
+            timeoutMs,
+            onSessionRefreshed: (session) => {
+              getRuntime();
+              if (sessionAtStart !== getCloudAccountSessionGeneration()) {
+                throw Object.assign(new Error("Account session changed"), { code: "auth_session_changed" });
+              }
+              if (session.refreshToken) setRelayRefreshToken(session.refreshToken);
+              if (session.csrfToken) setRelayCsrfToken(session.csrfToken);
+            },
+          });
+          accountViewInFlight.set(requestKey, p);
+          const cleanup = () => {
+            if (accountViewInFlight.get(requestKey) === p) accountViewInFlight.delete(requestKey);
+          };
+          p.then(cleanup, cleanup);
+        }
+        return p;
+      };
+      let out;
+      try {
+        out = await startAccountFetch();
+      } catch (firstError) {
+        // One transient hiccup (a token mint racing a session refresh, one
+        // dropped TLS handshake) must not degrade the view to local data: the
+        // owner cannot tell a fallback from genuine account numbers, and every
+        // "云端汇总怎么只有一台的数" report (2026-11-20, 2026-11-27) started as a
+        // single swallowed failure. When this slug has no failure in the recent
+        // escalation window — a healthy stretch, so this is a fresh hiccup —
+        // retry once inline before the fallback machinery engages. Genuine
+        // outages and session changes still fall through immediately.
+        const failureEntry = accountViewFailures.get(failureKey);
+        const recentFailure = failureEntry && Date.now() - failureEntry.lastAt <= ACCOUNT_VIEW_FAILURE_RETRY_WINDOW_MS;
+        if (firstError.code === "auth_session_changed" || recentFailure) throw firstError;
+        console.warn(`[LocalAPI] account view transient error for ${usageSlug} (${firstError.message || firstError}); retrying once inline`);
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        out = await startAccountFetch();
       }
-      const out = await pending;
       getRuntime();
       // `null` here means the slug has no cloud equivalent, or the session
       // vanished mid-request — a routing/session fact, not an outage.
