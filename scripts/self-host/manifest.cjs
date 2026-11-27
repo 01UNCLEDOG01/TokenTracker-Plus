@@ -132,6 +132,11 @@ CREATE TRIGGER self_host_sessions_delete_cache AFTER DELETE ON public.tokentrack
     // whose hour span holds a same-model trae-cn row, against both the stored
     // table and its own batch; landed strays stay read-guarded.
     {id:"23-ingest-trae-cross-batch-guard",sql:read("migrations/20261120210000_self-host-ingest-trae-cross-batch-guard.sql")},
+
+    // Cursor Grok Bot reports a provider charge on usage events, while a later
+    // CSV replay can carry the same token snapshot with Cost=0. Preserve the
+    // positive amount only for an exact snapshot; changed usage still wins.
+    {id:"24-cursor-grok-reported-cost",sql:read("migrations/20261127090000_self-host-cursor-grok-reported-cost.sql")},
   ];
 }
 module.exports={root,read,functionSql,privateFunctions,steps};

@@ -315,6 +315,28 @@ async function cmdServe(argv) {
       process.stdout.write(`Background local sync warning: ${e?.message || e}\n`),
   });
 
+  // Experimental native-desktop collector for Codex Work tasks that run on
+  // this machine without writing a rollout log. It is opt-in for CLI users and
+  // enabled by the Windows shell; all observations stay in the local tracker
+  // directory until the normal sync pipeline uploads its aggregate buckets.
+  let codexLocalWorkWatcher = null;
+  if (process.env.TOKENTRACKER_CODEX_LOCAL_WORK === "1") {
+    try {
+      const { createCodexLocalWorkWatcher } = require("../lib/codex-local-work");
+      codexLocalWorkWatcher = createCodexLocalWorkWatcher({
+        trackerDir: path.dirname(queuePath),
+        home: os.homedir(),
+        env: process.env,
+        onDiagnostic: (code) =>
+          process.stdout.write(`Codex local Work warning: ${code}\n`),
+      });
+      codexLocalWorkWatcher.start();
+    } catch (error) {
+      process.stdout.write(`Codex local Work unavailable: ${error?.message || error}\n`);
+      codexLocalWorkWatcher = null;
+    }
+  }
+
   // Anonymous daily heartbeat (see src/lib/telemetry.js for the privacy
   // contract). Fire-and-forget at startup, then re-checked every 6 hours so
   // long-lived embedded-app servers still count on later days; the shared
@@ -336,6 +358,7 @@ async function cmdServe(argv) {
   // 5. Graceful shutdown
   const shutdown = () => {
     process.stdout.write("\nShutting down...\n");
+    codexLocalWorkWatcher?.stop();
     nativeBackgroundSync?.stop();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000);

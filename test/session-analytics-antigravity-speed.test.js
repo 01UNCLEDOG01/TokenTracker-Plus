@@ -5,8 +5,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const { DatabaseSync } = require("node:sqlite");
+const { pathToFileURL } = require("node:url");
 
-const { buildSessionAnalytics } = require("../src/lib/session-analytics");
+const { buildSessionAnalytics, listSessionsForBrowser } = require("../src/lib/session-analytics");
 
 // Antigravity usage buckets are UTC half-hour granules, so a session that
 // never crosses a bucket boundary yields one distinct usage timestamp. The
@@ -62,6 +64,86 @@ test("a single half-hour usage bucket rates against the measured span, not the 1
     // 1s seed + the 30-minute bucket gap capped at five minutes.
     assert.equal(straddling.speed_active_ms, 301_000);
     assert.equal(straddling.performance.estimated_duration_ms, 301_000);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("Antigravity native summary projects its live turn state and title into the session row", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-antigravity-summary-row-"));
+  try {
+    const uuid = "cccccccc-3333-4333-8333-333333333333";
+    writeAntigravitySession(home, uuid, ["2026-11-27T01:50:00.000Z"]);
+    const workspace = path.join(home, "workspace");
+    fs.mkdirSync(workspace, { recursive: true });
+    const summaryDb = path.join(home, ".gemini", "antigravity", "conversation_summaries.db");
+    const db = new DatabaseSync(summaryDb);
+    db.exec(`CREATE TABLE conversation_summaries(
+      conversation_id TEXT PRIMARY KEY,title TEXT,preview TEXT,agent_name TEXT,
+      status TEXT,not_fully_idle INTEGER,last_user_input_time TEXT,last_modified_time TEXT,
+      workspace_uris TEXT,parent_conversation_id TEXT
+    )`);
+    const now = new Date();
+    db.prepare("INSERT INTO conversation_summaries VALUES(?,?,?,?,?,?,?,?,?,?)").run(
+      uuid,
+      "Native live task",
+      null,
+      null,
+      "CASCADE_RUN_STATUS_RUNNING",
+      1,
+      new Date(now.getTime() - 30_000).toISOString().replace("T", " "),
+      new Date(now.getTime() - 5_000).toISOString().replace("T", " "),
+      JSON.stringify([pathToFileURL(workspace).href]),
+      null,
+    );
+    db.close();
+
+    const sessions = await buildSessionAnalytics({ home, force: true, cacheTtlMs: 0 });
+    const row = sessions.find((session) => session.session_id === uuid);
+    assert.ok(row);
+    assert.equal(row.title, "Native live task");
+    assert.equal(row.live_status, "running");
+    assert.equal(row.turn_ended, false);
+    assert.equal(row.status_source, "antigravity-conversation-summaries");
+    assert.equal(row.project_ref, workspace);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a verified running Antigravity session is listed before its first token", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "tt-antigravity-before-token-"));
+  try {
+    const uuid = "dddddddd-4444-4444-8444-444444444444";
+    writeAntigravitySession(home, uuid, []);
+    const summaryDb = path.join(home, ".gemini", "antigravity", "conversation_summaries.db");
+    const db = new DatabaseSync(summaryDb);
+    db.exec(`CREATE TABLE conversation_summaries(
+      conversation_id TEXT PRIMARY KEY,title TEXT,preview TEXT,agent_name TEXT,
+      status TEXT,not_fully_idle INTEGER,last_user_input_time TEXT,last_modified_time TEXT,
+      workspace_uris TEXT,parent_conversation_id TEXT
+    )`);
+    const now = new Date();
+    db.prepare("INSERT INTO conversation_summaries VALUES(?,?,?,?,?,?,?,?,?,?)").run(
+      uuid,
+      "Running before tokens",
+      null,
+      null,
+      "CASCADE_RUN_STATUS_RUNNING",
+      1,
+      now.toISOString().replace("T", " "),
+      now.toISOString().replace("T", " "),
+      null,
+      null,
+    );
+    db.close();
+
+    const sessions = await buildSessionAnalytics({ home, force: true, cacheTtlMs: 0 });
+    const listed = listSessionsForBrowser(sessions);
+    const row = listed.sessions.find((session) => session.session_id === uuid);
+    assert.ok(row);
+    assert.equal(row.total_tokens, 0);
+    assert.equal(row.live_status, "running");
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

@@ -73,6 +73,31 @@ public sealed class LocalSyncPublisherTests
     }
 
     [Fact]
+    public async Task PreservesSafeStatusAndCodeForAFailedSyncResponse()
+    {
+        var calls = 0;
+        using var client = new HttpClient(new ScriptedHandler((_, _) =>
+        {
+            calls++;
+            return Task.FromResult(calls == 1
+                ? JsonResponse("{\"token\":\"local-secret\"}")
+                : JsonResponse(
+                    "{\"ok\":false,\"error\":\"sync busy\",\"code\":\"SYNC_BUSY\",\"stdout\":\"local-secret\"}",
+                    HttpStatusCode.Conflict));
+        }));
+
+        var publisher = new LocalSyncPublisher(client, "http://127.0.0.1:17680");
+        var error = await Assert.ThrowsAsync<LocalSyncRequestException>(
+            () => publisher.PublishAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, error.ResponseStatusCode);
+        Assert.Equal("SYNC_BUSY", error.Code);
+        Assert.Contains("HTTP 409", error.Message);
+        Assert.Contains("SYNC_BUSY", error.Message);
+        Assert.DoesNotContain("local-secret", error.Message);
+    }
+
+    [Fact]
     public async Task RejectsMissingAuthTokenWithoutEchoingResponseBody()
     {
         using var client = new HttpClient(new ScriptedHandler((_, _) =>

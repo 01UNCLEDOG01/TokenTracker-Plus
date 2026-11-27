@@ -77,6 +77,7 @@ const {
   readClaudeScienceFrames,
   parseClaudeScienceIncremental,
   parseCursorApiIncremental,
+  parseCodexLocalWorkIncremental,
   parseKiroIncremental,
   parseHermesIncremental,
   gooseInstallOwnsCursor,
@@ -206,8 +207,9 @@ const UPLOAD_BUDGET_MS = 90_000;
 const { maybeSendHeartbeat } = require("../lib/telemetry");
 const {
   isCursorInstalled,
-  extractCursorSessionToken,
+  extractCursorAuth,
   fetchCursorUsageCsv,
+  fetchCursorGrokBotUsage,
   parseCursorCsv,
 } = require("../lib/cursor-config");
 const { purgeProjectUsage } = require("../lib/project-usage-purge");
@@ -1267,6 +1269,23 @@ async function cmdSync(argv, context = {}) {
         skipped: codexColdFilter.skipped,
         deferredSyncs: deferredCodexAuditSyncs,
       });
+    }
+
+    if (sourceAllowed("codex")) {
+      try {
+        const localWorkResult = await parseCodexLocalWorkIncremental({
+          eventsPath: path.join(path.dirname(queuePath), "codex-local-work.events.jsonl"),
+          cursors,
+          queuePath,
+        });
+        parseResult = {
+          ...parseResult,
+          eventsAggregated: (parseResult.eventsAggregated || 0) + (localWorkResult.eventsAggregated || 0),
+          bucketsQueued: (parseResult.bucketsQueued || 0) + (localWorkResult.bucketsQueued || 0),
+        };
+      } catch (err) {
+        warnProviderParseFailure("Codex local Work", err, opts);
+      }
     }
 
     let openclawResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
@@ -2462,7 +2481,7 @@ async function cmdSync(argv, context = {}) {
 
     let cursorResult = { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     const cursorInstalled = cursorSyncDeps.isInstalled || isCursorInstalled;
-    const cursorAuthExtractor = cursorSyncDeps.extractAuth || extractCursorSessionToken;
+    const cursorAuthExtractor = cursorSyncDeps.extractAuth || extractCursorAuth;
     const cursorUsageFetcher = cursorSyncDeps.fetchUsageCsv || fetchCursorUsageCsv;
     if (sourceAllowed("cursor") && cursorInstalled({ home })) {
       const cursorAuth = cursorAuthExtractor({ home });
@@ -2471,9 +2490,19 @@ async function cmdSync(argv, context = {}) {
           if (progress?.enabled) {
             progress.start(`Fetching Cursor usage...`);
           }
-          const csvText = await cursorUsageFetcher({ cookie: cursorAuth.cookie });
-          const records = parseCursorCsv(csvText);
-          if (records.length > 0) {
+          const untilMs = Date.now();
+          const hourMs = 60 * 60 * 1000;
+          const oldest = untilMs - 7 * 24 * hourMs;
+          const priorFetch = cursors.cursorApi?.grokBotSyncedThrough || 0;
+          const sinceMs = Math.floor(Math.max(oldest, priorFetch - 2 * hourMs) / hourMs) * hourMs;
+          const grokBotFetcher = cursorSyncDeps.fetchGrokBotUsage || fetchCursorGrokBotUsage;
+          const [csv, bots] = await Promise.allSettled([
+            cursorUsageFetcher({ cookie: cursorAuth.cookie }),
+            cursorAuth.accessToken ? grokBotFetcher({ accessToken: cursorAuth.accessToken, sinceMs, untilMs }) : null,
+          ]);
+          const records = csv.status === "fulfilled" ? parseCursorCsv(csv.value) : [];
+          const grokBotRecords = bots.status === "fulfilled" ? bots.value || [] : [];
+          if (records.length || grokBotRecords.length) {
             if (progress?.enabled) {
               progress.start(
                 `Parsing Cursor ${renderBar(0)} 0/${formatNumber(records.length)} records | buckets 0`,
@@ -2481,6 +2510,7 @@ async function cmdSync(argv, context = {}) {
             }
             cursorResult = await parseCursorApiIncremental({
               records,
+              grokBotRecords,
               cursors,
               queuePath,
               onProgress: (p) => {
@@ -2495,6 +2525,11 @@ async function cmdSync(argv, context = {}) {
               source: "cursor",
             });
           }
+          if (bots.status === "fulfilled" && bots.value) {
+            if (!cursors.cursorApi) cursors.cursorApi = {};
+            cursors.cursorApi.grokBotSyncedThrough = untilMs;
+          }
+          if (csv.status === "rejected" && !grokBotRecords.length) throw csv.reason;
         } catch (err) {
           if (!opts.auto) {
             process.stderr.write(`Cursor sync: ${err.message}\n`);

@@ -716,6 +716,7 @@
   "sessions.col.cost": "花费",
   "sessions.col.edits": "编辑",
   "sessions.badge.first_pass": "一次完成",
+  "sessions.badge.running": "运行中",
   "sessions.badge.reported_cost": "官方费用",
   "sessions.badge.archived": "元数据快照 · 原会话已移除",
   "sessions.badge.credits": "{{credits}} 积分",

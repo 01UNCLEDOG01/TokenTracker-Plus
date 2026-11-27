@@ -95,6 +95,25 @@ test("Grok Bot internal ids stay unpriced without inventing rates", () => {
   }
 });
 
+test("Grok Bot provider cost is authoritative without making other Cursor models opaque", () => {
+  assert.equal(pricing.hasAuthoritativeRowCost("cursor", "grok-bot-default"), true);
+  assert.equal(pricing.hasAuthoritativeRowCost("cursor", "grok-4.7-high"), false);
+  assert.equal(pricing.computeRowCost({
+    source: "cursor",
+    model: "grok-bot-default",
+    input_tokens: 100,
+    output_tokens: 20,
+    total_cost_usd: 0.081732,
+  }), 0.081732);
+  assert.ok(pricing.computeRowCost({
+    source: "cursor",
+    model: "grok-4.7-high",
+    input_tokens: 1_000_000,
+    output_tokens: 0,
+    total_cost_usd: 0,
+  }) > 0);
+});
+
 test("curated exact wins over LiteLLM / fuzzy for these Cursor SKUs", () => {
   const litellm = {
     "xai/grok-4.7": { input: 99, output: 99, cache_read: 99 },

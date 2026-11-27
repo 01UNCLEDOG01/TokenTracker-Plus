@@ -1,8 +1,23 @@
+using System.Net;
 using System.Net.Http;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 
 namespace TokenTrackerWin;
+
+internal sealed class LocalSyncRequestException : HttpRequestException
+{
+    public LocalSyncRequestException(HttpStatusCode statusCode, string? code, string message)
+        : base(message)
+    {
+        ResponseStatusCode = statusCode;
+        Code = code;
+    }
+
+    public HttpStatusCode ResponseStatusCode { get; }
+    public string? Code { get; }
+}
 
 /// <summary>
 /// Performs the authenticated loopback exchange used by native background sync.
@@ -47,7 +62,16 @@ internal sealed class LocalSyncPublisher
             request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await ReadLimitedAsync(response.Content, 16 * 1024, cancellationToken);
+            var code = ReadErrorCode(errorBody);
+            var suffix = string.IsNullOrWhiteSpace(code) ? "" : $" ({code})";
+            throw new LocalSyncRequestException(
+                response.StatusCode,
+                code,
+                $"Local sync failed with HTTP {(int)response.StatusCode}{suffix}.");
+        }
         // The local API writes its response after the sync child exits. Consume
         // it so PublishAsync does not complete before that child is finished.
         await response.Content.ReadAsStringAsync(cancellationToken);
@@ -73,5 +97,46 @@ internal sealed class LocalSyncPublisher
         }
 
         throw new InvalidOperationException("Local auth response did not include a token.");
+    }
+
+    private static string? ReadErrorCode(string payload)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                !document.RootElement.TryGetProperty("code", out var codeElement) ||
+                codeElement.ValueKind != JsonValueKind.String)
+                return null;
+            var code = codeElement.GetString();
+            return !string.IsNullOrWhiteSpace(code) &&
+                   code.Length <= 80 &&
+                   code.All(ch => ch <= 0x7f && (char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.'))
+                ? code
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string> ReadLimitedAsync(
+        HttpContent content,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = await content.ReadAsStreamAsync(cancellationToken);
+        using var buffer = new MemoryStream(Math.Min(maxBytes, 4096));
+        var chunk = new byte[4096];
+        while (buffer.Length < maxBytes)
+        {
+            var read = await stream.ReadAsync(
+                chunk.AsMemory(0, Math.Min(chunk.Length, maxBytes - (int)buffer.Length)),
+                cancellationToken);
+            if (read == 0) break;
+            buffer.Write(chunk, 0, read);
+        }
+        return Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
     }
 }

@@ -27,7 +27,12 @@ function makeJwt({ expSeconds }) {
 }
 
 function jsonResponse(body, ok = true, status = 200) {
-  return { ok, status, json: async () => body };
+  return {
+    ok,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 test("accountSlugFor maps usage slugs to account slugs, null for non-cloud", () => {
@@ -247,6 +252,25 @@ test("fetchAccountFunction throws with status on non-ok", async () => {
       fetchImpl: async () => jsonResponse({}, false, 500),
     }),
     (err) => err.status === 500,
+  );
+});
+
+test("an invalid refresh token is classified as an expired cloud session", async () => {
+  __resetCloudAccountCacheForTests();
+  await assert.rejects(
+    mintAccessToken({
+      baseUrl: "https://cloud.example",
+      refreshToken: "expired",
+      throwOnFailure: true,
+      fetchImpl: async () => jsonResponse(
+        { error: "invalid_refresh_token", message: "refresh token is invalid or expired" },
+        false,
+        401,
+      ),
+    }),
+    (err) => err.code === "auth_session_expired" &&
+      err.status === 401 &&
+      String(err.message).includes("invalid_refresh_token"),
   );
 });
 

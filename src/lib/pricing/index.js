@@ -36,8 +36,10 @@ const SOURCES_WITH_AUTHORITATIVE_COST = new Set(["grok", "cline", "qoder"]);
 // Exposed so read-time report builders (usage-model-breakdown's cost_source
 // label) classify a source the same way computeRowCost prices it. A second
 // hand-written list here drifts the moment one side gains a source.
-function hasAuthoritativeRowCost(source) {
-  return SOURCES_WITH_AUTHORITATIVE_COST.has(String(source || ""));
+function hasAuthoritativeRowCost(source, model) {
+  const normalizedSource = String(source || "").toLowerCase();
+  if (normalizedSource === "cursor") return /^grok-bot-/i.test(String(model || ""));
+  return SOURCES_WITH_AUTHORITATIVE_COST.has(normalizedSource);
 }
 
 // Qoder international bills in credits and records no token counts, so the
@@ -313,7 +315,7 @@ function computeRowCost(row) {
   // "unreported" sentinel and falls through to model pricing.
   const reportedCost = Number(row?.total_cost_usd);
   if (
-    SOURCES_WITH_AUTHORITATIVE_COST.has(row?.source) &&
+    hasAuthoritativeRowCost(row?.source, row?.model) &&
     Number.isFinite(reportedCost) &&
     reportedCost > 0
   ) return reportedCost;
@@ -495,7 +497,7 @@ function computeRowSpeedTierSplit(row) {
   if (!rowHasSpeedTierSubsets(row)) return null;
   // A provider-reported total has no observed per-tier bill to allocate.
   const reportedCost = Number(row?.total_cost_usd);
-  if (hasAuthoritativeRowCost(row?.source) && Number.isFinite(reportedCost) && reportedCost > 0)
+  if (hasAuthoritativeRowCost(row?.source, row?.model) && Number.isFinite(reportedCost) && reportedCost > 0)
     return { priority_cost_usd: 0, ultrafast_cost_usd: 0 };
   const priority = computeRowCost(speedTierRow(row, "priority_"));
   const ultrafast = computeRowCost(speedTierRow(row, "ultrafast_"));

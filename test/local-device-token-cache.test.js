@@ -196,6 +196,53 @@ test("real local API and CLI reuse an issued token through refresh rotation and 
   assert.notEqual(x.issued[0], x.issued[1]);
 });
 
+test("same-owner browser binding does not cancel an in-flight native upload", { timeout: 15_000 }, async (t) => {
+  const x = await fixture(t);
+  let started;
+  let release;
+  const seen = new Promise((resolve) => { started = resolve; });
+  const held = new Promise((resolve) => { release = resolve; });
+  x.holdIngest(async (authorization) => {
+    if (authorization.includes("user-a")) {
+      started();
+      await held;
+    }
+    return 200;
+  });
+
+  const native = x.native({ drain: true });
+  await seen;
+  let nativeSettled = false;
+  void native.finally(() => { nativeSettled = true; });
+  const bridge = x.bridge("user-a");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(nativeSettled, false, "the same owner must not abort the upload that already owns the queue");
+
+  release();
+  assert.equal((await native).status, 200);
+  assert.equal((await bridge).status, 200);
+});
+
+test("normal refresh rotation during device-token issuance keeps the native upload alive", { timeout: 15_000 }, async (t) => {
+  const x = await fixture(t);
+  let started;
+  let release;
+  const seen = new Promise((resolve) => { started = resolve; });
+  const held = new Promise((resolve) => { release = resolve; });
+  x.holdIssue(async () => {
+    started();
+    await held;
+    return 200;
+  });
+
+  const native = x.native();
+  await seen;
+  assert.equal((await x.post("/api/auth/refresh")).status, 200);
+  release();
+  assert.equal((await native).status, 200);
+  assert.equal(x.ingested.length, 1, "refresh rotation must not discard the in-flight device proof");
+});
+
 test("restarting the HTTP proxy reuses a private device token after confirming the signed-in owner", { timeout: 15_000 }, async (t) => {
   const x = await fixture(t);
   const file = path.join(x.tracker, "cloud-device-token.json");

@@ -272,9 +272,25 @@ async function performMint({ root, anonKey, refreshToken, fetchImpl, now, timeou
     }
   }
   if (!res || !res.ok) {
+    let failure = null;
+    try {
+      const text = res ? await res.text() : "";
+      failure = text ? JSON.parse(text) : null;
+    } catch {
+      // Error bodies are advisory. Keep the HTTP status authoritative.
+    }
+    const reason = typeof failure?.error === "string"
+      ? failure.error
+      : typeof failure?.code === "string"
+        ? failure.code
+        : typeof failure?.message === "string"
+          ? failure.message
+          : "";
+    const expired = res?.status === 401 &&
+      /invalid_refresh_token|refresh token.*(?:invalid|expired)/i.test(reason);
     const err = new AccountAuthError(
-      "auth_rejected",
-      `token refresh failed with HTTP ${res ? res.status : "?"}`,
+      expired ? "auth_session_expired" : "auth_rejected",
+      `token refresh failed with HTTP ${res ? res.status : "?"}${reason ? ` (${reason.slice(0, 120)})` : ""}`,
     );
     err.status = res ? res.status : 0;
     throw err;

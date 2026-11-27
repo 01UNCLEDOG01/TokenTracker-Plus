@@ -676,6 +676,7 @@
   "sessions.col.cost": "花費",
   "sessions.col.edits": "編輯",
   "sessions.badge.first_pass": "一次完成",
+  "sessions.badge.running": "執行中",
   "sessions.badge.reported_cost": "官方費用",
   "sessions.badge.archived": "中繼資料快照 · 原會話已移除",
   "sessions.badge.credits": "{{credits}} 積分",

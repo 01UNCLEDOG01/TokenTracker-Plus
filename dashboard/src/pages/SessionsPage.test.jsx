@@ -898,6 +898,25 @@ describe("SessionsPage", () => {
     expect(within(dialog).getByText("Model calls").parentElement).toHaveTextContent("7");
   });
 
+  it("marks a verified Antigravity session as running before fresh usage arrives", async () => {
+    const session = makeThreadSession({
+      session_hash: "antigravity-running",
+      session_id: "dddddddd-4444-4444-8444-444444444444",
+      source: "antigravity",
+      title: "Running native task",
+      live_status: "running",
+      turn_ended: false,
+      status_source: "antigravity-conversation-summaries",
+      total_tokens: 0,
+      own_total_tokens: 0,
+      combined_total_tokens: 0,
+    });
+    getSessions.mockResolvedValue({ ...response, sessions: [session], session_count: 1, returned_count: 1 });
+    render(<SessionsPage />);
+    await screen.findByText("Running native task");
+    expect(screen.getByText("Running")).toBeInTheDocument();
+  });
+
   it("copies each provider resume command from its row action", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });

@@ -274,7 +274,7 @@ test("local sync rejects arbitrary insforgeBaseUrl overrides", async () => {
   }
 });
 
-test("local sync preserves the SYNC_BUSY failure code", async () => {
+test("local sync reports an already-running sync as accepted work", async () => {
   const calls = [];
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tt-local-sync-busy-"));
   const { mod, restore } = loadLocalApiWithSpawn(createBusySpawn(calls));
@@ -298,12 +298,60 @@ test("local sync preserves the SYNC_BUSY failure code", async () => {
     );
 
     assert.equal(handled, true);
-    assert.equal(res.statusCode, 500);
+    assert.equal(res.statusCode, 202);
     const body = JSON.parse(res.body.toString("utf8"));
-    assert.equal(body.ok, false);
+    assert.equal(body.ok, true);
+    assert.equal(body.deferred, true);
+    assert.equal(body.pending, true);
     assert.equal(body.code, "SYNC_BUSY");
-    assert.match(body.error, /no refresh was performed/);
+    assert.match(body.error, /covered by it/);
     assert.equal(calls.length, 1);
+  } finally {
+    restore();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("auto background sync defers before spawning when a live lock already exists", async () => {
+  const calls = [];
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tt-local-sync-preflight-"));
+  fs.writeFileSync(path.join(tempDir, "sync.lock"), JSON.stringify({
+    pid: process.pid,
+    token: "held-by-test",
+    createdAt: new Date().toISOString(),
+  }));
+  const { mod, restore } = loadLocalApiWithSpawn(createSuccessfulSpawn(calls));
+
+  try {
+    const handler = mod.createLocalApiHandler({
+      queuePath: path.join(tempDir, "queue.jsonl"),
+    });
+    const localAuthToken = await getLocalAuthToken(handler);
+    const req = createRequest({
+      method: "POST",
+      headers: { "x-tokentracker-local-auth": localAuthToken },
+      body: JSON.stringify({
+        auto: true,
+        background: true,
+        publishAccount: true,
+        allLocalSources: true,
+      }),
+    });
+    const res = createResponse();
+
+    const handled = await handler(
+      req,
+      res,
+      new URL("http://127.0.0.1/functions/tokentracker-local-sync"),
+    );
+
+    assert.equal(handled, true);
+    assert.equal(res.statusCode, 202);
+    assert.equal(calls.length, 0, "a live sync must not be duplicated");
+    const body = JSON.parse(res.body.toString("utf8"));
+    assert.equal(body.deferred, true);
+    assert.equal(body.pending, true);
+    assert.equal(body.code, "SYNC_BUSY");
   } finally {
     restore();
     fs.rmSync(tempDir, { recursive: true, force: true });

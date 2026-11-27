@@ -22,6 +22,7 @@ const { functionUrlFor, fetchFunctionResponse } = require("./function-url");
 const { createCloudDeviceTokenStore } = require("./cloud-device-token");
 const { parseBearerToken } = require("./bearer-token");
 const { writeJsonAtomicSync } = require("./atomic-json");
+const { inspectLock } = require("./fs");
 const { captureBadgeEarnedValues } = require("./badge-earned-values");
 const { fetchProviderServiceStatus } = require("./provider-status");
 const { getTrackerRootDir, resolveTrackerPathsSync } = require("./tracker-paths");
@@ -315,7 +316,7 @@ async function computeUsageModelBreakdownSources({ scopedRows, timeZoneContext, 
     // Same source list computeRowCost prices from, so a credits-derived
     // source (qoder) is labelled as tool-reported instead of being called
     // an estimate from model pricing it never had.
-    const reportedCost = hasAuthoritativeRowCost(src) && Number(row.total_cost_usd) > 0;
+    const reportedCost = hasAuthoritativeRowCost(src, row.model) && Number(row.total_cost_usd) > 0;
     const costSource = reportedCost ? "provider_reported" : "model_pricing";
     ma.cost_source = ma.cost_source && ma.cost_source !== costSource ? "mixed" : costSource;
     ma.totals.total_tokens += row.total_tokens || 0;
@@ -3009,7 +3010,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     if (reason) console.warn(`[LocalAPI] Cleared relay cookies: ${reason}`);
   }
 
-  function captureSetCookies(headerValue) {
+  function captureSetCookies(headerValue, { sessionChanged = true } = {}) {
     if (!headerValue) return;
     const parts = headerValue.split(/,(?=\s*\w+=)/);
     let changed = false;
@@ -3026,7 +3027,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       
       if (isDeletion) {
         if (relayCookies.has(name)) {
-          if (name === "insforge_refresh_token") invalidateCloudAccountPayloadCache({ sessionChanged: true });
+          if (name === "insforge_refresh_token") invalidateCloudAccountPayloadCache({ sessionChanged });
           relayCookies.delete(name);
           changed = true;
           console.log(`[LocalAPI] Cookie deleted: ${name}`);
@@ -3034,7 +3035,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       } else {
         const oldVal = relayCookies.get(name);
         if (oldVal !== raw.trim()) {
-          if (name === "insforge_refresh_token") invalidateCloudAccountPayloadCache({ sessionChanged: true });
+          if (name === "insforge_refresh_token") invalidateCloudAccountPayloadCache({ sessionChanged });
           relayCookies.set(name, raw.trim());
           changed = true;
           console.log(`[LocalAPI] Cookie captured: ${name}`);
@@ -3086,7 +3087,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       if (newLogin) clearLocalSyncDeviceTokenCache();
       const cookie = `insforge_refresh_token=${encodeURIComponent(refreshToken)}; Path=/; HttpOnly; SameSite=Lax`;
       if (relayCookies.get("insforge_refresh_token") !== cookie) {
-        invalidateCloudAccountPayloadCache({ sessionChanged: true });
+        invalidateCloudAccountPayloadCache({ sessionChanged: newLogin });
         relayCookies.set("insforge_refresh_token", cookie);
         changed = true;
       }
@@ -3176,6 +3177,9 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
     const minted = options.accessToken ? { accessToken: options.accessToken } : await mintAccessToken({
       baseUrl, anonKey: runtime.anonKey, refreshToken, timeoutMs: runtime.httpTimeoutMs, throwOnFailure: true,
     }).catch((error) => {
+      if (error.code === "auth_session_expired" && sessionAtStart === getCloudAccountSessionGeneration()) {
+        clearRelayCookies("cloud refresh token expired");
+      }
       if (error.status === 401 && sessionAtStart === getCloudAccountSessionGeneration()) clearLocalSyncDeviceTokenCache();
       throw error;
     });
@@ -3298,6 +3302,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
   // manual sync. See ACCOUNT_FALLBACK_* below for the vocabulary.
   const ACCOUNT_FALLBACK_CLOUD_SYNC_OFF = "cloud-sync-off";
   const ACCOUNT_FALLBACK_SIGNED_OUT = "signed-out";
+  const ACCOUNT_FALLBACK_SESSION_EXPIRED = "session-expired";
 
   // Every transient reason is prefixed "transient-"; clients only need the
   // prefix, so new reasons can be added without a client change.
@@ -3307,6 +3312,7 @@ function createLocalApiHandler({ queuePath, serverVersion = null, trackerDataDir
       return "transient-timeout";
     }
     if (typeof err.code === "string" && err.code.startsWith("cloud_")) return err.code.replaceAll("_", "-");
+    if (err.code === "auth_session_expired") return ACCOUNT_FALLBACK_SESSION_EXPIRED;
     if (err.code === "auth_rejected" || err.code === "auth_invalid" || err.status === 401 || err.status === 403) {
       return "transient-auth";
     }
@@ -3436,6 +3442,11 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           (sessionAtStart !== currentSession && e.invalidatedSessionGeneration !== currentSession)) {
         json(res, { error: "Account session changed", code: "auth_session_changed" }, 409);
         return "served";
+      }
+      if (e.code === "auth_session_expired") {
+        clearRelayCookies("cloud refresh token expired");
+        accountViewFailures.clear();
+        return ACCOUNT_FALLBACK_SESSION_EXPIRED;
       }
       if (!getCloudSyncPref()) return ACCOUNT_FALLBACK_CLOUD_SYNC_OFF;
       if (cloudPrefAtStart !== cloudSyncPrefGeneration) {
@@ -3928,7 +3939,9 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
           .map(([k, v]) => {
             if (k.toLowerCase() === "set-cookie") {
               const rewritten = v.replace(/;\s*[Dd]omain=[^;]*/g, "; Domain=localhost");
-              if (allowRelayCapture) captureSetCookies(rewritten);
+              if (allowRelayCapture) {
+                captureSetCookies(rewritten, { sessionChanged: p !== "/api/auth/refresh" });
+              }
               return [k, rewritten];
             }
             return [k, v];
@@ -4156,7 +4169,12 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         if (!accessToken || !ownerId) { json(res, { code: "auth_required" }, 401); return true; }
         const baseUrl = resolveAllowedInsforgeBaseUrl(body.insforgeBaseUrl || getRuntime().baseUrl, getRuntime());
         if (!baseUrl) { json(res, { error: "Unsupported insforgeBaseUrl override" }, 400); return true; }
-        clearLocalSyncDeviceTokenCache();
+        const sameCloudBinding = localCloudSession?.ownerId === ownerId &&
+          normalizeInstanceBaseUrl(localCloudSession.baseUrl) === normalizeInstanceBaseUrl(baseUrl);
+        if ((localCloudSession && !sameCloudBinding) ||
+            (localSyncDeviceTokenUserId && localSyncDeviceTokenUserId !== ownerId)) {
+          clearLocalSyncDeviceTokenCache();
+        }
         const generation = localCloudGeneration;
         await Promise.all([...activeCloudSyncs].map(controller => controller.done).filter(Boolean));
         const issued = await issueDeviceTokenForLocalSync(qp, { baseUrl, accessToken, expectedOwnerId: ownerId, returnSession: true });
@@ -4238,6 +4256,19 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         const publishAccount =
           background && body.publishAccount === true && getCloudSyncPref();
         const allLocalSources = background && body.allLocalSources === true;
+        if (background) {
+          const holder = await inspectLock(path.join(path.dirname(qp), "sync.lock"));
+          if (holder.exists && holder.alive) {
+            json(res, {
+              ok: true,
+              deferred: true,
+              pending: true,
+              code: "SYNC_BUSY",
+              error: "another sync is already running; this request will be covered by it",
+            }, 202);
+            return true;
+          }
+        }
         if (background && body.nativeOnlyWsl === true) {
           extraEnv.TOKENTRACKER_WSL_MODE = "native-only";
         }
@@ -4371,6 +4402,18 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
         } catch { /* no upload has been attempted yet */ }
         json(res, { ok: true, ...result, ...cloudAccess });
       } catch (e) {
+        if (e?.code === "SYNC_BUSY") {
+          json(res, {
+            ok: true,
+            deferred: true,
+            pending: true,
+            code: "SYNC_BUSY",
+            error: "another sync is already running; this request will be covered by it",
+            stdout: e?.stdout || "",
+            stderr: e?.stderr || "",
+          }, 202);
+          return true;
+        }
         json(res, { ok: false, error: e?.message, code: e?.code ?? null, recovery_url: e?.recoveryUrl ?? null, next_allowed_at: e?.nextAllowedAt ?? null, retry_after_seconds: e?.retryAfterMs ? Math.ceil(e.retryAfterMs / 1000) : null, stdout: e?.stdout || "", stderr: e?.stderr || "" }, e?.status || 500);
       }
       return true;
@@ -5777,6 +5820,7 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             const minted = await mintAccessToken({
               baseUrl: runtime.baseUrl, anonKey: runtime.anonKey, refreshToken,
               timeoutMs: runtime.httpTimeoutMs,
+              throwOnFailure: true,
             });
             if (!minted?.accessToken) return;
             if (typeof minted.refreshToken === "string" && minted.refreshToken.trim()) {
@@ -5820,6 +5864,10 @@ applyAccountViewQoderIntlMerge(usageSlug, out.data, {
             }
           } catch (error) {
             _badgeSyncNextAttemptAt = Date.now() + BADGE_SYNC_BACKOFF_MS;
+            if (error?.code === "auth_session_expired") {
+              clearRelayCookies("cloud refresh token expired");
+              return;
+            }
             console.warn("[local-api] account badge sync failed:", error?.message || error);
           } finally {
             _badgeSyncInFlight = null;

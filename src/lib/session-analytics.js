@@ -64,6 +64,10 @@ const {
   resolveWorkbuddyHomes,
   resolveWorkbuddyProjectFiles,
   resolveWorkbuddyProjectFilesAll,
+  resolveKiroCliSessionFiles,
+  readKiroCliSessionTurns,
+  readKiroCliV2SessionTurns,
+  canonicalizeKiroCliModelId,
   resolveZcodeInstallPaths,
   workbuddySourceForPath,
   workbuddyUsageFromRawUsage,
@@ -77,6 +81,7 @@ const { lookupTokenMonitorPerformance } = require("./token-monitor-speed");
 const { readSqliteJsonRows, readSqliteJsonRowsAsync } = require("./sqlite-reader");
 const { resolveZcodeNativeDbPath, resolveInstallPaths } = require("./install-resolver");
 const { readCursorStateSummary } = require("./cursor-store");
+const { discoverT3Databases, readT3NativeMetadata } = require("./t3-native-metadata");
 const { USD_TICKS_PER_USD, normalizeGrokUsage } = require("./grok-usage");
 const wsl = require("./wsl-probe");
 const { resolveLoomyDbPaths } = require("./loomy-paths");
@@ -4032,6 +4037,13 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     if ((deps.existsSync || fs.existsSync)(kimiDesktopHome)) kimiRoots.push(kimiDesktopHome);
   }
   const kimi = discoverKimiWireFiles(dedupeDirsByRealpath(kimiRoots), incomplete);
+  const kiro = (() => {
+    try {
+      return resolveKiroCliSessionFiles({ ...env, HOME: home });
+    } catch {
+      return [];
+    }
+  })();
   const usingMachineHome = path.resolve(home) === path.resolve((deps.homedir || os.homedir)());
   const ompEnv = usingMachineHome
     ? { ...env, HOME: home }
@@ -4088,6 +4100,7 @@ async function discoverSessionFiles(home, env = process.env, deps = {}) {
     opencode,
     loomy,
     kimi,
+    kiro,
     omp,
     minimaxCode,
     devin,
@@ -4648,7 +4661,12 @@ async function scanAntigravitySession(dbPath) {
   const usageEvents = finite(result.eventsAggregated);
   const usagePrecision = result.usagePrecision || "estimated";
   const project = contributions.find((c) => c?.projectKey) || {};
-  const workspace = readAntigravityWorkspace(dbPath);
+  const { readAntigravitySessionMetadata } = require("./antigravity-session-metadata");
+  const summary = readAntigravitySessionMetadata({
+    conversationDbPath: dbPath,
+    conversationId: uuid,
+  });
+  const workspace = readAntigravityWorkspace(dbPath) || summary?.workspace;
   const projectRef = workspace || project.projectRef || null;
   const projectKey = workspace ? path.basename(workspace) : (project.projectKey || null);
   const storage = sessionStorageUsage([...chunkPaths, dbPath]);
@@ -4669,15 +4687,28 @@ async function scanAntigravitySession(dbPath) {
       }
     } catch (_error) { /* locked or unreadable: untitled stays untitled */ }
   }
+  if (startedMs === null && summary?.lastUserInputAt) startedMs = summary.lastUserInputAt;
+  if (summary?.turnEnded && summary.lastActivityAt) {
+    endedMs = endedMs === null ? summary.lastActivityAt : Math.max(endedMs, summary.lastActivityAt);
+  }
   return [finalizeRecord({
     version: SIDECAR_VERSION,
     session_hash: sessionHash("antigravity", uuid),
     session_id: uuid,
-    title: substantiveRequestText || firstRequestText || blobTitle,
+    title: summary?.title || substantiveRequestText || firstRequestText || blobTitle || summary?.preview || null,
     source: "antigravity",
     ...storage,
     project_key: projectKey,
     project_ref: projectRef,
+    parent_session_id: summary?.parentSessionId || null,
+    live_status: summary?.liveStatus || null,
+    turn_ended: summary?.turnEnded ?? null,
+    last_used_at: summary?.lastActivityAt
+      ? new Date(summary.lastActivityAt).toISOString()
+      : summary?.lastUserInputAt
+        ? new Date(summary.lastUserInputAt).toISOString()
+        : null,
+    status_source: summary ? summary.source : null,
     model: modelUsage[0]?.model ?? null,
     model_usage: modelUsage,
     usage_buckets: result.usageBuckets || [],
@@ -4709,6 +4740,129 @@ async function scanAntigravitySession(dbPath) {
 // same API exercises the same permission surface a real scan would hit. A stat
 // match cannot see a permission failure — without this, a forced refresh would
 // silently serve a cached row for a file it can no longer read.
+async function scanKiroSessionFile(filePath) {
+  const isV2 = path.basename(filePath) === "messages.jsonl";
+  const sessionDir = path.dirname(filePath);
+  let meta = {};
+  try {
+    meta = JSON.parse(fs.readFileSync(path.join(sessionDir, "session.json"), "utf8"));
+  } catch {
+    /* V2 messages are self-contained; legacy JSON carries its own metadata. */
+  }
+  if (!isV2) {
+    try {
+      meta = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    } catch {
+      return [];
+    }
+  }
+  const parsedTurns = isV2
+    ? (await readKiroCliV2SessionTurns(filePath)).turns
+    : await readKiroCliSessionTurns(filePath);
+  const sessionId = String(
+    meta.id
+    || meta.session_id
+    || parsedTurns[0]?.session_id
+    || path.basename(sessionDir).replace(/^sess_/, "")
+    || path.basename(filePath, ".json"),
+  ).trim();
+  if (!sessionId) return [];
+  const byModel = new Map();
+  let turns = 0;
+  let totalTokens = 0;
+  let startedMs = Infinity;
+  let endedMs = 0;
+  for (const row of parsedTurns) {
+    const rawModel = row.model_id || row.session_model_id || meta.modelId || meta.model_id;
+    const model = canonicalizeKiroCliModelId(rawModel) || "kiro-cli-agent";
+    const input = Math.floor(Math.max(0, finite(row.user_prompt_length)) / 4);
+    const output = Math.floor(Math.max(0, finite(row.response_size)) / 4);
+    const reasoning = Math.floor(Math.max(0, finite(row.reasoning_size)) / 4);
+    const turnTotal = input + output + reasoning;
+    const ts = Number(row.request_start_timestamp_ms);
+    if (!Number.isFinite(ts) || ts <= 0) continue;
+    if (ts < startedMs) startedMs = ts;
+    if (ts > endedMs) endedMs = ts;
+    turns += 1;
+    totalTokens += turnTotal;
+    const usage = byModel.get(model) || {
+      model,
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 0,
+    };
+    usage.input_tokens += input;
+    usage.output_tokens += output;
+    usage.reasoning_output_tokens += reasoning;
+    usage.total_tokens += turnTotal;
+    byModel.set(model, usage);
+  }
+  if (!turns || !totalTokens) return [];
+  const modelUsage = [...byModel.values()];
+  const tokens = {
+    input_tokens: modelUsage.reduce((sum, row) => sum + row.input_tokens, 0),
+    cached_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    output_tokens: modelUsage.reduce((sum, row) => sum + row.output_tokens, 0),
+    reasoning_output_tokens: modelUsage.reduce((sum, row) => sum + row.reasoning_output_tokens, 0),
+    total_tokens: totalTokens,
+  };
+  const cwd = typeof meta.cwd === "string" ? meta.cwd
+    : typeof meta.workspace === "string" ? meta.workspace
+      : typeof meta.projectPath === "string" ? meta.projectPath : null;
+  const startedAt = Number.isFinite(startedMs) ? new Date(startedMs).toISOString() : null;
+  const endedAt = endedMs > 0 ? new Date(endedMs).toISOString() : null;
+  return [finalizeRecord({
+    version: SIDECAR_VERSION,
+    session_hash: sessionHash("kiro", sessionId),
+    session_id: sessionId,
+    title: cleanSessionTitle(meta.title || meta.name || meta.session_title),
+    source: "kiro",
+    ...sessionStorageUsage([filePath, path.join(sessionDir, "session.json")]),
+    project_key: projectKey(cwd, filePath),
+    project_ref: cwd,
+    model: modelUsage[0]?.model || "kiro-cli-agent",
+    model_usage: modelUsage,
+    started_at: startedAt,
+    ended_at: endedAt,
+    active_ms: startedAt && endedAt ? Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)) : 0,
+    speed_active_ms: 0,
+    turns,
+    edit_turns: 0,
+    retry_turns: 0,
+    subagent_calls: 0,
+    ...tokens,
+    tokens,
+    provenance: "local-session-log",
+    usage_source: "kiro-cli-transcript",
+    usage_precision: "estimated",
+    usage_is_incomplete: true,
+    usage_events: turns,
+    model_calls: turns,
+    tool_calls: 0,
+    tool_failures: 0,
+    error_count: 0,
+    context_tokens_used: 0,
+  })];
+}
+
+async function scanKiroSessions(files) {
+  const selected = new Map();
+  for (const file of files) {
+    const sessionId = path.basename(file) === "messages.jsonl"
+      ? path.basename(path.dirname(file)).replace(/^sess_/, "")
+      : path.basename(file, ".json");
+    const previous = selected.get(sessionId);
+    if (!previous || path.basename(file) === "messages.jsonl") selected.set(sessionId, file);
+  }
+  const rows = await Promise.all([...selected.values()]
+    .map((file) => scanKiroSessionFile(file).catch(() => [])));
+  return rows.flat();
+}
+
 function fileStillReadable(filePaths) {
   const list = (Array.isArray(filePaths) ? filePaths : [filePaths]).filter(Boolean);
   return Promise.all(list.map((filePath) => new Promise((resolve) => {
@@ -4886,6 +5040,10 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...discovered.codex.flat(),
     ...discovered.codex.flat().map(codexTitleIndexPathFor).filter(Boolean),
     ...discovered.kimi,
+    ...(discovered.kiro || []).flatMap((filePath) => [
+      filePath,
+      path.join(path.dirname(filePath), "session.json"),
+    ]),
     ...kimiSessionDependencies(discovered.kimi),
     ...discovered.omp,
     ...ompSessionDependencies(discovered.omp),
@@ -4897,6 +5055,8 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     ...[...(discovered.zcode || []), ...(discovered.opencode || []), ...(discovered.loomy || [])].flatMap((dbPath) => [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]),
     ...(discovered.qoder || []),
     ...(discovered.qoderCn || []),
+    ...discoverT3Databases({ home, env: process.env })
+      .flatMap((dbPath) => [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]),
   ]);
   if (!force && !retryZcodeScan && !retryOpencodeScan && !retryKimiScan && !retryOmpScan && previousMeta?.version === SIDECAR_VERSION && previousMeta.signature === signature) {
     await writeAtomic(metaPath, `${JSON.stringify({ ...previousMeta, checked_at: new Date().toISOString() })}\n`);
@@ -4951,6 +5111,11 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
       scan: scanWorkbuddySession,
     })),
     ...(discovered.kimi.length ? [{ source: "kimi", filePath: discovered.kimi, scan: scanKimiSessions }] : []),
+    ...(discovered.kiro?.length ? [{
+      source: "kiro",
+      filePath: discovered.kiro,
+      scan: scanKiroSessions,
+    }] : []),
     ...(discovered.qoder || []).map((filePath) => ({
       source: "qoder",
       filePath,
@@ -5129,6 +5294,26 @@ async function buildSessionAnalyticsInternal({ home = os.homedir(), force = fals
     repriceSessionRecord(row);
   }
   sessions.push(...archived.retained);
+  const t3SessionIds = sessions
+    .filter((row) => (row.source === "antigravity" || row.source === "kiro") && row.session_id)
+    .map((row) => row.session_id);
+  const t3Metadata = readT3NativeMetadata(t3SessionIds, { home, env: process.env });
+  if (t3Metadata.size) {
+    for (const row of sessions) {
+      if (row.source !== "antigravity" && row.source !== "kiro") continue;
+      const metadata = t3Metadata.get(`${row.source}\0${row.session_id}`);
+      if (!metadata) continue;
+      if (metadata.title) row.title = metadata.title;
+      if (!row.parent_session_id && metadata.parentSessionId) {
+        row.parent_session_id = metadata.parentSessionId;
+      } else if (row.parent_session_id && metadata.parentSessionId
+        && row.parent_session_id !== metadata.parentSessionId) {
+        row.parent_session_id = null;
+        row.parent_link_conflict = true;
+      }
+      if (metadata.title || metadata.parentSessionId) row.status_source = "t3-code-session-metadata";
+    }
+  }
   sessions.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
   // A failed file or database scan used to block ALL persistence, which had a
   // catastrophic cold-start mode: if the very first build already hit an
@@ -5483,6 +5668,10 @@ function toSessionBrowserRow(row) {
     parent_link_conflict: Boolean(row.parent_link_conflict),
     title: row.title || null,
     source: row.source,
+    live_status: row.live_status || null,
+    turn_ended: typeof row.turn_ended === "boolean" ? row.turn_ended : null,
+    last_used_at: row.last_used_at || null,
+    status_source: row.status_source || null,
     ...(Number.isFinite(row.session_store_bytes) ? {
       session_store_bytes: row.session_store_bytes,
       session_store_metric: row.session_store_metric,
@@ -5600,6 +5789,14 @@ function mergeSessionFragments(rows) {
     cur.productive = Boolean(cur.productive) || Boolean(row.productive);
     cur.active_ms = finite(cur.active_ms) + finite(row.active_ms);
     if (!cur.title && row.title) cur.title = row.title;
+    const rowUsedAt = Date.parse(row.last_used_at || "");
+    const curUsedAt = Date.parse(cur.last_used_at || "");
+    if (Number.isFinite(rowUsedAt) && (!Number.isFinite(curUsedAt) || rowUsedAt >= curUsedAt)) {
+      cur.last_used_at = row.last_used_at || null;
+      cur.live_status = row.live_status || null;
+      cur.turn_ended = typeof row.turn_ended === "boolean" ? row.turn_ended : null;
+      if (row.status_source) cur.status_source = row.status_source;
+    }
     if (!cur.parent_session_id && row.parent_session_id) cur.parent_session_id = row.parent_session_id;
     if (cur.parent_session_id && row.parent_session_id && cur.parent_session_id !== row.parent_session_id) {
       cur.parent_session_id = null;
@@ -5658,7 +5855,9 @@ function annotateThreadUsage(rows) {
   const identity = (row, id = row.session_id) => `${row.source}\u0000${id}`;
 
   for (const row of rows || []) {
-    if ((row?.source !== "codex" && row?.source !== "zcode" && !isOpencodeFamilySource(row?.source)) || typeof row.session_id !== "string" || !row.session_id) continue;
+    if (!["codex", "zcode", "kiro", "antigravity"].includes(row?.source)
+      && !isOpencodeFamilySource(row?.source)) continue;
+    if (typeof row.session_id !== "string" || !row.session_id) continue;
     const existing = byId.get(identity(row));
     if (existing && existing !== row) {
       existing.parent_link_conflict = true;
@@ -5736,7 +5935,8 @@ function annotateThreadUsage(rows) {
   }
 
   for (const row of rows || []) {
-    const threadAware = (row.source === "codex" || row.source === "zcode" || isOpencodeFamilySource(row.source))
+    const threadAware = (["codex", "zcode", "kiro", "antigravity"].includes(row.source)
+      || isOpencodeFamilySource(row.source))
       && typeof row.session_id === "string" && row.session_id;
     row.own_total_tokens = finite(row.total_tokens);
     row.own_cost_usd = finite(row.cost_usd);
@@ -5779,10 +5979,12 @@ function listSessionsForBrowser(sessions, { from = "", to = "", limit = 0, timeZ
     // no model, no cost and nothing to analyze. Credit-billed sources are
     // exempt: their zero is the honest number, not noise.
     .filter((row) => finite(row.total_tokens) > 0
-      || CREDIT_BILLED_SESSION_SOURCES.has(row.source))
+      || CREDIT_BILLED_SESSION_SOURCES.has(row.source)
+      || (row.source === "antigravity" && row.live_status === "running"))
     .filter((row) => withinDayRange(row, from, to, context))
     .map((row) => scopeSessionUsage(row, from, to, context))
-    .filter((row) => !Array.isArray(row.usage_buckets) || finite(row.total_tokens) > 0));
+    .filter((row) => !Array.isArray(row.usage_buckets) || finite(row.total_tokens) > 0
+      || (row.source === "antigravity" && row.live_status === "running")));
   filtered.sort((a, b) => String(b.ended_at || "").localeCompare(String(a.ended_at || "")));
   const cap = Number(limit) > 0 ? Number(limit) : 0;
   const limited = cap > 0 ? filtered.slice(0, cap) : filtered;
@@ -5830,6 +6032,8 @@ module.exports = {
   scanTraeSessions,
   scanOpencodeSessions,
   scanKimiSessions,
+  scanKiroSessions,
+  scanKiroSessionFile,
   scanOmpSessions,
   scanOmpSession,
   scanMinimaxCodeSession,

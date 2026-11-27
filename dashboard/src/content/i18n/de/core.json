@@ -595,6 +595,7 @@
   "sessions.col.cost": "Kosten",
   "sessions.col.edits": "Bearbeitungen",
   "sessions.badge.first_pass": "Erster Versuch",
+  "sessions.badge.running": "Läuft",
   "sessions.badge.reported_cost": "Gemeldete Kosten",
   "sessions.badge.archived": "Metadaten-Snapshot · Quelle entfernt",
   "sessions.badge.credits": "{{credits}} Credits",

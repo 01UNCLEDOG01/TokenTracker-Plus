@@ -42,6 +42,16 @@ test("Windows background sync publishes through the authenticated local API", ()
     "Windows background sync should publish all local sources and request native-only WSL",
   );
   assert.match(
+    publisher,
+    /LocalSyncRequestException[\s\S]*ResponseStatusCode[\s\S]*ReadErrorCode/,
+    "A non-2xx local sync must preserve a safe status/code for diagnostics",
+  );
+  assert.match(
+    serverManager,
+    /TOKENTRACKER_CODEX_LOCAL_WORK[\s\S]*= "1"/,
+    "The Windows shell should enable the local Codex Work watcher",
+  );
+  assert.match(
     serverManager,
     /LocalSyncHttp[\s\S]*UseProxy\s*=\s*false[\s\S]*Timeout\s*=\s*Timeout\.InfiniteTimeSpan/,
     "Background local sync must let the server own its complete budget and cancel on shutdown",

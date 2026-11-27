@@ -1615,6 +1615,35 @@ for (const status of [401, 403]) {
   });
 }
 
+test("an invalid refresh token expires once, clears relay auth, then reports signed out", async (t) => {
+  const { root, realFetch, cookiePath } = await startAccountHttpFixture(t);
+  let refreshCalls = 0;
+  await startAccountUpstreamFixture(t, async (req, res, url) => {
+    if (url.pathname === "/api/auth/refresh") {
+      refreshCalls += 1;
+      res.statusCode = 401;
+      res.end(JSON.stringify({
+        error: "invalid_refresh_token",
+        message: "refresh token is invalid or expired",
+      }));
+      return;
+    }
+    throw new Error(`unexpected upstream request: ${url.pathname}`);
+  });
+
+  const path = "/functions/tokentracker-usage-summary?account=1&from=2026-10-01&to=2026-10-01";
+  const expired = await realFetch(root + path);
+  assert.equal(expired.status, 200);
+  assert.equal(expired.headers.get("x-tokentracker-account-view"), "0");
+  assert.equal(expired.headers.get("x-tokentracker-account-fallback"), "session-expired");
+  assert.equal(refreshCalls, 1);
+  assert.equal(fs.existsSync(cookiePath), false);
+
+  const signedOut = await realFetch(root + path);
+  assert.equal(signedOut.headers.get("x-tokentracker-account-fallback"), "signed-out");
+  assert.equal(refreshCalls, 1, "a cleared expired token must not be retried");
+});
+
 test("a late real HTTP account GET cannot replace a newer same-account RT and CSRF rotation", async (t) => {
   const { root, realFetch, readCookies } = await startAccountHttpFixture(t);
   let refreshCalls = 0;

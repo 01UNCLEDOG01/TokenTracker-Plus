@@ -598,6 +598,7 @@
   "sessions.col.cost": "비용",
   "sessions.col.edits": "편집",
   "sessions.badge.first_pass": "한 번에 완료",
+  "sessions.badge.running": "실행 중",
   "sessions.badge.reported_cost": "보고된 비용",
   "sessions.badge.archived": "메타데이터 스냅샷 · 원본 삭제됨",
   "sessions.badge.credits": "{{credits}} 크레딧",

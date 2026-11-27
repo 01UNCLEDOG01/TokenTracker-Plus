@@ -322,3 +322,19 @@ test("notify sync stops waiting at its bounded deadline", async () => {
     await active.release();
   });
 });
+
+test("manual drain still uses its bounded priority wait and reports busy", async () => {
+  await withLockPath(async (lockPath) => {
+    const active = await openLock(lockPath, { quietIfLocked: true });
+    assert.ok(active);
+    await assert.rejects(
+      acquireSyncLock(
+        lockPath,
+        { auto: true, drain: true },
+        { priorityWaitMs: 30, priorityPollMs: 5 },
+      ),
+      (error) => error.code === "SYNC_BUSY",
+    );
+    await active.release();
+  });
+});

@@ -321,10 +321,18 @@ internal sealed class ServerManager : IDisposable
             // log instead of looking like an ordinary quit.
             Log(_stopping ? "background sync cancelled" : "background sync deadline exceeded");
         }
+        catch (LocalSyncRequestException ex)
+        {
+            var status = (int)ex.ResponseStatusCode;
+            var retryable = status is 409 or 429 or 502 or 503;
+            Log($"background sync {(retryable ? "deferred" : "failed")} (HTTP {status}, code={ex.Code ?? "none"})");
+        }
         catch (Exception ex)
         {
             // Never include the local-auth response/header in diagnostics.
-            Log($"background sync failed ({ex.GetType().Name})");
+            var detail = string.IsNullOrWhiteSpace(ex.Message) ? "" : $": {ex.Message.ReplaceLineEndings(" ")}";
+            if (detail.Length > 240) detail = detail[..240] + "…";
+            Log($"background sync failed ({ex.GetType().Name}){detail}");
         }
         finally
         {
@@ -699,7 +707,10 @@ internal sealed class ServerManager : IDisposable
         // one-minute fallback to avoid sync.lock contention and stale totals.
         if (!forceNativeOnlyWslMode && args.Length > 0 &&
             string.Equals(args[0], "serve", StringComparison.OrdinalIgnoreCase))
+        {
             psi.Environment["TOKENTRACKER_NATIVE_SYNC_OWNER"] = "windows-host";
+            psi.Environment["TOKENTRACKER_CODEX_LOCAL_WORK"] = "1";
+        }
         if (forceNativeOnlyWslMode)
             psi.Environment["TOKENTRACKER_WSL_MODE"] = "native-only";
 

@@ -8034,6 +8034,58 @@ async function resolveProjectContextForDb({
 
 // ── Cursor (API-based) ──
 
+const CURSOR_GROK_BOT_TOKEN_FIELDS = Object.freeze([
+  ["inputTokens", "input_tokens"],
+  ["cacheReadTokens", "cached_input_tokens"],
+  ["cacheWriteTokens", "cache_creation_input_tokens"],
+  ["outputTokens", "output_tokens"],
+]);
+
+function cursorGrokBotTokenBasis(rows) {
+  return CURSOR_GROK_BOT_TOKEN_FIELDS.map(([field]) =>
+    rows.reduce((sum, row) => sum + (Number(row?.[field]) || 0), 0));
+}
+
+// Cursor exposes the same Grok Bot request in two feeds. Select one whole
+// bucket, never add them together: an equal token basis means the event rows
+// can replace the CSV rows for that half-hour; any disagreement leaves the CSV
+// inventory intact.
+function mergeCursorGrokBotUsage(csv, events) {
+  const { isCursorGrokBot } = require("./cursor-config");
+  const key = (row) => JSON.stringify([toUtcHalfHourStart(row.date), String(row.model || "").toLowerCase()]);
+  const grouped = (records) => {
+    const groups = new Map();
+    for (const record of records) {
+      if (!isCursorGrokBot(record?.model)) continue;
+      const bucket = key(record);
+      if (!groups.has(bucket)) groups.set(bucket, []);
+      groups.get(bucket).push(record);
+    }
+    return groups;
+  };
+  const csvGroups = grouped(csv);
+  const eventGroups = grouped(events);
+  const replacements = new Map();
+  for (const [bucket, eventRows] of eventGroups) {
+    const csvRows = csvGroups.get(bucket);
+    if (!csvRows) {
+      replacements.set(bucket, eventRows);
+      continue;
+    }
+    const eventBasis = cursorGrokBotTokenBasis(eventRows);
+    const sameBasis = csvRows.length === eventRows.length &&
+      cursorGrokBotTokenBasis(csvRows).every((value, index) => value === eventBasis[index]);
+    const eventCostComplete = eventRows.every((row) =>
+      row?.tokenUsage && row.tokenUsage.totalCents !== undefined);
+    if (sameBasis && (eventCostComplete || !csvRows.some((row) => Number(row.cost) > 0))) {
+      replacements.set(bucket, eventRows);
+    }
+  }
+  return csv
+    .filter((row) => !isCursorGrokBot(row?.model) || !replacements.has(key(row)))
+    .concat([...replacements.values()].flat());
+}
+
 /**
  * Incremental parser for Cursor usage data fetched via API.
  *
@@ -8048,6 +8100,7 @@ async function parseCursorApiIncremental({
   queuePath,
   onProgress,
   source,
+  grokBotRecords = [],
 }) {
   await ensureDir(path.dirname(queuePath));
   const defaultSource = normalizeSourceInput(source) || "cursor";
@@ -8061,9 +8114,14 @@ async function parseCursorApiIncremental({
   let latestTs = lastTs;
   let eventsAggregated = 0;
   const cb = typeof onProgress === "function" ? onProgress : null;
+  const { normalizeCursorUsage, isCursorGrokBot } = require("./cursor-config");
+  const previousBotTotals = new Map();
+  const csvRecords = Array.isArray(records) ? records : [];
+  const botRecords = Array.isArray(grokBotRecords) ? grokBotRecords : [];
+  records = mergeCursorGrokBotUsage(csvRecords, botRecords);
   const total = records.length;
 
-  if (records.length > 0) {
+  if (csvRecords.length > 0) {
     // Guard (2026-06 audit): only wipe buckets the fetched export can
     // actually rebuild. The wipe-then-refill design assumes the CSV is a
     // FULL-history export; if Cursor ever windows or truncates the export,
@@ -8072,7 +8130,7 @@ async function parseCursorApiIncremental({
     // record onward is identical for full exports and fail-safe for
     // partial ones.
     let earliestBucketStart = null;
-    for (const record of records) {
+    for (const record of csvRecords) {
       if (!record?.date) continue;
       const b = toUtcHalfHourStart(record.date);
       if (b && (!earliestBucketStart || b < earliestBucketStart)) earliestBucketStart = b;
@@ -8084,7 +8142,7 @@ async function parseCursorApiIncremental({
       for (const [key, bucket] of Object.entries(hourlyState.buckets || {})) {
         const parsed = parseBucketKey(key);
         const sourceKey = normalizeSourceInput(parsed.source) || DEFAULT_SOURCE;
-        if (sourceKey !== defaultSource) continue;
+        if (sourceKey !== defaultSource || isCursorGrokBot(parsed.model)) continue;
         if (!bucket?.totals) continue;
         if (parsed.hourStart && parsed.hourStart < earliestBucketStart) continue;
         bucket.totals = initTotals();
@@ -8098,7 +8156,6 @@ async function parseCursorApiIncremental({
     const recordDate = record.date;
     if (!recordDate) continue;
 
-    const { normalizeCursorUsage } = require("./cursor-config");
     const delta = normalizeCursorUsage(record);
     if (isAllZeroUsage(delta)) continue;
 
@@ -8109,8 +8166,13 @@ async function parseCursorApiIncremental({
 
     const model = normalizeModelInput(record.model) || DEFAULT_MODEL;
     const bucket = getHourlyBucket(hourlyState, defaultSource, model, bucketStart);
+    const key = bucketKey(defaultSource, model, bucketStart);
+    if (isCursorGrokBot(model) && !touchedBuckets.has(key)) {
+      previousBotTotals.set(key, { ...bucket.totals });
+      bucket.totals = initTotals();
+    }
     addTotals(bucket.totals, delta);
-    touchedBuckets.add(bucketKey(defaultSource, model, bucketStart));
+    touchedBuckets.add(key);
 
     eventsAggregated += 1;
 
@@ -8129,6 +8191,19 @@ async function parseCursorApiIncremental({
     }
   }
 
+  const sameCursorTokenBasis = (a, b) =>
+    CURSOR_GROK_BOT_TOKEN_FIELDS.every(([, totalField]) => {
+      return (Number(a?.[totalField]) || 0) === (Number(b?.[totalField]) || 0);
+    }) &&
+    (Number(a?.conversation_count) || 0) === (Number(b?.conversation_count) || 0);
+  for (const [key, prior] of previousBotTotals) {
+    const current = hourlyState.buckets[key]?.totals;
+    if (!current) continue;
+    const usedReportedCost = Number(current.total_cost_usd) > 0;
+    if (!usedReportedCost && Number(prior.total_cost_usd) > 0 && sameCursorTokenBasis(prior, current)) {
+      current.total_cost_usd = prior.total_cost_usd;
+    }
+  }
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
@@ -8141,6 +8216,208 @@ async function parseCursorApiIncremental({
   cursors.cursorApi.updatedAt = new Date().toISOString();
 
   return { recordsProcessed: total, eventsAggregated, bucketsQueued };
+}
+
+async function parseCodexLocalWorkIncremental({
+  eventsPath,
+  cursors,
+  queuePath,
+} = {}) {
+  if (!eventsPath || !queuePath) return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  let stat;
+  try {
+    stat = await fs.stat(eventsPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return { recordsProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+  if (!stat.isFile()) throw new Error("Codex local Work event path is not a file");
+  const state = normalizeHourlyState(cursors?.hourly);
+  const { writeJsonAtomicSync } = require("./atomic-json");
+  const checkpointPath = path.join(path.dirname(eventsPath), "codex-local-work.events.checkpoint.json");
+  const contributionFields = [
+    "input_tokens",
+    "cached_input_tokens",
+    "cache_creation_input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+    "total_tokens",
+    "billable_total_tokens",
+    "conversation_count",
+  ];
+  const normalizeContribution = (value) => {
+    if (!value || typeof value !== "object") return null;
+    const totals = Object.fromEntries(contributionFields.map((field) => [
+      field,
+      Number.isSafeInteger(Number(value[field])) && Number(value[field]) >= 0
+        ? Number(value[field])
+        : 0,
+    ]));
+    totals.total_cost_usd = 0;
+    return totals;
+  };
+  const covers = (totals, contribution) => contributionFields.every(
+    (field) => Number(totals?.[field]) >= Number(contribution?.[field]),
+  );
+  const sameContribution = (a, b) => contributionFields.every(
+    (field) => Number(a?.[field] || 0) === Number(b?.[field] || 0),
+  );
+  const eventContribution = (usage, conversationCount) => ({
+    input_tokens: Number(usage.input),
+    cached_input_tokens: Number(usage.cacheRead),
+    cache_creation_input_tokens: Number(usage.cacheWrite),
+    output_tokens: Number(usage.output),
+    reasoning_output_tokens: Number(usage.reasoning),
+    total_tokens: Number(usage.total),
+    billable_total_tokens: Number(usage.total),
+    total_cost_usd: 0,
+    conversation_count: Number(conversationCount) === 1 ? 1 : 0,
+  });
+  let checkpoint = null;
+  try {
+    checkpoint = JSON.parse(await fs.readFile(checkpointPath, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
+  }
+  const checkpointVersion = Number(checkpoint?.version);
+  const checkpointOffset = Number.isSafeInteger(checkpoint?.offset) && checkpoint.offset >= 0
+    ? checkpoint.offset
+    : null;
+  const checkpointBuckets = {};
+  if (checkpointVersion === 1 && checkpoint?.buckets && typeof checkpoint.buckets === "object") {
+    for (const [key, value] of Object.entries(checkpoint.buckets)) {
+      const contribution = normalizeContribution(value);
+      if (contribution) checkpointBuckets[key] = contribution;
+    }
+  }
+  const seenEventIds = new Set(
+    checkpointVersion === 1 && Array.isArray(checkpoint?.eventIds)
+      ? checkpoint.eventIds.filter((value) => typeof value === "string" && value.length > 0)
+      : [],
+  );
+  const checkpointPrefixLength = checkpointOffset && checkpointOffset > 0
+    ? Math.min(checkpointOffset, 64 * 1024)
+    : 0;
+  let checkpointPrefixMatches = checkpointVersion === 1 &&
+    checkpointOffset !== null &&
+    checkpointOffset <= stat.size &&
+    Number.isSafeInteger(checkpoint?.prefixLength) &&
+    checkpoint.prefixLength === checkpointPrefixLength;
+  if (checkpointPrefixMatches && checkpointPrefixLength > 0) {
+    const prefix = Buffer.alloc(checkpointPrefixLength);
+    const handle = await fs.open(eventsPath, "r");
+    try {
+      const { bytesRead } = await handle.read(prefix, 0, checkpointPrefixLength, 0);
+      checkpointPrefixMatches = bytesRead === checkpointPrefixLength &&
+        crypto.createHash("sha256").update(prefix).digest("hex") === checkpoint.prefixHash;
+    } finally {
+      await handle.close();
+    }
+  }
+  const resumeCheckpoint = checkpointVersion === 1 && checkpointPrefixMatches;
+  let offset = resumeCheckpoint ? checkpointOffset : 0;
+  if (!resumeCheckpoint) {
+    for (const key of Object.keys(checkpointBuckets)) delete checkpointBuckets[key];
+    seenEventIds.clear();
+  }
+  const touchedBuckets = new Set();
+  let recordsProcessed = 0;
+  let eventsAggregated = 0;
+  let nextOffset = offset;
+  let latestObservedAt = resumeCheckpoint && typeof checkpoint?.latestObservedAt === "string"
+    ? checkpoint.latestObservedAt
+    : null;
+  if (offset < stat.size) {
+    const { iterateQueueLines } = require("./upload-queue");
+    const handle = await fs.open(eventsPath, "r");
+    try {
+      for await (const line of iterateQueueLines(handle, offset, stat.size)) {
+        if (!line.complete) break;
+        recordsProcessed += 1;
+        nextOffset = line.start + line.bytes.length;
+        let event;
+        try {
+          event = JSON.parse(line.bytes.toString("utf8"));
+        } catch {
+          continue;
+        }
+        if (event?.kind !== "codex_local_work_usage") continue;
+        const eventId = typeof event.eventId === "string" && event.eventId.length > 0
+          ? `id:${event.eventId}`
+          : `sha256:${crypto.createHash("sha256").update(line.bytes).digest("hex")}`;
+        if (seenEventIds.has(eventId)) continue;
+        const observedAt = typeof event.observedAt === "string" ? event.observedAt : "";
+        const bucketStart = toUtcHalfHourStart(observedAt);
+        const usage = event.usage && typeof event.usage === "object" ? event.usage : {};
+        const fields = ["input", "cacheRead", "cacheWrite", "output", "reasoning", "total"];
+        if (!bucketStart || fields.some((field) => !Number.isSafeInteger(Number(usage[field])) || Number(usage[field]) < 0)) {
+          continue;
+        }
+        seenEventIds.add(eventId);
+        const model = normalizeModelInput(event.model) || "codex-local-work";
+        const key = bucketKey("codex", model, bucketStart);
+        const contribution = checkpointBuckets[key] || initTotals();
+        addTotals(contribution, eventContribution(usage, event.conversationCount));
+        checkpointBuckets[key] = normalizeContribution(contribution);
+        eventsAggregated += 1;
+        if (!latestObservedAt || observedAt > latestObservedAt) latestObservedAt = observedAt;
+      }
+    } finally {
+      await handle.close();
+    }
+  }
+  for (const [key, desired] of Object.entries(checkpointBuckets)) {
+    const parsed = parseBucketKey(key);
+    if (parsed.source !== "codex" || !parsed.hourStart) continue;
+    const bucket = getHourlyBucket(state, "codex", parsed.model, parsed.hourStart);
+    const applied = normalizeContribution(bucket.codexLocalWorkContribution);
+    if (sameContribution(applied, desired)) continue;
+    // A cursor rebuild removes this marker with the bucket. Re-applying the
+    // detached ledger contribution then restores the same aggregate without
+    // replaying every event into the new bucket.
+    if (applied && covers(bucket.totals, applied)) subtractTotals(bucket.totals, applied);
+    addTotals(bucket.totals, desired);
+    bucket.codexLocalWorkContribution = desired;
+    touchedBuckets.add(key);
+  }
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState: state, touchedBuckets });
+  if (bucketsQueued > 0) state.updatedAt = new Date().toISOString();
+  const finalStat = await fs.stat(eventsPath);
+  if (finalStat.size < nextOffset) {
+    throw new Error("Codex local Work event ledger changed during sync");
+  }
+  const prefixLength = Math.min(nextOffset, 64 * 1024);
+  let prefixHash = null;
+  if (prefixLength > 0) {
+    const prefix = Buffer.alloc(prefixLength);
+    const handle = await fs.open(eventsPath, "r");
+    try {
+      const { bytesRead } = await handle.read(prefix, 0, prefixLength, 0);
+      if (bytesRead !== prefixLength) {
+        throw new Error("Codex local Work event ledger changed during sync");
+      }
+      prefixHash = crypto.createHash("sha256").update(prefix).digest("hex");
+    } finally {
+      await handle.close();
+    }
+  }
+  writeJsonAtomicSync(checkpointPath, {
+    version: 1,
+    offset: nextOffset,
+    prefixLength,
+    prefixHash,
+    eventIds: [...seenEventIds].sort(),
+    buckets: checkpointBuckets,
+    latestObservedAt,
+    updatedAt: new Date().toISOString(),
+  });
+  cursors.hourly = state;
+  cursors.codexLocalWork = {
+    offset: nextOffset,
+    latestObservedAt,
+    updatedAt: new Date().toISOString(),
+  };
+  return { recordsProcessed, eventsAggregated, bucketsQueued };
 }
 
 // ---------------------------------------------------------------------------
@@ -29591,6 +29868,7 @@ module.exports = {
   readClaudeScienceFrames,
   parseClaudeScienceIncremental,
   parseCursorApiIncremental,
+  parseCodexLocalWorkIncremental,
   parseKiroIncremental,
   parseHermesIncremental,
   gooseInstallOwnsCursor,
@@ -29637,6 +29915,9 @@ module.exports = {
   resolveWorkbuddyVariant,
   resolveKiroCliSessionFiles,
   resolveKiroCliDbPath,
+  readKiroCliSessionTurns,
+  readKiroCliV2SessionTurns,
+  canonicalizeKiroCliModelId,
   parseKiroCliIncremental,
   resolveOmpHome,
   resolveOmpAgentDir,

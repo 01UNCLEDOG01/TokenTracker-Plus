@@ -111,7 +111,11 @@ export interface SessionRow {
   combined_cost_usd: number;
   cost_usd: number;
   cost_source: "provider_reported" | "model_pricing" | "mixed" | null;
-  usage_source: "token-monitor-archive" | "qoder-credit-estimate" | "antigravity-conversation-db" | null;
+  live_status: "running" | "idle" | null;
+  turn_ended: boolean | null;
+  last_used_at: string | null;
+  status_source: string | null;
+  usage_source: "token-monitor-archive" | "qoder-credit-estimate" | "antigravity-conversation-db" | "kiro-cli-transcript" | null;
   performance_source: "wall-clock" | null;
   usage_precision: "reported" | "reported_incomplete" | "mixed" | "unavailable" | null;
   usage_is_incomplete: boolean;
